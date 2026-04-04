@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from typing import Any, Callable
 
 from sqlalchemy import and_, or_
 
 from flaskr.service.learn.learn_dtos import (
+    BlockType,
     ElementDTO,
     ElementPayloadDTO,
     ElementType,
@@ -397,6 +398,15 @@ def _merge_progress_elements(
             for row in progress_rows
             if row.event_type == "element" and (row.generated_block_bid or "")
         }
+        persisted_follow_up_legacy_counts: Counter[tuple[BlockType, str]] = Counter()
+        for element in persisted_elements:
+            content_text = str(element.content_text or "")
+            if not content_text:
+                continue
+            if element.element_type == ElementType.ASK:
+                persisted_follow_up_legacy_counts[(BlockType.ASK, content_text)] += 1
+            elif element.element_type == ElementType.ANSWER:
+                persisted_follow_up_legacy_counts[(BlockType.ANSWER, content_text)] += 1
 
         legacy_record = build_legacy_record_for_progress(
             progress_record,
@@ -413,11 +423,18 @@ def _merge_progress_elements(
             for index, record in enumerate(legacy_record.records)
             if record.generated_block_bid
         }
-        legacy_records = [
-            record
-            for record in legacy_record.records
-            if (record.generated_block_bid or "") not in persisted_block_bids
-        ]
+        legacy_records = []
+        for record in legacy_record.records:
+            if (record.generated_block_bid or "") in persisted_block_bids:
+                continue
+            dedupe_key = (record.block_type, str(record.content or ""))
+            if (
+                record.block_type in {BlockType.ASK, BlockType.ANSWER}
+                and persisted_follow_up_legacy_counts.get(dedupe_key, 0) > 0
+            ):
+                persisted_follow_up_legacy_counts[dedupe_key] -= 1
+                continue
+            legacy_records.append(record)
         legacy_elements: list[ElementDTO] = []
         if legacy_records:
             built_record = build_record_from_legacy(

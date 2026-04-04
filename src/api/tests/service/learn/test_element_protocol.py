@@ -18,6 +18,7 @@ def adapter_app():
     from flask import Flask
     import flaskr.dao as dao
     import flaskr.service.learn.models  # noqa: F401
+    import flaskr.service.tts.models  # noqa: F401
 
     app = Flask("test-handle-ask-adapter")
     app.config.update(
@@ -2435,6 +2436,212 @@ class TestHandleAskAdapter:
             )
             assert answer_row is not None
             assert answer_row.content_text == "server.learn.askProviderUnavailable"
+
+    def test_handle_input_ask_history_replays_follow_up_after_anchor(
+        self, adapter_app, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.const import ROLE_TEACHER
+        from flaskr.service.learn import handle_input_ask as module
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            get_listen_element_record,
+        )
+        from flaskr.service.learn.models import (
+            LearnGeneratedElement,
+            LearnGeneratedBlock,
+            LearnProgressRecord,
+        )
+        from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+        from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+        user_bid = "user-follow-up-history-replay"
+        shifu_bid = "shifu-follow-up-history-replay"
+        outline_bid = "outline-follow-up-history-replay"
+        progress_bid = "progress-follow-up-history-replay"
+
+        ask_provider_config = {
+            "provider": "coze",
+            "mode": "provider_then_llm",
+            "config": {"bot_id": "bot-1"},
+        }
+
+        with adapter_app.app_context():
+            _setup_handle_input_ask_test_doubles(
+                monkeypatch,
+                module,
+                ask_provider_config,
+                patch_generated_blocks=False,
+            )
+            monkeypatch.setattr(
+                module,
+                "stream_ask_provider_response",
+                lambda **_kwargs: iter(
+                    [types.SimpleNamespace(content="provider-answer")]
+                ),
+            )
+            monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
+
+            progress = LearnProgressRecord(
+                progress_record_bid=progress_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=0,
+            )
+            anchor_block = LearnGeneratedBlock(
+                generated_block_bid="gb_anchor_history",
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                block_bid="block-anchor-history",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="anchor content",
+                position=0,
+                block_content_conf="anchor content",
+                status=1,
+            )
+            normal_block = LearnGeneratedBlock(
+                generated_block_bid="gb_normal_history",
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                block_bid="block-normal-history",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="normal content",
+                position=2,
+                block_content_conf="normal content",
+                status=1,
+            )
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_history_replay",
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                generated_block_bid="gb_anchor_history",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid="rs-history-replay",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+                sequence_number=1,
+                is_new=1,
+                is_renderable=0,
+                is_marker=0,
+                is_speakable=1,
+                audio_url="",
+                audio_segments="[]",
+                is_navigable=1,
+            )
+            normal = LearnGeneratedElement(
+                element_bid="normal_elem_history_replay",
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                generated_block_bid="gb_normal_history",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid="rs-history-replay",
+                run_event_seq=2,
+                event_type="element",
+                role="teacher",
+                element_index=1,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="normal content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+                sequence_number=2,
+                is_new=1,
+                is_renderable=0,
+                is_marker=0,
+                is_speakable=1,
+                audio_url="",
+                audio_segments="[]",
+                is_navigable=1,
+            )
+            db.session.add_all([progress, anchor_block, normal_block, anchor, normal])
+            db.session.flush()
+
+            adapter = ListenElementRunAdapter(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+            )
+            events = list(
+                module.handle_input_ask(
+                    app=adapter_app,
+                    context=_FollowUpContext(),
+                    user_info=types.SimpleNamespace(user_id=user_bid),
+                    attend_id=progress_bid,
+                    input="follow up question",
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid=shifu_bid,
+                        bid=outline_bid,
+                        title="Outline",
+                        position=1,
+                    ),
+                    trace_args={"output": ""},
+                    trace=_FollowUpDummyTrace(),
+                    anchor_element_bid="anchor_elem_history_replay",
+                )
+            )
+            list(adapter.process(events))
+            db.session.commit()
+
+            history_record = get_listen_element_record(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+            )
+
+        actual_contents = [element.content_text for element in history_record.elements]
+        assert actual_contents == [
+            "anchor content",
+            "follow up question",
+            "provider-answer",
+            "normal content",
+        ], actual_contents
+        assert [element.element_type for element in history_record.elements] == [
+            ElementType.TEXT,
+            ElementType.ASK,
+            ElementType.ANSWER,
+            ElementType.TEXT,
+        ]
+        assert history_record.elements[0].payload is not None
+        assert history_record.elements[0].payload.asks == [
+            {
+                "role": "student",
+                "content": "follow up question",
+                "generated_block_bid": history_record.elements[1].generated_block_bid,
+            },
+            {
+                "role": "teacher",
+                "content": "provider-answer",
+                "generated_block_bid": history_record.elements[2].generated_block_bid,
+            },
+        ]
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
