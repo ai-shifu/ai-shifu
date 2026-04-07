@@ -30,8 +30,8 @@ import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import {
   buildLoginRedirectPath,
-  buildUrlWithLessonId,
   getLessonIdFromQuery,
+  replaceCurrentUrlWithLessonId,
 } from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -252,19 +252,10 @@ export default function ChatPage() {
 
   const resolvedLessonId = selectedLessonId || lessonId;
   const syncLessonUrl = useCallback((nextLessonId: string) => {
-    if (typeof window === 'undefined' || !nextLessonId?.trim()) {
+    if (!nextLessonId?.trim()) {
       return;
     }
-
-    const nextUrl = buildUrlWithLessonId(window.location.href, nextLessonId);
-    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-
-    if (currentUrl === nextUrl) {
-      return;
-    }
-
-    // Keep the current page state shareable without creating extra history entries.
-    window.history.replaceState(window.history.state, '', nextUrl);
+    replaceCurrentUrlWithLessonId(nextLessonId);
   }, []);
 
   const currentLessonTitle = useMemo(() => {

@@ -58,6 +58,7 @@ const MarkdownFlowEditor = dynamic(
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import { replaceCurrentUrlWithLessonId } from '@/c-utils/urlUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
@@ -513,6 +514,14 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
+
+  useEffect(() => {
+    if (!currentNode?.bid || (currentNode.depth ?? 0) <= 0) {
+      return;
+    }
+
+    replaceCurrentUrlWithLessonId(currentNode.bid);
+  }, [currentNode?.bid, currentNode?.depth]);
 
   useEffect(() => {
     selectedHistoryVersionIdRef.current = selectedHistoryVersionId;

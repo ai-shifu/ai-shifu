@@ -55,6 +55,24 @@ export const buildUrlWithLessonId = (
   return buildUrlWithQueryParam(url, LESSON_ID_QUERY_KEY, lessonId);
 };
 
+export const replaceCurrentUrlWithLessonId = (
+  lessonId: string | null | undefined,
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const nextUrl = buildUrlWithLessonId(window.location.href, lessonId);
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (currentUrl === nextUrl) {
+    return;
+  }
+
+  // Keep the current page state shareable without creating extra history entries.
+  window.history.replaceState(window.history.state, '', nextUrl);
+};
+
 export function getQueryParams(url) {
   const params = {};
   const queryString = url.split('?')[1];
