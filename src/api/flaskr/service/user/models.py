@@ -155,6 +155,13 @@ class UserInfo(db.Model):
         comment="Creator flag: 0=regular user, 1=creator",
         index=True,
     )
+    is_operator = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Operator flag: 0=regular user, 1=operator",
+        index=True,
+    )
     api_key = Column(
         String(64),
         nullable=False,
