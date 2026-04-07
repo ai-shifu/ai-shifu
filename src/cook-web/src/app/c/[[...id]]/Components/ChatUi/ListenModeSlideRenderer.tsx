@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
@@ -10,6 +11,7 @@ import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
   type Element as SlideElement,
+  type MobileScreenMode,
   type SlidePlayerCustomActionContext,
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
@@ -46,6 +48,8 @@ interface ListenModeSlideRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   isLoading?: boolean;
   sectionTitle?: string;
+  courseName?: string;
+  courseAvatar?: string;
   lessonId?: string;
   shifuBid?: string;
   previewMode?: boolean;
@@ -56,6 +60,7 @@ interface ListenModeSlideRendererProps {
     isAudioPlaying: boolean;
     isAudioSequenceActive: boolean;
   }) => void;
+  onMobileScreenModeChange?: (screenMode: MobileScreenMode) => void;
 }
 
 type ResolveRenderSequence = (params: {
@@ -366,12 +371,15 @@ const ListenModeSlideRenderer = ({
   chatRef,
   isLoading = false,
   sectionTitle,
+  courseName = '',
+  courseAvatar = '',
   lessonId = '',
   shifuBid = '',
   previewMode = false,
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
+  onMobileScreenModeChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -1133,6 +1141,55 @@ const ListenModeSlideRenderer = ({
   );
 
   const shouldRenderMobileAskEntry = mobileStyle && !shouldRenderEmptyPpt;
+  const playerTexts = useMemo(
+    () => ({
+      settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
+      screenLabel: t('module.chat.listenPlayerScreenLabel'),
+      portraitLabel: t('module.chat.listenPlayerPortraitLabel'),
+      landscapeLabel: t('module.chat.listenPlayerLandscapeLabel'),
+    }),
+    [t],
+  );
+  const landscapeHeaderContent = useMemo(() => {
+    if (!courseName && !sectionTitle) {
+      return null;
+    }
+
+    const fallbackText = (courseName || sectionTitle || '')
+      .trim()
+      .charAt(0)
+      .toUpperCase();
+
+    return (
+      <div className='flex min-w-0 items-center gap-3 text-white'>
+        <Avatar className='h-8 w-8 shrink-0'>
+          {courseAvatar ? <AvatarImage src={courseAvatar} alt='' /> : null}
+          <AvatarFallback className='bg-white/20 text-sm font-bold text-white'>
+            {fallbackText || 'A'}
+          </AvatarFallback>
+        </Avatar>
+        <div className='flex min-w-0 flex-col justify-center'>
+          {courseName ? (
+            <span className='truncate text-base font-bold leading-5 text-white'>
+              {courseName}
+            </span>
+          ) : null}
+          {sectionTitle ? (
+            <span className='truncate text-xs leading-4 text-white/80'>
+              {sectionTitle}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }, [courseAvatar, courseName, sectionTitle]);
+  const landscapeHeader = useMemo(
+    () => ({
+      content: landscapeHeaderContent,
+      backAriaLabel: t('module.chat.listenPlayerBack'),
+    }),
+    [landscapeHeaderContent, t],
+  );
 
   // console.log('elementlist', elementList);
 
@@ -1234,10 +1291,13 @@ const ListenModeSlideRenderer = ({
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
+          landscapeHeader={landscapeHeader}
           onSend={handleInteractionSend}
+          onMobileScreenModeChange={onMobileScreenModeChange}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
           playerCustomActionPauseOnActive={true}
           playerCustomActions={playerCustomActions}
+          playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
       </div>

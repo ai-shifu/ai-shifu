@@ -163,6 +163,7 @@ export const NewChatComponents = ({
   previewMode = false,
   isNavOpen = false,
   onListenPlayerVisibilityChange,
+  onListenMobileScreenModeChange,
   showGenerateBtn = false,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
@@ -181,6 +182,12 @@ export const NewChatComponents = ({
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
+    })),
+  );
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
     })),
   );
   const { mobileStyle } = useContext(AppContext);
@@ -793,11 +800,14 @@ export const NewChatComponents = ({
               mobileStyle={mobileStyle}
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
               isLoading={isLoading}
+              courseAvatar={courseAvatar}
+              courseName={courseName}
               sectionTitle={lessonTitle}
               lessonId={lessonId}
               shifuBid={shifuBid}
               previewMode={previewMode}
               lessonStatus={lessonStatus}
+              onMobileScreenModeChange={onListenMobileScreenModeChange}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onPlaybackStateChange={setListenPlaybackState}

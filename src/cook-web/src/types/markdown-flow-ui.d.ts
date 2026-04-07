@@ -1,7 +1,12 @@
 import 'markdown-flow-ui/renderer';
 import 'markdown-flow-ui/slide';
 import type { InteractionDefaultValueOptions } from 'markdown-flow-ui/renderer';
-import type { SlidePlayerCustomActions } from 'markdown-flow-ui/slide';
+import type {
+  MobileScreenMode,
+  SlidePlayerCustomActions,
+  SlidePlayerTexts,
+} from 'markdown-flow-ui/slide';
+import type { ReactNode } from 'react';
 
 export {};
 
@@ -25,5 +30,12 @@ declare module 'markdown-flow-ui/slide' {
     interactionDefaultValueOptions?: InteractionDefaultValueOptions;
     playerCustomActions?: SlidePlayerCustomActions;
     playerCustomActionPauseOnActive?: boolean;
+    landscapeHeader?: {
+      content?: ReactNode;
+      backAriaLabel?: string;
+      onBack?: () => void;
+    };
+    playerTexts?: SlidePlayerTexts;
+    onMobileScreenModeChange?: (screenMode: MobileScreenMode) => void;
   }
 }

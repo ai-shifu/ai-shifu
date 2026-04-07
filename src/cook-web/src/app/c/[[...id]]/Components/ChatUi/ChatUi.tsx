@@ -33,6 +33,7 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
   isNavOpen = false,
+  onListenMobileScreenModeChange,
   showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
@@ -138,6 +139,7 @@ export const ChatUi = ({
           updateSelectedLesson={updateSelectedLesson}
           getNextLessonId={getNextLessonId}
           isNavOpen={isNavOpen}
+          onListenMobileScreenModeChange={onListenMobileScreenModeChange}
           onListenPlayerVisibilityChange={setIsListenPlayerVisible}
           showGenerateBtn={showGenerateBtn}
         />
