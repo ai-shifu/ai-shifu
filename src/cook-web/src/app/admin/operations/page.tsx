@@ -20,7 +20,9 @@ export default function AdminOperationsPage() {
       return;
     }
     if (isGuest) {
-      const currentPath = encodeURIComponent('/admin/operations');
+      const currentPath = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
       window.location.href = `/login?redirect=${currentPath}`;
       return;
     }

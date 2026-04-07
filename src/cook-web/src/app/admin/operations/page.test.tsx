@@ -4,6 +4,7 @@ import AdminOperationsPage from './page';
 
 const mockReplace = jest.fn();
 const mockTranslate = (key: string) => key;
+const originalLocation = window.location;
 
 const mockUserState = {
   isInitialized: true,
@@ -37,6 +38,25 @@ jest.mock('@/components/loading', () => ({
 }));
 
 describe('AdminOperationsPage', () => {
+  beforeAll(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        href: '',
+        pathname: '/admin/operations',
+        search: '',
+      },
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
+
   beforeEach(() => {
     mockReplace.mockReset();
     mockUserState.isInitialized = true;
@@ -44,6 +64,11 @@ describe('AdminOperationsPage', () => {
     mockUserState.userInfo = {
       is_operator: true,
     };
+    Object.assign(window.location, {
+      href: '',
+      pathname: '/admin/operations',
+      search: '',
+    });
   });
 
   test('renders operations page for operators', () => {
@@ -77,6 +102,23 @@ describe('AdminOperationsPage', () => {
     expect(screen.getByTestId('loading-indicator')).toBeInTheDocument();
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
+    });
+  });
+
+  test('redirects guests to login with the encoded current path', async () => {
+    mockUserState.isGuest = true;
+    Object.assign(window.location, {
+      href: '',
+      pathname: '/admin/operations',
+      search: '?tab=queue',
+    });
+
+    render(<AdminOperationsPage />);
+
+    await waitFor(() => {
+      expect(window.location.href).toContain(
+        '/login?redirect=%2Fadmin%2Foperations%3Ftab%3Dqueue',
+      );
     });
   });
 });
