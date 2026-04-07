@@ -30,6 +30,7 @@
     "module.feedback",
     "module.groupon",
     "module.lesson",
+    "module.operationsCourse",
     "module.order",
     "module.pay",
     "module.permission",

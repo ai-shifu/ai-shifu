@@ -19,6 +19,9 @@ const DEFAULT_OPTIONS: Required<BackendOptions> = {
   requestOptions: { cache: 'no-cache' },
 };
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 const setNestedValue = (
   target: Record<string, unknown>,
   keyPath: string,
@@ -49,6 +52,25 @@ const setNestedValue = (
   });
 };
 
+const mergeResources = (
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> => {
+  const merged = { ...target };
+
+  Object.entries(source).forEach(([key, value]) => {
+    const existing = merged[key];
+    if (isPlainObject(existing) && isPlainObject(value)) {
+      merged[key] = mergeResources(existing, value);
+      return;
+    }
+
+    merged[key] = value;
+  });
+
+  return merged;
+};
+
 class UnifiedI18nBackend {
   public static type = 'backend' as const;
 
@@ -57,6 +79,8 @@ class UnifiedI18nBackend {
   private options: Required<BackendOptions> = DEFAULT_OPTIONS;
 
   private cache = new Map<string, Record<string, unknown>>();
+
+  private loadedNamespaces = new Map<string, Set<string>>();
 
   private pending = new Map<string, Promise<Record<string, unknown>>>();
 
@@ -73,7 +97,7 @@ class UnifiedI18nBackend {
 
   async read(language: string, namespace: string, callback: BackendCallback) {
     try {
-      const resources = await this.loadLanguage(language);
+      const resources = await this.loadLanguage(language, [namespace]);
       callback(null, resources[namespace] ?? {});
     } catch (error) {
       callback(error as Error, null);
@@ -86,7 +110,9 @@ class UnifiedI18nBackend {
     callback: BackendMultiCallback,
   ) {
     try {
-      await Promise.all(languages.map(language => this.loadLanguage(language)));
+      await Promise.all(
+        languages.map(language => this.loadLanguage(language, namespaces)),
+      );
 
       const bundled: Record<string, Record<string, unknown>> = {};
       languages.forEach(language => {
@@ -108,15 +134,51 @@ class UnifiedI18nBackend {
 
   create(): void {}
 
-  private async loadLanguage(language: string) {
+  private getNamespacesToFetch(requestedNamespaces: string[] = []) {
+    const configuredNamespaces = this.options.namespaces.length
+      ? this.options.namespaces
+      : DEFAULT_OPTIONS.namespaces;
+
+    return Array.from(
+      new Set(
+        [
+          ...configuredNamespaces,
+          ...requestedNamespaces.filter(Boolean),
+        ].filter(namespace => namespace !== 'translation'),
+      ),
+    ).sort();
+  }
+
+  private getMissingNamespaces(
+    language: string,
+    requestedNamespaces: string[],
+  ) {
+    const loadedNamespaces = this.loadedNamespaces.get(language) ?? new Set();
+    return this.getNamespacesToFetch(requestedNamespaces).filter(
+      namespace => !loadedNamespaces.has(namespace),
+    );
+  }
+
+  private async loadLanguage(
+    language: string,
+    requestedNamespaces: string[] = [],
+  ) {
     const cached = this.cache.get(language);
-    if (cached) {
+    if (
+      cached &&
+      this.getMissingNamespaces(language, requestedNamespaces).length === 0
+    ) {
       return cached;
     }
 
     const pending = this.pending.get(language);
     if (pending) {
-      return pending;
+      const resources = await pending;
+      if (
+        this.getMissingNamespaces(language, requestedNamespaces).length === 0
+      ) {
+        return resources;
+      }
     }
 
     const loader = (async () => {
@@ -124,9 +186,7 @@ class UnifiedI18nBackend {
       const url = new URL(baseUrl, window.location.origin);
       url.searchParams.set('lng', language);
 
-      const namespacesToFetch = this.options.namespaces.length
-        ? this.options.namespaces
-        : DEFAULT_OPTIONS.namespaces;
+      const namespacesToFetch = this.getNamespacesToFetch(requestedNamespaces);
 
       if (namespacesToFetch.length) {
         url.searchParams.set('ns', namespacesToFetch.join(','));
@@ -168,8 +228,16 @@ class UnifiedI18nBackend {
           translationsWithLegacy.translation = legacyNamespace;
         }
 
-        this.cache.set(language, translationsWithLegacy);
-        return translationsWithLegacy;
+        const mergedTranslations = mergeResources(
+          this.cache.get(language) ?? {},
+          translationsWithLegacy,
+        );
+
+        this.cache.set(language, mergedTranslations);
+        const loadedNamespaces = new Set(namespacesToFetch);
+        loadedNamespaces.add('translation');
+        this.loadedNamespaces.set(language, loadedNamespaces);
+        return mergedTranslations;
       } finally {
         this.pending.delete(language);
       }

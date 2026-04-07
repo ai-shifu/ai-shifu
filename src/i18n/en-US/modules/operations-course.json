@@ -1,0 +1,33 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "transferCreator": "Transfer creator"
+  },
+  "detail": {
+    "back": "Back to course list",
+    "basicInfo": "Basic Info",
+    "title": "Course Detail"
+  },
+  "emptyList": "No courses",
+  "filters": {
+    "courseId": "Course ID",
+    "courseName": "Course Name",
+    "createdAt": "Created At",
+    "creator": "Creator",
+    "creatorEmailOrUserBid": "Email or user ID",
+    "creatorMobileOrUserBid": "Mobile or user ID",
+    "endTime": "End Date",
+    "startTime": "Start Date"
+  },
+  "table": {
+    "action": "Action",
+    "courseId": "Course ID",
+    "courseName": "Course Name",
+    "createdAt": "Created At",
+    "creator": "Creator",
+    "modifier": "Modifier",
+    "price": "Price",
+    "updatedAt": "Updated At"
+  },
+  "title": "Course"
+}

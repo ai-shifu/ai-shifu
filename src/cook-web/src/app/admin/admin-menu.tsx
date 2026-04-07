@@ -12,6 +12,7 @@ export type AdminMenuItem = {
   label?: string;
   href?: string;
   id?: string;
+  children?: AdminMenuItem[];
 };
 
 type BuildAdminMenuItemsOptions = {
@@ -43,9 +44,16 @@ export const buildAdminMenuItems = ({
 
   if (isOperator) {
     items.push({
+      id: 'operations',
       icon: <BriefcaseIcon className='w-4 h-4' />,
       label: t('common.core.operations'),
-      href: '/admin/operations',
+      children: [
+        {
+          id: 'operations-course',
+          label: t('common.core.courseManagement'),
+          href: '/admin/operations',
+        },
+      ],
     });
   }
 

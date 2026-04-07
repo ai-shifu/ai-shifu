@@ -1,0 +1,33 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "transferCreator": "转移创作者"
+  },
+  "detail": {
+    "back": "返回课程列表",
+    "basicInfo": "基础信息",
+    "title": "课程详情"
+  },
+  "emptyList": "暂无课程",
+  "filters": {
+    "courseId": "课程ID",
+    "courseName": "课程名称",
+    "createdAt": "创建时间",
+    "creator": "创建者",
+    "creatorEmailOrUserBid": "邮箱或用户ID",
+    "creatorMobileOrUserBid": "手机号或用户ID",
+    "endTime": "结束日期",
+    "startTime": "开始日期"
+  },
+  "table": {
+    "action": "操作",
+    "courseId": "课程ID",
+    "courseName": "课程名",
+    "createdAt": "创建时间",
+    "creator": "创建者",
+    "modifier": "修改者",
+    "price": "价格",
+    "updatedAt": "更新时间"
+  },
+  "title": "课程"
+}
