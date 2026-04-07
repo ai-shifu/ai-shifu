@@ -357,7 +357,7 @@ export default function ChatPage() {
   }, [tree, getCurrElement, updateLessonId, updateChapterId]);
 
   useEffect(() => {
-    if (!selectedLessonId || !urlLessonId || selectedLessonId === urlLessonId) {
+    if (!selectedLessonId || selectedLessonId === urlLessonId) {
       return;
     }
 
