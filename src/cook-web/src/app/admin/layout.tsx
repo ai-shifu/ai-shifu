@@ -6,13 +6,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
-import {
-  DocumentIcon,
-  PresentationChartLineIcon,
-  ShoppingCartIcon,
-} from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -27,17 +20,11 @@ import styles from './layout.module.scss';
 import { cn } from '@/lib/utils';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
-
-type MenuItem = {
-  type?: string;
-  icon?: React.ReactNode;
-  label?: string;
-  href?: string;
-  id?: string;
-};
+import { useUserStore } from '@/store';
+import { AdminMenuItem, buildAdminMenuItems } from './admin-menu';
 
 type SidebarContentProps = {
-  menuItems: MenuItem[];
+  menuItems: AdminMenuItem[];
   footerRef: React.MutableRefObject<any>;
   userMenuOpen: boolean;
   onFooterClick: () => void;
@@ -175,6 +162,9 @@ const MainInterface = ({
 }>) => {
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
+  const isOperator = useUserStore(state =>
+    Boolean(state.userInfo?.is_operator),
+  );
   useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
@@ -186,20 +176,9 @@ const MainInterface = ({
     onClose: closeDesktopMenu,
   } = useDisclosure();
 
-  const mobileFooterRef = useRef<any>(null);
-  const {
-    open: mobileMenuOpen,
-    onToggle: toggleMobileMenu,
-    onClose: closeMobileMenu,
-  } = useDisclosure();
-
   const onDesktopFooterClick = useCallback(() => {
     toggleDesktopMenu();
   }, [toggleDesktopMenu]);
-
-  const onMobileFooterClick = useCallback(() => {
-    toggleMobileMenu();
-  }, [toggleMobileMenu]);
 
   const handleDesktopMenuClose = useCallback(
     (e?: Event | React.MouseEvent) => {
@@ -211,33 +190,10 @@ const MainInterface = ({
     [closeDesktopMenu],
   );
 
-  const handleMobileMenuClose = useCallback(
-    (e?: Event | React.MouseEvent) => {
-      if (mobileFooterRef.current?.containElement?.(e?.target)) {
-        return;
-      }
-      closeMobileMenu();
-    },
-    [closeMobileMenu],
+  const menuItems = useMemo(
+    () => buildAdminMenuItems({ t, isOperator }),
+    [isOperator, t],
   );
-
-  const menuItems: MenuItem[] = [
-    {
-      icon: <DocumentIcon className='w-4 h-4' />,
-      label: t('common.core.shifu'),
-      href: '/admin',
-    },
-    {
-      icon: <ShoppingCartIcon className='w-4 h-4' />,
-      label: t('module.order.title'),
-      href: '/admin/orders',
-    },
-    {
-      icon: <PresentationChartLineIcon className='w-4 h-4' />,
-      label: t('module.dashboard.title'),
-      href: '/admin/dashboard',
-    },
-  ];
 
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl,
