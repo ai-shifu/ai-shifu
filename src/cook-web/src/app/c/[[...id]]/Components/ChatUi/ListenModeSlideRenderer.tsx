@@ -1276,7 +1276,7 @@ const ListenModeSlideRenderer = ({
           </div>
         ) : null}
         <Slide
-          // playerAlwaysVisible={true}
+          playerAlwaysVisible={true}
           className='h-full w-full listen-slide-root'
           elementList={elementList}
           interactionTexts={{

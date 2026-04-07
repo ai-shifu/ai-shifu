@@ -188,13 +188,13 @@
         :global(
           .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
         ) {
-          min-height: calc(100% - 80px);
+          min-height: 100%;
         }
 
         :global(
           .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
         ) {
-          padding-bottom: 80px;
+          padding-bottom: 0;
         }
       }
     }
