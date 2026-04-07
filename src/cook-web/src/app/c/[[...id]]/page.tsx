@@ -30,6 +30,7 @@ import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import {
   buildLoginRedirectPath,
+  buildUrlWithLessonId,
   getLessonIdFromQuery,
 } from '@/c-utils/urlUtils';
 
@@ -250,6 +251,22 @@ export default function ChatPage() {
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
   const resolvedLessonId = selectedLessonId || lessonId;
+  const syncLessonUrl = useCallback((nextLessonId: string) => {
+    if (typeof window === 'undefined' || !nextLessonId?.trim()) {
+      return;
+    }
+
+    const nextUrl = buildUrlWithLessonId(window.location.href, nextLessonId);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (currentUrl === nextUrl) {
+      return;
+    }
+
+    // Keep the current page state shareable without creating extra history entries.
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }, []);
+
   const currentLessonTitle = useMemo(() => {
     if (!tree || !resolvedLessonId) {
       return '';
@@ -286,6 +303,7 @@ export default function ChatPage() {
       return;
     }
     updateLessonId(id);
+    syncLessonUrl(id);
     if (chapter.id !== chapterId) {
       updateChapterId(chapter.id);
     }
@@ -316,6 +334,7 @@ export default function ChatPage() {
   const onGoChapter = async id => {
     // updateChapterId(id);
     updateLessonId(id);
+    syncLessonUrl(id);
   };
 
   const onChapterUpdate = useCallback(
@@ -336,6 +355,14 @@ export default function ChatPage() {
       }
     }
   }, [tree, getCurrElement, updateLessonId, updateChapterId]);
+
+  useEffect(() => {
+    if (!selectedLessonId || !urlLessonId || selectedLessonId === urlLessonId) {
+      return;
+    }
+
+    syncLessonUrl(selectedLessonId);
+  }, [selectedLessonId, syncLessonUrl, urlLessonId]);
 
   useEffect(() => {
     if (initialized) {
