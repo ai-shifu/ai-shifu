@@ -24,6 +24,7 @@ export type I18nKey =
   | 'common.core.noMoreShifus'
   | 'common.core.noShifus'
   | 'common.core.ok'
+  | 'common.core.operations'
   | 'common.core.retry'
   | 'common.core.selectModel'
   | 'common.core.settings'
