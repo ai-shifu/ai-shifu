@@ -11,6 +11,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_REFUNDED,
     BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -28,6 +29,7 @@ from flaskr.service.common.models import AppException
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentRefundResult,
     SubscriptionUpdateResult,
 )
 
@@ -59,6 +61,7 @@ def billing_write_client(monkeypatch):
 
     stripe_requests: list[dict] = []
     pingxx_requests: list[dict] = []
+    refund_requests: list[dict] = []
 
     class FakeStripeProvider:
         def create_payment(self, *, request, app):
@@ -134,6 +137,21 @@ def billing_write_client(monkeypatch):
                 extra={"cancel_at_period_end": False},
             )
 
+        def refund_payment(self, *, request, app):
+            refund_requests.append(
+                {
+                    "order_bid": request.order_bid,
+                    "amount": request.amount,
+                    "reason": request.reason,
+                    "metadata": request.metadata,
+                }
+            )
+            return PaymentRefundResult(
+                provider_reference="re_billing_test",
+                raw_response={"id": "re_billing_test", "status": "succeeded"},
+                status="succeeded",
+            )
+
     class FakePingxxProvider:
         def create_payment(self, *, request, app):
             pingxx_requests.append(
@@ -197,6 +215,7 @@ def billing_write_client(monkeypatch):
                 "app": app,
                 "stripe_requests": stripe_requests,
                 "pingxx_requests": pingxx_requests,
+                "refund_requests": refund_requests,
             }
 
         dao.db.session.remove()
@@ -412,6 +431,83 @@ class TestBillingWriteRoutes:
             assert (
                 subscription.metadata_json["latest_event_type"] == "resume_subscription"
             )
+
+    def test_refund_paid_stripe_order_marks_order_refunded(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["data"]["status"] == "paid"
+
+        refund = client.post(
+            f"/api/billing/orders/{billing_order_bid}/refund",
+            json={"reason": "requested_by_creator"},
+        ).get_json(force=True)
+
+        assert refund["code"] == 0
+        assert refund["data"]["status"] == "refunded"
+        assert refund["data"]["refund_reference_id"] == "re_billing_test"
+        assert (
+            billing_write_client["refund_requests"][0]["metadata"]["payment_intent_id"]
+            == "pi_billing_test"
+        )
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                billing_order_bid=billing_order_bid
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_REFUNDED
+            assert order.refunded_at is not None
+            assert order.metadata_json["latest_event_type"] == "refund_payment"
+
+    def test_refund_pingxx_order_returns_unsupported(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["data"]["status"] == "paid"
+
+        refund = client.post(
+            f"/api/billing/orders/{billing_order_bid}/refund",
+        ).get_json(force=True)
+
+        assert refund["code"] == 0
+        assert refund["data"]["status"] == "unsupported"
+        assert billing_write_client["refund_requests"] == []
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                billing_order_bid=billing_order_bid
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
 
     def test_write_routes_require_creator(self, billing_write_client) -> None:
         client = billing_write_client["client"]

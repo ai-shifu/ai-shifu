@@ -20,6 +20,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.order.payment_providers import (
     PaymentNotificationResult,
+    PaymentRefundRequest,
     PaymentRequest,
     get_payment_provider,
 )
@@ -588,6 +589,107 @@ def resume_billing_subscription(
         return _serialize_subscription(app, subscription)
 
 
+def refund_billing_order(
+    app: Flask,
+    creator_bid: str,
+    billing_order_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Refund a paid billing order through the shared provider adapter."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_order_bid = _normalize_bid(billing_order_bid)
+    refund_reason = _normalize_bid(payload.get("reason"))
+    refund_amount_value = payload.get("amount")
+    refund_amount = None
+    if refund_amount_value not in (None, ""):
+        refund_amount = int(refund_amount_value)
+
+    with app.app_context():
+        order = (
+            BillingOrder.query.filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid == normalized_creator_bid,
+                BillingOrder.billing_order_bid == normalized_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        if order is None:
+            raise_error("server.order.orderNotFound")
+
+        if order.payment_provider == "pingxx":
+            return {
+                "billing_order_bid": order.billing_order_bid,
+                "provider": order.payment_provider,
+                "status": "unsupported",
+            }
+
+        if order.status == BILLING_ORDER_STATUS_REFUNDED:
+            return {
+                "billing_order_bid": order.billing_order_bid,
+                "provider": order.payment_provider,
+                "status": "refunded",
+            }
+
+        if order.status != BILLING_ORDER_STATUS_PAID:
+            raise_error("server.order.orderStatusError")
+
+        provider = get_payment_provider(order.payment_provider)
+        refund_result = provider.refund_payment(
+            request=PaymentRefundRequest(
+                order_bid=order.billing_order_bid,
+                amount=refund_amount,
+                reason=refund_reason or None,
+                metadata=_build_refund_provider_metadata(order),
+            ),
+            app=app,
+        )
+        if str(refund_result.status or "").lower() in {"failed", "canceled"}:
+            raise_error("server.order.orderRefundError")
+
+        now = datetime.now()
+        order.status = BILLING_ORDER_STATUS_REFUNDED
+        order.refunded_at = order.refunded_at or now
+        order.updated_at = now
+        merged_order_metadata = _merge_provider_metadata(
+            existing=order.metadata_json,
+            provider=order.payment_provider,
+            source="api_refund",
+            event_type="refund_payment",
+            payload=refund_result.raw_response,
+            event_time=None,
+        )
+        merged_order_metadata["refund_reference_id"] = refund_result.provider_reference
+        merged_order_metadata["refund_status"] = refund_result.status
+        order.metadata_json = _normalize_json_value(merged_order_metadata)
+        db.session.add(order)
+
+        if order.subscription_bid:
+            subscription = _load_subscription_by_bid(order.subscription_bid)
+            if subscription is not None:
+                subscription.cancel_at_period_end = 1
+                subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+                subscription.updated_at = now
+                subscription.metadata_json = _merge_provider_metadata(
+                    existing=subscription.metadata_json,
+                    provider=order.payment_provider,
+                    source="api_refund",
+                    event_type="refund_payment",
+                    payload=refund_result.raw_response,
+                    event_time=None,
+                )
+                db.session.add(subscription)
+
+        db.session.commit()
+        return {
+            "billing_order_bid": order.billing_order_bid,
+            "provider": order.payment_provider,
+            "status": "refunded",
+            "refund_reference_id": refund_result.provider_reference,
+        }
+
+
 def sync_billing_order(
     app: Flask,
     creator_bid: str,
@@ -1021,6 +1123,35 @@ def _inject_billing_query(url: str, billing_order_bid: str) -> str:
             parsed.fragment,
         )
     )
+
+
+def _build_refund_provider_metadata(order: BillingOrder) -> dict[str, Any]:
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    provider_extra = metadata.get("provider_extra", {}) or {}
+    latest_provider_payload = metadata.get("latest_provider_payload", {}) or {}
+
+    refund_metadata: dict[str, Any] = {
+        "billing_order_bid": order.billing_order_bid,
+        "creator_bid": order.creator_bid,
+    }
+    payment_intent_id = _normalize_bid(provider_extra.get("payment_intent_id"))
+    charge_id = _normalize_bid(provider_extra.get("charge_id"))
+
+    payment_intent_payload = latest_provider_payload.get("payment_intent", {}) or {}
+    charge_payload = latest_provider_payload.get("charge", {}) or {}
+    payment_intent_id = payment_intent_id or _normalize_bid(
+        payment_intent_payload.get("id")
+    )
+    charge_id = charge_id or _normalize_bid(charge_payload.get("id"))
+    charge_id = charge_id or _normalize_bid(payment_intent_payload.get("latest_charge"))
+
+    if payment_intent_id:
+        refund_metadata["payment_intent_id"] = payment_intent_id
+    if charge_id:
+        refund_metadata["charge_id"] = charge_id
+    return refund_metadata
 
 
 def _sync_stripe_order(

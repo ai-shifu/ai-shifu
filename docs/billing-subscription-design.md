@@ -855,8 +855,8 @@ v1 需要新增：
 - webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新原始 payload 只保留最近一次
 - 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
 - 当前批次 provider 能力矩阵固定为：
-  - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、paid success grant
-  - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 必须显式返回 `unsupported`
+  - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、`refund_payment`、paid success grant
+  - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 与 `refund_payment` 必须显式返回 `unsupported`
 - `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
 - 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
 
@@ -1114,6 +1114,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/orders`
 - `GET /billing/orders/{billing_order_bid}`
 - `POST /billing/orders/{billing_order_bid}/sync`
+- `POST /billing/orders/{billing_order_bid}/refund`
 - `POST /billing/subscriptions/checkout`
 - `POST /billing/subscriptions/cancel`
 - `POST /billing/subscriptions/resume`
@@ -1133,7 +1134,9 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/orders`：creator 自助查看自己的 billing 订单列表
 - `GET /billing/orders/{billing_order_bid}`：creator 查看单笔 billing 订单详情
 - `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
+- `POST /billing/orders/{billing_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
+- `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
 - `POST /billing/topups/checkout`：发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
