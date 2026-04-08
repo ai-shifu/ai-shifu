@@ -152,6 +152,15 @@
   border-radius: 0 !important;
 }
 
+.listen-reveal-wrapper.mobile
+  .listen-slide-root.slide--mobile-landscape
+  .content-render-iframe-sandbox,
+.listen-reveal-wrapper.mobile
+  .listen-slide-root.slide--mobile-landscape
+  .mobile-empty-slide {
+  padding: 0 !important;
+}
+
 .listen-slide-mobile-ask-button {
   display: inline-flex;
   align-items: center;
@@ -343,5 +352,5 @@
 
 .slide-player__interaction-arrow {
   left: auto !important;
-  right: 139px !important;
+  right: 7px !important;
 }
