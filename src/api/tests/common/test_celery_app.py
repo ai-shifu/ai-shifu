@@ -50,6 +50,69 @@ def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
     assert result.get() == "from-flask-context"
 
 
+def test_create_celery_app_executes_billing_tasks_in_eager_mode(
+    monkeypatch,
+) -> None:
+    flask_app = Flask(__name__)
+    flask_app.config.update(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        TZ="UTC",
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: flask_app),
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.settle_bill_usage",
+        lambda app, *, usage_bid="": {
+            "status": "settled",
+            "usage_bid": usage_bid,
+            "creator_bid": "creator-eager-1",
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
+        lambda app, *, creator_bid="", expire_before=None: {
+            "status": "expired",
+            "creator_bid": creator_bid,
+            "expire_before": expire_before.isoformat() if expire_before else None,
+            "bucket_count": 1,
+        },
+    )
+
+    celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
+
+    settle_result = celery_app.tasks["billing.settle_usage"].apply(
+        kwargs={
+            "creator_bid": "creator-eager-1",
+            "usage_bid": "usage-eager-1",
+        }
+    )
+    expire_result = celery_app.tasks["billing.expire_wallet_buckets"].apply(
+        kwargs={
+            "creator_bid": "creator-eager-1",
+            "expire_before": "2026-04-08T10:00:00",
+        }
+    )
+
+    assert settle_result.get() == {
+        "status": "settled",
+        "usage_bid": "usage-eager-1",
+        "creator_bid": "creator-eager-1",
+        "requested_creator_bid": "creator-eager-1",
+        "task_name": "billing.settle_usage",
+    }
+    assert expire_result.get() == {
+        "status": "expired",
+        "creator_bid": "creator-eager-1",
+        "expire_before": "2026-04-08T10:00:00",
+        "bucket_count": 1,
+        "task_name": "billing.expire_wallet_buckets",
+    }
+
+
 def test_get_celery_app_loads_flask_app_from_app_factory(
     monkeypatch,
 ) -> None:
