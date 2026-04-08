@@ -171,6 +171,9 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(screen.getByText('module.billing.page.title')).toBeInTheDocument();
     expect(
+      screen.getByRole('link', { name: 'module.billing.page.adminLink' }),
+    ).toHaveAttribute('href', '/admin/billing/admin');
+    expect(
       screen.getByRole('tab', { name: 'module.billing.page.tabs.plans' }),
     ).toHaveAttribute('data-state', 'active');
     expect(

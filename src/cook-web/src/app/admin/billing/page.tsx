@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import {
   BillingLedgerTab,
@@ -21,6 +23,18 @@ export default function AdminBillingPage() {
       data-testid='admin-billing-page'
     >
       <BillingPageHeader />
+
+      <div className='flex justify-end'>
+        <Button
+          asChild
+          variant='outline'
+          className='rounded-full'
+        >
+          <Link href='/admin/billing/admin'>
+            {t('module.billing.page.adminLink')}
+          </Link>
+        </Button>
+      </div>
 
       <Tabs
         value={activeTab}

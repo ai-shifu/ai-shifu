@@ -1,5 +1,66 @@
 {
   "__namespace__": "module.billing",
+  "admin": {
+    "attention": "需关注",
+    "backToCreatorBilling": "返回会员中心",
+    "exceptions": {
+      "description": "聚焦仍需要人工跟进的订阅和订单异常。",
+      "empty": "当前没有需要处理的账务异常。",
+      "fields": {
+        "amount": "金额",
+        "createdAt": "创建时间",
+        "detail": "异常详情",
+        "periodEnd": "周期结束"
+      },
+      "loadError": "账务异常数据读取失败，请刷新后重试。",
+      "sections": {
+        "orders": "需关注订单",
+        "subscriptions": "需关注订阅"
+      },
+      "title": "异常处理"
+    },
+    "orders": {
+      "description": "查看所有创作者的 billing 订单，并快速定位 provider 失败单。",
+      "empty": "当前还没有 billing 订单。",
+      "loadError": "后台订单数据读取失败，请刷新后重试。",
+      "table": {
+        "amount": "金额",
+        "createdAt": "创建时间",
+        "creator": "创作者",
+        "failure": "失败信息",
+        "order": "订单",
+        "provider": "支付通道",
+        "status": "状态"
+      },
+      "title": "订单列表"
+    },
+    "pagination": {
+      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条记录"
+    },
+    "subscriptions": {
+      "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
+      "empty": "当前还没有订阅记录。",
+      "loadError": "后台订阅数据读取失败，请刷新后重试。",
+      "table": {
+        "availableCredits": "可用积分",
+        "creator": "创作者",
+        "currentPeriodEnd": "当前周期结束",
+        "product": "套餐",
+        "provider": "支付通道",
+        "renewal": "续费上下文",
+        "scheduled": "计划于",
+        "status": "状态"
+      },
+      "title": "订阅列表"
+    },
+    "subtitle": "用于查看订阅状态、失败支付和需要人工跟进的账务异常。",
+    "tabs": {
+      "exceptions": "异常处理",
+      "orders": "订单视图",
+      "subscriptions": "订阅视图"
+    },
+    "title": "后台账务视图"
+  },
   "alerts": {
     "actions": {
       "checkoutTopup": "立即充值",
@@ -249,6 +310,7 @@
     "walletTitle": "积分总览"
   },
   "page": {
+    "adminLink": "打开后台账务视图",
     "badge": "预览版",
     "subtitle": "在一个页面里管理套餐、积分与付款记录。",
     "tabs": {

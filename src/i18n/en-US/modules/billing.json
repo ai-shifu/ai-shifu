@@ -1,5 +1,66 @@
 {
   "__namespace__": "module.billing",
+  "admin": {
+    "attention": "Needs attention",
+    "backToCreatorBilling": "Back to billing center",
+    "exceptions": {
+      "description": "Focus on the subscriptions and orders that still need manual follow-up.",
+      "empty": "No billing exceptions right now.",
+      "fields": {
+        "amount": "Amount",
+        "createdAt": "Created at",
+        "detail": "Detail",
+        "periodEnd": "Period end"
+      },
+      "loadError": "Billing exception data could not be loaded.",
+      "sections": {
+        "orders": "Attention orders",
+        "subscriptions": "Attention subscriptions"
+      },
+      "title": "Exceptions"
+    },
+    "orders": {
+      "description": "Review billing orders across creators and spot failed provider actions.",
+      "empty": "No billing orders yet.",
+      "loadError": "Admin order data could not be loaded.",
+      "table": {
+        "amount": "Amount",
+        "createdAt": "Created at",
+        "creator": "Creator",
+        "failure": "Failure",
+        "order": "Order",
+        "provider": "Provider",
+        "status": "Status"
+      },
+      "title": "Orders"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{pageCount}} · {{total}} records"
+    },
+    "subscriptions": {
+      "description": "Inspect creator subscriptions, wallet balances, and renewal context.",
+      "empty": "No subscriptions yet.",
+      "loadError": "Admin subscription data could not be loaded.",
+      "table": {
+        "availableCredits": "Available credits",
+        "creator": "Creator",
+        "currentPeriodEnd": "Current period end",
+        "product": "Product",
+        "provider": "Provider",
+        "renewal": "Renewal context",
+        "scheduled": "Scheduled",
+        "status": "Status"
+      },
+      "title": "Subscriptions"
+    },
+    "subtitle": "Operations view for subscriptions, failed payments, and billing exceptions.",
+    "tabs": {
+      "exceptions": "Exceptions",
+      "orders": "Orders",
+      "subscriptions": "Subscriptions"
+    },
+    "title": "Billing Ops"
+  },
   "alerts": {
     "actions": {
       "checkoutTopup": "Top up now",
@@ -249,6 +310,7 @@
     "walletTitle": "Credits Overview"
   },
   "page": {
+    "adminLink": "Open billing ops",
     "badge": "Preview",
     "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {

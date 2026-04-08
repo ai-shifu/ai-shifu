@@ -1,5 +1,7 @@
 export type BillingCenterTab = 'plans' | 'ledger' | 'orders';
 
+export type AdminBillingConsoleTab = 'subscriptions' | 'orders' | 'exceptions';
+
 export type BillingProvider = 'stripe' | 'pingxx';
 
 export type BillingPaymentMode = 'subscription' | 'one_time';
@@ -221,4 +223,36 @@ export type BillingCheckoutResult = {
   redirect_url?: string;
   checkout_session_id?: string;
   payment_payload?: Record<string, unknown>;
+};
+
+export type BillingRenewalEventSummary = {
+  renewal_event_bid: string;
+  event_type:
+    | 'renewal'
+    | 'retry'
+    | 'cancel_effective'
+    | 'downgrade_effective'
+    | 'expire'
+    | 'reconcile';
+  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  scheduled_at: string | null;
+  processed_at: string | null;
+  attempt_count: number;
+  last_error: string;
+  payload?: Record<string, unknown> | null;
+};
+
+export type AdminBillingSubscriptionItem = BillingSubscription & {
+  creator_bid: string;
+  next_product_code?: string;
+  wallet: BillingWalletSnapshot;
+  latest_renewal_event: BillingRenewalEventSummary | null;
+  has_attention: boolean;
+};
+
+export type AdminBillingOrderItem = BillingOrderSummary & {
+  failure_code?: string;
+  failed_at?: string | null;
+  refunded_at?: string | null;
+  has_attention: boolean;
 };

@@ -1,0 +1,165 @@
+import React from 'react';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { SWRConfig } from 'swr';
+import api from '@/api';
+
+import AdminBillingConsolePage from './page';
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'en-US',
+    },
+  }),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getAdminBillingSubscriptions: jest.fn(),
+    getAdminBillingOrders: jest.fn(),
+  },
+}));
+
+const mockGetAdminBillingSubscriptions =
+  api.getAdminBillingSubscriptions as jest.Mock;
+const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
+
+describe('AdminBillingConsolePage', () => {
+  beforeEach(() => {
+    mockGetAdminBillingSubscriptions.mockReset();
+    mockGetAdminBillingOrders.mockReset();
+
+    mockGetAdminBillingSubscriptions.mockResolvedValue({
+      items: [
+        {
+          subscription_bid: 'sub-past-due',
+          creator_bid: 'creator-2',
+          product_bid: 'billing-product-plan-yearly',
+          product_code: 'creator-plan-yearly',
+          status: 'past_due',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-03-01T00:00:00Z',
+          current_period_end_at: '2026-04-01T00:00:00Z',
+          grace_period_end_at: '2026-04-08T00:00:00Z',
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          next_product_code: '',
+          last_renewed_at: '2026-03-01T00:00:00Z',
+          last_failed_at: '2026-04-02T12:00:00Z',
+          wallet: {
+            available_credits: 5,
+            reserved_credits: 0,
+            lifetime_granted_credits: 5,
+            lifetime_consumed_credits: 0,
+          },
+          latest_renewal_event: {
+            renewal_event_bid: 'renewal-1',
+            event_type: 'retry',
+            status: 'failed',
+            scheduled_at: '2026-04-03T08:00:00Z',
+            processed_at: '2026-04-03T08:05:00Z',
+            attempt_count: 2,
+            last_error: 'card_declined',
+            payload: {
+              billing_order_bid: 'order-1',
+            },
+          },
+          has_attention: true,
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+    mockGetAdminBillingOrders.mockResolvedValue({
+      items: [
+        {
+          billing_order_bid: 'order-1',
+          creator_bid: 'creator-2',
+          product_bid: 'billing-product-plan-yearly',
+          subscription_bid: 'sub-past-due',
+          order_type: 'subscription_renewal',
+          status: 'failed',
+          payment_provider: 'stripe',
+          payment_mode: 'subscription',
+          payable_amount: 99900,
+          paid_amount: 0,
+          currency: 'CNY',
+          provider_reference_id: 'cs_failed',
+          failure_message: 'Card was declined',
+          failure_code: 'card_declined',
+          created_at: '2026-04-03T07:55:00Z',
+          paid_at: null,
+          failed_at: '2026-04-03T08:00:00Z',
+          refunded_at: null,
+          has_attention: true,
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+  });
+
+  test('renders admin billing tabs and loads subscriptions, orders, and exceptions', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingConsolePage />
+      </SWRConfig>,
+    );
+
+    expect(
+      screen.getByTestId('admin-billing-console-page'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('module.billing.admin.title')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'module.billing.admin.backToCreatorBilling',
+      }),
+    ).toHaveAttribute('href', '/admin/billing');
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.billing.admin.tabs.subscriptions',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.orders',
+        }),
+      );
+    });
+
+    expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.admin.orders.title'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.exceptions',
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText('module.billing.admin.exceptions.title'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Card was declined')).toBeInTheDocument();
+  });
+});
