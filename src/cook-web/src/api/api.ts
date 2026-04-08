@@ -117,6 +117,24 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+
+  // billing creator api
+  getBillingCatalog: 'GET /billing/catalog',
+  getBillingOverview: 'GET /billing/overview',
+  getBillingWalletBuckets: 'GET /billing/wallet-buckets',
+  getBillingLedger: 'GET /billing/ledger',
+  getBillingOrders: 'GET /billing/orders',
+  getBillingOrderDetail: 'GET /billing/orders/{billing_order_bid}',
+  syncBillingOrder: 'POST /billing/orders/{billing_order_bid}/sync',
+  checkoutBillingSubscription: 'POST /billing/subscriptions/checkout',
+  cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
+  resumeBillingSubscription: 'POST /billing/subscriptions/resume',
+  checkoutBillingTopup: 'POST /billing/topups/checkout',
+
+  // billing admin api
+  getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
+  getAdminBillingOrders: 'GET /admin/billing/orders',
+  adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };
 
 export default api;

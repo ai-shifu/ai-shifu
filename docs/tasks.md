@@ -113,7 +113,7 @@
 - [x] 在 `src/cook-web/src/app/admin/layout.tsx` 增加 Billing 菜单入口。
 - [x] 新增 `src/cook-web/src/app/admin/billing/page.tsx`，实现单路由 Billing Center。
 - [x] 在 Billing Center 中实现 `Overview`、`Ledger`、`Orders` 三个 tab。
-- [ ] 在 `src/cook-web/src/api/api.ts` 中增加 billing 前后台接口定义。
+- [x] 在 `src/cook-web/src/api/api.ts` 中增加 billing 前后台接口定义。
 - [ ] 新增 `src/cook-web/src/types/billing.ts`，定义 billing 前端类型。
 - [ ] 新增 `src/cook-web/src/components/billing/` 组件目录，拆分 overview、catalog、ledger、orders、checkout、detail sheet 组件。
 - [ ] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
