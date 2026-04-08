@@ -13,6 +13,7 @@ from flaskr.service.billing.funcs import (
     build_admin_billing_orders_page,
     build_admin_billing_subscriptions_page,
     build_billing_catalog,
+    build_billing_entitlements,
     build_billing_ledger_page,
     build_billing_order_detail,
     build_billing_orders_page,
@@ -90,6 +91,16 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 _get_creator_bid(),
                 timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(path_prefix + "/entitlements", methods=["GET"])
+    def billing_entitlements_api():
+        _require_creator()
+        return _make_common_response(
+            build_billing_entitlements(
+                app,
+                _get_creator_bid(),
             )
         )
 

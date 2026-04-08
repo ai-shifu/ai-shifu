@@ -85,6 +85,10 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .entitlements import (
+    resolve_creator_entitlement_state,
+    serialize_creator_entitlements,
+)
 from .wallets import (
     adjust_credit_wallet_balance,
     grant_refund_return_credits,
@@ -188,6 +192,7 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
     creator_routes = [
         {"method": "GET", "path": f"{path_prefix}/catalog"},
         {"method": "GET", "path": f"{path_prefix}/overview"},
+        {"method": "GET", "path": f"{path_prefix}/entitlements"},
         {"method": "GET", "path": f"{path_prefix}/wallet-buckets"},
         {"method": "GET", "path": f"{path_prefix}/ledger"},
         {"method": "GET", "path": f"{path_prefix}/orders"},
@@ -278,6 +283,15 @@ def build_billing_overview(
             "subscription": subscription_payload,
             "billing_alerts": _build_billing_alerts(wallet_payload, subscription),
         }
+
+
+def build_billing_entitlements(app: Flask, creator_bid: str) -> dict[str, Any]:
+    """Return the creator entitlement snapshot for v1.1 surfaces."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    with app.app_context():
+        state = resolve_creator_entitlement_state(normalized_creator_bid)
+        return serialize_creator_entitlements(state)
 
 
 def build_billing_wallet_buckets(

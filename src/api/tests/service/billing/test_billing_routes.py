@@ -28,6 +28,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingEntitlement,
     BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
@@ -44,6 +45,16 @@ def _seed_products() -> list[BillingProduct]:
     for seed in BILLING_PRODUCT_SEEDS:
         payload = dict(seed)
         payload["metadata_json"] = payload.pop("metadata", None)
+        if payload["product_bid"] == "billing-product-plan-yearly":
+            payload["entitlement_payload"] = {
+                "branding_enabled": True,
+                "custom_domain_enabled": True,
+                "priority_class": "vip",
+                "max_concurrency": "8",
+                "analytics_tier": "enterprise",
+                "support_tier": "priority",
+                "feature_payload": {"beta_reports": True},
+            }
         items.append(BillingProduct(**payload))
     return items
 
@@ -127,6 +138,42 @@ def billing_test_client():
             updated_at=datetime(2026, 4, 1, 0, 0, 0),
         )
         dao.db.session.add(subscription)
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-creator-3",
+                creator_bid="creator-3",
+                product_bid="billing-product-plan-yearly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_stripe_3",
+                provider_customer_id="cus_stripe_3",
+                current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+                current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+                cancel_at_period_end=0,
+                last_renewed_at=datetime(2026, 4, 1, 0, 0, 0),
+                created_at=datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime(2026, 4, 1, 0, 0, 0),
+            )
+        )
+        dao.db.session.add(
+            BillingEntitlement(
+                entitlement_bid="entitlement-1",
+                creator_bid="creator-1",
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="sub-1",
+                branding_enabled=1,
+                custom_domain_enabled=1,
+                priority_class=7702,
+                max_concurrency=3,
+                analytics_tier=7712,
+                support_tier=7722,
+                feature_payload={"custom_css": True},
+                effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                effective_to=None,
+                created_at=datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime(2026, 4, 1, 0, 0, 0),
+            )
+        )
 
         dao.db.session.add_all(
             [
@@ -375,6 +422,10 @@ class TestBillingRoutes:
             "path": "/api/billing/catalog",
         } in payload["data"]["creator_routes"]
         assert {
+            "method": "GET",
+            "path": "/api/billing/entitlements",
+        } in payload["data"]["creator_routes"]
+        assert {
             "method": "POST",
             "path": "/api/billing/orders/{billing_order_bid}/sync",
         } in payload["data"]["creator_routes"]
@@ -414,6 +465,53 @@ class TestBillingRoutes:
         ]
         assert bucket_payload["data"][0]["category"] == "free"
         assert bucket_payload["data"][2]["source_bid"] == "topup-1"
+
+    def test_entitlements_route_returns_snapshot_then_product_fallback(
+        self, billing_test_client
+    ) -> None:
+        snapshot_response = billing_test_client.get("/api/billing/entitlements")
+        fallback_response = billing_test_client.get(
+            "/api/billing/entitlements",
+            headers={"X-User-Id": "creator-3"},
+        )
+        default_response = billing_test_client.get(
+            "/api/billing/entitlements",
+            headers={"X-User-Id": "creator-4"},
+        )
+
+        snapshot_payload = snapshot_response.get_json(force=True)
+        fallback_payload = fallback_response.get_json(force=True)
+        default_payload = default_response.get_json(force=True)
+
+        assert snapshot_payload["code"] == 0
+        assert snapshot_payload["data"] == {
+            "branding_enabled": True,
+            "custom_domain_enabled": True,
+            "priority_class": "priority",
+            "max_concurrency": 3,
+            "analytics_tier": "advanced",
+            "support_tier": "business_hours",
+        }
+
+        assert fallback_payload["code"] == 0
+        assert fallback_payload["data"] == {
+            "branding_enabled": True,
+            "custom_domain_enabled": True,
+            "priority_class": "vip",
+            "max_concurrency": 8,
+            "analytics_tier": "enterprise",
+            "support_tier": "priority",
+        }
+
+        assert default_payload["code"] == 0
+        assert default_payload["data"] == {
+            "branding_enabled": False,
+            "custom_domain_enabled": False,
+            "priority_class": "standard",
+            "max_concurrency": 1,
+            "analytics_tier": "basic",
+            "support_tier": "self_serve",
+        }
 
     def test_ledger_and_orders_support_pagination_and_creator_isolation(
         self, billing_test_client
