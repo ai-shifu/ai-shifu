@@ -83,7 +83,7 @@
 ### 计量与结算
 
 - [x] 实现 `bill_usage -> credit_ledger_entries` 的多维度结算逻辑。
-- [ ] 实现 `billing.settle_usage` Celery task，作为默认积分扣减入口。
+- [x] 实现 `billing.settle_usage` Celery task，作为默认积分扣减入口。
 - [ ] 实现 `credit_wallet_buckets` 的来源分桶、余额汇总和生命周期状态推进。
 - [ ] 实现 `free > subscription > topup` 的 bucket 选择顺序，并在同优先级下按最早到期、最早创建扣减。
 - [ ] 实现 LLM `input/cache/output` 三维扣分。

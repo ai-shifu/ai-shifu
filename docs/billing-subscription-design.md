@@ -650,7 +650,7 @@ v1 的改造要求：
 - 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
-- 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；当前批次先提供可复用 settlement engine，Celery 投递与 creator 维度串行化仍留在后续任务
+- 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，当前批次先补齐默认异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
@@ -815,6 +815,7 @@ v1 需要补充以下环境变量和配置项：
 额外执行约束：
 
 - 所有实际积分扣减统一通过 `billing.settle_usage` 或 `billing.replay_usage_settlement` 完成
+- 当前实现已提供 `billing.settle_usage` 任务入口，并由该入口复用 `src/api/flaskr/service/billing/settlement.py` 执行单条 usage 结算；后续再接入统一 Celery app、broker 和 worker 编排
 - 同一 `creator_bid` 的 usage settlement 任务不可并发执行，必须依赖 creator-scoped lock、串行队列或等价机制保证防重入
 
 ### 6.6 v1.1 扩展 Tasks

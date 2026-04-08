@@ -21,3 +21,4 @@ from .ownership import (  # noqa: F401
     resolve_usage_creator_bid,
 )
 from .settlement import settle_bill_usage  # noqa: F401
+from .tasks import settle_usage_task  # noqa: F401
