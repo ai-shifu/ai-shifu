@@ -1,6 +1,33 @@
 {
   "__namespace__": "module.billing",
   "admin": {
+    "adjust": {
+      "cancel": "取消",
+      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准 bucket 扣减顺序人工扣减积分。",
+      "errors": {
+        "amountInvalid": "请输入非 0 的十进制金额，最多保留 10 位小数。",
+        "creatorBidRequired": "必须填写 creator bid。"
+      },
+      "fields": {
+        "amount": "调整额度",
+        "creatorBid": "Creator Bid",
+        "note": "备注"
+      },
+      "help": {
+        "amount": "示例：12.5000000000 表示补发积分，-8.0000000000 表示扣减积分。"
+      },
+      "open": "调整积分",
+      "placeholders": {
+        "amount": "12.5000000000 或 -8.0000000000",
+        "creatorBid": "creator_bid",
+        "note": "填写人工调整原因"
+      },
+      "quickAction": "调整该创作者积分",
+      "submit": "确认调整",
+      "submitting": "调整中...",
+      "success": "已更新 {{creatorBid}} 的账本，当前可用积分 {{availableCredits}}。",
+      "title": "人工积分调整"
+    },
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
     "exceptions": {

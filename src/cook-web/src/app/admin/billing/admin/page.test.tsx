@@ -18,17 +18,20 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    adjustAdminBillingLedger: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOrders: jest.fn(),
   },
 }));
 
+const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
 const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 
 describe('AdminBillingConsolePage', () => {
   beforeEach(() => {
+    mockAdjustAdminBillingLedger.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
 
@@ -104,6 +107,18 @@ describe('AdminBillingConsolePage', () => {
       page_size: 10,
       total: 1,
     });
+    mockAdjustAdminBillingLedger.mockResolvedValue({
+      status: 'adjusted',
+      creator_bid: 'creator-2',
+      amount: 12.5,
+      wallet: {
+        wallet_bid: 'wallet-2',
+        available_credits: 17.5,
+        reserved_credits: 0,
+      },
+      wallet_bucket_bids: ['bucket-1'],
+      ledger_bids: ['ledger-1'],
+    });
   });
 
   test('renders admin billing tabs and loads subscriptions, orders, and exceptions', async () => {
@@ -161,5 +176,79 @@ describe('AdminBillingConsolePage', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
     expect(screen.getByText('Card was declined')).toBeInTheDocument();
+  });
+
+  test('submits a manual ledger adjustment and revalidates admin billing data', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingConsolePage />
+      </SWRConfig>,
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.exceptions',
+        }),
+      );
+    });
+
+    await screen.findByText('module.billing.admin.exceptions.title');
+    const initialSubscriptionCalls =
+      mockGetAdminBillingSubscriptions.mock.calls.length;
+    const initialOrderCalls = mockGetAdminBillingOrders.mock.calls.length;
+
+    await act(async () => {
+      await user.click(
+        screen.getAllByRole('button', {
+          name: 'module.billing.admin.adjust.quickAction',
+        })[0],
+      );
+    });
+
+    expect(
+      screen.getByRole('dialog', {
+        name: 'module.billing.admin.adjust.title',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('module.billing.admin.adjust.fields.creatorBid'),
+    ).toHaveValue('creator-2');
+
+    await act(async () => {
+      await user.type(
+        screen.getByLabelText('module.billing.admin.adjust.fields.amount'),
+        '12.5000000000',
+      );
+      await user.type(
+        screen.getByLabelText('module.billing.admin.adjust.fields.note'),
+        'manual recovery',
+      );
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.admin.adjust.submit',
+        }),
+      );
+    });
+
+    expect(mockAdjustAdminBillingLedger).toHaveBeenCalledWith({
+      creator_bid: 'creator-2',
+      amount: '12.5000000000',
+      note: 'manual recovery',
+    });
+
+    await screen.findByText('module.billing.admin.exceptions.title');
+    expect(mockGetAdminBillingSubscriptions.mock.calls.length).toBeGreaterThan(
+      initialSubscriptionCalls,
+    );
+    expect(mockGetAdminBillingOrders.mock.calls.length).toBeGreaterThan(
+      initialOrderCalls,
+    );
   });
 });

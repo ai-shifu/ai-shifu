@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Card,
   CardContent,
@@ -36,7 +37,13 @@ function ExceptionRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AdminBillingExceptionsPanel() {
+type AdminBillingExceptionsPanelProps = {
+  onAdjustCreatorBid?: (creatorBid: string) => void;
+};
+
+export function AdminBillingExceptionsPanel({
+  onAdjustCreatorBid,
+}: AdminBillingExceptionsPanelProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
   const {
@@ -143,6 +150,16 @@ export function AdminBillingExceptionsPanel() {
                       {resolveBillingSubscriptionStatusLabel(t, item.status)}
                     </Badge>
                   </div>
+                  {onAdjustCreatorBid ? (
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='mb-3 rounded-full'
+                      onClick={() => onAdjustCreatorBid(item.creator_bid)}
+                    >
+                      {t('module.billing.admin.adjust.quickAction')}
+                    </Button>
+                  ) : null}
                   <div className='space-y-2'>
                     <ExceptionRow
                       label={t(
@@ -201,6 +218,16 @@ export function AdminBillingExceptionsPanel() {
                       {resolveBillingOrderStatusLabel(t, item.status)}
                     </Badge>
                   </div>
+                  {onAdjustCreatorBid ? (
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='mb-3 rounded-full'
+                      onClick={() => onAdjustCreatorBid(item.creator_bid)}
+                    >
+                      {t('module.billing.admin.adjust.quickAction')}
+                    </Button>
+                  ) : null}
                   <div className='space-y-2'>
                     <ExceptionRow
                       label={t('module.billing.admin.exceptions.fields.amount')}

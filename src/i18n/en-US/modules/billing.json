@@ -1,6 +1,33 @@
 {
   "__namespace__": "module.billing",
   "admin": {
+    "adjust": {
+      "cancel": "Cancel",
+      "description": "Use a positive decimal to grant credits or a negative decimal to consume them in the standard bucket order.",
+      "errors": {
+        "amountInvalid": "Enter a non-zero decimal amount with up to 10 fractional digits.",
+        "creatorBidRequired": "Creator bid is required."
+      },
+      "fields": {
+        "amount": "Adjustment amount",
+        "creatorBid": "Creator bid",
+        "note": "Note"
+      },
+      "help": {
+        "amount": "Examples: 12.5000000000 to grant credits, -8.0000000000 to debit credits."
+      },
+      "open": "Adjust credits",
+      "placeholders": {
+        "amount": "12.5000000000 or -8.0000000000",
+        "creatorBid": "creator_bid",
+        "note": "Reason for the manual adjustment"
+      },
+      "quickAction": "Adjust this creator",
+      "submit": "Apply adjustment",
+      "submitting": "Applying...",
+      "success": "Ledger updated for {{creatorBid}}. Available credits: {{availableCredits}}.",
+      "title": "Manual credit adjustment"
+    },
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
     "exceptions": {

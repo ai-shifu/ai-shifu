@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
+import { AdminBillingAdjustDialog } from '@/components/billing/AdminBillingAdjustDialog';
 import { AdminBillingExceptionsPanel } from '@/components/billing/AdminBillingExceptionsPanel';
 import { AdminBillingOrdersTable } from '@/components/billing/AdminBillingOrdersTable';
 import { AdminBillingSubscriptionsTable } from '@/components/billing/AdminBillingSubscriptionsTable';
@@ -14,72 +15,97 @@ export default function AdminBillingConsolePage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] =
     React.useState<AdminBillingConsoleTab>('subscriptions');
+  const [adjustDialogOpen, setAdjustDialogOpen] = React.useState(false);
+  const [adjustCreatorBid, setAdjustCreatorBid] = React.useState('');
+
+  const handleOpenAdjustDialog = (creatorBid = '') => {
+    setAdjustCreatorBid(creatorBid);
+    setAdjustDialogOpen(true);
+  };
 
   return (
-    <div
-      className='flex h-full flex-col gap-6 overflow-auto pb-4'
-      data-testid='admin-billing-console-page'
-    >
-      <div className='flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='space-y-2'>
-            <p className='text-sm text-slate-500'>
-              {t('module.billing.admin.subtitle')}
-            </p>
-            <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>
-              {t('module.billing.admin.title')}
-            </h2>
+    <>
+      <div
+        className='flex h-full flex-col gap-6 overflow-auto pb-4'
+        data-testid='admin-billing-console-page'
+      >
+        <div className='flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <div className='space-y-2'>
+              <p className='text-sm text-slate-500'>
+                {t('module.billing.admin.subtitle')}
+              </p>
+              <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>
+                {t('module.billing.admin.title')}
+              </h2>
+            </div>
+            <div className='flex flex-wrap items-center gap-2'>
+              <Button
+                className='rounded-full'
+                onClick={() => handleOpenAdjustDialog()}
+              >
+                {t('module.billing.admin.adjust.open')}
+              </Button>
+              <Button
+                asChild
+                variant='outline'
+                className='rounded-full'
+              >
+                <Link href='/admin/billing'>
+                  {t('module.billing.admin.backToCreatorBilling')}
+                </Link>
+              </Button>
+            </div>
           </div>
-          <Button
-            asChild
-            variant='outline'
-            className='rounded-full'
-          >
-            <Link href='/admin/billing'>
-              {t('module.billing.admin.backToCreatorBilling')}
-            </Link>
-          </Button>
         </div>
+
+        <Tabs
+          value={activeTab}
+          className='flex flex-col gap-4'
+          onValueChange={value => setActiveTab(value as AdminBillingConsoleTab)}
+        >
+          <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
+            <TabsTrigger value='subscriptions'>
+              {t('module.billing.admin.tabs.subscriptions')}
+            </TabsTrigger>
+            <TabsTrigger value='orders'>
+              {t('module.billing.admin.tabs.orders')}
+            </TabsTrigger>
+            <TabsTrigger value='exceptions'>
+              {t('module.billing.admin.tabs.exceptions')}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent
+            value='subscriptions'
+            className='space-y-4'
+          >
+            <AdminBillingSubscriptionsTable />
+          </TabsContent>
+
+          <TabsContent
+            value='orders'
+            className='space-y-4'
+          >
+            <AdminBillingOrdersTable />
+          </TabsContent>
+
+          <TabsContent
+            value='exceptions'
+            className='space-y-4'
+          >
+            <AdminBillingExceptionsPanel
+              onAdjustCreatorBid={handleOpenAdjustDialog}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      <Tabs
-        value={activeTab}
-        className='flex flex-col gap-4'
-        onValueChange={value => setActiveTab(value as AdminBillingConsoleTab)}
-      >
-        <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
-          <TabsTrigger value='subscriptions'>
-            {t('module.billing.admin.tabs.subscriptions')}
-          </TabsTrigger>
-          <TabsTrigger value='orders'>
-            {t('module.billing.admin.tabs.orders')}
-          </TabsTrigger>
-          <TabsTrigger value='exceptions'>
-            {t('module.billing.admin.tabs.exceptions')}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent
-          value='subscriptions'
-          className='space-y-4'
-        >
-          <AdminBillingSubscriptionsTable />
-        </TabsContent>
-
-        <TabsContent
-          value='orders'
-          className='space-y-4'
-        >
-          <AdminBillingOrdersTable />
-        </TabsContent>
-
-        <TabsContent
-          value='exceptions'
-          className='space-y-4'
-        >
-          <AdminBillingExceptionsPanel />
-        </TabsContent>
-      </Tabs>
-    </div>
+      <AdminBillingAdjustDialog
+        open={adjustDialogOpen}
+        initialCreatorBid={adjustCreatorBid}
+        onOpenChange={setAdjustDialogOpen}
+      />
+    </>
   );
 }

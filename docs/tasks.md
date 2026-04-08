@@ -124,7 +124,7 @@
 - [x] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。
 - [x] 实现 admin 侧 billing subscriptions/orders/ledger adjust 后端接口。
 - [x] 实现 admin 侧订阅、订单和异常处理页面。
-- [ ] 实现 admin 侧账本调整交互并接入异常页刷新。
+- [x] 实现 admin 侧账本调整交互并接入异常页刷新。
 - [ ] 增加 `module.billing.*` i18n keys，并补齐状态码到文案的映射。
 
 ### 测试与上线

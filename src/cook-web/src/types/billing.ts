@@ -256,3 +256,23 @@ export type AdminBillingOrderItem = BillingOrderSummary & {
   refunded_at?: string | null;
   has_attention: boolean;
 };
+
+export type AdminBillingLedgerAdjustPayload = {
+  creator_bid: string;
+  amount: string;
+  note?: string;
+};
+
+export type AdminBillingLedgerAdjustResult = {
+  status: 'adjusted' | 'noop';
+  adjustment_bid?: string;
+  creator_bid: string;
+  amount: number;
+  wallet?: {
+    wallet_bid: string;
+    available_credits: number;
+    reserved_credits: number;
+  };
+  wallet_bucket_bids?: string[];
+  ledger_bids?: string[];
+};
