@@ -626,13 +626,12 @@ v1 的改造要求：
 当前已存在的事实：
 
 - LLM/TTS usage 已经会落到 `bill_usage`
-- `debug` 和 `preview` 在常量层被放进 `BILL_USAGE_SCENE_NON_BILLABLE`
-- `record_llm_usage` / `record_tts_usage` 会根据 `usage_scene` 自动推导 `billable`
+- `record_llm_usage` / `record_tts_usage` 默认把 `production` / `preview` / `debug` 都视为可计费 usage
+- 只有显式传入 `billable=0` 的内部调用才会保留免计费语义
 
-必须改造的点：
+当前约束：
 
-- 把 “`debug` / `preview` 一律 non-billable” 从 metering 常量中移除
-- 改成 `production`、`preview`、`debug` 三种 scene 都允许计费
+- `production`、`preview`、`debug` 三种 scene 都允许计费
 - 是否真正扣费不再由 metering 常量决定，而由 billing service 的 admission / settlement 规则决定
 - `record_llm_usage` / `record_tts_usage` 继续只负责原始 usage 落库，不直接承担 creator 账务逻辑
 - 结算层新增 `creator ownership resolver`，把 `shifu_bid -> creator_bid` 固化给 billing settlement 使用

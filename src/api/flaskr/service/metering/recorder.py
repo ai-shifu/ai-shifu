@@ -15,7 +15,6 @@ from flaskr.dao import db
 from flaskr.util.uuid import generate_id
 
 from .consts import (
-    BILL_USAGE_SCENE_NON_BILLABLE,
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
@@ -43,9 +42,7 @@ class UsageContext:
 def _resolve_billable(usage_scene: int, billable: Optional[int]) -> int:
     if billable is not None:
         return int(billable)
-    normalized_scene = normalize_usage_scene(usage_scene)
-    if normalized_scene in BILL_USAGE_SCENE_NON_BILLABLE:
-        return 0
+    normalize_usage_scene(usage_scene)
     return 1
 
 

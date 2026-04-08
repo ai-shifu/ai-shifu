@@ -1,7 +1,10 @@
+from flask import Flask
 import pytest
 
+import flaskr.dao as dao
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
 from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
@@ -11,16 +14,36 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
 
 
-@pytest.mark.usefixtures("app")
-def test_record_llm_usage_persists(app):
+@pytest.fixture
+def metering_app():
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        TZ="UTC",
+    )
+    dao.db.init_app(app)
     with app.app_context():
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
+
+
+def test_record_llm_usage_persists(metering_app):
+    with metering_app.app_context():
         context = UsageContext(
             user_bid="user-1",
             shifu_bid="shifu-1",
             usage_scene=BILL_USAGE_SCENE_PROD,
         )
         usage_bid = record_llm_usage(
-            app,
+            metering_app,
             context,
             provider="openai",
             model="gpt-test",
@@ -42,17 +65,16 @@ def test_record_llm_usage_persists(app):
         assert record.billable == 1
 
 
-@pytest.mark.usefixtures("app")
-def test_record_tts_usage_preview_billable_off(app):
-    with app.app_context():
+def test_record_tts_usage_preview_defaults_to_billable_on(metering_app):
+    with metering_app.app_context():
         context = UsageContext(
             user_bid="user-2",
             shifu_bid="shifu-2",
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
-        parent_usage_bid = generate_id(app)
+        parent_usage_bid = generate_id(metering_app)
         segment_usage_bid = record_tts_usage(
-            app,
+            metering_app,
             context,
             provider="minimax",
             model="speech-01",
@@ -70,7 +92,7 @@ def test_record_tts_usage_preview_billable_off(app):
         assert segment_usage_bid
 
         parent_record_bid = record_tts_usage(
-            app,
+            metering_app,
             context,
             usage_bid=parent_usage_bid,
             provider="minimax",
@@ -91,6 +113,30 @@ def test_record_tts_usage_preview_billable_off(app):
         ).first()
         assert parent_record is not None
         assert parent_record.usage_type == BILL_USAGE_TYPE_TTS
-        assert parent_record.billable == 0
+        assert parent_record.billable == 1
         assert parent_record.record_level == 0
         assert parent_record.segment_count == 1
+
+
+def test_record_debug_usage_respects_explicit_non_billable_override(metering_app):
+    with metering_app.app_context():
+        context = UsageContext(
+            user_bid="user-3",
+            shifu_bid="shifu-3",
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+            billable=0,
+        )
+        usage_bid = record_llm_usage(
+            metering_app,
+            context,
+            provider="openai",
+            model="gpt-test",
+            is_stream=False,
+            input=5,
+            output=7,
+            total=12,
+        )
+        assert usage_bid
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+        assert record is not None
+        assert record.billable == 0
