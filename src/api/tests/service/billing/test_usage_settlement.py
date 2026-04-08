@@ -79,7 +79,9 @@ def _create_bucket(
     priority: int,
     available_credits: str,
     effective_to: datetime | None = None,
+    created_at: datetime | None = None,
 ) -> CreditWalletBucket:
+    bucket_created_at = created_at or datetime(2026, 1, 1, 0, 0, 0)
     return CreditWalletBucket(
         wallet_bucket_bid=bucket_bid,
         wallet_bid=wallet_bid,
@@ -97,8 +99,8 @@ def _create_bucket(
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
         metadata_json={},
-        created_at=datetime(2026, 1, 1, 0, 0, 0),
-        updated_at=datetime(2026, 1, 1, 0, 0, 0),
+        created_at=bucket_created_at,
+        updated_at=bucket_created_at,
     )
 
 
@@ -471,6 +473,96 @@ def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
         assert entry.balance_after == Decimal("2.0000000000")
         assert free_bucket.status == CREDIT_BUCKET_STATUS_EXHAUSTED
         assert topup_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+
+
+def test_settle_usage_prefers_earliest_expiry_then_oldest_created_in_same_priority(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-6",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-6", "4.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add_all(
+            [
+                _create_bucket(
+                    creator_bid="creator-6",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free-early",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="1.0000000000",
+                    effective_to=datetime(2026, 4, 9, 0, 0, 0),
+                    created_at=datetime(2026, 1, 3, 0, 0, 0),
+                ),
+                _create_bucket(
+                    creator_bid="creator-6",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free-same-old",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="1.0000000000",
+                    effective_to=datetime(2026, 4, 10, 0, 0, 0),
+                    created_at=datetime(2026, 1, 1, 0, 0, 0),
+                ),
+                _create_bucket(
+                    creator_bid="creator-6",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free-same-new",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="1.0000000000",
+                    effective_to=datetime(2026, 4, 10, 0, 0, 0),
+                    created_at=datetime(2026, 1, 2, 0, 0, 0),
+                ),
+                _create_bucket(
+                    creator_bid="creator-6",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free-never",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="1.0000000000",
+                    effective_to=None,
+                    created_at=datetime(2026, 1, 4, 0, 0, 0),
+                ),
+                _create_rate(
+                    rate_bid="rate-creator-6-input",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_usage(
+                    usage_bid="usage-creator-6",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=4000,
+                    input_cache=0,
+                    output=0,
+                    total=4000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-creator-6")
+
+        entries = (
+            CreditLedgerEntry.query.filter_by(source_bid="usage-creator-6")
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+
+        assert payload["status"] == "settled"
+        assert [row.wallet_bucket_bid for row in entries] == [
+            "bucket-free-early",
+            "bucket-free-same-old",
+            "bucket-free-same-new",
+            "bucket-free-never",
+        ]
 
 
 def test_settle_usage_skips_segment_and_non_billable_records(

@@ -652,6 +652,7 @@ v1 的改造要求：
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，当前批次先补齐默认异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
+- 当前实现中，usage settlement 已固定按 `free > subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
