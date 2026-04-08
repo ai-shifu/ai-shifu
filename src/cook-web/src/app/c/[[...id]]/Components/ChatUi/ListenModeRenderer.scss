@@ -132,6 +132,24 @@
   z-index: 3;
 }
 
+.listen-slide-mobile-ask-entry--landscape {
+  right: 0;
+  bottom: 64px;
+  z-index: 80;
+}
+
+.listen-reveal-wrapper.mobile .listen-slide-mobile-ask-panel {
+  position: fixed;
+  z-index: 60;
+}
+
+.listen-slide-mobile-ask-panel--landscape {
+  position: absolute;
+  right: 0;
+  bottom: 108px;
+  z-index: 80;
+}
+
 .listen-slide-mobile-ask-button {
   display: inline-flex;
   align-items: center;
