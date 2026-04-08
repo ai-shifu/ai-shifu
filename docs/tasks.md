@@ -150,7 +150,7 @@
 
 ### 报表与聚合
 
-- [ ] 新增 `billing_daily_usage_metrics` 与 `billing_daily_ledger_summary`。
+- [x] 新增 `billing_daily_usage_metrics` 与 `billing_daily_ledger_summary`。
 - [ ] 实现 usage 日汇总增量任务和 finalize 任务。
 - [ ] 实现 ledger 日汇总增量任务和 finalize 任务。
 - [ ] 实现按 creator/shifu/date window 的 rebuild 任务与 CLI 入口。

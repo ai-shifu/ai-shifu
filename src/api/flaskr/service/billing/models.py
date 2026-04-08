@@ -1105,3 +1105,198 @@ class BillingDomainBinding(BillingTableMixin, db.Model):
         nullable=True,
         comment="Domain binding metadata",
     )
+
+
+class BillingDailyUsageMetric(BillingTableMixin, db.Model):
+    __tablename__ = "billing_daily_usage_metrics"
+    __table_args__ = (
+        UniqueConstraint(
+            "daily_usage_metric_bid",
+            name="uq_billing_daily_usage_metrics_daily_usage_metric_bid",
+        ),
+        UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "shifu_bid",
+            "usage_scene",
+            "usage_type",
+            "provider",
+            "model",
+            "billing_metric",
+            name="uq_billing_daily_usage_metrics_lookup",
+        ),
+        Index(
+            "ix_billing_daily_usage_metrics_stat_creator",
+            "stat_date",
+            "creator_bid",
+        ),
+        {"comment": "Billing daily usage metrics"},
+    )
+
+    daily_usage_metric_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Daily usage metric business identifier",
+    )
+    stat_date = Column(
+        String(10),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Statistic date",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Shifu business identifier",
+    )
+    usage_scene = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Usage scene code",
+    )
+    usage_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Usage type code",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider name",
+    )
+    model = Column(
+        String(100),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider model",
+    )
+    billing_metric = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing metric code",
+    )
+    raw_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Raw amount",
+    )
+    record_count = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Record count",
+    )
+    consumed_credits = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Consumed credits",
+    )
+    window_started_at = Column(
+        DateTime,
+        nullable=False,
+        comment="Window start timestamp",
+    )
+    window_ended_at = Column(
+        DateTime,
+        nullable=False,
+        comment="Window end timestamp",
+    )
+
+
+class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
+    __tablename__ = "billing_daily_ledger_summary"
+    __table_args__ = (
+        UniqueConstraint(
+            "daily_ledger_summary_bid",
+            name="uq_billing_daily_ledger_summary_daily_ledger_summary_bid",
+        ),
+        UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "entry_type",
+            "source_type",
+            name="uq_billing_daily_ledger_summary_lookup",
+        ),
+        Index(
+            "ix_billing_daily_ledger_summary_stat_creator",
+            "stat_date",
+            "creator_bid",
+        ),
+        {"comment": "Billing daily ledger summary"},
+    )
+
+    daily_ledger_summary_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Daily ledger summary business identifier",
+    )
+    stat_date = Column(
+        String(10),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Statistic date",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    entry_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing ledger entry type code",
+    )
+    source_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing ledger source type code",
+    )
+    amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Ledger amount total",
+    )
+    entry_count = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Ledger entry count",
+    )
+    window_started_at = Column(
+        DateTime,
+        nullable=False,
+        comment="Window start timestamp",
+    )
+    window_ended_at = Column(
+        DateTime,
+        nullable=False,
+        comment="Window end timestamp",
+    )
