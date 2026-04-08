@@ -1331,7 +1331,7 @@ const ListenModeSlideRenderer = ({
           </div>
         ) : null}
         <Slide
-          playerAlwaysVisible={true}
+          // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
             isMobileLandscape && 'listen-slide-root--landscape',
