@@ -15,6 +15,7 @@ from .daily_aggregates import (
     aggregate_daily_usage_metrics,
     rebuild_daily_aggregates,
 )
+from .domains import verify_domain_binding
 from .models import BillingSubscription, CreditWallet
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
@@ -356,4 +357,26 @@ def rebuild_daily_aggregates_task(
         date_to=_normalize_bid(date_to),
     )
     payload["task_name"] = "billing.rebuild_daily_aggregates"
+    return payload
+
+
+@shared_task(name="billing.verify_domain_binding")
+def verify_domain_binding_task(
+    *,
+    creator_bid: str = "",
+    domain_binding_bid: str = "",
+    host: str = "",
+    verification_token: str = "",
+) -> dict[str, Any]:
+    """Refresh one custom domain binding using the existing verify flow."""
+
+    app = _create_task_app()
+    payload = verify_domain_binding(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+        domain_binding_bid=_normalize_bid(domain_binding_bid),
+        host=_normalize_bid(host),
+        verification_token=_normalize_bid(verification_token),
+    )
+    payload["task_name"] = "billing.verify_domain_binding"
     return payload

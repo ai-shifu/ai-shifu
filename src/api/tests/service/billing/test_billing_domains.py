@@ -10,11 +10,15 @@ import flaskr.dao as dao
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+    BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
-from flaskr.service.billing.domains import resolve_creator_bid_by_host
+from flaskr.service.billing.domains import (
+    resolve_creator_bid_by_host,
+    verify_domain_binding,
+)
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
 from flaskr.service.billing.routes import register_billing_routes
 from flaskr.service.common.models import AppException
@@ -270,3 +274,31 @@ class TestBillingDomains:
         assert direct_response.get_json(force=True)["creator_bid"] == "creator-1"
         assert forwarded_response.get_json(force=True)["creator_bid"] == "creator-1"
         assert disabled_response.get_json(force=True)["creator_bid"] is None
+
+    def test_verify_domain_binding_helper_uses_existing_binding_token(
+        self, billing_domain_client
+    ) -> None:
+        app = billing_domain_client["app"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingDomainBinding(
+                    domain_binding_bid="binding-task-verify-1",
+                    creator_bid="creator-1",
+                    host="task-verify.example.com",
+                    status=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+                    verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+                    verification_token="token-task-verify-1",
+                )
+            )
+            dao.db.session.commit()
+
+            payload = verify_domain_binding(
+                app,
+                domain_binding_bid="binding-task-verify-1",
+            )
+
+            assert payload["action"] == "verify"
+            assert payload["creator_bid"] == "creator-1"
+            assert payload["binding"]["status"] == "verified"
+            assert payload["binding"]["is_effective"] is True

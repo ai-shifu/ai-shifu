@@ -154,7 +154,7 @@
 - [x] 实现 usage 日汇总增量任务和 finalize 任务。
 - [x] 实现 ledger 日汇总增量任务和 finalize 任务。
 - [x] 实现按 creator/shifu/date window 的 rebuild 任务与 CLI 入口。
-- [ ] 为 daily aggregate、rebuild、domain verify 注册 v1.1 Celery tasks。
+- [x] 为 daily aggregate、rebuild、domain verify 注册 v1.1 Celery tasks。
 
 ### 前端与管理端扩展
 

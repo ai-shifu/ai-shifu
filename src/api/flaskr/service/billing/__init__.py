@@ -15,6 +15,7 @@ from .consts import (  # noqa: F401
     CREDIT_USAGE_RATE_SEEDS,
 )
 from .entitlements import resolve_creator_entitlement_state  # noqa: F401
+from .domains import verify_domain_binding  # noqa: F401
 from .models import (  # noqa: F401
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
@@ -40,4 +41,5 @@ from .tasks import (  # noqa: F401
     replay_usage_settlement_task,
     rebuild_daily_aggregates_task,
     settle_usage_task,
+    verify_domain_binding_task,
 )

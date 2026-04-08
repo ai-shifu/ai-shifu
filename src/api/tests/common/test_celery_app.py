@@ -34,6 +34,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.aggregate_daily_usage_metrics" in celery_app.tasks
     assert "billing.aggregate_daily_ledger_summary" in celery_app.tasks
     assert "billing.rebuild_daily_aggregates" in celery_app.tasks
+    assert "billing.verify_domain_binding" in celery_app.tasks
 
 
 def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
@@ -112,6 +113,18 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
             "date_to": date_to,
         },
     )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.verify_domain_binding",
+        lambda app, *, creator_bid="", domain_binding_bid="", host="", verification_token="": {
+            "action": "verify",
+            "creator_bid": creator_bid or None,
+            "binding": {
+                "domain_binding_bid": domain_binding_bid or None,
+                "host": host or None,
+            },
+            "verification_token": verification_token or None,
+        },
+    )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
 
@@ -151,6 +164,14 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
             "date_to": "2026-04-09",
         }
     )
+    verify_domain_result = celery_app.tasks["billing.verify_domain_binding"].apply(
+        kwargs={
+            "creator_bid": "creator-eager-1",
+            "domain_binding_bid": "binding-eager-1",
+            "host": "academy.example.com",
+            "verification_token": "token-eager-1",
+        }
+    )
 
     assert settle_result.get() == {
         "status": "settled",
@@ -187,6 +208,16 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
         "date_from": "2026-04-08",
         "date_to": "2026-04-09",
         "task_name": "billing.rebuild_daily_aggregates",
+    }
+    assert verify_domain_result.get() == {
+        "action": "verify",
+        "creator_bid": "creator-eager-1",
+        "binding": {
+            "domain_binding_bid": "binding-eager-1",
+            "host": "academy.example.com",
+        },
+        "verification_token": "token-eager-1",
+        "task_name": "billing.verify_domain_binding",
     }
 
 

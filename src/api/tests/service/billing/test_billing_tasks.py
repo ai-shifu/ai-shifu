@@ -37,6 +37,7 @@ from flaskr.service.billing.tasks import (
     run_renewal_event_task,
     send_low_balance_alert_task,
     settle_usage_task,
+    verify_domain_binding_task,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
@@ -284,6 +285,63 @@ def test_rebuild_daily_aggregates_task_calls_helper(
     }
     assert payload["status"] == "rebuilt"
     assert payload["task_name"] == "billing.rebuild_daily_aggregates"
+
+
+def test_verify_domain_binding_task_calls_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: fake_app),
+    )
+
+    captured: dict[str, object] = {}
+
+    def _fake_verify_domain_binding(
+        app,
+        *,
+        creator_bid: str = "",
+        domain_binding_bid: str = "",
+        host: str = "",
+        verification_token: str = "",
+    ):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["domain_binding_bid"] = domain_binding_bid
+        captured["host"] = host
+        captured["verification_token"] = verification_token
+        return {
+            "action": "verify",
+            "creator_bid": creator_bid or None,
+            "binding": {
+                "domain_binding_bid": domain_binding_bid or None,
+                "host": host or None,
+            },
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.verify_domain_binding",
+        _fake_verify_domain_binding,
+    )
+
+    payload = verify_domain_binding_task(
+        creator_bid=" creator-task-4 ",
+        domain_binding_bid=" binding-task-1 ",
+        host=" verify.example.com ",
+        verification_token=" token-task-1 ",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "creator_bid": "creator-task-4",
+        "domain_binding_bid": "binding-task-1",
+        "host": "verify.example.com",
+        "verification_token": "token-task-1",
+    }
+    assert payload["action"] == "verify"
+    assert payload["task_name"] == "billing.verify_domain_binding"
 
 
 def test_settle_usage_task_serializes_same_creator_concurrent_usage(

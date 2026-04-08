@@ -136,6 +136,49 @@ def manage_creator_domain_binding(
         }
 
 
+def verify_domain_binding(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    domain_binding_bid: str = "",
+    host: Any = "",
+    verification_token: Any = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Verify one domain binding by business id or host for background tasks."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_domain_binding_bid = _normalize_bid(domain_binding_bid)
+    normalized_host = normalize_domain_host(host, strict=False)
+
+    with app.app_context():
+        binding = _load_domain_binding_for_task(
+            creator_bid=normalized_creator_bid,
+            domain_binding_bid=normalized_domain_binding_bid,
+            host=normalized_host,
+        )
+        if binding is None:
+            raise_error("server.billing.domainBindingNotFound")
+
+        binding_creator_bid = _normalize_bid(binding.creator_bid)
+        result = manage_creator_domain_binding(
+            app,
+            binding_creator_bid,
+            {
+                "action": "verify",
+                "domain_binding_bid": binding.domain_binding_bid,
+                "host": binding.host,
+                "verification_token": (
+                    _normalize_bid(verification_token)
+                    or _normalize_bid(binding.verification_token)
+                ),
+            },
+            timezone_name=timezone_name,
+        )
+        result["creator_bid"] = binding_creator_bid
+        return result
+
+
 def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
     """Resolve a verified creator custom domain back to creator_bid."""
 
@@ -395,6 +438,26 @@ def _load_creator_domain_binding(
         query = query.filter(BillingDomainBinding.host == host)
     else:
         return None
+    return query.order_by(BillingDomainBinding.id.desc()).first()
+
+
+def _load_domain_binding_for_task(
+    *,
+    creator_bid: str = "",
+    domain_binding_bid: str = "",
+    host: str = "",
+) -> BillingDomainBinding | None:
+    query = BillingDomainBinding.query.filter(BillingDomainBinding.deleted == 0)
+    if creator_bid:
+        query = query.filter(BillingDomainBinding.creator_bid == creator_bid)
+    if domain_binding_bid:
+        query = query.filter(
+            BillingDomainBinding.domain_binding_bid == domain_binding_bid
+        )
+    elif host:
+        query = query.filter(BillingDomainBinding.host == host)
+    else:
+        raise_param_error("domain_binding_bid")
     return query.order_by(BillingDomainBinding.id.desc()).first()
 
 
