@@ -29,6 +29,18 @@
     },
     "title": "会员与积分"
   },
+  "result": {
+    "countdown": "{seconds}s 后自动返回会员中心",
+    "errorTitle": "账务同步失败",
+    "missingOrder": "缺少 billing 订单号，请返回会员中心后从订单列表重新同步。",
+    "openBilling": "打开会员中心",
+    "pending": "支付结果还在处理中，稍后可以再次同步。",
+    "pendingTitle": "等待账务确认",
+    "processing": "正在同步支付状态",
+    "retry": "重新同步",
+    "success": "支付已确认，正在刷新你的会员与积分数据。",
+    "successTitle": "账务已更新"
+  },
   "sidebar": {
     "cta": "前往会员中心",
     "description": "查看会员状态、积分余额与后续账务动作。",

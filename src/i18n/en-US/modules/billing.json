@@ -29,6 +29,18 @@
     },
     "title": "Membership & Credits"
   },
+  "result": {
+    "countdown": "Redirecting to the billing center in {seconds}s",
+    "errorTitle": "Billing sync failed",
+    "missingOrder": "Missing billing order. Open the billing center and retry from your order list.",
+    "openBilling": "Open billing center",
+    "pending": "Payment is still processing. You can retry sync in a moment.",
+    "pendingTitle": "Waiting for billing confirmation",
+    "processing": "Syncing payment status",
+    "retry": "Retry sync",
+    "success": "Payment confirmed. Your billing data is being refreshed.",
+    "successTitle": "Billing updated"
+  },
   "sidebar": {
     "cta": "Open billing center",
     "description": "Review your plan, credits, and upcoming billing actions.",
