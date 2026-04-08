@@ -12,6 +12,7 @@ import type {
   BillingCheckoutResult,
   BillingPlan,
   BillingProvider,
+  BillingSubscription,
   BillingTopupProduct,
 } from '@/types/billing';
 import {
@@ -65,6 +66,7 @@ export function BillingOverviewTab() {
     data: overview,
     error: overviewError,
     isLoading: overviewLoading,
+    mutate: mutateOverview,
   } = useBillingOverview();
   const {
     data: catalog,
@@ -86,6 +88,9 @@ export function BillingOverviewTab() {
   );
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
+  const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
+    'cancel' | 'resume' | ''
+  >('');
 
   const normalizedPaymentChannels = useMemo(
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
@@ -229,6 +234,47 @@ export function BillingOverviewTab() {
     [],
   );
 
+  const handleSubscriptionMutation = useCallback(
+    async (action: 'cancel' | 'resume', subscription: BillingSubscription) => {
+      setSubscriptionActionLoading(action);
+      try {
+        const nextSubscription =
+          action === 'cancel'
+            ? ((await api.cancelBillingSubscription({
+                subscription_bid: subscription.subscription_bid,
+              })) as BillingSubscription)
+            : ((await api.resumeBillingSubscription({
+                subscription_bid: subscription.subscription_bid,
+              })) as BillingSubscription);
+
+        await mutateOverview(currentOverview => {
+          if (!currentOverview) {
+            return currentOverview;
+          }
+          return {
+            ...currentOverview,
+            subscription: nextSubscription,
+          };
+        }, false);
+
+        toast({
+          title:
+            action === 'cancel'
+              ? t('module.billing.overview.feedback.cancelSuccess')
+              : t('module.billing.overview.feedback.resumeSuccess'),
+        });
+      } catch (error: any) {
+        toast({
+          title: error?.message || t('common.core.unknownError'),
+          variant: 'destructive',
+        });
+      } finally {
+        setSubscriptionActionLoading('');
+      }
+    },
+    [mutateOverview, t],
+  );
+
   const dialogPriceLabel = useMemo(() => {
     if (!checkoutTarget) {
       return '';
@@ -295,6 +341,13 @@ export function BillingOverviewTab() {
           <BillingSubscriptionCard
             currentPlan={currentPlan}
             subscription={overview?.subscription || null}
+            actionLoading={subscriptionActionLoading}
+            onCancelSubscription={subscription =>
+              void handleSubscriptionMutation('cancel', subscription)
+            }
+            onResumeSubscription={subscription =>
+              void handleSubscriptionMutation('resume', subscription)
+            }
           />
           <BillingCatalogCards
             checkoutLoadingKey={checkoutLoadingKey}

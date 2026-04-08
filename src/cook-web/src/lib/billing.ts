@@ -2,10 +2,15 @@ import type {
   BillingBucketCategory,
   BillingBucketSourceType,
   BillingBucketStatus,
+  BillingLedgerEntryType,
+  BillingOrderStatus,
+  BillingOrderType,
   BillingPlan,
+  BillingProvider,
   BillingSubscription,
   BillingSubscriptionStatus,
   BillingTopupProduct,
+  BillingUsageScene,
 } from '@/types/billing';
 
 type BillingTranslator = (
@@ -44,6 +49,46 @@ const BILLING_BUCKET_STATUS_KEYS: Record<BillingBucketStatus, string> = {
   exhausted: 'module.billing.ledger.bucketStatus.exhausted',
   expired: 'module.billing.ledger.bucketStatus.expired',
   canceled: 'module.billing.ledger.bucketStatus.canceled',
+};
+
+const BILLING_LEDGER_ENTRY_KEYS: Record<BillingLedgerEntryType, string> = {
+  grant: 'module.billing.ledger.entryType.grant',
+  consume: 'module.billing.ledger.entryType.consume',
+  refund: 'module.billing.ledger.entryType.refund',
+  expire: 'module.billing.ledger.entryType.expire',
+  adjustment: 'module.billing.ledger.entryType.adjustment',
+  hold: 'module.billing.ledger.entryType.hold',
+  release: 'module.billing.ledger.entryType.release',
+};
+
+const BILLING_USAGE_SCENE_KEYS: Record<BillingUsageScene, string> = {
+  debug: 'module.billing.ledger.usageScene.debug',
+  preview: 'module.billing.ledger.usageScene.preview',
+  production: 'module.billing.ledger.usageScene.production',
+};
+
+const BILLING_ORDER_STATUS_KEYS: Record<BillingOrderStatus, string> = {
+  init: 'module.billing.orders.status.init',
+  pending: 'module.billing.orders.status.pending',
+  paid: 'module.billing.orders.status.paid',
+  failed: 'module.billing.orders.status.failed',
+  refunded: 'module.billing.orders.status.refunded',
+  canceled: 'module.billing.orders.status.canceled',
+  timeout: 'module.billing.orders.status.timeout',
+};
+
+const BILLING_ORDER_TYPE_KEYS: Record<BillingOrderType, string> = {
+  subscription_start: 'module.billing.orders.type.subscriptionStart',
+  subscription_upgrade: 'module.billing.orders.type.subscriptionUpgrade',
+  subscription_renewal: 'module.billing.orders.type.subscriptionRenewal',
+  topup: 'module.billing.orders.type.topup',
+  manual: 'module.billing.orders.type.manual',
+  refund: 'module.billing.orders.type.refund',
+};
+
+const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
+  stripe: 'module.billing.catalog.labels.providerStripe',
+  pingxx: 'module.billing.catalog.labels.providerPingxx',
 };
 
 export function formatBillingCredits(value: number, locale: string): string {
@@ -192,6 +237,44 @@ export function resolveBillingBucketStatusLabel(
   return t(BILLING_BUCKET_STATUS_KEYS[status]);
 }
 
+export function resolveBillingLedgerEntryLabel(
+  t: BillingTranslator,
+  entryType: BillingLedgerEntryType,
+): string {
+  return t(BILLING_LEDGER_ENTRY_KEYS[entryType]);
+}
+
+export function resolveBillingUsageSceneLabel(
+  t: BillingTranslator,
+  scene?: BillingUsageScene | null,
+): string {
+  if (!scene) {
+    return '';
+  }
+  return t(BILLING_USAGE_SCENE_KEYS[scene]);
+}
+
+export function resolveBillingOrderStatusLabel(
+  t: BillingTranslator,
+  status: BillingOrderStatus,
+): string {
+  return t(BILLING_ORDER_STATUS_KEYS[status]);
+}
+
+export function resolveBillingOrderTypeLabel(
+  t: BillingTranslator,
+  orderType: BillingOrderType,
+): string {
+  return t(BILLING_ORDER_TYPE_KEYS[orderType]);
+}
+
+export function resolveBillingProviderLabel(
+  t: BillingTranslator,
+  provider: BillingProvider,
+): string {
+  return t(BILLING_PROVIDER_KEYS[provider]);
+}
+
 export function openBillingCheckoutUrl(url: string): void {
   if (!url || typeof window === 'undefined') {
     return;
@@ -229,11 +312,31 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.category.free'),
     t('module.billing.ledger.category.subscription'),
     t('module.billing.ledger.category.topup'),
+    t('module.billing.ledger.detail.balanceAfter'),
+    t('module.billing.ledger.detail.billingMetric'),
+    t('module.billing.ledger.detail.consumedCredits'),
+    t('module.billing.ledger.detail.creditsPerUnit'),
+    t('module.billing.ledger.detail.emptyBreakdown'),
+    t('module.billing.ledger.detail.rawAmount'),
+    t('module.billing.ledger.detail.roundingMode'),
+    t('module.billing.ledger.detail.scene'),
+    t('module.billing.ledger.detail.sourceBid'),
+    t('module.billing.ledger.detail.title'),
+    t('module.billing.ledger.detail.unitSize'),
+    t('module.billing.ledger.detail.usageBid'),
+    t('module.billing.ledger.entryType.adjustment'),
+    t('module.billing.ledger.entryType.consume'),
+    t('module.billing.ledger.entryType.expire'),
+    t('module.billing.ledger.entryType.grant'),
+    t('module.billing.ledger.entryType.hold'),
+    t('module.billing.ledger.entryType.refund'),
+    t('module.billing.ledger.entryType.release'),
     t('module.billing.ledger.entriesDescription'),
     t('module.billing.ledger.entriesTitle'),
     t('module.billing.ledger.empty'),
     t('module.billing.ledger.loadError'),
     t('module.billing.ledger.neverExpires'),
+    t('module.billing.ledger.pagination.page'),
     t('module.billing.ledger.source.gift'),
     t('module.billing.ledger.source.manual'),
     t('module.billing.ledger.source.refund'),
@@ -243,11 +346,46 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.summary.activeBuckets'),
     t('module.billing.ledger.summary.nextExpiry'),
     t('module.billing.ledger.summary.totalAvailable'),
+    t('module.billing.ledger.table.action'),
+    t('module.billing.ledger.table.amount'),
+    t('module.billing.ledger.table.balanceAfter'),
+    t('module.billing.ledger.table.createdAt'),
+    t('module.billing.ledger.table.detail'),
+    t('module.billing.ledger.table.entryType'),
     t('module.billing.ledger.table.availableCredits'),
     t('module.billing.ledger.table.effectiveWindow'),
     t('module.billing.ledger.table.priority'),
     t('module.billing.ledger.table.source'),
     t('module.billing.ledger.table.status'),
+    t('module.billing.ledger.usageScene.debug'),
+    t('module.billing.ledger.usageScene.preview'),
+    t('module.billing.ledger.usageScene.production'),
+    t('module.billing.orders.actions.sync'),
+    t('module.billing.orders.empty'),
+    t('module.billing.orders.loadError'),
+    t('module.billing.orders.pagination.page'),
+    t('module.billing.orders.syncSuccess'),
+    t('module.billing.orders.table.amount'),
+    t('module.billing.orders.table.createdAt'),
+    t('module.billing.orders.table.failure'),
+    t('module.billing.orders.table.order'),
+    t('module.billing.orders.table.provider'),
+    t('module.billing.orders.table.status'),
+    t('module.billing.orders.table.sync'),
+    t('module.billing.orders.type.manual'),
+    t('module.billing.orders.type.refund'),
+    t('module.billing.orders.type.subscriptionRenewal'),
+    t('module.billing.orders.type.subscriptionStart'),
+    t('module.billing.orders.type.subscriptionUpgrade'),
+    t('module.billing.orders.type.topup'),
+    t('module.billing.orders.status.canceled'),
+    t('module.billing.orders.status.failed'),
+    t('module.billing.orders.status.init'),
+    t('module.billing.orders.status.paid'),
+    t('module.billing.orders.status.pending'),
+    t('module.billing.orders.status.refunded'),
+    t('module.billing.orders.status.timeout'),
+    t('module.billing.overview.actions.cancelSubscription'),
     t('module.billing.status.active'),
     t('module.billing.status.cancelScheduled'),
     t('module.billing.status.canceled'),
@@ -256,5 +394,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.status.none'),
     t('module.billing.status.pastDue'),
     t('module.billing.status.paused'),
+    t('module.billing.overview.actions.resumeSubscription'),
+    t('module.billing.overview.feedback.cancelSuccess'),
+    t('module.billing.overview.feedback.resumeSuccess'),
   ];
 }

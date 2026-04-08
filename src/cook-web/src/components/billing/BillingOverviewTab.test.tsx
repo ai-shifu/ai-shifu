@@ -29,9 +29,11 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    cancelBillingSubscription: jest.fn(),
     checkoutBillingSubscription: jest.fn(),
     checkoutBillingTopup: jest.fn(),
     getBillingCatalog: jest.fn(),
+    resumeBillingSubscription: jest.fn(),
   },
 }));
 
@@ -102,9 +104,13 @@ jest.mock('@/components/ui/Dialog', () => ({
 }));
 
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
+const mockCancelBillingSubscription =
+  api.cancelBillingSubscription as jest.Mock;
 const mockCheckoutBillingSubscription =
   api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutBillingTopup = api.checkoutBillingTopup as jest.Mock;
+const mockResumeBillingSubscription =
+  api.resumeBillingSubscription as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockUseSWR = useSWR as jest.Mock;
 const mockRememberStripeCheckoutSession =
@@ -112,6 +118,7 @@ const mockRememberStripeCheckoutSession =
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
 const mockOpenBillingPaymentWindow = openBillingPaymentWindow as jest.Mock;
 const mockToast = toast as jest.Mock;
+const mockMutateOverview = jest.fn();
 const CATALOG_RESPONSE = {
   plans: [
     {
@@ -163,14 +170,17 @@ function renderOverviewTab() {
 describe('BillingOverviewTab', () => {
   beforeEach(() => {
     mockGetBillingCatalog.mockReset();
+    mockCancelBillingSubscription.mockReset();
     mockCheckoutBillingSubscription.mockReset();
     mockCheckoutBillingTopup.mockReset();
+    mockResumeBillingSubscription.mockReset();
     mockUseBillingOverview.mockReset();
     mockUseSWR.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
     mockOpenBillingPaymentWindow.mockReset();
     mockToast.mockReset();
+    mockMutateOverview.mockReset();
 
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -199,6 +209,7 @@ describe('BillingOverviewTab', () => {
       },
       error: undefined,
       isLoading: false,
+      mutate: mockMutateOverview,
     });
 
     mockGetBillingCatalog.mockResolvedValue({
@@ -209,6 +220,117 @@ describe('BillingOverviewTab', () => {
       error: undefined,
       isLoading: false,
     });
+  });
+
+  test('cancels a subscription from the current subscription card', async () => {
+    const user = userEvent.setup();
+    mockCancelBillingSubscription.mockResolvedValue({
+      subscription_bid: 'sub-1',
+      product_bid: 'billing-product-plan-monthly',
+      product_code: 'creator-plan-monthly',
+      status: 'cancel_scheduled',
+      billing_provider: 'stripe',
+      current_period_start_at: '2026-04-01T00:00:00Z',
+      current_period_end_at: '2026-05-01T00:00:00Z',
+      grace_period_end_at: null,
+      cancel_at_period_end: true,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.overview.actions.cancelSubscription',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCancelBillingSubscription).toHaveBeenCalledWith({
+        subscription_bid: 'sub-1',
+      });
+    });
+
+    expect(mockMutateOverview).toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'module.billing.overview.feedback.cancelSuccess',
+      }),
+    );
+  });
+
+  test('resumes a cancel-scheduled subscription from the current subscription card', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'billing-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'cancel_scheduled',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: true,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockResumeBillingSubscription.mockResolvedValue({
+      subscription_bid: 'sub-1',
+      product_bid: 'billing-product-plan-monthly',
+      product_code: 'creator-plan-monthly',
+      status: 'active',
+      billing_provider: 'stripe',
+      current_period_start_at: '2026-04-01T00:00:00Z',
+      current_period_end_at: '2026-05-01T00:00:00Z',
+      grace_period_end_at: null,
+      cancel_at_period_end: false,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.overview.actions.resumeSubscription',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockResumeBillingSubscription).toHaveBeenCalledWith({
+        subscription_bid: 'sub-1',
+      });
+    });
+
+    expect(mockMutateOverview).toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'module.billing.overview.feedback.resumeSuccess',
+      }),
+    );
   });
 
   test('renders wallet summary, subscription card, and catalog cards', async () => {

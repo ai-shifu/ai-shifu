@@ -20,6 +20,8 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getBillingCatalog: jest.fn(),
+    getBillingLedger: jest.fn(),
+    getBillingOrders: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
   },
 }));
@@ -46,6 +48,8 @@ jest.mock('@/c-store', () => ({
 }));
 
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
+const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
+const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
@@ -68,6 +72,66 @@ describe('AdminBillingPage', () => {
         status: 'active',
       },
     ]);
+    mockGetBillingLedger.mockResolvedValue({
+      items: [
+        {
+          ledger_bid: 'ledger-1',
+          wallet_bucket_bid: 'bucket-free',
+          entry_type: 'consume',
+          source_type: 'usage',
+          source_bid: 'usage-1',
+          idempotency_key: 'usage-1-bucket-free',
+          amount: -2.5,
+          balance_after: 97.5,
+          expires_at: null,
+          consumable_from: null,
+          metadata: {
+            usage_bid: 'usage-1',
+            usage_scene: 'production',
+            metric_breakdown: [
+              {
+                billing_metric: 'llm_output_tokens',
+                raw_amount: 1234,
+                unit_size: 1000,
+                credits_per_unit: 1.25,
+                rounding_mode: 'ceil',
+                consumed_credits: 2.5,
+              },
+            ],
+          },
+          created_at: '2026-04-06T10:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+    mockGetBillingOrders.mockResolvedValue({
+      items: [
+        {
+          billing_order_bid: 'order-1',
+          creator_bid: 'creator-1',
+          product_bid: 'billing-product-plan-monthly',
+          subscription_bid: 'sub-1',
+          order_type: 'subscription_start',
+          status: 'paid',
+          payment_provider: 'stripe',
+          payment_mode: 'subscription',
+          payable_amount: 9900,
+          paid_amount: 9900,
+          currency: 'CNY',
+          provider_reference_id: 'cs_test_1',
+          failure_message: '',
+          created_at: '2026-04-05T12:00:00Z',
+          paid_at: '2026-04-05T12:05:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -120,6 +184,7 @@ describe('AdminBillingPage', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('grant-1')).toBeInTheDocument();
     expect(mockGetBillingWalletBuckets).toHaveBeenCalledTimes(1);
+    expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await user.click(
@@ -128,8 +193,7 @@ describe('AdminBillingPage', () => {
     });
 
     expect(screen.getByText('module.billing.orders.title')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.orders.description'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
   });
 });

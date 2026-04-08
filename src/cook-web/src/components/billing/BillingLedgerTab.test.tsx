@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 
@@ -17,10 +18,12 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getBillingLedger: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
   },
 }));
 
+const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 
 describe('BillingLedgerTab', () => {
@@ -49,9 +52,46 @@ describe('BillingLedgerTab', () => {
         status: 'active',
       },
     ]);
+    mockGetBillingLedger.mockResolvedValue({
+      items: [
+        {
+          ledger_bid: 'ledger-consume',
+          wallet_bucket_bid: 'bucket-free',
+          entry_type: 'consume',
+          source_type: 'usage',
+          source_bid: 'usage-1',
+          idempotency_key: 'usage-1-bucket-free',
+          amount: -2.5,
+          balance_after: 97.5,
+          expires_at: null,
+          consumable_from: null,
+          metadata: {
+            usage_bid: 'usage-1',
+            usage_scene: 'production',
+            metric_breakdown: [
+              {
+                billing_metric: 'llm_output_tokens',
+                raw_amount: 1234,
+                unit_size: 1000,
+                credits_per_unit: 1.25,
+                rounding_mode: 'ceil',
+                consumed_credits: 2.5,
+              },
+            ],
+          },
+          created_at: '2026-04-06T10:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
   });
 
-  test('renders wallet bucket details and the pending ledger placeholder', async () => {
+  test('renders wallet bucket details and opens usage detail rows', async () => {
+    const user = userEvent.setup();
+
     render(
       <SWRConfig
         value={{
@@ -63,9 +103,10 @@ describe('BillingLedgerTab', () => {
     );
 
     expect(mockGetBillingWalletBuckets).toHaveBeenCalledTimes(1);
+    expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByText('module.billing.ledger.entriesTitle'),
-    ).toBeInTheDocument();
+      screen.getAllByText('module.billing.ledger.entriesTitle').length,
+    ).toBeGreaterThan(0);
 
     expect(await screen.findByText('grant-1')).toBeInTheDocument();
     expect(
@@ -74,5 +115,23 @@ describe('BillingLedgerTab', () => {
     expect(
       screen.getByText('module.billing.ledger.neverExpires'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.ledger.table.detail',
+      }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.ledger.table.detail',
+        }),
+      );
+    });
+
+    expect(
+      screen.getAllByText('module.billing.ledger.detail.title').length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('usage-1').length).toBeGreaterThan(1);
   });
 });

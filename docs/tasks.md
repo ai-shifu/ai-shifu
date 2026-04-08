@@ -118,7 +118,7 @@
 - [x] 新增 `src/cook-web/src/components/billing/` 组件目录，拆分 overview、catalog、ledger、orders、checkout、detail sheet 组件。
 - [x] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
 - [x] 为 wallet 来源明细接入 `GET /billing/wallet-buckets` 的按需查询与只读展示。
-- [ ] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
+- [x] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
 - [ ] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。
 - [x] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
 - [ ] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。

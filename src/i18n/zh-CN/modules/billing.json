@@ -74,11 +74,37 @@
       "subscription": "订阅积分",
       "topup": "充值积分"
     },
+    "detail": {
+      "balanceAfter": "扣减后余额",
+      "billingMetric": "计费指标",
+      "consumedCredits": "消耗积分",
+      "creditsPerUnit": "每单位积分",
+      "emptyBreakdown": "当前账本项没有附带计费拆解。",
+      "rawAmount": "原始用量",
+      "roundingMode": "取整方式",
+      "scene": "使用场景",
+      "sourceBid": "来源引用",
+      "title": "用量明细",
+      "unitSize": "计费单位",
+      "usageBid": "用量单号"
+    },
     "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
     "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
     "entriesTitle": "账本流水",
+    "entryType": {
+      "adjustment": "调整",
+      "consume": "消耗",
+      "expire": "过期",
+      "grant": "发放",
+      "hold": "冻结",
+      "refund": "退款返还",
+      "release": "释放"
+    },
     "loadError": "积分来源读取失败，请刷新后重试。",
     "neverExpires": "永不过期",
+    "pagination": {
+      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条账本"
+    },
     "source": {
       "gift": "赠送积分",
       "manual": "人工调整",
@@ -93,27 +119,79 @@
       "totalAvailable": "来源积分总额"
     },
     "table": {
+      "action": "操作",
+      "amount": "积分变化",
       "availableCredits": "可用积分",
+      "balanceAfter": "变化后余额",
+      "createdAt": "发生时间",
+      "detail": "查看明细",
       "effectiveWindow": "生效时间",
+      "entryType": "账本类型",
       "priority": "优先级",
       "source": "积分来源",
       "status": "状态"
     },
-    "title": "积分明细"
+    "title": "积分明细",
+    "usageScene": {
+      "debug": "调试",
+      "preview": "预览",
+      "production": "正式"
+    }
   },
   "navTitle": "会员与积分",
   "orders": {
-    "description": "接通 checkout 和 sync 后，这里会展示 billing 订单和付款详情。",
-    "title": "付款记录"
+    "actions": {
+      "sync": "同步状态"
+    },
+    "description": "查看 billing 订单状态，并在 provider 回调延迟时手动补一次同步。",
+    "empty": "当前还没有 billing 订单，后续购买和续费会展示在这里。",
+    "loadError": "订单列表读取失败，请刷新后重试。",
+    "pagination": {
+      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条订单"
+    },
+    "status": {
+      "canceled": "已取消",
+      "failed": "失败",
+      "init": "已创建",
+      "paid": "已支付",
+      "pending": "处理中",
+      "refunded": "已退款",
+      "timeout": "已超时"
+    },
+    "syncSuccess": "订单状态已刷新：{{status}}",
+    "table": {
+      "amount": "金额",
+      "createdAt": "创建时间",
+      "failure": "失败信息",
+      "order": "订单",
+      "provider": "支付通道",
+      "status": "状态",
+      "sync": "同步"
+    },
+    "title": "付款记录",
+    "type": {
+      "manual": "人工订单",
+      "refund": "退款订单",
+      "subscriptionRenewal": "订阅续费",
+      "subscriptionStart": "订阅开通",
+      "subscriptionUpgrade": "订阅升级",
+      "topup": "充值订单"
+    }
   },
   "overview": {
     "actions": {
+      "cancelSubscription": "周期结束后取消",
       "choosePlan": "选择套餐",
       "managePlan": "管理当前套餐",
+      "resumeSubscription": "恢复订阅",
       "topupCredits": "购买充值包",
       "watchRenewal": "关注续费状态"
     },
     "availableCreditsLabel": "可用积分",
+    "feedback": {
+      "cancelSuccess": "当前订阅将在本周期结束后取消。",
+      "resumeSuccess": "订阅续费已恢复。"
+    },
     "loadError": "账务数据加载失败，请刷新后重试。",
     "nextActionLabel": "下一步",
     "pendingValue": "即将开放",

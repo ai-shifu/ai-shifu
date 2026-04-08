@@ -6,6 +6,23 @@ export type BillingPaymentMode = 'subscription' | 'one_time';
 
 export type BillingPlanInterval = 'month' | 'year';
 
+export type BillingOrderStatus =
+  | 'init'
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'refunded'
+  | 'canceled'
+  | 'timeout';
+
+export type BillingOrderType =
+  | 'subscription_start'
+  | 'subscription_upgrade'
+  | 'subscription_renewal'
+  | 'topup'
+  | 'manual'
+  | 'refund';
+
 export type BillingSubscriptionStatus =
   | 'draft'
   | 'active'
@@ -51,6 +68,14 @@ export type BillingMetricName =
 export type BillingRoundingMode = 'ceil' | 'floor' | 'round';
 
 export type BillingUsageScene = 'debug' | 'preview' | 'production';
+
+export type BillingPagedResponse<TItem> = {
+  items: TItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
 
 export type BillingPlan = {
   product_bid: string;
@@ -168,8 +193,8 @@ export type BillingOrderSummary = {
   creator_bid: string;
   product_bid: string;
   subscription_bid: string | null;
-  order_type: string;
-  status: string;
+  order_type: BillingOrderType;
+  status: BillingOrderStatus;
   payment_provider: BillingProvider;
   payment_mode: BillingPaymentMode;
   payable_amount: number;

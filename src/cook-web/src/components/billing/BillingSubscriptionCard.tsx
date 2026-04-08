@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import {
   Card,
   CardContent,
@@ -19,6 +20,9 @@ import {
 type BillingSubscriptionCardProps = {
   currentPlan: BillingPlan | null;
   subscription: BillingSubscription | null;
+  actionLoading?: 'cancel' | 'resume' | '';
+  onCancelSubscription?: (subscription: BillingSubscription) => void;
+  onResumeSubscription?: (subscription: BillingSubscription) => void;
 };
 
 function resolveStatusClassName(
@@ -39,6 +43,9 @@ function resolveStatusClassName(
 export function BillingSubscriptionCard({
   currentPlan,
   subscription,
+  actionLoading = '',
+  onCancelSubscription,
+  onResumeSubscription,
 }: BillingSubscriptionCardProps) {
   const { t, i18n } = useTranslation();
 
@@ -68,6 +75,18 @@ export function BillingSubscriptionCard({
     subscription?.current_period_end_at,
     t,
   ]);
+  const subscriptionStatus = subscription?.status || 'none';
+
+  const canResume =
+    Boolean(subscription) &&
+    (subscriptionStatus === 'cancel_scheduled' ||
+      subscriptionStatus === 'paused');
+  const canCancel =
+    Boolean(subscription) &&
+    !subscription?.cancel_at_period_end &&
+    subscriptionStatus !== 'canceled' &&
+    subscriptionStatus !== 'expired' &&
+    subscriptionStatus !== 'draft';
 
   return (
     <Card className='border-slate-200 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.06)]'>
@@ -114,6 +133,32 @@ export function BillingSubscriptionCard({
             </span>
           </div>
         </div>
+
+        {subscription ? (
+          <div className='flex flex-wrap gap-3'>
+            {canCancel ? (
+              <Button
+                variant='outline'
+                disabled={actionLoading === 'cancel'}
+                onClick={() => onCancelSubscription?.(subscription)}
+              >
+                {actionLoading === 'cancel'
+                  ? t('module.billing.catalog.actions.processing')
+                  : t('module.billing.overview.actions.cancelSubscription')}
+              </Button>
+            ) : null}
+            {canResume ? (
+              <Button
+                disabled={actionLoading === 'resume'}
+                onClick={() => onResumeSubscription?.(subscription)}
+              >
+                {actionLoading === 'resume'
+                  ? t('module.billing.catalog.actions.processing')
+                  : t('module.billing.overview.actions.resumeSubscription')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

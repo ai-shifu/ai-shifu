@@ -74,11 +74,37 @@
       "subscription": "Subscription",
       "topup": "Top-up"
     },
+    "detail": {
+      "balanceAfter": "Balance after",
+      "billingMetric": "Billing metric",
+      "consumedCredits": "Consumed credits",
+      "creditsPerUnit": "Credits per unit",
+      "emptyBreakdown": "No metric breakdown is attached to this ledger entry.",
+      "rawAmount": "Raw amount",
+      "roundingMode": "Rounding mode",
+      "scene": "Usage scene",
+      "sourceBid": "Source reference",
+      "title": "Usage details",
+      "unitSize": "Unit size",
+      "usageBid": "Usage bid"
+    },
     "empty": "No wallet buckets yet. Credits will appear here after your first grant.",
     "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
     "entriesTitle": "Ledger entries",
+    "entryType": {
+      "adjustment": "Adjustment",
+      "consume": "Consume",
+      "expire": "Expire",
+      "grant": "Grant",
+      "hold": "Hold",
+      "refund": "Refund",
+      "release": "Release"
+    },
     "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
     "neverExpires": "Never expires",
+    "pagination": {
+      "page": "Page {{page}} / {{pageCount}} · {{total}} entries"
+    },
     "source": {
       "gift": "Gift credits",
       "manual": "Manual adjustment",
@@ -93,27 +119,79 @@
       "totalAvailable": "Bucket credits"
     },
     "table": {
+      "action": "Action",
+      "amount": "Amount",
       "availableCredits": "Available credits",
+      "balanceAfter": "Balance after",
+      "createdAt": "Created at",
+      "detail": "Details",
       "effectiveWindow": "Effective window",
+      "entryType": "Entry type",
       "priority": "Priority",
       "source": "Source",
       "status": "Status"
     },
-    "title": "Credit Activity"
+    "title": "Credit Activity",
+    "usageScene": {
+      "debug": "Debug",
+      "preview": "Preview",
+      "production": "Production"
+    }
   },
   "navTitle": "Membership & Credits",
   "orders": {
-    "description": "Billing orders and payment details will appear here after checkout and sync are connected.",
-    "title": "Payments"
+    "actions": {
+      "sync": "Sync status"
+    },
+    "description": "Review billing order status and trigger a manual sync when a payment provider callback is delayed.",
+    "empty": "No billing orders yet. Purchases and renewals will appear here.",
+    "loadError": "Billing orders could not be loaded. Refresh and try again.",
+    "pagination": {
+      "page": "Page {{page}} / {{pageCount}} · {{total}} orders"
+    },
+    "status": {
+      "canceled": "Canceled",
+      "failed": "Failed",
+      "init": "Initialized",
+      "paid": "Paid",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "timeout": "Timed out"
+    },
+    "syncSuccess": "Order status refreshed: {{status}}",
+    "table": {
+      "amount": "Amount",
+      "createdAt": "Created at",
+      "failure": "Failure",
+      "order": "Order",
+      "provider": "Provider",
+      "status": "Status",
+      "sync": "Sync"
+    },
+    "title": "Payments",
+    "type": {
+      "manual": "Manual order",
+      "refund": "Refund order",
+      "subscriptionRenewal": "Subscription renewal",
+      "subscriptionStart": "Subscription start",
+      "subscriptionUpgrade": "Subscription upgrade",
+      "topup": "Top-up order"
+    }
   },
   "overview": {
     "actions": {
+      "cancelSubscription": "Cancel at period end",
       "choosePlan": "Choose a plan",
       "managePlan": "Manage your plan",
+      "resumeSubscription": "Resume subscription",
       "topupCredits": "Top up credits",
       "watchRenewal": "Watch upcoming renewal"
     },
     "availableCreditsLabel": "Available credits",
+    "feedback": {
+      "cancelSuccess": "Subscription will cancel at the end of the current period.",
+      "resumeSuccess": "Subscription renewal has been restored."
+    },
     "loadError": "Billing data could not be loaded. Refresh and try again.",
     "nextActionLabel": "Next action",
     "pendingValue": "Coming soon",
