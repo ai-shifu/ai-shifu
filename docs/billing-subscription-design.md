@@ -605,6 +605,7 @@ v1 的改造要求：
 当前批次最小实现要求：
 
 - 先落 `models.py`、`consts.py`、`funcs.py`、`routes.py` 和迁移脚本，支撑 creator billing 的查询、checkout、sync、webhook 和 paid success 入账
+- 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/4fd52d0d9a01_add_billing_core_tables.py` 落地
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
