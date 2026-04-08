@@ -661,6 +661,7 @@ v1 的改造要求：
 - 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
 - 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 会把 refund return 新增为 `free` bucket + `refund` ledger，不回原 bucket
 - 当前实现中，admission 前置拦截只认可“当前可消费”的 bucket：必须 `status=active`、`available_credits>0`、`effective_from<=now` 且 `effective_to>now/null`；已到期 bucket、未来生效 bucket 和失效订阅都不会放行 learn / preview / debug 请求
+- 当前实现中，`replay_bill_usage_settlement` / `billing.replay_usage_settlement` 已落地：重放时会复用既有 usage 幂等检查，已结算 usage 返回 `already_settled` 而不会重复扣分；若传入的 `creator_bid` 与 usage 实际归属不一致，则直接返回 `creator_mismatch`
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：

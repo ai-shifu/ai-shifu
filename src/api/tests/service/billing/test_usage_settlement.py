@@ -29,7 +29,10 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.settlement import settle_bill_usage
+from flaskr.service.billing.settlement import (
+    replay_bill_usage_settlement,
+    settle_bill_usage,
+)
 from flaskr.service.billing.wallets import persist_credit_wallet_snapshot
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -843,3 +846,98 @@ def test_persist_credit_wallet_snapshot_rejects_stale_version(
             )
 
         dao.db.session.rollback()
+
+
+def test_replay_bill_usage_settlement_keeps_existing_consumption_idempotent(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-replay-1",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-replay-1", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-replay-1",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-replay-1",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-replay-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="1.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-replay-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        first = settle_bill_usage(billing_settlement_app, usage_bid="usage-replay-1")
+        second = replay_bill_usage_settlement(
+            billing_settlement_app,
+            creator_bid="creator-replay-1",
+            usage_bid="usage-replay-1",
+        )
+
+        entries = CreditLedgerEntry.query.filter_by(source_bid="usage-replay-1").all()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-replay-1").one()
+
+        assert first["status"] == "settled"
+        assert second["status"] == "already_settled"
+        assert second["replay"] is True
+        assert len(entries) == 1
+        assert wallet.available_credits == Decimal("2.0000000000")
+
+
+def test_replay_bill_usage_settlement_rejects_creator_mismatch(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-replay-real",
+    )
+
+    with billing_settlement_app.app_context():
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-replay-mismatch",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = replay_bill_usage_settlement(
+            billing_settlement_app,
+            creator_bid="creator-replay-wrong",
+            usage_bid="usage-replay-mismatch",
+        )
+
+        assert payload["status"] == "creator_mismatch"
+        assert payload["creator_bid"] == "creator-replay-real"
+        assert payload["requested_creator_bid"] == "creator-replay-wrong"
+        assert payload["replay"] is True

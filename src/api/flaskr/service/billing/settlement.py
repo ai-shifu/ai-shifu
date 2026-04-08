@@ -255,6 +255,53 @@ def settle_bill_usage(
             }
 
 
+def replay_bill_usage_settlement(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    usage_bid: str = "",
+    usage_id: int | None = None,
+) -> dict[str, Any]:
+    """Replay a usage settlement safely without duplicating credit consumption."""
+
+    requested_creator_bid = str(creator_bid or "").strip() or None
+    normalized_usage_bid = str(usage_bid or "").strip()
+    with app.app_context():
+        usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
+        if usage is None:
+            return {
+                "status": "not_found",
+                "usage_bid": normalized_usage_bid or None,
+                "usage_id": usage_id,
+                "requested_creator_bid": requested_creator_bid,
+                "replay": True,
+            }
+
+        resolved_creator_bid = str(resolve_usage_creator_bid(app, usage) or "").strip()
+        if (
+            requested_creator_bid is not None
+            and resolved_creator_bid
+            and requested_creator_bid != resolved_creator_bid
+        ):
+            return {
+                "status": "creator_mismatch",
+                "usage_bid": usage.usage_bid,
+                "usage_id": int(usage.id or 0),
+                "creator_bid": resolved_creator_bid,
+                "requested_creator_bid": requested_creator_bid,
+                "replay": True,
+            }
+
+    payload = settle_bill_usage(
+        app,
+        usage_bid=normalized_usage_bid,
+        usage_id=usage_id,
+    )
+    payload["requested_creator_bid"] = requested_creator_bid
+    payload["replay"] = True
+    return payload
+
+
 @contextmanager
 def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
     normalized_creator_bid = str(creator_bid or "").strip()

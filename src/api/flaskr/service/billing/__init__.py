@@ -20,5 +20,5 @@ from .ownership import (  # noqa: F401
     resolve_shifu_creator_bid,
     resolve_usage_creator_bid,
 )
-from .settlement import settle_bill_usage  # noqa: F401
-from .tasks import settle_usage_task  # noqa: F401
+from .settlement import replay_bill_usage_settlement, settle_bill_usage  # noqa: F401
+from .tasks import replay_usage_settlement_task, settle_usage_task  # noqa: F401
