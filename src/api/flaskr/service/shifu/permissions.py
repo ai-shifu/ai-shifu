@@ -6,7 +6,7 @@ from typing import Dict, Set
 from flask import Flask
 
 from flaskr.dao import db
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 
 
 DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
@@ -66,6 +66,19 @@ def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
             .all()
         )
         for (shifu_bid,) in created_shifus:
+            if shifu_bid:
+                permission_map[shifu_bid] = set(DEFAULT_SHIFU_PERMISSIONS)
+
+        published_shifus = (
+            db.session.query(PublishedShifu.shifu_bid)
+            .filter(
+                PublishedShifu.created_user_bid == user_id,
+                PublishedShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        for (shifu_bid,) in published_shifus:
             if shifu_bid:
                 permission_map[shifu_bid] = set(DEFAULT_SHIFU_PERMISSIONS)
 

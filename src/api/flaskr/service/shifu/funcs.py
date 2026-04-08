@@ -18,10 +18,10 @@ import requests
 from io import BytesIO
 from urllib.parse import urlparse
 import re
-from .models import DraftShifu
 from ...service.resource.models import Resource
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
 from flaskr.service.common.storage import upload_to_storage
+from .utils import get_shifu_creator_bid
 
 
 def mark_favorite_shifu(app, user_id: str, shifu_id: str):
@@ -277,11 +277,8 @@ def shifu_permission_verification(
             except (json.JSONDecodeError, TypeError):
                 redis.delete(cache_key)
         # If it is not in the cache, query the database
-        shifu = DraftShifu.query.filter(
-            DraftShifu.shifu_bid == shifu_id,
-            DraftShifu.created_user_bid == user_id,
-        ).first()
-        if shifu:
+        creator_bid = get_shifu_creator_bid(app, shifu_id)
+        if creator_bid and creator_bid == user_id:
             # The creator has all the permissions
             # Cache all permissions
             all_auth_types = ["view", "edit", "publish"]
