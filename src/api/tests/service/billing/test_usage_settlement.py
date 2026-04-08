@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 from flask import Flask
 import pytest
@@ -676,3 +677,138 @@ def test_settle_usage_skips_segment_and_non_billable_records(
         assert non_billable_payload["status"] == "skipped"
         assert non_billable_payload["reason"] == "non_billable"
         assert CreditLedgerEntry.query.count() == 0
+
+
+def test_settle_usage_acquires_creator_scoped_lock(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _DummyLock:
+        def __init__(self) -> None:
+            self.acquire_calls: list[bool] = []
+            self.release_calls = 0
+
+        def acquire(self, blocking: bool = True, blocking_timeout=None):
+            self.acquire_calls.append(bool(blocking))
+            return True
+
+        def release(self) -> None:
+            self.release_calls += 1
+
+    class _DummyCacheProvider:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.lock_instance = _DummyLock()
+
+        def lock(self, key: str, timeout=None, blocking_timeout=None):
+            self.calls.append(
+                {
+                    "key": key,
+                    "timeout": timeout,
+                    "blocking_timeout": blocking_timeout,
+                }
+            )
+            return self.lock_instance
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-lock-1",
+    )
+    dummy_cache = _DummyCacheProvider()
+    monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
+    billing_settlement_app.config["REDIS_KEY_PREFIX"] = "billing-test"
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-lock-1", "2.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-lock-1",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-lock-1",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="2.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-lock-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="1.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-lock-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-lock-1")
+
+        assert payload["status"] == "settled"
+        assert dummy_cache.calls == [
+            {
+                "key": "billing-test:billing:settle_usage:creator-lock-1",
+                "timeout": 60,
+                "blocking_timeout": 60,
+            }
+        ]
+        assert dummy_cache.lock_instance.acquire_calls == [True]
+        assert dummy_cache.lock_instance.release_calls == 1
+
+
+def test_settle_usage_releases_creator_lock_on_error(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _DummyLock:
+        def __init__(self) -> None:
+            self.release_calls = 0
+
+        def acquire(self, blocking: bool = True, blocking_timeout=None):
+            return True
+
+        def release(self) -> None:
+            self.release_calls += 1
+
+    lock = _DummyLock()
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.cache_provider",
+        SimpleNamespace(lock=lambda *args, **kwargs: lock),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-lock-err",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement._build_usage_metric_charges",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("lock-test-error")),
+    )
+
+    with billing_settlement_app.app_context():
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-lock-error",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1000,
+                input_cache=0,
+                output=0,
+                total=1000,
+            )
+        )
+        dao.db.session.commit()
+
+        with pytest.raises(RuntimeError, match="lock-test-error"):
+            settle_bill_usage(billing_settlement_app, usage_bid="usage-lock-error")
+
+        assert lock.release_calls == 1

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Any
 
 from flask import Flask
 
+from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
@@ -35,6 +37,8 @@ from .wallets import refresh_credit_wallet_snapshot, sync_credit_bucket_status
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
+_SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
+_SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 _ROUNDING_LABELS = {
     CREDIT_ROUNDING_MODE_CEIL: "ceil",
     CREDIT_ROUNDING_MODE_FLOOR: "floor",
@@ -71,136 +75,145 @@ def settle_bill_usage(
         if not creator_bid:
             return _build_skip_result(usage, reason="creator_not_found")
 
-        existing_entries = (
-            CreditLedgerEntry.query.filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.creator_bid == creator_bid,
-                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
-                CreditLedgerEntry.source_bid == usage.usage_bid,
+        with _usage_settlement_lock(
+            app,
+            creator_bid=creator_bid,
+            usage_bid=usage.usage_bid,
+        ):
+            existing_entries = (
+                CreditLedgerEntry.query.filter(
+                    CreditLedgerEntry.deleted == 0,
+                    CreditLedgerEntry.creator_bid == creator_bid,
+                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+                    CreditLedgerEntry.source_bid == usage.usage_bid,
+                )
+                .order_by(CreditLedgerEntry.id.desc())
+                .all()
             )
-            .order_by(CreditLedgerEntry.id.desc())
-            .all()
-        )
-        if existing_entries:
-            return {
-                "status": "already_settled",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": len(existing_entries),
-            }
+            if existing_entries:
+                return {
+                    "status": "already_settled",
+                    "usage_bid": usage.usage_bid,
+                    "creator_bid": creator_bid,
+                    "entry_count": len(existing_entries),
+                }
 
-        settlement_at = usage.created_at or datetime.now()
-        metric_charges = _build_usage_metric_charges(usage, settlement_at=settlement_at)
-        if not metric_charges:
-            wallet = _load_credit_wallet(creator_bid)
-            if wallet is not None:
-                wallet.last_settled_usage_id = max(
-                    int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
-                )
-                wallet.updated_at = datetime.now()
-                db.session.add(wallet)
-                db.session.commit()
-            return {
-                "status": "noop",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": 0,
-                "consumed_credits": 0,
-            }
-
-        wallet = _load_credit_wallet(creator_bid)
-        if wallet is None:
-            return {
-                "status": "insufficient",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": 0,
-                "consumed_credits": _decimal_to_number(
-                    sum(
-                        (
-                            _to_decimal(item["consumed_credits"])
-                            for item in metric_charges
-                        ),
-                        start=_ZERO,
+            settlement_at = usage.created_at or datetime.now()
+            metric_charges = _build_usage_metric_charges(
+                usage,
+                settlement_at=settlement_at,
+            )
+            if not metric_charges:
+                wallet = _load_credit_wallet(creator_bid)
+                if wallet is not None:
+                    wallet.last_settled_usage_id = max(
+                        int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
                     )
-                ),
-            }
+                    wallet.updated_at = datetime.now()
+                    db.session.add(wallet)
+                    db.session.commit()
+                return {
+                    "status": "noop",
+                    "usage_bid": usage.usage_bid,
+                    "creator_bid": creator_bid,
+                    "entry_count": 0,
+                    "consumed_credits": 0,
+                }
 
-        buckets = _load_consumable_buckets(creator_bid, settlement_at=settlement_at)
-        total_required = sum(
-            (_to_decimal(item["consumed_credits"]) for item in metric_charges),
-            start=_ZERO,
-        )
-        total_available = sum(
-            (_to_decimal(bucket.available_credits) for bucket in buckets),
-            start=_ZERO,
-        )
-        if total_required <= _ZERO:
-            return {
-                "status": "noop",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": 0,
-                "consumed_credits": 0,
-            }
-        if total_available < total_required:
-            return {
-                "status": "insufficient",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": 0,
-                "consumed_credits": _decimal_to_number(total_required),
-            }
+            wallet = _load_credit_wallet(creator_bid)
+            if wallet is None:
+                return {
+                    "status": "insufficient",
+                    "usage_bid": usage.usage_bid,
+                    "creator_bid": creator_bid,
+                    "entry_count": 0,
+                    "consumed_credits": _decimal_to_number(
+                        sum(
+                            (
+                                _to_decimal(item["consumed_credits"])
+                                for item in metric_charges
+                            ),
+                            start=_ZERO,
+                        )
+                    ),
+                }
 
-        balance_after = total_available
-        entry_count = 0
-        total_consumed = _ZERO
-        for charge in metric_charges:
-            remaining = _to_decimal(charge["consumed_credits"])
-            for bucket in buckets:
-                bucket_available = _to_decimal(bucket.available_credits)
+            buckets = _load_consumable_buckets(creator_bid, settlement_at=settlement_at)
+            total_required = sum(
+                (_to_decimal(item["consumed_credits"]) for item in metric_charges),
+                start=_ZERO,
+            )
+            total_available = sum(
+                (_to_decimal(bucket.available_credits) for bucket in buckets),
+                start=_ZERO,
+            )
+            if total_required <= _ZERO:
+                return {
+                    "status": "noop",
+                    "usage_bid": usage.usage_bid,
+                    "creator_bid": creator_bid,
+                    "entry_count": 0,
+                    "consumed_credits": 0,
+                }
+            if total_available < total_required:
+                return {
+                    "status": "insufficient",
+                    "usage_bid": usage.usage_bid,
+                    "creator_bid": creator_bid,
+                    "entry_count": 0,
+                    "consumed_credits": _decimal_to_number(total_required),
+                }
+
+            balance_after = total_available
+            entry_count = 0
+            total_consumed = _ZERO
+            for charge in metric_charges:
+                remaining = _to_decimal(charge["consumed_credits"])
+                for bucket in buckets:
+                    bucket_available = _to_decimal(bucket.available_credits)
+                    if remaining <= _ZERO:
+                        break
+                    if bucket_available <= _ZERO:
+                        continue
+
+                    consumed = min(bucket_available, remaining)
+                    balance_after -= consumed
+                    remaining -= consumed
+                    total_consumed += consumed
+                    bucket.available_credits = bucket_available - consumed
+                    bucket.consumed_credits = (
+                        _to_decimal(bucket.consumed_credits) + consumed
+                    )
+                    sync_credit_bucket_status(bucket)
+                    db.session.add(bucket)
+
+                    ledger_entry = CreditLedgerEntry(
+                        ledger_bid=generate_id(app),
+                        creator_bid=creator_bid,
+                        wallet_bid=wallet.wallet_bid,
+                        wallet_bucket_bid=bucket.wallet_bucket_bid,
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid=usage.usage_bid,
+                        idempotency_key=(
+                            f"usage:{usage.usage_bid}:{charge['billing_metric']}:"
+                            f"{bucket.wallet_bucket_bid}:consume"
+                        ),
+                        amount=-consumed,
+                        balance_after=balance_after,
+                        expires_at=bucket.effective_to,
+                        consumable_from=bucket.effective_from,
+                        metadata_json=_build_usage_entry_metadata(
+                            usage=usage,
+                            charge=charge,
+                            consumed=consumed,
+                        ),
+                    )
+                    db.session.add(ledger_entry)
+                    entry_count += 1
+
                 if remaining <= _ZERO:
-                    break
-                if bucket_available <= _ZERO:
                     continue
-
-                consumed = min(bucket_available, remaining)
-                balance_after -= consumed
-                remaining -= consumed
-                total_consumed += consumed
-                bucket.available_credits = bucket_available - consumed
-                bucket.consumed_credits = (
-                    _to_decimal(bucket.consumed_credits) + consumed
-                )
-                sync_credit_bucket_status(bucket)
-                db.session.add(bucket)
-
-                ledger_entry = CreditLedgerEntry(
-                    ledger_bid=generate_id(app),
-                    creator_bid=creator_bid,
-                    wallet_bid=wallet.wallet_bid,
-                    wallet_bucket_bid=bucket.wallet_bucket_bid,
-                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-                    source_type=CREDIT_SOURCE_TYPE_USAGE,
-                    source_bid=usage.usage_bid,
-                    idempotency_key=(
-                        f"usage:{usage.usage_bid}:{charge['billing_metric']}:"
-                        f"{bucket.wallet_bucket_bid}:consume"
-                    ),
-                    amount=-consumed,
-                    balance_after=balance_after,
-                    expires_at=bucket.effective_to,
-                    consumable_from=bucket.effective_from,
-                    metadata_json=_build_usage_entry_metadata(
-                        usage=usage,
-                        charge=charge,
-                        consumed=consumed,
-                    ),
-                )
-                db.session.add(ledger_entry)
-                entry_count += 1
-
-            if remaining > _ZERO:
                 db.session.rollback()
                 return {
                     "status": "insufficient",
@@ -210,24 +223,47 @@ def settle_bill_usage(
                     "consumed_credits": _decimal_to_number(total_required),
                 }
 
-        refresh_credit_wallet_snapshot(wallet)
-        wallet.lifetime_consumed_credits = (
-            _to_decimal(wallet.lifetime_consumed_credits) + total_consumed
-        )
-        wallet.last_settled_usage_id = max(
-            int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
-        )
-        wallet.version = int(wallet.version or 0) + 1
-        wallet.updated_at = datetime.now()
-        db.session.add(wallet)
-        db.session.commit()
-        return {
-            "status": "settled",
-            "usage_bid": usage.usage_bid,
-            "creator_bid": creator_bid,
-            "entry_count": entry_count,
-            "consumed_credits": _decimal_to_number(total_consumed),
-        }
+            refresh_credit_wallet_snapshot(wallet)
+            wallet.lifetime_consumed_credits = (
+                _to_decimal(wallet.lifetime_consumed_credits) + total_consumed
+            )
+            wallet.last_settled_usage_id = max(
+                int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
+            )
+            wallet.version = int(wallet.version or 0) + 1
+            wallet.updated_at = datetime.now()
+            db.session.add(wallet)
+            db.session.commit()
+            return {
+                "status": "settled",
+                "usage_bid": usage.usage_bid,
+                "creator_bid": creator_bid,
+                "entry_count": entry_count,
+                "consumed_credits": _decimal_to_number(total_consumed),
+            }
+
+
+@contextmanager
+def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_usage_bid = str(usage_bid or "").strip()
+    lock_scope = normalized_creator_bid or f"usage:{normalized_usage_bid}"
+    prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+    lock_key = f"{prefix}:billing:settle_usage:{lock_scope}"
+    lock = cache_provider.lock(
+        lock_key,
+        timeout=_SETTLEMENT_LOCK_TIMEOUT_SECONDS,
+        blocking_timeout=_SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS,
+    )
+    acquired = bool(lock.acquire(blocking=True)) if lock is not None else False
+    try:
+        yield
+    finally:
+        if acquired and lock is not None:
+            try:
+                lock.release()
+            except Exception:
+                pass
 
 
 def _load_usage_record(
