@@ -635,6 +635,7 @@ v1 的改造要求：
 - 是否真正扣费不再由 metering 常量决定，而由 billing service 的 admission / settlement 规则决定
 - `record_llm_usage` / `record_tts_usage` 继续只负责原始 usage 落库，不直接承担 creator 账务逻辑
 - 结算层新增 `creator ownership resolver`，把 `shifu_bid -> creator_bid` 固化给 billing settlement 使用
+- 当前实现将该边界收敛到 `src/api/flaskr/service/billing/ownership.py`，由 billing 域统一复用 `resolve_shifu_creator_bid` / `resolve_usage_creator_bid`
 
 ### 5.3 Learn / Preview / Debug 入口改造
 

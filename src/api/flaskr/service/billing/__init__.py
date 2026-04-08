@@ -9,3 +9,7 @@ from .models import (  # noqa: F401
     CreditWallet,
     CreditWalletBucket,
 )
+from .ownership import (  # noqa: F401
+    resolve_shifu_creator_bid,
+    resolve_usage_creator_bid,
+)
