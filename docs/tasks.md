@@ -27,8 +27,8 @@
 - [x] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
 - [x] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
 - [x] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
-- [ ] 实现 `/billing/webhooks/stripe`、`/billing/webhooks/pingxx`，复用现有 Stripe/Pingxx callback 能力，并确保 `billing_orders` 状态机幂等。
-- [ ] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
+- [x] 复用现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 处理 billing webhook，并确保 `billing_orders` 状态机幂等。
+- [x] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
 - [ ] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
 - [ ] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。
 
@@ -72,13 +72,13 @@
 - [ ] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
 - [ ] 实现 subscription checkout、cancel、resume 和退款流程。
 - [ ] 实现 topup checkout 与到账流程。
-- [ ] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
-- [ ] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
-- [ ] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
-- [ ] 在 `billing_orders.metadata` 中仅保留最近一次 provider 原始 payload 与事件摘要。
-- [ ] 实现找不到关联订单的 webhook ignore 策略，并依赖 sync/reconcile 补偿。
+- [x] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
+- [x] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
+- [x] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
+- [x] 在 `billing_orders.metadata` 中仅保留最近一次 provider 原始 payload 与事件摘要。
+- [x] 实现找不到关联订单的 webhook ignore 策略，并依赖 sync/reconcile 补偿。
 - [ ] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
-- [ ] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
+- [x] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
 
 ### 计量与结算
 

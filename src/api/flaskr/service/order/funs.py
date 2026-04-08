@@ -1007,6 +1007,15 @@ def handle_stripe_webhook(
     event_type = notification.status
     data_object = event.get("data", {}).get("object", {}) or {}
     metadata = data_object.get("metadata", {}) or {}
+    billing_order_bid = metadata.get("billing_order_bid", "")
+    is_billing_subscription_event = bool(
+        data_object.get("subscription")
+        or str(data_object.get("id") or "").startswith("sub_")
+    )
+    if billing_order_bid or is_billing_subscription_event:
+        from flaskr.service.billing.funcs import apply_billing_stripe_notification
+
+        return apply_billing_stripe_notification(app, notification)
     order_bid = notification.order_bid or metadata.get("order_bid", "")
 
     if not order_bid:

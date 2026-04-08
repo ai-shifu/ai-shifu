@@ -835,7 +835,7 @@ v1 需要新增：
 
 - 旧 `/order` 保持不变，只说明“不复用其表结构”
 - 新 `/billing` 接口继续独立
-- `/billing/webhooks/stripe`、`/billing/webhooks/pingxx` 统一复用现有 Stripe/Pingxx callback 能力与 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
+- 现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 继续作为 provider callback 入口，统一复用 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
 - `/api/config` 在 v1 继续保持全局配置输出，不承载 creator-scoped branding
 
 ### 7.4 内部支付接口契约
@@ -1064,8 +1064,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/subscriptions/cancel`
 - `POST /billing/subscriptions/resume`
 - `POST /billing/topups/checkout`
-- `POST /billing/webhooks/stripe`
-- `POST /billing/webhooks/pingxx`
+- `POST /order/stripe/webhook`
+- `POST /callback/pingxx-callback`
 - `GET /admin/billing/subscriptions`
 - `GET /admin/billing/orders`
 - `POST /admin/billing/ledger/adjust`
@@ -1083,7 +1083,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/topups/checkout`：发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
-- `POST /billing/webhooks/stripe` / `POST /billing/webhooks/pingxx`：负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，并把最近原始 payload 覆盖写入关联 `billing_orders.metadata`
+- `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，并把最近原始 payload 覆盖写入关联 `billing_orders.metadata`
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
 

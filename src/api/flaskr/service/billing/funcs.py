@@ -19,6 +19,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
+    PaymentNotificationResult,
     PaymentRequest,
     get_payment_provider,
 )
@@ -27,10 +28,13 @@ from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_INTERVAL_LABELS,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_LABELS,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_LABELS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
@@ -88,6 +92,40 @@ _SUBSCRIPTION_STATUS_SORT = {
     BILLING_SUBSCRIPTION_STATUS_EXPIRED: 7,
 }
 
+_STRIPE_SUCCESS_EVENT_TYPES = {
+    "payment_intent.succeeded",
+    "checkout.session.completed",
+}
+
+_STRIPE_FAIL_EVENT_TYPES = {
+    "payment_intent.payment_failed",
+}
+
+_STRIPE_REFUND_EVENT_TYPES = {
+    "charge.refunded",
+    "refund.created",
+}
+
+_STRIPE_CANCEL_EVENT_TYPES = {
+    "payment_intent.canceled",
+}
+
+_STRIPE_SUBSCRIPTION_EVENT_TYPES = {
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+}
+
+_STRIPE_SUBSCRIPTION_STATUS_MAP = {
+    "active": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    "trialing": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    "past_due": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    "unpaid": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    "paused": BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    "canceled": BILLING_SUBSCRIPTION_STATUS_CANCELED,
+    "incomplete_expired": BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+}
+
 
 def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
     """Return the billing route manifest defined by the design doc."""
@@ -107,8 +145,6 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
         {"method": "POST", "path": f"{path_prefix}/subscriptions/cancel"},
         {"method": "POST", "path": f"{path_prefix}/subscriptions/resume"},
         {"method": "POST", "path": f"{path_prefix}/topups/checkout"},
-        {"method": "POST", "path": f"{path_prefix}/webhooks/stripe"},
-        {"method": "POST", "path": f"{path_prefix}/webhooks/pingxx"},
     ]
     admin_routes = [
         {"method": "GET", "path": "/api/admin/billing/subscriptions"},
@@ -124,7 +160,7 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
         "notes": [
             "Registered via plugin route loading from flaskr/service.",
             "Keeps creator billing separate from legacy /order tables and routes.",
-            "Concrete schema, checkout, sync, webhook, and ledger behavior lands in later tasks.",
+            "Stripe/Pingxx provider callbacks are reused from legacy webhook endpoints.",
         ],
     }
 
@@ -553,6 +589,195 @@ def sync_billing_order(
         raise_error("server.order.orderStatusError")
 
 
+def handle_billing_stripe_webhook(
+    app: Flask,
+    raw_body: bytes,
+    sig_header: str,
+) -> tuple[dict[str, Any], int]:
+    """Handle Stripe billing webhooks using the shared provider verifier."""
+
+    provider = get_payment_provider("stripe")
+    try:
+        notification: PaymentNotificationResult = provider.handle_notification(
+            payload={"raw_body": raw_body, "sig_header": sig_header},
+            app=app,
+        )
+    except Exception as exc:  # pragma: no cover - verified via route tests
+        app.logger.exception("Stripe billing webhook verification failed: %s", exc)
+        return {"status": "error", "message": str(exc)}, 400
+
+    return apply_billing_stripe_notification(app, notification)
+
+
+def apply_billing_stripe_notification(
+    app: Flask,
+    notification: PaymentNotificationResult,
+) -> tuple[dict[str, Any], int]:
+    """Apply a normalized Stripe notification to billing state."""
+
+    event = notification.provider_payload or {}
+    event_type = str(notification.status or event.get("type") or "")
+    data_object = event.get("data", {}).get("object", {}) or {}
+    metadata = data_object.get("metadata", {}) or {}
+    billing_order_bid = _normalize_bid(
+        metadata.get("billing_order_bid")
+        or notification.order_bid
+        or metadata.get("order_bid")
+    )
+
+    with app.app_context():
+        order = _load_billing_order_for_stripe_event(
+            billing_order_bid=billing_order_bid,
+            data_object=data_object,
+        )
+        subscription = _load_billing_subscription_for_stripe_event(
+            order=order,
+            data_object=data_object,
+            metadata=metadata,
+        )
+        if order is None and subscription is not None:
+            order = _load_latest_billing_order_by_subscription(
+                subscription.subscription_bid
+            )
+
+        if order is None and subscription is None:
+            app.logger.warning(
+                "Billing Stripe webhook ignored. event_type=%s billing_order_bid=%s",
+                event_type,
+                billing_order_bid,
+            )
+            return (
+                {
+                    "status": "ignored",
+                    "event_type": event_type,
+                    "billing_order_bid": billing_order_bid or None,
+                },
+                202,
+            )
+
+        response_status = "acknowledged"
+        if order is not None:
+            target_status = _map_stripe_order_status(event_type)
+            applied = _apply_billing_order_provider_update(
+                order,
+                provider="stripe",
+                event_type=event_type,
+                source="webhook",
+                payload=event,
+                provider_reference_id=_extract_stripe_provider_reference(
+                    order=order,
+                    event_type=event_type,
+                    data_object=data_object,
+                ),
+                target_status=target_status,
+                failure_code=_extract_stripe_failure_code(data_object),
+                failure_message=_extract_stripe_failure_message(data_object),
+            )
+            if target_status == BILLING_ORDER_STATUS_PAID:
+                response_status = "paid"
+            elif target_status == BILLING_ORDER_STATUS_FAILED:
+                response_status = "failed" if applied else "acknowledged"
+            elif target_status == BILLING_ORDER_STATUS_REFUNDED:
+                response_status = "refunded" if applied else "acknowledged"
+            elif target_status == BILLING_ORDER_STATUS_CANCELED:
+                response_status = "canceled" if applied else "acknowledged"
+
+        if subscription is not None:
+            if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
+                _apply_billing_subscription_provider_update(
+                    subscription,
+                    provider="stripe",
+                    event_type=event_type,
+                    payload=event,
+                    data_object=data_object,
+                )
+            elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_PAID:
+                _apply_subscription_checkout_success(
+                    subscription,
+                    payload={
+                        **data_object,
+                        "created": event.get("created"),
+                    },
+                    provider="stripe",
+                    event_type=event_type,
+                )
+            elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_FAILED:
+                _apply_subscription_checkout_failure(
+                    subscription,
+                    provider="stripe",
+                    event_type=event_type,
+                    payload=event,
+                )
+
+        db.session.commit()
+        return (
+            {
+                "status": response_status,
+                "event_type": event_type,
+                "billing_order_bid": order.billing_order_bid if order else None,
+                "subscription_bid": (
+                    subscription.subscription_bid if subscription else None
+                ),
+            },
+            200,
+        )
+
+
+def handle_billing_pingxx_webhook(
+    app: Flask,
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """Handle Pingxx billing callbacks using the shared billing state machine."""
+
+    event_type = str((payload or {}).get("type", "") or "")
+    charge = (payload or {}).get("data", {}).get("object", {}) or {}
+    charge_id = _normalize_bid(charge.get("id"))
+    order_no = _normalize_bid(charge.get("order_no"))
+
+    with app.app_context():
+        order = _load_billing_order_for_pingxx_event(
+            charge_id=charge_id,
+            order_no=order_no,
+        )
+        if order is None:
+            return (
+                {
+                    "status": "not_billing",
+                    "matched": False,
+                    "event_type": event_type or None,
+                    "charge_id": charge_id or None,
+                    "order_no": order_no or None,
+                },
+                202,
+            )
+
+        target_status = None
+        if event_type == "charge.succeeded":
+            target_status = BILLING_ORDER_STATUS_PAID
+
+        _apply_billing_order_provider_update(
+            order,
+            provider="pingxx",
+            event_type=event_type,
+            source="webhook",
+            payload=payload,
+            provider_reference_id=charge_id or order.provider_reference_id,
+            target_status=target_status,
+        )
+        db.session.commit()
+        return (
+            {
+                "status": "paid"
+                if target_status == BILLING_ORDER_STATUS_PAID
+                else "acknowledged",
+                "matched": True,
+                "event_type": event_type or None,
+                "billing_order_bid": order.billing_order_bid,
+            },
+            200,
+        )
+
+
 def normalize_pagination(page_index: int, page_size: int) -> tuple[int, int]:
     """Normalize list pagination parameters to the shared admin defaults."""
 
@@ -641,6 +866,10 @@ def _create_provider_checkout(
         provider_options["session_params"] = {
             "mode": "subscription" if payment_mode == "subscription" else "payment",
         }
+        if payment_mode == "subscription":
+            provider_options["session_params"]["subscription_data"] = {
+                "metadata": metadata
+            }
         provider_options["line_items"] = [
             _build_stripe_line_item(product, payment_mode=payment_mode)
         ]
@@ -754,30 +983,40 @@ def _sync_stripe_order(
     intent_id = session.get("payment_intent") or ""
     if intent_id:
         intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+    target_status = BILLING_ORDER_STATUS_PENDING
+    failure_code = ""
+    failure_message = ""
+    if _is_stripe_checkout_paid(session, intent):
+        target_status = BILLING_ORDER_STATUS_PAID
+    elif session.get("status") == "expired":
+        target_status = BILLING_ORDER_STATUS_FAILED
+        failure_code = "expired"
+        failure_message = "Stripe checkout session expired"
 
-    order.provider_reference_id = str(session.get("id") or resolved_session_id)
-    order.metadata_json = _normalize_json_value(
-        {
-            "provider": "stripe",
-            "sync_source": "manual",
+    _apply_billing_order_provider_update(
+        order,
+        provider="stripe",
+        event_type="manual_sync",
+        source="sync",
+        payload={
             "checkout_session": session,
             "payment_intent": intent or {},
-        }
+        },
+        provider_reference_id=str(session.get("id") or resolved_session_id),
+        target_status=target_status,
+        failure_code=failure_code,
+        failure_message=failure_message,
     )
-
-    if _is_stripe_checkout_paid(session, intent):
-        order.status = BILLING_ORDER_STATUS_PAID
-        order.paid_amount = int(order.payable_amount or 0)
-        order.paid_at = order.paid_at or datetime.now()
-        return
-
-    if session.get("status") == "expired":
-        order.status = BILLING_ORDER_STATUS_FAILED
-        order.failure_code = "expired"
-        order.failure_message = "Stripe checkout session expired"
-        return
-
-    order.status = BILLING_ORDER_STATUS_PENDING
+    if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            _apply_subscription_checkout_success(
+                subscription,
+                payload=session,
+                provider="stripe",
+                event_type="manual_sync",
+                source="sync",
+            )
 
 
 def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
@@ -786,21 +1025,493 @@ def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
         raise_error("server.order.orderNotFound")
 
     charge = provider.retrieve_charge(charge_id=order.provider_reference_id, app=app)
-    order.metadata_json = _normalize_json_value(
-        {
-            "provider": "pingxx",
-            "sync_source": "manual",
-            "charge": charge,
-        }
+    target_status = BILLING_ORDER_STATUS_PENDING
+    if charge.get("paid") or charge.get("time_paid"):
+        target_status = BILLING_ORDER_STATUS_PAID
+
+    _apply_billing_order_provider_update(
+        order,
+        provider="pingxx",
+        event_type="manual_sync",
+        source="sync",
+        payload={"charge": charge},
+        provider_reference_id=str(charge.get("id") or order.provider_reference_id),
+        target_status=target_status,
     )
 
-    if charge.get("paid") or charge.get("time_paid"):
-        order.status = BILLING_ORDER_STATUS_PAID
-        order.paid_amount = int(order.payable_amount or 0)
-        order.paid_at = order.paid_at or datetime.now()
-        return
 
-    order.status = BILLING_ORDER_STATUS_PENDING
+def _load_billing_order_for_stripe_event(
+    *,
+    billing_order_bid: str,
+    data_object: dict[str, Any],
+) -> BillingOrder | None:
+    query = BillingOrder.query.filter(BillingOrder.deleted == 0)
+    if billing_order_bid:
+        return (
+            query.filter(BillingOrder.billing_order_bid == billing_order_bid)
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+
+    provider_reference_id = _normalize_bid(data_object.get("id"))
+    if provider_reference_id.startswith("cs_"):
+        return (
+            query.filter(
+                BillingOrder.payment_provider == "stripe",
+                BillingOrder.provider_reference_id == provider_reference_id,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+    return None
+
+
+def _load_billing_subscription_for_stripe_event(
+    *,
+    order: BillingOrder | None,
+    data_object: dict[str, Any],
+    metadata: dict[str, Any],
+) -> BillingSubscription | None:
+    if order is not None and order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            return subscription
+
+    subscription_bid = _normalize_bid(metadata.get("subscription_bid"))
+    if subscription_bid:
+        subscription = _load_subscription_by_bid(subscription_bid)
+        if subscription is not None:
+            return subscription
+
+    provider_subscription_id = _normalize_bid(
+        data_object.get("subscription")
+        or (
+            data_object.get("id")
+            if str(data_object.get("id") or "").startswith("sub_")
+            else ""
+        )
+    )
+    if provider_subscription_id:
+        return (
+            BillingSubscription.query.filter(
+                BillingSubscription.deleted == 0,
+                BillingSubscription.billing_provider == "stripe",
+                BillingSubscription.provider_subscription_id
+                == provider_subscription_id,
+            )
+            .order_by(BillingSubscription.id.desc())
+            .first()
+        )
+    return None
+
+
+def _load_billing_order_for_pingxx_event(
+    *,
+    charge_id: str,
+    order_no: str,
+) -> BillingOrder | None:
+    query = BillingOrder.query.filter(
+        BillingOrder.deleted == 0,
+        BillingOrder.payment_provider == "pingxx",
+    )
+    if charge_id:
+        order = (
+            query.filter(BillingOrder.provider_reference_id == charge_id)
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        if order is not None:
+            return order
+    if order_no:
+        return (
+            query.filter(BillingOrder.billing_order_bid == order_no)
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+    return None
+
+
+def _load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    return (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.subscription_bid == normalized_subscription_bid,
+        )
+        .order_by(BillingSubscription.id.desc())
+        .first()
+    )
+
+
+def _load_latest_billing_order_by_subscription(
+    subscription_bid: str,
+) -> BillingOrder | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.subscription_bid == normalized_subscription_bid,
+        )
+        .order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc())
+        .first()
+    )
+
+
+def _apply_billing_order_provider_update(
+    order: BillingOrder,
+    *,
+    provider: str,
+    event_type: str,
+    source: str,
+    payload: dict[str, Any],
+    provider_reference_id: str,
+    target_status: int | None,
+    failure_code: str = "",
+    failure_message: str = "",
+) -> bool:
+    event_time = _extract_provider_event_time(payload)
+    if provider_reference_id:
+        order.provider_reference_id = provider_reference_id
+    order.metadata_json = _merge_provider_metadata(
+        existing=order.metadata_json,
+        provider=provider,
+        source=source,
+        event_type=event_type,
+        payload=payload,
+        event_time=event_time,
+    )
+
+    if not _can_transition_billing_order_status(
+        current_status=int(order.status or 0),
+        target_status=target_status,
+        source=source,
+    ):
+        return False
+
+    now = event_time or datetime.now()
+    order.status = int(target_status or order.status or 0)
+    order.updated_at = datetime.now()
+    if target_status == BILLING_ORDER_STATUS_PENDING:
+        return True
+    if target_status == BILLING_ORDER_STATUS_PAID:
+        order.paid_amount = int(order.payable_amount or 0)
+        order.paid_at = order.paid_at or now
+        order.failed_at = None
+        order.failure_code = ""
+        order.failure_message = ""
+        return True
+    if target_status == BILLING_ORDER_STATUS_FAILED:
+        order.failed_at = order.failed_at or now
+        order.failure_code = failure_code or order.failure_code
+        order.failure_message = failure_message or order.failure_message
+        return True
+    if target_status == BILLING_ORDER_STATUS_REFUNDED:
+        order.refunded_at = order.refunded_at or now
+        return True
+    if target_status in {
+        BILLING_ORDER_STATUS_CANCELED,
+        BILLING_ORDER_STATUS_TIMEOUT,
+    }:
+        order.failed_at = order.failed_at or now
+        return True
+    return True
+
+
+def _can_transition_billing_order_status(
+    *,
+    current_status: int,
+    target_status: int | None,
+    source: str,
+) -> bool:
+    if target_status is None or current_status == target_status:
+        return False
+    if current_status == BILLING_ORDER_STATUS_REFUNDED:
+        return False
+    if current_status == BILLING_ORDER_STATUS_PAID:
+        return target_status == BILLING_ORDER_STATUS_REFUNDED
+    if current_status in {
+        BILLING_ORDER_STATUS_CANCELED,
+        BILLING_ORDER_STATUS_TIMEOUT,
+    }:
+        return False
+    if current_status == BILLING_ORDER_STATUS_FAILED:
+        return source == "sync" and target_status == BILLING_ORDER_STATUS_PAID
+    return True
+
+
+def _map_stripe_order_status(event_type: str) -> int | None:
+    if event_type in _STRIPE_SUCCESS_EVENT_TYPES:
+        return BILLING_ORDER_STATUS_PAID
+    if event_type in _STRIPE_FAIL_EVENT_TYPES:
+        return BILLING_ORDER_STATUS_FAILED
+    if event_type in _STRIPE_REFUND_EVENT_TYPES:
+        return BILLING_ORDER_STATUS_REFUNDED
+    if event_type in _STRIPE_CANCEL_EVENT_TYPES:
+        return BILLING_ORDER_STATUS_CANCELED
+    return None
+
+
+def _extract_stripe_provider_reference(
+    *,
+    order: BillingOrder,
+    event_type: str,
+    data_object: dict[str, Any],
+) -> str:
+    reference = _normalize_bid(data_object.get("id"))
+    if event_type == "checkout.session.completed" and reference.startswith("cs_"):
+        return reference
+    return order.provider_reference_id
+
+
+def _extract_stripe_failure_code(data_object: dict[str, Any]) -> str:
+    error_info = data_object.get("last_payment_error", {}) or {}
+    return str(error_info.get("code") or "")
+
+
+def _extract_stripe_failure_message(data_object: dict[str, Any]) -> str:
+    error_info = data_object.get("last_payment_error", {}) or {}
+    return str(error_info.get("message") or "")
+
+
+def _apply_billing_subscription_provider_update(
+    subscription: BillingSubscription,
+    *,
+    provider: str,
+    event_type: str,
+    payload: dict[str, Any],
+    data_object: dict[str, Any],
+    source: str = "webhook",
+) -> bool:
+    event_time = _extract_provider_event_time(payload)
+    if not _should_apply_subscription_event(subscription, event_time):
+        return False
+
+    _record_subscription_provider_event(
+        subscription,
+        provider=provider,
+        event_type=event_type,
+        payload=payload,
+        event_time=event_time,
+        source=source,
+    )
+    subscription.billing_provider = provider
+    provider_subscription_id = _normalize_bid(data_object.get("id"))
+    if provider_subscription_id.startswith("sub_"):
+        subscription.provider_subscription_id = provider_subscription_id
+    customer_id = _normalize_bid(data_object.get("customer"))
+    if customer_id:
+        subscription.provider_customer_id = customer_id
+
+    status = str(data_object.get("status") or "").strip().lower()
+    mapped_status = _STRIPE_SUBSCRIPTION_STATUS_MAP.get(status)
+    if status == "active" and int(data_object.get("cancel_at_period_end") or 0) == 1:
+        mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+    if event_type == "customer.subscription.deleted":
+        mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+    if mapped_status is not None:
+        subscription.status = mapped_status
+
+    subscription.cancel_at_period_end = (
+        1 if data_object.get("cancel_at_period_end") else 0
+    )
+    subscription.billing_anchor_at = (
+        _coerce_datetime(data_object.get("billing_cycle_anchor"))
+        or subscription.billing_anchor_at
+    )
+    subscription.current_period_start_at = (
+        _coerce_datetime(data_object.get("current_period_start"))
+        or subscription.current_period_start_at
+    )
+    subscription.current_period_end_at = (
+        _coerce_datetime(data_object.get("current_period_end"))
+        or subscription.current_period_end_at
+    )
+
+    now = event_time or datetime.now()
+    if mapped_status in {
+        BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    }:
+        subscription.last_renewed_at = now
+    if mapped_status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
+        subscription.last_failed_at = now
+    subscription.updated_at = datetime.now()
+    return True
+
+
+def _apply_subscription_checkout_success(
+    subscription: BillingSubscription,
+    *,
+    payload: dict[str, Any],
+    provider: str,
+    event_type: str,
+    source: str = "webhook",
+) -> bool:
+    event_time = _extract_provider_event_time(payload)
+    if not _should_apply_subscription_event(subscription, event_time):
+        return False
+
+    _record_subscription_provider_event(
+        subscription,
+        provider=provider,
+        event_type=event_type,
+        payload=payload,
+        event_time=event_time,
+        source=source,
+    )
+    subscription.billing_provider = provider
+    provider_subscription_id = _normalize_bid(
+        payload.get("subscription")
+        or (
+            payload.get("id") if str(payload.get("id") or "").startswith("sub_") else ""
+        )
+    )
+    if provider_subscription_id:
+        subscription.provider_subscription_id = provider_subscription_id
+    customer_id = _normalize_bid(payload.get("customer"))
+    if customer_id:
+        subscription.provider_customer_id = customer_id
+    subscription.cancel_at_period_end = 1 if payload.get("cancel_at_period_end") else 0
+    subscription.status = (
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+        if subscription.cancel_at_period_end
+        else BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    )
+    now = event_time or datetime.now()
+    subscription.last_renewed_at = now
+    subscription.updated_at = datetime.now()
+    return True
+
+
+def _apply_subscription_checkout_failure(
+    subscription: BillingSubscription,
+    *,
+    provider: str,
+    event_type: str,
+    payload: dict[str, Any],
+    source: str = "webhook",
+) -> bool:
+    event_time = _extract_provider_event_time(payload)
+    if not _should_apply_subscription_event(subscription, event_time):
+        return False
+
+    _record_subscription_provider_event(
+        subscription,
+        provider=provider,
+        event_type=event_type,
+        payload=payload,
+        event_time=event_time,
+        source=source,
+    )
+    subscription.billing_provider = provider
+    subscription.status = BILLING_SUBSCRIPTION_STATUS_PAST_DUE
+    subscription.last_failed_at = event_time or datetime.now()
+    subscription.updated_at = datetime.now()
+    return True
+
+
+def _should_apply_subscription_event(
+    subscription: BillingSubscription,
+    event_time: datetime | None,
+) -> bool:
+    if event_time is None:
+        return True
+    metadata = (
+        subscription.metadata_json
+        if isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    latest_event_time = _coerce_datetime(metadata.get("latest_event_time"))
+    if latest_event_time is None:
+        return True
+    return event_time >= latest_event_time
+
+
+def _record_subscription_provider_event(
+    subscription: BillingSubscription,
+    *,
+    provider: str,
+    event_type: str,
+    payload: dict[str, Any],
+    event_time: datetime | None,
+    source: str,
+) -> None:
+    subscription.metadata_json = _merge_provider_metadata(
+        existing=subscription.metadata_json,
+        provider=provider,
+        source=source,
+        event_type=event_type,
+        payload=payload,
+        event_time=event_time,
+    )
+
+
+def _merge_provider_metadata(
+    *,
+    existing: Any,
+    provider: str,
+    source: str,
+    event_type: str,
+    payload: dict[str, Any],
+    event_time: datetime | None,
+) -> dict[str, Any]:
+    metadata = dict(existing) if isinstance(existing, dict) else {}
+    metadata["provider"] = provider
+    metadata["latest_source"] = source
+    metadata["latest_event_type"] = event_type
+    metadata["latest_provider_payload"] = _normalize_json_value(payload)
+    if event_time is not None:
+        metadata["latest_event_time"] = event_time.isoformat()
+    return _normalize_json_value(metadata)
+
+
+def _extract_provider_event_time(payload: Any) -> datetime | None:
+    if not isinstance(payload, dict):
+        return None
+    for key in ("created", "time_paid"):
+        value = _coerce_datetime(payload.get(key))
+        if value is not None:
+            return value
+    data_object = payload.get("data", {}).get("object", {}) or {}
+    for key in ("created", "time_paid", "current_period_end", "current_period_start"):
+        value = _coerce_datetime(data_object.get(key))
+        if value is not None:
+            return value
+    checkout_session = payload.get("checkout_session", {}) or {}
+    for key in ("created",):
+        value = _coerce_datetime(checkout_session.get(key))
+        if value is not None:
+            return value
+    charge = payload.get("charge", {}) or {}
+    for key in ("time_paid", "created"):
+        value = _coerce_datetime(charge.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _coerce_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)):
+        if value <= 0:
+            return None
+        return datetime.fromtimestamp(value)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return datetime.fromtimestamp(int(text))
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
 
 
 def _is_stripe_checkout_paid(
