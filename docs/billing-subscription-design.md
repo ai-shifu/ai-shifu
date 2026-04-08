@@ -94,12 +94,12 @@ v1.1 再补充下列扩展能力：
 
 | 编码 | 含义 |
 | --- | --- |
-| `7101` | `llm_input_tokens` |
-| `7102` | `llm_cache_tokens` |
-| `7103` | `llm_output_tokens` |
-| `7104` | `tts_request_count` |
-| `7105` | `tts_output_chars` |
-| `7106` | `tts_input_chars`，保留给后续特殊 provider 合同 |
+| `7451` | `llm_input_tokens` |
+| `7452` | `llm_cache_tokens` |
+| `7453` | `llm_output_tokens` |
+| `7454` | `tts_request_count` |
+| `7455` | `tts_output_chars` |
+| `7456` | `tts_input_chars`，保留给后续特殊 provider 合同 |
 
 #### 2.2.5 `credit_bucket_category`
 
@@ -118,12 +118,40 @@ v1.1 再补充下列扩展能力：
 | `7443` | `expired` |
 | `7444` | `canceled` |
 
-#### 2.2.7 类型与存储约定
+#### 2.2.7 `credit_usage_rate_status`
+
+| 编码 | 含义 |
+| --- | --- |
+| `7151` | `active` |
+| `7152` | `inactive` |
+
+#### 2.2.8 `billing_renewal_event_type`
+
+| 编码 | 含义 |
+| --- | --- |
+| `7501` | `renewal` |
+| `7502` | `retry` |
+| `7503` | `cancel_effective` |
+| `7504` | `downgrade_effective` |
+| `7505` | `expire` |
+| `7506` | `reconcile` |
+
+#### 2.2.9 `billing_renewal_event_status`
+
+| 编码 | 含义 |
+| --- | --- |
+| `7511` | `pending` |
+| `7512` | `processing` |
+| `7513` | `succeeded` |
+| `7514` | `failed` |
+| `7515` | `canceled` |
+
+#### 2.2.10 类型与存储约定
 
 - 所有业务 ID 统一使用 `String(36)`，命名为 `*_bid`
 - 所有状态、类型、场景、metric 字段统一使用 `SmallInteger` 编码，不在库里直接存英文状态串
 - 金额统一使用 `BIGINT` 保存最小货币单位，例如分
-- 积分统一使用 `BIGINT`
+- 所有积分相关字段统一使用 `Numeric(20,10)` / `DECIMAL(20,10)`
 - provider、model、reference id 等短文本按现有仓库风格使用 `String(32/64/100/255)`
 - 扩展载荷优先 `JSON`，仅在 provider 原始对象体积或兼容性要求下退回 `Text`
 
@@ -145,7 +173,7 @@ v1.1 再补充下列扩展能力：
 | `description_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Description i18n key` | 描述翻译 key |
 | `currency` | `String(16)` | `not null, default="CNY"` | ISO 4217，例如 `CNY`/`USD` | `Currency code` | 货币编码 |
 | `price_amount` | `BIGINT` | `not null, default=0` | 最小货币单位 | `Product price amount` | 商品价格 |
-| `credit_amount` | `BIGINT` | `not null, default=0` | 发放积分数量 | `Credit amount` | 商品附带积分数 |
+| `credit_amount` | `Numeric(20,10)` | `not null, default=0` | 发放积分数量 | `Credit amount` | 商品附带积分数 |
 | `allocation_interval` | `SmallInteger` | `not null, default=7141` | `7141=per_cycle; 7142=one_time; 7143=manual` | `Credit allocation interval code` | 积分发放节奏 |
 | `auto_renew_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Auto renew enabled flag` | 是否允许自动续费 |
 | `entitlement_payload` | `JSON` | `nullable=True` | v1 可留空，v1.1 用于权益扩展 | `Entitlement payload` | 权益扩展载荷 |
@@ -266,10 +294,10 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet business identifier` | 钱包业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一创作者一钱包 | `Creator business identifier` | 创作者业务 ID |
-| `available_credits` | `BIGINT` | `not null, default=0` | 当前可用积分 | `Available credits` | 可用积分 |
-| `reserved_credits` | `BIGINT` | `not null, default=0` | hold 后冻结积分 | `Reserved credits` | 冻结积分 |
-| `lifetime_granted_credits` | `BIGINT` | `not null, default=0` | 累计发放积分 | `Lifetime granted credits` | 累计发放积分 |
-| `lifetime_consumed_credits` | `BIGINT` | `not null, default=0` | 累计消耗积分 | `Lifetime consumed credits` | 累计消耗积分 |
+| `available_credits` | `Numeric(20,10)` | `not null, default=0` | 当前可用积分 | `Available credits` | 可用积分 |
+| `reserved_credits` | `Numeric(20,10)` | `not null, default=0` | hold 后冻结积分 | `Reserved credits` | 冻结积分 |
+| `lifetime_granted_credits` | `Numeric(20,10)` | `not null, default=0` | 累计发放积分 | `Lifetime granted credits` | 累计发放积分 |
+| `lifetime_consumed_credits` | `Numeric(20,10)` | `not null, default=0` | 累计消耗积分 | `Lifetime consumed credits` | 累计消耗积分 |
 | `last_settled_usage_id` | `BIGINT` | `not null, default=0, index=True` | 最近结算到的 `bill_usage.id` | `Last settled usage record id` | 最近已结算 usage 主键 |
 | `version` | `Integer` | `not null, default=0` | 乐观锁版本号 | `Wallet version` | 钱包版本号 |
 
@@ -305,11 +333,11 @@ v1.1 再补充下列扩展能力：
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7415=refund; 7416=manual` | `Billing ledger source type code` | 余额桶来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应发放业务单号，如 order/subscription/refund | `Credit bucket source business identifier` | 来源业务 ID |
 | `priority` | `SmallInteger` | `not null, index=True` | 扣减顺序固定为 `1=free; 2=subscription; 3=topup` | `Credit bucket priority` | 扣减优先级 |
-| `original_credits` | `BIGINT` | `not null, default=0` | 初始发放积分 | `Original credits` | 初始积分 |
-| `available_credits` | `BIGINT` | `not null, default=0` | 当前可消费积分 | `Available credits` | 当前可用积分 |
-| `reserved_credits` | `BIGINT` | `not null, default=0` | 当前冻结积分 | `Reserved credits` | 当前冻结积分 |
-| `consumed_credits` | `BIGINT` | `not null, default=0` | 累计已消费积分 | `Consumed credits` | 已消费积分 |
-| `expired_credits` | `BIGINT` | `not null, default=0` | 累计已过期积分 | `Expired credits` | 已过期积分 |
+| `original_credits` | `Numeric(20,10)` | `not null, default=0` | 初始发放积分 | `Original credits` | 初始积分 |
+| `available_credits` | `Numeric(20,10)` | `not null, default=0` | 当前可消费积分 | `Available credits` | 当前可用积分 |
+| `reserved_credits` | `Numeric(20,10)` | `not null, default=0` | 当前冻结积分 | `Reserved credits` | 当前冻结积分 |
+| `consumed_credits` | `Numeric(20,10)` | `not null, default=0` | 累计已消费积分 | `Consumed credits` | 已消费积分 |
+| `expired_credits` | `Numeric(20,10)` | `not null, default=0` | 累计已过期积分 | `Expired credits` | 已过期积分 |
 | `effective_from` | `DateTime` | `not null, index=True` | 生效开始时间 | `Effective from timestamp` | 生效开始时间 |
 | `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束时间；`null` 表示永不过期 | `Effective to timestamp` | 生效结束时间 |
 | `status` | `SmallInteger` | `not null, default=7441, index=True` | `7441=active; 7442=exhausted; 7443=expired; 7444=canceled` | `Credit bucket status code` | 余额桶状态 |
@@ -348,8 +376,8 @@ v1.1 再补充下列扩展能力：
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 分录来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应业务单号，如 order/subscription/usage | `Ledger source business identifier` | 来源业务 ID |
 | `idempotency_key` | `String(128)` | `not null, default="", index=True` | 统一幂等键；usage 扣分需带 metric + wallet_bucket_bid 维度 | `Ledger idempotency key` | 分录幂等键 |
-| `amount` | `BIGINT` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
-| `balance_after` | `BIGINT` | `not null, default=0` | 写入后钱包总可用余额快照 | `Balance after entry` | 分录后钱包总余额 |
+| `amount` | `Numeric(20,10)` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
+| `balance_after` | `Numeric(20,10)` | `not null, default=0` | 写入后钱包总可用余额快照 | `Balance after entry` | 分录后钱包总余额 |
 | `expires_at` | `DateTime` | `nullable=True, index=True` | 仅 grant 类分录会有到期时间 | `Entry expiration timestamp` | 积分到期时间 |
 | `consumable_from` | `DateTime` | `nullable=True` | 仅需延迟可用时使用 | `Consumable from timestamp` | 开始可消费时间 |
 | `metadata` | `JSON` | `nullable=True` | 必须支持 `usage_bid`、`usage_scene`、`provider`、`model`、`metric_breakdown[]` | `Billing ledger metadata` | 分录元数据 |
@@ -386,9 +414,9 @@ v1.1 再补充下列扩展能力：
 | `provider` | `String(32)` | `not null, default="", index=True` | provider 名称，可允许 `*` 作为 wildcard | `Provider name` | provider |
 | `model` | `String(100)` | `not null, default="", index=True` | model 名称，可允许 `*` 作为 wildcard | `Provider model` | 模型名 |
 | `usage_scene` | `SmallInteger` | `not null, index=True` | `1201=debug; 1202=preview; 1203=production` | `Usage scene code` | 场景编码 |
-| `billing_metric` | `SmallInteger` | `not null, index=True` | `7101=llm_input_tokens; 7102=llm_cache_tokens; 7103=llm_output_tokens; 7104=tts_request_count; 7105=tts_output_chars; 7106=tts_input_chars` | `Billing metric code` | 计费 metric |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | `7451=llm_input_tokens; 7452=llm_cache_tokens; 7453=llm_output_tokens; 7454=tts_request_count; 7455=tts_output_chars; 7456=tts_input_chars` | `Billing metric code` | 计费 metric |
 | `unit_size` | `Integer` | `not null, default=1` | 计费单位分母，如 `1000 tokens` | `Billing unit size` | 费率分母 |
-| `credits_per_unit` | `BIGINT` | `not null, default=0` | 每个计费单位对应积分 | `Credits per unit` | 单位积分消耗 |
+| `credits_per_unit` | `Numeric(20,10)` | `not null, default=0` | 每个计费单位对应积分 | `Credits per unit` | 单位积分消耗 |
 | `rounding_mode` | `SmallInteger` | `not null, default=7421` | `7421=ceil; 7422=floor; 7423=round` | `Rounding mode code` | 取整模式 |
 | `effective_from` | `DateTime` | `not null, index=True` | 生效开始时间 | `Effective from timestamp` | 生效开始时间 |
 | `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束时间 | `Effective to timestamp` | 生效结束时间 |
@@ -406,8 +434,8 @@ v1.1 再补充下列扩展能力：
 
 本表职责与边界：
 
-- LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`7101/7102/7103`
-- TTS 默认只启用一种主 metric：`7104` 或 `7105`
+- LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`7451/7452/7453`
+- TTS 默认只启用一种主 metric：`7454` 或 `7455`
 - 如果找不到精确 model，可按 `model="*"` 或 `provider="*"` fallback
 
 ### 3.8 `billing_renewal_events`
@@ -523,10 +551,10 @@ v1.1 再补充下列扩展能力：
 | `usage_type` | `SmallInteger` | `not null, index=True` | `1101=LLM; 1102=TTS` | `Usage type code` | usage 类型 |
 | `provider` | `String(32)` | `not null, default="", index=True` | provider | `Provider name` | provider |
 | `model` | `String(100)` | `not null, default="", index=True` | model | `Provider model` | 模型 |
-| `billing_metric` | `SmallInteger` | `not null, index=True` | 见 `7101-7106` | `Billing metric code` | 计费 metric |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | 见 `7451-7456` | `Billing metric code` | 计费 metric |
 | `raw_amount` | `BIGINT` | `not null, default=0` | 原始用量汇总 | `Raw amount` | 原始用量 |
 | `record_count` | `BIGINT` | `not null, default=0` | usage 记录数 | `Record count` | 记录条数 |
-| `consumed_credits` | `BIGINT` | `not null, default=0` | 当天扣除积分汇总 | `Consumed credits` | 消耗积分 |
+| `consumed_credits` | `Numeric(20,10)` | `not null, default=0` | 当天扣除积分汇总 | `Consumed credits` | 消耗积分 |
 | `window_started_at` | `DateTime` | `not null` | 聚合窗口开始 | `Window start timestamp` | 聚合窗口开始时间 |
 | `window_ended_at` | `DateTime` | `not null` | 聚合窗口结束 | `Window end timestamp` | 聚合窗口结束时间 |
 
@@ -555,7 +583,7 @@ v1.1 再补充下列扩展能力：
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
 | `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 分录类型 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 来源类型 |
-| `amount` | `BIGINT` | `not null, default=0` | 当天同类分录金额汇总 | `Ledger amount total` | 汇总金额 |
+| `amount` | `Numeric(20,10)` | `not null, default=0` | 当天同类分录金额汇总 | `Ledger amount total` | 汇总金额 |
 | `entry_count` | `BIGINT` | `not null, default=0` | 当天同类分录条数 | `Ledger entry count` | 分录条数 |
 | `window_started_at` | `DateTime` | `not null` | 聚合窗口开始 | `Window start timestamp` | 聚合窗口开始时间 |
 | `window_ended_at` | `DateTime` | `not null` | 聚合窗口结束 | `Window end timestamp` | 聚合窗口结束时间 |
@@ -606,6 +634,7 @@ v1 的改造要求：
 
 - 先落 `models.py`、`consts.py`、`funcs.py`、`routes.py` 和迁移脚本，支撑 creator billing 的查询、checkout、sync、webhook 和 paid success 入账
 - 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/4fd52d0d9a01_add_billing_core_tables.py` 落地
+- 当前实现中，`credit_usage_rates`、`billing_renewal_events` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py` 落地
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
@@ -816,12 +845,12 @@ v1 需要新增：
 
 - 学员正式学习 `production`、作者 `preview`、作者 `debug` 统一扣课程所属创作者积分
 - LLM 一条 usage 默认按三条费率结算：
-  - `7101=llm_input_tokens`
-  - `7102=llm_cache_tokens`
-  - `7103=llm_output_tokens`
+  - `7451=llm_input_tokens`
+  - `7452=llm_cache_tokens`
+  - `7453=llm_output_tokens`
 - TTS 一条 usage 默认只命中一种主费率：
-  - `7104=tts_request_count`
-  - 或 `7105=tts_output_chars`
+  - `7454=tts_request_count`
+  - 或 `7455=tts_output_chars`
 - 结算真相源为：
   - 原始 usage：`bill_usage`
   - 积分真相：`credit_ledger_entries`

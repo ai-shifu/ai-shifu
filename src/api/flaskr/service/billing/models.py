@@ -23,8 +23,11 @@ from .consts import (
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    CREDIT_ROUNDING_MODE_CEIL,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 
 
@@ -691,4 +694,179 @@ class CreditLedgerEntry(BillingTableMixin, db.Model):
         JSON,
         nullable=True,
         comment="Billing ledger metadata",
+    )
+
+
+class CreditUsageRate(BillingTableMixin, db.Model):
+    __tablename__ = "credit_usage_rates"
+    __table_args__ = (
+        Index(
+            "ix_credit_usage_rates_lookup",
+            "usage_type",
+            "provider",
+            "model",
+            "usage_scene",
+            "billing_metric",
+            "effective_from",
+        ),
+        {"comment": "Credit usage rates"},
+    )
+
+    rate_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Credit usage rate business identifier",
+    )
+    usage_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Usage type code",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider name",
+    )
+    model = Column(
+        String(100),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider model",
+    )
+    usage_scene = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Usage scene code",
+    )
+    billing_metric = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing metric code",
+    )
+    unit_size = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment="Billing unit size",
+    )
+    credits_per_unit = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Credits per unit",
+    )
+    rounding_mode = Column(
+        SmallInteger,
+        nullable=False,
+        default=CREDIT_ROUNDING_MODE_CEIL,
+        comment="Rounding mode code",
+    )
+    effective_from = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Effective from timestamp",
+    )
+    effective_to = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Effective to timestamp",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+        index=True,
+        comment="Credit usage rate status code",
+    )
+
+
+class BillingRenewalEvent(BillingTableMixin, db.Model):
+    __tablename__ = "billing_renewal_events"
+    __table_args__ = (
+        Index(
+            "ix_billing_renewal_events_subscription_event_scheduled",
+            "subscription_bid",
+            "event_type",
+            "scheduled_at",
+        ),
+        Index(
+            "ix_billing_renewal_events_status_scheduled",
+            "status",
+            "scheduled_at",
+        ),
+        {"comment": "Billing renewal events"},
+    )
+
+    renewal_event_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing renewal event business identifier",
+    )
+    subscription_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing subscription business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    event_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Renewal event type code",
+    )
+    scheduled_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Scheduled timestamp",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        index=True,
+        comment="Renewal event status code",
+    )
+    attempt_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Attempt count",
+    )
+    last_error = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Last error message",
+    )
+    payload_json = Column(
+        "payload",
+        JSON,
+        nullable=True,
+        comment="Renewal event payload",
+    )
+    processed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Processed timestamp",
     )
