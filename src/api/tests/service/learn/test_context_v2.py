@@ -1048,7 +1048,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 side_effect=_fake_create_trace_with_root_span,
             ),
         ):
-            RunScriptContextV2(
+            ctx = RunScriptContextV2(
                 app=app,
                 shifu_info=types.SimpleNamespace(),
                 struct=struct,
@@ -1061,6 +1061,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 is_paid=True,
                 preview_mode=False,
             )
+            self.assertEqual(captured, {})
+            ctx._ensure_langfuse_trace()
 
         self.assertIs(captured["client"], sentinel_client)
 
@@ -1103,6 +1105,22 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
             },
         )
         self.assertEqual(ctx._trace_root_span.end_kwargs, {})
+
+    def test_runtime_finalize_is_noop_when_trace_never_created(self):
+        ctx = _make_context()
+        ctx._trace = None
+        ctx._trace_root_span = None
+        ctx._trace_args = {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "name": "lesson_runtime/trace/Outline",
+        }
+        ctx._langfuse_output_chunks = ["existing output"]
+
+        ctx._finalize_langfuse_trace()
+
+        self.assertIsNone(ctx._trace)
+        self.assertIsNone(ctx._trace_root_span)
 
     def test_runtime_finalize_uses_accumulated_output(self):
         ctx = _make_context()
