@@ -17,6 +17,13 @@ import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -63,6 +70,7 @@ type CourseFilters = {
   shifu_bid: string;
   course_name: string;
   creator_keyword: string;
+  course_status: string;
   start_time: string;
   end_time: string;
   updated_start_time: string;
@@ -72,6 +80,9 @@ type CourseFilters = {
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
+const ALL_OPTION_VALUE = '__all__';
+const COURSE_STATUS_PUBLISHED = 'published';
+const COURSE_STATUS_UNPUBLISHED = 'unpublished';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
@@ -79,6 +90,7 @@ const DEFAULT_COLUMN_WIDTHS = {
   courseId: 260,
   courseName: 180,
   price: 90,
+  status: 110,
   creator: 170,
   modifier: 170,
   createdAt: 170,
@@ -88,11 +100,14 @@ const DEFAULT_COLUMN_WIDTHS = {
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
+const SINGLE_SELECT_ITEM_CLASS =
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 
 const createDefaultFilters = (): CourseFilters => ({
   shifu_bid: '',
   course_name: '',
   creator_keyword: '',
+  course_status: '',
   start_time: '',
   end_time: '',
   updated_start_time: '',
@@ -296,9 +311,39 @@ const ClearableTextInput = ({
   );
 };
 
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * t('module.operationsCourse.title')
+ * t('module.operationsCourse.emptyList')
+ * t('module.operationsCourse.actions.transferCreator')
+ * t('module.operationsCourse.detail.title')
+ * t('module.operationsCourse.detail.back')
+ * t('module.operationsCourse.detail.basicInfo')
+ * t('module.operationsCourse.filters.courseId')
+ * t('module.operationsCourse.filters.courseName')
+ * t('module.operationsCourse.filters.creator')
+ * t('module.operationsCourse.filters.creatorEmailOrUserBid')
+ * t('module.operationsCourse.filters.creatorMobileOrUserBid')
+ * t('module.operationsCourse.filters.status')
+ * t('module.operationsCourse.filters.createdAt')
+ * t('module.operationsCourse.filters.startTime')
+ * t('module.operationsCourse.filters.endTime')
+ * t('module.operationsCourse.statusLabels.published')
+ * t('module.operationsCourse.statusLabels.unpublished')
+ * t('module.operationsCourse.table.courseId')
+ * t('module.operationsCourse.table.courseName')
+ * t('module.operationsCourse.table.price')
+ * t('module.operationsCourse.table.status')
+ * t('module.operationsCourse.table.creator')
+ * t('module.operationsCourse.table.modifier')
+ * t('module.operationsCourse.table.createdAt')
+ * t('module.operationsCourse.table.updatedAt')
+ * t('module.operationsCourse.table.action')
+ */
 const OperationsPage = () => {
   const router = useRouter();
   const { t } = useTranslation();
+  const { t: tOperations } = useTranslation('module.operationsCourse');
   const { toast } = useToast();
   const { isInitialized, isGuest, isReady } = useOperatorGuard();
   const loginMethodsEnabled = useEnvStore(
@@ -319,13 +364,26 @@ const OperationsPage = () => {
   const creatorPlaceholder = useMemo(
     () =>
       isEmailMode
-        ? t('module.operationsCourse.filters.creatorEmailOrUserBid')
-        : t('module.operationsCourse.filters.creatorMobileOrUserBid'),
-    [isEmailMode, t],
+        ? tOperations('filters.creatorEmailOrUserBid')
+        : tOperations('filters.creatorMobileOrUserBid'),
+    [isEmailMode, tOperations],
   );
   const clearLabel = useMemo(
     () => t('module.chat.lessonFeedbackClearInput'),
     [t],
+  );
+  const statusOptions = useMemo(
+    () => [
+      {
+        value: COURSE_STATUS_PUBLISHED,
+        label: tOperations('statusLabels.published'),
+      },
+      {
+        value: COURSE_STATUS_UNPUBLISHED,
+        label: tOperations('statusLabels.unpublished'),
+      },
+    ],
+    [tOperations],
   );
 
   const [courses, setCourses] = useState<AdminOperationCourseItem[]>([]);
@@ -361,6 +419,7 @@ const OperationsPage = () => {
     [currencySymbol],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
+  const displayStatusValue = filters.course_status || ALL_OPTION_VALUE;
 
   useEffect(() => {
     if (initializedManualRef.current) {
@@ -405,6 +464,7 @@ const OperationsPage = () => {
           shifu_bid: resolvedFilters.shifu_bid.trim(),
           course_name: resolvedFilters.course_name.trim(),
           creator_keyword: resolvedFilters.creator_keyword.trim(),
+          course_status: resolvedFilters.course_status,
           start_time: resolvedFilters.start_time,
           end_time: resolvedFilters.end_time,
           updated_start_time: resolvedFilters.updated_start_time,
@@ -473,6 +533,16 @@ const OperationsPage = () => {
       title: t('common.core.waitingForCompletion'),
     });
   };
+
+  const resolveCourseStatusLabel = useCallback(
+    (courseStatus?: string) => {
+      if (courseStatus === COURSE_STATUS_PUBLISHED) {
+        return tOperations('statusLabels.published');
+      }
+      return tOperations('statusLabels.unpublished');
+    },
+    [tOperations],
+  );
 
   const resolvePrimaryContact = useCallback(
     (
@@ -576,24 +646,24 @@ const OperationsPage = () => {
   const collapsedFilterItems = [
     {
       key: 'shifu_bid',
-      label: t('module.operationsCourse.filters.courseId'),
+      label: tOperations('filters.courseId'),
       component: (
         <ClearableTextInput
           value={filters.shifu_bid}
           onChange={value => handleFilterChange('shifu_bid', value)}
-          placeholder={t('module.operationsCourse.filters.courseId')}
+          placeholder={tOperations('filters.courseId')}
           clearLabel={clearLabel}
         />
       ),
     },
     {
       key: 'course_name',
-      label: t('module.operationsCourse.filters.courseName'),
+      label: tOperations('filters.courseName'),
       component: (
         <ClearableTextInput
           value={filters.course_name}
           onChange={value => handleFilterChange('course_name', value)}
-          placeholder={t('module.operationsCourse.filters.courseName')}
+          placeholder={tOperations('filters.courseName')}
           clearLabel={clearLabel}
         />
       ),
@@ -604,7 +674,7 @@ const OperationsPage = () => {
     ...collapsedFilterItems,
     {
       key: 'creator_keyword',
-      label: t('module.operationsCourse.filters.creator'),
+      label: tOperations('filters.creator'),
       component: (
         <ClearableTextInput
           value={filters.creator_keyword}
@@ -618,8 +688,44 @@ const OperationsPage = () => {
 
   const expandedSecondaryFilterItems = [
     {
+      key: 'course_status',
+      label: tOperations('filters.status'),
+      component: (
+        <Select
+          value={displayStatusValue}
+          onValueChange={value =>
+            handleFilterChange(
+              'course_status',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tOperations('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            {statusOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className={SINGLE_SELECT_ITEM_CLASS}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
       key: 'created_date_range',
-      label: t('module.operationsCourse.filters.createdAt'),
+      label: tOperations('filters.createdAt'),
       component: (
         <AdminDateRangeFilter
           startValue={filters.start_time}
@@ -628,7 +734,7 @@ const OperationsPage = () => {
             handleFilterChange('start_time', range.start);
             handleFilterChange('end_time', range.end);
           }}
-          placeholder={`${t('module.operationsCourse.filters.startTime')} ~ ${t('module.operationsCourse.filters.endTime')}`}
+          placeholder={`${tOperations('filters.startTime')} ~ ${tOperations('filters.endTime')}`}
           resetLabel={t('module.order.filters.reset')}
           clearLabel={clearLabel}
         />
@@ -636,7 +742,7 @@ const OperationsPage = () => {
     },
     {
       key: 'updated_date_range',
-      label: t('module.operationsCourse.table.updatedAt'),
+      label: tOperations('table.updatedAt'),
       component: (
         <AdminDateRangeFilter
           startValue={filters.updated_start_time}
@@ -645,7 +751,7 @@ const OperationsPage = () => {
             handleFilterChange('updated_start_time', range.start);
             handleFilterChange('updated_end_time', range.end);
           }}
-          placeholder={`${t('module.operationsCourse.filters.startTime')} ~ ${t('module.operationsCourse.filters.endTime')}`}
+          placeholder={`${tOperations('filters.startTime')} ~ ${tOperations('filters.endTime')}`}
           resetLabel={t('module.order.filters.reset')}
           clearLabel={clearLabel}
         />
@@ -682,6 +788,7 @@ const OperationsPage = () => {
         courseId: course => [course.shifu_bid],
         courseName: course => [course.course_name],
         price: course => [formatMoney(course.price)],
+        status: course => [resolveCourseStatusLabel(course.course_status)],
         creator: course => [
           resolveActorDisplay(course, 'creator').primary,
           resolveActorDisplay(course, 'creator').secondary,
@@ -705,6 +812,7 @@ const OperationsPage = () => {
             courseId: 5,
             courseName: 4.5,
             price: 4,
+            status: 5,
             creator: 4.6,
             modifier: 4.6,
             createdAt: 4.8,
@@ -745,7 +853,7 @@ const OperationsPage = () => {
         return updated;
       });
     },
-    [formatMoney, resolveActorDisplay, t],
+    [formatMoney, resolveActorDisplay, resolveCourseStatusLabel, t],
   );
 
   const renderResizeHandle = (key: ColumnKey) => (
@@ -784,7 +892,7 @@ const OperationsPage = () => {
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
         <div className='mb-5'>
           <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.operationsCourse.title')}
+            {tOperations('title')}
           </h1>
         </div>
 
@@ -847,25 +955,27 @@ const OperationsPage = () => {
             </div>
 
             {expanded ? (
-              <div className='grid gap-4 xl:grid-cols-3'>
-                {expandedSecondaryFilterItems.map(item => (
-                  <div
-                    key={item.key}
-                    className='flex items-center'
-                  >
-                    <span
-                      className={cn(
-                        "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                        'w-20',
-                      )}
+              <div className='space-y-4'>
+                <div className='grid gap-4 xl:grid-cols-3'>
+                  {expandedSecondaryFilterItems.map(item => (
+                    <div
+                      key={item.key}
+                      className='flex items-center'
                     >
-                      {item.label}
-                    </span>
-                    <div className='flex-1 min-w-0'>{item.component}</div>
-                  </div>
-                ))}
+                      <span
+                        className={cn(
+                          "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
+                          'w-20',
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                      <div className='flex-1 min-w-0'>{item.component}</div>
+                    </div>
+                  ))}
+                </div>
 
-                <div className='flex items-center justify-end gap-2 xl:self-center'>
+                <div className='flex items-center justify-end gap-2'>
                   <Button
                     size='sm'
                     variant='outline'
@@ -908,64 +1018,71 @@ const OperationsPage = () => {
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('courseId')}
                     >
-                      {t('module.operationsCourse.table.courseId')}
+                      {tOperations('table.courseId')}
                       {renderResizeHandle('courseId')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('courseName')}
                     >
-                      {t('module.operationsCourse.table.courseName')}
+                      {tOperations('table.courseName')}
                       {renderResizeHandle('courseName')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('price')}
                     >
-                      {t('module.operationsCourse.table.price')}
+                      {tOperations('table.price')}
                       {renderResizeHandle('price')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('status')}
+                    >
+                      {tOperations('table.status')}
+                      {renderResizeHandle('status')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('creator')}
                     >
-                      {t('module.operationsCourse.table.creator')}
+                      {tOperations('table.creator')}
                       {renderResizeHandle('creator')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('modifier')}
                     >
-                      {t('module.operationsCourse.table.modifier')}
+                      {tOperations('table.modifier')}
                       {renderResizeHandle('modifier')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('createdAt')}
                     >
-                      {t('module.operationsCourse.table.createdAt')}
+                      {tOperations('table.createdAt')}
                       {renderResizeHandle('createdAt')}
                     </TableHead>
                     <TableHead
                       className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
                       style={getColumnStyle('updatedAt')}
                     >
-                      {t('module.operationsCourse.table.updatedAt')}
+                      {tOperations('table.updatedAt')}
                       {renderResizeHandle('updatedAt')}
                     </TableHead>
                     <TableHead
                       className='sticky right-0 top-0 z-40 bg-muted text-center shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border'
                       style={getColumnStyle('action')}
                     >
-                      {t('module.operationsCourse.table.action')}
+                      {tOperations('table.action')}
                       {renderResizeHandle('action')}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {courses.length === 0 && (
-                    <TableEmpty colSpan={8}>
-                      {t('module.operationsCourse.emptyList')}
+                    <TableEmpty colSpan={9}>
+                      {tOperations('emptyList')}
                     </TableEmpty>
                   )}
                   {courses.map(course => {
@@ -1005,6 +1122,15 @@ const OperationsPage = () => {
                         >
                           {renderTooltipText(
                             formatMoney(course.price),
+                            'text-foreground',
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          style={getColumnStyle('status')}
+                        >
+                          {renderTooltipText(
+                            resolveCourseStatusLabel(course.course_status),
                             'text-foreground',
                           )}
                         </TableCell>
@@ -1073,9 +1199,7 @@ const OperationsPage = () => {
                                 <DropdownMenuItem
                                   onClick={handleTransferCreatorClick}
                                 >
-                                  {t(
-                                    'module.operationsCourse.actions.transferCreator',
-                                  )}
+                                  {tOperations('actions.transferCreator')}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

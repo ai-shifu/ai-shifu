@@ -465,6 +465,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Exact match on user bid, phone, or email
+            - name: course_status
+              type: string
+              required: false
+              description: published or unpublished
             - name: start_time
               type: string
               required: false
@@ -509,6 +513,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         filters = {
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
+            "course_status": request.args.get("course_status", ""),
             "creator_keyword": request.args.get("creator_keyword", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),

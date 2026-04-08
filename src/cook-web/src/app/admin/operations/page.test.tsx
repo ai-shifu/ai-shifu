@@ -90,6 +90,56 @@ jest.mock('@/components/loading', () => ({
   default: () => <div data-testid='loading-indicator' />,
 }));
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 jest.mock('@/components/ui/DropdownMenu', () => {
   const React = jest.requireActual<typeof import('react')>('react');
 
@@ -243,6 +293,7 @@ describe('OperationsPage', () => {
         {
           shifu_bid: 'course-1',
           course_name: 'Course 1',
+          course_status: 'published',
           price: '99',
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
@@ -258,6 +309,7 @@ describe('OperationsPage', () => {
         {
           shifu_bid: 'course-system-custom',
           course_name: 'Custom System Course',
+          course_status: 'unpublished',
           price: '0',
           creator_user_bid: 'system',
           creator_mobile: '',
@@ -288,6 +340,7 @@ describe('OperationsPage', () => {
         shifu_bid: '',
         course_name: '',
         creator_keyword: '',
+        course_status: '',
         start_time: '',
         end_time: '',
         updated_start_time: '',
@@ -300,6 +353,12 @@ describe('OperationsPage', () => {
     expect(screen.getByText('Creator Mars')).toBeInTheDocument();
     expect(screen.getByText('editor@example.com')).toBeInTheDocument();
     expect(screen.getByText('module.user.defaultUserName')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.statusLabels.published'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.statusLabels.unpublished'),
+    ).toBeInTheDocument();
 
     const systemRow = screen.getByText('Custom System Course').closest('tr');
     expect(systemRow).not.toBeNull();
@@ -362,6 +421,35 @@ describe('OperationsPage', () => {
     );
 
     expect(courseIdInput.value).toBe('');
+  });
+
+  test('searches by course status', async () => {
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.expand',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.statusLabels.published',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          course_status: 'published',
+        }),
+      );
+    });
   });
 
   test('redirects non-operators back to admin', async () => {

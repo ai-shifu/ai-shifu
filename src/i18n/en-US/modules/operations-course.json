@@ -17,7 +17,12 @@
     "creatorEmailOrUserBid": "Email or user ID",
     "creatorMobileOrUserBid": "Mobile or user ID",
     "endTime": "End Date",
-    "startTime": "Start Date"
+    "startTime": "Start Date",
+    "status": "Status"
+  },
+  "statusLabels": {
+    "published": "Published",
+    "unpublished": "Unpublished"
   },
   "table": {
     "action": "Action",
@@ -27,6 +32,7 @@
     "creator": "Creator",
     "modifier": "Modifier",
     "price": "Price",
+    "status": "Status",
     "updatedAt": "Updated At"
   },
   "title": "Course"

@@ -14,6 +14,9 @@ from flaskr.service.shifu.demo_courses import is_builtin_demo_course
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
+COURSE_STATUS_PUBLISHED = "published"
+COURSE_STATUS_UNPUBLISHED = "unpublished"
+
 
 def _format_decimal(value: Optional[Decimal]) -> str:
     if value is None:
@@ -170,12 +173,14 @@ def _load_latest_shifus(
 def _build_course_summary(
     course,
     user_map: Dict[str, Dict[str, str]],
+    course_status: str,
 ) -> AdminOperationCourseSummaryDTO:
     creator = user_map.get(course.created_user_bid or "", {})
     updater = user_map.get(course.updated_user_bid or "", {})
     return AdminOperationCourseSummaryDTO(
         shifu_bid=course.shifu_bid or "",
         course_name=course.title or "",
+        course_status=course_status,
         price=_format_decimal(course.price),
         creator_user_bid=course.created_user_bid or "",
         creator_mobile=creator.get("mobile", ""),
@@ -190,37 +195,45 @@ def _build_course_summary(
     )
 
 
+def _is_operator_visible_course(course) -> bool:
+    return bool(course.shifu_bid) and not is_builtin_demo_course(
+        shifu_bid=course.shifu_bid,
+        title=course.title,
+        created_user_bid=course.created_user_bid,
+    )
+
+
+def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
+    if shifu_bid in published_bids:
+        return COURSE_STATUS_PUBLISHED
+    return COURSE_STATUS_UNPUBLISHED
+
+
 def _merge_courses(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
 ):
     course_map = {}
+    published_bids: Set[str] = set()
     for course in drafts:
-        if course.shifu_bid and not is_builtin_demo_course(
-            shifu_bid=course.shifu_bid,
-            title=course.title,
-            created_user_bid=course.created_user_bid,
-        ):
+        if _is_operator_visible_course(course):
             course_map[course.shifu_bid] = course
     for course in published:
-        if (
-            course.shifu_bid
-            and not is_builtin_demo_course(
-                shifu_bid=course.shifu_bid,
-                title=course.title,
-                created_user_bid=course.created_user_bid,
-            )
-            and course.shifu_bid not in course_map
-        ):
+        if _is_operator_visible_course(course):
+            published_bids.add(course.shifu_bid)
+        if _is_operator_visible_course(course) and course.shifu_bid not in course_map:
             course_map[course.shifu_bid] = course
-    return sorted(
-        course_map.values(),
-        key=lambda item: (
-            item.updated_at or datetime.min,
-            item.created_at or datetime.min,
-            item.shifu_bid or "",
+    return (
+        sorted(
+            course_map.values(),
+            key=lambda item: (
+                item.updated_at or datetime.min,
+                item.created_at or datetime.min,
+                item.shifu_bid or "",
+            ),
+            reverse=True,
         ),
-        reverse=True,
+        published_bids,
     )
 
 
@@ -237,6 +250,7 @@ def list_operator_courses(
 
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         course_name = str(filters.get("course_name", "") or "").strip()
+        course_status = str(filters.get("course_status", "") or "").strip().lower()
         creator_keyword = str(filters.get("creator_keyword", "") or "").strip()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
@@ -265,7 +279,14 @@ def list_operator_courses(
             updated_end_time=updated_end_time,
         )
 
-        merged_courses = _merge_courses(draft_rows, published_rows)
+        merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
+        if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
+            merged_courses = [
+                course
+                for course in merged_courses
+                if _resolve_course_status(course.shifu_bid or "", published_bids)
+                == course_status
+            ]
         total = len(merged_courses)
         page_offset = (safe_page_index - 1) * safe_page_size
         page_items = merged_courses[page_offset : page_offset + safe_page_size]
@@ -277,5 +298,12 @@ def list_operator_courses(
             if user_bid
         }
         user_map = _load_user_map(list(user_bids))
-        items = [_build_course_summary(course, user_map) for course in page_items]
+        items = [
+            _build_course_summary(
+                course,
+                user_map,
+                _resolve_course_status(course.shifu_bid or "", published_bids),
+            )
+            for course in page_items
+        ]
         return PageNationDTO(safe_page_index, safe_page_size, total, items)

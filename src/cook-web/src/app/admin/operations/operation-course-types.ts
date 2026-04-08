@@ -1,6 +1,7 @@
 export type AdminOperationCourseItem = {
   shifu_bid: string;
   course_name: string;
+  course_status: string;
   price: string;
   creator_user_bid: string;
   creator_mobile: string;

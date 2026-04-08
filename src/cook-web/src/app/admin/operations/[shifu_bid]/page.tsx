@@ -7,10 +7,17 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import useOperatorGuard from '../useOperatorGuard';
 
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * t('module.operationsCourse.detail.title')
+ * t('module.operationsCourse.detail.back')
+ * t('module.operationsCourse.detail.basicInfo')
+ */
 export default function AdminOperationCourseDetailPage() {
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
   const { t } = useTranslation();
+  const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
 
   const shifuBid = Array.isArray(params?.shifu_bid)
@@ -27,7 +34,7 @@ export default function AdminOperationCourseDetailPage() {
         <div className='flex items-center justify-between'>
           <div>
             <h1 className='text-2xl font-semibold text-gray-900'>
-              {t('module.operationsCourse.detail.title')}
+              {tOperations('detail.title')}
             </h1>
             <p className='mt-1 text-sm text-muted-foreground'>{shifuBid}</p>
           </div>
@@ -35,15 +42,13 @@ export default function AdminOperationCourseDetailPage() {
             variant='outline'
             onClick={() => router.push('/admin/operations')}
           >
-            {t('module.operationsCourse.detail.back')}
+            {tOperations('detail.back')}
           </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              {t('module.operationsCourse.detail.basicInfo')}
-            </CardTitle>
+            <CardTitle>{tOperations('detail.basicInfo')}</CardTitle>
           </CardHeader>
           <CardContent className='text-sm text-muted-foreground'>
             {t('common.core.waitingForCompletion')}

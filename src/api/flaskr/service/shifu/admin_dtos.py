@@ -13,6 +13,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         ..., description="Course business identifier", required=False
     )
     course_name: str = Field(..., description="Course name", required=False)
+    course_status: str = Field(..., description="Course status", required=False)
     price: str = Field(..., description="Course price", required=False)
     creator_user_bid: str = Field(
         ..., description="Creator user business identifier", required=False
@@ -33,6 +34,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         self,
         shifu_bid: str,
         course_name: str,
+        course_status: str,
         price: str,
         creator_user_bid: str,
         creator_mobile: str,
@@ -48,6 +50,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         super().__init__(
             shifu_bid=shifu_bid,
             course_name=course_name,
+            course_status=course_status,
             price=price,
             creator_user_bid=creator_user_bid,
             creator_mobile=creator_mobile,
@@ -65,6 +68,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         return {
             "shifu_bid": self.shifu_bid,
             "course_name": self.course_name,
+            "course_status": self.course_status,
             "price": self.price,
             "creator_user_bid": self.creator_user_bid,
             "creator_mobile": self.creator_mobile,
