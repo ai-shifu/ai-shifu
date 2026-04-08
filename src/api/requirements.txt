@@ -17,6 +17,7 @@ authlib==1.6.5
 backoff==2.2.1
 blinker==1.8.2
 captcha==0.6.0
+celery==5.6.2
 certifi==2024.7.4
 cffi==1.16.0
 cfgv==3.4.0

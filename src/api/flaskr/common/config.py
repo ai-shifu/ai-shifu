@@ -516,6 +516,26 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    # Celery Configuration
+    "CELERY_BROKER_URL": EnvVar(
+        name="CELERY_BROKER_URL",
+        default="redis://localhost:6379/0",
+        description="Celery broker URL. Billing workers default to Redis.",
+        group="celery",
+    ),
+    "CELERY_RESULT_BACKEND": EnvVar(
+        name="CELERY_RESULT_BACKEND",
+        default="redis://localhost:6379/1",
+        description="Celery result backend URL. Defaults to Redis.",
+        group="celery",
+    ),
+    "CELERY_TASK_ALWAYS_EAGER": EnvVar(
+        name="CELERY_TASK_ALWAYS_EAGER",
+        default=False,
+        type=bool,
+        description="Execute Celery tasks eagerly in-process for tests and local debugging.",
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
