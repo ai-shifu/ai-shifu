@@ -13,7 +13,7 @@ import { BillingCenterTab } from '@/types/billing';
 
 export default function AdminBillingPage() {
   const { t } = useTranslation();
-  const defaultTab: BillingCenterTab = 'plans';
+  const [activeTab, setActiveTab] = React.useState<BillingCenterTab>('plans');
 
   return (
     <div
@@ -23,8 +23,9 @@ export default function AdminBillingPage() {
       <BillingPageHeader />
 
       <Tabs
-        defaultValue={defaultTab}
+        value={activeTab}
         className='flex flex-col gap-4'
+        onValueChange={value => setActiveTab(value as BillingCenterTab)}
       >
         <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
           <TabsTrigger value='plans'>
@@ -42,7 +43,7 @@ export default function AdminBillingPage() {
           value='plans'
           className='space-y-4'
         >
-          <BillingOverviewTab />
+          <BillingOverviewTab onOpenOrdersTab={() => setActiveTab('orders')} />
         </TabsContent>
 
         <TabsContent value='ledger'>

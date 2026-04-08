@@ -1,5 +1,15 @@
 {
   "__namespace__": "module.billing",
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "Top up now",
+      "openOrders": "Open payment records",
+      "resumeSubscription": "Resume subscription"
+    },
+    "cancelScheduled": "This subscription is set to end at the current period boundary. Resume it to keep recurring credits active.",
+    "lowBalance": "Your creator wallet is out of credits. Start a top-up before the next settlement runs.",
+    "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
+  },
   "catalog": {
     "actions": {
       "buyWithPingxx": "Pay with Alipay QR",

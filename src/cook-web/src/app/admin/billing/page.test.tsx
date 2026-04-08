@@ -55,6 +55,12 @@ const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
 describe('AdminBillingPage', () => {
   beforeEach(() => {
+    mockGetBillingCatalog.mockReset();
+    mockGetBillingLedger.mockReset();
+    mockGetBillingOrders.mockReset();
+    mockGetBillingWalletBuckets.mockReset();
+    mockUseBillingOverview.mockReset();
+
     mockGetBillingCatalog.mockResolvedValue({
       plans: [],
       topups: [],
@@ -193,6 +199,76 @@ describe('AdminBillingPage', () => {
     });
 
     expect(screen.getByText('module.billing.orders.title')).toBeInTheDocument();
+    expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
+  });
+
+  test('opens the orders tab from a structured billing alert action', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'billing-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'past_due',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: '2026-04-06T12:00:00Z',
+        },
+        billing_alerts: [
+          {
+            code: 'subscription_past_due',
+            severity: 'error',
+            message_key: 'module.billing.alerts.subscriptionPastDue',
+            action_type: 'open_orders',
+            action_payload: {
+              subscription_bid: 'sub-1',
+            },
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingPage />
+      </SWRConfig>,
+    );
+
+    expect(
+      screen.getByText('module.billing.alerts.subscriptionPastDue'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.alerts.actions.openOrders',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByRole('tab', { name: 'module.billing.page.tabs.orders' }),
+    ).toHaveAttribute('data-state', 'active');
     expect(await screen.findByText('order-1')).toBeInTheDocument();
     expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
   });

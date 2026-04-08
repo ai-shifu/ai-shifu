@@ -121,7 +121,7 @@
 - [x] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
 - [x] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。
 - [x] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
-- [ ] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。
+- [x] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。
 - [ ] 实现 admin 侧订阅、订单、账本调整和异常处理页面。
 - [ ] 增加 `module.billing.*` i18n keys，并补齐状态码到文案的映射。
 

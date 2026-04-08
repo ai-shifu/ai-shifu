@@ -1,3 +1,4 @@
+export * from './BillingAlertsBanner';
 export * from './BillingCatalogCards';
 export * from './BillingCheckoutDialog';
 export * from './BillingLedgerTab';

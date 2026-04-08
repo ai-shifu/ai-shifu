@@ -1,5 +1,15 @@
 {
   "__namespace__": "module.billing",
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "立即充值",
+      "openOrders": "查看付款记录",
+      "resumeSubscription": "恢复订阅"
+    },
+    "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
+    "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
+  },
   "catalog": {
     "actions": {
       "buyWithPingxx": "支付宝扫码支付",

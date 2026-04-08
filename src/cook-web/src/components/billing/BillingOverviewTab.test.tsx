@@ -354,6 +354,73 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
   });
 
+  test('renders structured billing alerts and opens topup checkout from the alert action', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 0,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 500,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'billing-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [
+          {
+            code: 'low_balance',
+            severity: 'warning',
+            message_key: 'module.billing.alerts.lowBalance',
+            message_params: {
+              available_credits: 0,
+            },
+            action_type: 'checkout_topup',
+            action_payload: {},
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByText('module.billing.alerts.lowBalance'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('low_balance')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.alerts.actions.checkoutTopup',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.checkout.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('module.billing.catalog.topups.creatorSmall.title')
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
   test('opens a Stripe subscription checkout from the confirmation dialog', async () => {
     const user = userEvent.setup();
     mockCheckoutBillingSubscription.mockResolvedValue({

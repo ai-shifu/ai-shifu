@@ -9,6 +9,7 @@ import { toast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useBillingOverview } from '@/hooks/useBillingOverview';
 import type {
+  BillingAlert,
   BillingCheckoutResult,
   BillingPlan,
   BillingProvider,
@@ -24,6 +25,7 @@ import {
   resolveBillingNextActionLabel,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
+import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCatalogCards } from './BillingCatalogCards';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingMetricCard } from './BillingMetricCard';
@@ -59,7 +61,13 @@ function extractPingxxQrUrl(result: BillingCheckoutResult): string {
   return typeof qrUrl === 'string' ? qrUrl : '';
 }
 
-export function BillingOverviewTab() {
+type BillingOverviewTabProps = {
+  onOpenOrdersTab?: () => void;
+};
+
+export function BillingOverviewTab({
+  onOpenOrdersTab,
+}: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
   const {
@@ -103,6 +111,25 @@ export function BillingOverviewTab() {
     return stripeEnabled === 'true' || !runtimeConfigLoaded;
   }, [normalizedPaymentChannels, runtimeConfigLoaded, stripeEnabled]);
   const pingxxAvailable = normalizedPaymentChannels.includes('pingxx');
+  const firstAvailableTopup = useMemo(() => {
+    const firstTopup = catalog?.topups?.[0] || null;
+    if (!firstTopup) {
+      return null;
+    }
+    if (stripeAvailable) {
+      return {
+        product: firstTopup,
+        provider: 'stripe' as const,
+      };
+    }
+    if (pingxxAvailable) {
+      return {
+        product: firstTopup,
+        provider: 'pingxx' as const,
+      };
+    }
+    return null;
+  }, [catalog?.topups, pingxxAvailable, stripeAvailable]);
 
   const currentPlan = useMemo(() => {
     if (!catalog?.plans?.length || !overview?.subscription?.product_bid) {
@@ -275,6 +302,39 @@ export function BillingOverviewTab() {
     [mutateOverview, t],
   );
 
+  const handleAlertAction = useCallback(
+    (alert: BillingAlert) => {
+      if (alert.action_type === 'checkout_topup') {
+        if (firstAvailableTopup) {
+          openTopupCheckout(
+            firstAvailableTopup.product,
+            firstAvailableTopup.provider,
+          );
+        }
+        return;
+      }
+
+      if (
+        alert.action_type === 'resume_subscription' &&
+        overview?.subscription
+      ) {
+        void handleSubscriptionMutation('resume', overview.subscription);
+        return;
+      }
+
+      if (alert.action_type === 'open_orders') {
+        onOpenOrdersTab?.();
+      }
+    },
+    [
+      firstAvailableTopup,
+      handleSubscriptionMutation,
+      onOpenOrdersTab,
+      openTopupCheckout,
+      overview?.subscription,
+    ],
+  );
+
   const dialogPriceLabel = useMemo(() => {
     if (!checkoutTarget) {
       return '';
@@ -330,6 +390,26 @@ export function BillingOverviewTab() {
           {t('module.billing.overview.loadError')}
         </div>
       ) : null}
+
+      <BillingAlertsBanner
+        alerts={overview?.billing_alerts || []}
+        actionLoading={
+          subscriptionActionLoading === 'resume' ? 'resume_subscription' : ''
+        }
+        isActionDisabled={alert => {
+          if (alert.action_type === 'checkout_topup') {
+            return !firstAvailableTopup;
+          }
+          if (alert.action_type === 'resume_subscription') {
+            return !overview?.subscription;
+          }
+          if (alert.action_type === 'open_orders') {
+            return !onOpenOrdersTab;
+          }
+          return false;
+        }}
+        onAlertAction={handleAlertAction}
+      />
 
       {overviewLoading && catalogLoading ? (
         <div className='grid gap-4 xl:grid-cols-[0.92fr,1.08fr]'>
