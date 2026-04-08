@@ -378,6 +378,18 @@ v1 冻结业务规则：
 - `gift`、正向 `manual adjustment`、`refund return` 一律落成 `free` bucket
 - bucket 到期后不再参与 admission / settlement，需写入 `expire` ledger 并关闭 bucket
 
+v1 冻结 bucket 规则：
+
+- bucket 分类与优先级固定为：
+  - `free` bucket：优先级 `10`，仅承载 `gift`、试用积分、正向人工补偿和 `refund return`
+  - `subscription` bucket：优先级 `20`，仅承载 subscription 周期发放积分
+  - `topup` bucket：优先级 `30`，仅承载一次性充值包发放积分
+- usage settlement 与 admission 只允许消费同时满足以下条件的 bucket：`status=active`、`available_credits > 0`、`effective_from <= settlement_at`，并且 `effective_to is null or effective_to > settlement_at`
+- bucket 扣减顺序在 v1 固定为 `(priority asc, effective_to asc nulls last, created_at asc, id asc)`；也就是始终先扣 `free`，再扣 `subscription`，最后扣 `topup`，同优先级下先扣最早到期、最早创建的 bucket
+- `effective_to = null` 明确表示永不过期，在同优先级排序中必须排在所有有具体过期时间的 bucket 之后
+- `refund return` 不回写原 bucket，也不恢复原 bucket 的 `available_credits`；一律新建 `source_type=refund` 的 `free` bucket，并单独写 `credit_ledger_entries.entry_type=refund` 分录
+- 同一条 usage 允许拆分扣减多个 bucket，但每条 consume ledger 都必须回填命中的 `wallet_bucket_bid`，保证 bucket 级幂等与 replay 可追溯
+
 ### 3.6 `credit_ledger_entries`
 
 角色：积分账本真相源；不是快照；不是报表表。
