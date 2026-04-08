@@ -1,0 +1,459 @@
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+
+from flask import Flask
+import pytest
+
+import flaskr.dao as dao
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_CACHE_TOKENS,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXHAUSTED,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_USAGE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import (
+    CreditLedgerEntry,
+    CreditUsageRate,
+    CreditWallet,
+    CreditWalletBucket,
+)
+from flaskr.service.billing.settlement import settle_bill_usage
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
+
+
+@pytest.fixture
+def billing_settlement_app():
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        TZ="UTC",
+    )
+    dao.db.init_app(app)
+    with app.app_context():
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
+
+
+def _create_wallet(creator_bid: str, available_credits: str) -> CreditWallet:
+    return CreditWallet(
+        wallet_bid=f"wallet-{creator_bid}",
+        creator_bid=creator_bid,
+        available_credits=Decimal(available_credits),
+        reserved_credits=Decimal("0"),
+        lifetime_granted_credits=Decimal("100.0000000000"),
+        lifetime_consumed_credits=Decimal("0"),
+        last_settled_usage_id=0,
+        version=0,
+    )
+
+
+def _create_bucket(
+    *,
+    creator_bid: str,
+    wallet_bid: str,
+    bucket_bid: str,
+    category: int,
+    priority: int,
+    available_credits: str,
+    effective_to: datetime | None = None,
+) -> CreditWalletBucket:
+    return CreditWalletBucket(
+        wallet_bucket_bid=bucket_bid,
+        wallet_bid=wallet_bid,
+        creator_bid=creator_bid,
+        bucket_category=category,
+        source_type=0,
+        source_bid=f"source-{bucket_bid}",
+        priority=priority,
+        original_credits=Decimal(available_credits),
+        available_credits=Decimal(available_credits),
+        reserved_credits=Decimal("0"),
+        consumed_credits=Decimal("0"),
+        expired_credits=Decimal("0"),
+        effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        effective_to=effective_to,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json={},
+        created_at=datetime(2026, 1, 1, 0, 0, 0),
+        updated_at=datetime(2026, 1, 1, 0, 0, 0),
+    )
+
+
+def _create_rate(
+    *,
+    rate_bid: str,
+    usage_type: int,
+    billing_metric: int,
+    credits_per_unit: str,
+    provider: str = "*",
+    model: str = "*",
+    usage_scene: int = BILL_USAGE_SCENE_PROD,
+    unit_size: int = 1000,
+) -> CreditUsageRate:
+    return CreditUsageRate(
+        rate_bid=rate_bid,
+        usage_type=usage_type,
+        provider=provider,
+        model=model,
+        usage_scene=usage_scene,
+        billing_metric=billing_metric,
+        unit_size=unit_size,
+        credits_per_unit=Decimal(credits_per_unit),
+        rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+        effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        effective_to=None,
+        status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+    )
+
+
+def _create_usage(
+    *,
+    usage_bid: str,
+    usage_type: int,
+    provider: str,
+    model: str,
+    input_value: int,
+    input_cache: int,
+    output: int,
+    total: int,
+    record_level: int = 0,
+    billable: int = 1,
+) -> BillUsageRecord:
+    return BillUsageRecord(
+        usage_bid=usage_bid,
+        parent_usage_bid="",
+        user_bid="learner-1",
+        shifu_bid="shifu-1",
+        outline_item_bid="",
+        progress_record_bid="",
+        generated_block_bid="",
+        audio_bid="",
+        request_id=f"req-{usage_bid}",
+        trace_id=f"trace-{usage_bid}",
+        usage_type=usage_type,
+        record_level=record_level,
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        provider=provider,
+        model=model,
+        is_stream=0,
+        input=input_value,
+        input_cache=input_cache,
+        output=output,
+        total=total,
+        word_count=output,
+        duration_ms=1000,
+        latency_ms=100,
+        segment_index=0,
+        segment_count=0,
+        billable=billable,
+        status=0,
+        error_message="",
+        extra={},
+        created_at=datetime(2026, 4, 8, 12, 0, 0),
+        updated_at=datetime(2026, 4, 8, 12, 0, 0),
+    )
+
+
+def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-1",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-1", "4.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add_all(
+            [
+                _create_bucket(
+                    creator_bid="creator-1",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="2.0000000000",
+                ),
+                _create_bucket(
+                    creator_bid="creator-1",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-sub",
+                    category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    priority=20,
+                    available_credits="1.0000000000",
+                ),
+                _create_bucket(
+                    creator_bid="creator-1",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-topup",
+                    category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    priority=30,
+                    available_credits="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-llm-input",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-llm-cache",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_CACHE_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-llm-output",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_usage(
+                    usage_bid="usage-llm-1",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1200,
+                    input_cache=1000,
+                    output=1000,
+                    total=3200,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-llm-1")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        entries = (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_type=CREDIT_SOURCE_TYPE_USAGE,
+                source_bid="usage-llm-1",
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        buckets = {
+            row.wallet_bucket_bid: row
+            for row in CreditWalletBucket.query.filter_by(creator_bid="creator-1").all()
+        }
+
+        assert payload["status"] == "settled"
+        assert payload["entry_count"] == 3
+        assert payload["consumed_credits"] == 4
+        assert wallet.available_credits == Decimal("0E-10")
+        assert wallet.lifetime_consumed_credits == Decimal("4.0000000000")
+        assert [row.wallet_bucket_bid for row in entries] == [
+            "bucket-free",
+            "bucket-sub",
+            "bucket-topup",
+        ]
+        assert [
+            row.metadata_json["metric_breakdown"][0]["billing_metric"]
+            for row in entries
+        ] == [
+            "llm_input_tokens",
+            "llm_cache_tokens",
+            "llm_output_tokens",
+        ]
+        assert buckets["bucket-free"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
+        assert buckets["bucket-sub"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
+        assert buckets["bucket-topup"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
+
+
+def test_settle_tts_usage_is_idempotent(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-2",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-2", "5.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-2",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-tts-topup",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                priority=30,
+                available_credits="5.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-tts-request",
+                usage_type=BILL_USAGE_TYPE_TTS,
+                billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+                credits_per_unit="2.0000000000",
+                unit_size=1,
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-tts-1",
+                usage_type=BILL_USAGE_TYPE_TTS,
+                provider="minimax",
+                model="speech-01",
+                input_value=20,
+                input_cache=0,
+                output=20,
+                total=20,
+            )
+        )
+        dao.db.session.commit()
+
+        first = settle_bill_usage(billing_settlement_app, usage_bid="usage-tts-1")
+        second = settle_bill_usage(billing_settlement_app, usage_bid="usage-tts-1")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-2").one()
+        entries = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-2",
+            source_bid="usage-tts-1",
+        ).all()
+
+        assert first["status"] == "settled"
+        assert first["entry_count"] == 1
+        assert first["consumed_credits"] == 2
+        assert second["status"] == "already_settled"
+        assert len(entries) == 1
+        assert wallet.available_credits == Decimal("3.0000000000")
+
+
+def test_settle_usage_prefers_exact_rate_over_wildcard(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-3",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-3", "3.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-3",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-exact",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="3.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid="rate-llm-input-wildcard",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-llm-input-exact",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                    provider="openai",
+                    model="gpt-exact",
+                ),
+                _create_usage(
+                    usage_bid="usage-llm-exact",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-exact",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-llm-exact")
+
+        entry = CreditLedgerEntry.query.filter_by(source_bid="usage-llm-exact").one()
+        assert payload["status"] == "settled"
+        assert payload["consumed_credits"] == 2
+        assert entry.amount == Decimal("-2.0000000000")
+
+
+def test_settle_usage_skips_segment_and_non_billable_records(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-4",
+    )
+
+    with billing_settlement_app.app_context():
+        dao.db.session.add_all(
+            [
+                _create_usage(
+                    usage_bid="usage-segment",
+                    usage_type=BILL_USAGE_TYPE_TTS,
+                    provider="minimax",
+                    model="speech-01",
+                    input_value=10,
+                    input_cache=0,
+                    output=10,
+                    total=10,
+                    record_level=1,
+                ),
+                _create_usage(
+                    usage_bid="usage-non-billable",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=1000,
+                    total=2000,
+                    billable=0,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        segment_payload = settle_bill_usage(
+            billing_settlement_app,
+            usage_bid="usage-segment",
+        )
+        non_billable_payload = settle_bill_usage(
+            billing_settlement_app,
+            usage_bid="usage-non-billable",
+        )
+
+        assert segment_payload["status"] == "skipped"
+        assert segment_payload["reason"] == "segment_record"
+        assert non_billable_payload["status"] == "skipped"
+        assert non_billable_payload["reason"] == "non_billable"
+        assert CreditLedgerEntry.query.count() == 0

@@ -650,6 +650,7 @@ v1 的改造要求：
 - 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
+- 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；当前批次先提供可复用 settlement engine，Celery 投递与 creator 维度串行化仍留在后续任务
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
@@ -888,6 +889,11 @@ v1 需要新增：
 - 一条 usage 可以拆成多个 bucket 扣减，并生成多条 `consume` ledger
 - bucket 过期任务只扫描 `credit_wallet_buckets`；过期后写 `expire` ledger 并把 bucket 关闭
 - 结算幂等 key 应以 `bill_usage.usage_bid + billing_metric + wallet_bucket_bid` 为核心，避免跨 bucket 重复扣分
+- 当前实现中，`src/api/flaskr/service/billing/settlement.py` 已支持：
+  - LLM `input/cache/output` 三维 rate 匹配与扣分
+  - TTS 主 metric 结算
+  - `credit_wallet_buckets -> credit_ledger_entries -> credit_wallets` 的顺序写入
+  - usage 级幂等、防 segment/non-billable 重复结算，以及 exact rate 优先于 wildcard rate
 
 ### 7.3 现有接口如何改造
 
