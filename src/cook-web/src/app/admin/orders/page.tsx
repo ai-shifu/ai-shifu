@@ -628,7 +628,14 @@ const OrdersPage = () => {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn('truncate', className)}>{value}</span>
+          <span
+            className={cn(
+              'inline-block max-w-full truncate align-bottom',
+              className,
+            )}
+          >
+            {value}
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{value}</TooltipContent>
       </Tooltip>

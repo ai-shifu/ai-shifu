@@ -261,7 +261,7 @@ const renderTooltipText = (text?: string, className?: string) => {
       <TooltipTrigger asChild>
         <span
           className={cn(
-            'block w-full overflow-hidden text-ellipsis whitespace-nowrap',
+            'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
             className,
           )}
         >
