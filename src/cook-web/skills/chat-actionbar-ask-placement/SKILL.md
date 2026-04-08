@@ -36,6 +36,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 听课模式下若 `playerCustomActions` 命中的 `currentElement` 是 `interaction`，则追问入口在 PC 和移动端都应禁用，并在切入交互块时主动关闭已展开的追问浮层；交互块不允许追问。
 - 若 `markdown-flow-ui` 在组件节点（如 `.slide-interaction-overlay`）内部重新声明了 CSS 变量，`ai-shifu` 侧仅在 `:root` 覆盖不会生效；需要在相同或更内层的业务作用域选择器上重新声明该变量。
 - 追问面板若支持 SSE 流式回答，自动滚底不能只依赖消息条数变化；同一条 answer 在流式追加、Markdown 重排导致内容区高度变化时，也要通过 `ResizeObserver` 或等价机制持续滚到底部。
+- 听课模式移动端横屏下的追问面板应继续复用移动端弹层交互，包括灰色遮罩和标题栏里的放大/缩小、关闭按钮；同时横屏可单独提高 `max-height`，但空态面板仍只保留标题栏与输入区高度，不要把整个横屏 viewport 刷成白底。
 - 追问消息本身应以全局 zustand store 作为唯一 source of truth，按课时 `lessonScopeKey + anchor element_bid` 归档；`AskBlock`、阅读模式和听课模式都只消费同一份 store，`props.askList` 仅用于首次 hydrate，避免局部 state、父层 override 和 items 回填互相覆盖而打断 SSE token 流。
 - 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useChatLogicHook.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。

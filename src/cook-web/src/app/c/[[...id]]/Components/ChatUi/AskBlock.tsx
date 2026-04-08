@@ -94,6 +94,8 @@ export default function AskBlock({
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const isSlideAskBlock = className?.includes('listen-slide-ask-block');
   const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
+  const isLandscapeSlideMobileDialog =
+    Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
   const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
@@ -594,7 +596,6 @@ export default function AskBlock({
 
   if (
     mobileStyle &&
-    !forceDesktopSlidePanel &&
     shouldShowMobileDialog &&
     (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
   ) {
@@ -610,6 +611,7 @@ export default function AskBlock({
             <div
               className={cn(
                 styles.mobilePanel,
+                isLandscapeSlideMobileDialog && styles.mobilePanelLandscape,
                 isFullscreen ? styles.mobilePanelFullscreen : '',
               )}
             >
