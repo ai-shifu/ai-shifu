@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
 from flask import Flask, jsonify, request
@@ -8,6 +9,13 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
@@ -346,8 +354,87 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
             assert wallet.available_credits == 500000
+            assert wallet.reserved_credits == Decimal("0E-10")
+            assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
+            assert bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
+            assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert bucket.available_credits == 500000
             assert ledger.amount == 500000
+            assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+
+    def test_topup_sync_rebuilds_wallet_snapshot_from_bucket_balances(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            dao.db.session.add(
+                CreditWallet(
+                    wallet_bid="wallet-creator-1",
+                    creator_bid="creator-1",
+                    available_credits=Decimal("999.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("100.0000000000"),
+                    lifetime_consumed_credits=Decimal("0"),
+                    last_settled_usage_id=0,
+                    version=0,
+                    created_at=datetime(2026, 4, 1, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                )
+            )
+            dao.db.session.add(
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-existing-free",
+                    wallet_bid="wallet-creator-1",
+                    creator_bid="creator-1",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+                    source_type=CREDIT_SOURCE_TYPE_GIFT,
+                    source_bid="gift-existing",
+                    priority=10,
+                    original_credits=Decimal("100.0000000000"),
+                    available_credits=Decimal("100.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("0"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                    effective_to=None,
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                    created_at=datetime(2026, 4, 1, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                )
+            )
+            dao.db.session.commit()
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            new_bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            assert wallet.available_credits == Decimal("500100.0000000000")
+            assert wallet.reserved_credits == Decimal("0E-10")
+            assert new_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
+            assert new_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
+            assert new_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
 
     def test_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
@@ -396,6 +483,9 @@ class TestBillingWriteRoutes:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.provider_subscription_id == "sub_provider_test"
             assert wallet.available_credits == 300000
+            assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+            assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert bucket.available_credits == 300000
             assert ledger.amount == 300000
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING

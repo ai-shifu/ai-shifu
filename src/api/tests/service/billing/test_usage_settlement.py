@@ -406,6 +406,73 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
         assert entry.amount == Decimal("-2.0000000000")
 
 
+def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-5",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-5", "999.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add_all(
+            [
+                _create_bucket(
+                    creator_bid="creator-5",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-free-5",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="1.0000000000",
+                ),
+                _create_bucket(
+                    creator_bid="creator-5",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-topup-5",
+                    category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    priority=30,
+                    available_credits="2.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-creator-5-input",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_usage(
+                    usage_bid="usage-creator-5",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-creator-5")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-5").one()
+        entry = CreditLedgerEntry.query.filter_by(source_bid="usage-creator-5").one()
+        free_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-free-5"
+        ).one()
+        topup_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-topup-5"
+        ).one()
+
+        assert payload["status"] == "settled"
+        assert wallet.available_credits == Decimal("2.0000000000")
+        assert entry.balance_after == Decimal("2.0000000000")
+        assert free_bucket.status == CREDIT_BUCKET_STATUS_EXHAUSTED
+        assert topup_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+
+
 def test_settle_usage_skips_segment_and_non_billable_records(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:

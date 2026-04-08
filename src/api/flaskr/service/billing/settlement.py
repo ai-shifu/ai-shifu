@@ -22,7 +22,6 @@ from .consts import (
     BILLING_METRIC_TTS_OUTPUT_CHARS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_ROUNDING_MODE_FLOOR,
@@ -32,6 +31,7 @@ from .consts import (
 )
 from .models import CreditLedgerEntry, CreditUsageRate, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
+from .wallets import refresh_credit_wallet_snapshot, sync_credit_bucket_status
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
@@ -152,7 +152,7 @@ def settle_bill_usage(
                 "consumed_credits": _decimal_to_number(total_required),
             }
 
-        balance_after = _to_decimal(wallet.available_credits)
+        balance_after = total_available
         entry_count = 0
         total_consumed = _ZERO
         for charge in metric_charges:
@@ -172,9 +172,7 @@ def settle_bill_usage(
                 bucket.consumed_credits = (
                     _to_decimal(bucket.consumed_credits) + consumed
                 )
-                if _to_decimal(bucket.available_credits) <= _ZERO:
-                    bucket.available_credits = _ZERO
-                    bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+                sync_credit_bucket_status(bucket)
                 db.session.add(bucket)
 
                 ledger_entry = CreditLedgerEntry(
@@ -212,7 +210,7 @@ def settle_bill_usage(
                     "consumed_credits": _decimal_to_number(total_required),
                 }
 
-        wallet.available_credits = balance_after
+        refresh_credit_wallet_snapshot(wallet)
         wallet.lifetime_consumed_credits = (
             _to_decimal(wallet.lifetime_consumed_credits) + total_consumed
         )

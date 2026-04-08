@@ -83,6 +83,7 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .wallets import refresh_credit_wallet_snapshot, sync_credit_bucket_status
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
@@ -1447,7 +1448,10 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         ),
     )
 
-    balance_after = _to_decimal(wallet.available_credits) + amount
+    db.session.add(bucket)
+    sync_credit_bucket_status(bucket)
+    refresh_credit_wallet_snapshot(wallet)
+    balance_after = _to_decimal(wallet.available_credits)
     ledger_entry = CreditLedgerEntry(
         ledger_bid=generate_id(app),
         creator_bid=order.creator_bid,
@@ -1480,7 +1484,6 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     wallet.updated_at = datetime.now()
 
     db.session.add(wallet)
-    db.session.add(bucket)
     db.session.add(ledger_entry)
 
     if order.subscription_bid:
