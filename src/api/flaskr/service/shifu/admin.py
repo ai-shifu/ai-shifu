@@ -212,12 +212,14 @@ def _merge_courses(
     course_map = {}
     published_bids: Set[str] = set()
     for course in drafts:
-        if _is_operator_visible_course(course):
+        visible = _is_operator_visible_course(course)
+        if visible:
             course_map[course.shifu_bid] = course
     for course in published:
-        if _is_operator_visible_course(course):
+        visible = _is_operator_visible_course(course)
+        if visible:
             published_bids.add(course.shifu_bid)
-        if _is_operator_visible_course(course) and course.shifu_bid not in course_map:
+        if visible and course.shifu_bid not in course_map:
             course_map[course.shifu_bid] = course
     return (
         sorted(
@@ -291,7 +293,7 @@ def list_operator_courses(
             user_bid
             for course in page_items
             for user_bid in [course.created_user_bid, course.updated_user_bid]
-            if user_bid
+            if user_bid and user_bid != "system"
         }
         user_map = _load_user_map(list(user_bids))
         items = [

@@ -222,6 +222,53 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only():
     }
 
 
+def test_list_operator_courses_skips_system_user_lookup():
+    app = Flask(__name__)
+    system_course = DummyCourse(
+        shifu_bid="course-system-custom",
+        title="Custom System Course",
+        price="39.00",
+        created_user_bid="system",
+        updated_user_bid="system",
+        created_at=datetime(2025, 4, 1, 11, 0, 0),
+        updated_at=datetime(2025, 4, 4, 11, 0, 0),
+    )
+    normal_course = DummyCourse(
+        shifu_bid="course-1",
+        title="Normal Course",
+        price="59.00",
+        created_user_bid="creator-1",
+        updated_user_bid="editor-1",
+        created_at=datetime(2025, 4, 1, 10, 0, 0),
+        updated_at=datetime(2025, 4, 3, 10, 0, 0),
+    )
+
+    with patch(
+        "flaskr.service.shifu.admin._find_matching_creator_bids"
+    ) as creator_mock:
+        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+            with patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock:
+                creator_mock.return_value = None
+                latest_mock.side_effect = [[system_course], [normal_course]]
+                user_map_mock.return_value = {
+                    "creator-1": {
+                        "mobile": "15811112222",
+                        "email": "creator@example.com",
+                        "nickname": "Creator Mars",
+                    },
+                    "editor-1": {
+                        "mobile": "15833334444",
+                        "email": "editor@example.com",
+                        "nickname": "Editor Venus",
+                    },
+                }
+
+                list_operator_courses(app, 1, 20, {})
+
+    assert set(user_map_mock.call_args.args[0]) == {"creator-1", "editor-1"}
+    assert "system" not in user_map_mock.call_args.args[0]
+
+
 def test_list_operator_courses_filters_by_course_status():
     app = Flask(__name__)
     draft_only_course = DummyCourse(
@@ -278,6 +325,42 @@ def test_list_operator_courses_filters_by_course_status():
     assert unpublished_result.data[0].course_status == "unpublished"
     assert [item.shifu_bid for item in published_result.data] == ["course-published"]
     assert published_result.data[0].course_status == "published"
+
+
+def test_merge_courses_checks_published_visibility_once():
+    draft_course = DummyCourse(
+        shifu_bid="course-draft",
+        title="Draft Course",
+        price="19.00",
+        created_user_bid="creator-1",
+        updated_user_bid="creator-1",
+        created_at=datetime(2025, 4, 1, 10, 0, 0),
+        updated_at=datetime(2025, 4, 2, 10, 0, 0),
+    )
+    published_course = DummyCourse(
+        shifu_bid="course-published",
+        title="Published Course",
+        price="29.00",
+        created_user_bid="creator-2",
+        updated_user_bid="creator-2",
+        created_at=datetime(2025, 4, 1, 11, 0, 0),
+        updated_at=datetime(2025, 4, 2, 11, 0, 0),
+    )
+
+    with patch(
+        "flaskr.service.shifu.admin._is_operator_visible_course",
+        side_effect=[True, True],
+    ) as visible_mock:
+        merged_courses, published_bids = admin_module._merge_courses(
+            [draft_course], [published_course]
+        )
+
+    assert visible_mock.call_count == 2
+    assert [course.shifu_bid for course in merged_courses] == [
+        "course-published",
+        "course-draft",
+    ]
+    assert published_bids == {"course-published"}
 
 
 class FakeColumn:
