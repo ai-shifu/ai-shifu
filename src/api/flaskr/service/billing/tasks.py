@@ -10,7 +10,10 @@ from .funcs import (
     build_billing_overview,
     reconcile_billing_provider_reference,
 )
-from .daily_aggregates import aggregate_daily_usage_metrics
+from .daily_aggregates import (
+    aggregate_daily_ledger_summary,
+    aggregate_daily_usage_metrics,
+)
 from .models import BillingSubscription, CreditWallet
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
@@ -310,4 +313,24 @@ def aggregate_daily_usage_metrics_task(
         finalize=_coerce_bool(finalize),
     )
     payload["task_name"] = "billing.aggregate_daily_usage_metrics"
+    return payload
+
+
+@shared_task(name="billing.aggregate_daily_ledger_summary")
+def aggregate_daily_ledger_summary_task(
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    finalize: Any = False,
+) -> dict[str, Any]:
+    """Rebuild one creator/day ledger summary slice from ledger entries."""
+
+    app = _create_task_app()
+    payload = aggregate_daily_ledger_summary(
+        app,
+        stat_date=_normalize_bid(stat_date),
+        creator_bid=_normalize_bid(creator_bid),
+        finalize=_coerce_bool(finalize),
+    )
+    payload["task_name"] = "billing.aggregate_daily_ledger_summary"
     return payload

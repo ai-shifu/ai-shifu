@@ -715,7 +715,7 @@ v1 的改造要求：
 - 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
-- 当前实现中，`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/d4e5f6a7b8c9_add_billing_daily_aggregate_tables.py` 落地；其中 usage 日汇总已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；ledger 聚合和 rebuild 入口仍留在后续条目实现
+- 当前实现中，`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/d4e5f6a7b8c9_add_billing_daily_aggregate_tables.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；按 creator / shifu / date window 的 rebuild 入口仍留在后续条目实现
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
@@ -922,7 +922,7 @@ v1 冻结低余额阈值、告警与错误码规则：
 | Task Name | 作用 | 最小 payload |
 | --- | --- | --- |
 | `billing.aggregate_daily_usage_metrics` | 生成 usage 日聚合 | `stat_date`, `creator_bid` 可选，`finalize` 可选 |
-| `billing.aggregate_daily_ledger_summary` | 生成 ledger 日聚合 | `stat_date`, `creator_bid` 可选 |
+| `billing.aggregate_daily_ledger_summary` | 生成 ledger 日聚合 | `stat_date`, `creator_bid` 可选，`finalize` 可选 |
 | `billing.rebuild_daily_aggregates` | 重建日报表 | `creator_bid`, `shifu_bid`, `date_from`, `date_to` |
 | `billing.verify_domain_binding` | 域名校验与状态刷新 | `domain_binding_bid`, `creator_bid` |
 

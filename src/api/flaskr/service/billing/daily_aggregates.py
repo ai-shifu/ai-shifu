@@ -14,7 +14,11 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
 
 from .consts import CREDIT_LEDGER_ENTRY_TYPE_CONSUME, CREDIT_SOURCE_TYPE_USAGE
-from .models import BillingDailyUsageMetric, CreditLedgerEntry
+from .models import (
+    BillingDailyLedgerSummary,
+    BillingDailyUsageMetric,
+    CreditLedgerEntry,
+)
 from .ownership import resolve_usage_creator_bid
 from .settlement import _build_usage_metric_charges
 
@@ -179,6 +183,114 @@ def finalize_daily_usage_metrics(
     """Close one day's usage aggregate window by recomputing the full day."""
 
     return aggregate_daily_usage_metrics(
+        app,
+        stat_date=stat_date,
+        creator_bid=creator_bid,
+        finalize=True,
+        now=now,
+    )
+
+
+def aggregate_daily_ledger_summary(
+    app: Flask,
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    finalize: bool = False,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Rebuild one day's ledger summary directly from ledger detail rows."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    window_started_at, window_ended_at, normalized_stat_date = _resolve_stat_window(
+        stat_date=stat_date,
+        finalize=finalize,
+        now=now,
+    )
+
+    with app.app_context():
+        query = CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.created_at >= window_started_at,
+            CreditLedgerEntry.created_at < window_ended_at,
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                CreditLedgerEntry.creator_bid == normalized_creator_bid
+            )
+        ledger_rows = query.order_by(CreditLedgerEntry.id.asc()).all()
+
+        aggregates: dict[tuple[str, int, int], dict[str, Any]] = {}
+        for row in ledger_rows:
+            creator_value = str(row.creator_bid or "").strip()
+            if not creator_value:
+                continue
+            aggregate_key = (
+                creator_value,
+                int(row.entry_type or 0),
+                int(row.source_type or 0),
+            )
+            row_payload = aggregates.setdefault(
+                aggregate_key,
+                {
+                    "creator_bid": creator_value,
+                    "entry_type": int(row.entry_type or 0),
+                    "source_type": int(row.source_type or 0),
+                    "amount": _ZERO,
+                    "entry_count": 0,
+                },
+            )
+            row_payload["amount"] += _to_decimal(row.amount)
+            row_payload["entry_count"] += 1
+
+        scope_query = BillingDailyLedgerSummary.query.filter(
+            BillingDailyLedgerSummary.stat_date == normalized_stat_date
+        )
+        if normalized_creator_bid:
+            scope_query = scope_query.filter(
+                BillingDailyLedgerSummary.creator_bid == normalized_creator_bid
+            )
+        deleted_count = int(scope_query.delete(synchronize_session=False) or 0)
+
+        for payload in aggregates.values():
+            db.session.add(
+                BillingDailyLedgerSummary(
+                    daily_ledger_summary_bid=generate_id(app),
+                    stat_date=normalized_stat_date,
+                    creator_bid=payload["creator_bid"],
+                    entry_type=payload["entry_type"],
+                    source_type=payload["source_type"],
+                    amount=_quantize_decimal(payload["amount"]),
+                    entry_count=int(payload["entry_count"]),
+                    window_started_at=window_started_at,
+                    window_ended_at=window_ended_at,
+                )
+            )
+
+        db.session.commit()
+        return {
+            "status": "finalized" if finalize else "aggregated",
+            "stat_date": normalized_stat_date,
+            "creator_bid": normalized_creator_bid or None,
+            "finalize": bool(finalize),
+            "window_started_at": window_started_at.isoformat(),
+            "window_ended_at": window_ended_at.isoformat(),
+            "entry_count": len(ledger_rows),
+            "row_count": len(aggregates),
+            "deleted_count": deleted_count,
+        }
+
+
+def finalize_daily_ledger_summary(
+    app: Flask,
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Close one day's ledger summary window by recomputing the full day."""
+
+    return aggregate_daily_ledger_summary(
         app,
         stat_date=stat_date,
         creator_bid=creator_bid,
