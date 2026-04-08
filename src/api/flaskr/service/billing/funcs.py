@@ -41,11 +41,20 @@ from .consts import (
     BILLING_ORDER_TYPE_LABELS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_LABELS,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+    BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
@@ -68,6 +77,7 @@ from .consts import (
 from .models import (
     BillingOrder,
     BillingProduct,
+    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -140,6 +150,19 @@ _BUCKET_PRIORITY_BY_CATEGORY = {
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION: 20,
     CREDIT_BUCKET_CATEGORY_TOPUP: 30,
 }
+
+_MANAGED_RENEWAL_EVENT_TYPES = (
+    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
+    BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+)
+
+_PENDING_RENEWAL_EVENT_STATUSES = (
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
+)
 
 
 def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
@@ -544,6 +567,7 @@ def cancel_billing_subscription(
         subscription.cancel_at_period_end = 1
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         subscription.updated_at = datetime.now()
+        _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
         return _serialize_subscription(app, subscription)
@@ -584,6 +608,7 @@ def resume_billing_subscription(
         subscription.cancel_at_period_end = 0
         subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
         subscription.updated_at = datetime.now()
+        _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
         return _serialize_subscription(app, subscription)
@@ -679,6 +704,7 @@ def refund_billing_order(
                     payload=refund_result.raw_response,
                     event_time=None,
                 )
+                _sync_subscription_lifecycle_events(app, subscription)
                 db.session.add(subscription)
 
         db.session.commit()
@@ -835,6 +861,7 @@ def apply_billing_stripe_notification(
         if subscription is not None:
             if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
                 _apply_billing_subscription_provider_update(
+                    app,
                     subscription,
                     provider="stripe",
                     event_type=event_type,
@@ -843,6 +870,7 @@ def apply_billing_stripe_notification(
                 )
             elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_PAID:
                 _apply_subscription_checkout_success(
+                    app,
                     subscription,
                     payload={
                         **data_object,
@@ -853,6 +881,7 @@ def apply_billing_stripe_notification(
                 )
             elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_FAILED:
                 _apply_subscription_checkout_failure(
+                    app,
                     subscription,
                     provider="stripe",
                     event_type=event_type,
@@ -1200,6 +1229,7 @@ def _sync_stripe_order(
         subscription = _load_subscription_by_bid(order.subscription_bid)
         if subscription is not None:
             _apply_subscription_checkout_success(
+                app,
                 subscription,
                 payload=session,
                 provider="stripe",
@@ -1382,7 +1412,10 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    effective_from = order.paid_at or datetime.now()
+    effective_from = _resolve_credit_bucket_effective_from(
+        order=order,
+        default_effective_from=order.paid_at or datetime.now(),
+    )
     effective_to = _resolve_credit_bucket_effective_to(
         order=order,
         product=product,
@@ -1453,13 +1486,38 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     if order.subscription_bid:
         subscription = _load_subscription_by_bid(order.subscription_bid)
         if subscription is not None:
-            subscription.current_period_start_at = (
-                subscription.current_period_start_at or effective_from
-            )
-            subscription.current_period_end_at = (
-                subscription.current_period_end_at or effective_to
-            )
+            if order.order_type in {
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            }:
+                if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+                    renewed_product_bid = (
+                        _normalize_bid(subscription.next_product_bid)
+                        or order.product_bid
+                    )
+                    subscription.product_bid = renewed_product_bid
+                    subscription.next_product_bid = ""
+                else:
+                    subscription.product_bid = order.product_bid
+                    subscription.next_product_bid = ""
+                subscription.status = (
+                    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+                    if subscription.cancel_at_period_end
+                    else BILLING_SUBSCRIPTION_STATUS_ACTIVE
+                )
+                subscription.current_period_start_at = effective_from
+                subscription.current_period_end_at = effective_to
+                subscription.last_renewed_at = effective_from
+            else:
+                subscription.current_period_start_at = (
+                    subscription.current_period_start_at or effective_from
+                )
+                subscription.current_period_end_at = (
+                    subscription.current_period_end_at or effective_to
+                )
             subscription.updated_at = datetime.now()
+            _sync_subscription_lifecycle_events(app, subscription)
             db.session.add(subscription)
 
     return True
@@ -1468,6 +1526,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
 def _resolve_credit_grant_context(order: BillingOrder) -> dict[str, Any] | None:
     if order.order_type in {
         BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
         return {
@@ -1535,7 +1594,10 @@ def _resolve_credit_bucket_effective_to(
     product: BillingProduct,
     effective_from: datetime,
 ) -> datetime | None:
-    if order.subscription_bid:
+    if (
+        order.subscription_bid
+        and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
+    ):
         subscription = _load_subscription_by_bid(order.subscription_bid)
         if subscription is not None and subscription.current_period_end_at is not None:
             return subscription.current_period_end_at
@@ -1551,6 +1613,23 @@ def _resolve_credit_bucket_effective_to(
     return None
 
 
+def _resolve_credit_bucket_effective_from(
+    *,
+    order: BillingOrder,
+    default_effective_from: datetime,
+) -> datetime:
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        return default_effective_from
+    subscription = _load_subscription_by_bid(order.subscription_bid)
+    if (
+        subscription is None
+        or subscription.current_period_end_at is None
+        or subscription.current_period_end_at <= default_effective_from
+    ):
+        return default_effective_from
+    return subscription.current_period_end_at
+
+
 def _add_months(value: datetime, months: int) -> datetime:
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
@@ -1563,6 +1642,217 @@ def _add_years(value: datetime, years: int) -> datetime:
     year = value.year + years
     day = min(value.day, calendar.monthrange(year, value.month)[1])
     return value.replace(year=year, day=day)
+
+
+def _sync_subscription_lifecycle_events(
+    app: Flask,
+    subscription: BillingSubscription,
+) -> None:
+    scheduled_at = subscription.current_period_end_at
+    product = _load_billing_product_by_bid(subscription.product_bid)
+
+    if subscription.status in {
+        BILLING_SUBSCRIPTION_STATUS_CANCELED,
+        BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    }:
+        subscription.grace_period_end_at = None
+        _cancel_subscription_renewal_events(subscription.subscription_bid)
+        return
+
+    if subscription.status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
+        grace_period_end_at = (
+            subscription.grace_period_end_at
+            or scheduled_at
+            or subscription.current_period_start_at
+        )
+        subscription.grace_period_end_at = grace_period_end_at
+        _cancel_subscription_renewal_events(
+            subscription.subscription_bid,
+            event_types=(
+                BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+                BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+                BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+            ),
+        )
+        if grace_period_end_at is not None:
+            _upsert_subscription_renewal_event(
+                app,
+                subscription,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RETRY,
+                scheduled_at=grace_period_end_at,
+            )
+        return
+
+    subscription.grace_period_end_at = None
+    _cancel_subscription_renewal_events(
+        subscription.subscription_bid,
+        event_types=(BILLING_RENEWAL_EVENT_TYPE_RETRY,),
+    )
+
+    if scheduled_at is None:
+        _cancel_subscription_renewal_events(subscription.subscription_bid)
+        return
+
+    if subscription.cancel_at_period_end or (
+        subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+    ):
+        _upsert_subscription_renewal_event(
+            app,
+            subscription,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+            scheduled_at=scheduled_at,
+        )
+        _cancel_subscription_renewal_events(
+            subscription.subscription_bid,
+            event_types=(
+                BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+                BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+            ),
+        )
+        return
+
+    _cancel_subscription_renewal_events(
+        subscription.subscription_bid,
+        event_types=(BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,),
+    )
+
+    if subscription.next_product_bid:
+        _upsert_subscription_renewal_event(
+            app,
+            subscription,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+            scheduled_at=scheduled_at,
+        )
+    else:
+        _cancel_subscription_renewal_events(
+            subscription.subscription_bid,
+            event_types=(BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,),
+        )
+
+    if (
+        subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        and product is not None
+        and int(product.auto_renew_enabled or 0) == 1
+    ):
+        _upsert_subscription_renewal_event(
+            app,
+            subscription,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            scheduled_at=scheduled_at,
+        )
+        return
+
+    _cancel_subscription_renewal_events(
+        subscription.subscription_bid,
+        event_types=(BILLING_RENEWAL_EVENT_TYPE_RENEWAL,),
+    )
+
+
+def _upsert_subscription_renewal_event(
+    app: Flask,
+    subscription: BillingSubscription,
+    *,
+    event_type: int,
+    scheduled_at: datetime,
+) -> None:
+    payload = _normalize_json_value(
+        {
+            "subscription_bid": subscription.subscription_bid,
+            "creator_bid": subscription.creator_bid,
+            "product_bid": subscription.product_bid,
+            "next_product_bid": _normalize_bid(subscription.next_product_bid) or None,
+            "status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+                subscription.status,
+                "draft",
+            ),
+            "cancel_at_period_end": bool(subscription.cancel_at_period_end),
+        }
+    )
+    event = (
+        BillingRenewalEvent.query.filter(
+            BillingRenewalEvent.deleted == 0,
+            BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
+            BillingRenewalEvent.event_type == event_type,
+            BillingRenewalEvent.scheduled_at == scheduled_at,
+        )
+        .order_by(BillingRenewalEvent.id.desc())
+        .first()
+    )
+    if event is None:
+        event = BillingRenewalEvent(
+            renewal_event_bid=generate_id(app),
+            subscription_bid=subscription.subscription_bid,
+            creator_bid=subscription.creator_bid,
+            event_type=event_type,
+            scheduled_at=scheduled_at,
+            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            attempt_count=0,
+            last_error="",
+            payload_json=payload,
+            processed_at=None,
+        )
+    else:
+        event.creator_bid = subscription.creator_bid
+        event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
+        event.last_error = ""
+        event.payload_json = payload
+        event.processed_at = None
+        event.updated_at = datetime.now()
+
+    db.session.add(event)
+    _cancel_stale_subscription_renewal_events(
+        subscription.subscription_bid,
+        event_type=event_type,
+        keep_scheduled_at=scheduled_at,
+    )
+
+
+def _cancel_stale_subscription_renewal_events(
+    subscription_bid: str,
+    *,
+    event_type: int,
+    keep_scheduled_at: datetime,
+) -> None:
+    rows = (
+        BillingRenewalEvent.query.filter(
+            BillingRenewalEvent.deleted == 0,
+            BillingRenewalEvent.subscription_bid == subscription_bid,
+            BillingRenewalEvent.event_type == event_type,
+            BillingRenewalEvent.status.in_(_PENDING_RENEWAL_EVENT_STATUSES),
+            BillingRenewalEvent.scheduled_at != keep_scheduled_at,
+        )
+        .order_by(BillingRenewalEvent.id.desc())
+        .all()
+    )
+    now = datetime.now()
+    for row in rows:
+        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
+        row.processed_at = now
+        row.updated_at = now
+        db.session.add(row)
+
+
+def _cancel_subscription_renewal_events(
+    subscription_bid: str,
+    *,
+    event_types: tuple[int, ...] = _MANAGED_RENEWAL_EVENT_TYPES,
+) -> None:
+    rows = (
+        BillingRenewalEvent.query.filter(
+            BillingRenewalEvent.deleted == 0,
+            BillingRenewalEvent.subscription_bid == subscription_bid,
+            BillingRenewalEvent.event_type.in_(event_types),
+            BillingRenewalEvent.status.in_(_PENDING_RENEWAL_EVENT_STATUSES),
+        )
+        .order_by(BillingRenewalEvent.id.desc())
+        .all()
+    )
+    now = datetime.now()
+    for row in rows:
+        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
+        row.processed_at = now
+        row.updated_at = now
+        db.session.add(row)
 
 
 def _apply_billing_order_provider_update(
@@ -1682,6 +1972,7 @@ def _extract_stripe_failure_message(data_object: dict[str, Any]) -> str:
 
 
 def _apply_billing_subscription_provider_update(
+    app: Flask,
     subscription: BillingSubscription,
     *,
     provider: str,
@@ -1744,10 +2035,12 @@ def _apply_billing_subscription_provider_update(
     if mapped_status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
         subscription.last_failed_at = now
     subscription.updated_at = datetime.now()
+    _sync_subscription_lifecycle_events(app, subscription)
     return True
 
 
 def _apply_subscription_checkout_success(
+    app: Flask,
     subscription: BillingSubscription,
     *,
     payload: dict[str, Any],
@@ -1788,10 +2081,12 @@ def _apply_subscription_checkout_success(
     now = event_time or datetime.now()
     subscription.last_renewed_at = now
     subscription.updated_at = datetime.now()
+    _sync_subscription_lifecycle_events(app, subscription)
     return True
 
 
 def _apply_subscription_checkout_failure(
+    app: Flask,
     subscription: BillingSubscription,
     *,
     provider: str,
@@ -1815,6 +2110,7 @@ def _apply_subscription_checkout_failure(
     subscription.status = BILLING_SUBSCRIPTION_STATUS_PAST_DUE
     subscription.last_failed_at = event_time or datetime.now()
     subscription.updated_at = datetime.now()
+    _sync_subscription_lifecycle_events(app, subscription)
     return True
 
 

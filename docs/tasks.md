@@ -77,7 +77,7 @@
 - [x] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
 - [x] 在 `billing_orders.metadata` 中仅保留最近一次 provider 原始 payload 与事件摘要。
 - [x] 实现找不到关联订单的 webhook ignore 策略，并依赖 sync/reconcile 补偿。
-- [ ] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
+- [x] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
 - [x] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
 
 ### 计量与结算

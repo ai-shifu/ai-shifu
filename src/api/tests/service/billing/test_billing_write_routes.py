@@ -12,13 +12,28 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
+)
+from flaskr.service.billing.funcs import (
+    _apply_billing_subscription_provider_update,
+    _grant_paid_order_credits,
+    _sync_subscription_lifecycle_events,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
+    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -373,12 +388,18 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
+            renewal_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid=subscription.subscription_bid,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.provider_subscription_id == "sub_provider_test"
             assert wallet.available_credits == 300000
             assert bucket.available_credits == 300000
             assert ledger.amount == 300000
+            assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+            assert renewal_event.scheduled_at == subscription.current_period_end_at
 
     def test_cancel_and_resume_subscription_toggle_status(
         self, billing_write_client
@@ -396,6 +417,8 @@ class TestBillingWriteRoutes:
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_1",
                     provider_customer_id="cus_provider_1",
+                    current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+                    current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
                     cancel_at_period_end=0,
                     next_product_bid="",
                     metadata_json={},
@@ -413,6 +436,13 @@ class TestBillingWriteRoutes:
         assert cancel_payload["data"]["status"] == "cancel_scheduled"
         assert cancel_payload["data"]["cancel_at_period_end"] is True
 
+        with app.app_context():
+            cancel_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-active",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+            ).one()
+            assert cancel_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+
         resume_payload = client.post(
             "/api/billing/subscriptions/resume",
             json={"subscription_bid": "sub-active"},
@@ -425,12 +455,223 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-active"
             ).one()
+            cancel_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-active",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
+            ).one()
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.cancel_at_period_end == 0
             assert subscription.metadata_json["provider"] == "stripe"
             assert (
                 subscription.metadata_json["latest_event_type"] == "resume_subscription"
             )
+            assert cancel_event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+
+    def test_past_due_subscription_sets_grace_and_retry_event(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-past-due",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_retry",
+                provider_customer_id="cus_provider_retry",
+                current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+                current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime(2026, 4, 1, 0, 0, 0),
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.flush()
+            _sync_subscription_lifecycle_events(app, subscription)
+            dao.db.session.commit()
+
+            applied = _apply_billing_subscription_provider_update(
+                app,
+                subscription,
+                provider="stripe",
+                event_type="customer.subscription.updated",
+                payload={"created": 1775000000},
+                data_object={
+                    "id": "sub_provider_retry",
+                    "status": "past_due",
+                    "current_period_start": 1772000000,
+                    "current_period_end": 1775003600,
+                    "cancel_at_period_end": False,
+                },
+            )
+            dao.db.session.commit()
+
+            retry_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-past-due",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RETRY,
+            ).one()
+            renewal_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-past-due",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            ).one()
+            assert applied is True
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE
+            assert (
+                subscription.grace_period_end_at == subscription.current_period_end_at
+            )
+            assert retry_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+            assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
+
+    def test_next_product_bid_schedules_downgrade_event(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-downgrade",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-yearly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_yearly",
+                provider_customer_id="cus_provider_yearly",
+                current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
+                current_period_end_at=datetime(2027, 1, 1, 0, 0, 0),
+                cancel_at_period_end=0,
+                next_product_bid="billing-product-plan-monthly",
+                metadata_json={},
+                created_at=datetime(2026, 1, 1, 0, 0, 0),
+                updated_at=datetime(2026, 1, 1, 0, 0, 0),
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.flush()
+            _sync_subscription_lifecycle_events(app, subscription)
+            dao.db.session.commit()
+
+            downgrade_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-downgrade",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+            ).one()
+            assert downgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+            assert downgrade_event.scheduled_at == subscription.current_period_end_at
+
+    def test_paid_upgrade_order_switches_subscription_product_and_reschedules(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-upgrade",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_upgrade",
+                provider_customer_id="cus_provider_upgrade",
+                current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+                current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+                cancel_at_period_end=0,
+                next_product_bid="billing-product-plan-monthly",
+                metadata_json={},
+                created_at=datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime(2026, 4, 1, 0, 0, 0),
+            )
+            order = BillingOrder(
+                billing_order_bid="billing-upgrade-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                product_bid="billing-product-plan-yearly",
+                subscription_bid="sub-upgrade",
+                currency="CNY",
+                payable_amount=99900,
+                paid_amount=99900,
+                payment_provider="stripe",
+                channel="checkout_session",
+                provider_reference_id="cs_upgrade_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=datetime(2026, 4, 8, 13, 0, 0),
+                metadata_json={},
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            granted = _grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            upgrade_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-upgrade",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            ).one()
+            assert granted is True
+            assert subscription.product_bid == "billing-product-plan-yearly"
+            assert subscription.next_product_bid == ""
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.cancel_at_period_end == 0
+            assert wallet.available_credits == 3600000
+            assert upgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+
+    def test_paid_renewal_order_applies_scheduled_next_product(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-renewal",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-yearly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_renewal",
+                provider_customer_id="cus_provider_renewal",
+                current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
+                current_period_end_at=datetime(2027, 1, 1, 0, 0, 0),
+                cancel_at_period_end=0,
+                next_product_bid="billing-product-plan-monthly",
+                metadata_json={},
+                created_at=datetime(2026, 1, 1, 0, 0, 0),
+                updated_at=datetime(2026, 1, 1, 0, 0, 0),
+            )
+            order = BillingOrder(
+                billing_order_bid="billing-renewal-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                product_bid="billing-product-plan-monthly",
+                subscription_bid="sub-renewal",
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=9900,
+                payment_provider="stripe",
+                channel="checkout_session",
+                provider_reference_id="cs_renewal_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=datetime(2027, 1, 1, 0, 0, 0),
+                metadata_json={},
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            granted = _grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            renewal_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-renewal",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            ).one()
+            assert granted is True
+            assert subscription.product_bid == "billing-product-plan-monthly"
+            assert subscription.next_product_bid == ""
+            assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+            assert renewal_event.scheduled_at == subscription.current_period_end_at
 
     def test_refund_paid_stripe_order_marks_order_refunded(
         self, billing_write_client

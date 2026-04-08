@@ -240,6 +240,8 @@ v1.1 再补充下列扩展能力：
 - `cancel_scheduled` 表示当前周期仍有效，但未来不再自动续费
 - `next_product_bid` 只用于未来生效的套餐切换，不立即替换 `product_bid`
 - provider 订阅事件可直接推进 `status`、`current_period_*`、`last_failed_at` 等字段
+- `past_due` 时必须回填 `grace_period_end_at`，并把续费排期切换为 retry
+- `billing_renewal_events` 需要跟随订阅状态维护 `renewal/retry/cancel_effective/downgrade_effective`
 - v1 不新增独立的 subscription webhook 存储层
 
 ### 3.3 `billing_orders`
@@ -647,6 +649,7 @@ v1 的改造要求：
 - 当前实现中，核心表 business id 唯一约束和 bootstrap `credit_usage_rates` seed 已由 `src/api/migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py` 落地
 - 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
+- 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
@@ -859,6 +862,8 @@ v1 需要新增：
   - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 与 `refund_payment` 必须显式返回 `unsupported`
 - `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
 - 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
+- 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `billing_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `billing_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
+- 当前实现中，Stripe subscription `past_due` 会回填 `grace_period_end_at`，取消或退款后会取消待执行的 renewal event
 
 ### 7.2 扣分与结算
 
