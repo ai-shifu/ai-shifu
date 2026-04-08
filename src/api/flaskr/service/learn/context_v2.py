@@ -2098,36 +2098,20 @@ class RunScriptContextV2:
         )
         if not outline_bid:
             return
-        generated_block: LearnGeneratedBlock | None = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.progress_record_bid
-                == self._current_attend.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid == outline_bid,
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
-                LearnGeneratedBlock.position == self._current_attend.block_position,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.block_content_conf == content,
-            )
-            .order_by(LearnGeneratedBlock.id.desc())
-            .first()
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            self.app,
+            shifu_bid=self._current_attend.shifu_bid,
+            outline_item_bid=outline_bid,
+            progress_record_bid=self._current_attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=content,
+            block_index=self._current_attend.block_position,
         )
-        if not generated_block:
-            generated_block = init_generated_block(
-                self.app,
-                shifu_bid=self._current_attend.shifu_bid,
-                outline_item_bid=outline_bid,
-                progress_record_bid=self._current_attend.progress_record_bid,
-                user_bid=self._user_info.user_id,
-                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                mdflow=content,
-                block_index=self._current_attend.block_position,
-            )
-            db.session.add(generated_block)
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = content
         generated_block.generated_content = ""
+        db.session.add(generated_block)
         db.session.flush()
         self.append_langfuse_output(content)
         yield RunMarkdownFlowDTO(
