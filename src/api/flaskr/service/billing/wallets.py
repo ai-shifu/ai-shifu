@@ -6,17 +6,25 @@ from decimal import Decimal
 from datetime import datetime
 from typing import Any
 
+from flask import Flask
+
 from flaskr.dao import db
+from flaskr.util.uuid import generate_id
 
 from .consts import (
+    CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_REFUND,
 )
-from .models import CreditWallet, CreditWalletBucket
+from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 
 _ZERO = Decimal("0")
+_FREE_BUCKET_PRIORITY = 10
 _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
@@ -95,6 +103,207 @@ def persist_credit_wallet_snapshot(
     return wallet
 
 
+def grant_refund_return_credits(
+    app: Flask,
+    *,
+    creator_bid: str,
+    amount: Decimal | Any,
+    refund_bid: str,
+    metadata: dict[str, Any] | None = None,
+    effective_from: datetime | None = None,
+) -> dict[str, Any]:
+    """Grant refunded credits back as a new free bucket."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_refund_bid = str(refund_bid or "").strip()
+    normalized_amount = _to_decimal(amount)
+    if (
+        not normalized_creator_bid
+        or not normalized_refund_bid
+        or normalized_amount <= _ZERO
+    ):
+        return {
+            "status": "noop",
+            "creator_bid": normalized_creator_bid or None,
+            "source_bid": normalized_refund_bid or None,
+            "amount": _decimal_to_number(normalized_amount),
+        }
+
+    with app.app_context():
+        idempotency_key = f"refund_return:{normalized_refund_bid}"
+        existing_entry = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.creator_bid == normalized_creator_bid,
+                CreditLedgerEntry.idempotency_key == idempotency_key,
+            )
+            .order_by(CreditLedgerEntry.id.desc())
+            .first()
+        )
+        if existing_entry is not None:
+            return {
+                "status": "already_granted",
+                "creator_bid": normalized_creator_bid,
+                "source_bid": normalized_refund_bid,
+                "wallet_bucket_bid": existing_entry.wallet_bucket_bid,
+                "ledger_bid": existing_entry.ledger_bid,
+            }
+
+        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
+        now = effective_from or datetime.now()
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=generate_id(app),
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=normalized_creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+            source_type=CREDIT_SOURCE_TYPE_REFUND,
+            source_bid=normalized_refund_bid,
+            priority=_FREE_BUCKET_PRIORITY,
+            original_credits=normalized_amount,
+            available_credits=normalized_amount,
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=now,
+            effective_to=None,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={
+                "refund_return": True,
+                **(metadata or {}),
+            },
+        )
+        db.session.add(bucket)
+        sync_credit_bucket_status(bucket)
+        refresh_credit_wallet_snapshot(wallet)
+        ledger_entry = CreditLedgerEntry(
+            ledger_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+            source_type=CREDIT_SOURCE_TYPE_REFUND,
+            source_bid=normalized_refund_bid,
+            idempotency_key=idempotency_key,
+            amount=normalized_amount,
+            balance_after=_to_decimal(wallet.available_credits),
+            expires_at=None,
+            consumable_from=now,
+            metadata_json={
+                "refund_return": True,
+                **(metadata or {}),
+            },
+        )
+        persist_credit_wallet_snapshot(
+            wallet,
+            available_credits=wallet.available_credits,
+            reserved_credits=wallet.reserved_credits,
+            updated_at=now,
+        )
+        db.session.add(ledger_entry)
+        db.session.commit()
+        return {
+            "status": "granted",
+            "creator_bid": normalized_creator_bid,
+            "source_bid": normalized_refund_bid,
+            "wallet_bucket_bid": bucket.wallet_bucket_bid,
+            "ledger_bid": ledger_entry.ledger_bid,
+        }
+
+
+def expire_credit_wallet_buckets(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    expire_before: datetime | None = None,
+) -> dict[str, Any]:
+    """Expire currently active buckets whose effective window has ended."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    cutoff = expire_before or datetime.now()
+    with app.app_context():
+        query = CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+            CreditWalletBucket.effective_to.isnot(None),
+            CreditWalletBucket.effective_to <= cutoff,
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                CreditWalletBucket.creator_bid == normalized_creator_bid
+            )
+        buckets = query.order_by(
+            CreditWalletBucket.effective_to.asc(),
+            CreditWalletBucket.created_at.asc(),
+            CreditWalletBucket.id.asc(),
+        ).all()
+        if not buckets:
+            return {
+                "status": "noop",
+                "creator_bid": normalized_creator_bid or None,
+                "bucket_count": 0,
+                "expired_credits": 0,
+            }
+
+        wallets: dict[str, CreditWallet] = {}
+        expired_total = _ZERO
+        expired_count = 0
+        for bucket in buckets:
+            available = _to_decimal(bucket.available_credits)
+            if available <= _ZERO:
+                sync_credit_bucket_status(bucket)
+                db.session.add(bucket)
+                continue
+
+            wallet = wallets.get(bucket.wallet_bid)
+            if wallet is None:
+                wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
+                if wallet is None:
+                    continue
+                wallets[bucket.wallet_bid] = wallet
+
+            bucket.available_credits = _ZERO
+            bucket.expired_credits = _to_decimal(bucket.expired_credits) + available
+            bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
+            db.session.add(bucket)
+
+            refresh_credit_wallet_snapshot(wallet)
+            ledger_entry = CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=bucket.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                source_type=bucket.source_type,
+                source_bid=bucket.source_bid,
+                idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
+                amount=-available,
+                balance_after=_to_decimal(wallet.available_credits),
+                expires_at=bucket.effective_to,
+                consumable_from=bucket.effective_from,
+                metadata_json={
+                    "expired_bucket_bid": bucket.wallet_bucket_bid,
+                    "expired_at": cutoff.isoformat(),
+                },
+            )
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=cutoff,
+            )
+            db.session.add(ledger_entry)
+            expired_total += available
+            expired_count += 1
+
+        db.session.commit()
+        return {
+            "status": "expired" if expired_count else "noop",
+            "creator_bid": normalized_creator_bid or None,
+            "bucket_count": expired_count,
+            "expired_credits": _decimal_to_number(expired_total),
+        }
+
+
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:
     """Normalize mutable bucket status from its current remaining balance."""
 
@@ -113,3 +322,49 @@ def _to_decimal(value: Any) -> Decimal:
     if isinstance(value, Decimal):
         return value
     return Decimal(str(value or 0))
+
+
+def _decimal_to_number(value: Decimal | Any) -> int | float:
+    decimal_value = _to_decimal(value)
+    if decimal_value == decimal_value.to_integral_value():
+        return int(decimal_value)
+    return float(decimal_value)
+
+
+def _load_credit_wallet_by_wallet_bid(wallet_bid: str) -> CreditWallet | None:
+    return (
+        CreditWallet.query.filter(
+            CreditWallet.deleted == 0,
+            CreditWallet.wallet_bid == str(wallet_bid or "").strip(),
+        )
+        .order_by(CreditWallet.id.desc())
+        .first()
+    )
+
+
+def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
+    normalized_creator_bid = str(creator_bid or "").strip()
+    wallet = (
+        CreditWallet.query.filter(
+            CreditWallet.deleted == 0,
+            CreditWallet.creator_bid == normalized_creator_bid,
+        )
+        .order_by(CreditWallet.id.desc())
+        .first()
+    )
+    if wallet is not None:
+        return wallet
+
+    wallet = CreditWallet(
+        wallet_bid=generate_id(app),
+        creator_bid=normalized_creator_bid,
+        available_credits=Decimal("0"),
+        reserved_credits=Decimal("0"),
+        lifetime_granted_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal("0"),
+        last_settled_usage_id=0,
+        version=0,
+    )
+    db.session.add(wallet)
+    db.session.flush()
+    return wallet
