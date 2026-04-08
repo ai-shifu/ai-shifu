@@ -146,7 +146,7 @@
 - [x] 实现创作者维度的权益快照和运行时解析逻辑。
 - [x] 实现 `max_concurrency`、priority class 和 runtime admission enforcement。
 - [x] 实现自定义域名绑定、校验、停用和 host 解析逻辑。
-- [ ] 扩展 runtime config，返回 entitlement、branding 和 domain 结果。
+- [x] 扩展 runtime config，返回 entitlement、branding 和 domain 结果。
 
 ### 报表与聚合
 

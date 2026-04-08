@@ -29,7 +29,7 @@ def test_legacy_order_route_remains_separate_from_billing_domain() -> None:
     assert "from flaskr.service.billing" not in source
 
 
-def test_runtime_config_route_stays_global_and_not_creator_scoped() -> None:
+def test_runtime_config_route_keeps_global_fields_and_adds_billing_extensions() -> None:
     source = (_API_ROOT / "flaskr/route/config.py").read_text(encoding="utf-8")
 
     assert '@app.route(path_prefix + "/runtime-config", methods=["GET"])' in source
@@ -37,7 +37,9 @@ def test_runtime_config_route_stays_global_and_not_creator_scoped() -> None:
     assert '"logoSquareUrl": get_config("LOGO_SQUARE_URL", "")' in source
     assert '"faviconUrl": get_config("FAVICON_URL", "")' in source
     assert '"homeUrl": get_config("HOME_URL", "/")' in source
-    assert "creator_bid" not in source
+    assert 'creator_bid = str(get_shifu_creator_bid() or "").strip()' in source
+    assert "runtime_billing = build_runtime_billing_context(" in source
+    assert "config.update(runtime_billing)" in source
 
 
 def test_bill_usage_model_keeps_raw_table_shape() -> None:

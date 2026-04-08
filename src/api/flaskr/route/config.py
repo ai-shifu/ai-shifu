@@ -1,6 +1,7 @@
 from flask import Flask, request
 
-from flaskr.common.shifu_context import with_shifu_context
+from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
+from flaskr.service.billing.runtime_config import build_runtime_billing_context
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -40,12 +41,20 @@ def _to_int(value, default: int = 0) -> int:
         return default
 
 
+def _extract_request_host() -> str:
+    forwarded_host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
+    if forwarded_host:
+        return forwarded_host.split(",", 1)[0].strip()
+    return str(request.host or "").strip()
+
+
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
     def get_runtime_config():
         origin = request.host_url.rstrip("/")
+        creator_bid = str(get_shifu_creator_bid() or "").strip()
         legal_urls = {
             "agreement": {
                 "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
@@ -112,6 +121,21 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             # External API Configuration
             "genMdfApiUrl": get_config("GEN_MDF_API_URL", ""),
         }
+        runtime_billing = build_runtime_billing_context(
+            app,
+            creator_bid=creator_bid,
+            request_host=_extract_request_host(),
+        )
+        branding = runtime_billing["branding"]
+        if branding.get("logo_wide_url"):
+            config["logoWideUrl"] = branding["logo_wide_url"]
+        if branding.get("logo_square_url"):
+            config["logoSquareUrl"] = branding["logo_square_url"]
+        if branding.get("favicon_url"):
+            config["faviconUrl"] = branding["favicon_url"]
+        if branding.get("home_url"):
+            config["homeUrl"] = branding["home_url"]
+        config.update(runtime_billing)
         return make_common_response(config)
 
     return app

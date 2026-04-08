@@ -714,6 +714,7 @@ v1 的改造要求：
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
 - 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
+- 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
@@ -1006,7 +1007,7 @@ v1 需要新增：
 - 旧 `/order` 保持不变，只说明“不复用其表结构”
 - 新 `/billing` 接口继续独立
 - 现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 继续作为 provider callback 入口，统一复用 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
-- `/api/config` 在 v1 继续保持全局配置输出，不承载 creator-scoped branding
+- `/api/config` 在 v1 继续保持全局配置输出；v1.1 开始允许在 `runtime-config` 中附加 creator-scoped `entitlements`、`branding`、`domain` 结果，并按 branding override 顶层 logo/home 字段
 
 ### 7.4 内部支付接口契约
 
@@ -1272,6 +1273,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /admin/billing/domains/bind`：统一处理 `bind`、`verify`、`disable` 三种 action；`bind` 生成新的校验 token，`verify` 按 token 刷新 `pending/verified/failed`，`disable` 停用域名
 - `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态，返回 `custom_domain_enabled` 和域名列表
 - `GET /billing/entitlements`：读取 v1.1 扩展权益快照
+- `GET /api/runtime-config`：在保留现有全局配置字段的同时，追加 `entitlements`、`branding`、`domain` 三个 v1.1 扩展结果；若 branding 命中，会同步覆盖顶层 logo/home 字段以兼容现有前端初始化逻辑
 
 ### 8.3 DTO 投影
 

@@ -163,6 +163,74 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
         return _normalize_bid(binding.creator_bid) or None
 
 
+def resolve_runtime_domain_result(
+    app: Flask,
+    host: Any,
+    *,
+    creator_bid: str = "",
+) -> dict[str, Any]:
+    """Return runtime-config domain metadata for the current request host."""
+
+    normalized_host = normalize_domain_host(host, strict=False)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_host:
+        return {
+            "request_host": None,
+            "matched": False,
+            "is_custom_domain": False,
+            "creator_bid": normalized_creator_bid or None,
+            "domain_binding_bid": None,
+            "host": None,
+            "binding_status": None,
+        }
+
+    with app.app_context():
+        binding = (
+            BillingDomainBinding.query.filter(
+                BillingDomainBinding.deleted == 0,
+                BillingDomainBinding.host == normalized_host,
+            )
+            .order_by(BillingDomainBinding.id.desc())
+            .first()
+        )
+        if binding is None:
+            return {
+                "request_host": normalized_host,
+                "matched": False,
+                "is_custom_domain": False,
+                "creator_bid": normalized_creator_bid or None,
+                "domain_binding_bid": None,
+                "host": None,
+                "binding_status": None,
+            }
+
+        binding_creator_bid = _normalize_bid(binding.creator_bid)
+        entitlement_state = resolve_creator_entitlement_state(binding_creator_bid)
+        custom_domain_enabled = bool(entitlement_state.get("custom_domain_enabled"))
+        creator_matches = not normalized_creator_bid or (
+            normalized_creator_bid == binding_creator_bid
+        )
+        is_custom_domain = bool(
+            creator_matches
+            and custom_domain_enabled
+            and binding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+        )
+        return {
+            "request_host": normalized_host,
+            "matched": True,
+            "is_custom_domain": is_custom_domain,
+            "creator_bid": binding_creator_bid if is_custom_domain else None,
+            "domain_binding_bid": (
+                binding.domain_binding_bid if is_custom_domain else None
+            ),
+            "host": binding.host if is_custom_domain else None,
+            "binding_status": BILLING_DOMAIN_BINDING_STATUS_LABELS.get(
+                binding.status,
+                "pending",
+            ),
+        }
+
+
 def normalize_domain_host(value: Any, *, strict: bool = True) -> str:
     """Normalize a host string into a lowercase custom-domain host."""
 
