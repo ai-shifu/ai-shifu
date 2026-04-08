@@ -3,6 +3,9 @@
   "__flat__": {
     "concurrencyExceeded": "当前创作者运行时繁忙，请等待其他会话结束后再试",
     "creditInsufficient": "积分余额不足，暂时无法继续调用，请先充值或开通订阅",
+    "customDomainDisabled": "当前创作者未开通自定义域名权益",
+    "domainBindingNotFound": "未找到对应的自定义域名绑定记录",
+    "domainHostConflict": "该自定义域名已被其他创作者绑定",
     "subscriptionInactive": "当前订阅不可用，且没有可用的免费或充值积分"
   }
 }

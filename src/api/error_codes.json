@@ -55,6 +55,9 @@
   "server.billing.creditInsufficient": 7101,
   "server.billing.subscriptionInactive": 7102,
   "server.billing.concurrencyExceeded": 7103,
+  "server.billing.customDomainDisabled": 7104,
+  "server.billing.domainHostConflict": 7105,
+  "server.billing.domainBindingNotFound": 7106,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

@@ -85,6 +85,10 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .domains import (
+    build_creator_domain_bindings,
+    manage_creator_domain_binding,
+)
 from .entitlements import (
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,
@@ -207,6 +211,8 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
         {"method": "POST", "path": f"{path_prefix}/topups/checkout"},
     ]
     admin_routes = [
+        {"method": "POST", "path": "/api/admin/billing/domains/bind"},
+        {"method": "GET", "path": "/api/admin/billing/domain-bindings"},
         {"method": "GET", "path": "/api/admin/billing/subscriptions"},
         {"method": "GET", "path": "/api/admin/billing/orders"},
         {"method": "POST", "path": "/api/admin/billing/ledger/adjust"},
@@ -553,6 +559,38 @@ def build_billing_order_detail(
             app, row.failed_at, timezone_name=timezone_name
         )
         return payload
+
+
+def build_admin_billing_domain_bindings(
+    app: Flask,
+    *,
+    creator_bid: str,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return creator-scoped custom domain bindings for admin billing pages."""
+
+    return build_creator_domain_bindings(
+        app,
+        creator_bid,
+        timezone_name=timezone_name,
+    )
+
+
+def bind_admin_billing_domain(
+    app: Flask,
+    *,
+    creator_bid: str,
+    payload: dict[str, Any],
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Create, verify, or disable a creator custom domain binding."""
+
+    return manage_creator_domain_binding(
+        app,
+        creator_bid,
+        payload,
+        timezone_name=timezone_name,
+    )
 
 
 def adjust_admin_billing_ledger(

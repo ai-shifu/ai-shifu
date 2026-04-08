@@ -712,6 +712,8 @@ v1 的改造要求：
 - 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/c1d2e3f4a5b6_add_billing_entitlement_and_domain_tables.py` 落地，先提供 schema 和常量基础，不让 v1 主链路依赖这两张表
 - 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
+- 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
+- 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
@@ -1267,8 +1269,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 扩展接口说明：
 
-- `POST /admin/billing/domains/bind`：发起域名绑定和校验
-- `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态
+- `POST /admin/billing/domains/bind`：统一处理 `bind`、`verify`、`disable` 三种 action；`bind` 生成新的校验 token，`verify` 按 token 刷新 `pending/verified/failed`，`disable` 停用域名
+- `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态，返回 `custom_domain_enabled` 和域名列表
 - `GET /billing/entitlements`：读取 v1.1 扩展权益快照
 
 ### 8.3 DTO 投影

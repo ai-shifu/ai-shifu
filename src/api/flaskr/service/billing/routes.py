@@ -9,8 +9,10 @@ from flask import Flask, request
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.billing.funcs import (
     adjust_admin_billing_ledger,
+    bind_admin_billing_domain,
     cancel_billing_subscription,
     build_admin_billing_orders_page,
+    build_admin_billing_domain_bindings,
     build_admin_billing_subscriptions_page,
     build_billing_catalog,
     build_billing_entitlements,
@@ -234,6 +236,29 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/domain-bindings", methods=["GET"])
+    def admin_billing_domain_bindings_api():
+        _require_creator()
+        return _make_common_response(
+            build_admin_billing_domain_bindings(
+                app,
+                creator_bid=_get_creator_bid(),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/domains/bind", methods=["POST"])
+    def admin_billing_domain_bind_api():
+        _require_creator()
+        return _make_common_response(
+            bind_admin_billing_domain(
+                app,
+                creator_bid=_get_creator_bid(),
+                payload=request.get_json(silent=True) or {},
                 timezone_name=_get_timezone_name(),
             )
         )
