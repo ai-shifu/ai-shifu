@@ -51,9 +51,9 @@
 
 ### 现有代码改造
 
-- [ ] 明确并落地 `service/order/payment_providers` 在 billing 域的复用边界，不复用旧 `order_*` 表。
-- [ ] 新增 `service/billing/consts.py`，统一承载 billing 专属 `7100+` 编码。
-- [ ] 扩展 `payment_providers/base.py` 支持 billing recurring/subscription/webhook 统一接口。
+- [x] 明确并落地 `service/order/payment_providers` 在 billing 域的复用边界，不复用旧 `order_*` 表。
+- [x] 新增 `service/billing/consts.py`，统一承载 billing 专属 `7100+` 编码。
+- [x] 扩展 `payment_providers/base.py` 支持 billing recurring/subscription/webhook 统一接口。
 - [ ] 调整 metering 的 `debug/preview` billable 逻辑，移除常量层硬编码 non-billable 判定。
 - [ ] 在 learn/preview/debug 入口接入 creator admission service。
 - [ ] 增加 `shifu_bid -> creator_bid` 的 ownership resolver 供 settlement 使用。

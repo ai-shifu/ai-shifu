@@ -880,13 +880,13 @@ def sync_stripe_checkout_session(
             raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider("stripe")
-        session = provider.retrieve_checkout_session(
-            session_id=resolved_session_id, app=app
+        sync_result = provider.sync_reference(
+            provider_reference=resolved_session_id,
+            reference_type="checkout_session",
+            app=app,
         )
-        intent = None
-        intent_id = session.get("payment_intent") or stripe_order.payment_intent_id
-        if intent_id:
-            intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+        session = sync_result.provider_payload.get("checkout_session", {}) or {}
+        intent = sync_result.provider_payload.get("payment_intent") or None
 
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
@@ -993,8 +993,10 @@ def handle_stripe_webhook(
 ) -> Tuple[Dict[str, Any], int]:
     provider = get_payment_provider("stripe")
     try:
-        notification: PaymentNotificationResult = provider.handle_notification(
-            payload={"raw_body": raw_body, "sig_header": sig_header}, app=app
+        notification: PaymentNotificationResult = provider.verify_webhook(
+            headers={"Stripe-Signature": sig_header},
+            raw_body=raw_body,
+            app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via tests for error path
         app.logger.exception("Stripe webhook verification failed: %s", exc)

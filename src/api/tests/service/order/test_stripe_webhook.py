@@ -62,7 +62,8 @@ class DummyStripeProvider:
     def __init__(self, notification: PaymentNotificationResult):
         self._notification = notification
 
-    def handle_notification(self, *, payload, app):
+    def verify_webhook(self, *, headers, raw_body, app):
+        del headers, raw_body, app
         return self._notification
 
 

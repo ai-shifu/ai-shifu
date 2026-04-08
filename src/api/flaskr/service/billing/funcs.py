@@ -19,7 +19,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.service.order.payment_providers import (
-    PaymentCreationResult,
     PaymentNotificationResult,
     PaymentRequest,
     get_payment_provider,
@@ -526,6 +525,21 @@ def cancel_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
         ):
             raise_error("server.order.orderStatusError")
+        if subscription.provider_subscription_id:
+            provider = get_payment_provider(subscription.billing_provider)
+            provider_result = provider.cancel_subscription(
+                subscription_bid=subscription.subscription_bid,
+                provider_subscription_id=subscription.provider_subscription_id,
+                app=app,
+            )
+            subscription.metadata_json = _merge_provider_metadata(
+                existing=subscription.metadata_json,
+                provider=subscription.billing_provider,
+                source="api_cancel",
+                event_type="cancel_subscription",
+                payload=provider_result.raw_response,
+                event_time=None,
+            )
         subscription.cancel_at_period_end = 1
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         subscription.updated_at = datetime.now()
@@ -551,6 +565,21 @@ def resume_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_PAUSED,
         ):
             raise_error("server.order.orderStatusError")
+        if subscription.provider_subscription_id:
+            provider = get_payment_provider(subscription.billing_provider)
+            provider_result = provider.resume_subscription(
+                subscription_bid=subscription.subscription_bid,
+                provider_subscription_id=subscription.provider_subscription_id,
+                app=app,
+            )
+            subscription.metadata_json = _merge_provider_metadata(
+                existing=subscription.metadata_json,
+                provider=subscription.billing_provider,
+                source="api_resume",
+                event_type="resume_subscription",
+                payload=provider_result.raw_response,
+                event_time=None,
+            )
         subscription.cancel_at_period_end = 0
         subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
         subscription.updated_at = datetime.now()
@@ -616,8 +645,9 @@ def handle_billing_stripe_webhook(
 
     provider = get_payment_provider("stripe")
     try:
-        notification: PaymentNotificationResult = provider.handle_notification(
-            payload={"raw_body": raw_body, "sig_header": sig_header},
+        notification: PaymentNotificationResult = provider.verify_webhook(
+            headers={"Stripe-Signature": sig_header},
+            raw_body=raw_body,
             app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via route tests
@@ -911,10 +941,16 @@ def _create_provider_checkout(
         client_ip="127.0.0.1",
         extra=provider_options,
     )
-    result: PaymentCreationResult = provider.create_payment(
-        request=payment_request,
-        app=app,
-    )
+    if payment_mode == "subscription":
+        result = provider.create_subscription(
+            request=payment_request,
+            app=app,
+        )
+    else:
+        result = provider.create_payment(
+            request=payment_request,
+            app=app,
+        )
 
     order.provider_reference_id = str(result.provider_reference or "")
     order.metadata_json = _normalize_json_value(
@@ -998,14 +1034,13 @@ def _sync_stripe_order(
     if not resolved_session_id:
         raise_error("server.order.orderNotFound")
 
-    session = provider.retrieve_checkout_session(
-        session_id=resolved_session_id,
+    sync_result = provider.sync_reference(
+        provider_reference=resolved_session_id,
+        reference_type="checkout_session",
         app=app,
     )
-    intent = None
-    intent_id = session.get("payment_intent") or ""
-    if intent_id:
-        intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+    session = sync_result.provider_payload.get("checkout_session", {}) or {}
+    intent = sync_result.provider_payload.get("payment_intent") or None
     target_status = BILLING_ORDER_STATUS_PENDING
     failure_code = ""
     failure_message = ""
@@ -1047,7 +1082,12 @@ def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
     if not order.provider_reference_id:
         raise_error("server.order.orderNotFound")
 
-    charge = provider.retrieve_charge(charge_id=order.provider_reference_id, app=app)
+    sync_result = provider.sync_reference(
+        provider_reference=order.provider_reference_id,
+        reference_type="charge",
+        app=app,
+    )
+    charge = sync_result.provider_payload.get("charge", {}) or {}
     target_status = BILLING_ORDER_STATUS_PENDING
     if charge.get("paid") or charge.get("time_paid"):
         target_status = BILLING_ORDER_STATUS_PAID

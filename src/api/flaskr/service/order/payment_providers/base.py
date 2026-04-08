@@ -43,6 +43,16 @@ class PaymentNotificationResult:
 
 
 @dataclass(slots=True)
+class SubscriptionUpdateResult:
+    """Normalized result returned from subscription state updates."""
+
+    provider_reference: str
+    raw_response: Dict[str, Any]
+    status: str
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PaymentRefundRequest:
     """Request payload for initiating a refund."""
 
@@ -70,12 +80,46 @@ class PaymentProvider(ABC):
     def create_payment(self, *, request: PaymentRequest, app) -> PaymentCreationResult:
         """Create a payment with the external provider."""
 
+    def create_subscription(
+        self, *, request: PaymentRequest, app
+    ) -> PaymentCreationResult:
+        """Create a provider-managed subscription checkout."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support subscriptions"
+        )
+
+    def cancel_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app
+    ) -> SubscriptionUpdateResult:
+        """Schedule or trigger subscription cancellation at the provider."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support subscription cancellation"
+        )
+
+    def resume_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app
+    ) -> SubscriptionUpdateResult:
+        """Resume a paused or cancel-scheduled provider subscription."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support subscription resumption"
+        )
+
+    def verify_webhook(
+        self, *, headers: Dict[str, str], raw_body: bytes | str, app
+    ) -> PaymentNotificationResult:
+        """Verify and normalize a provider webhook payload."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support webhook verification"
+        )
+
     def handle_notification(
         self, *, payload: Dict[str, Any], app
     ) -> PaymentNotificationResult:
         """Process provider webhook payloads."""
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support notifications"
+        return self.verify_webhook(
+            headers=payload.get("headers", {}) or {},
+            raw_body=payload.get("raw_body", ""),
+            app=app,
         )
 
     def refund_payment(
@@ -88,6 +132,16 @@ class PaymentProvider(ABC):
         self, *, order_bid: str, provider_reference: str, app
     ) -> PaymentNotificationResult:
         """Synchronize payment status with the provider if supported."""
+        return self.sync_reference(
+            provider_reference=provider_reference,
+            reference_type="payment",
+            app=app,
+        )
+
+    def sync_reference(
+        self, *, provider_reference: str, reference_type: str, app
+    ) -> PaymentNotificationResult:
+        """Synchronize a provider reference and return normalized state."""
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not support status sync"
+            f"{self.__class__.__name__} does not support reference sync"
         )

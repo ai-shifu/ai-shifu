@@ -890,6 +890,7 @@ interface BillingPaymentProviderAdapter {
 
 - `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `billing_orders` / `billing_subscriptions`
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
+- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK，也不复用旧 `order_*` 表
 
 ### 7.5 前端实现方案
 

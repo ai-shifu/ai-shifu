@@ -25,7 +25,11 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.routes import register_billing_routes
 from flaskr.service.common.models import AppException
-from flaskr.service.order.payment_providers import PaymentCreationResult
+from flaskr.service.order.payment_providers import (
+    PaymentCreationResult,
+    PaymentNotificationResult,
+    SubscriptionUpdateResult,
+)
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -75,18 +79,60 @@ def billing_write_client(monkeypatch):
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def retrieve_checkout_session(self, *, session_id: str, app):
-            return {
-                "id": session_id,
-                "status": "complete",
-                "payment_status": "paid",
-                "payment_intent": "pi_billing_test",
-                "subscription": "sub_provider_test",
-                "customer": "cus_provider_test",
-            }
+        def create_subscription(self, *, request, app):
+            return self.create_payment(request=request, app=app)
 
-        def retrieve_payment_intent(self, *, intent_id: str, app):
-            return {"id": intent_id, "status": "succeeded"}
+        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            assert reference_type == "checkout_session"
+            return PaymentNotificationResult(
+                order_bid="",
+                status="manual_sync",
+                provider_payload={
+                    "checkout_session": {
+                        "id": provider_reference,
+                        "status": "complete",
+                        "payment_status": "paid",
+                        "payment_intent": "pi_billing_test",
+                        "subscription": "sub_provider_test",
+                        "customer": "cus_provider_test",
+                    },
+                    "payment_intent": {
+                        "id": "pi_billing_test",
+                        "status": "succeeded",
+                    },
+                },
+                charge_id=None,
+            )
+
+        def cancel_subscription(
+            self, *, subscription_bid: str, provider_subscription_id: str, app
+        ):
+            return SubscriptionUpdateResult(
+                provider_reference=provider_subscription_id,
+                raw_response={
+                    "id": provider_subscription_id,
+                    "subscription_bid": subscription_bid,
+                    "cancel_at_period_end": True,
+                    "status": "active",
+                },
+                status="active",
+                extra={"cancel_at_period_end": True},
+            )
+
+        def resume_subscription(
+            self, *, subscription_bid: str, provider_subscription_id: str, app
+        ):
+            return SubscriptionUpdateResult(
+                provider_reference=provider_subscription_id,
+                raw_response={
+                    "id": provider_subscription_id,
+                    "subscription_bid": subscription_bid,
+                    "cancel_at_period_end": False,
+                    "status": "active",
+                },
+                status="active",
+                extra={"cancel_at_period_end": False},
+            )
 
     class FakePingxxProvider:
         def create_payment(self, *, request, app):
@@ -103,8 +149,14 @@ def billing_write_client(monkeypatch):
                 extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
             )
 
-        def retrieve_charge(self, *, charge_id: str, app):
-            return {"id": charge_id, "paid": True}
+        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            assert reference_type == "charge"
+            return PaymentNotificationResult(
+                order_bid="",
+                status="manual_sync",
+                provider_payload={"charge": {"id": provider_reference, "paid": True}},
+                charge_id=provider_reference,
+            )
 
     def _fake_get_payment_provider(channel: str):
         if channel == "stripe":
@@ -356,6 +408,10 @@ class TestBillingWriteRoutes:
             ).one()
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.cancel_at_period_end == 0
+            assert subscription.metadata_json["provider"] == "stripe"
+            assert (
+                subscription.metadata_json["latest_event_type"] == "resume_subscription"
+            )
 
     def test_write_routes_require_creator(self, billing_write_client) -> None:
         client = billing_write_client["client"]
