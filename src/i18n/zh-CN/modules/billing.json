@@ -1,6 +1,34 @@
 {
   "__namespace__": "module.billing",
+  "ledger": {
+    "description": "接入 billing API 后，这里会展示余额桶明细和积分账本记录。",
+    "title": "积分明细"
+  },
   "navTitle": "会员与积分",
+  "orders": {
+    "description": "接通 checkout 和 sync 后，这里会展示 billing 订单和付款详情。",
+    "title": "付款记录"
+  },
+  "overview": {
+    "availableCreditsLabel": "可用积分",
+    "catalogTitle": "套餐与充值包",
+    "helper": "后端 billing API 接通后，这里会展示真实订阅、余额和目录数据。",
+    "nextActionLabel": "下一步",
+    "pendingValue": "即将开放",
+    "subscriptionStatusLabel": "订阅状态",
+    "subscriptionTitle": "当前订阅",
+    "walletTitle": "积分总览"
+  },
+  "page": {
+    "badge": "预览版",
+    "subtitle": "在一个页面里管理套餐、积分与付款记录。",
+    "tabs": {
+      "ledger": "积分明细",
+      "orders": "付款记录",
+      "plans": "套餐与积分"
+    },
+    "title": "会员与积分"
+  },
   "sidebar": {
     "cta": "前往会员中心",
     "description": "查看会员状态、积分余额与后续账务动作。",

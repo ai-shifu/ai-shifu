@@ -1,6 +1,34 @@
 {
   "__namespace__": "module.billing",
+  "ledger": {
+    "description": "Bucket details and ledger entries will appear here after the billing APIs are connected.",
+    "title": "Credit Activity"
+  },
   "navTitle": "Membership & Credits",
+  "orders": {
+    "description": "Billing orders and payment details will appear here after checkout and sync are connected.",
+    "title": "Payments"
+  },
+  "overview": {
+    "availableCreditsLabel": "Available credits",
+    "catalogTitle": "Plans and top-ups",
+    "helper": "Live billing data will appear here once the backend APIs are connected.",
+    "nextActionLabel": "Next action",
+    "pendingValue": "Coming soon",
+    "subscriptionStatusLabel": "Subscription",
+    "subscriptionTitle": "Current subscription",
+    "walletTitle": "Credits Overview"
+  },
+  "page": {
+    "badge": "Preview",
+    "subtitle": "Manage subscriptions, credits, and payment records from one place.",
+    "tabs": {
+      "ledger": "Credit Activity",
+      "orders": "Payments",
+      "plans": "Plans & Credits"
+    },
+    "title": "Membership & Credits"
+  },
   "sidebar": {
     "cta": "Open billing center",
     "description": "Review your plan, credits, and upcoming billing actions.",
