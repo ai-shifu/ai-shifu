@@ -27,6 +27,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.tasks import (
+    aggregate_daily_usage_metrics_task,
     expire_wallet_buckets_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
@@ -123,6 +124,57 @@ def test_settle_usage_task_normalizes_empty_creator_bid(
     assert payload["status"] == "noop"
     assert payload["requested_creator_bid"] is None
     assert payload["task_name"] == "billing.settle_usage"
+
+
+def test_aggregate_daily_usage_metrics_task_calls_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: fake_app),
+    )
+
+    captured: dict[str, object] = {}
+
+    def _fake_aggregate_daily_usage_metrics(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+        finalize: bool = False,
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        captured["finalize"] = finalize
+        return {
+            "status": "aggregated",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": finalize,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.aggregate_daily_usage_metrics",
+        _fake_aggregate_daily_usage_metrics,
+    )
+
+    payload = aggregate_daily_usage_metrics_task(
+        stat_date=" 2026-04-08 ",
+        creator_bid=" creator-task-1 ",
+        finalize="true",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-04-08",
+        "creator_bid": "creator-task-1",
+        "finalize": True,
+    }
+    assert payload["status"] == "aggregated"
+    assert payload["task_name"] == "billing.aggregate_daily_usage_metrics"
 
 
 def test_settle_usage_task_serializes_same_creator_concurrent_usage(

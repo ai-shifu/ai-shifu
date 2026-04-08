@@ -31,6 +31,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.send_low_balance_alert" in celery_app.tasks
     assert "billing.run_renewal_event" in celery_app.tasks
     assert "billing.retry_failed_renewal" in celery_app.tasks
+    assert "billing.aggregate_daily_usage_metrics" in celery_app.tasks
 
 
 def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
@@ -81,6 +82,15 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
             "bucket_count": 1,
         },
     )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.aggregate_daily_usage_metrics",
+        lambda app, *, stat_date="", creator_bid="", finalize=False: {
+            "status": "finalized" if finalize else "aggregated",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": finalize,
+        },
+    )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
 
@@ -94,6 +104,13 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
         kwargs={
             "creator_bid": "creator-eager-1",
             "expire_before": "2026-04-08T10:00:00",
+        }
+    )
+    aggregate_result = celery_app.tasks["billing.aggregate_daily_usage_metrics"].apply(
+        kwargs={
+            "stat_date": "2026-04-08",
+            "creator_bid": "creator-eager-1",
+            "finalize": True,
         }
     )
 
@@ -110,6 +127,13 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
         "expire_before": "2026-04-08T10:00:00",
         "bucket_count": 1,
         "task_name": "billing.expire_wallet_buckets",
+    }
+    assert aggregate_result.get() == {
+        "status": "finalized",
+        "stat_date": "2026-04-08",
+        "creator_bid": "creator-eager-1",
+        "finalize": True,
+        "task_name": "billing.aggregate_daily_usage_metrics",
     }
 
 

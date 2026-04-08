@@ -1,0 +1,254 @@
+"""Daily aggregate helpers for creator billing reports."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Any
+
+from flask import Flask
+
+from flaskr.dao import db
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.util.uuid import generate_id
+
+from .consts import CREDIT_LEDGER_ENTRY_TYPE_CONSUME, CREDIT_SOURCE_TYPE_USAGE
+from .models import BillingDailyUsageMetric, CreditLedgerEntry
+from .ownership import resolve_usage_creator_bid
+from .settlement import _build_usage_metric_charges
+
+_ZERO = Decimal("0")
+_DECIMAL_QUANT = Decimal("0.0000000001")
+
+
+def aggregate_daily_usage_metrics(
+    app: Flask,
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    finalize: bool = False,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Rebuild one day's usage aggregates from usage and ledger details."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    window_started_at, window_ended_at, normalized_stat_date = _resolve_stat_window(
+        stat_date=stat_date,
+        finalize=finalize,
+        now=now,
+    )
+
+    with app.app_context():
+        usage_rows = (
+            BillUsageRecord.query.filter(
+                BillUsageRecord.deleted == 0,
+                BillUsageRecord.record_level == 0,
+                BillUsageRecord.billable == 1,
+                BillUsageRecord.status == 0,
+                BillUsageRecord.created_at >= window_started_at,
+                BillUsageRecord.created_at < window_ended_at,
+            )
+            .order_by(BillUsageRecord.id.asc())
+            .all()
+        )
+
+        consumed_credit_map = _load_usage_consumed_credit_map(
+            window_started_at=window_started_at,
+            window_ended_at=window_ended_at,
+            creator_bid=normalized_creator_bid,
+        )
+
+        aggregates: dict[
+            tuple[str, str, int, int, str, str, int],
+            dict[str, Any],
+        ] = {}
+        usage_count = 0
+        metric_count = 0
+        skipped_usage_count = 0
+
+        for usage in usage_rows:
+            resolved_creator_bid = str(
+                resolve_usage_creator_bid(app, usage) or ""
+            ).strip()
+            if not resolved_creator_bid:
+                skipped_usage_count += 1
+                continue
+            if (
+                normalized_creator_bid
+                and resolved_creator_bid != normalized_creator_bid
+            ):
+                continue
+
+            settlement_at = usage.created_at or window_started_at
+            metric_charges = _build_usage_metric_charges(
+                usage,
+                settlement_at=settlement_at,
+            )
+            if not metric_charges:
+                skipped_usage_count += 1
+                continue
+
+            usage_count += 1
+            for charge in metric_charges:
+                metric_code = int(charge["billing_metric"])
+                aggregate_key = (
+                    resolved_creator_bid,
+                    str(usage.shifu_bid or "").strip(),
+                    int(usage.usage_scene or 0),
+                    int(usage.usage_type or 0),
+                    str(usage.provider or "").strip(),
+                    str(usage.model or "").strip(),
+                    metric_code,
+                )
+                row_payload = aggregates.setdefault(
+                    aggregate_key,
+                    {
+                        "creator_bid": resolved_creator_bid,
+                        "shifu_bid": str(usage.shifu_bid or "").strip(),
+                        "usage_scene": int(usage.usage_scene or 0),
+                        "usage_type": int(usage.usage_type or 0),
+                        "provider": str(usage.provider or "").strip(),
+                        "model": str(usage.model or "").strip(),
+                        "billing_metric": metric_code,
+                        "raw_amount": 0,
+                        "record_count": 0,
+                        "consumed_credits": _ZERO,
+                    },
+                )
+                row_payload["raw_amount"] += int(charge["raw_amount"])
+                row_payload["record_count"] += 1
+                row_payload["consumed_credits"] += consumed_credit_map.get(
+                    (str(usage.usage_bid or "").strip(), metric_code),
+                    _ZERO,
+                )
+                metric_count += 1
+
+        scope_query = BillingDailyUsageMetric.query.filter(
+            BillingDailyUsageMetric.stat_date == normalized_stat_date
+        )
+        if normalized_creator_bid:
+            scope_query = scope_query.filter(
+                BillingDailyUsageMetric.creator_bid == normalized_creator_bid
+            )
+        deleted_count = int(scope_query.delete(synchronize_session=False) or 0)
+
+        for payload in aggregates.values():
+            db.session.add(
+                BillingDailyUsageMetric(
+                    daily_usage_metric_bid=generate_id(app),
+                    stat_date=normalized_stat_date,
+                    creator_bid=payload["creator_bid"],
+                    shifu_bid=payload["shifu_bid"],
+                    usage_scene=payload["usage_scene"],
+                    usage_type=payload["usage_type"],
+                    provider=payload["provider"],
+                    model=payload["model"],
+                    billing_metric=payload["billing_metric"],
+                    raw_amount=int(payload["raw_amount"]),
+                    record_count=int(payload["record_count"]),
+                    consumed_credits=_quantize_decimal(payload["consumed_credits"]),
+                    window_started_at=window_started_at,
+                    window_ended_at=window_ended_at,
+                )
+            )
+
+        db.session.commit()
+        return {
+            "status": "finalized" if finalize else "aggregated",
+            "stat_date": normalized_stat_date,
+            "creator_bid": normalized_creator_bid or None,
+            "finalize": bool(finalize),
+            "window_started_at": window_started_at.isoformat(),
+            "window_ended_at": window_ended_at.isoformat(),
+            "usage_count": usage_count,
+            "metric_count": metric_count,
+            "skipped_usage_count": skipped_usage_count,
+            "row_count": len(aggregates),
+            "deleted_count": deleted_count,
+        }
+
+
+def finalize_daily_usage_metrics(
+    app: Flask,
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Close one day's usage aggregate window by recomputing the full day."""
+
+    return aggregate_daily_usage_metrics(
+        app,
+        stat_date=stat_date,
+        creator_bid=creator_bid,
+        finalize=True,
+        now=now,
+    )
+
+
+def _load_usage_consumed_credit_map(
+    *,
+    window_started_at: datetime,
+    window_ended_at: datetime,
+    creator_bid: str = "",
+) -> dict[tuple[str, int], Decimal]:
+    query = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+        CreditLedgerEntry.created_at >= window_started_at,
+        CreditLedgerEntry.created_at < window_ended_at,
+    )
+    normalized_creator_bid = str(creator_bid or "").strip()
+    if normalized_creator_bid:
+        query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
+    rows = query.order_by(CreditLedgerEntry.id.asc()).all()
+
+    consumed_map: defaultdict[tuple[str, int], Decimal] = defaultdict(lambda: _ZERO)
+    for row in rows:
+        usage_bid = str(row.source_bid or "").strip()
+        if not usage_bid:
+            continue
+        metric_breakdown = list((row.metadata_json or {}).get("metric_breakdown") or [])
+        if not metric_breakdown:
+            continue
+        for item in metric_breakdown:
+            try:
+                metric_code = int(item.get("billing_metric_code") or 0)
+            except (TypeError, ValueError):
+                continue
+            if metric_code <= 0:
+                continue
+            consumed_credits = item.get("consumed_credits")
+            if consumed_credits in (None, ""):
+                consumed_value = _quantize_decimal(-_to_decimal(row.amount))
+            else:
+                consumed_value = _quantize_decimal(consumed_credits)
+            consumed_map[(usage_bid, metric_code)] += consumed_value
+    return dict(consumed_map)
+
+
+def _resolve_stat_window(
+    *,
+    stat_date: str = "",
+    finalize: bool = False,
+    now: datetime | None = None,
+) -> tuple[datetime, datetime, str]:
+    anchor = now or datetime.now()
+    normalized_stat_date = str(stat_date or "").strip() or anchor.strftime("%Y-%m-%d")
+    day_start = datetime.strptime(normalized_stat_date, "%Y-%m-%d")
+    day_end = day_start + timedelta(days=1)
+    if finalize:
+        return day_start, day_end, normalized_stat_date
+    return day_start, min(anchor, day_end), normalized_stat_date
+
+
+def _to_decimal(value: Any) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value or 0))
+
+
+def _quantize_decimal(value: Any) -> Decimal:
+    return _to_decimal(value).quantize(_DECIMAL_QUANT)

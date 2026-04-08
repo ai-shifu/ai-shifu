@@ -10,6 +10,7 @@ from .funcs import (
     build_billing_overview,
     reconcile_billing_provider_reference,
 )
+from .daily_aggregates import aggregate_daily_usage_metrics
 from .models import BillingSubscription, CreditWallet
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
@@ -50,6 +51,17 @@ def _coerce_datetime(value: Any) -> datetime | None:
             return None
         return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
     raise ValueError(f"Unsupported datetime value: {value!r}")
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off", ""}:
+        return False
+    raise ValueError(f"Unsupported bool value: {value!r}")
 
 
 def _run_reconcile_provider_reference(
@@ -278,4 +290,24 @@ def retry_failed_renewal_task(
         payment_provider=payment_provider,
     )
     payload["task_name"] = "billing.retry_failed_renewal"
+    return payload
+
+
+@shared_task(name="billing.aggregate_daily_usage_metrics")
+def aggregate_daily_usage_metrics_task(
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+    finalize: Any = False,
+) -> dict[str, Any]:
+    """Rebuild one creator/day usage aggregate slice from usage + ledger rows."""
+
+    app = _create_task_app()
+    payload = aggregate_daily_usage_metrics(
+        app,
+        stat_date=_normalize_bid(stat_date),
+        creator_bid=_normalize_bid(creator_bid),
+        finalize=_coerce_bool(finalize),
+    )
+    payload["task_name"] = "billing.aggregate_daily_usage_metrics"
     return payload
