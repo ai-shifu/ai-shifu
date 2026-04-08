@@ -656,6 +656,7 @@ v1 需要新增的改造点：
 - 当前实现已落到 `src/api/flaskr/service/billing/admission.py`，并接入 `src/api/flaskr/service/learn/routes.py` 与 `src/api/flaskr/service/shifu/route.py` 的 billable 入口
 - usage 落库成功后，统一投递 Celery settlement task，再由 task 消费 `bill_usage` 并写入 `credit_ledger_entries`
 - 不允许在 learn / preview / debug 的请求线程内直接扣减积分、更新 `credit_wallet_buckets` 或刷新 `credit_wallets`
+- 当前 `src/api/flaskr/service/metering/recorder.py` 仍只负责 `bill_usage` 持久化，不触碰 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`
 - v1 不做运行时并发配额控制，但必须在结算层实现 `creator_bid` 维度串行化，避免多个学生同时学习同一 creator 课程时发生并发扣减算错
 - entitlement/runtime enforcement 里的 `max_concurrency` 与 priority 仍属于 v1.1 扩展能力
 

@@ -2,6 +2,8 @@
 Usage metering recorder.
 
 Provides best-effort helpers to persist LLM and TTS usage records.
+Billing settlement is intentionally deferred; request threads stop after
+`bill_usage` persistence and must not mutate `credit_*` tables directly.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ def _resolve_billable(usage_scene: int, billable: Optional[int]) -> int:
 
 
 def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
+    """Persist raw usage only; async settlement owns later credit mutations."""
     try:
         with app.app_context():
             db.session.add(record)
