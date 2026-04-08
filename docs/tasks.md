@@ -101,7 +101,7 @@
 - [ ] 引入 Redis broker 与 Celery worker/beat 进程配置。
 - [x] 新增 Celery app factory，并让 worker 复用 Flask `create_app()` 配置。
 - [x] 在 `requirements.txt`、配置定义和环境变量示例中接入 Celery/Redis 配置。
-- [ ] 在 `docker-compose.yml`、`docker-compose.latest.yml`、`docker-compose.dev.yml` 中增加 `redis`、`celery-worker`、`celery-beat`。
+- [x] 在 `docker-compose.yml`、`docker-compose.latest.yml`、`docker-compose.dev.yml` 中增加 `redis`、`celery-worker`、`celery-beat`。
 - [ ] 为 usage settlement、renewal、retry、reconcile、settlement replay、low balance alert 注册 Celery tasks。
 - [ ] 增加 wallet bucket 过期扫描与 `expire` ledger 落账任务。
 - [ ] 实现 `billing_renewal_events` 的入队、抢占和幂等执行。
