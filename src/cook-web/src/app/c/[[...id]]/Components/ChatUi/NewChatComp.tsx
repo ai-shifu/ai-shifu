@@ -48,6 +48,26 @@ import {
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
+import type { ListenMobileScreenModeChangeHandler } from './listenModeTypes';
+
+interface NewChatComponentsProps {
+  className?: string;
+  lessonUpdate: (val: any) => void;
+  onGoChapter: (id: any) => Promise<void>;
+  chapterId: string;
+  lessonId?: string;
+  lessonTitle?: string;
+  lessonStatus?: string;
+  onPurchased: () => void;
+  chapterUpdate: any;
+  updateSelectedLesson: any;
+  getNextLessonId: any;
+  previewMode?: boolean;
+  isNavOpen?: boolean;
+  onListenPlayerVisibilityChange?: (visible: boolean) => void;
+  onListenMobileScreenModeChange?: ListenMobileScreenModeChangeHandler;
+  showGenerateBtn?: boolean;
+}
 
 const buildReadModeItemsWithAskState = ({
   items,
@@ -165,7 +185,7 @@ export const NewChatComponents = ({
   onListenPlayerVisibilityChange,
   onListenMobileScreenModeChange,
   showGenerateBtn = false,
-}) => {
+}: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -281,7 +301,9 @@ export const NewChatComponents = ({
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = isListenMode && isListenModeAvailable;
-  const promptContextKey = `${lessonId}:${isListenModeActive ? 'listen' : 'read'}`;
+  // Normalize lesson scope for downstream APIs and stores that require a string key.
+  const resolvedLessonId = lessonId || '';
+  const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
   const shouldShowAudioAction = previewMode || isListenModeActive;
@@ -371,8 +393,8 @@ export const NewChatComponents = ({
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
-    outlineBid: lessonId,
-    lessonId,
+    outlineBid: resolvedLessonId,
+    lessonId: resolvedLessonId,
     chapterId,
     previewMode,
     isListenMode: isListenModeActive,
@@ -397,8 +419,9 @@ export const NewChatComponents = ({
     [items],
   );
   const scopedAskListByAnchorElementBid = useMemo(
-    () => (lessonScopeKey === lessonId ? storedAskListByAnchorElementBid : {}),
-    [lessonId, lessonScopeKey, storedAskListByAnchorElementBid],
+    () =>
+      lessonScopeKey === resolvedLessonId ? storedAskListByAnchorElementBid : {},
+    [resolvedLessonId, lessonScopeKey, storedAskListByAnchorElementBid],
   );
   const readModeItems = useMemo(
     () =>
@@ -411,8 +434,8 @@ export const NewChatComponents = ({
   );
 
   useEffect(() => {
-    ensureLessonScope(lessonId);
-  }, [ensureLessonScope, lessonId]);
+    ensureLessonScope(resolvedLessonId);
+  }, [ensureLessonScope, resolvedLessonId]);
 
   useEffect(() => {
     hydrateAskListMap(baseAskListByAnchorElementBid);
@@ -862,7 +885,7 @@ export const NewChatComponents = ({
                       <AskBlock
                         isExpanded={item.isAskExpanded}
                         shifu_bid={shifuBid}
-                        outline_bid={lessonId}
+                        outline_bid={resolvedLessonId}
                         preview_mode={previewMode}
                         element_bid={item.parent_element_bid || ''}
                         onToggleAskExpanded={toggleAskExpanded}

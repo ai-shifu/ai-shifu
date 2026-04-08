@@ -13,6 +13,27 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import type { ListenMobileScreenModeChangeHandler } from './listenModeTypes';
+
+interface ChatUiProps {
+  chapterId: string;
+  lessonId?: string;
+  lessonUpdate: (val: any) => void;
+  onGoChapter: (id: any) => Promise<void>;
+  onPurchased: () => void;
+  lessonTitle?: string;
+  lessonStatus?: string;
+  showUserSettings?: boolean;
+  userSettingBasicInfo?: boolean;
+  onUserSettingsClose?: () => void;
+  onMobileSettingClick?: () => void;
+  chapterUpdate: any;
+  updateSelectedLesson: any;
+  getNextLessonId: any;
+  isNavOpen?: boolean;
+  onListenMobileScreenModeChange?: ListenMobileScreenModeChangeHandler;
+  showGenerateBtn?: boolean;
+}
 
 /**
  * Overall canvas for the chat area
@@ -35,7 +56,7 @@ export const ChatUi = ({
   isNavOpen = false,
   onListenMobileScreenModeChange,
   showGenerateBtn = false,
-}) => {
+}: ChatUiProps) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
   const {
