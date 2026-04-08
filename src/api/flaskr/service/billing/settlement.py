@@ -33,7 +33,11 @@ from .consts import (
 )
 from .models import CreditLedgerEntry, CreditUsageRate, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
-from .wallets import refresh_credit_wallet_snapshot, sync_credit_bucket_status
+from .wallets import (
+    persist_credit_wallet_snapshot,
+    refresh_credit_wallet_snapshot,
+    sync_credit_bucket_status,
+)
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
@@ -106,11 +110,16 @@ def settle_bill_usage(
             if not metric_charges:
                 wallet = _load_credit_wallet(creator_bid)
                 if wallet is not None:
-                    wallet.last_settled_usage_id = max(
-                        int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
+                    persist_credit_wallet_snapshot(
+                        wallet,
+                        available_credits=wallet.available_credits,
+                        reserved_credits=wallet.reserved_credits,
+                        last_settled_usage_id=max(
+                            int(wallet.last_settled_usage_id or 0),
+                            int(usage.id or 0),
+                        ),
+                        updated_at=datetime.now(),
                     )
-                    wallet.updated_at = datetime.now()
-                    db.session.add(wallet)
                     db.session.commit()
                 return {
                     "status": "noop",
@@ -224,15 +233,18 @@ def settle_bill_usage(
                 }
 
             refresh_credit_wallet_snapshot(wallet)
-            wallet.lifetime_consumed_credits = (
-                _to_decimal(wallet.lifetime_consumed_credits) + total_consumed
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                lifetime_consumed_credits=(
+                    _to_decimal(wallet.lifetime_consumed_credits) + total_consumed
+                ),
+                last_settled_usage_id=max(
+                    int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
+                ),
+                updated_at=datetime.now(),
             )
-            wallet.last_settled_usage_id = max(
-                int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
-            )
-            wallet.version = int(wallet.version or 0) + 1
-            wallet.updated_at = datetime.now()
-            db.session.add(wallet)
             db.session.commit()
             return {
                 "status": "settled",

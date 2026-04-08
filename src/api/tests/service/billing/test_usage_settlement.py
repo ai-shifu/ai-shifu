@@ -30,6 +30,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.settlement import settle_bill_usage
+from flaskr.service.billing.wallets import persist_credit_wallet_snapshot
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
@@ -812,3 +813,33 @@ def test_settle_usage_releases_creator_lock_on_error(
             settle_bill_usage(billing_settlement_app, usage_bid="usage-lock-error")
 
         assert lock.release_calls == 1
+
+
+def test_persist_credit_wallet_snapshot_rejects_stale_version(
+    billing_settlement_app: Flask,
+) -> None:
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-wallet-version", "5.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.commit()
+
+        stale_wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-wallet-version"
+        ).one()
+        CreditWallet.query.filter_by(id=stale_wallet.id).update(
+            {
+                "version": 1,
+                "updated_at": datetime(2026, 4, 8, 12, 30, 0),
+            },
+            synchronize_session=False,
+        )
+
+        with pytest.raises(RuntimeError, match="credit_wallet_version_conflict"):
+            persist_credit_wallet_snapshot(
+                stale_wallet,
+                available_credits=Decimal("4.0000000000"),
+                reserved_credits=Decimal("0"),
+                updated_at=datetime(2026, 4, 8, 13, 0, 0),
+            )
+
+        dao.db.session.rollback()

@@ -90,7 +90,7 @@
 - [x] 实现 TTS `按次` 与 `按字数` 两种计费模式。
 - [x] 实现 `production`、`preview`、`debug` 三场景的 creator 归属解析。
 - [x] 实现 `creator_bid` 维度的 settlement 串行化与防重入，避免多个学生同时学习同一 creator 课程时并发扣减算错。
-- [ ] 实现账本不可变写入和钱包乐观锁更新。
+- [x] 实现账本不可变写入和钱包乐观锁更新。
 - [ ] 为 `credit_ledger_entries` 增加 `wallet_bucket_bid` 字段，并让 `idempotency_key` 包含 bucket 维度。
 - [ ] 实现 bucket 到期、耗尽和 refund return -> `free` bucket 的状态迁移规则。
 - [ ] 实现余额不足、订阅失效的前置拦截。
