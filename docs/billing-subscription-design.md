@@ -184,7 +184,7 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
-- 唯一索引：`product_code`
+- 唯一索引：`product_bid`、`product_code`
 - 关键索引：`product_bid`、`product_type + status`
 
 与其他表关系：
@@ -225,6 +225,7 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`subscription_bid`
 - 建议唯一索引：`creator_bid + status in active-like set` 由业务约束保证同一创作者仅一个活跃主订阅
 - 关键索引：`subscription_bid`、`creator_bid + status`
 
@@ -269,6 +270,7 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`billing_order_bid`
 - 关键索引：`billing_order_bid`、`creator_bid + status`、`provider_reference_id`
 
 与其他表关系：
@@ -304,7 +306,7 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
-- 唯一索引：`creator_bid`
+- 唯一索引：`wallet_bid`、`creator_bid`
 - 关键索引：`wallet_bid`、`last_settled_usage_id`
 
 与其他表关系：
@@ -346,6 +348,7 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`wallet_bucket_bid`
 - 关键索引：`wallet_bucket_bid`、`wallet_bid + status + priority + effective_to`、`creator_bid + status + priority + effective_to`、`source_type + source_bid`
 
 与其他表关系：
@@ -385,8 +388,9 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`ledger_bid`
 - 关键索引：`ledger_bid`、`wallet_bucket_bid`、`creator_bid + created_at`、`source_type + source_bid`
-- 建议唯一约束：`creator_bid + idempotency_key`，由业务侧生成稳定幂等 key，避免重复入账
+- 唯一约束：`creator_bid + idempotency_key`，由业务侧生成稳定幂等 key，避免重复入账
 
 与其他表关系：
 
@@ -425,6 +429,8 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`rate_bid`
+- 唯一约束：`usage_type + provider + model + usage_scene + billing_metric + effective_from`
 - 关键索引：`usage_type + provider + model + usage_scene + billing_metric + effective_from`
 
 与其他表关系：
@@ -437,6 +443,7 @@ v1.1 再补充下列扩展能力：
 - LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`7451/7452/7453`
 - TTS 默认只启用一种主 metric：`7454` 或 `7455`
 - 如果找不到精确 model，可按 `model="*"` 或 `provider="*"` fallback
+- 当前 bootstrap seed 使用 `provider="*"`、`model="*"` 的 wildcard 费率，并先以 `0.0000000000` 占位；待费率规则冻结后替换为正式值
 
 ### 3.8 `billing_renewal_events`
 
@@ -458,6 +465,8 @@ v1.1 再补充下列扩展能力：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
+- 唯一索引：`renewal_event_bid`
+- 唯一约束：`subscription_bid + event_type + scheduled_at`
 - 关键索引：`subscription_bid + event_type + scheduled_at`、`status + scheduled_at`
 
 与其他表关系：
@@ -635,6 +644,7 @@ v1 的改造要求：
 - 先落 `models.py`、`consts.py`、`funcs.py`、`routes.py` 和迁移脚本，支撑 creator billing 的查询、checkout、sync、webhook 和 paid success 入账
 - 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/4fd52d0d9a01_add_billing_core_tables.py` 落地
 - 当前实现中，`credit_usage_rates`、`billing_renewal_events` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py` 落地
+- 当前实现中，核心表 business id 唯一约束和 bootstrap `credit_usage_rates` seed 已由 `src/api/migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py` 落地
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：

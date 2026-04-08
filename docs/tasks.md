@@ -64,7 +64,7 @@
 
 - [x] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`。
 - [x] 新增 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`、`credit_usage_rates`、`billing_renewal_events`。
-- [ ] 为核心表补齐索引、唯一约束和基础 seed 数据。
+- [x] 为核心表补齐索引、唯一约束和基础 seed 数据。
 - [ ] 在 `sys_configs` 中增加 billing feature flag、低余额阈值、续费任务配置和 rate version 配置。
 
 ### 支付与订阅

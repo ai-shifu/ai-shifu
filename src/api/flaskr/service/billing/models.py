@@ -61,6 +61,10 @@ class BillingTableMixin:
 class BillingProduct(BillingTableMixin, db.Model):
     __tablename__ = "billing_products"
     __table_args__ = (
+        UniqueConstraint(
+            "product_bid",
+            name="uq_billing_products_product_bid",
+        ),
         Index(
             "ix_billing_products_product_type_status",
             "product_type",
@@ -178,6 +182,10 @@ class BillingProduct(BillingTableMixin, db.Model):
 class BillingSubscription(BillingTableMixin, db.Model):
     __tablename__ = "billing_subscriptions"
     __table_args__ = (
+        UniqueConstraint(
+            "subscription_bid",
+            name="uq_billing_subscriptions_subscription_bid",
+        ),
         Index(
             "ix_billing_subscriptions_creator_status",
             "creator_bid",
@@ -287,6 +295,10 @@ class BillingSubscription(BillingTableMixin, db.Model):
 class BillingOrder(BillingTableMixin, db.Model):
     __tablename__ = "billing_orders"
     __table_args__ = (
+        UniqueConstraint(
+            "billing_order_bid",
+            name="uq_billing_orders_billing_order_bid",
+        ),
         Index("ix_billing_orders_creator_status", "creator_bid", "status"),
         {"comment": "Billing orders"},
     )
@@ -408,7 +420,13 @@ class BillingOrder(BillingTableMixin, db.Model):
 
 class CreditWallet(BillingTableMixin, db.Model):
     __tablename__ = "credit_wallets"
-    __table_args__ = {"comment": "Credit wallets"}
+    __table_args__ = (
+        UniqueConstraint(
+            "wallet_bid",
+            name="uq_credit_wallets_wallet_bid",
+        ),
+        {"comment": "Credit wallets"},
+    )
 
     wallet_bid = Column(
         String(36),
@@ -466,6 +484,10 @@ class CreditWallet(BillingTableMixin, db.Model):
 class CreditWalletBucket(BillingTableMixin, db.Model):
     __tablename__ = "credit_wallet_buckets"
     __table_args__ = (
+        UniqueConstraint(
+            "wallet_bucket_bid",
+            name="uq_credit_wallet_buckets_wallet_bucket_bid",
+        ),
         Index(
             "ix_credit_wallet_buckets_wallet_status_priority_effective_to",
             "wallet_bid",
@@ -594,6 +616,10 @@ class CreditWalletBucket(BillingTableMixin, db.Model):
 class CreditLedgerEntry(BillingTableMixin, db.Model):
     __tablename__ = "credit_ledger_entries"
     __table_args__ = (
+        UniqueConstraint(
+            "ledger_bid",
+            name="uq_credit_ledger_entries_ledger_bid",
+        ),
         Index(
             "ix_credit_ledger_entries_creator_created",
             "creator_bid",
@@ -700,6 +726,19 @@ class CreditLedgerEntry(BillingTableMixin, db.Model):
 class CreditUsageRate(BillingTableMixin, db.Model):
     __tablename__ = "credit_usage_rates"
     __table_args__ = (
+        UniqueConstraint(
+            "rate_bid",
+            name="uq_credit_usage_rates_rate_bid",
+        ),
+        UniqueConstraint(
+            "usage_type",
+            "provider",
+            "model",
+            "usage_scene",
+            "billing_metric",
+            "effective_from",
+            name="uq_credit_usage_rates_lookup",
+        ),
         Index(
             "ix_credit_usage_rates_lookup",
             "usage_type",
@@ -793,6 +832,16 @@ class CreditUsageRate(BillingTableMixin, db.Model):
 class BillingRenewalEvent(BillingTableMixin, db.Model):
     __tablename__ = "billing_renewal_events"
     __table_args__ = (
+        UniqueConstraint(
+            "renewal_event_bid",
+            name="uq_billing_renewal_events_renewal_event_bid",
+        ),
+        UniqueConstraint(
+            "subscription_bid",
+            "event_type",
+            "scheduled_at",
+            name="uq_billing_renewal_events_subscription_event_scheduled",
+        ),
         Index(
             "ix_billing_renewal_events_subscription_event_scheduled",
             "subscription_bid",

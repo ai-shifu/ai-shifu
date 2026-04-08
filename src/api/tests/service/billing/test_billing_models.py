@@ -7,8 +7,13 @@ from flaskr.service.billing.consts import (
     BILLING_PRODUCT_SEEDS,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_METRIC_LLM_CACHE_TOKENS,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
+    CREDIT_USAGE_RATE_SEEDS,
 )
-from flaskr.service.billing.models import BillingProduct
+from flaskr.service.billing.models import BillingProduct, CreditUsageRate
 
 
 def test_billing_models_register_core_tables() -> None:
@@ -60,5 +65,34 @@ def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
     }
 
 
+def test_credit_usage_rate_seeds_cover_all_scenes_with_bootstrap_defaults() -> None:
+    assert len(CREDIT_USAGE_RATE_SEEDS) == 12
+    assert {row["provider"] for row in CREDIT_USAGE_RATE_SEEDS} == {"*"}
+    assert {row["model"] for row in CREDIT_USAGE_RATE_SEEDS} == {"*"}
+    assert {row["usage_scene"] for row in CREDIT_USAGE_RATE_SEEDS} == {
+        1201,
+        1202,
+        1203,
+    }
+    assert {row["billing_metric"] for row in CREDIT_USAGE_RATE_SEEDS} == {
+        BILLING_METRIC_LLM_INPUT_TOKENS,
+        BILLING_METRIC_LLM_CACHE_TOKENS,
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        BILLING_METRIC_TTS_REQUEST_COUNT,
+    }
+    assert all(row["credits_per_unit"] == 0 for row in CREDIT_USAGE_RATE_SEEDS)
+
+
 def test_billing_product_model_uses_catalog_table_name() -> None:
     assert BillingProduct.__tablename__ == "billing_products"
+
+
+def test_credit_usage_rate_model_registers_unique_constraints() -> None:
+    unique_constraint_names = {
+        constraint.name
+        for constraint in CreditUsageRate.__table__.constraints
+        if getattr(constraint, "name", None)
+    }
+
+    assert "uq_credit_usage_rates_rate_bid" in unique_constraint_names
+    assert "uq_credit_usage_rates_lookup" in unique_constraint_names
