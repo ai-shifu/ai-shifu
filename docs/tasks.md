@@ -58,7 +58,7 @@
 - [x] 在 learn/preview/debug 入口接入 creator admission service。
 - [x] 增加 `shifu_bid -> creator_bid` 的 ownership resolver 供 settlement 使用。
 - [x] 明确 learn/preview/debug 请求线程只做 admission + usage 落库，不直接执行积分扣减。
-- [ ] 明确并保留不改的旧链路：`/order` API、旧 order admin、raw `bill_usage` 结构、全局 `/api/config`。
+- [x] 明确并保留不改的旧链路：`/order` API、旧 order admin、raw `bill_usage` 结构、全局 `/api/config`。
 
 ### Schema 与迁移
 

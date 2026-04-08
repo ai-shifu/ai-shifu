@@ -674,6 +674,7 @@ v1 需要新增的改造点：
 - v1 不改全局 `/api/config` 为 creator-scoped
 - v1 前端只新增 Billing Center，不要求接管全站 branding 输出
 - v1.1 再扩展 entitlement / branding / domain 相关返回
+- 旧 `src/api/flaskr/route/order.py`、旧 order admin、`src/api/flaskr/service/metering/models.py` 的 raw `bill_usage` 结构在 v1 保持原状，不并入 creator billing 路由或 schema
 
 ### 5.5 现有后台线程模式替换
 
