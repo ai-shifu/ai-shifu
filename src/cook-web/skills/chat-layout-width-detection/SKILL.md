@@ -8,6 +8,7 @@ description: 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不
 ## 核心规则
 
 对于 `ai-shifu/src/cook-web/src/app/c/[[...id]]`，优先把聊天布局视为“视口问题”，而不只是“容器问题”。
+若业务语义明确要求 `FRAME_LAYOUT_MOBILE` 只代表真实移动设备，而不是窄桌面窗口，则应把“是否返回 `FRAME_LAYOUT_MOBILE`”改为基于 user agent / 设备能力判断，同时保留 `FRAME_LAYOUT_PC`、`FRAME_LAYOUT_PAD`、`FRAME_LAYOUT_PAD_INTENSIVE` 的既有返回方式，避免影响现有消费方。
 
 ## 工作流
 
@@ -17,6 +18,7 @@ description: 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不
 4. 在 `resize`、`orientationchange`、`visualViewport.resize` 时重新计算布局。
 5. 当布局切换到移动端时，关闭遗留的“桌面态已打开抽屉”状态。
 6. 为 `calcFrameLayout` 增加或更新测试，覆盖 root 节点缺失与移动端 WebView 容器宽度异常偏大的场景。
+7. 若仅调整移动端命中条件，优先把改动限制在 `calcFrameLayout` 内部，不要改调用方对 `FRAME_LAYOUT_*` 的比较逻辑。
 
 ## 备注
 

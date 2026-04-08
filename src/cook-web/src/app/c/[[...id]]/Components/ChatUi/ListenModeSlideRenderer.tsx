@@ -1254,8 +1254,10 @@ const ListenModeSlideRenderer = ({
         className='listen-slide-shell'
         ref={slideShellRef}
       >
-        {isMobileLandscape && mobileAskEntryButton && landscapePortalContainer
-          ? createPortal(mobileAskEntryButton, landscapePortalContainer)
+        {isMobileLandscape && mobileAskEntryButton
+          ? landscapePortalContainer
+            ? createPortal(mobileAskEntryButton, landscapePortalContainer)
+            : mobileAskEntryButton
           : null}
         {!isMobileLandscape ? mobileAskEntryButton : null}
         {isMobileAskOpen && !shouldRenderEmptyPpt ? (
