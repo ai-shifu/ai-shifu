@@ -47,7 +47,7 @@
 - [x] 冻结 `free > subscription > topup` 的 bucket 扣减优先级、同优先级到期排序和退款返还归类规则。
 - [x] 冻结升级、降级、取消、恢复、宽限期和退款规则。
 - [x] 冻结 `production`、`preview`、`debug` 三个 scene 的 provider/model/metric 费率矩阵。
-- [ ] 冻结低余额阈值、告警触发条件和 billing 错误码文案。
+- [x] 冻结低余额阈值、告警触发条件和 billing 错误码文案。
 
 ### 现有代码改造
 

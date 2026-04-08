@@ -856,6 +856,23 @@ v1 需要补充以下环境变量和配置项：
 - `BILLING_RENEWAL_TASK_CONFIG={"enabled":0,"batch_size":100,"lookahead_minutes":60,"queue":"billing-renewal"}`
 - `BILLING_RATE_VERSION=bootstrap-v1`
 
+v1 冻结低余额阈值、告警与错误码规则：
+
+- `BILLING_LOW_BALANCE_THRESHOLD` 在当前批次固定为 `0.0000000000` credits；也就是只有当 `wallet.available_credits <= 0` 时才触发低余额告警，不额外引入“剩余 10%”或“剩余 N credits”之类的第二阈值
+- `GET /billing/overview` 的 `billing_alerts` 只冻结 3 类 code：
+  - `low_balance`：`severity=warning`，触发条件为 `available_credits <= BILLING_LOW_BALANCE_THRESHOLD`，`action_type=checkout_topup`
+  - `subscription_past_due`：`severity=error`，触发条件为订阅状态 `past_due`，`action_type=open_orders`
+  - `subscription_cancel_scheduled`：`severity=info`，触发条件为 `cancel_at_period_end=1`，`action_type=resume_subscription`
+- `billing_alerts` 一律通过 `message_key + message_params` 渲染，不在接口里返回拼接好的自然语言；v1 固定使用：
+  - `module.billing.alerts.lowBalance`
+  - `module.billing.alerts.subscriptionPastDue`
+  - `module.billing.alerts.cancelScheduled`
+- creator runtime admission 的阻断错误码在 v1 固定只使用 `server.billing` 命名空间下的 2 个 key：
+  - `server.billing.creditInsufficient`：当前没有任何处于有效期内、可消费且余额大于 `0` 的 bucket
+  - `server.billing.subscriptionInactive`：当前没有 active-like subscription，且也没有任何 `free/topup` bucket 可兜底
+- `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先充值或开通订阅”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/充值积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
+- v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
+
 ### 6.4 Worker / Beat 分工
 
 - `celery-worker`
