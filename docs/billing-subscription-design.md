@@ -658,6 +658,7 @@ v1 的改造要求：
 - 当前实现中，`production`、`preview`、`debug` 三种 billing scene 都统一通过 `src/api/flaskr/service/billing/ownership.py` 的 `resolve_usage_creator_bid` 按 `shifu_bid -> creator_bid` 解析归属 creator
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 会在 creator 归属解析完成后，按 `creator_bid` 获取 `billing:settle_usage:{creator_bid}` cache lock，串行执行同一 creator 的 usage settlement 并在异常时释放锁
 - 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化钱包快照，冲突时抛出 `credit_wallet_version_conflict`
+- 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
