@@ -22,7 +22,10 @@ const useOperatorGuard = () => {
       window.location.href = `/login?redirect=${currentPath}`;
       return;
     }
-    if (!userInfo || !isOperator) {
+    if (userInfo == null) {
+      return;
+    }
+    if (!isOperator) {
       router.replace('/admin');
     }
   }, [isGuest, isInitialized, isOperator, router, userInfo]);

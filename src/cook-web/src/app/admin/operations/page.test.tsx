@@ -15,8 +15,14 @@ const mockPush = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
 const originalLocation = window.location;
+const originalFetch = global.fetch;
+const originalWindow = global.window;
 
-const mockUserState = {
+const mockUserState: {
+  isInitialized: boolean;
+  isGuest: boolean;
+  userInfo: { is_operator: boolean } | null;
+} = {
   isInitialized: true,
   isGuest: false,
   userInfo: {
@@ -361,6 +367,14 @@ describe('OperationsPage', () => {
     });
   });
 
+  afterEach(() => {
+    global.fetch = originalFetch;
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: originalWindow,
+    });
+  });
+
   test('loads and renders operator course list in email mode', async () => {
     await renderAndWaitForLoadedPage();
 
@@ -661,6 +675,19 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('loading-indicator')).toBeInTheDocument();
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
+    });
+  });
+
+  test('keeps waiting when logged-in user info is temporarily unavailable', async () => {
+    mockUserState.userInfo = null;
+
+    render(<OperationsPage />);
+
+    expect(screen.getByTestId('loading-indicator')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
     });
   });
 

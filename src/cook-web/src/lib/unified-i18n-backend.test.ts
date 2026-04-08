@@ -1,6 +1,9 @@
 import UnifiedI18nBackend from './unified-i18n-backend';
 
 describe('UnifiedI18nBackend', () => {
+  const originalFetch = global.fetch;
+  const originalWindow = global.window;
+
   const readNamespace = (
     backend: UnifiedI18nBackend,
     language: string,
@@ -18,6 +21,11 @@ describe('UnifiedI18nBackend', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    global.fetch = originalFetch;
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: originalWindow,
+    });
   });
 
   test('loads requested namespace even when it is missing from configured namespaces', async () => {
@@ -27,7 +35,6 @@ describe('UnifiedI18nBackend', () => {
       namespaces: ['module.order'],
     });
 
-    const originalFetch = global.fetch;
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -43,7 +50,6 @@ describe('UnifiedI18nBackend', () => {
     } as Response);
     global.fetch = fetchMock as typeof fetch;
 
-    const originalWindow = global.window;
     Object.defineProperty(global, 'window', {
       configurable: true,
       value: {
@@ -67,12 +73,6 @@ describe('UnifiedI18nBackend', () => {
     expect(resources).toEqual({
       title: 'Course',
     });
-
-    global.fetch = originalFetch;
-    Object.defineProperty(global, 'window', {
-      configurable: true,
-      value: originalWindow,
-    });
   });
 
   test('preserves previously loaded namespaces across incremental reads', async () => {
@@ -82,7 +82,6 @@ describe('UnifiedI18nBackend', () => {
       namespaces: [],
     });
 
-    const originalFetch = global.fetch;
     const fetchMock = jest
       .fn()
       .mockResolvedValueOnce({
@@ -107,7 +106,6 @@ describe('UnifiedI18nBackend', () => {
       } as Response);
     global.fetch = fetchMock as typeof fetch;
 
-    const originalWindow = global.window;
     Object.defineProperty(global, 'window', {
       configurable: true,
       value: {
@@ -128,12 +126,6 @@ describe('UnifiedI18nBackend', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(resources).toEqual({
       title: 'Course',
-    });
-
-    global.fetch = originalFetch;
-    Object.defineProperty(global, 'window', {
-      configurable: true,
-      value: originalWindow,
     });
   });
 });
