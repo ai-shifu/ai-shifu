@@ -5,22 +5,35 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask
 from sqlalchemy import case
 
-from flaskr.service.common.models import raise_error
+from flaskr.dao import db
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
+from flaskr.service.order.payment_providers import (
+    PaymentCreationResult,
+    PaymentRequest,
+    get_payment_provider,
+)
 from flaskr.util.timezone import serialize_with_app_timezone
+from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_INTERVAL_LABELS,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_LABELS,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_LABELS,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_LABELS,
     BILLING_PRODUCT_TYPE_PLAN,
@@ -300,6 +313,246 @@ def build_billing_order_detail(
         return payload
 
 
+def create_billing_subscription_checkout(
+    app: Flask,
+    creator_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a subscription checkout order for the current creator."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    product_bid = _normalize_bid(payload.get("product_bid"))
+    payment_provider = _normalize_payment_provider(payload.get("payment_provider"))
+    channel = _normalize_bid(payload.get("channel")) or "checkout_session"
+    success_url = _normalize_bid(payload.get("success_url"))
+    cancel_url = _normalize_bid(payload.get("cancel_url"))
+
+    with app.app_context():
+        product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
+        if payment_provider == "pingxx":
+            order = BillingOrder(
+                billing_order_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid=product.product_bid,
+                subscription_bid="",
+                currency=product.currency,
+                payable_amount=int(product.price_amount or 0),
+                paid_amount=0,
+                payment_provider=payment_provider,
+                channel=channel,
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_FAILED,
+                failure_code="unsupported",
+                failure_message="Pingxx subscription checkout is unsupported",
+                metadata_json={"reason": "unsupported_subscription_provider"},
+            )
+            db.session.add(order)
+            db.session.commit()
+            return {
+                "billing_order_bid": order.billing_order_bid,
+                "provider": payment_provider,
+                "payment_mode": "subscription",
+                "status": "unsupported",
+            }
+
+        subscription = BillingSubscription(
+            subscription_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            billing_provider=payment_provider,
+            provider_subscription_id="",
+            provider_customer_id="",
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={"checkout_started": True},
+        )
+        db.session.add(subscription)
+        db.session.flush()
+
+        order = BillingOrder(
+            billing_order_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=product.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency=product.currency,
+            payable_amount=int(product.price_amount or 0),
+            paid_amount=0,
+            payment_provider=payment_provider,
+            channel=channel,
+            provider_reference_id="",
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json={"checkout_type": "subscription"},
+        )
+        db.session.add(order)
+        db.session.flush()
+
+        checkout_result = _create_provider_checkout(
+            app,
+            creator_bid=normalized_creator_bid,
+            order=order,
+            product=product,
+            payment_provider=payment_provider,
+            payment_mode="subscription",
+            channel=channel,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+        db.session.commit()
+        return checkout_result
+
+
+def create_billing_topup_checkout(
+    app: Flask,
+    creator_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a one-time topup checkout order for the current creator."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    product_bid = _normalize_bid(payload.get("product_bid"))
+    payment_provider = _normalize_payment_provider(payload.get("payment_provider"))
+    default_channel = (
+        "checkout_session" if payment_provider == "stripe" else "alipay_qr"
+    )
+    channel = _normalize_bid(payload.get("channel")) or default_channel
+    success_url = _normalize_bid(payload.get("success_url"))
+    cancel_url = _normalize_bid(payload.get("cancel_url"))
+
+    with app.app_context():
+        product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
+        order = BillingOrder(
+            billing_order_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            order_type=BILLING_ORDER_TYPE_TOPUP,
+            product_bid=product.product_bid,
+            subscription_bid="",
+            currency=product.currency,
+            payable_amount=int(product.price_amount or 0),
+            paid_amount=0,
+            payment_provider=payment_provider,
+            channel=channel,
+            provider_reference_id="",
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json={"checkout_type": "topup"},
+        )
+        db.session.add(order)
+        db.session.flush()
+
+        checkout_result = _create_provider_checkout(
+            app,
+            creator_bid=normalized_creator_bid,
+            order=order,
+            product=product,
+            payment_provider=payment_provider,
+            payment_mode="one_time",
+            channel=channel,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+        db.session.commit()
+        return checkout_result
+
+
+def cancel_billing_subscription(
+    app: Flask,
+    creator_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Mark the current subscription to cancel at period end."""
+
+    with app.app_context():
+        subscription = _load_owned_subscription(
+            _normalize_bid(creator_bid),
+            _normalize_bid(payload.get("subscription_bid")),
+        )
+        if subscription.status not in (
+            BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+            BILLING_SUBSCRIPTION_STATUS_PAUSED,
+            BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+        ):
+            raise_error("server.order.orderStatusError")
+        subscription.cancel_at_period_end = 1
+        subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+        subscription.updated_at = datetime.now()
+        db.session.add(subscription)
+        db.session.commit()
+        return _serialize_subscription(app, subscription)
+
+
+def resume_billing_subscription(
+    app: Flask,
+    creator_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Resume a cancel-scheduled subscription."""
+
+    with app.app_context():
+        subscription = _load_owned_subscription(
+            _normalize_bid(creator_bid),
+            _normalize_bid(payload.get("subscription_bid")),
+        )
+        if subscription.status not in (
+            BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+            BILLING_SUBSCRIPTION_STATUS_PAUSED,
+        ):
+            raise_error("server.order.orderStatusError")
+        subscription.cancel_at_period_end = 0
+        subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        subscription.updated_at = datetime.now()
+        db.session.add(subscription)
+        db.session.commit()
+        return _serialize_subscription(app, subscription)
+
+
+def sync_billing_order(
+    app: Flask,
+    creator_bid: str,
+    billing_order_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Synchronize billing order payment status with the provider."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_order_bid = _normalize_bid(billing_order_bid)
+    session_id = _normalize_bid(payload.get("session_id"))
+
+    with app.app_context():
+        order = (
+            BillingOrder.query.filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid == normalized_creator_bid,
+                BillingOrder.billing_order_bid == normalized_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        if order is None:
+            raise_error("server.order.orderNotFound")
+
+        if order.payment_provider == "stripe":
+            _sync_stripe_order(app, order, session_id=session_id)
+        elif order.payment_provider == "pingxx":
+            _sync_pingxx_order(app, order)
+        else:
+            raise_error("server.pay.payChannelNotSupport")
+
+        db.session.add(order)
+        db.session.commit()
+
+        if order.status == BILLING_ORDER_STATUS_PAID:
+            return {"billing_order_bid": order.billing_order_bid, "status": "paid"}
+        if order.status == BILLING_ORDER_STATUS_PENDING:
+            return {
+                "billing_order_bid": order.billing_order_bid,
+                "status": "pending",
+            }
+        raise_error("server.order.orderStatusError")
+
+
 def normalize_pagination(page_index: int, page_size: int) -> tuple[int, int]:
     """Normalize list pagination parameters to the shared admin defaults."""
 
@@ -312,6 +565,255 @@ def normalize_pagination(page_index: int, page_size: int) -> tuple[int, int]:
     except (TypeError, ValueError):
         safe_page_size = DEFAULT_PAGE_SIZE
     return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
+
+
+def _normalize_payment_provider(value: Any) -> str:
+    provider = str(value or "").strip().lower()
+    if provider not in {"stripe", "pingxx"}:
+        raise_error("server.pay.payChannelNotSupport")
+    return provider
+
+
+def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduct:
+    if not product_bid:
+        raise_param_error("product_bid")
+    product = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == product_bid,
+            BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+    if product is None or product.product_type != expected_type:
+        raise_error("server.order.orderNotFound")
+    return product
+
+
+def _load_owned_subscription(
+    creator_bid: str,
+    subscription_bid: str,
+) -> BillingSubscription:
+    query = BillingSubscription.query.filter(
+        BillingSubscription.deleted == 0,
+        BillingSubscription.creator_bid == creator_bid,
+    )
+    if subscription_bid:
+        query = query.filter(BillingSubscription.subscription_bid == subscription_bid)
+    subscription = query.order_by(BillingSubscription.created_at.desc()).first()
+    if subscription is None:
+        raise_error("server.order.orderNotFound")
+    return subscription
+
+
+def _create_provider_checkout(
+    app: Flask,
+    *,
+    creator_bid: str,
+    order: BillingOrder,
+    product: BillingProduct,
+    payment_provider: str,
+    payment_mode: str,
+    channel: str,
+    success_url: str,
+    cancel_url: str,
+) -> dict[str, Any]:
+    provider = get_payment_provider(payment_provider)
+    subject = product.product_code or product.product_bid
+    metadata = {
+        "billing_order_bid": order.billing_order_bid,
+        "creator_bid": creator_bid,
+        "product_bid": product.product_bid,
+    }
+    provider_options: dict[str, Any] = {"metadata": metadata}
+
+    if payment_provider == "stripe":
+        provider_options["mode"] = "checkout_session"
+        provider_options["success_url"] = _inject_billing_query(
+            success_url or "",
+            order.billing_order_bid,
+        )
+        provider_options["cancel_url"] = _inject_billing_query(
+            cancel_url or success_url or "",
+            order.billing_order_bid,
+        )
+        provider_options["session_params"] = {
+            "mode": "subscription" if payment_mode == "subscription" else "payment",
+        }
+        provider_options["line_items"] = [
+            _build_stripe_line_item(product, payment_mode=payment_mode)
+        ]
+    else:
+        provider_options["charge_extra"] = {}
+
+    payment_request = PaymentRequest(
+        order_bid=order.billing_order_bid,
+        user_bid=creator_bid,
+        shifu_bid="",
+        amount=int(order.payable_amount or 0),
+        channel=channel,
+        currency=order.currency.lower(),
+        subject=subject,
+        body=subject,
+        client_ip="127.0.0.1",
+        extra=provider_options,
+    )
+    result: PaymentCreationResult = provider.create_payment(
+        request=payment_request,
+        app=app,
+    )
+
+    order.provider_reference_id = str(result.provider_reference or "")
+    order.metadata_json = _normalize_json_value(
+        {
+            "provider": payment_provider,
+            "payment_mode": payment_mode,
+            "checkout": result.raw_response,
+            "provider_extra": result.extra,
+        }
+    )
+    db.session.add(order)
+
+    response: dict[str, Any] = {
+        "billing_order_bid": order.billing_order_bid,
+        "provider": payment_provider,
+        "payment_mode": payment_mode,
+        "status": "pending",
+    }
+    if payment_provider == "stripe":
+        redirect_url = str(result.extra.get("url") or "")
+        if redirect_url:
+            response["redirect_url"] = redirect_url
+        if result.checkout_session_id:
+            response["checkout_session_id"] = result.checkout_session_id
+    else:
+        response["payment_payload"] = _normalize_json_value(
+            {
+                "provider_reference_id": result.provider_reference,
+                "credential": result.extra.get("credential"),
+                "raw_response": result.raw_response,
+            }
+        )
+    return response
+
+
+def _build_stripe_line_item(
+    product: BillingProduct,
+    *,
+    payment_mode: str,
+) -> dict[str, Any]:
+    price_data: dict[str, Any] = {
+        "currency": str(product.currency or "CNY").lower(),
+        "unit_amount": int(product.price_amount or 0),
+        "product_data": {"name": product.product_code or product.product_bid},
+    }
+    if payment_mode == "subscription":
+        interval = BILLING_INTERVAL_LABELS.get(product.billing_interval, "month")
+        price_data["recurring"] = {
+            "interval": interval,
+            "interval_count": int(product.billing_interval_count or 1),
+        }
+    return {"price_data": price_data, "quantity": 1}
+
+
+def _inject_billing_query(url: str, billing_order_bid: str) -> str:
+    if not url:
+        return url
+    parsed = urlsplit(url)
+    query_items = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query_items.setdefault("billing_order_bid", billing_order_bid)
+    new_query = urlencode(query_items, doseq=True)
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            new_query,
+            parsed.fragment,
+        )
+    )
+
+
+def _sync_stripe_order(
+    app: Flask,
+    order: BillingOrder,
+    *,
+    session_id: str,
+) -> None:
+    provider = get_payment_provider("stripe")
+    resolved_session_id = session_id or order.provider_reference_id
+    if not resolved_session_id:
+        raise_error("server.order.orderNotFound")
+
+    session = provider.retrieve_checkout_session(
+        session_id=resolved_session_id,
+        app=app,
+    )
+    intent = None
+    intent_id = session.get("payment_intent") or ""
+    if intent_id:
+        intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+
+    order.provider_reference_id = str(session.get("id") or resolved_session_id)
+    order.metadata_json = _normalize_json_value(
+        {
+            "provider": "stripe",
+            "sync_source": "manual",
+            "checkout_session": session,
+            "payment_intent": intent or {},
+        }
+    )
+
+    if _is_stripe_checkout_paid(session, intent):
+        order.status = BILLING_ORDER_STATUS_PAID
+        order.paid_amount = int(order.payable_amount or 0)
+        order.paid_at = order.paid_at or datetime.now()
+        return
+
+    if session.get("status") == "expired":
+        order.status = BILLING_ORDER_STATUS_FAILED
+        order.failure_code = "expired"
+        order.failure_message = "Stripe checkout session expired"
+        return
+
+    order.status = BILLING_ORDER_STATUS_PENDING
+
+
+def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
+    provider = get_payment_provider("pingxx")
+    if not order.provider_reference_id:
+        raise_error("server.order.orderNotFound")
+
+    charge = provider.retrieve_charge(charge_id=order.provider_reference_id, app=app)
+    order.metadata_json = _normalize_json_value(
+        {
+            "provider": "pingxx",
+            "sync_source": "manual",
+            "charge": charge,
+        }
+    )
+
+    if charge.get("paid") or charge.get("time_paid"):
+        order.status = BILLING_ORDER_STATUS_PAID
+        order.paid_amount = int(order.payable_amount or 0)
+        order.paid_at = order.paid_at or datetime.now()
+        return
+
+    order.status = BILLING_ORDER_STATUS_PENDING
+
+
+def _is_stripe_checkout_paid(
+    session: dict[str, Any],
+    intent: dict[str, Any] | None,
+) -> bool:
+    if session.get("payment_status") == "paid":
+        return True
+    if session.get("status") == "complete" and not session.get("payment_status"):
+        return True
+    if intent and intent.get("status") == "succeeded":
+        return True
+    return False
 
 
 def _normalize_bid(value: Any) -> str:

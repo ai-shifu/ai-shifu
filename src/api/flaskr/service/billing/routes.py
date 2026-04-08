@@ -8,6 +8,7 @@ from flask import Flask, request
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.billing.funcs import (
+    cancel_billing_subscription,
     build_billing_catalog,
     build_billing_ledger_page,
     build_billing_order_detail,
@@ -15,6 +16,10 @@ from flaskr.service.billing.funcs import (
     build_billing_overview,
     build_billing_route_bootstrap,
     build_billing_wallet_buckets,
+    create_billing_subscription_checkout,
+    create_billing_topup_checkout,
+    resume_billing_subscription,
+    sync_billing_order,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
 
@@ -124,6 +129,62 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 _get_creator_bid(),
                 billing_order_bid,
                 timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(path_prefix + "/orders/<billing_order_bid>/sync", methods=["POST"])
+    def billing_order_sync_api(billing_order_bid: str):
+        _require_creator()
+        return _make_common_response(
+            sync_billing_order(
+                app,
+                _get_creator_bid(),
+                billing_order_bid,
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(path_prefix + "/subscriptions/checkout", methods=["POST"])
+    def billing_subscription_checkout_api():
+        _require_creator()
+        return _make_common_response(
+            create_billing_subscription_checkout(
+                app,
+                _get_creator_bid(),
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(path_prefix + "/subscriptions/cancel", methods=["POST"])
+    def billing_subscription_cancel_api():
+        _require_creator()
+        return _make_common_response(
+            cancel_billing_subscription(
+                app,
+                _get_creator_bid(),
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(path_prefix + "/subscriptions/resume", methods=["POST"])
+    def billing_subscription_resume_api():
+        _require_creator()
+        return _make_common_response(
+            resume_billing_subscription(
+                app,
+                _get_creator_bid(),
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(path_prefix + "/topups/checkout", methods=["POST"])
+    def billing_topup_checkout_api():
+        _require_creator()
+        return _make_common_response(
+            create_billing_topup_checkout(
+                app,
+                _get_creator_bid(),
+                request.get_json(silent=True) or {},
             )
         )
 
