@@ -12,6 +12,8 @@ module-specific ownership and risk points.
   state, ledger state, subscription lifecycle, and future settlement tasks.
 
 - Primary checked-in entry files today:
+  `src/api/flaskr/service/billing/consts.py`,
+  `src/api/flaskr/service/billing/models.py`,
   `src/api/flaskr/service/billing/routes.py`,
   `src/api/flaskr/service/billing/funcs.py`
 
@@ -20,7 +22,7 @@ module-specific ownership and risk points.
   provider adapter boundary.
 
 - Preferred pytest location: `src/api/tests/service/billing/` should remain
-  the first stop for focused route and orchestration coverage.
+  the first stop for focused route, model, and orchestration coverage.
 
 ## Do
 
