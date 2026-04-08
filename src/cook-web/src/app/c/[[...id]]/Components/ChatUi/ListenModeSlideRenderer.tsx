@@ -1278,6 +1278,7 @@ const ListenModeSlideRenderer = ({
                     askList={currentAskList}
                     className='listen-slide-ask-block'
                     element_bid={resolvedAskElementBid}
+                    forceDesktopSlidePanel={true}
                     isExpanded={true}
                     onToggleAskExpanded={handleMobileAskClose}
                     outline_bid={lessonId}

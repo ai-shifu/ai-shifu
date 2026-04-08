@@ -38,6 +38,7 @@ export interface AskBlockProps {
   askList?: AskMessage[];
   className?: string;
   isExpanded?: boolean;
+  forceDesktopSlidePanel?: boolean;
   shifu_bid: string;
   outline_bid: string;
   preview_mode?: boolean;
@@ -53,6 +54,7 @@ export default function AskBlock({
   askList = [],
   className,
   isExpanded = undefined,
+  forceDesktopSlidePanel = false,
   shifu_bid,
   outline_bid,
   preview_mode = false,
@@ -592,6 +594,7 @@ export default function AskBlock({
 
   if (
     mobileStyle &&
+    !forceDesktopSlidePanel &&
     shouldShowMobileDialog &&
     (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
   ) {
@@ -661,7 +664,7 @@ export default function AskBlock({
     );
   }
 
-  if (isDesktopSlideAskBlock && expanded) {
+  if ((isDesktopSlideAskBlock || forceDesktopSlidePanel) && expanded) {
     return (
       <div
         className={cn(
