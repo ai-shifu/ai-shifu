@@ -1,12 +1,31 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 import sys
+import threading
+import time
 import types
 
 from flask import Flask
 import pytest
 
+import flaskr.dao as dao
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_STATUS_EXHAUSTED,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_USAGE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import (
+    CreditLedgerEntry,
+    CreditUsageRate,
+    CreditWallet,
+    CreditWalletBucket,
+)
 from flaskr.service.billing.tasks import (
     expire_wallet_buckets_task,
     reconcile_provider_reference_task,
@@ -16,6 +35,34 @@ from flaskr.service.billing.tasks import (
     send_low_balance_alert_task,
     settle_usage_task,
 )
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
+from flaskr.service.metering.models import BillUsageRecord
+
+
+@pytest.fixture
+def billing_task_integration_app(tmp_path):
+    db_path = tmp_path / "billing-task.sqlite"
+    db_uri = f"sqlite:///{db_path}"
+
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI=db_uri,
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": db_uri,
+            "ai_shifu_admin": db_uri,
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SQLALCHEMY_ENGINE_OPTIONS={"connect_args": {"check_same_thread": False}},
+        REDIS_KEY_PREFIX="billing-task-test",
+        TZ="UTC",
+    )
+    dao.db.init_app(app)
+    with app.app_context():
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
 
 
 def test_settle_usage_task_calls_settlement_engine(
@@ -76,6 +123,314 @@ def test_settle_usage_task_normalizes_empty_creator_bid(
     assert payload["status"] == "noop"
     assert payload["requested_creator_bid"] is None
     assert payload["task_name"] == "billing.settle_usage"
+
+
+def test_settle_usage_task_serializes_same_creator_concurrent_usage(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _ThreadLock:
+        def __init__(
+            self,
+            *,
+            key: str,
+            raw_lock: threading.Lock,
+            events: list[dict[str, object]],
+            second_attempted: threading.Event,
+        ) -> None:
+            self._key = key
+            self._raw_lock = raw_lock
+            self._events = events
+            self._second_attempted = second_attempted
+
+        def acquire(self, blocking: bool = True, blocking_timeout=None):
+            self._events.append(
+                {
+                    "type": "attempt",
+                    "key": self._key,
+                    "thread": threading.current_thread().name,
+                    "at": time.monotonic(),
+                }
+            )
+            if (
+                len([event for event in self._events if event["type"] == "attempt"])
+                >= 2
+            ):
+                self._second_attempted.set()
+            if blocking_timeout is None:
+                acquired = self._raw_lock.acquire(blocking)
+            else:
+                acquired = self._raw_lock.acquire(
+                    blocking,
+                    timeout=blocking_timeout,
+                )
+            if acquired:
+                self._events.append(
+                    {
+                        "type": "acquired",
+                        "key": self._key,
+                        "thread": threading.current_thread().name,
+                        "at": time.monotonic(),
+                    }
+                )
+            return acquired
+
+        def release(self) -> None:
+            self._events.append(
+                {
+                    "type": "released",
+                    "key": self._key,
+                    "thread": threading.current_thread().name,
+                    "at": time.monotonic(),
+                }
+            )
+            self._raw_lock.release()
+
+    class _ThreadLockCacheProvider:
+        def __init__(self) -> None:
+            self._locks: dict[str, threading.Lock] = {}
+            self._guard = threading.Lock()
+            self.events: list[dict[str, object]] = []
+            self.second_attempted = threading.Event()
+
+        def lock(self, key: str, timeout=None, blocking_timeout=None):
+            del timeout, blocking_timeout
+            with self._guard:
+                raw_lock = self._locks.setdefault(key, threading.Lock())
+            return _ThreadLock(
+                key=key,
+                raw_lock=raw_lock,
+                events=self.events,
+                second_attempted=self.second_attempted,
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: billing_task_integration_app),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-concurrent-1",
+    )
+    dummy_cache = _ThreadLockCacheProvider()
+    monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
+
+    entered_first_charge = threading.Event()
+    release_first_charge = threading.Event()
+
+    from flaskr.service.billing import settlement as settlement_module
+
+    original_build_usage_metric_charges = settlement_module._build_usage_metric_charges
+
+    def _blocking_build_usage_metric_charges(*args, **kwargs):
+        usage = args[0]
+        if usage.usage_bid == "usage-concurrent-1":
+            entered_first_charge.set()
+            assert release_first_charge.wait(timeout=2)
+        return original_build_usage_metric_charges(*args, **kwargs)
+
+    monkeypatch.setattr(
+        settlement_module,
+        "_build_usage_metric_charges",
+        _blocking_build_usage_metric_charges,
+    )
+
+    with billing_task_integration_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-concurrent-1",
+            creator_bid="creator-concurrent-1",
+            available_credits=Decimal("2.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("2.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid="bucket-concurrent-1",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-concurrent-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+                source_type=0,
+                source_bid="grant-concurrent-1",
+                priority=10,
+                original_credits=Decimal("2.0000000000"),
+                available_credits=Decimal("2.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=datetime(2026, 4, 8, 12, 0, 0),
+                effective_to=None,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={},
+                created_at=datetime(2026, 4, 8, 12, 0, 0),
+                updated_at=datetime(2026, 4, 8, 12, 0, 0),
+            )
+        )
+        dao.db.session.add(
+            CreditUsageRate(
+                rate_bid="rate-concurrent-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-concurrent",
+                usage_scene=BILL_USAGE_SCENE_PROD,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                unit_size=1000,
+                credits_per_unit=Decimal("1.0000000000"),
+                rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+                effective_from=datetime(2026, 4, 8, 0, 0, 0),
+                effective_to=None,
+                status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            )
+        )
+        dao.db.session.add_all(
+            [
+                BillUsageRecord(
+                    usage_bid="usage-concurrent-1",
+                    parent_usage_bid="",
+                    user_bid="learner-concurrent-1",
+                    shifu_bid="shifu-concurrent-1",
+                    outline_item_bid="",
+                    progress_record_bid="",
+                    generated_block_bid="",
+                    audio_bid="",
+                    request_id="req-concurrent-1",
+                    trace_id="trace-concurrent-1",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    record_level=0,
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    provider="openai",
+                    model="gpt-concurrent",
+                    is_stream=0,
+                    input=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                    word_count=0,
+                    duration_ms=1000,
+                    latency_ms=100,
+                    segment_index=0,
+                    segment_count=0,
+                    billable=1,
+                    status=0,
+                    error_message="",
+                    extra={},
+                    created_at=datetime(2026, 4, 8, 12, 1, 0),
+                    updated_at=datetime(2026, 4, 8, 12, 1, 0),
+                ),
+                BillUsageRecord(
+                    usage_bid="usage-concurrent-2",
+                    parent_usage_bid="",
+                    user_bid="learner-concurrent-2",
+                    shifu_bid="shifu-concurrent-1",
+                    outline_item_bid="",
+                    progress_record_bid="",
+                    generated_block_bid="",
+                    audio_bid="",
+                    request_id="req-concurrent-2",
+                    trace_id="trace-concurrent-2",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    record_level=0,
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    provider="openai",
+                    model="gpt-concurrent",
+                    is_stream=0,
+                    input=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                    word_count=0,
+                    duration_ms=1000,
+                    latency_ms=100,
+                    segment_index=0,
+                    segment_count=0,
+                    billable=1,
+                    status=0,
+                    error_message="",
+                    extra={},
+                    created_at=datetime(2026, 4, 8, 12, 1, 1),
+                    updated_at=datetime(2026, 4, 8, 12, 1, 1),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    results: dict[str, dict[str, object]] = {}
+
+    def _run_task(usage_bid: str) -> None:
+        results[usage_bid] = settle_usage_task(
+            creator_bid="creator-concurrent-1",
+            usage_bid=usage_bid,
+        )
+
+    first = threading.Thread(
+        target=_run_task,
+        args=("usage-concurrent-1",),
+        name="student-worker-1",
+    )
+    second = threading.Thread(
+        target=_run_task,
+        args=("usage-concurrent-2",),
+        name="student-worker-2",
+    )
+
+    first.start()
+    assert entered_first_charge.wait(timeout=2)
+    second.start()
+    assert dummy_cache.second_attempted.wait(timeout=2)
+    time.sleep(0.05)
+    release_first_charge.set()
+    first.join(timeout=2)
+    second.join(timeout=2)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+
+    with billing_task_integration_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-concurrent-1").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-concurrent-1"
+        ).one()
+        entries = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.creator_bid == "creator-concurrent-1",
+                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+
+        assert results["usage-concurrent-1"]["status"] == "settled"
+        assert results["usage-concurrent-2"]["status"] == "settled"
+        assert len(entries) == 2
+        assert [entry.source_bid for entry in entries] == [
+            "usage-concurrent-1",
+            "usage-concurrent-2",
+        ]
+        assert [entry.balance_after for entry in entries] == [
+            Decimal("1.0000000000"),
+            Decimal("0E-10"),
+        ]
+        assert wallet.available_credits == Decimal("0E-10")
+        assert wallet.lifetime_consumed_credits == Decimal("2.0000000000")
+        assert bucket.available_credits == Decimal("0E-10")
+        assert bucket.status == CREDIT_BUCKET_STATUS_EXHAUSTED
+
+    acquired_events = [
+        event for event in dummy_cache.events if event["type"] == "acquired"
+    ]
+    released_events = [
+        event for event in dummy_cache.events if event["type"] == "released"
+    ]
+    assert len(acquired_events) == 2
+    assert len(released_events) == 2
+    assert acquired_events[0]["thread"] == "student-worker-1"
+    assert released_events[0]["thread"] == "student-worker-1"
+    assert acquired_events[1]["thread"] == "student-worker-2"
+    assert acquired_events[1]["at"] >= released_events[0]["at"]
 
 
 def test_replay_usage_settlement_task_calls_replay_helper(
