@@ -21,7 +21,7 @@
 - [x] 将当前批次范围同步到 `docs/billing-subscription-design.md`，明确 Figma `方案1` 浅色稿、provider 能力矩阵和暂缓项。
 - [x] 在 creator admin 入口补齐侧边栏会员卡和 `会员与积分` 导航。
 - [x] 新增 `/admin/billing`，按 `套餐与积分`、`积分明细`、`付款记录` 三个 tab 落地 Billing Center。
-- [ ] 新增 `src/cook-web/src/components/billing/`、`src/cook-web/src/types/billing.ts` 和 `module.billing.*` i18n。
+- [x] 新增 `src/cook-web/src/components/billing/`、`src/cook-web/src/types/billing.ts` 和 `module.billing.*` i18n。
 - [ ] 新增 `/payment/stripe/billing-result`，回跳后先调用 `/billing/orders/{billing_order_bid}/sync` 再回到 `/admin/billing`。
 - [ ] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
 - [ ] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
