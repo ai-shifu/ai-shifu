@@ -87,7 +87,7 @@
 - [x] 实现 `credit_wallet_buckets` 的来源分桶、余额汇总和生命周期状态推进。
 - [x] 实现 `free > subscription > topup` 的 bucket 选择顺序，并在同优先级下按最早到期、最早创建扣减。
 - [x] 实现 LLM `input/cache/output` 三维扣分。
-- [ ] 实现 TTS `按次` 与 `按字数` 两种计费模式。
+- [x] 实现 TTS `按次` 与 `按字数` 两种计费模式。
 - [ ] 实现 `production`、`preview`、`debug` 三场景的 creator 归属解析。
 - [ ] 实现 `creator_bid` 维度的 settlement 串行化与防重入，避免多个学生同时学习同一 creator 课程时并发扣减算错。
 - [ ] 实现账本不可变写入和钱包乐观锁更新。

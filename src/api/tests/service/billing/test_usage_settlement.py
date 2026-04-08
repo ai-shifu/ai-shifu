@@ -11,6 +11,7 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_OUTPUT_CHARS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -347,6 +348,65 @@ def test_settle_tts_usage_is_idempotent(
         assert second["status"] == "already_settled"
         assert len(entries) == 1
         assert wallet.available_credits == Decimal("3.0000000000")
+
+
+def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-tts-char",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-tts-char", "5.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-tts-char",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-tts-char",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                priority=30,
+                available_credits="5.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-tts-output-char",
+                usage_type=BILL_USAGE_TYPE_TTS,
+                billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+                credits_per_unit="0.5000000000",
+                unit_size=100,
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-tts-char",
+                usage_type=BILL_USAGE_TYPE_TTS,
+                provider="minimax",
+                model="speech-01",
+                input_value=250,
+                input_cache=0,
+                output=250,
+                total=250,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-tts-char")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-tts-char").one()
+        entry = CreditLedgerEntry.query.filter_by(source_bid="usage-tts-char").one()
+
+        assert payload["status"] == "settled"
+        assert payload["entry_count"] == 1
+        assert payload["consumed_credits"] == 1.5
+        assert entry.amount == Decimal("-1.5000000000")
+        assert entry.metadata_json["metric_breakdown"][0]["billing_metric"] == (
+            "tts_output_chars"
+        )
+        assert wallet.available_credits == Decimal("3.5000000000")
 
 
 def test_settle_usage_prefers_exact_rate_over_wildcard(
