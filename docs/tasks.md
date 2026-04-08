@@ -25,9 +25,9 @@
 - [x] 新增 `/payment/stripe/billing-result`，回跳后先调用 `/billing/orders/{billing_order_bid}/sync` 再回到 `/admin/billing`。
 - [x] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
 - [x] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
-- [ ] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
+- [x] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
 - [ ] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
-- [ ] 实现 `/billing/webhooks/stripe`、`/billing/webhooks/pingxx`，并确保 `billing_orders` 状态机幂等。
+- [ ] 实现 `/billing/webhooks/stripe`、`/billing/webhooks/pingxx`，复用现有 Stripe/Pingxx callback 能力，并确保 `billing_orders` 状态机幂等。
 - [ ] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
 - [ ] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
 - [ ] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。

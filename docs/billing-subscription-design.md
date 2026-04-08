@@ -582,7 +582,7 @@ v1.1 再补充下列扩展能力：
 
 - 面向学员购课，而不是 creator billing
 - 通过 `order_orders`、`order_pingxx_orders`、`order_stripe_orders` 三张旧表落库
-- Pingxx 和 Stripe 已有 shared adapter 抽象，但持久化仍是 provider-specific
+- Pingxx 和 Stripe 已有 shared adapter 与 callback 能力抽象，但持久化仍是 provider-specific
 
 v1 的改造要求：
 
@@ -835,7 +835,7 @@ v1 需要新增：
 
 - 旧 `/order` 保持不变，只说明“不复用其表结构”
 - 新 `/billing` 接口继续独立
-- `/billing/webhooks/stripe`、`/billing/webhooks/pingxx` 统一通过 shared provider adapter 验签与归一化，再直接推进 billing order / subscription 状态
+- `/billing/webhooks/stripe`、`/billing/webhooks/pingxx` 统一复用现有 Stripe/Pingxx callback 能力与 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
 - `/api/config` 在 v1 继续保持全局配置输出，不承载 creator-scoped branding
 
 ### 7.4 内部支付接口契约
