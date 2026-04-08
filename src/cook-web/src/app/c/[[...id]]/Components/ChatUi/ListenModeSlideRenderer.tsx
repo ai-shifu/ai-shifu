@@ -1338,7 +1338,10 @@ const ListenModeSlideRenderer = ({
         ) : null}
         <Slide
           playerAlwaysVisible={true}
-          className='h-full w-full listen-slide-root'
+          className={cn(
+            'h-full w-full listen-slide-root',
+            isMobileLandscape && 'listen-slide-root--landscape',
+          )}
           elementList={elementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
