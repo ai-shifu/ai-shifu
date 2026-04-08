@@ -483,6 +483,24 @@ v1 冻结 bucket 规则：
 - 如果找不到精确 model，可按 `model="*"` 或 `provider="*"` fallback
 - 当前 bootstrap seed 使用 `provider="*"`、`model="*"` 的 wildcard 费率，并先以 `0.0000000000` 占位；待费率规则冻结后替换为正式值
 
+v1 冻结 scene/provider/model/metric 矩阵：
+
+- 三个计费 scene 固定全部进入 creator billing：`production(1203)`、`preview(1202)`、`debug(1201)` 都允许 admission 和 settlement，不再存在“debug 固定免计费”的常量例外
+- LLM 费率矩阵固定为每个 scene 都需要 3 个独立 metric：
+  - `7451=llm_input_tokens`
+  - `7452=llm_cache_tokens`
+  - `7453=llm_output_tokens`
+- TTS 费率矩阵固定为每个 scene 只启用 1 个主扣费 metric，结算优先级固定为：
+  - 先尝试 `7454=tts_request_count`
+  - 若当前 scene/provider/model 没有激活的 `tts_request_count` 费率，再回退到 `7455=tts_output_chars`
+  - 若仍未命中，再回退到 `7456=tts_input_chars`
+  - 单条 TTS usage 最终只允许落 1 个主 metric，避免按次和按字数重复计费
+- provider/model 的费率匹配优先级固定为：`provider=exact + model=exact` > `provider=exact + model=*` > `provider=* + model=exact` > `provider=* + model=*`
+- 当前批次的 bootstrap seed 继续为每个 scene 预置 wildcard 默认行：
+  - LLM：每个 scene 3 条 `*/*` 默认 rate
+  - TTS：每个 scene 1 条 `tts_request_count` 的 `*/*` 默认 rate
+- v1 允许按 provider/model 增加精确覆盖费率，但不新增 scene 级特殊结算逻辑；`production`、`preview`、`debug` 仅通过 `credit_usage_rates` 配置差异体现成本差异
+
 ### 3.8 `billing_renewal_events`
 
 角色：续费排期真相源；不是支付真相源；不是报表表。
