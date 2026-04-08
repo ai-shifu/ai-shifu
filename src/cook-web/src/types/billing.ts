@@ -71,6 +71,21 @@ export type BillingRoundingMode = 'ceil' | 'floor' | 'round';
 
 export type BillingUsageScene = 'debug' | 'preview' | 'production';
 
+export type BillingRenewalEventType =
+  | 'renewal'
+  | 'retry'
+  | 'cancel_effective'
+  | 'downgrade_effective'
+  | 'expire'
+  | 'reconcile';
+
+export type BillingRenewalEventStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled';
+
 export type BillingPagedResponse<TItem> = {
   items: TItem[];
   page: number;
@@ -227,14 +242,8 @@ export type BillingCheckoutResult = {
 
 export type BillingRenewalEventSummary = {
   renewal_event_bid: string;
-  event_type:
-    | 'renewal'
-    | 'retry'
-    | 'cancel_effective'
-    | 'downgrade_effective'
-    | 'expire'
-    | 'reconcile';
-  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  event_type: BillingRenewalEventType;
+  status: BillingRenewalEventStatus;
   scheduled_at: string | null;
   processed_at: string | null;
   attempt_count: number;

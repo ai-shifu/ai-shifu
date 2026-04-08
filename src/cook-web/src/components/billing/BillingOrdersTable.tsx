@@ -31,6 +31,7 @@ import {
   formatBillingDateTime,
   formatBillingPrice,
   registerBillingTranslationUsage,
+  resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
@@ -219,7 +220,7 @@ export function BillingOrdersTable() {
                           )}
                         </TableCell>
                         <TableCell className='min-w-[180px] text-sm text-slate-500'>
-                          {item.failure_message || '--'}
+                          {item.failure_message || resolveBillingEmptyLabel(t)}
                         </TableCell>
                         <TableCell>
                           <Button

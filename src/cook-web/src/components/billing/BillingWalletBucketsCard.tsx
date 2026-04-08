@@ -29,6 +29,7 @@ import {
   resolveBillingBucketCategoryLabel,
   resolveBillingBucketSourceLabel,
   resolveBillingBucketStatusLabel,
+  resolveBillingEmptyLabel,
 } from '@/lib/billing';
 import { BillingMetricCard } from './BillingMetricCard';
 
@@ -52,10 +53,11 @@ function resolveBucketStatusClasses(
 function renderWindowLabel(
   bucket: BillingWalletBucket,
   locale: string,
+  emptyLabel: string,
   neverExpiresLabel: string,
 ): { start: string; end: string } {
   return {
-    start: formatBillingDate(bucket.effective_from, locale) || '--',
+    start: formatBillingDate(bucket.effective_from, locale) || emptyLabel,
     end: bucket.effective_to
       ? formatBillingDate(bucket.effective_to, locale) || neverExpiresLabel
       : neverExpiresLabel,
@@ -190,6 +192,7 @@ export function BillingWalletBucketsCard() {
                     const windowLabel = renderWindowLabel(
                       bucket,
                       i18n.language,
+                      resolveBillingEmptyLabel(t),
                       neverExpiresLabel,
                     );
 

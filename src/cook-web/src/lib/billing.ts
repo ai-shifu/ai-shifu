@@ -8,6 +8,9 @@ import type {
   BillingOrderType,
   BillingPlan,
   BillingProvider,
+  BillingRenewalEventStatus,
+  BillingRenewalEventSummary,
+  BillingRenewalEventType,
   BillingSubscription,
   BillingSubscriptionStatus,
   BillingTopupProduct,
@@ -95,6 +98,27 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
 const BILLING_PAYMENT_MODE_KEYS: Record<BillingPaymentMode, string> = {
   subscription: 'module.billing.orders.paymentMode.subscription',
   one_time: 'module.billing.orders.paymentMode.oneTime',
+};
+
+const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
+  {
+    renewal: 'module.billing.renewal.eventType.renewal',
+    retry: 'module.billing.renewal.eventType.retry',
+    cancel_effective: 'module.billing.renewal.eventType.cancelEffective',
+    downgrade_effective: 'module.billing.renewal.eventType.downgradeEffective',
+    expire: 'module.billing.renewal.eventType.expire',
+    reconcile: 'module.billing.renewal.eventType.reconcile',
+  };
+
+const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
+  BillingRenewalEventStatus,
+  string
+> = {
+  pending: 'module.billing.renewal.status.pending',
+  processing: 'module.billing.renewal.status.processing',
+  succeeded: 'module.billing.renewal.status.succeeded',
+  failed: 'module.billing.renewal.status.failed',
+  canceled: 'module.billing.renewal.status.canceled',
 };
 
 export function formatBillingCredits(value: number, locale: string): string {
@@ -288,6 +312,46 @@ export function resolveBillingPaymentModeLabel(
   return t(BILLING_PAYMENT_MODE_KEYS[paymentMode]);
 }
 
+export function resolveBillingRenewalEventTypeLabel(
+  t: BillingTranslator,
+  eventType: BillingRenewalEventType,
+): string {
+  return t(BILLING_RENEWAL_EVENT_TYPE_KEYS[eventType]);
+}
+
+export function resolveBillingRenewalEventStatusLabel(
+  t: BillingTranslator,
+  status: BillingRenewalEventStatus,
+): string {
+  return t(BILLING_RENEWAL_EVENT_STATUS_KEYS[status]);
+}
+
+export function resolveBillingEmptyLabel(t: BillingTranslator): string {
+  return t('module.billing.common.empty');
+}
+
+export function buildBillingRenewalContextLabel(
+  t: BillingTranslator,
+  locale: string,
+  event: BillingRenewalEventSummary | null | undefined,
+): string {
+  if (!event) {
+    return resolveBillingEmptyLabel(t);
+  }
+
+  const prefix = `${resolveBillingRenewalEventTypeLabel(t, event.event_type)} · ${resolveBillingRenewalEventStatusLabel(t, event.status)}`;
+  if (event.last_error) {
+    return `${prefix} · ${event.last_error}`;
+  }
+  if (event.scheduled_at) {
+    return `${prefix} · ${t('module.billing.admin.subscriptions.table.scheduled')} ${formatBillingDateTime(event.scheduled_at, locale)}`;
+  }
+  if (event.processed_at) {
+    return `${prefix} · ${formatBillingDateTime(event.processed_at, locale)}`;
+  }
+  return prefix;
+}
+
 export function openBillingCheckoutUrl(url: string): void {
   if (!url || typeof window === 'undefined') {
     return;
@@ -429,8 +493,25 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.orders.status.pending'),
     t('module.billing.orders.status.refunded'),
     t('module.billing.orders.status.timeout'),
+    t('module.billing.common.empty'),
     t('module.billing.page.adminLink'),
     t('module.billing.admin.attention'),
+    t('module.billing.admin.adjust.cancel'),
+    t('module.billing.admin.adjust.description'),
+    t('module.billing.admin.adjust.errors.amountInvalid'),
+    t('module.billing.admin.adjust.errors.creatorBidRequired'),
+    t('module.billing.admin.adjust.fields.amount'),
+    t('module.billing.admin.adjust.fields.creatorBid'),
+    t('module.billing.admin.adjust.fields.note'),
+    t('module.billing.admin.adjust.help.amount'),
+    t('module.billing.admin.adjust.open'),
+    t('module.billing.admin.adjust.placeholders.amount'),
+    t('module.billing.admin.adjust.placeholders.creatorBid'),
+    t('module.billing.admin.adjust.placeholders.note'),
+    t('module.billing.admin.adjust.quickAction'),
+    t('module.billing.admin.adjust.submit'),
+    t('module.billing.admin.adjust.submitting'),
+    t('module.billing.admin.adjust.success'),
     t('module.billing.admin.backToCreatorBilling'),
     t('module.billing.admin.subtitle'),
     t('module.billing.admin.tabs.exceptions'),
@@ -448,6 +529,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.subscriptions.table.provider'),
     t('module.billing.admin.subscriptions.table.renewal'),
     t('module.billing.admin.subscriptions.table.scheduled'),
+    t('module.billing.admin.subscriptions.table.renewalStatus'),
     t('module.billing.admin.subscriptions.table.status'),
     t('module.billing.admin.subscriptions.title'),
     t('module.billing.admin.orders.description'),
@@ -467,10 +549,22 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.exceptions.fields.createdAt'),
     t('module.billing.admin.exceptions.fields.detail'),
     t('module.billing.admin.exceptions.fields.periodEnd'),
+    t('module.billing.admin.exceptions.fields.renewalEvent'),
     t('module.billing.admin.exceptions.loadError'),
     t('module.billing.admin.exceptions.sections.orders'),
     t('module.billing.admin.exceptions.sections.subscriptions'),
     t('module.billing.admin.exceptions.title'),
+    t('module.billing.renewal.eventType.cancelEffective'),
+    t('module.billing.renewal.eventType.downgradeEffective'),
+    t('module.billing.renewal.eventType.expire'),
+    t('module.billing.renewal.eventType.reconcile'),
+    t('module.billing.renewal.eventType.renewal'),
+    t('module.billing.renewal.eventType.retry'),
+    t('module.billing.renewal.status.canceled'),
+    t('module.billing.renewal.status.failed'),
+    t('module.billing.renewal.status.pending'),
+    t('module.billing.renewal.status.processing'),
+    t('module.billing.renewal.status.succeeded'),
     t('module.billing.overview.actions.cancelSubscription'),
     t('module.billing.status.active'),
     t('module.billing.status.cancelScheduled'),

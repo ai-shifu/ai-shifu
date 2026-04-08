@@ -18,11 +18,15 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingRenewalContextLabel,
   formatBillingDateTime,
   formatBillingPrice,
   registerBillingTranslationUsage,
+  resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
+  resolveBillingRenewalEventStatusLabel,
+  resolveBillingRenewalEventTypeLabel,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
 
@@ -169,12 +173,32 @@ export function AdminBillingExceptionsPanel({
                         formatBillingDateTime(
                           item.current_period_end_at,
                           i18n.language,
-                        ) || '--'
+                        ) || resolveBillingEmptyLabel(t)
+                      }
+                    />
+                    <ExceptionRow
+                      label={t(
+                        'module.billing.admin.exceptions.fields.renewalEvent',
+                      )}
+                      value={
+                        item.latest_renewal_event
+                          ? `${resolveBillingRenewalEventTypeLabel(
+                              t,
+                              item.latest_renewal_event.event_type,
+                            )} · ${resolveBillingRenewalEventStatusLabel(
+                              t,
+                              item.latest_renewal_event.status,
+                            )}`
+                          : resolveBillingEmptyLabel(t)
                       }
                     />
                     <ExceptionRow
                       label={t('module.billing.admin.exceptions.fields.detail')}
-                      value={item.latest_renewal_event?.last_error || '--'}
+                      value={buildBillingRenewalContextLabel(
+                        t,
+                        i18n.language,
+                        item.latest_renewal_event,
+                      )}
                     />
                   </div>
                 </div>
@@ -239,7 +263,11 @@ export function AdminBillingExceptionsPanel({
                     />
                     <ExceptionRow
                       label={t('module.billing.admin.exceptions.fields.detail')}
-                      value={item.failure_message || item.failure_code || '--'}
+                      value={
+                        item.failure_message ||
+                        item.failure_code ||
+                        resolveBillingEmptyLabel(t)
+                      }
                     />
                     <ExceptionRow
                       label={t(
@@ -247,7 +275,7 @@ export function AdminBillingExceptionsPanel({
                       )}
                       value={
                         formatBillingDateTime(item.created_at, i18n.language) ||
-                        '--'
+                        resolveBillingEmptyLabel(t)
                       }
                     />
                   </div>

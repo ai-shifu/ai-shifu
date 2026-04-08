@@ -37,7 +37,8 @@
         "amount": "金额",
         "createdAt": "创建时间",
         "detail": "异常详情",
-        "periodEnd": "周期结束"
+        "periodEnd": "周期结束",
+        "renewalEvent": "续费事件"
       },
       "loadError": "账务异常数据读取失败，请刷新后重试。",
       "sections": {
@@ -75,6 +76,7 @@
         "product": "套餐",
         "provider": "支付通道",
         "renewal": "续费上下文",
+        "renewalStatus": "续费事件",
         "scheduled": "计划于",
         "status": "状态"
       },
@@ -158,6 +160,9 @@
     "title": "确认购买",
     "topupDescription": "你将进入一次性积分充值的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。"
+  },
+  "common": {
+    "empty": "暂无"
   },
   "ledger": {
     "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
@@ -346,6 +351,23 @@
       "plans": "套餐与积分"
     },
     "title": "会员与积分"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "取消生效",
+      "downgradeEffective": "降级生效",
+      "expire": "过期处理",
+      "reconcile": "对账修正",
+      "renewal": "自动续费",
+      "retry": "失败重试"
+    },
+    "status": {
+      "canceled": "已取消",
+      "failed": "失败",
+      "pending": "待执行",
+      "processing": "处理中",
+      "succeeded": "已完成"
+    }
   },
   "result": {
     "countdown": "{seconds}s 后自动返回会员中心",

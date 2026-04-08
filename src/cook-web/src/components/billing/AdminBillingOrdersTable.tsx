@@ -29,6 +29,7 @@ import {
   formatBillingDateTime,
   formatBillingPrice,
   registerBillingTranslationUsage,
+  resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
@@ -163,7 +164,9 @@ export function AdminBillingOrdersTable() {
                         {formatBillingDateTime(item.created_at, i18n.language)}
                       </TableCell>
                       <TableCell className='min-w-[220px] text-sm text-slate-600'>
-                        {item.failure_message || item.failure_code || '--'}
+                        {item.failure_message ||
+                          item.failure_code ||
+                          resolveBillingEmptyLabel(t)}
                       </TableCell>
                     </TableRow>
                   ))

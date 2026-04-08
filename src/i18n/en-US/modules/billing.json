@@ -37,7 +37,8 @@
         "amount": "Amount",
         "createdAt": "Created at",
         "detail": "Detail",
-        "periodEnd": "Period end"
+        "periodEnd": "Period end",
+        "renewalEvent": "Renewal event"
       },
       "loadError": "Billing exception data could not be loaded.",
       "sections": {
@@ -75,6 +76,7 @@
         "product": "Product",
         "provider": "Provider",
         "renewal": "Renewal context",
+        "renewalStatus": "Renewal event",
         "scheduled": "Scheduled",
         "status": "Status"
       },
@@ -158,6 +160,9 @@
     "title": "Confirm purchase",
     "topupDescription": "You are about to open a one-time credit top-up checkout.",
     "unsupported": "This payment method is not available right now."
+  },
+  "common": {
+    "empty": "Not available"
   },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
@@ -346,6 +351,23 @@
       "plans": "Plans & Credits"
     },
     "title": "Membership & Credits"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "Cancel effective",
+      "downgradeEffective": "Downgrade effective",
+      "expire": "Expire",
+      "reconcile": "Reconcile",
+      "renewal": "Renewal",
+      "retry": "Retry"
+    },
+    "status": {
+      "canceled": "Canceled",
+      "failed": "Failed",
+      "pending": "Pending",
+      "processing": "Processing",
+      "succeeded": "Succeeded"
+    }
   },
   "result": {
     "countdown": "Redirecting to the billing center in {seconds}s",

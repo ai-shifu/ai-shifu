@@ -11,6 +11,7 @@ import type { BillingLedgerItem } from '@/types/billing';
 import {
   formatBillingCredits,
   formatBillingDateTime,
+  resolveBillingEmptyLabel,
   resolveBillingLedgerEntryLabel,
   resolveBillingUsageSceneLabel,
 } from '@/lib/billing';
@@ -65,7 +66,7 @@ export function BillingUsageDetailSheet({
                     resolveBillingUsageSceneLabel(
                       t,
                       item.metadata.usage_scene,
-                    ) || '--'
+                    ) || resolveBillingEmptyLabel(t)
                   }
                 />
                 <DetailRow

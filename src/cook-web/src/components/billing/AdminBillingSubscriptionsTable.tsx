@@ -26,9 +26,13 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingRenewalContextLabel,
   formatBillingCredits,
   formatBillingDateTime,
   registerBillingTranslationUsage,
+  resolveBillingEmptyLabel,
+  resolveBillingRenewalEventStatusLabel,
+  resolveBillingRenewalEventTypeLabel,
   resolveBillingProviderLabel,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
@@ -111,11 +115,16 @@ export function AdminBillingSubscriptionsTable() {
                   <TableHead>
                     {t('module.billing.admin.subscriptions.table.renewal')}
                   </TableHead>
+                  <TableHead>
+                    {t(
+                      'module.billing.admin.subscriptions.table.renewalStatus',
+                    )}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {!items.length ? (
-                  <TableEmpty colSpan={7}>
+                  <TableEmpty colSpan={8}>
                     {t('module.billing.admin.subscriptions.empty')}
                   </TableEmpty>
                 ) : (
@@ -168,19 +177,42 @@ export function AdminBillingSubscriptionsTable() {
                         {formatBillingDateTime(
                           item.current_period_end_at,
                           i18n.language,
-                        ) || '--'}
+                        ) || resolveBillingEmptyLabel(t)}
                       </TableCell>
                       <TableCell className='min-w-[240px] text-sm text-slate-600'>
-                        {item.latest_renewal_event?.last_error ||
-                          (formatBillingDateTime(
-                            item.latest_renewal_event?.scheduled_at,
-                            i18n.language,
-                          ) &&
-                            `${t('module.billing.admin.subscriptions.table.scheduled')} ${formatBillingDateTime(
-                              item.latest_renewal_event?.scheduled_at,
-                              i18n.language,
-                            )}`) ||
-                          '--'}
+                        {buildBillingRenewalContextLabel(
+                          t,
+                          i18n.language,
+                          item.latest_renewal_event,
+                        )}
+                      </TableCell>
+                      <TableCell className='min-w-[220px]'>
+                        {item.latest_renewal_event ? (
+                          <div className='flex flex-wrap gap-2'>
+                            <Badge
+                              variant='outline'
+                              className='border-sky-200 bg-sky-50 text-sky-700'
+                            >
+                              {resolveBillingRenewalEventTypeLabel(
+                                t,
+                                item.latest_renewal_event.event_type,
+                              )}
+                            </Badge>
+                            <Badge
+                              variant='outline'
+                              className='border-violet-200 bg-violet-50 text-violet-700'
+                            >
+                              {resolveBillingRenewalEventStatusLabel(
+                                t,
+                                item.latest_renewal_event.status,
+                              )}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className='text-sm text-slate-500'>
+                            {resolveBillingEmptyLabel(t)}
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

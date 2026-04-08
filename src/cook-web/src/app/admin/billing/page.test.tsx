@@ -260,6 +260,9 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByText('module.billing.alerts.subscriptionPastDue'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.catalog.labels.providerStripe'),
+    ).toBeInTheDocument();
 
     await act(async () => {
       await user.click(

@@ -149,6 +149,12 @@ describe('AdminBillingConsolePage', () => {
       }),
     ).toHaveAttribute('data-state', 'active');
     expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.renewal.eventType.retry'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.renewal.status.failed'),
+    ).toBeInTheDocument();
 
     await act(async () => {
       await user.click(

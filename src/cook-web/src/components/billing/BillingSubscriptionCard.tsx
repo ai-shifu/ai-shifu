@@ -12,6 +12,8 @@ import {
 import type { BillingPlan, BillingSubscription } from '@/types/billing';
 import {
   formatBillingDate,
+  resolveBillingEmptyLabel,
+  resolveBillingProviderLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
   resolveBillingSubscriptionStatusLabel,
@@ -121,9 +123,10 @@ export function BillingSubscriptionCard({
             <span>
               {t('module.billing.overview.subscriptionProviderLabel')}
             </span>
-            <span className='font-semibold capitalize text-slate-900'>
-              {subscription?.billing_provider ||
-                t('module.billing.status.none')}
+            <span className='font-semibold text-slate-900'>
+              {subscription?.billing_provider
+                ? resolveBillingProviderLabel(t, subscription.billing_provider)
+                : resolveBillingEmptyLabel(t)}
             </span>
           </div>
           <div className='flex items-center justify-between gap-3'>
