@@ -1,4 +1,7 @@
 import type {
+  BillingBucketCategory,
+  BillingBucketSourceType,
+  BillingBucketStatus,
   BillingPlan,
   BillingSubscription,
   BillingSubscriptionStatus,
@@ -19,6 +22,28 @@ const BILLING_STATUS_KEYS: Record<string, string> = {
   canceled: 'module.billing.status.canceled',
   expired: 'module.billing.status.expired',
   none: 'module.billing.status.none',
+};
+
+const BILLING_BUCKET_CATEGORY_KEYS: Record<BillingBucketCategory, string> = {
+  free: 'module.billing.ledger.category.free',
+  subscription: 'module.billing.ledger.category.subscription',
+  topup: 'module.billing.ledger.category.topup',
+};
+
+const BILLING_BUCKET_SOURCE_KEYS: Record<BillingBucketSourceType, string> = {
+  subscription: 'module.billing.ledger.source.subscription',
+  topup: 'module.billing.ledger.source.topup',
+  gift: 'module.billing.ledger.source.gift',
+  refund: 'module.billing.ledger.source.refund',
+  manual: 'module.billing.ledger.source.manual',
+  usage: 'module.billing.ledger.source.usage',
+};
+
+const BILLING_BUCKET_STATUS_KEYS: Record<BillingBucketStatus, string> = {
+  active: 'module.billing.ledger.bucketStatus.active',
+  exhausted: 'module.billing.ledger.bucketStatus.exhausted',
+  expired: 'module.billing.ledger.bucketStatus.expired',
+  canceled: 'module.billing.ledger.bucketStatus.canceled',
 };
 
 export function formatBillingCredits(value: number, locale: string): string {
@@ -116,6 +141,26 @@ export function formatBillingDate(
   }).format(date);
 }
 
+export function formatBillingDateTime(
+  value: string | null | undefined,
+  locale: string,
+): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function formatBillingPlanInterval(
   t: BillingTranslator,
   product: BillingPlan,
@@ -124,6 +169,27 @@ export function formatBillingPlanInterval(
     return t('module.billing.catalog.labels.perYear');
   }
   return t('module.billing.catalog.labels.perMonth');
+}
+
+export function resolveBillingBucketCategoryLabel(
+  t: BillingTranslator,
+  category: BillingBucketCategory,
+): string {
+  return t(BILLING_BUCKET_CATEGORY_KEYS[category]);
+}
+
+export function resolveBillingBucketSourceLabel(
+  t: BillingTranslator,
+  sourceType: BillingBucketSourceType,
+): string {
+  return t(BILLING_BUCKET_SOURCE_KEYS[sourceType]);
+}
+
+export function resolveBillingBucketStatusLabel(
+  t: BillingTranslator,
+  status: BillingBucketStatus,
+): string {
+  return t(BILLING_BUCKET_STATUS_KEYS[status]);
 }
 
 export function openBillingCheckoutUrl(url: string): void {
@@ -155,6 +221,33 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.topups.creatorSmall.title'),
     t('module.billing.checkout.planDescription'),
     t('module.billing.checkout.topupDescription'),
+    t('module.billing.ledger.bucketDescription'),
+    t('module.billing.ledger.bucketStatus.active'),
+    t('module.billing.ledger.bucketStatus.canceled'),
+    t('module.billing.ledger.bucketStatus.exhausted'),
+    t('module.billing.ledger.bucketStatus.expired'),
+    t('module.billing.ledger.category.free'),
+    t('module.billing.ledger.category.subscription'),
+    t('module.billing.ledger.category.topup'),
+    t('module.billing.ledger.entriesDescription'),
+    t('module.billing.ledger.entriesTitle'),
+    t('module.billing.ledger.empty'),
+    t('module.billing.ledger.loadError'),
+    t('module.billing.ledger.neverExpires'),
+    t('module.billing.ledger.source.gift'),
+    t('module.billing.ledger.source.manual'),
+    t('module.billing.ledger.source.refund'),
+    t('module.billing.ledger.source.subscription'),
+    t('module.billing.ledger.source.topup'),
+    t('module.billing.ledger.source.usage'),
+    t('module.billing.ledger.summary.activeBuckets'),
+    t('module.billing.ledger.summary.nextExpiry'),
+    t('module.billing.ledger.summary.totalAvailable'),
+    t('module.billing.ledger.table.availableCredits'),
+    t('module.billing.ledger.table.effectiveWindow'),
+    t('module.billing.ledger.table.priority'),
+    t('module.billing.ledger.table.source'),
+    t('module.billing.ledger.table.status'),
     t('module.billing.status.active'),
     t('module.billing.status.cancelScheduled'),
     t('module.billing.status.canceled'),

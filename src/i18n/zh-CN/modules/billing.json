@@ -62,7 +62,43 @@
     "unsupported": "当前支付方式暂不可用。"
   },
   "ledger": {
-    "description": "接入 billing API 后，这里会展示余额桶明细和积分账本记录。",
+    "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
+    "bucketStatus": {
+      "active": "生效中",
+      "canceled": "已取消",
+      "exhausted": "已耗尽",
+      "expired": "已过期"
+    },
+    "category": {
+      "free": "免费积分",
+      "subscription": "订阅积分",
+      "topup": "充值积分"
+    },
+    "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
+    "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
+    "entriesTitle": "账本流水",
+    "loadError": "积分来源读取失败，请刷新后重试。",
+    "neverExpires": "永不过期",
+    "source": {
+      "gift": "赠送积分",
+      "manual": "人工调整",
+      "refund": "退款返还",
+      "subscription": "订阅发放",
+      "topup": "充值购买",
+      "usage": "用量结算"
+    },
+    "summary": {
+      "activeBuckets": "生效 bucket",
+      "nextExpiry": "最近过期",
+      "totalAvailable": "来源积分总额"
+    },
+    "table": {
+      "availableCredits": "可用积分",
+      "effectiveWindow": "生效时间",
+      "priority": "优先级",
+      "source": "积分来源",
+      "status": "状态"
+    },
     "title": "积分明细"
   },
   "navTitle": "会员与积分",

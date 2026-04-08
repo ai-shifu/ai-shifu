@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { SWRConfig } from 'swr';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingOverview';
 
@@ -19,6 +20,7 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getBillingCatalog: jest.fn(),
+    getBillingWalletBuckets: jest.fn(),
   },
 }));
 
@@ -44,6 +46,7 @@ jest.mock('@/c-store', () => ({
 }));
 
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
+const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
 describe('AdminBillingPage', () => {
@@ -52,6 +55,19 @@ describe('AdminBillingPage', () => {
       plans: [],
       topups: [],
     });
+    mockGetBillingWalletBuckets.mockResolvedValue([
+      {
+        wallet_bucket_bid: 'bucket-free',
+        category: 'free',
+        source_type: 'gift',
+        source_bid: 'grant-1',
+        available_credits: 80,
+        effective_from: '2026-03-01T00:00:00Z',
+        effective_to: '2026-05-01T00:00:00Z',
+        priority: 10,
+        status: 'active',
+      },
+    ]);
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -72,7 +88,15 @@ describe('AdminBillingPage', () => {
   test('renders the three billing center tabs and switches content', async () => {
     const user = userEvent.setup();
 
-    render(<AdminBillingPage />);
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingPage />
+      </SWRConfig>,
+    );
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(screen.getByText('module.billing.page.title')).toBeInTheDocument();
@@ -82,6 +106,7 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByText('module.billing.overview.walletTitle'),
     ).toBeInTheDocument();
+    expect(mockGetBillingWalletBuckets).not.toHaveBeenCalled();
 
     await act(async () => {
       await user.click(
@@ -91,8 +116,10 @@ describe('AdminBillingPage', () => {
 
     expect(screen.getByText('module.billing.ledger.title')).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.ledger.description'),
+      screen.getByText('module.billing.ledger.entriesTitle'),
     ).toBeInTheDocument();
+    expect(await screen.findByText('grant-1')).toBeInTheDocument();
+    expect(mockGetBillingWalletBuckets).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await user.click(

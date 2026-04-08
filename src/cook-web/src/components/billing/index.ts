@@ -8,3 +8,4 @@ export * from './BillingPageHeader';
 export * from './BillingPlaceholderSection';
 export * from './BillingSidebarCard';
 export * from './BillingSubscriptionCard';
+export * from './BillingWalletBucketsCard';

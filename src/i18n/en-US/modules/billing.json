@@ -62,7 +62,43 @@
     "unsupported": "This payment method is not available right now."
   },
   "ledger": {
-    "description": "Bucket details and ledger entries will appear here after the billing APIs are connected.",
+    "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
+    "bucketStatus": {
+      "active": "Active",
+      "canceled": "Canceled",
+      "exhausted": "Exhausted",
+      "expired": "Expired"
+    },
+    "category": {
+      "free": "Free",
+      "subscription": "Subscription",
+      "topup": "Top-up"
+    },
+    "empty": "No wallet buckets yet. Credits will appear here after your first grant.",
+    "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
+    "entriesTitle": "Ledger entries",
+    "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
+    "neverExpires": "Never expires",
+    "source": {
+      "gift": "Gift credits",
+      "manual": "Manual adjustment",
+      "refund": "Refund return",
+      "subscription": "Subscription grant",
+      "topup": "Top-up purchase",
+      "usage": "Usage settlement"
+    },
+    "summary": {
+      "activeBuckets": "Active buckets",
+      "nextExpiry": "Next expiry",
+      "totalAvailable": "Bucket credits"
+    },
+    "table": {
+      "availableCredits": "Available credits",
+      "effectiveWindow": "Effective window",
+      "priority": "Priority",
+      "source": "Source",
+      "status": "Status"
+    },
     "title": "Credit Activity"
   },
   "navTitle": "Membership & Credits",
