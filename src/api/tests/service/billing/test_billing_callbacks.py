@@ -8,9 +8,16 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PRODUCT_SEEDS,
 )
 from flaskr.service.billing.funcs import handle_billing_pingxx_webhook
-from flaskr.service.billing.models import BillingOrder
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
+)
 
 
 @pytest.fixture
@@ -29,9 +36,20 @@ def billing_callback_app():
     dao.db.init_app(app)
     with app.app_context():
         dao.db.create_all()
+        dao.db.session.add_all(_seed_products())
+        dao.db.session.commit()
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
+
+
+def _seed_products() -> list[BillingProduct]:
+    items: list[BillingProduct] = []
+    for seed in BILLING_PRODUCT_SEEDS:
+        payload = dict(seed)
+        payload["metadata_json"] = payload.pop("metadata", None)
+        items.append(BillingProduct(**payload))
+    return items
 
 
 def _create_pingxx_billing_order(
@@ -94,8 +112,20 @@ class TestBillingPingxxCallbacks:
             order = BillingOrder.query.filter_by(
                 billing_order_bid="billing-pingxx-1"
             ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-pingxx-1",
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-pingxx-1",
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
+            assert wallet.available_credits == 500000
+            assert bucket.available_credits == 500000
+            assert ledger.amount == 500000
 
     def test_pingxx_callback_reports_non_billing_payload(
         self, billing_callback_app

@@ -19,6 +19,9 @@ from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
     BillingSubscription,
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
 )
 from flaskr.service.billing.routes import register_billing_routes
 from flaskr.service.common.models import AppException
@@ -78,6 +81,8 @@ def billing_write_client(monkeypatch):
                 "status": "complete",
                 "payment_status": "paid",
                 "payment_intent": "pi_billing_test",
+                "subscription": "sub_provider_test",
+                "customer": "cus_provider_test",
             }
 
         def retrieve_payment_intent(self, *, intent_id: str, app):
@@ -243,8 +248,66 @@ class TestBillingWriteRoutes:
             order = BillingOrder.query.filter_by(
                 billing_order_bid=billing_order_bid
             ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
+            assert wallet.available_credits == 500000
+            assert bucket.available_credits == 500000
+            assert ledger.amount == 500000
+
+    def test_subscription_checkout_and_sync_grant_initial_credits(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                billing_order_bid=billing_order_bid
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1"
+            ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.provider_subscription_id == "sub_provider_test"
+            assert wallet.available_credits == 300000
+            assert bucket.available_credits == 300000
+            assert ledger.amount == 300000
 
     def test_cancel_and_resume_subscription_toggle_status(
         self, billing_write_client

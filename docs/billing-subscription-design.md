@@ -806,6 +806,7 @@ v1 需要新增：
   - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、paid success grant
   - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 必须显式返回 `unsupported`
 - `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
+- 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
 
 ### 7.2 扣分与结算
 

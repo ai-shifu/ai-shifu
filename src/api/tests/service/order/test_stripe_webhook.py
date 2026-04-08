@@ -9,11 +9,21 @@ import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_PRODUCT_SEEDS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
-from flaskr.service.billing.models import BillingOrder, BillingSubscription
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    BillingSubscription,
+)
+from flaskr.service.billing.models import (
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
+)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
@@ -44,9 +54,20 @@ def stripe_webhook_app():
     dao.db.init_app(app)
     with app.app_context():
         dao.db.create_all()
+        dao.db.session.add_all(_seed_products())
+        dao.db.session.commit()
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
+
+
+def _seed_products() -> list[BillingProduct]:
+    items: list[BillingProduct] = []
+    for seed in BILLING_PRODUCT_SEEDS:
+        payload = dict(seed)
+        payload["metadata_json"] = payload.pop("metadata", None)
+        items.append(BillingProduct(**payload))
+    return items
 
 
 def _ensure_order(status, order_bid):
@@ -267,11 +288,23 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
         refreshed_subscription = BillingSubscription.query.filter(
             BillingSubscription.subscription_bid == "billing-subscription-1"
         ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        buckets = CreditWalletBucket.query.filter_by(
+            creator_bid="creator-1",
+            source_bid="billing-order-webhook-1",
+        ).all()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-1",
+            source_bid="billing-order-webhook-1",
+        ).all()
         assert refreshed_order.status == BILLING_ORDER_STATUS_PAID
         assert refreshed_order.paid_at is not None
         assert refreshed_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
         assert refreshed_subscription.provider_subscription_id == "sub_provider_1"
         assert refreshed_subscription.provider_customer_id == "cus_provider_1"
+        assert wallet.available_credits == 300000
+        assert len(buckets) == 1
+        assert len(ledgers) == 1
 
 
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(

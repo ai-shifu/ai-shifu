@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -27,6 +28,8 @@ from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .consts import (
+    BILLING_INTERVAL_MONTH,
+    BILLING_INTERVAL_YEAR,
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
@@ -36,6 +39,7 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_LABELS,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -50,9 +54,15 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_CATEGORY_LABELS,
+    CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_LABELS,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_LABELS,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_LABELS,
 )
 from .models import (
@@ -124,6 +134,11 @@ _STRIPE_SUBSCRIPTION_STATUS_MAP = {
     "paused": BILLING_SUBSCRIPTION_STATUS_PAUSED,
     "canceled": BILLING_SUBSCRIPTION_STATUS_CANCELED,
     "incomplete_expired": BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+}
+
+_BUCKET_PRIORITY_BY_CATEGORY = {
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION: 20,
+    CREDIT_BUCKET_CATEGORY_TOPUP: 30,
 }
 
 
@@ -576,6 +591,9 @@ def sync_billing_order(
         else:
             raise_error("server.pay.payChannelNotSupport")
 
+        if order.status == BILLING_ORDER_STATUS_PAID:
+            _grant_paid_order_credits(app, order)
+
         db.session.add(order)
         db.session.commit()
 
@@ -709,6 +727,9 @@ def apply_billing_stripe_notification(
                     payload=event,
                 )
 
+        if order is not None and order.status == BILLING_ORDER_STATUS_PAID:
+            _grant_paid_order_credits(app, order)
+
         db.session.commit()
         return (
             {
@@ -764,6 +785,8 @@ def handle_billing_pingxx_webhook(
             provider_reference_id=charge_id or order.provider_reference_id,
             target_status=target_status,
         )
+        if order.status == BILLING_ORDER_STATUS_PAID:
+            _grant_paid_order_credits(app, order)
         db.session.commit()
         return (
             {
@@ -1161,6 +1184,216 @@ def _load_latest_billing_order_by_subscription(
     )
 
 
+def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
+    grant_context = _resolve_credit_grant_context(order)
+    if grant_context is None:
+        return False
+
+    product = _load_billing_product_by_bid(order.product_bid)
+    if product is None:
+        return False
+
+    amount = _to_decimal(product.credit_amount)
+    if amount <= 0:
+        return False
+
+    idempotency_key = f"grant:{order.billing_order_bid}"
+    existing_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == order.creator_bid,
+            CreditLedgerEntry.idempotency_key == idempotency_key,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    if existing_entry is not None:
+        return False
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    effective_from = order.paid_at or datetime.now()
+    effective_to = _resolve_credit_bucket_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+    )
+
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=generate_id(app),
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=order.creator_bid,
+        bucket_category=grant_context["bucket_category"],
+        source_type=grant_context["source_type"],
+        source_bid=order.billing_order_bid,
+        priority=grant_context["priority"],
+        original_credits=amount,
+        available_credits=amount,
+        reserved_credits=Decimal("0"),
+        consumed_credits=Decimal("0"),
+        expired_credits=Decimal("0"),
+        effective_from=effective_from,
+        effective_to=effective_to,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json=_normalize_json_value(
+            {
+                "billing_order_bid": order.billing_order_bid,
+                "product_bid": order.product_bid,
+                "payment_provider": order.payment_provider,
+            }
+        ),
+    )
+
+    balance_after = _to_decimal(wallet.available_credits) + amount
+    ledger_entry = CreditLedgerEntry(
+        ledger_bid=generate_id(app),
+        creator_bid=order.creator_bid,
+        wallet_bid=wallet.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=grant_context["source_type"],
+        source_bid=order.billing_order_bid,
+        idempotency_key=idempotency_key,
+        amount=amount,
+        balance_after=balance_after,
+        expires_at=effective_to,
+        consumable_from=effective_from,
+        metadata_json=_normalize_json_value(
+            {
+                "billing_order_bid": order.billing_order_bid,
+                "subscription_bid": order.subscription_bid or None,
+                "product_bid": order.product_bid,
+                "payment_provider": order.payment_provider,
+                "grant_reason": grant_context["grant_reason"],
+            }
+        ),
+    )
+
+    wallet.available_credits = balance_after
+    wallet.lifetime_granted_credits = (
+        _to_decimal(wallet.lifetime_granted_credits) + amount
+    )
+    wallet.version = int(wallet.version or 0) + 1
+    wallet.updated_at = datetime.now()
+
+    db.session.add(wallet)
+    db.session.add(bucket)
+    db.session.add(ledger_entry)
+
+    if order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            subscription.current_period_start_at = (
+                subscription.current_period_start_at or effective_from
+            )
+            subscription.current_period_end_at = (
+                subscription.current_period_end_at or effective_to
+            )
+            subscription.updated_at = datetime.now()
+            db.session.add(subscription)
+
+    return True
+
+
+def _resolve_credit_grant_context(order: BillingOrder) -> dict[str, Any] | None:
+    if order.order_type in {
+        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    }:
+        return {
+            "source_type": CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            "bucket_category": CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            "priority": _BUCKET_PRIORITY_BY_CATEGORY[
+                CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            ],
+            "grant_reason": "subscription",
+        }
+    if order.order_type == BILLING_ORDER_TYPE_TOPUP:
+        return {
+            "source_type": CREDIT_SOURCE_TYPE_TOPUP,
+            "bucket_category": CREDIT_BUCKET_CATEGORY_TOPUP,
+            "priority": _BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_TOPUP],
+            "grant_reason": "topup",
+        }
+    return None
+
+
+def _load_billing_product_by_bid(product_bid: str) -> BillingProduct | None:
+    normalized_product_bid = _normalize_bid(product_bid)
+    if not normalized_product_bid:
+        return None
+    return (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == normalized_product_bid,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+
+
+def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
+    wallet = (
+        CreditWallet.query.filter(
+            CreditWallet.deleted == 0,
+            CreditWallet.creator_bid == creator_bid,
+        )
+        .order_by(CreditWallet.id.desc())
+        .first()
+    )
+    if wallet is not None:
+        return wallet
+
+    wallet = CreditWallet(
+        wallet_bid=generate_id(app),
+        creator_bid=creator_bid,
+        available_credits=Decimal("0"),
+        reserved_credits=Decimal("0"),
+        lifetime_granted_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal("0"),
+        last_settled_usage_id=0,
+        version=0,
+    )
+    db.session.add(wallet)
+    db.session.flush()
+    return wallet
+
+
+def _resolve_credit_bucket_effective_to(
+    *,
+    order: BillingOrder,
+    product: BillingProduct,
+    effective_from: datetime,
+) -> datetime | None:
+    if order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None and subscription.current_period_end_at is not None:
+            return subscription.current_period_end_at
+
+    interval = int(product.billing_interval or 0)
+    interval_count = max(int(product.billing_interval_count or 0), 0)
+    if interval_count <= 0:
+        return None
+    if interval == BILLING_INTERVAL_MONTH:
+        return _add_months(effective_from, interval_count)
+    if interval == BILLING_INTERVAL_YEAR:
+        return _add_years(effective_from, interval_count)
+    return None
+
+
+def _add_months(value: datetime, months: int) -> datetime:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
+
+
+def _add_years(value: datetime, years: int) -> datetime:
+    year = value.year + years
+    day = min(value.day, calendar.monthrange(year, value.month)[1])
+    return value.replace(year=year, day=day)
+
+
 def _apply_billing_order_provider_update(
     order: BillingOrder,
     *,
@@ -1529,6 +1762,14 @@ def _is_stripe_checkout_paid(
 
 def _normalize_bid(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _to_decimal(value: Any) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    if value in (None, ""):
+        return Decimal("0")
+    return Decimal(str(value))
 
 
 def _decimal_to_number(value: Any) -> int | float:

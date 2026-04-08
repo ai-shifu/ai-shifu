@@ -29,7 +29,7 @@
 - [x] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
 - [x] 复用现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 处理 billing webhook，并确保 `billing_orders` 状态机幂等。
 - [x] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
-- [ ] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
+- [x] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
 - [ ] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。
 
 本批次暂缓：
@@ -71,7 +71,7 @@
 
 - [ ] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
 - [ ] 实现 subscription checkout、cancel、resume 和退款流程。
-- [ ] 实现 topup checkout 与到账流程。
+- [x] 实现 topup checkout 与到账流程。
 - [x] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
 - [x] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
 - [x] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
