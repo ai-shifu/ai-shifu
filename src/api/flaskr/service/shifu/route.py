@@ -35,6 +35,7 @@ import base64
 import json
 import uuid
 import re
+from datetime import datetime
 from dataclasses import replace
 from pathlib import Path
 
@@ -102,6 +103,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_PROVIDER_MODES,
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
+from flaskr.service.shifu.admin import list_operator_courses
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -224,6 +226,26 @@ def _get_request_base_url() -> str:
     return request.url_root.rstrip("/")
 
 
+def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
+    if not value:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(normalized, datetime_format)
+            if datetime_format == "%Y-%m-%d":
+                if is_end:
+                    parsed = parsed.replace(hour=23, minute=59, second=59)
+                else:
+                    parsed = parsed.replace(hour=0, minute=0, second=0)
+            return parsed
+        except ValueError:
+            continue
+    raise_param_error("datetime format invalid")
+
+
 @inject
 def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     """
@@ -246,6 +268,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def _normalize_contact_type(raw_type: str) -> str:
         """Normalize the incoming contact type value."""
         return (raw_type or "").strip().lower()
+
+    def _require_operator() -> None:
+        if not getattr(request.user, "is_operator", False):
+            raise_error("server.shifu.noPermission")
 
     def _normalize_contacts(raw_contacts: object) -> list[str]:
         """Split and normalize contact identifiers from request payloads."""
@@ -413,6 +439,101 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             get_shifu_draft_list(
                 app, user_id, page_index, page_size, is_favorite, archived
             )
+        )
+
+    @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
+    def admin_operations_courses():
+        """
+        Operator course list
+        ---
+        tags:
+            - 课程
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: shifu_bid
+              type: string
+              required: false
+            - name: course_name
+              type: string
+              required: false
+            - name: creator_keyword
+              type: string
+              required: false
+              description: Exact match on user bid, phone, or email
+            - name: course_status
+              type: string
+              required: false
+              description: published or unpublished
+            - name: start_time
+              type: string
+              required: false
+              description: Course created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: Course created end date (YYYY-MM-DD)
+            - name: updated_start_time
+              type: string
+              required: false
+              description: Course updated start date (YYYY-MM-DD)
+            - name: updated_end_time
+              type: string
+              required: false
+              description: Course updated end date (YYYY-MM-DD)
+        responses:
+            200:
+                description: List operator-visible courses
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/PageNationDTO"
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "course_name": request.args.get("course_name", ""),
+            "course_status": request.args.get("course_status", ""),
+            "creator_keyword": request.args.get("creator_keyword", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+            "updated_start_time": _parse_datetime_filter(
+                request.args.get("updated_start_time", ""),
+                is_end=False,
+            ),
+            "updated_end_time": _parse_datetime_filter(
+                request.args.get("updated_end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_courses(app, page_index, page_size, filters)
         )
 
     @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])

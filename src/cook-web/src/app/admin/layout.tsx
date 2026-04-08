@@ -6,154 +6,17 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import Image, { type StaticImageData } from 'next/image';
-import Link from 'next/link';
+import { type StaticImageData } from 'next/image';
 import { usePathname } from 'next/navigation';
-import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
-import MainMenuModal from '@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTranslation } from 'react-i18next';
 import { environment } from '@/config/environment';
 import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
-import adminSidebarStyles from './AdminSidebar.module.scss';
-import styles from './layout.module.scss';
-import { cn } from '@/lib/utils';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { useUserStore } from '@/store';
-import { AdminMenuItem, buildAdminMenuItems } from './admin-menu';
-
-type SidebarContentProps = {
-  menuItems: AdminMenuItem[];
-  footerRef: React.MutableRefObject<any>;
-  userMenuOpen: boolean;
-  onFooterClick: () => void;
-  onUserMenuClose: (e?: Event | React.MouseEvent) => void;
-  userMenuClassName?: string;
-  logoSrc: string | StaticImageData;
-  activePath?: string;
-};
-
-const SidebarContent = ({
-  menuItems,
-  footerRef,
-  userMenuOpen,
-  onFooterClick,
-  onUserMenuClose,
-  userMenuClassName,
-  logoSrc,
-  activePath,
-}: SidebarContentProps) => {
-  const logoHeight = 32;
-  const logoWidth = useMemo(() => {
-    if (
-      typeof logoSrc === 'object' &&
-      'width' in logoSrc &&
-      logoSrc.width &&
-      logoSrc.height
-    ) {
-      return Math.round((logoHeight * logoSrc.width) / logoSrc.height);
-    }
-    return Math.round(logoHeight * (defaultLogo.width / defaultLogo.height));
-  }, [logoSrc]);
-
-  const normalizedPath = useMemo(() => {
-    if (!activePath) {
-      return '';
-    }
-    const trimmed = activePath.replace(/\/+$/, '');
-    return trimmed || '/';
-  }, [activePath]);
-
-  const activeHref = useMemo(() => {
-    if (!normalizedPath) {
-      return undefined;
-    }
-    let bestHref: string | undefined;
-    let bestLength = -1;
-    menuItems.forEach(item => {
-      if (!item.href) {
-        return;
-      }
-      const normalizedHref =
-        item.href === '/' ? '/' : item.href.replace(/\/+$/, '');
-      if (!normalizedHref) {
-        return;
-      }
-      const matches =
-        normalizedPath === normalizedHref ||
-        normalizedPath.startsWith(`${normalizedHref}/`);
-      if (matches && normalizedHref.length > bestLength) {
-        bestHref = item.href;
-        bestLength = normalizedHref.length;
-      }
-    });
-    return bestHref;
-  }, [menuItems, normalizedPath]);
-
-  return (
-    <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
-      <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
-        <Image
-          className='dark:invert'
-          src={logoSrc}
-          alt='logo'
-          height={logoHeight}
-          width={logoWidth}
-          style={{
-            width: 'auto',
-            height: logoHeight,
-          }}
-          priority
-        />
-      </h1>
-      <div className='p-2 flex-1'>
-        <nav className='space-y-1'>
-          {menuItems.map((item, index) => {
-            if (item.type == 'divider') {
-              return (
-                <div
-                  key={index}
-                  className='h-px bg-gray-200'
-                ></div>
-              );
-            }
-            const isActive = Boolean(activeHref) && item.href === activeHref;
-            return (
-              <Link
-                key={index}
-                href={item.href || '#'}
-                className={cn(
-                  'flex min-w-0 items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100',
-                  isActive && 'bg-gray-200 text-gray-900 font-semibold',
-                )}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                {item.icon}
-                <span className='min-w-0 flex-1 truncate whitespace-nowrap'>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      <NavFooter
-        ref={footerRef}
-        // @ts-expect-error EXPECT
-        onClick={onFooterClick}
-        isMenuOpen={userMenuOpen}
-      />
-      {/* @ts-expect-error EXPECT */}
-      <MainMenuModal
-        open={userMenuOpen}
-        onClose={onUserMenuClose}
-        className={userMenuClassName}
-        isAdmin
-      />
-    </div>
-  );
-};
+import { buildAdminMenuItems } from './admin-menu';
+import { SidebarContent } from './SidebarContent';
 
 const MainInterface = ({
   children,
@@ -162,9 +25,12 @@ const MainInterface = ({
 }>) => {
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
   const isOperator = useUserStore(state =>
     Boolean(state.userInfo?.is_operator),
   );
+  const menuReady = isInitialized && !isGuest;
   useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
@@ -212,11 +78,11 @@ const MainInterface = ({
       <div className='w-[280px]'>
         <SidebarContent
           menuItems={menuItems}
+          loading={!menuReady}
           footerRef={desktopFooterRef}
           userMenuOpen={desktopMenuOpen}
           onFooterClick={onDesktopFooterClick}
           onUserMenuClose={handleDesktopMenuClose}
-          userMenuClassName={adminSidebarStyles.navMenuPopup}
           logoSrc={resolvedLogo}
           activePath={pathname}
         />

@@ -20,8 +20,18 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
-      '/admin/operations',
+      undefined,
     ]);
-    expect(menuItems.at(-1)?.label).toBe('common.core.operations');
+    expect(menuItems.at(-1)).toMatchObject({
+      id: 'operations',
+      label: 'common.core.operations',
+      children: [
+        {
+          id: 'operations-course',
+          label: 'common.core.courseManagement',
+          href: '/admin/operations',
+        },
+      ],
+    });
   });
 });
