@@ -20,10 +20,16 @@ from flaskr.dao import db
 
 from .consts import (
     BILLING_MODE_MANUAL,
+    BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
+    BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
+    BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
+    BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
     CREDIT_ROUNDING_MODE_CEIL,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -918,4 +924,184 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
         DateTime,
         nullable=True,
         comment="Processed timestamp",
+    )
+
+
+class BillingEntitlement(BillingTableMixin, db.Model):
+    __tablename__ = "billing_entitlements"
+    __table_args__ = (
+        UniqueConstraint(
+            "entitlement_bid",
+            name="uq_billing_entitlements_entitlement_bid",
+        ),
+        Index(
+            "ix_billing_entitlements_creator_effective_to",
+            "creator_bid",
+            "effective_to",
+        ),
+        Index(
+            "ix_billing_entitlements_source_type_source_bid",
+            "source_type",
+            "source_bid",
+        ),
+        {"comment": "Billing entitlements"},
+    )
+
+    entitlement_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing entitlement business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    source_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Entitlement source type code",
+    )
+    source_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Entitlement source business identifier",
+    )
+    branding_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Branding enabled flag",
+    )
+    custom_domain_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Custom domain enabled flag",
+    )
+    priority_class = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
+        comment="Priority class code",
+    )
+    max_concurrency = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment="Max concurrency",
+    )
+    analytics_tier = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
+        comment="Analytics tier code",
+    )
+    support_tier = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
+        comment="Support tier code",
+    )
+    feature_payload = Column(
+        JSON,
+        nullable=True,
+        comment="Entitlement feature payload",
+    )
+    effective_from = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Effective from timestamp",
+    )
+    effective_to = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Effective to timestamp",
+    )
+
+
+class BillingDomainBinding(BillingTableMixin, db.Model):
+    __tablename__ = "billing_domain_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "domain_binding_bid",
+            name="uq_billing_domain_bindings_domain_binding_bid",
+        ),
+        UniqueConstraint(
+            "host",
+            name="uq_billing_domain_bindings_host",
+        ),
+        Index(
+            "ix_billing_domain_bindings_creator_status",
+            "creator_bid",
+            "status",
+        ),
+        {"comment": "Billing domain bindings"},
+    )
+
+    domain_binding_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing domain binding business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    host = Column(
+        String(255),
+        nullable=False,
+        default="",
+        unique=True,
+        comment="Custom domain host",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+        index=True,
+        comment="Domain binding status code",
+    )
+    verification_method = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+        comment="Verification method code",
+    )
+    verification_token = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Verification token",
+    )
+    last_verified_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Last verified timestamp",
+    )
+    ssl_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
+        comment="SSL status code",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Domain binding metadata",
     )

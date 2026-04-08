@@ -7,6 +7,8 @@ from .consts import (  # noqa: F401
     CREDIT_USAGE_RATE_SEEDS,
 )
 from .models import (  # noqa: F401
+    BillingDomainBinding,
+    BillingEntitlement,
     BillingRenewalEvent,
     BillingOrder,
     BillingProduct,

@@ -142,7 +142,7 @@
 
 ### 权益与域名
 
-- [ ] 新增 `billing_entitlements` 和 `billing_domain_bindings`。
+- [x] 新增 `billing_entitlements` 和 `billing_domain_bindings`。
 - [ ] 实现创作者维度的权益快照和运行时解析逻辑。
 - [ ] 实现 `max_concurrency`、priority class 和 runtime admission enforcement。
 - [ ] 实现自定义域名绑定、校验、停用和 host 解析逻辑。
