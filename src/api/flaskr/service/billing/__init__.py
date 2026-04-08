@@ -3,8 +3,10 @@
 from .daily_aggregates import (  # noqa: F401
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
+    detect_daily_aggregate_rebuild_range,
     finalize_daily_ledger_summary,
     finalize_daily_usage_metrics,
+    rebuild_daily_aggregates,
 )
 from .admission import admit_creator_usage  # noqa: F401
 from .consts import (  # noqa: F401
@@ -36,5 +38,6 @@ from .tasks import (  # noqa: F401
     aggregate_daily_ledger_summary_task,
     aggregate_daily_usage_metrics_task,
     replay_usage_settlement_task,
+    rebuild_daily_aggregates_task,
     settle_usage_task,
 )

@@ -13,6 +13,7 @@ from .funcs import (
 from .daily_aggregates import (
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
+    rebuild_daily_aggregates,
 )
 from .models import BillingSubscription, CreditWallet
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
@@ -333,4 +334,26 @@ def aggregate_daily_ledger_summary_task(
         finalize=_coerce_bool(finalize),
     )
     payload["task_name"] = "billing.aggregate_daily_ledger_summary"
+    return payload
+
+
+@shared_task(name="billing.rebuild_daily_aggregates")
+def rebuild_daily_aggregates_task(
+    *,
+    creator_bid: str = "",
+    shifu_bid: str = "",
+    date_from: str = "",
+    date_to: str = "",
+) -> dict[str, Any]:
+    """Rebuild one date window of usage/ledger daily aggregates."""
+
+    app = _create_task_app()
+    payload = rebuild_daily_aggregates(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+        shifu_bid=_normalize_bid(shifu_bid),
+        date_from=_normalize_bid(date_from),
+        date_to=_normalize_bid(date_to),
+    )
+    payload["task_name"] = "billing.rebuild_daily_aggregates"
     return payload

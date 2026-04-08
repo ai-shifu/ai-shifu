@@ -153,3 +153,53 @@ def test_billing_retry_renewal_cli_prints_helper_payload(
     assert result.exit_code == 0
     assert payload["status"] == "applied"
     assert payload["renewal_event_bid"] == "renewal-event-cli-1"
+
+
+def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "rebuild-daily-aggregates"]
+    )
+
+    assert result.exit_code != 0
+    assert "Pass --date-from/--date-to or --all" in result.output
+
+
+def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.rebuild_daily_aggregates",
+        lambda app, **kwargs: {
+            "status": "rebuilt",
+            "day_count": 3,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "rebuild-daily-aggregates",
+            "--creator-bid",
+            "creator-cli-1",
+            "--shifu-bid",
+            "shifu-cli-1",
+            "--date-from",
+            "2026-04-08",
+            "--date-to",
+            "2026-04-10",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "rebuilt"
+    assert payload["day_count"] == 3
+    assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+    assert payload["kwargs"]["shifu_bid"] == "shifu-cli-1"
+    assert payload["kwargs"]["date_from"] == "2026-04-08"
+    assert payload["kwargs"]["date_to"] == "2026-04-10"

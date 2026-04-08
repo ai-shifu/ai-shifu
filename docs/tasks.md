@@ -153,7 +153,7 @@
 - [x] 新增 `billing_daily_usage_metrics` 与 `billing_daily_ledger_summary`。
 - [x] 实现 usage 日汇总增量任务和 finalize 任务。
 - [x] 实现 ledger 日汇总增量任务和 finalize 任务。
-- [ ] 实现按 creator/shifu/date window 的 rebuild 任务与 CLI 入口。
+- [x] 实现按 creator/shifu/date window 的 rebuild 任务与 CLI 入口。
 - [ ] 为 daily aggregate、rebuild、domain verify 注册 v1.1 Celery tasks。
 
 ### 前端与管理端扩展

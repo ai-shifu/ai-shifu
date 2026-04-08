@@ -32,6 +32,7 @@ from flaskr.service.billing.tasks import (
     expire_wallet_buckets_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
+    rebuild_daily_aggregates_task,
     retry_failed_renewal_task,
     run_renewal_event_task,
     send_low_balance_alert_task,
@@ -227,6 +228,62 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     }
     assert payload["status"] == "finalized"
     assert payload["task_name"] == "billing.aggregate_daily_ledger_summary"
+
+
+def test_rebuild_daily_aggregates_task_calls_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: fake_app),
+    )
+
+    captured: dict[str, object] = {}
+
+    def _fake_rebuild_daily_aggregates(
+        app,
+        *,
+        creator_bid: str = "",
+        shifu_bid: str = "",
+        date_from: str = "",
+        date_to: str = "",
+    ):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["shifu_bid"] = shifu_bid
+        captured["date_from"] = date_from
+        captured["date_to"] = date_to
+        return {
+            "status": "rebuilt",
+            "creator_bid": creator_bid or None,
+            "shifu_bid": shifu_bid or None,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.rebuild_daily_aggregates",
+        _fake_rebuild_daily_aggregates,
+    )
+
+    payload = rebuild_daily_aggregates_task(
+        creator_bid=" creator-task-3 ",
+        shifu_bid=" shifu-task-1 ",
+        date_from=" 2026-04-08 ",
+        date_to=" 2026-04-10 ",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "creator_bid": "creator-task-3",
+        "shifu_bid": "shifu-task-1",
+        "date_from": "2026-04-08",
+        "date_to": "2026-04-10",
+    }
+    assert payload["status"] == "rebuilt"
+    assert payload["task_name"] == "billing.rebuild_daily_aggregates"
 
 
 def test_settle_usage_task_serializes_same_creator_concurrent_usage(

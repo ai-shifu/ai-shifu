@@ -33,6 +33,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.retry_failed_renewal" in celery_app.tasks
     assert "billing.aggregate_daily_usage_metrics" in celery_app.tasks
     assert "billing.aggregate_daily_ledger_summary" in celery_app.tasks
+    assert "billing.rebuild_daily_aggregates" in celery_app.tasks
 
 
 def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
@@ -101,6 +102,16 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
             "finalize": finalize,
         },
     )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.rebuild_daily_aggregates",
+        lambda app, *, creator_bid="", shifu_bid="", date_from="", date_to="": {
+            "status": "rebuilt",
+            "creator_bid": creator_bid or None,
+            "shifu_bid": shifu_bid or None,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
 
@@ -132,6 +143,14 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
             "finalize": True,
         }
     )
+    rebuild_result = celery_app.tasks["billing.rebuild_daily_aggregates"].apply(
+        kwargs={
+            "creator_bid": "creator-eager-1",
+            "shifu_bid": "shifu-eager-1",
+            "date_from": "2026-04-08",
+            "date_to": "2026-04-09",
+        }
+    )
 
     assert settle_result.get() == {
         "status": "settled",
@@ -160,6 +179,14 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
         "creator_bid": "creator-eager-1",
         "finalize": True,
         "task_name": "billing.aggregate_daily_ledger_summary",
+    }
+    assert rebuild_result.get() == {
+        "status": "rebuilt",
+        "creator_bid": "creator-eager-1",
+        "shifu_bid": "shifu-eager-1",
+        "date_from": "2026-04-08",
+        "date_to": "2026-04-09",
+        "task_name": "billing.rebuild_daily_aggregates",
     }
 
 
