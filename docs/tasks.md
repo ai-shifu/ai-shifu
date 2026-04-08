@@ -43,7 +43,7 @@
 
 ### 产品与费率
 
-- [ ] 冻结套餐、充值包、试用积分和赠送积分的最终业务规则。
+- [x] 冻结套餐、充值包、试用积分和赠送积分的最终业务规则。
 - [ ] 冻结 `free > subscription > topup` 的 bucket 扣减优先级、同优先级到期排序和退款返还归类规则。
 - [ ] 冻结升级、降级、取消、恢复、宽限期和退款规则。
 - [ ] 冻结 `production`、`preview`、`debug` 三个 scene 的 provider/model/metric 费率矩阵。

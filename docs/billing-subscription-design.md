@@ -199,6 +199,17 @@ v1.1 再补充下列扩展能力：
 - `product_type=plan` 才允许进入订阅流程
 - `product_type=topup` 必须是一次性支付，不创建 subscription
 
+v1 冻结业务规则：
+
+- 面向 creator 的公开自助目录固定只开放 4 个 active SKU，并与 `src/api/flaskr/service/billing/consts.py` 中的 seed 保持一致：
+  - `creator-plan-monthly`：月套餐，`CNY 99.00`，每周期发放 `300000.0000000000` credits
+  - `creator-plan-yearly`：年套餐，`CNY 999.00`，每周期发放 `3600000.0000000000` credits
+  - `creator-topup-small`：小额充值包，`CNY 199.00`，一次性发放 `500000.0000000000` credits
+  - `creator-topup-large`：大额充值包，`CNY 699.00`，一次性发放 `2000000.0000000000` credits
+- v1 不开放 creator 自助试用 SKU；试用积分只允许通过后台定向发放或补偿流程创建，不出现在 `GET /billing/catalog` 的 `plans[]` / `topups[]`
+- `gift` 积分不作为 creator 自助购买商品；赠送积分、试用积分和后台正向补偿都走运营或人工 grant 流程，不进入 subscription 合同，不创建支付订单
+- `product_type=grant` 与 `product_type=custom` 仅保留给运营投放、后台人工赠送和未来定制方案，不纳入当前 creator 自助购买入口
+
 ### 3.2 `billing_subscriptions`
 
 角色：订阅真相源；不是账本真相源；不是报表表。
