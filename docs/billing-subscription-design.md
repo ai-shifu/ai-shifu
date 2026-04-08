@@ -1249,6 +1249,7 @@ type CreatorBrandingConfig = {
 - Stripe 套餐 checkout、Stripe topup checkout 成功后，`billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 是否同步更新
 - Pingxx topup 是否可正常 checkout / sync / webhook；Pingxx subscription 是否固定返回 `unsupported`
 - `POST /billing/orders/{billing_order_bid}/sync` 和 webhook 重复调用时，是否不会重复 grant 积分
+- 继续复用 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 后，billing 分流和 legacy `/order` 支付回调是否都通过 route 级回归
 - `GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders` 的排序、分页和 DTO 字段是否与前端类型一致
 - `/payment/stripe/billing-result` 是否先 sync 再回跳 `/admin/billing`
 - 旧 `/admin/orders`、`/admin/dashboard` 与学员 `/payment/stripe/result` 是否未回归

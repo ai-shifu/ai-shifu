@@ -30,7 +30,7 @@
 - [x] 复用现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 处理 billing webhook，并确保 `billing_orders` 状态机幂等。
 - [x] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
 - [x] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
-- [ ] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。
+- [x] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。
 
 本批次暂缓：
 
@@ -120,7 +120,7 @@
 - [ ] 为 wallet 来源明细接入 `GET /billing/wallet-buckets` 的按需查询与只读展示。
 - [ ] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
 - [ ] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。
-- [ ] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
+- [x] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
 - [ ] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。
 - [ ] 实现 admin 侧订阅、订单、账本调整和异常处理页面。
 - [ ] 增加 `module.billing.*` i18n keys，并补齐状态码到文案的映射。

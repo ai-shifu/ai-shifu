@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import importlib.util
+from pathlib import Path
+import sys
+import types
 
 from flask import Flask
 import pytest
@@ -29,6 +33,30 @@ from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
+_ROUTE_DIR = Path(__file__).resolve().parents[3] / "flaskr" / "route"
+
+
+def _load_route_module(module_name: str):
+    package_name = "flaskr.route"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(_ROUTE_DIR)]
+        sys.modules[package_name] = package
+
+    full_name = f"{package_name}.{module_name}"
+    if full_name in sys.modules:
+        return sys.modules[full_name]
+
+    spec = importlib.util.spec_from_file_location(
+        full_name,
+        _ROUTE_DIR / f"{module_name}.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 class DummyStripeProvider:
     def __init__(self, notification: PaymentNotificationResult):
@@ -52,6 +80,7 @@ def stripe_webhook_app():
         TZ="UTC",
     )
     dao.db.init_app(app)
+    _load_route_module("order").register_order_handler(app, "/api/order")
     with app.app_context():
         dao.db.create_all()
         dao.db.session.add_all(_seed_products())
@@ -206,6 +235,87 @@ def test_handle_stripe_webhook_marks_order_paid(stripe_webhook_app, monkeypatch)
         assert refreshed_stripe_order.status == 1
 
 
+def test_stripe_webhook_route_marks_legacy_order_paid(stripe_webhook_app, monkeypatch):
+    with stripe_webhook_app.app_context():
+        order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-route-1")
+
+        stripe_order = StripeOrder(
+            order_bid=order.order_bid,
+            stripe_order_bid="stripe-order-route",
+            user_bid=order.user_bid,
+            shifu_bid=order.shifu_bid,
+            payment_intent_id="pi_route_test",
+            checkout_session_id="",
+            latest_charge_id="",
+            amount=100,
+            currency="usd",
+            status=0,
+            receipt_url="",
+            payment_method="",
+            failure_code="",
+            failure_message="",
+            metadata_json="{}",
+            payment_intent_object="{}",
+            checkout_session_object="{}",
+        )
+        dao.db.session.add(stripe_order)
+        dao.db.session.commit()
+
+    notification = PaymentNotificationResult(
+        order_bid="order-webhook-route-1",
+        status="payment_intent.succeeded",
+        provider_payload={
+            "type": "payment_intent.succeeded",
+            "data": {
+                "object": {
+                    "id": "pi_route_test",
+                    "metadata": {"order_bid": "order-webhook-route-1"},
+                    "latest_charge": "ch_route_test",
+                    "charges": {
+                        "data": [
+                            {
+                                "id": "ch_route_test",
+                                "receipt_url": "https://stripe.test/receipt",
+                            }
+                        ]
+                    },
+                    "payment_method": "pm_route_test",
+                }
+            },
+        },
+        charge_id="ch_route_test",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda channel: DummyStripeProvider(notification),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu",
+        lambda *args, **kwargs: None,
+    )
+
+    with stripe_webhook_app.test_client() as client:
+        response = client.post(
+            "/api/order/stripe/webhook",
+            data=b"{}",
+            headers={"Stripe-Signature": "sig"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["status"] == "paid"
+
+    with stripe_webhook_app.app_context():
+        refreshed_order = Order.query.filter(
+            Order.order_bid == "order-webhook-route-1"
+        ).one()
+        refreshed_stripe_order = StripeOrder.query.filter(
+            StripeOrder.order_bid == "order-webhook-route-1"
+        ).one()
+        assert refreshed_order.status == ORDER_STATUS_SUCCESS
+        assert refreshed_stripe_order.latest_charge_id == "ch_route_test"
+        assert refreshed_stripe_order.status == 1
+
+
 def test_handle_stripe_webhook_routes_billing_orders_without_regression(
     stripe_webhook_app, monkeypatch
 ):
@@ -304,6 +414,76 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
         assert refreshed_subscription.provider_customer_id == "cus_provider_1"
         assert wallet.available_credits == 300000
         assert len(buckets) == 1
+        assert len(ledgers) == 1
+
+
+def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monkeypatch):
+    with stripe_webhook_app.app_context():
+        subscription = _ensure_billing_subscription(
+            BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            "billing-subscription-route-1",
+        )
+        _ensure_billing_order(
+            BILLING_ORDER_STATUS_PENDING,
+            "billing-order-route-1",
+            subscription.subscription_bid,
+        )
+
+    notification = PaymentNotificationResult(
+        order_bid="billing-order-route-1",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "created": 300,
+            "data": {
+                "object": {
+                    "id": "cs_billing_test",
+                    "subscription": "sub_provider_route_1",
+                    "customer": "cus_provider_route_1",
+                    "payment_status": "paid",
+                    "metadata": {
+                        "billing_order_bid": "billing-order-route-1",
+                        "order_bid": "billing-order-route-1",
+                    },
+                }
+            },
+        },
+        charge_id="",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda channel: DummyStripeProvider(notification),
+    )
+
+    with stripe_webhook_app.test_client() as client:
+        response = client.post(
+            "/api/order/stripe/webhook",
+            data=b"{}",
+            headers={"Stripe-Signature": "sig"},
+        )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["data"]["billing_order_bid"] == "billing-order-route-1"
+    assert payload["data"]["status"] == "paid"
+
+    with stripe_webhook_app.app_context():
+        refreshed_order = BillingOrder.query.filter(
+            BillingOrder.billing_order_bid == "billing-order-route-1"
+        ).one()
+        refreshed_subscription = BillingSubscription.query.filter(
+            BillingSubscription.subscription_bid == "billing-subscription-route-1"
+        ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-1",
+            source_bid="billing-order-route-1",
+        ).all()
+
+        assert refreshed_order.status == BILLING_ORDER_STATUS_PAID
+        assert refreshed_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert refreshed_subscription.provider_subscription_id == "sub_provider_route_1"
+        assert wallet.available_credits == 300000
         assert len(ledgers) == 1
 
 
