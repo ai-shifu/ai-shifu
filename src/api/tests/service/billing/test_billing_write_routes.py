@@ -13,7 +13,9 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
     BILLING_ORDER_STATUS_FAILED,
@@ -801,9 +803,26 @@ class TestBillingWriteRoutes:
             order = BillingOrder.query.filter_by(
                 billing_order_bid=billing_order_bid
             ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            refund_bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_type=CREDIT_SOURCE_TYPE_REFUND,
+                source_bid="re_billing_test",
+            ).one()
+            refund_ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_type=CREDIT_SOURCE_TYPE_REFUND,
+                source_bid="re_billing_test",
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_REFUNDED
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
+            assert wallet.available_credits == 1000000
+            assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_FREE
+            assert refund_bucket.available_credits == 500000
+            assert refund_bucket.metadata_json["billing_order_bid"] == billing_order_bid
+            assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
+            assert refund_ledger.amount == 500000
 
     def test_refund_pingxx_order_returns_unsupported(
         self, billing_write_client

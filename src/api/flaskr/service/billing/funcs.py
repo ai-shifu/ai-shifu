@@ -87,6 +87,7 @@ from .models import (
 )
 from .wallets import (
     adjust_credit_wallet_balance,
+    grant_refund_return_credits,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
@@ -847,6 +848,14 @@ def refund_billing_order(
             raise_error("server.order.orderStatusError")
 
         provider = get_payment_provider(order.payment_provider)
+        product = (
+            BillingProduct.query.filter(
+                BillingProduct.deleted == 0,
+                BillingProduct.product_bid == order.product_bid,
+            )
+            .order_by(BillingProduct.id.desc())
+            .first()
+        )
         refund_result = provider.refund_payment(
             request=PaymentRefundRequest(
                 order_bid=order.billing_order_bid,
@@ -892,6 +901,22 @@ def refund_billing_order(
                 )
                 _sync_subscription_lifecycle_events(app, subscription)
                 db.session.add(subscription)
+
+        refund_credit_amount = _to_decimal(product.credit_amount if product else 0)
+        refund_reference_id = _normalize_bid(refund_result.provider_reference)
+        if refund_credit_amount > 0 and refund_reference_id:
+            grant_refund_return_credits(
+                app,
+                creator_bid=normalized_creator_bid,
+                amount=refund_credit_amount,
+                refund_bid=refund_reference_id,
+                metadata={
+                    "billing_order_bid": order.billing_order_bid,
+                    "product_bid": order.product_bid,
+                    "refund_reason": refund_reason,
+                },
+                effective_from=now,
+            )
 
         db.session.commit()
         return {

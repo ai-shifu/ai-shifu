@@ -488,6 +488,77 @@ def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monke
         assert len(ledgers) == 1
 
 
+def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
+    stripe_webhook_app, monkeypatch
+):
+    with stripe_webhook_app.app_context():
+        subscription = _ensure_billing_subscription(
+            BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            "billing-subscription-idempotent-1",
+        )
+        _ensure_billing_order(
+            BILLING_ORDER_STATUS_PENDING,
+            "billing-order-idempotent-1",
+            subscription.subscription_bid,
+        )
+
+    notification = PaymentNotificationResult(
+        order_bid="billing-order-idempotent-1",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "created": 400,
+            "data": {
+                "object": {
+                    "id": "cs_billing_idempotent",
+                    "subscription": "sub_provider_idempotent_1",
+                    "customer": "cus_provider_idempotent_1",
+                    "payment_status": "paid",
+                    "metadata": {
+                        "billing_order_bid": "billing-order-idempotent-1",
+                        "order_bid": "billing-order-idempotent-1",
+                    },
+                }
+            },
+        },
+        charge_id="",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda channel: DummyStripeProvider(notification),
+    )
+
+    first_payload, first_status = handle_stripe_webhook(
+        stripe_webhook_app, b"{}", "sig"
+    )
+    second_payload, second_status = handle_stripe_webhook(
+        stripe_webhook_app, b"{}", "sig"
+    )
+
+    assert first_status == 200
+    assert first_payload["status"] == "paid"
+    assert second_status == 200
+    assert second_payload["status"] == "paid"
+
+    with stripe_webhook_app.app_context():
+        order = BillingOrder.query.filter_by(
+            billing_order_bid="billing-order-idempotent-1"
+        ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        buckets = CreditWalletBucket.query.filter_by(
+            creator_bid="creator-1",
+            source_bid="billing-order-idempotent-1",
+        ).all()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-1",
+            source_bid="billing-order-idempotent-1",
+        ).all()
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert wallet.available_credits == 300000
+        assert len(buckets) == 1
+        assert len(ledgers) == 1
+
+
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(
     stripe_webhook_app, monkeypatch
 ):
@@ -543,3 +614,44 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
             BillingSubscription.subscription_bid == "billing-subscription-2"
         ).one()
         assert refreshed_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+
+
+def test_handle_stripe_webhook_ignores_orphan_billing_event(
+    stripe_webhook_app, monkeypatch
+):
+    notification = PaymentNotificationResult(
+        order_bid="",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "created": 500,
+            "data": {
+                "object": {
+                    "id": "cs_orphan_test",
+                    "subscription": "sub_orphan_test",
+                    "customer": "cus_orphan_test",
+                    "payment_status": "paid",
+                    "metadata": {
+                        "billing_order_bid": "billing-order-orphan-1",
+                        "order_bid": "billing-order-orphan-1",
+                    },
+                }
+            },
+        },
+        charge_id="",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda channel: DummyStripeProvider(notification),
+    )
+
+    payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
+
+    assert status_code == 202
+    assert payload["status"] == "ignored"
+    assert payload["billing_order_bid"] == "billing-order-orphan-1"
+
+    with stripe_webhook_app.app_context():
+        assert CreditWallet.query.count() == 0
+        assert CreditWalletBucket.query.count() == 0
+        assert CreditLedgerEntry.query.count() == 0
