@@ -646,6 +646,7 @@ v1 的改造要求：
 - 当前实现中，`credit_usage_rates`、`billing_renewal_events` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py` 落地
 - 当前实现中，核心表 business id 唯一约束和 bootstrap `credit_usage_rates` seed 已由 `src/api/migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py` 落地
 - 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
+- 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：

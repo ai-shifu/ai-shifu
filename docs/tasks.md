@@ -69,7 +69,7 @@
 
 ### 支付与订阅
 
-- [ ] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
+- [x] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
 - [ ] 实现 subscription checkout、cancel、resume 和退款流程。
 - [x] 实现 topup checkout 与到账流程。
 - [x] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
