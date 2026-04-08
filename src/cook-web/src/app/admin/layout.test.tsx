@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { buildAdminMenuItems } from './admin-menu';
-import AdminLayout, { SidebarContent } from './layout';
+import AdminLayout from './layout';
+import { SidebarContent } from './SidebarContent';
 
 const footerLabel = 'footer';
 
