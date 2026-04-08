@@ -35,6 +35,18 @@ v1.1 再补充下列扩展能力：
 - 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
 - 旧的学员购课 `/order` 流程继续保留，不与 creator billing 混表
 
+### 1.4 当前实现批次范围（2026-04-08）
+
+本文描述的是完整 billing v1 / v1.1 设计；但当前实施批次只落地 “Figma `方案1` 浅色稿 + creator billing 可联调 MVP”，范围固定如下：
+
+- 前端以 Figma `方案1` 浅色稿为唯一视觉准绳，保留现有 `/admin` 作为创作中心首页，只补侧边栏会员卡、`会员与积分` 导航和新的 `/admin/billing`
+- 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
+- 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口，不复用旧 `order_*` 表
+- Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 只支持 topup checkout，subscription checkout 明确返回 `unsupported`
+- 支付成功后必须真实写入 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
+- 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
+- 以上暂缓能力仍属于完整 v1 / v1.1 目标，继续保留在本文后续章节和任务清单中
+
 ## 2. 字段类型与编码约定
 
 ### 2.1 公共基础字段
@@ -576,9 +588,11 @@ v1 的改造要求：
 
 - 旧 `/order` API 和旧订单表全部保留，不做迁移或重构
 - 新 billing 不复用 `order_*` 表，只复用并扩展 `service/order/payment_providers/` 的 adapter 层
+- 新 billing 路由以 `src/api/flaskr/service/billing/routes.py` 的 plugin route 方式注册，不继续追加到旧 `route/order.py`
 - billing 侧新增独立 `service/billing/` 代码层：
   - `models.py`
   - `consts.py`
+  - `funcs.py`
   - `catalog.py`
   - `subscription.py`
   - `settlement.py`
@@ -587,6 +601,11 @@ v1 的改造要求：
   - `tasks.py`
   - `reconcile.py`
   - `renewal.py`
+
+当前批次最小实现要求：
+
+- 先落 `models.py`、`consts.py`、`funcs.py`、`routes.py` 和迁移脚本，支撑 creator billing 的查询、checkout、sync、webhook 和 paid success 入账
+- 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
 
@@ -665,6 +684,12 @@ v1 约束：
 - 旧业务暂不强制迁移到 Celery，但 billing 域从第一版开始必须统一
 
 ## 6. Celery 接入与基础设施
+
+说明：
+
+- 本章描述完整 billing v1 的基础设施目标
+- 当前 “Figma `方案1` + 可联调 MVP” 批次先以支付成功入账和读模型可查询为交付目标，不以 Celery 上线作为前端联调阻塞项
+- 但未来所有实际 usage 扣减、续费、失败重试和 bucket 过期仍必须回到本章定义的 Celery 方案
 
 ### 6.1 接入目标
 
@@ -777,6 +802,10 @@ v1 需要新增：
 - `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
 - webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新原始 payload 只保留最近一次
 - 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
+- 当前批次 provider 能力矩阵固定为：
+  - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、paid success grant
+  - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 必须显式返回 `unsupported`
+- `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
 
 ### 7.2 扣分与结算
 
@@ -871,6 +900,7 @@ interface BillingPaymentProviderAdapter {
 - 运行时配置通过 `src/cook-web/src/lib/initializeEnvData.ts` 写入 `envStore`
 - 管理端统一布局在 `src/cook-web/src/app/admin/layout.tsx`
 - 现有订单管理页已经使用 `Table + Sheet + 本地状态/搜索参数` 的管理端交互模式
+- `/admin` 现有创作中心首页已经接近目标结构；当前批次只做 Figma `方案1` 浅色稿对齐，不重做信息架构
 
 v1 前端不新建全局 billing store，默认采用：
 
@@ -881,26 +911,30 @@ v1 前端不新建全局 billing store，默认采用：
 
 #### 7.5.1 v1 路由与页面结构
 
-v1 采用单路由 Billing Center，避免一开始拆太多子页面。
+当前批次固定采用 Figma `方案1` 浅色稿，对 creator admin 侧只落一个 Billing Center 单路由，避免一开始拆太多子页面。
 
 - 新增 `src/cook-web/src/app/admin/billing/page.tsx`
-- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增 `Billing` 菜单
+- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增常驻 `我的会员` 卡片
+- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增 `会员与积分` 菜单，统一跳转到 `/admin/billing`
 - Billing Center 使用 `Tabs` 拆成三个视图：
-  - `Overview`
-  - `Ledger`
-  - `Orders`
+  - `套餐与积分`
+  - `积分明细`
+  - `付款记录`
 
 页面职责：
 
-- `Overview`
+- `套餐与积分`
   - 读取 `GET /billing/overview`
+  - 并行读取 `GET /billing/catalog`
   - 展示当前订阅、钱包余额、低余额/续费异常告警
   - 展示套餐目录和充值包目录
-  - 承载升级、续费恢复、取消自动续费、购买充值包入口
-- `Ledger`
+  - 承载订阅 checkout、恢复订阅、取消订阅、购买充值包入口
+- `积分明细`
+  - 按需读取 `GET /billing/wallet-buckets`
   - 读取 `GET /billing/ledger`
-  - 展示积分流水、来源类型、余额变化、时间筛选
-- `Orders`
+  - 展示 bucket 来源摘要、积分流水、来源类型、余额变化、时间筛选
+  - usage 类明细通过右侧 detail sheet 展开
+- `付款记录`
   - 读取 `GET /billing/orders`
   - 展示支付单、状态、provider、金额、失败信息
   - 通过 `GET /billing/orders/{billing_order_bid}` 打开详情抽屉
@@ -909,11 +943,14 @@ v1 采用单路由 Billing Center，避免一开始拆太多子页面。
 
 建议新增 `src/cook-web/src/components/billing/`，至少包含：
 
+- `BillingSidebarCard.tsx`
 - `BillingAlertsBanner.tsx`
 - `BillingOverviewCard.tsx`
 - `BillingSubscriptionCard.tsx`
 - `BillingCatalogCards.tsx`
+- `BillingWalletBucketsCard.tsx`
 - `BillingLedgerTable.tsx`
+- `BillingUsageDetailSheet.tsx`
 - `BillingOrdersTable.tsx`
 - `BillingCheckoutDialog.tsx`
 - `BillingOrderDetailSheet.tsx`
@@ -953,7 +990,7 @@ v1 采用单路由 Billing Center，避免一开始拆太多子页面。
 - `BillingOrderSummary`
 - `BillingOrderDetail`
 - `CreatorBillingOverview`
-- `BillingCheckoutPayload`
+- `BillingCheckoutResult`
 
 前端数据获取策略：
 
@@ -1036,7 +1073,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 核心接口说明：
 
 - `GET /billing/catalog`：读取 `billing_products`，输出 `plans[]` 与 `topups[]`
-- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`，告警允许实时计算返回
+- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`，同时支撑 sidebar 会员卡和 Billing Center 顶部 summary
 - `GET /billing/wallet-buckets`：按 creator 返回积分来源 bucket 列表，字段至少包括 `category`、`source_type`、`source_bid`、`available_credits`、`effective_from`、`effective_to`、`priority`、`status`，默认按实际扣减顺序排序
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
 - `GET /billing/orders`：creator 自助查看自己的 billing 订单列表
@@ -1044,6 +1081,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/topups/checkout`：发起一次性充值支付
+- checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
+- Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
 - `POST /billing/webhooks/stripe` / `POST /billing/webhooks/pingxx`：负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，并把最近原始 payload 覆盖写入关联 `billing_orders.metadata`
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
@@ -1172,6 +1211,16 @@ type CreatorBillingOverview = {
   }>;
 };
 
+type BillingCheckoutResult = {
+  billing_order_bid: string;
+  provider: 'stripe' | 'pingxx';
+  payment_mode: 'subscription' | 'one_time';
+  status: 'init' | 'pending' | 'paid' | 'failed' | 'unsupported';
+  redirect_url?: string;
+  checkout_session_id?: string;
+  payment_payload?: Record<string, unknown>;
+};
+
 type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
@@ -1191,7 +1240,19 @@ type CreatorBrandingConfig = {
 
 ## 9. 测试与上线关注点
 
-### 9.1 v1 必测
+### 9.1 当前批次（Figma `方案1` + 可联调 MVP）必测
+
+- `/admin` 是否按 Figma `方案1` 浅色稿补齐会员卡和 `会员与积分` 导航
+- `/admin/billing` 三个 tab 是否能按真实接口加载和切换
+- `GET /billing/overview` 是否同时满足 sidebar 会员卡和 Billing Center summary
+- Stripe 套餐 checkout、Stripe topup checkout 成功后，`billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 是否同步更新
+- Pingxx topup 是否可正常 checkout / sync / webhook；Pingxx subscription 是否固定返回 `unsupported`
+- `POST /billing/orders/{billing_order_bid}/sync` 和 webhook 重复调用时，是否不会重复 grant 积分
+- `GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders` 的排序、分页和 DTO 字段是否与前端类型一致
+- `/payment/stripe/billing-result` 是否先 sync 再回跳 `/admin/billing`
+- 旧 `/admin/orders`、`/admin/dashboard` 与学员 `/payment/stripe/result` 是否未回归
+
+### 9.2 v1 完整目标必测
 
 - 套餐购买、充值包购买、自动续费、失败重试、取消自动续费、恢复订阅
 - `production` / `preview` / `debug` 三场景 creator 归属是否正确
@@ -1210,13 +1271,13 @@ type CreatorBrandingConfig = {
 - `CELERY_TASK_ALWAYS_EAGER=1` 时 billing 集成测试可同步执行
 - worker 不运行时，系统能输出明确告警或降级行为，而不是静默漏任务
 
-### 9.2 v1.1 必测
+### 9.3 v1.1 必测
 
 - 权益快照是否随套餐变化正确生效
 - 自定义域名绑定、校验、停用流程
 - usage 日报表和 ledger 日报表是否可 rebuild 且能对齐真相源
 
-### 9.3 主要风险
+### 9.4 主要风险
 
 - 国内通道是否支持真实 recurring；若不支持，必须显式返回 `unsupported`
 - provider webhook 乱序或重复回调导致的状态覆盖问题

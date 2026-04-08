@@ -16,6 +16,29 @@
 - [x] 将 Celery 作为 v1 基础设施接入方案补充进设计文档。
 - [x] 将 `credit_wallet_buckets`、积分来源优先级和 `GET /billing/wallet-buckets` 约束补充进设计文档。
 
+## 当前实现批次：Figma `方案1` Billing UI + 可联调后端 MVP
+
+- [x] 将当前批次范围同步到 `docs/billing-subscription-design.md`，明确 Figma `方案1` 浅色稿、provider 能力矩阵和暂缓项。
+- [ ] 在 creator admin 入口补齐侧边栏会员卡和 `会员与积分` 导航。
+- [ ] 新增 `/admin/billing`，按 `套餐与积分`、`积分明细`、`付款记录` 三个 tab 落地 Billing Center。
+- [ ] 新增 `src/cook-web/src/components/billing/`、`src/cook-web/src/types/billing.ts` 和 `module.billing.*` i18n。
+- [ ] 新增 `/payment/stripe/billing-result`，回跳后先调用 `/billing/orders/{billing_order_bid}/sync` 再回到 `/admin/billing`。
+- [ ] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
+- [ ] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
+- [ ] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
+- [ ] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
+- [ ] 实现 `/billing/webhooks/stripe`、`/billing/webhooks/pingxx`，并确保 `billing_orders` 状态机幂等。
+- [ ] 在本批次里固定 Stripe 支持套餐 + topup，Pingxx 仅支持 topup，subscription 返回 `unsupported`。
+- [ ] 支付成功后真实刷新 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可联调。
+- [ ] 增加本批次的前后端联调测试与旧 `/order` 路径回归测试。
+
+本批次暂缓：
+
+- `bill_usage -> credit_ledger_entries` 结算。
+- Celery settlement、creator 维度串行化与防重入。
+- 自动续费排期、失败重试、bucket 过期扫描、低余额提醒。
+- daily aggregate、admin adjust、entitlements/domains/reports 扩展。
+
 ## v1 核心交付
 
 ### 产品与费率
