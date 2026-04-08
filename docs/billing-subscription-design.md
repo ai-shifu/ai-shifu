@@ -255,6 +255,19 @@ v1 冻结业务规则：
 - `billing_renewal_events` 需要跟随订阅状态维护 `renewal/retry/cancel_effective/downgrade_effective`
 - v1 不新增独立的 subscription webhook 存储层
 
+v1 冻结 subscription lifecycle 规则：
+
+- 当前 creator 自助 API 只开放 `subscription_start` checkout、`cancel` 和 `resume`；升级、降级仍按领域状态机冻结，但不在本批次新增独立 self-serve 路由
+- `subscription_start` 支付成功后立即生效：创建或激活订阅、写入当前 `product_bid`、打开新的 `current_period_start_at/current_period_end_at` 周期窗口，并按当前套餐发放 `subscription` bucket
+- `subscription_upgrade` 的领域规则固定为“支付成功后立即升级，不做 prorate credit 结转”：`product_bid` 立即切到新套餐、`next_product_bid` 清空、当前周期窗口按新订单生效时间重置，并重新排下一次 `renewal`
+- `downgrade` 的领域规则固定为“下周期生效，不立即降级”：当前周期只记录 `next_product_bid`，并在 `current_period_end_at` 创建 `downgrade_effective` 事件；只有下一笔 `subscription_renewal` paid apply 成功后，才把 `next_product_bid` 真正切到 `product_bid`
+- `cancel` 规则固定为“周期末取消”：API cancel 只把 `cancel_at_period_end=1` 且 `status=cancel_scheduled`，当前已发放积分和当前周期有效期继续保留到 `current_period_end_at`；不会立即关停当前周期
+- `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
+- provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
+- `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
+- 退款规则固定为：`POST /billing/orders/{billing_order_bid}/refund` 当前只支持 Stripe 已支付订单，Pingxx 必须返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期
+- refund 造成的积分返还不恢复原 subscription/topup bucket；如需返还 credit，一律按上一节的 `refund return -> free bucket` 规则执行
+
 ### 3.3 `billing_orders`
 
 角色：支付动作真相源，同时承载 webhook / sync 驱动的状态推进；不是报表表。
