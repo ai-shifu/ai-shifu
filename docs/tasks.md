@@ -132,7 +132,7 @@
 - [x] 增加支付、订阅生命周期、webhook 幂等、乱序回调、ignore orphan webhook 和退款测试。
 - [x] 增加结算、余额计算、积分消耗顺序和三场景扣分测试。
 - [x] 增加多个学生并发学习同一 creator 课程时，Celery 串行扣减仍然准确的测试。
-- [ ] 增加多 bucket 拆分扣减、bucket 过期和 `credit_wallets`/`credit_wallet_buckets`/`credit_ledger_entries` 一致性测试。
+- [x] 增加多 bucket 拆分扣减、bucket 过期和 `credit_wallets`/`credit_wallet_buckets`/`credit_ledger_entries` 一致性测试。
 - [ ] 增加 billing 常量静态校验，确保不与 `user/promo/profile/shifu/metering` 常量撞码，并且 `usage_type/usage_scene` 直接复用 metering。
 - [ ] 增加 `CELERY_TASK_ALWAYS_EAGER=1` 下的任务集成测试与调度回归测试。
 - [ ] 增加旧 `/order` 学员购课流程回归测试。
