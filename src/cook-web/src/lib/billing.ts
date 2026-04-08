@@ -3,6 +3,7 @@ import type {
   BillingBucketSourceType,
   BillingBucketStatus,
   BillingLedgerEntryType,
+  BillingPaymentMode,
   BillingOrderStatus,
   BillingOrderType,
   BillingPlan,
@@ -89,6 +90,11 @@ const BILLING_ORDER_TYPE_KEYS: Record<BillingOrderType, string> = {
 const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   stripe: 'module.billing.catalog.labels.providerStripe',
   pingxx: 'module.billing.catalog.labels.providerPingxx',
+};
+
+const BILLING_PAYMENT_MODE_KEYS: Record<BillingPaymentMode, string> = {
+  subscription: 'module.billing.orders.paymentMode.subscription',
+  one_time: 'module.billing.orders.paymentMode.oneTime',
 };
 
 export function formatBillingCredits(value: number, locale: string): string {
@@ -275,6 +281,13 @@ export function resolveBillingProviderLabel(
   return t(BILLING_PROVIDER_KEYS[provider]);
 }
 
+export function resolveBillingPaymentModeLabel(
+  t: BillingTranslator,
+  paymentMode: BillingPaymentMode,
+): string {
+  return t(BILLING_PAYMENT_MODE_KEYS[paymentMode]);
+}
+
 export function openBillingCheckoutUrl(url: string): void {
   if (!url || typeof window === 'undefined') {
     return;
@@ -364,6 +377,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.orders.empty'),
     t('module.billing.orders.loadError'),
     t('module.billing.orders.pagination.page'),
+    t('module.billing.orders.paymentMode.oneTime'),
+    t('module.billing.orders.paymentMode.subscription'),
     t('module.billing.orders.syncSuccess'),
     t('module.billing.orders.table.amount'),
     t('module.billing.orders.table.createdAt'),
@@ -372,6 +387,29 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.orders.table.provider'),
     t('module.billing.orders.table.status'),
     t('module.billing.orders.table.sync'),
+    t('module.billing.orders.detail.emptyMetadata'),
+    t('module.billing.orders.detail.fields.createdAt'),
+    t('module.billing.orders.detail.fields.failedAt'),
+    t('module.billing.orders.detail.fields.failureCode'),
+    t('module.billing.orders.detail.fields.failureMessage'),
+    t('module.billing.orders.detail.fields.orderBid'),
+    t('module.billing.orders.detail.fields.orderType'),
+    t('module.billing.orders.detail.fields.paidAmount'),
+    t('module.billing.orders.detail.fields.paidAt'),
+    t('module.billing.orders.detail.fields.payableAmount'),
+    t('module.billing.orders.detail.fields.paymentMode'),
+    t('module.billing.orders.detail.fields.productBid'),
+    t('module.billing.orders.detail.fields.provider'),
+    t('module.billing.orders.detail.fields.providerReferenceId'),
+    t('module.billing.orders.detail.fields.refundedAt'),
+    t('module.billing.orders.detail.fields.status'),
+    t('module.billing.orders.detail.fields.subscriptionBid'),
+    t('module.billing.orders.detail.loadError'),
+    t('module.billing.orders.detail.sections.amounts'),
+    t('module.billing.orders.detail.sections.metadata'),
+    t('module.billing.orders.detail.sections.references'),
+    t('module.billing.orders.detail.sections.summary'),
+    t('module.billing.orders.detail.title'),
     t('module.billing.orders.type.manual'),
     t('module.billing.orders.type.refund'),
     t('module.billing.orders.type.subscriptionRenewal'),

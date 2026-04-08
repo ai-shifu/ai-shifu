@@ -3,6 +3,7 @@ export * from './BillingCheckoutDialog';
 export * from './BillingLedgerTab';
 export * from './BillingLedgerTable';
 export * from './BillingMetricCard';
+export * from './BillingOrderDetailSheet';
 export * from './BillingOrdersTable';
 export * from './BillingOrdersTab';
 export * from './BillingOverviewTab';

@@ -144,10 +144,43 @@
       "sync": "同步状态"
     },
     "description": "查看 billing 订单状态，并在 provider 回调延迟时手动补一次同步。",
+    "detail": {
+      "emptyMetadata": "当前订单还没有保存 provider 原始 payload。",
+      "fields": {
+        "createdAt": "创建时间",
+        "failedAt": "失败时间",
+        "failureCode": "失败码",
+        "failureMessage": "失败信息",
+        "orderBid": "订单号",
+        "orderType": "订单类型",
+        "paidAmount": "实付金额",
+        "paidAt": "支付时间",
+        "payableAmount": "应付金额",
+        "paymentMode": "支付模式",
+        "productBid": "商品 BID",
+        "provider": "支付通道",
+        "providerReferenceId": "Provider 引用",
+        "refundedAt": "退款时间",
+        "status": "状态",
+        "subscriptionBid": "订阅 BID"
+      },
+      "loadError": "订单详情读取失败，请刷新后重试。",
+      "sections": {
+        "amounts": "金额与时间",
+        "metadata": "最近一次 provider payload",
+        "references": "关联引用",
+        "summary": "订单摘要"
+      },
+      "title": "付款详情"
+    },
     "empty": "当前还没有 billing 订单，后续购买和续费会展示在这里。",
     "loadError": "订单列表读取失败，请刷新后重试。",
     "pagination": {
       "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条订单"
+    },
+    "paymentMode": {
+      "oneTime": "一次性支付",
+      "subscription": "订阅支付"
     },
     "status": {
       "canceled": "已取消",

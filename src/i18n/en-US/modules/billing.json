@@ -144,10 +144,43 @@
       "sync": "Sync status"
     },
     "description": "Review billing order status and trigger a manual sync when a payment provider callback is delayed.",
+    "detail": {
+      "emptyMetadata": "No provider metadata is stored for this order yet.",
+      "fields": {
+        "createdAt": "Created at",
+        "failedAt": "Failed at",
+        "failureCode": "Failure code",
+        "failureMessage": "Failure message",
+        "orderBid": "Order bid",
+        "orderType": "Order type",
+        "paidAmount": "Paid amount",
+        "paidAt": "Paid at",
+        "payableAmount": "Payable amount",
+        "paymentMode": "Payment mode",
+        "productBid": "Product bid",
+        "provider": "Provider",
+        "providerReferenceId": "Provider reference",
+        "refundedAt": "Refunded at",
+        "status": "Status",
+        "subscriptionBid": "Subscription bid"
+      },
+      "loadError": "Billing order detail could not be loaded. Refresh and try again.",
+      "sections": {
+        "amounts": "Amounts & timing",
+        "metadata": "Latest provider payload",
+        "references": "References",
+        "summary": "Order summary"
+      },
+      "title": "Payment details"
+    },
     "empty": "No billing orders yet. Purchases and renewals will appear here.",
     "loadError": "Billing orders could not be loaded. Refresh and try again.",
     "pagination": {
       "page": "Page {{page}} / {{pageCount}} · {{total}} orders"
+    },
+    "paymentMode": {
+      "oneTime": "One-time payment",
+      "subscription": "Subscription"
     },
     "status": {
       "canceled": "Canceled",

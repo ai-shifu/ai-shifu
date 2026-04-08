@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { Button } from '@/components/ui/Button';
@@ -35,6 +35,7 @@ import {
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
 } from '@/lib/billing';
+import { BillingOrderDetailSheet } from './BillingOrderDetailSheet';
 
 const BILLING_ORDERS_PAGE_SIZE = 10;
 
@@ -61,6 +62,9 @@ export function BillingOrdersTable() {
   registerBillingTranslationUsage(t);
   const [pageIndex, setPageIndex] = useState(1);
   const [syncLoadingBid, setSyncLoadingBid] = useState('');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOrderBid, setDetailOrderBid] = useState('');
+  const { mutate: mutateCache } = useSWRConfig();
   const { data, error, isLoading, mutate } = useSWR<
     BillingPagedResponse<BillingOrderSummary>
   >(
@@ -86,6 +90,9 @@ export function BillingOrdersTable() {
         billing_order_bid: order.billing_order_bid,
       })) as BillingSyncResponse;
       await mutate();
+      if (detailOrderBid === order.billing_order_bid) {
+        await mutateCache(['billing-order-detail', order.billing_order_bid]);
+      }
       toast({
         title: t('module.billing.orders.syncSuccess', {
           status: resolveBillingOrderStatusLabel(t, result.status),
@@ -101,148 +108,183 @@ export function BillingOrdersTable() {
     }
   };
 
+  const handleOpenDetail = (billingOrderBid: string) => {
+    setDetailOrderBid(billingOrderBid);
+    setDetailOpen(true);
+  };
+
   return (
-    <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
-      <CardHeader className='space-y-2'>
-        <CardTitle className='text-lg text-slate-900'>
-          {t('module.billing.orders.title')}
-        </CardTitle>
-        <CardDescription className='leading-6 text-slate-600'>
-          {t('module.billing.orders.description')}
-        </CardDescription>
-      </CardHeader>
+    <>
+      <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
+        <CardHeader className='space-y-2'>
+          <CardTitle className='text-lg text-slate-900'>
+            {t('module.billing.orders.title')}
+          </CardTitle>
+          <CardDescription className='leading-6 text-slate-600'>
+            {t('module.billing.orders.description')}
+          </CardDescription>
+        </CardHeader>
 
-      <CardContent className='space-y-4'>
-        {error ? (
-          <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
-            {t('module.billing.orders.loadError')}
-          </div>
-        ) : null}
-
-        <div className='rounded-[24px] border border-slate-200 bg-slate-50/60 px-1 py-1'>
-          {isLoading ? (
-            <div className='space-y-3 px-4 py-4'>
-              <Skeleton className='h-12 rounded-2xl' />
-              <Skeleton className='h-12 rounded-2xl' />
-              <Skeleton className='h-12 rounded-2xl' />
+        <CardContent className='space-y-4'>
+          {error ? (
+            <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+              {t('module.billing.orders.loadError')}
             </div>
-          ) : (
-            <Table className='min-w-[960px]'>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('module.billing.orders.table.order')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.orders.table.provider')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.orders.table.status')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.orders.table.amount')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.orders.table.createdAt')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.billing.orders.table.failure')}
-                  </TableHead>
-                  <TableHead>{t('module.billing.orders.table.sync')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!items.length ? (
-                  <TableEmpty colSpan={7}>
-                    {t('module.billing.orders.empty')}
-                  </TableEmpty>
-                ) : (
-                  items.map(item => (
-                    <TableRow key={item.billing_order_bid}>
-                      <TableCell className='min-w-[220px]'>
-                        <div className='space-y-1'>
-                          <div className='font-medium text-slate-900'>
-                            {resolveBillingOrderTypeLabel(t, item.order_type)}
-                          </div>
-                          <div className='text-xs text-slate-500'>
-                            {item.billing_order_bid}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[180px]'>
-                        {resolveBillingProviderLabel(t, item.payment_provider)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant='outline'
-                          className={resolveOrderStatusClassName(item.status)}
-                        >
-                          {resolveBillingOrderStatusLabel(t, item.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className='font-medium text-slate-900'>
-                        {formatBillingPrice(
-                          item.paid_amount || item.payable_amount,
-                          item.currency,
-                          i18n.language,
-                        )}
-                      </TableCell>
-                      <TableCell className='min-w-[180px] text-slate-600'>
-                        {formatBillingDateTime(item.created_at, i18n.language)}
-                      </TableCell>
-                      <TableCell className='min-w-[180px] text-sm text-slate-500'>
-                        {item.failure_message || '--'}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          disabled={syncLoadingBid === item.billing_order_bid}
-                          onClick={() => void handleSync(item)}
-                        >
-                          {syncLoadingBid === item.billing_order_bid
-                            ? t('module.billing.catalog.actions.processing')
-                            : t('module.billing.orders.actions.sync')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+          ) : null}
 
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='text-sm text-slate-500'>
-            {t('module.billing.orders.pagination.page', {
-              page: data?.page || pageIndex,
-              pageCount: data?.page_count || 1,
-              total: data?.total || 0,
-            })}
+          <div className='rounded-[24px] border border-slate-200 bg-slate-50/60 px-1 py-1'>
+            {isLoading ? (
+              <div className='space-y-3 px-4 py-4'>
+                <Skeleton className='h-12 rounded-2xl' />
+                <Skeleton className='h-12 rounded-2xl' />
+                <Skeleton className='h-12 rounded-2xl' />
+              </div>
+            ) : (
+              <Table className='min-w-[960px]'>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      {t('module.billing.orders.table.order')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.provider')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.status')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.amount')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.createdAt')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.failure')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.orders.table.sync')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!items.length ? (
+                    <TableEmpty colSpan={7}>
+                      {t('module.billing.orders.empty')}
+                    </TableEmpty>
+                  ) : (
+                    items.map(item => (
+                      <TableRow key={item.billing_order_bid}>
+                        <TableCell className='min-w-[220px]'>
+                          <div className='space-y-1'>
+                            <Button
+                              variant='link'
+                              size='sm'
+                              className='h-auto justify-start p-0 text-left font-medium text-slate-900 no-underline hover:text-slate-900 hover:no-underline'
+                              onClick={() =>
+                                handleOpenDetail(item.billing_order_bid)
+                              }
+                            >
+                              {resolveBillingOrderTypeLabel(t, item.order_type)}
+                            </Button>
+                            <div className='text-xs text-slate-500'>
+                              {item.billing_order_bid}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className='min-w-[180px]'>
+                          {resolveBillingProviderLabel(
+                            t,
+                            item.payment_provider,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant='outline'
+                            className={resolveOrderStatusClassName(item.status)}
+                          >
+                            {resolveBillingOrderStatusLabel(t, item.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className='font-medium text-slate-900'>
+                          {formatBillingPrice(
+                            item.paid_amount || item.payable_amount,
+                            item.currency,
+                            i18n.language,
+                          )}
+                        </TableCell>
+                        <TableCell className='min-w-[180px] text-slate-600'>
+                          {formatBillingDateTime(
+                            item.created_at,
+                            i18n.language,
+                          )}
+                        </TableCell>
+                        <TableCell className='min-w-[180px] text-sm text-slate-500'>
+                          {item.failure_message || '--'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            disabled={syncLoadingBid === item.billing_order_bid}
+                            onClick={() => void handleSync(item)}
+                          >
+                            {syncLoadingBid === item.billing_order_bid
+                              ? t('module.billing.catalog.actions.processing')
+                              : t('module.billing.orders.actions.sync')}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              disabled={!canGoPrev}
-              onClick={() => setPageIndex(current => Math.max(1, current - 1))}
-            >
-              {t('common.page.previous')}
-            </Button>
-            <Button
-              variant='outline'
-              disabled={!canGoNext}
-              onClick={() =>
-                setPageIndex(current =>
-                  Math.min(Number(data?.page_count || current), current + 1),
-                )
-              }
-            >
-              {t('common.page.next')}
-            </Button>
+
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <div className='text-sm text-slate-500'>
+              {t('module.billing.orders.pagination.page', {
+                page: data?.page || pageIndex,
+                pageCount: data?.page_count || 1,
+                total: data?.total || 0,
+              })}
+            </div>
+            <div className='flex gap-2'>
+              <Button
+                variant='outline'
+                disabled={!canGoPrev}
+                onClick={() =>
+                  setPageIndex(current => Math.max(1, current - 1))
+                }
+              >
+                {t('common.page.previous')}
+              </Button>
+              <Button
+                variant='outline'
+                disabled={!canGoNext}
+                onClick={() =>
+                  setPageIndex(current =>
+                    Math.min(Number(data?.page_count || current), current + 1),
+                  )
+                }
+              >
+                {t('common.page.next')}
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <BillingOrderDetailSheet
+        open={detailOpen}
+        orderBid={detailOrderBid}
+        onOpenChange={open => {
+          setDetailOpen(open);
+          if (!open) {
+            setDetailOrderBid('');
+          }
+        }}
+      />
+    </>
   );
 }
