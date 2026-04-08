@@ -6,8 +6,11 @@ from datetime import datetime
 import os
 from typing import Any, Callable
 
-from .funcs import build_billing_overview, sync_billing_order
-from .models import BillingOrder, BillingSubscription, CreditWallet
+from .funcs import (
+    build_billing_overview,
+    reconcile_billing_provider_reference,
+)
+from .models import BillingSubscription, CreditWallet
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
@@ -49,38 +52,6 @@ def _coerce_datetime(value: Any) -> datetime | None:
     raise ValueError(f"Unsupported datetime value: {value!r}")
 
 
-def _load_target_billing_order(
-    *,
-    creator_bid: str = "",
-    billing_order_bid: str = "",
-    provider_reference_id: str = "",
-    payment_provider: str = "",
-):
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
-    normalized_provider_reference_id = _normalize_bid(provider_reference_id)
-    normalized_payment_provider = _normalize_bid(payment_provider)
-
-    query = BillingOrder.query.filter(BillingOrder.deleted == 0)
-    if normalized_creator_bid:
-        query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
-    if normalized_billing_order_bid:
-        query = query.filter(
-            BillingOrder.billing_order_bid == normalized_billing_order_bid
-        )
-    elif normalized_provider_reference_id:
-        query = query.filter(
-            BillingOrder.provider_reference_id == normalized_provider_reference_id
-        )
-    else:
-        return None
-    if normalized_payment_provider:
-        query = query.filter(
-            BillingOrder.payment_provider == normalized_payment_provider
-        )
-    return query.order_by(BillingOrder.id.desc()).first()
-
-
 def _run_reconcile_provider_reference(
     app,
     *,
@@ -96,41 +67,14 @@ def _run_reconcile_provider_reference(
     normalized_billing_order_bid = _normalize_bid(billing_order_bid)
     normalized_session_id = _normalize_bid(session_id)
 
-    with app.app_context():
-        order = _load_target_billing_order(
-            creator_bid=normalized_creator_bid,
-            billing_order_bid=normalized_billing_order_bid,
-            provider_reference_id=normalized_provider_reference_id,
-            payment_provider=normalized_payment_provider,
-        )
-        if order is None:
-            return {
-                "status": "order_not_found",
-                "creator_bid": normalized_creator_bid or None,
-                "billing_order_bid": normalized_billing_order_bid or None,
-                "provider_reference_id": normalized_provider_reference_id or None,
-                "payment_provider": normalized_payment_provider or None,
-            }
-
-    sync_payload: dict[str, Any] = {}
-    if order.payment_provider == "stripe":
-        resolved_session_id = normalized_session_id or normalized_provider_reference_id
-        if resolved_session_id:
-            sync_payload["session_id"] = resolved_session_id
-
-    payload = sync_billing_order(
+    return reconcile_billing_provider_reference(
         app,
-        order.creator_bid,
-        order.billing_order_bid,
-        sync_payload,
+        creator_bid=normalized_creator_bid,
+        payment_provider=normalized_payment_provider,
+        provider_reference_id=normalized_provider_reference_id,
+        billing_order_bid=normalized_billing_order_bid,
+        session_id=normalized_session_id,
     )
-    payload["creator_bid"] = order.creator_bid
-    payload["billing_order_bid"] = order.billing_order_bid
-    payload["payment_provider"] = order.payment_provider
-    payload["provider_reference_id"] = (
-        normalized_provider_reference_id or order.provider_reference_id or None
-    )
-    return payload
 
 
 def _collect_low_balance_creator_bids() -> list[str]:

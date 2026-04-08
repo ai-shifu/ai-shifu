@@ -25,6 +25,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.wallets import (
     expire_credit_wallet_buckets,
     grant_refund_return_credits,
+    rebuild_credit_wallet_snapshots,
 )
 
 
@@ -155,3 +156,76 @@ def test_grant_refund_return_credits_creates_free_bucket_and_refund_ledger(
         assert (
             CreditLedgerEntry.query.filter_by(source_bid="refund-return-1").count() == 1
         )
+
+
+def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-rebuild-1",
+            creator_bid="creator-rebuild-1",
+            available_credits=Decimal("999.0000000000"),
+            reserved_credits=Decimal("999.0000000000"),
+            lifetime_granted_credits=Decimal("10.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        dao.db.session.add_all(
+            [
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-rebuild-1a",
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid="creator-rebuild-1",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+                    source_type=CREDIT_SOURCE_TYPE_REFUND,
+                    source_bid="refund-rebuild-1",
+                    priority=10,
+                    original_credits=Decimal("2.0000000000"),
+                    available_credits=Decimal("1.5000000000"),
+                    reserved_credits=Decimal("0.2500000000"),
+                    consumed_credits=Decimal("0.5000000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 8, 0, 0, 0),
+                    effective_to=None,
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                ),
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-rebuild-1b",
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid="creator-rebuild-1",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_bid="topup-rebuild-1",
+                    priority=30,
+                    original_credits=Decimal("3.0000000000"),
+                    available_credits=Decimal("2.0000000000"),
+                    reserved_credits=Decimal("0.5000000000"),
+                    consumed_credits=Decimal("1.0000000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 8, 0, 0, 0),
+                    effective_to=None,
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = rebuild_credit_wallet_snapshots(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-rebuild-1",
+        )
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-rebuild-1").one()
+
+        assert payload["status"] == "rebuilt"
+        assert payload["wallet_count"] == 1
+        assert payload["wallets"][0]["available_credits"] == 3.5
+        assert payload["wallets"][0]["reserved_credits"] == 0.75
+        assert wallet.available_credits == Decimal("3.5000000000")
+        assert wallet.reserved_credits == Decimal("0.7500000000")
+        assert wallet.version == 1

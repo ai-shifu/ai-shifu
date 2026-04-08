@@ -302,6 +302,76 @@ def replay_bill_usage_settlement(
     return payload
 
 
+def backfill_bill_usage_settlement(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    usage_bid: str = "",
+    usage_id_start: int | None = None,
+    usage_id_end: int | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Replay one or many usage settlements for offline repair/backfill."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_usage_bid = str(usage_bid or "").strip()
+    normalized_limit = max(int(limit or 0), 0) or None
+
+    if normalized_usage_bid:
+        payload = replay_bill_usage_settlement(
+            app,
+            creator_bid=normalized_creator_bid,
+            usage_bid=normalized_usage_bid,
+        )
+        payload["backfill"] = True
+        return payload
+
+    with app.app_context():
+        query = BillUsageRecord.query.filter(BillUsageRecord.deleted == 0).order_by(
+            BillUsageRecord.id.asc()
+        )
+        if usage_id_start is not None:
+            query = query.filter(BillUsageRecord.id >= int(usage_id_start))
+        if usage_id_end is not None:
+            query = query.filter(BillUsageRecord.id <= int(usage_id_end))
+        if normalized_limit is not None:
+            query = query.limit(normalized_limit)
+        rows = query.all()
+
+    status_counts: dict[str, int] = {}
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        payload = replay_bill_usage_settlement(
+            app,
+            creator_bid=normalized_creator_bid,
+            usage_bid=row.usage_bid,
+            usage_id=int(row.id or 0),
+        )
+        status = str(payload.get("status") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        items.append(
+            {
+                "usage_bid": row.usage_bid,
+                "usage_id": int(row.id or 0),
+                "status": status,
+                "creator_bid": payload.get("creator_bid"),
+                "requested_creator_bid": payload.get("requested_creator_bid"),
+            }
+        )
+
+    return {
+        "status": "completed" if items else "noop",
+        "creator_bid": normalized_creator_bid or None,
+        "usage_id_start": usage_id_start,
+        "usage_id_end": usage_id_end,
+        "limit": normalized_limit,
+        "processed_count": len(items),
+        "status_counts": status_counts,
+        "items": items,
+        "backfill": True,
+    }
+
+
 @contextmanager
 def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
     normalized_creator_bid = str(creator_bid or "").strip()

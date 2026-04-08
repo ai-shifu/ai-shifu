@@ -106,7 +106,7 @@
 - [x] 增加 wallet bucket 过期扫描与 `expire` ledger 落账任务。
 - [x] 实现 `billing_renewal_events` 的入队、抢占和幂等执行。
 - [x] 实现 webhook 补偿同步和失败续费重试。
-- [ ] 保留 Flask CLI 作为 backfill / rebuild / manual replay 入口，并与 Celery 任务分工清晰。
+- [x] 保留 Flask CLI 作为 backfill / rebuild / manual replay 入口，并与 Celery 任务分工清晰。
 
 ### 前端与管理端
 

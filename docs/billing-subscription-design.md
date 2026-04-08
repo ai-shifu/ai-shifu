@@ -707,6 +707,7 @@ v1 的改造要求：
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
 - 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal`
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
+- 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 五个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
@@ -937,6 +938,14 @@ v1 需要新增：
 - 保留 Flask CLI 作为 backfill / rebuild / manual replay 的入口
 - 在线周期调度和在线执行交给 Celery
 - 不再把周期扫描任务写进 HTTP route、`threading.Thread` 或 gunicorn worker 内部
+- 当前实现固定使用 `flask console billing ...` 作为运维入口：
+  - `backfill-settlement`：离线 replay usage settlement，只用于 backfill / repair
+  - `rebuild-wallets`：从 `credit_wallet_buckets` 重建 `credit_wallets` 快照
+  - `reconcile-order`：手动触发 provider sync / orphan recovery
+  - `run-renewal-event`、`retry-renewal`：手动执行 renewal / retry / reconcile 补偿
+- 分工固定为：
+  - CLI：人工触发、离线修复、历史回填、定点 replay
+  - Celery：在线请求后的异步执行、周期调度、批量扫描和重试
 
 ## 7. 结算、支付与接口
 

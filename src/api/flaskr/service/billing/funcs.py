@@ -769,6 +769,78 @@ def sync_billing_order(
         raise_error("server.order.orderStatusError")
 
 
+def reconcile_billing_provider_reference(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    payment_provider: str = "",
+    provider_reference_id: str = "",
+    billing_order_bid: str = "",
+    session_id: str = "",
+) -> dict[str, Any]:
+    """Reconcile a provider reference back into one billing order state."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_payment_provider = _normalize_bid(payment_provider)
+    normalized_provider_reference_id = _normalize_bid(provider_reference_id)
+    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
+    normalized_session_id = _normalize_bid(session_id)
+
+    with app.app_context():
+        query = BillingOrder.query.filter(BillingOrder.deleted == 0)
+        if normalized_creator_bid:
+            query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
+        if normalized_billing_order_bid:
+            query = query.filter(
+                BillingOrder.billing_order_bid == normalized_billing_order_bid
+            )
+        elif normalized_provider_reference_id:
+            query = query.filter(
+                BillingOrder.provider_reference_id == normalized_provider_reference_id
+            )
+        else:
+            return {
+                "status": "order_not_found",
+                "creator_bid": normalized_creator_bid or None,
+                "billing_order_bid": normalized_billing_order_bid or None,
+                "provider_reference_id": normalized_provider_reference_id or None,
+                "payment_provider": normalized_payment_provider or None,
+            }
+        if normalized_payment_provider:
+            query = query.filter(
+                BillingOrder.payment_provider == normalized_payment_provider
+            )
+        order = query.order_by(BillingOrder.id.desc()).first()
+        if order is None:
+            return {
+                "status": "order_not_found",
+                "creator_bid": normalized_creator_bid or None,
+                "billing_order_bid": normalized_billing_order_bid or None,
+                "provider_reference_id": normalized_provider_reference_id or None,
+                "payment_provider": normalized_payment_provider or None,
+            }
+
+    sync_payload: dict[str, Any] = {}
+    if order.payment_provider == "stripe":
+        resolved_session_id = normalized_session_id or normalized_provider_reference_id
+        if resolved_session_id:
+            sync_payload["session_id"] = resolved_session_id
+
+    payload = sync_billing_order(
+        app,
+        order.creator_bid,
+        order.billing_order_bid,
+        sync_payload,
+    )
+    payload["creator_bid"] = order.creator_bid
+    payload["billing_order_bid"] = order.billing_order_bid
+    payload["payment_provider"] = order.payment_provider
+    payload["provider_reference_id"] = (
+        normalized_provider_reference_id or order.provider_reference_id or None
+    )
+    return payload
+
+
 def handle_billing_stripe_webhook(
     app: Flask,
     raw_body: bytes,

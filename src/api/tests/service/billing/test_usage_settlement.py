@@ -30,6 +30,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.settlement import (
+    backfill_bill_usage_settlement,
     replay_bill_usage_settlement,
     settle_bill_usage,
 )
@@ -941,3 +942,81 @@ def test_replay_bill_usage_settlement_rejects_creator_mismatch(
         assert payload["creator_bid"] == "creator-replay-real"
         assert payload["requested_creator_bid"] == "creator-replay-wrong"
         assert payload["replay"] is True
+
+
+def test_backfill_bill_usage_settlement_replays_one_usage_range_safely(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-backfill-1",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-backfill-1", "4.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-backfill-1",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-backfill-1",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="4.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-backfill-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="1.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_usage(
+                    usage_bid="usage-backfill-1",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+                _create_usage(
+                    usage_bid="usage-backfill-2",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        first = backfill_bill_usage_settlement(
+            billing_settlement_app,
+            creator_bid="creator-backfill-1",
+            usage_id_start=1,
+            usage_id_end=1,
+        )
+        second = backfill_bill_usage_settlement(
+            billing_settlement_app,
+            creator_bid="creator-backfill-1",
+            usage_id_start=1,
+            usage_id_end=1,
+        )
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-backfill-1").one()
+
+        assert first["status"] == "completed"
+        assert first["processed_count"] == 1
+        assert first["status_counts"] == {"settled": 1}
+        assert first["backfill"] is True
+        assert second["status_counts"] == {"already_settled": 1}
+        assert wallet.available_credits == Decimal("3.0000000000")

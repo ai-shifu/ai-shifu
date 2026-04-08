@@ -103,6 +103,61 @@ def persist_credit_wallet_snapshot(
     return wallet
 
 
+def rebuild_credit_wallet_snapshots(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    wallet_bid: str = "",
+) -> dict[str, Any]:
+    """Rebuild wallet snapshots from bucket rows for one or many creators."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_wallet_bid = str(wallet_bid or "").strip()
+    with app.app_context():
+        query = CreditWallet.query.filter(CreditWallet.deleted == 0)
+        if normalized_creator_bid:
+            query = query.filter(CreditWallet.creator_bid == normalized_creator_bid)
+        if normalized_wallet_bid:
+            query = query.filter(CreditWallet.wallet_bid == normalized_wallet_bid)
+        wallets = query.order_by(CreditWallet.id.asc()).all()
+        if not wallets:
+            return {
+                "status": "noop",
+                "creator_bid": normalized_creator_bid or None,
+                "wallet_bid": normalized_wallet_bid or None,
+                "wallet_count": 0,
+                "wallets": [],
+            }
+
+        rebuilt_at = datetime.now()
+        payload_wallets: list[dict[str, Any]] = []
+        for wallet in wallets:
+            refresh_credit_wallet_snapshot(wallet)
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=rebuilt_at,
+            )
+            payload_wallets.append(
+                {
+                    "wallet_bid": wallet.wallet_bid,
+                    "creator_bid": wallet.creator_bid,
+                    "available_credits": _decimal_to_number(wallet.available_credits),
+                    "reserved_credits": _decimal_to_number(wallet.reserved_credits),
+                }
+            )
+
+        db.session.commit()
+        return {
+            "status": "rebuilt",
+            "creator_bid": normalized_creator_bid or None,
+            "wallet_bid": normalized_wallet_bid or None,
+            "wallet_count": len(payload_wallets),
+            "wallets": payload_wallets,
+        }
+
+
 def grant_refund_return_credits(
     app: Flask,
     *,
