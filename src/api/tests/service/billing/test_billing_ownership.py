@@ -8,6 +8,11 @@ from flaskr.service.billing.ownership import (
     resolve_shifu_creator_bid,
     resolve_usage_creator_bid,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
@@ -100,6 +105,41 @@ def test_resolve_usage_creator_bid_accepts_usage_payload_dict(
             {"usage_bid": "usage-payload-1", "shifu_bid": "shifu-payload-1"},
         )
         == "creator-payload-1"
+    )
+
+
+@pytest.mark.parametrize(
+    ("usage_scene", "usage_bid"),
+    [
+        (BILL_USAGE_SCENE_PROD, "usage-prod-1"),
+        (BILL_USAGE_SCENE_PREVIEW, "usage-preview-1"),
+        (BILL_USAGE_SCENE_DEBUG, "usage-debug-1"),
+    ],
+)
+def test_resolve_usage_creator_bid_uses_same_creator_for_all_billing_scenes(
+    billing_ownership_app: Flask,
+    usage_scene: int,
+    usage_bid: str,
+) -> None:
+    with billing_ownership_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-scene-1",
+                created_user_bid="creator-scene-1",
+            )
+        )
+        dao.db.session.commit()
+
+    assert (
+        resolve_usage_creator_bid(
+            billing_ownership_app,
+            {
+                "usage_bid": usage_bid,
+                "shifu_bid": "shifu-scene-1",
+                "usage_scene": usage_scene,
+            },
+        )
+        == "creator-scene-1"
     )
 
 
