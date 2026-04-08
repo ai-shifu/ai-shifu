@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -18,7 +19,7 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
 )
-from .models import BillingSubscription, CreditWallet, CreditWalletBucket
+from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
 
 _ZERO_CREDITS = Decimal("0")
@@ -49,14 +50,6 @@ def admit_creator_usage(
         raise_error("server.shifu.shifuNotFound")
 
     with app.app_context():
-        wallet = (
-            CreditWallet.query.filter(
-                CreditWallet.deleted == 0,
-                CreditWallet.creator_bid == normalized_creator_bid,
-            )
-            .order_by(CreditWallet.id.desc())
-            .first()
-        )
         buckets = (
             CreditWalletBucket.query.filter(
                 CreditWalletBucket.deleted == 0,
@@ -78,14 +71,18 @@ def admit_creator_usage(
             .first()
         )
 
-        wallet_available_credits = _to_decimal(
-            getattr(wallet, "available_credits", _ZERO_CREDITS)
-        )
+        admission_at = datetime.now()
         active_buckets = [
             bucket
             for bucket in buckets
             if _to_decimal(bucket.available_credits) > _ZERO_CREDITS
+            and (bucket.effective_from is None or bucket.effective_from <= admission_at)
+            and (bucket.effective_to is None or bucket.effective_to > admission_at)
         ]
+        wallet_available_credits = sum(
+            (_to_decimal(bucket.available_credits) for bucket in active_buckets),
+            start=_ZERO_CREDITS,
+        )
         if wallet_available_credits <= _ZERO_CREDITS and not active_buckets:
             raise_error("server.billing.creditInsufficient")
 

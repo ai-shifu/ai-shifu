@@ -93,7 +93,7 @@
 - [x] 实现账本不可变写入和钱包乐观锁更新。
 - [x] 为 `credit_ledger_entries` 增加 `wallet_bucket_bid` 字段，并让 `idempotency_key` 包含 bucket 维度。
 - [x] 实现 bucket 到期、耗尽和 refund return -> `free` bucket 的状态迁移规则。
-- [ ] 实现余额不足、订阅失效的前置拦截。
+- [x] 实现余额不足、订阅失效的前置拦截。
 - [ ] 实现结算幂等 key 和 replay 安全，避免重复扣分。
 
 ### Celery 与基础设施

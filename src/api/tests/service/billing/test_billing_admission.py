@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from flask import Flask
@@ -63,6 +64,8 @@ def _create_bucket(
     *,
     category: int,
     available_credits: str,
+    effective_from=None,
+    effective_to=None,
 ) -> CreditWalletBucket:
     return CreditWalletBucket(
         wallet_bucket_bid=f"bucket-{creator_bid}-{category}",
@@ -77,8 +80,8 @@ def _create_bucket(
         reserved_credits=Decimal("0"),
         consumed_credits=Decimal("0"),
         expired_credits=Decimal("0"),
-        effective_from=dao.db.func.now(),
-        effective_to=None,
+        effective_from=effective_from or dao.db.func.now(),
+        effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
     )
 
@@ -197,3 +200,67 @@ def test_admit_creator_usage_accepts_direct_creator_bid_for_debug(
     assert payload["allowed"] is True
     assert payload["creator_bid"] == "creator-debug-1"
     assert payload["usage_scene"] == BILL_USAGE_SCENE_DEBUG
+
+
+def test_admit_creator_usage_rejects_expired_topup_bucket_even_if_wallet_snapshot_positive(
+    billing_admission_app: Flask,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-expired-topup-1",
+                created_user_bid="creator-expired-topup-1",
+            )
+        )
+        dao.db.session.add(_create_wallet("creator-expired-topup-1", "15.0000000000"))
+        dao.db.session.add(
+            _create_bucket(
+                "creator-expired-topup-1",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                available_credits="15.0000000000",
+                effective_from=datetime.now() - timedelta(days=7),
+                effective_to=datetime.now() - timedelta(minutes=1),
+            )
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        admit_creator_usage(
+            billing_admission_app,
+            shifu_bid="shifu-expired-topup-1",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+
+
+def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
+    billing_admission_app: Flask,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-future-bucket-1",
+                created_user_bid="creator-future-bucket-1",
+            )
+        )
+        dao.db.session.add(_create_wallet("creator-future-bucket-1", "18.0000000000"))
+        dao.db.session.add(
+            _create_bucket(
+                "creator-future-bucket-1",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                available_credits="18.0000000000",
+                effective_from=datetime.now() + timedelta(minutes=30),
+                effective_to=None,
+            )
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        admit_creator_usage(
+            billing_admission_app,
+            shifu_bid="shifu-future-bucket-1",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
