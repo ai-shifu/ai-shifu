@@ -6,7 +6,7 @@
 - [x] 审查现有 metering 与 runtime config 流程。
 - [x] 确认计费主体、产品范围、续费模式、权益范围和文档存放路径。
 - [x] 将商品目录统一为 `billing_products` 单表，并保留 `plans[]` / `topups[]` API 投影。
-- [x] 将支付持久化模型统一为 `billing_orders` + `billing_provider_events`。
+- [x] 将支付持久化模型统一为 `billing_orders`，并将最近一次 provider payload 收敛到 `billing_orders.metadata`。
 - [x] 统一扣分场景为 `production`、`preview`、`debug`，并明确由课程所属创作者承担。
 - [x] 统一 LLM `input/cache/output` 与 TTS `按次/按字数` 的扣分口径。
 - [x] 将库表分层为 `v1 核心表` 与 `v1.1 扩展表`。
@@ -14,12 +14,14 @@
 - [x] 将 billing 文档编码体系调整为“复用共享码 + billing 专属 `7100+` 段位”。
 - [x] 将现有代码改造边界补充进设计文档。
 - [x] 将 Celery 作为 v1 基础设施接入方案补充进设计文档。
+- [x] 将 `credit_wallet_buckets`、积分来源优先级和 `GET /billing/wallet-buckets` 约束补充进设计文档。
 
 ## v1 核心交付
 
 ### 产品与费率
 
 - [ ] 冻结套餐、充值包、试用积分和赠送积分的最终业务规则。
+- [ ] 冻结 `free > subscription > topup` 的 bucket 扣减优先级、同优先级到期排序和退款返还归类规则。
 - [ ] 冻结升级、降级、取消、恢复、宽限期和退款规则。
 - [ ] 冻结 `production`、`preview`、`debug` 三个 scene 的 provider/model/metric 费率矩阵。
 - [ ] 冻结低余额阈值、告警触发条件和 billing 错误码文案。
@@ -32,12 +34,13 @@
 - [ ] 调整 metering 的 `debug/preview` billable 逻辑，移除常量层硬编码 non-billable 判定。
 - [ ] 在 learn/preview/debug 入口接入 creator admission service。
 - [ ] 增加 `shifu_bid -> creator_bid` 的 ownership resolver 供 settlement 使用。
+- [ ] 明确 learn/preview/debug 请求线程只做 admission + usage 落库，不直接执行积分扣减。
 - [ ] 明确并保留不改的旧链路：`/order` API、旧 order admin、raw `bill_usage` 结构、全局 `/api/config`。
 
 ### Schema 与迁移
 
-- [ ] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`billing_provider_events`。
-- [ ] 新增 `billing_wallets`、`billing_ledger_entries`、`billing_usage_rates`、`billing_renewal_events`。
+- [ ] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`。
+- [ ] 新增 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`、`credit_usage_rates`、`billing_renewal_events`。
 - [ ] 为核心表补齐索引、唯一约束和基础 seed 数据。
 - [ ] 在 `sys_configs` 中增加 billing feature flag、低余额阈值、续费任务配置和 rate version 配置。
 
@@ -46,19 +49,27 @@
 - [ ] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
 - [ ] 实现 subscription checkout、cancel、resume 和退款流程。
 - [ ] 实现 topup checkout 与到账流程。
+- [ ] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
 - [ ] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
-- [ ] 实现 `billing_provider_events` 去重、重放和原始事件审计。
+- [ ] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
+- [ ] 在 `billing_orders.metadata` 中仅保留最近一次 provider 原始 payload 与事件摘要。
+- [ ] 实现找不到关联订单的 webhook ignore 策略，并依赖 sync/reconcile 补偿。
 - [ ] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
 - [ ] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
 
 ### 计量与结算
 
-- [ ] 实现 `bill_usage -> billing_ledger_entries` 的多维度结算逻辑。
+- [ ] 实现 `bill_usage -> credit_ledger_entries` 的多维度结算逻辑。
+- [ ] 实现 `billing.settle_usage` Celery task，作为默认积分扣减入口。
+- [ ] 实现 `credit_wallet_buckets` 的来源分桶、余额汇总和生命周期状态推进。
+- [ ] 实现 `free > subscription > topup` 的 bucket 选择顺序，并在同优先级下按最早到期、最早创建扣减。
 - [ ] 实现 LLM `input/cache/output` 三维扣分。
 - [ ] 实现 TTS `按次` 与 `按字数` 两种计费模式。
 - [ ] 实现 `production`、`preview`、`debug` 三场景的 creator 归属解析。
+- [ ] 实现 `creator_bid` 维度的 settlement 串行化与防重入，避免多个学生同时学习同一 creator 课程时并发扣减算错。
 - [ ] 实现账本不可变写入和钱包乐观锁更新。
-- [ ] 为 `billing_ledger_entries` 增加 `idempotency_key` 字段与唯一约束。
+- [ ] 为 `credit_ledger_entries` 增加 `wallet_bucket_bid` 字段，并让 `idempotency_key` 包含 bucket 维度。
+- [ ] 实现 bucket 到期、耗尽和 refund return -> `free` bucket 的状态迁移规则。
 - [ ] 实现余额不足、订阅失效的前置拦截。
 - [ ] 实现结算幂等 key 和 replay 安全，避免重复扣分。
 
@@ -68,7 +79,8 @@
 - [ ] 新增 Celery app factory，并让 worker 复用 Flask `create_app()` 配置。
 - [ ] 在 `requirements.txt`、配置定义和环境变量示例中接入 Celery/Redis 配置。
 - [ ] 在 `docker-compose.yml`、`docker-compose.latest.yml`、`docker-compose.dev.yml` 中增加 `redis`、`celery-worker`、`celery-beat`。
-- [ ] 为 renewal、retry、reconcile、settlement replay、low balance alert 注册 Celery tasks。
+- [ ] 为 usage settlement、renewal、retry、reconcile、settlement replay、low balance alert 注册 Celery tasks。
+- [ ] 增加 wallet bucket 过期扫描与 `expire` ledger 落账任务。
 - [ ] 实现 `billing_renewal_events` 的入队、抢占和幂等执行。
 - [ ] 实现 webhook 补偿同步和失败续费重试。
 - [ ] 保留 Flask CLI 作为 backfill / rebuild / manual replay 入口，并与 Celery 任务分工清晰。
@@ -82,6 +94,7 @@
 - [ ] 新增 `src/cook-web/src/types/billing.ts`，定义 billing 前端类型。
 - [ ] 新增 `src/cook-web/src/components/billing/` 组件目录，拆分 overview、catalog、ledger、orders、checkout、detail sheet 组件。
 - [ ] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
+- [ ] 为 wallet 来源明细接入 `GET /billing/wallet-buckets` 的按需查询与只读展示。
 - [ ] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
 - [ ] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。
 - [ ] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
@@ -91,8 +104,10 @@
 
 ### 测试与上线
 
-- [ ] 增加支付、订阅生命周期、webhook 幂等和退款测试。
+- [ ] 增加支付、订阅生命周期、webhook 幂等、乱序回调、ignore orphan webhook 和退款测试。
 - [ ] 增加结算、余额计算、积分消耗顺序和三场景扣分测试。
+- [ ] 增加多个学生并发学习同一 creator 课程时，Celery 串行扣减仍然准确的测试。
+- [ ] 增加多 bucket 拆分扣减、bucket 过期和 `credit_wallets`/`credit_wallet_buckets`/`credit_ledger_entries` 一致性测试。
 - [ ] 增加 billing 常量静态校验，确保不与 `user/promo/profile/shifu/metering` 常量撞码，并且 `usage_type/usage_scene` 直接复用 metering。
 - [ ] 增加 `CELERY_TASK_ALWAYS_EAGER=1` 下的任务集成测试与调度回归测试。
 - [ ] 增加旧 `/order` 学员购课流程回归测试。
