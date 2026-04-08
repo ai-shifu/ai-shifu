@@ -7,11 +7,13 @@ import {
   within,
 } from '@testing-library/react';
 import api from '@/api';
+import { ErrorWithCode } from '@/lib/request';
 import OperationsPage from './page';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockToast = jest.fn();
+const mockErrorDisplay = jest.fn();
 const originalLocation = window.location;
 
 const mockUserState = {
@@ -80,25 +82,27 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
-  default: ({
-    errorMessage,
-    onRetry,
-  }: {
+  default: (props: {
     errorMessage: string;
+    errorCode?: number;
     onRetry?: () => void;
-  }) => (
-    <div>
-      <div>{errorMessage}</div>
-      {onRetry ? (
-        <button
-          type='button'
-          onClick={onRetry}
-        >
-          retry
-        </button>
-      ) : null}
-    </div>
-  ),
+  }) => {
+    mockErrorDisplay(props);
+    return (
+      <div>
+        <div>{props.errorMessage}</div>
+        <div>{props.errorCode ?? 'no-code'}</div>
+        {props.onRetry ? (
+          <button
+            type='button'
+            onClick={props.onRetry}
+          >
+            retry
+          </button>
+        ) : null}
+      </div>
+    );
+  },
 }));
 
 jest.mock('@/components/loading', () => ({
@@ -302,6 +306,7 @@ describe('OperationsPage', () => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockToast.mockReset();
+    mockErrorDisplay.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
@@ -504,7 +509,7 @@ describe('OperationsPage', () => {
       total: 2,
     });
     mockGetAdminOperationCourses.mockRejectedValueOnce(
-      new Error('load failed'),
+      new ErrorWithCode('load failed', 418),
     );
     mockGetAdminOperationCourses.mockResolvedValueOnce({
       items: [],
@@ -523,6 +528,13 @@ describe('OperationsPage', () => {
     );
 
     expect(await screen.findByText('load failed')).toBeInTheDocument();
+    expect(screen.getByText('418')).toBeInTheDocument();
+    expect(mockErrorDisplay).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        errorCode: 418,
+        errorMessage: 'load failed',
+      }),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'retry' }));
 

@@ -132,19 +132,26 @@ const createColumnWidthState = (
   return widths;
 };
 
-const loadStoredColumnWidths = (): ColumnWidthState => {
+const loadStoredColumnWidthOverrides = (): Partial<ColumnWidthState> => {
   if (typeof window === 'undefined') {
-    return createColumnWidthState();
+    return {};
   }
   try {
     const serialized = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
     if (!serialized) {
-      return createColumnWidthState();
+      return {};
     }
     const parsed = JSON.parse(serialized) as Partial<ColumnWidthState>;
-    return createColumnWidthState(parsed);
+    const overrides: Partial<ColumnWidthState> = {};
+    COLUMN_KEYS.forEach(key => {
+      const nextValue = parsed?.[key];
+      if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
+        overrides[key] = clampWidth(nextValue);
+      }
+    });
+    return overrides;
   } catch {
-    return createColumnWidthState();
+    return {};
   }
 };
 
@@ -372,6 +379,9 @@ const OperationsPage = () => {
     () => t('module.chat.lessonFeedbackClearInput'),
     [t],
   );
+  const storedManualWidthsRef = useRef<Partial<ColumnWidthState>>(
+    loadStoredColumnWidthOverrides(),
+  );
   const statusOptions = useMemo(
     () => [
       {
@@ -394,7 +404,7 @@ const OperationsPage = () => {
   const [pageCount, setPageCount] = useState(1);
   const [expanded, setExpanded] = useState(false);
   const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
-    loadStoredColumnWidths(),
+    createColumnWidthState(storedManualWidthsRef.current),
   );
   const columnResizeRef = useRef<{
     key: ColumnKey;
@@ -403,11 +413,13 @@ const OperationsPage = () => {
   } | null>(null);
   const manualResizeRef = useRef<Record<ColumnKey, boolean>>(
     COLUMN_KEYS.reduce(
-      (acc, key) => ({ ...acc, [key]: false }),
+      (acc, key) => ({
+        ...acc,
+        [key]: typeof storedManualWidthsRef.current[key] === 'number',
+      }),
       {} as Record<ColumnKey, boolean>,
     ),
   );
-  const initializedManualRef = useRef(false);
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
   const fetchCoursesRef = useRef<
@@ -424,20 +436,6 @@ const OperationsPage = () => {
   const displayStatusValue = filters.course_status || ALL_OPTION_VALUE;
 
   useEffect(() => {
-    if (initializedManualRef.current) {
-      return;
-    }
-    initializedManualRef.current = true;
-    COLUMN_KEYS.forEach(key => {
-      const storedWidth = columnWidths[key];
-      const defaultWidth = DEFAULT_COLUMN_WIDTHS[key];
-      if (Math.abs(storedWidth - defaultWidth) > 0.5) {
-        manualResizeRef.current[key] = true;
-      }
-    });
-  }, [columnWidths]);
-
-  useEffect(() => {
     const hasManualResize = Object.values(manualResizeRef.current).some(
       Boolean,
     );
@@ -445,9 +443,22 @@ const OperationsPage = () => {
       return;
     }
     try {
+      const manualOverrides = COLUMN_KEYS.reduce<Partial<ColumnWidthState>>(
+        (acc, key) => {
+          if (manualResizeRef.current[key]) {
+            acc[key] = columnWidths[key];
+          }
+          return acc;
+        },
+        {},
+      );
+      if (Object.keys(manualOverrides).length === 0) {
+        window.localStorage.removeItem(COLUMN_WIDTH_STORAGE_KEY);
+        return;
+      }
       window.localStorage.setItem(
         COLUMN_WIDTH_STORAGE_KEY,
-        JSON.stringify(columnWidths),
+        JSON.stringify(manualOverrides),
       );
     } catch {
       // Ignore storage errors.
@@ -494,10 +505,9 @@ const OperationsPage = () => {
           setError({ message: t('common.core.unknownError') });
         }
       } finally {
-        if (requestId !== requestIdRef.current) {
-          return;
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
         }
-        setLoading(false);
       }
     },
     [filters, t],
