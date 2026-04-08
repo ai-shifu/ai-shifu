@@ -36,6 +36,8 @@ from flaskr.service.billing.settlement import (
 )
 from flaskr.service.billing.wallets import persist_credit_wallet_snapshot
 from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
@@ -148,6 +150,7 @@ def _create_usage(
     input_cache: int,
     output: int,
     total: int,
+    usage_scene: int = BILL_USAGE_SCENE_PROD,
     record_level: int = 0,
     billable: int = 1,
 ) -> BillUsageRecord:
@@ -164,7 +167,7 @@ def _create_usage(
         trace_id=f"trace-{usage_bid}",
         usage_type=usage_type,
         record_level=record_level,
-        usage_scene=BILL_USAGE_SCENE_PROD,
+        usage_scene=usage_scene,
         provider=provider,
         model=model,
         is_stream=0,
@@ -472,6 +475,96 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
         assert payload["status"] == "settled"
         assert payload["consumed_credits"] == 2
         assert entry.amount == Decimal("-2.0000000000")
+
+
+@pytest.mark.parametrize(
+    ("usage_scene", "expected_credits", "usage_bid"),
+    [
+        (BILL_USAGE_SCENE_PROD, Decimal("1.0000000000"), "usage-scene-prod"),
+        (BILL_USAGE_SCENE_PREVIEW, Decimal("2.0000000000"), "usage-scene-preview"),
+        (BILL_USAGE_SCENE_DEBUG, Decimal("3.0000000000"), "usage-scene-debug"),
+    ],
+)
+def test_settle_usage_applies_scene_specific_rate_and_records_scene_metadata(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    usage_scene: int,
+    expected_credits: Decimal,
+    usage_bid: str,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-scene-settlement",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-scene-settlement", "10.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-scene-settlement",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid=f"bucket-scene-{usage_scene}",
+                category=CREDIT_BUCKET_CATEGORY_FREE,
+                priority=10,
+                available_credits="10.0000000000",
+            )
+        )
+        dao.db.session.add_all(
+            [
+                _create_rate(
+                    rate_bid="rate-scene-prod",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-scene-preview",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                    credits_per_unit="2.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-scene-debug",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    usage_scene=BILL_USAGE_SCENE_DEBUG,
+                    credits_per_unit="3.0000000000",
+                ),
+                _create_usage(
+                    usage_bid=usage_bid,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-scene-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                    usage_scene=usage_scene,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(billing_settlement_app, usage_bid=usage_bid)
+
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-scene-settlement"
+        ).one()
+        entry = CreditLedgerEntry.query.filter_by(source_bid=usage_bid).one()
+
+        assert payload["status"] == "settled"
+        assert payload["entry_count"] == 1
+        assert payload["consumed_credits"] == int(expected_credits)
+        assert entry.amount == -expected_credits
+        assert entry.balance_after == Decimal("10.0000000000") - expected_credits
+        assert entry.metadata_json["usage_scene"] == usage_scene
+        assert entry.metadata_json["metric_breakdown"][0]["billing_metric"] == (
+            "llm_input_tokens"
+        )
+        assert wallet.available_credits == Decimal("10.0000000000") - expected_credits
 
 
 def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
