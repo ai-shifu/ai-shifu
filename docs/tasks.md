@@ -23,7 +23,7 @@
 - [x] 新增 `/admin/billing`，按 `套餐与积分`、`积分明细`、`付款记录` 三个 tab 落地 Billing Center。
 - [x] 新增 `src/cook-web/src/components/billing/`、`src/cook-web/src/types/billing.ts` 和 `module.billing.*` i18n。
 - [x] 新增 `/payment/stripe/billing-result`，回跳后先调用 `/billing/orders/{billing_order_bid}/sync` 再回到 `/admin/billing`。
-- [ ] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
+- [x] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
 - [ ] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
 - [ ] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
 - [ ] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
