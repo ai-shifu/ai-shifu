@@ -241,7 +241,7 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
         db.session.commit()
 
     _mock_operator(monkeypatch)
-    monkeypatch.setenv('LOGIN_METHODS_ENABLED', 'phone,email')
+    monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
 
     response = test_client.post(
         f"/api/shifu/admin/operations/courses/{shifu_bid}/transfer-creator",
@@ -258,7 +258,9 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     assert payload["data"]["target_creator_user_bid"] == target_user_bid
 
 
-def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(app, monkeypatch):
+def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
+    app, monkeypatch
+):
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
