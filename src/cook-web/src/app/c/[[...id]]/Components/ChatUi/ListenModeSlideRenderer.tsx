@@ -1164,19 +1164,11 @@ const ListenModeSlideRenderer = ({
       return null;
     }
 
-    const fallbackText = (courseName || sectionTitle || '')
-      .trim()
-      .charAt(0)
-      .toUpperCase();
-
     return (
       <div className='flex min-w-0 items-center gap-3 text-white'>
-        <Avatar className='h-8 w-8 shrink-0'>
-          {courseAvatar ? <AvatarImage src={courseAvatar} alt='' /> : null}
-          <AvatarFallback className='bg-white/20 text-sm font-bold text-white'>
-            {fallbackText || 'A'}
-          </AvatarFallback>
-        </Avatar>
+        {courseAvatar ?<Avatar className='h-8 w-8 shrink-0'>
+           <AvatarImage src={courseAvatar} alt='' /> 
+        </Avatar>: null}
         <div className='flex min-w-0 flex-col justify-center'>
           {courseName ? (
             <span className='truncate text-base font-bold leading-5 text-white'>
@@ -1337,7 +1329,7 @@ const ListenModeSlideRenderer = ({
           </div>
         ) : null}
         <Slide
-          playerAlwaysVisible={true}
+          // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
             isMobileLandscape && 'listen-slide-root--landscape',
