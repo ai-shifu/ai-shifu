@@ -9,6 +9,7 @@ from typing import Any
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -17,8 +18,10 @@ from .consts import (
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
 )
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
@@ -265,6 +268,176 @@ def grant_refund_return_credits(
         }
 
 
+def adjust_credit_wallet_balance(
+    app: Flask,
+    *,
+    creator_bid: str,
+    amount: Decimal | Any,
+    note: str = "",
+    operator_user_bid: str = "",
+) -> dict[str, Any]:
+    """Apply a manual admin ledger adjustment through credit buckets."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_amount = _to_decimal(amount)
+    normalized_note = str(note or "").strip()
+    normalized_operator_user_bid = str(operator_user_bid or "").strip()
+    if not normalized_creator_bid or normalized_amount == _ZERO:
+        return {
+            "status": "noop",
+            "creator_bid": normalized_creator_bid or None,
+            "amount": _decimal_to_number(normalized_amount),
+        }
+
+    with app.app_context():
+        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
+        adjustment_bid = generate_id(app)
+        adjusted_at = datetime.now()
+        metadata = {
+            "adjustment_bid": adjustment_bid,
+            "note": normalized_note,
+            "operator_user_bid": normalized_operator_user_bid,
+        }
+
+        if normalized_amount > _ZERO:
+            bucket = CreditWalletBucket(
+                wallet_bucket_bid=generate_id(app),
+                wallet_bid=wallet.wallet_bid,
+                creator_bid=normalized_creator_bid,
+                bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=adjustment_bid,
+                priority=_FREE_BUCKET_PRIORITY,
+                original_credits=normalized_amount,
+                available_credits=normalized_amount,
+                reserved_credits=_ZERO,
+                consumed_credits=_ZERO,
+                expired_credits=_ZERO,
+                effective_from=adjusted_at,
+                effective_to=None,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    **metadata,
+                    "direction": "credit",
+                },
+            )
+            db.session.add(bucket)
+            sync_credit_bucket_status(bucket)
+            refresh_credit_wallet_snapshot(wallet)
+            ledger_entry = CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=adjustment_bid,
+                idempotency_key=f"adjustment:{adjustment_bid}:{bucket.wallet_bucket_bid}",
+                amount=normalized_amount,
+                balance_after=_to_decimal(wallet.available_credits),
+                expires_at=None,
+                consumable_from=adjusted_at,
+                metadata_json={
+                    **metadata,
+                    "direction": "credit",
+                },
+            )
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=adjusted_at,
+            )
+            db.session.add(ledger_entry)
+            db.session.commit()
+            return {
+                "status": "adjusted",
+                "adjustment_bid": adjustment_bid,
+                "creator_bid": normalized_creator_bid,
+                "amount": _decimal_to_number(normalized_amount),
+                "wallet": {
+                    "wallet_bid": wallet.wallet_bid,
+                    "available_credits": _decimal_to_number(wallet.available_credits),
+                    "reserved_credits": _decimal_to_number(wallet.reserved_credits),
+                },
+                "wallet_bucket_bids": [bucket.wallet_bucket_bid],
+                "ledger_bids": [ledger_entry.ledger_bid],
+            }
+
+        remaining = normalized_amount.copy_abs()
+        buckets = _load_adjustable_credit_buckets(
+            normalized_creator_bid,
+            adjustment_at=adjusted_at,
+        )
+        total_available = sum(
+            (_to_decimal(bucket.available_credits) for bucket in buckets),
+            start=_ZERO,
+        )
+        if total_available < remaining:
+            raise_error("server.billing.creditInsufficient")
+
+        wallet_bucket_bids: list[str] = []
+        ledger_bids: list[str] = []
+        for bucket in buckets:
+            if remaining <= _ZERO:
+                break
+            available = _to_decimal(bucket.available_credits)
+            if available <= _ZERO:
+                continue
+
+            adjusted_amount = min(available, remaining)
+            bucket.available_credits = available - adjusted_amount
+            bucket.consumed_credits = (
+                _to_decimal(bucket.consumed_credits) + adjusted_amount
+            )
+            sync_credit_bucket_status(bucket)
+            db.session.add(bucket)
+            refresh_credit_wallet_snapshot(wallet)
+            ledger_entry = CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=adjustment_bid,
+                idempotency_key=f"adjustment:{adjustment_bid}:{bucket.wallet_bucket_bid}",
+                amount=-adjusted_amount,
+                balance_after=_to_decimal(wallet.available_credits),
+                expires_at=bucket.effective_to,
+                consumable_from=bucket.effective_from,
+                metadata_json={
+                    **metadata,
+                    "direction": "debit",
+                },
+            )
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=adjusted_at,
+            )
+            db.session.add(ledger_entry)
+            wallet_bucket_bids.append(bucket.wallet_bucket_bid)
+            ledger_bids.append(ledger_entry.ledger_bid)
+            remaining -= adjusted_amount
+
+        db.session.commit()
+        return {
+            "status": "adjusted",
+            "adjustment_bid": adjustment_bid,
+            "creator_bid": normalized_creator_bid,
+            "amount": _decimal_to_number(normalized_amount),
+            "wallet": {
+                "wallet_bid": wallet.wallet_bid,
+                "available_credits": _decimal_to_number(wallet.available_credits),
+                "reserved_credits": _decimal_to_number(wallet.reserved_credits),
+            },
+            "wallet_bucket_bids": wallet_bucket_bids,
+            "ledger_bids": ledger_bids,
+        }
+
+
 def expire_credit_wallet_buckets(
     app: Flask,
     *,
@@ -371,6 +544,42 @@ def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:
         return CREDIT_BUCKET_STATUS_EXHAUSTED
     bucket.status = CREDIT_BUCKET_STATUS_ACTIVE
     return CREDIT_BUCKET_STATUS_ACTIVE
+
+
+def _load_adjustable_credit_buckets(
+    creator_bid: str,
+    *,
+    adjustment_at: datetime,
+) -> list[CreditWalletBucket]:
+    rows = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == str(creator_bid or "").strip(),
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        .order_by(
+            CreditWalletBucket.priority.asc(),
+            CreditWalletBucket.id.asc(),
+        )
+        .all()
+    )
+    eligible = [
+        row
+        for row in rows
+        if _to_decimal(row.available_credits) > _ZERO
+        and (row.effective_from is None or row.effective_from <= adjustment_at)
+        and (row.effective_to is None or row.effective_to > adjustment_at)
+    ]
+    eligible.sort(
+        key=lambda row: (
+            int(row.priority or 0),
+            row.effective_to is None,
+            row.effective_to or datetime.max,
+            row.created_at or datetime.min,
+            int(row.id or 0),
+        )
+    )
+    return eligible
 
 
 def _to_decimal(value: Any) -> Decimal:

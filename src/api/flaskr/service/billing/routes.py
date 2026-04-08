@@ -8,7 +8,10 @@ from flask import Flask, request
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.billing.funcs import (
+    adjust_admin_billing_ledger,
     cancel_billing_subscription,
+    build_admin_billing_orders_page,
+    build_admin_billing_subscriptions_page,
     build_billing_catalog,
     build_billing_ledger_page,
     build_billing_order_detail,
@@ -55,11 +58,19 @@ def _get_page_args() -> tuple[str, str]:
     )
 
 
+def _get_optional_query_arg(name: str, *, max_length: int = 100) -> str:
+    value = (request.args.get(name, "") or "").strip()
+    if len(value) > max_length:
+        raise_param_error(name)
+    return value
+
+
 @inject
 def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
     """Register creator billing routes."""
 
     app.logger.info("register billing routes %s", path_prefix)
+    admin_path_prefix = "/api/admin/billing"
 
     @app.route(path_prefix, methods=["GET"])
     def billing_bootstrap_api():
@@ -198,6 +209,47 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 _get_creator_bid(),
                 request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(admin_path_prefix + "/subscriptions", methods=["GET"])
+    def admin_billing_subscriptions_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_subscriptions_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
+                status=_get_optional_query_arg("status"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/orders", methods=["GET"])
+    def admin_billing_orders_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_orders_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
+                status=_get_optional_query_arg("status"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/ledger/adjust", methods=["POST"])
+    def admin_billing_ledger_adjust_api():
+        _require_creator()
+        return _make_common_response(
+            adjust_admin_billing_ledger(
+                app,
+                operator_user_bid=_get_creator_bid(),
+                payload=request.get_json(silent=True) or {},
             )
         )
 

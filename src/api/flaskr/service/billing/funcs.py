@@ -49,8 +49,10 @@ from .consts import (
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    BILLING_RENEWAL_EVENT_STATUS_LABELS,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+    BILLING_RENEWAL_EVENT_TYPE_LABELS,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -84,6 +86,7 @@ from .models import (
     CreditWalletBucket,
 )
 from .wallets import (
+    adjust_credit_wallet_balance,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
@@ -115,6 +118,14 @@ _SUBSCRIPTION_STATUS_SORT = {
     BILLING_SUBSCRIPTION_STATUS_DRAFT: 5,
     BILLING_SUBSCRIPTION_STATUS_CANCELED: 6,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED: 7,
+}
+
+_SUBSCRIPTION_STATUS_CODES_BY_LABEL = {
+    label: code for code, label in BILLING_SUBSCRIPTION_STATUS_LABELS.items()
+}
+
+_ORDER_STATUS_CODES_BY_LABEL = {
+    label: code for code, label in BILLING_ORDER_STATUS_LABELS.items()
 }
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
@@ -356,6 +367,143 @@ def build_billing_orders_page(
         )
 
 
+def build_admin_billing_subscriptions_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    status: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated billing subscriptions for the admin billing surface."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    status_code = _resolve_subscription_status_filter(status)
+
+    with app.app_context():
+        query = BillingSubscription.query.filter(BillingSubscription.deleted == 0)
+        if normalized_creator_bid:
+            query = query.filter(
+                BillingSubscription.creator_bid == normalized_creator_bid
+            )
+        if status_code is not None:
+            query = query.filter(BillingSubscription.status == status_code)
+
+        query = query.order_by(
+            case(
+                (
+                    BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+                    1,
+                ),
+                (
+                    BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_PAUSED,
+                    2,
+                ),
+                (
+                    BillingSubscription.status
+                    == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+                    3,
+                ),
+                else_=9,
+            ),
+            BillingSubscription.updated_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        total = query.order_by(None).count()
+        if total == 0:
+            return {
+                "items": [],
+                "page": safe_page_index,
+                "page_count": 0,
+                "page_size": safe_page_size,
+                "total": 0,
+            }
+
+        page_count = (total + safe_page_size - 1) // safe_page_size
+        resolved_page = min(safe_page_index, max(page_count, 1))
+        offset = (resolved_page - 1) * safe_page_size
+        rows = query.offset(offset).limit(safe_page_size).all()
+
+        product_codes = _load_product_code_map(
+            [
+                *[row.product_bid for row in rows],
+                *[
+                    row.next_product_bid
+                    for row in rows
+                    if _normalize_bid(row.next_product_bid)
+                ],
+            ]
+        )
+        wallets = _load_wallet_map([row.creator_bid for row in rows])
+        renewal_events = _load_latest_renewal_event_map(
+            [row.subscription_bid for row in rows]
+        )
+        return {
+            "items": [
+                _serialize_admin_subscription(
+                    app,
+                    row,
+                    product_codes=product_codes,
+                    wallet=wallets.get(row.creator_bid),
+                    renewal_event=renewal_events.get(row.subscription_bid),
+                    timezone_name=timezone_name,
+                )
+                for row in rows
+            ],
+            "page": resolved_page,
+            "page_count": page_count,
+            "page_size": safe_page_size,
+            "total": total,
+        }
+
+
+def build_admin_billing_orders_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    status: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated billing orders for the admin billing surface."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    status_code = _resolve_order_status_filter(status)
+
+    with app.app_context():
+        query = BillingOrder.query.filter(BillingOrder.deleted == 0)
+        if normalized_creator_bid:
+            query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
+        if status_code is not None:
+            query = query.filter(BillingOrder.status == status_code)
+
+        query = query.order_by(
+            case(
+                (BillingOrder.status == BILLING_ORDER_STATUS_FAILED, 1),
+                (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 2),
+                (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 3),
+                (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 4),
+                else_=9,
+            ),
+            BillingOrder.created_at.desc(),
+            BillingOrder.id.desc(),
+        )
+        return _build_page_payload(
+            query,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+            serializer=lambda row: _serialize_admin_order_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
+            ),
+        )
+
+
 def build_billing_order_detail(
     app: Flask,
     creator_bid: str,
@@ -390,6 +538,39 @@ def build_billing_order_detail(
             app, row.failed_at, timezone_name=timezone_name
         )
         return payload
+
+
+def adjust_admin_billing_ledger(
+    app: Flask,
+    *,
+    operator_user_bid: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply a manual admin ledger adjustment through wallet buckets."""
+
+    normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))
+    if not normalized_creator_bid:
+        raise_param_error("creator_bid")
+
+    amount = payload.get("amount")
+    try:
+        normalized_amount = _to_decimal(amount)
+    except Exception:
+        raise_param_error("amount")
+    if normalized_amount == 0:
+        raise_param_error("amount")
+
+    note = str(payload.get("note") or payload.get("reason") or "").strip()
+    if len(note) > 255:
+        raise_param_error("note")
+
+    return adjust_credit_wallet_balance(
+        app,
+        creator_bid=normalized_creator_bid,
+        amount=normalized_amount,
+        note=note,
+        operator_user_bid=_normalize_bid(operator_user_bid),
+    )
 
 
 def create_billing_subscription_checkout(
@@ -2821,6 +3002,50 @@ def _load_product_code_map(product_bids: list[str]) -> dict[str, str]:
     return {row.product_bid: row.product_code for row in rows}
 
 
+def _load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
+    normalized_creator_bids = [_normalize_bid(bid) for bid in creator_bids if bid]
+    if not normalized_creator_bids:
+        return {}
+    rows = (
+        CreditWallet.query.filter(
+            CreditWallet.deleted == 0,
+            CreditWallet.creator_bid.in_(normalized_creator_bids),
+        )
+        .order_by(CreditWallet.creator_bid.asc(), CreditWallet.id.desc())
+        .all()
+    )
+    payload: dict[str, CreditWallet] = {}
+    for row in rows:
+        payload.setdefault(row.creator_bid, row)
+    return payload
+
+
+def _load_latest_renewal_event_map(
+    subscription_bids: list[str],
+) -> dict[str, BillingRenewalEvent]:
+    normalized_subscription_bids = [
+        _normalize_bid(bid) for bid in subscription_bids if bid
+    ]
+    if not normalized_subscription_bids:
+        return {}
+    rows = (
+        BillingRenewalEvent.query.filter(
+            BillingRenewalEvent.deleted == 0,
+            BillingRenewalEvent.subscription_bid.in_(normalized_subscription_bids),
+        )
+        .order_by(
+            BillingRenewalEvent.subscription_bid.asc(),
+            BillingRenewalEvent.scheduled_at.desc(),
+            BillingRenewalEvent.id.desc(),
+        )
+        .all()
+    )
+    payload: dict[str, BillingRenewalEvent] = {}
+    for row in rows:
+        payload.setdefault(row.subscription_bid, row)
+    return payload
+
+
 def _serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
@@ -2864,6 +3089,95 @@ def _serialize_subscription(
             row.last_failed_at,
             timezone_name=timezone_name,
         ),
+    }
+
+
+def _serialize_admin_subscription(
+    app: Flask,
+    row: BillingSubscription,
+    *,
+    product_codes: dict[str, str],
+    wallet: CreditWallet | None,
+    renewal_event: BillingRenewalEvent | None,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    next_product_bid = _normalize_bid(row.next_product_bid)
+    payload = {
+        "subscription_bid": row.subscription_bid,
+        "creator_bid": row.creator_bid,
+        "product_bid": row.product_bid,
+        "product_code": product_codes.get(row.product_bid, ""),
+        "status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
+        "billing_provider": str(row.billing_provider or ""),
+        "current_period_start_at": _serialize_dt(
+            app,
+            row.current_period_start_at,
+            timezone_name=timezone_name,
+        ),
+        "current_period_end_at": _serialize_dt(
+            app,
+            row.current_period_end_at,
+            timezone_name=timezone_name,
+        ),
+        "grace_period_end_at": _serialize_dt(
+            app,
+            row.grace_period_end_at,
+            timezone_name=timezone_name,
+        ),
+        "cancel_at_period_end": bool(row.cancel_at_period_end),
+        "next_product_bid": next_product_bid or None,
+        "next_product_code": product_codes.get(next_product_bid, "")
+        if next_product_bid
+        else "",
+        "last_renewed_at": _serialize_dt(
+            app,
+            row.last_renewed_at,
+            timezone_name=timezone_name,
+        ),
+        "last_failed_at": _serialize_dt(
+            app,
+            row.last_failed_at,
+            timezone_name=timezone_name,
+        ),
+        "wallet": _serialize_wallet(wallet),
+        "latest_renewal_event": _serialize_renewal_event(
+            app,
+            renewal_event,
+            timezone_name=timezone_name,
+        ),
+    }
+    payload["has_attention"] = _subscription_has_attention(
+        row,
+        renewal_event=renewal_event,
+    )
+    return payload
+
+
+def _serialize_renewal_event(
+    app: Flask,
+    row: BillingRenewalEvent | None,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {
+        "renewal_event_bid": row.renewal_event_bid,
+        "event_type": BILLING_RENEWAL_EVENT_TYPE_LABELS.get(row.event_type, "renewal"),
+        "status": BILLING_RENEWAL_EVENT_STATUS_LABELS.get(row.status, "pending"),
+        "scheduled_at": _serialize_dt(
+            app,
+            row.scheduled_at,
+            timezone_name=timezone_name,
+        ),
+        "processed_at": _serialize_dt(
+            app,
+            row.processed_at,
+            timezone_name=timezone_name,
+        ),
+        "attempt_count": int(row.attempt_count or 0),
+        "last_error": str(row.last_error or ""),
+        "payload": _normalize_json_value(row.payload_json),
     }
 
 
@@ -3006,6 +3320,72 @@ def _serialize_order_summary(
         or "",
         "paid_at": _serialize_dt(app, row.paid_at, timezone_name=timezone_name),
     }
+
+
+def _serialize_admin_order_summary(
+    app: Flask,
+    row: BillingOrder,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    payload = _serialize_order_summary(app, row, timezone_name=timezone_name)
+    payload["failure_code"] = str(row.failure_code or "")
+    payload["failed_at"] = _serialize_dt(
+        app,
+        row.failed_at,
+        timezone_name=timezone_name,
+    )
+    payload["refunded_at"] = _serialize_dt(
+        app,
+        row.refunded_at,
+        timezone_name=timezone_name,
+    )
+    payload["has_attention"] = row.status in {
+        BILLING_ORDER_STATUS_FAILED,
+        BILLING_ORDER_STATUS_PENDING,
+        BILLING_ORDER_STATUS_TIMEOUT,
+    }
+    return payload
+
+
+def _subscription_has_attention(
+    row: BillingSubscription,
+    *,
+    renewal_event: BillingRenewalEvent | None,
+) -> bool:
+    if row.status in {
+        BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+        BILLING_SUBSCRIPTION_STATUS_PAUSED,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    }:
+        return True
+    if renewal_event is None:
+        return False
+    if renewal_event.status in {
+        BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+        BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    }:
+        return True
+    return bool(str(renewal_event.last_error or "").strip())
+
+
+def _resolve_subscription_status_filter(value: str) -> int | None:
+    normalized_value = _normalize_bid(value)
+    if not normalized_value:
+        return None
+    if normalized_value not in _SUBSCRIPTION_STATUS_CODES_BY_LABEL:
+        raise_param_error("status")
+    return _SUBSCRIPTION_STATUS_CODES_BY_LABEL[normalized_value]
+
+
+def _resolve_order_status_filter(value: str) -> int | None:
+    normalized_value = _normalize_bid(value)
+    if not normalized_value:
+        return None
+    if normalized_value not in _ORDER_STATUS_CODES_BY_LABEL:
+        raise_param_error("status")
+    return _ORDER_STATUS_CODES_BY_LABEL[normalized_value]
 
 
 def _build_page_payload(
