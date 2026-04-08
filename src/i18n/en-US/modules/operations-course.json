@@ -6,7 +6,71 @@
   "detail": {
     "back": "Back to course list",
     "basicInfo": "Basic Info",
-    "title": "Course Detail"
+    "chapterType": {
+      "chapter": "Ch.",
+      "lesson": "Sec."
+    },
+    "chapters": "Course Chapters",
+    "chaptersTable": {
+      "chapterId": "Chapter ID",
+      "contentDetail": "Content Detail",
+      "contentStatus": "Content",
+      "detailAction": "Detail",
+      "empty": "No chapter data",
+      "learningPermission": "Access",
+      "modifier": "Modifier",
+      "name": "Chapter Name",
+      "position": "Position",
+      "type": "Type",
+      "updatedAt": "Updated At",
+      "visibility": "Visibility"
+    },
+    "contentDetailDialog": {
+      "copy": "Copy",
+      "copyFailed": "Copy failed",
+      "copySuccess": "Copied content detail",
+      "empty": "No content",
+      "sections": {
+        "content": "Course Content",
+        "systemPrompt": "System Prompt"
+      },
+      "sources": {
+        "chapter": "Source: chapter prompt",
+        "course": "Source: course prompt",
+        "lesson": "Source: lesson prompt"
+      },
+      "title": "Content Detail"
+    },
+    "contentStatus": {
+      "empty": "Empty",
+      "has": "Has"
+    },
+    "fields": {
+      "courseId": "Course ID",
+      "courseName": "Course Name",
+      "createdAt": "Created At",
+      "creator": "Creator",
+      "status": "Status",
+      "updatedAt": "Updated At"
+    },
+    "learningPermission": {
+      "free": "Free",
+      "guest": "No Login",
+      "paid": "Paid"
+    },
+    "metrics": "Metrics",
+    "metricsLabels": {
+      "followUpCount": "Follow-up Questions",
+      "learnerCount": "Learners",
+      "orderAmount": "Gross Revenue",
+      "orderCount": "Orders",
+      "ratingScore": "Rating"
+    },
+    "title": "Course Detail",
+    "visibility": {
+      "hidden": "Hidden",
+      "visible": "Visible"
+    }
   },
   "emptyList": "No courses",
   "filters": {

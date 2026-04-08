@@ -6,7 +6,71 @@
   "detail": {
     "back": "返回课程列表",
     "basicInfo": "基础信息",
-    "title": "课程详情"
+    "chapterType": {
+      "chapter": "章",
+      "lesson": "节"
+    },
+    "chapters": "课程章节",
+    "chaptersTable": {
+      "chapterId": "章节ID",
+      "contentDetail": "内容详情",
+      "contentStatus": "内容状态",
+      "detailAction": "详情",
+      "empty": "暂无章节数据",
+      "learningPermission": "学习权限",
+      "modifier": "修改者",
+      "name": "章节名称",
+      "position": "序号",
+      "type": "类型",
+      "updatedAt": "更新时间",
+      "visibility": "可见性"
+    },
+    "contentDetailDialog": {
+      "copy": "复制",
+      "copyFailed": "复制失败",
+      "copySuccess": "已复制内容详情",
+      "empty": "暂无内容",
+      "sections": {
+        "content": "课程内容",
+        "systemPrompt": "系统提示词"
+      },
+      "sources": {
+        "chapter": "来源：章提示词",
+        "course": "来源：课程提示词",
+        "lesson": "来源：节提示词"
+      },
+      "title": "内容详情"
+    },
+    "contentStatus": {
+      "empty": "无",
+      "has": "有"
+    },
+    "fields": {
+      "courseId": "课程ID",
+      "courseName": "课程名",
+      "createdAt": "创建时间",
+      "creator": "创作者",
+      "status": "状态",
+      "updatedAt": "更新时间"
+    },
+    "learningPermission": {
+      "free": "免费",
+      "guest": "免登录",
+      "paid": "付费"
+    },
+    "metrics": "数据概览",
+    "metricsLabels": {
+      "followUpCount": "追问数",
+      "learnerCount": "学习人数",
+      "orderAmount": "流水总额",
+      "orderCount": "订单数",
+      "ratingScore": "评分"
+    },
+    "title": "课程详情",
+    "visibility": {
+      "hidden": "隐藏",
+      "visible": "显示"
+    }
   },
   "emptyList": "暂无课程",
   "filters": {

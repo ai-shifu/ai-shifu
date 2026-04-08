@@ -103,7 +103,11 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_PROVIDER_MODES,
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
-from flaskr.service.shifu.admin import list_operator_courses
+from flaskr.service.shifu.admin import (
+    get_operator_course_chapter_detail,
+    get_operator_course_detail,
+    list_operator_courses,
+)
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -534,6 +538,33 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         }
         return make_common_response(
             list_operator_courses(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
+    )
+    def admin_operation_course_detail(shifu_bid: str):
+        _require_operator()
+        return make_common_response(
+            get_operator_course_detail(
+                app,
+                shifu_bid=shifu_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/courses/<shifu_bid>/chapters/<outline_item_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_course_chapter_detail(shifu_bid: str, outline_item_bid: str):
+        _require_operator()
+        return make_common_response(
+            get_operator_course_chapter_detail(
+                app,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_item_bid,
+            )
         )
 
     @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])

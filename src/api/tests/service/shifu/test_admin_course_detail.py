@@ -1,0 +1,625 @@
+from __future__ import annotations
+
+import sys
+from types import SimpleNamespace
+from datetime import datetime
+from decimal import Decimal
+
+import pytest
+
+from flaskr.dao import db
+from flaskr.service.learn.const import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_RESET,
+    ROLE_STUDENT,
+    ROLE_TEACHER,
+)
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnLessonFeedback,
+    LearnProgressRecord,
+)
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_CONTENT_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+sys.modules.setdefault(
+    "bcrypt",
+    SimpleNamespace(
+        gensalt=lambda rounds=12: b"salt",
+        hashpw=lambda plain, salt: plain + b":" + salt,
+        checkpw=lambda plain, hashed: hashed == plain + b":salt",
+    ),
+)
+
+
+def _clear_tables() -> None:
+    db.session.query(LearnLessonFeedback).delete()
+    db.session.query(LearnGeneratedBlock).delete()
+    db.session.query(LearnProgressRecord).delete()
+    db.session.query(Order).delete()
+    db.session.query(DraftOutlineItem).delete()
+    db.session.query(PublishedOutlineItem).delete()
+    db.session.query(DraftShifu).delete()
+    db.session.query(PublishedShifu).delete()
+    db.session.query(AuthCredential).delete()
+    db.session.query(UserEntity).delete()
+    db.session.commit()
+    db.session.remove()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_tables(app):
+    with app.app_context():
+        _clear_tables()
+    yield
+    with app.app_context():
+        _clear_tables()
+
+
+def _mock_operator(monkeypatch, user_id: str = "operator-1") -> None:
+    dummy_user = SimpleNamespace(
+        user_id=user_id,
+        is_operator=True,
+        is_creator=False,
+        language="en-US",
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+
+
+def _seed_user(app, *, user_bid: str, email: str = "", phone: str = "") -> None:
+    identify = email or phone or user_bid
+    create_user_entity(
+        user_bid=user_bid,
+        identify=identify,
+        nickname=f"user-{user_bid[:6]}",
+        language="en-US",
+        state=1,
+    )
+    db.session.flush()
+    if email:
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="email",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=True,
+        )
+    if phone:
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="phone",
+            subject_id=phone,
+            subject_format="phone",
+            identifier=phone,
+            metadata={},
+            verified=True,
+        )
+    db.session.flush()
+
+
+def _seed_course(
+    *,
+    shifu_bid: str,
+    creator_user_bid: str,
+    created_at: datetime,
+    updated_at: datetime,
+) -> None:
+    db.session.add(
+        DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Draft Detail Course",
+            description="draft",
+            avatar_res_bid="",
+            keywords="",
+            llm="gpt-test",
+            llm_temperature=Decimal("0"),
+            llm_system_prompt="",
+            price=Decimal("199.00"),
+            deleted=0,
+            created_at=created_at,
+            created_user_bid=creator_user_bid,
+            updated_at=updated_at,
+            updated_user_bid=creator_user_bid,
+        )
+    )
+    db.session.add(
+        PublishedShifu(
+            shifu_bid=shifu_bid,
+            title="Published Detail Course",
+            description="published",
+            avatar_res_bid="",
+            keywords="",
+            llm="gpt-test",
+            llm_temperature=Decimal("0"),
+            llm_system_prompt="",
+            price=Decimal("99.00"),
+            deleted=0,
+            created_at=created_at,
+            created_user_bid=creator_user_bid,
+            updated_at=created_at,
+            updated_user_bid=creator_user_bid,
+        )
+    )
+
+
+def _seed_outline(
+    *,
+    shifu_bid: str,
+    model,
+    outline_item_bid: str,
+    title: str,
+    position: str,
+    parent_bid: str = "",
+    hidden: int = 0,
+    item_type: int = 402,
+    updated_at: datetime,
+    updated_user_bid: str = "creator-1",
+    content: str = "",
+    llm_system_prompt: str = "",
+) -> None:
+    db.session.add(
+        model(
+            outline_item_bid=outline_item_bid,
+            shifu_bid=shifu_bid,
+            title=title,
+            parent_bid=parent_bid,
+            position=position,
+            hidden=hidden,
+            type=item_type,
+            llm="",
+            llm_temperature=0,
+            llm_system_prompt=llm_system_prompt,
+            ask_enabled_status=0,
+            ask_llm="",
+            ask_llm_temperature=0,
+            ask_llm_system_prompt="",
+            content=content,
+            deleted=0,
+            created_at=updated_at,
+            created_user_bid="creator-1",
+            updated_at=updated_at,
+            updated_user_bid=updated_user_bid,
+        )
+    )
+
+
+def test_admin_operation_course_detail_route_returns_latest_detail(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="modifier-1", phone="13900001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_GUEST,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            parent_bid="chapter-1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_TRIAL,
+            updated_at=updated_at,
+            updated_user_bid="modifier-1",
+            content="# Lesson 1 content",
+            llm_system_prompt="lesson system prompt",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-1",
+            position="1.2",
+            hidden=1,
+            updated_at=updated_at,
+            updated_user_bid="modifier-1",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=PublishedOutlineItem,
+            outline_item_bid="published-chapter",
+            title="Published Chapter",
+            position="1",
+            updated_at=created_at,
+        )
+        db.session.add_all(
+            [
+                LearnProgressRecord(
+                    progress_record_bid="progress-1",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    user_bid="learner-1",
+                    status=LEARN_STATUS_COMPLETED,
+                    block_position=0,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnProgressRecord(
+                    progress_record_bid="progress-2",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    user_bid="learner-2",
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnProgressRecord(
+                    progress_record_bid="progress-3",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    user_bid="learner-reset",
+                    status=LEARN_STATUS_RESET,
+                    block_position=0,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                Order(
+                    order_bid="order-1",
+                    shifu_bid="course-detail",
+                    user_bid="learner-1",
+                    paid_price=Decimal("88.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                Order(
+                    order_bid="order-2",
+                    shifu_bid="course-detail",
+                    user_bid="learner-2",
+                    paid_price=Decimal("66.00"),
+                    status=ORDER_STATUS_TO_BE_PAID,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnGeneratedBlock(
+                    generated_block_bid="follow-1",
+                    progress_record_bid="progress-1",
+                    user_bid="learner-1",
+                    block_bid="",
+                    outline_item_bid="lesson-1",
+                    shifu_bid="course-detail",
+                    type=BLOCK_TYPE_MDASK_VALUE,
+                    role=ROLE_STUDENT,
+                    generated_content="Question 1",
+                    position=1,
+                    block_content_conf="",
+                    status=1,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnGeneratedBlock(
+                    generated_block_bid="follow-ignore-role",
+                    progress_record_bid="progress-1",
+                    user_bid="learner-1",
+                    block_bid="",
+                    outline_item_bid="lesson-1",
+                    shifu_bid="course-detail",
+                    type=BLOCK_TYPE_MDASK_VALUE,
+                    role=ROLE_TEACHER,
+                    generated_content="Ignore",
+                    position=2,
+                    block_content_conf="",
+                    status=1,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnGeneratedBlock(
+                    generated_block_bid="follow-ignore-type",
+                    progress_record_bid="progress-2",
+                    user_bid="learner-2",
+                    block_bid="",
+                    outline_item_bid="lesson-1",
+                    shifu_bid="course-detail",
+                    type=BLOCK_TYPE_CONTENT_VALUE,
+                    role=ROLE_STUDENT,
+                    generated_content="Ignore",
+                    position=3,
+                    block_content_conf="",
+                    status=1,
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-1",
+                    lesson_feedback_bid="feedback-1",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    progress_record_bid="progress-1",
+                    user_bid="learner-1",
+                    score=5,
+                    comment="Great",
+                    mode="read",
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-2",
+                    lesson_feedback_bid="feedback-2",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-2",
+                    user_bid="learner-2",
+                    score=3,
+                    comment="Okay",
+                    mode="read",
+                    deleted=0,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-deleted",
+                    lesson_feedback_bid="feedback-deleted",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    progress_record_bid="progress-2",
+                    user_bid="learner-2",
+                    score=4,
+                    comment="Ignore",
+                    mode="read",
+                    deleted=1,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["basic_info"] == {
+        "shifu_bid": "course-detail",
+        "course_name": "Draft Detail Course",
+        "course_status": "published",
+        "creator_user_bid": "creator-1",
+        "creator_mobile": "13800001234",
+        "creator_email": "",
+        "creator_nickname": "user-creato",
+        "created_at": "2026-04-01 09:00:00",
+        "updated_at": "2026-04-03 15:30:00",
+    }
+    assert payload["data"]["metrics"] == {
+        "learner_count": 2,
+        "order_count": 1,
+        "order_amount": "88",
+        "follow_up_count": 1,
+        "rating_score": "4.0",
+    }
+    assert payload["data"]["chapters"] == [
+        {
+            "outline_item_bid": "chapter-1",
+            "title": "Chapter 1",
+            "parent_bid": "",
+            "position": "1",
+            "node_type": "chapter",
+            "learning_permission": "guest",
+            "is_visible": True,
+            "content_status": "empty",
+            "modifier_user_bid": "creator-1",
+            "modifier_mobile": "13800001234",
+            "modifier_email": "",
+            "modifier_nickname": "user-creato",
+            "updated_at": "2026-04-03 15:30:00",
+            "children": [
+                {
+                    "outline_item_bid": "lesson-1",
+                    "title": "Lesson 1",
+                    "parent_bid": "chapter-1",
+                    "position": "1.1",
+                    "node_type": "lesson",
+                    "learning_permission": "free",
+                    "is_visible": True,
+                    "content_status": "has",
+                    "modifier_user_bid": "modifier-1",
+                    "modifier_mobile": "13900001234",
+                    "modifier_email": "",
+                    "modifier_nickname": "user-modifi",
+                    "updated_at": "2026-04-03 15:30:00",
+                    "children": [],
+                },
+                {
+                    "outline_item_bid": "lesson-2",
+                    "title": "Lesson 2",
+                    "parent_bid": "chapter-1",
+                    "position": "1.2",
+                    "node_type": "lesson",
+                    "learning_permission": "paid",
+                    "is_visible": False,
+                    "content_status": "empty",
+                    "modifier_user_bid": "modifier-1",
+                    "modifier_mobile": "13900001234",
+                    "modifier_email": "",
+                    "modifier_nickname": "user-modifi",
+                    "updated_at": "2026-04-03 15:30:00",
+                    "children": [],
+                },
+            ],
+        }
+    ]
+
+
+def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1.1",
+            parent_bid="chapter-1",
+            updated_at=updated_at,
+            content="# Lesson 1 content",
+            llm_system_prompt="lesson system prompt",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "outline_item_bid": "lesson-1",
+        "title": "Lesson 1",
+        "content": "# Lesson 1 content",
+        "llm_system_prompt": "lesson system prompt",
+        "llm_system_prompt_source": "lesson",
+    }
+
+
+def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_course(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        db.session.add(
+            DraftShifu(
+                shifu_bid="course-detail",
+                title="Draft Detail Course",
+                description="draft",
+                avatar_res_bid="",
+                keywords="",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="course system prompt",
+                price=Decimal("199.00"),
+                deleted=0,
+                created_at=updated_at,
+                created_user_bid="creator-1",
+                updated_at=updated_at,
+                updated_user_bid="creator-1",
+            )
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            updated_at=updated_at,
+            llm_system_prompt="chapter system prompt",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1.1",
+            parent_bid="chapter-1",
+            updated_at=updated_at,
+            content="# Lesson 1 content",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "outline_item_bid": "lesson-1",
+        "title": "Lesson 1",
+        "content": "# Lesson 1 content",
+        "llm_system_prompt": "chapter system prompt",
+        "llm_system_prompt_source": "chapter",
+    }
+
+
+def test_admin_operation_course_detail_route_rejects_missing_course(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/missing-course/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] != 0

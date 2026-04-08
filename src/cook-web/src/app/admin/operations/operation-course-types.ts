@@ -22,3 +22,54 @@ export type AdminOperationCourseListResponse = {
   page_size: number;
   total: number;
 };
+
+export type AdminOperationCourseDetailBasicInfo = {
+  shifu_bid: string;
+  course_name: string;
+  course_status: string;
+  creator_user_bid: string;
+  creator_mobile: string;
+  creator_email: string;
+  creator_nickname: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminOperationCourseDetailMetrics = {
+  learner_count: number;
+  order_count: number;
+  order_amount: string;
+  follow_up_count: number;
+  rating_score: string;
+};
+
+export type AdminOperationCourseDetailChapter = {
+  outline_item_bid: string;
+  title: string;
+  parent_bid: string;
+  position: string;
+  node_type: 'chapter' | 'lesson' | string;
+  learning_permission: 'guest' | 'free' | 'paid' | string;
+  is_visible: boolean;
+  content_status: 'has' | 'empty' | string;
+  modifier_user_bid: string;
+  modifier_mobile: string;
+  modifier_email: string;
+  modifier_nickname: string;
+  updated_at: string;
+  children: AdminOperationCourseDetailChapter[];
+};
+
+export type AdminOperationCourseChapterDetailResponse = {
+  outline_item_bid: string;
+  title: string;
+  content: string;
+  llm_system_prompt: string;
+  llm_system_prompt_source: 'lesson' | 'chapter' | 'course' | '' | string;
+};
+
+export type AdminOperationCourseDetailResponse = {
+  basic_info: AdminOperationCourseDetailBasicInfo;
+  metrics: AdminOperationCourseDetailMetrics;
+  chapters: AdminOperationCourseDetailChapter[];
+};
