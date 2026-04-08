@@ -207,6 +207,7 @@ class RUNLLMProvider(LLMProvider):
     trace_args: dict
     usage_context: UsageContext
     usage_scene: int
+    ensure_observation: Callable[[], tuple[Any, Any]] | None
 
     def __init__(
         self,
@@ -217,6 +218,7 @@ class RUNLLMProvider(LLMProvider):
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
+        ensure_observation: Callable[[], tuple[Any, Any]] | None = None,
     ):
         self.app = app
         self.llm_settings = llm_settings
@@ -225,6 +227,14 @@ class RUNLLMProvider(LLMProvider):
         self.trace_args = trace_args
         self.usage_context = usage_context
         self.usage_scene = usage_scene
+        self.ensure_observation = ensure_observation
+
+    def _ensure_parent_observation(self) -> None:
+        if self.trace is not None and self.parent_observation is not None:
+            return
+        if not callable(self.ensure_observation):
+            return
+        self.trace, self.parent_observation = self.ensure_observation()
 
     def _log_preview_output(
         self,
@@ -265,6 +275,7 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        self._ensure_parent_observation()
         metadata = self.trace_args.get("metadata") or {}
         if not isinstance(metadata, dict):
             metadata = {}
@@ -321,6 +332,7 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        self._ensure_parent_observation()
         metadata = self.trace_args.get("metadata") or {}
         if not isinstance(metadata, dict):
             metadata = {}
@@ -1221,8 +1233,9 @@ class RunScriptContextV2:
     _outline_model: Union[DraftOutlineItem, PublishedOutlineItem]
     _trace_args: dict
     _shifu_info: ShifuInfoDto
-    _trace: Union[StatefulTraceClient, MockClient]
+    _trace: Union[StatefulTraceClient, MockClient, None]
     _trace_root_span: Any
+    _trace_root_span_payload: dict[str, Any]
     _input_type: str
     _input: str
     _can_continue: bool
@@ -1286,17 +1299,15 @@ class RunScriptContextV2:
             "shifu_bid": self._outline_item_info.shifu_bid,
             "preview_mode": int(bool(preview_mode)),
         }
-        self._trace, self._trace_root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload=self._trace_args,
-            root_span_payload={
-                "name": build_langfuse_span_name(
-                    chapter_title,
-                    trace_scene,
-                    "root",
-                ),
-            },
-        )
+        self._trace = None
+        self._trace_root_span = None
+        self._trace_root_span_payload = {
+            "name": build_langfuse_span_name(
+                chapter_title,
+                trace_scene,
+                "root",
+            ),
+        }
         context_local.current_context = self
 
     @staticmethod
@@ -1313,7 +1324,44 @@ class RunScriptContextV2:
             return
         self._langfuse_output_chunks.append(text)
 
+    def _ensure_langfuse_trace(self) -> tuple[StatefulTraceClient | MockClient, Any]:
+        if self._trace is not None and self._trace_root_span is not None:
+            return self._trace, self._trace_root_span
+
+        root_span_payload = getattr(self, "_trace_root_span_payload", None)
+        if not root_span_payload:
+            metadata = self._trace_args.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            chapter_title = metadata.get(
+                "chapter_title",
+                getattr(self._outline_item_info, "title", ""),
+            )
+            trace_scene = metadata.get(
+                "scene",
+                "lesson_preview_runtime"
+                if getattr(self, "_preview_mode", False)
+                else "lesson_runtime",
+            )
+            root_span_payload = {
+                "name": build_langfuse_span_name(
+                    chapter_title,
+                    trace_scene,
+                    "root",
+                )
+            }
+            self._trace_root_span_payload = root_span_payload
+
+        self._trace, self._trace_root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload=self._trace_args,
+            root_span_payload=root_span_payload,
+        )
+        return self._trace, self._trace_root_span
+
     def _finalize_langfuse_trace(self) -> None:
+        if self._trace is None:
+            return
         output_chunks = getattr(self, "_langfuse_output_chunks", [])
         finalize_langfuse_trace(
             trace=self._trace,
@@ -2050,20 +2098,36 @@ class RunScriptContextV2:
         )
         if not outline_bid:
             return
-        generated_block: LearnGeneratedBlock = init_generated_block(
-            self.app,
-            shifu_bid=self._current_attend.shifu_bid,
-            outline_item_bid=outline_bid,
-            progress_record_bid=self._current_attend.progress_record_bid,
-            user_bid=self._user_info.user_id,
-            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-            mdflow=content,
-            block_index=self._current_attend.block_position,
+        generated_block: LearnGeneratedBlock | None = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == self._current_attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == outline_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                LearnGeneratedBlock.position == self._current_attend.block_position,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.block_content_conf == content,
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
         )
+        if not generated_block:
+            generated_block = init_generated_block(
+                self.app,
+                shifu_bid=self._current_attend.shifu_bid,
+                outline_item_bid=outline_bid,
+                progress_record_bid=self._current_attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                mdflow=content,
+                block_index=self._current_attend.block_position,
+            )
+            db.session.add(generated_block)
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = content
         generated_block.generated_content = ""
-        db.session.add(generated_block)
         db.session.flush()
         self.append_langfuse_output(content)
         yield RunMarkdownFlowDTO(
@@ -2278,6 +2342,7 @@ class RunScriptContextV2:
             if isinstance(ask_input, list):
                 ask_input = ",".join(ask_input)
             app.logger.info(f"ask_input: {ask_input}")
+            trace, parent_observation = self._ensure_langfuse_trace()
             res = handle_input_ask(
                 app,
                 self,
@@ -2286,11 +2351,11 @@ class RunScriptContextV2:
                 ask_input,
                 self._outline_item_info,
                 self._trace_args,
-                self._trace,
+                trace,
                 self._preview_mode,
                 self._last_position,
                 anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
-                parent_observation=self._trace_root_span,
+                parent_observation=parent_observation,
             )
 
             if self._should_stream_tts():
@@ -2372,6 +2437,7 @@ class RunScriptContextV2:
                 self._trace_args,
                 usage_context,
                 usage_scene,
+                ensure_observation=self._ensure_langfuse_trace,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=self._listen,
@@ -2654,12 +2720,13 @@ class RunScriptContextV2:
                 self._outline_item_info.title,
             )
             trace_scene = trace_metadata.get("scene", "lesson_runtime")
+            _, trace_root_span = self._ensure_langfuse_trace()
             res = check_text_with_llm_response(
                 app,
                 user_info=self._user_info,
                 log_script=generated_block,
                 input=generated_block.generated_content,  # Use converted string value
-                span=self._trace_root_span,
+                span=trace_root_span,
                 outline_item_bid=self._outline_item_info.bid,
                 shifu_bid=self._outline_item_info.shifu_bid,
                 block_position=run_script_info.block_position,
@@ -2930,22 +2997,28 @@ class RunScriptContextV2:
                                 db.session.flush()
                                 return
 
-                # Render interaction content with translation (markdown-flow 0.2.34+)
-                # Call process() without user_input to trigger interaction rendering
-                # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                app.logger.info(f"render_interaction: {run_script_info.block_position}")
-
-                interaction_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.COMPLETE,
-                    context=message_list,
-                    variables=user_profile,
-                )
-
-                # Get rendered interaction content
                 rendered_content = (
-                    interaction_result.content if interaction_result else block.content
+                    generated_block.block_content_conf
+                    if generated_block and generated_block.block_content_conf
+                    else ""
                 )
+                if not rendered_content:
+                    # Render interaction content with translation only when there is
+                    # no persisted interaction snapshot to reuse.
+                    app.logger.info(
+                        f"render_interaction: {run_script_info.block_position}"
+                    )
+                    interaction_result = mdflow_context.process(
+                        block_index=run_script_info.block_position,
+                        mode=ProcessMode.COMPLETE,
+                        context=message_list,
+                        variables=user_profile,
+                    )
+                    rendered_content = (
+                        interaction_result.content
+                        if interaction_result
+                        else block.content
+                    )
 
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
                 generated_block.role = ROLE_TEACHER

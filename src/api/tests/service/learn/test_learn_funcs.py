@@ -657,6 +657,9 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
                 return_value=[],
             ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span"
+            ),
         ):
             events = list(ctx.run_inner(self.app))
 
@@ -791,6 +794,9 @@ class LearnRecordLoadTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
                 return_value=[],
             ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span"
+            ) as mock_create_trace,
         ):
             events = list(ctx.run_inner(self.app))
 
@@ -799,6 +805,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.assertEqual(events[0].generated_block_bid, "pay-interaction-1")
         self.assertEqual(events[0].content, "?[去支付//_sys_pay]")
         self.assertFalse(ctx._can_continue)
+        mock_create_trace.assert_not_called()
         self.assertEqual(
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.progress_record_bid == progress.progress_record_bid,

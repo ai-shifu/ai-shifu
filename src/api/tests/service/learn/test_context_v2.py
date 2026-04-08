@@ -110,7 +110,7 @@ from flaskr.service.learn.context_v2 import (
     RunScriptContextV2,
     RunScriptPreviewContextV2,
 )
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -593,6 +593,63 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             events = list(self.ctx._emit_feedback_before_exception_gate())
             self.assertEqual(events, [])
 
+    def test_current_progress_gate_reuses_existing_interaction_block(self):
+        with self.app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid="progress-gate",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-locked",
+                user_bid="user-1",
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=0,
+            )
+            existing_block = LearnGeneratedBlock(
+                generated_block_bid="gate-block-1",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid="user-1",
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="",
+                position=0,
+                block_content_conf="?[去支付//_sys_pay]",
+                status=1,
+            )
+            dao.db.session.add_all([progress, existing_block])
+            dao.db.session.commit()
+
+            self.ctx._current_attend = progress
+            self.ctx._trace = None
+            self.ctx._trace_root_span = None
+            self.ctx._trace_args = {}
+            self.ctx._langfuse_output_chunks = []
+
+            with patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span"
+            ) as mock_create_trace:
+                events = list(
+                    self.ctx._emit_current_progress_gate_interaction(
+                        "?[去支付//_sys_pay]"
+                    )
+                )
+
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0].generated_block_bid, "gate-block-1")
+            self.assertEqual(events[0].content, "?[去支付//_sys_pay]")
+            self.assertEqual(
+                LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.progress_record_bid
+                    == progress.progress_record_bid,
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                    LearnGeneratedBlock.position == 0,
+                    LearnGeneratedBlock.status == 1,
+                ).count(),
+                1,
+            )
+            mock_create_trace.assert_not_called()
+
 
 class StreamTtsGateTests(unittest.TestCase):
     def test_should_stream_tts_respects_preview_and_listen(self):
@@ -1048,7 +1105,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 side_effect=_fake_create_trace_with_root_span,
             ),
         ):
-            RunScriptContextV2(
+            ctx = RunScriptContextV2(
                 app=app,
                 shifu_info=types.SimpleNamespace(),
                 struct=struct,
@@ -1061,6 +1118,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 is_paid=True,
                 preview_mode=False,
             )
+            self.assertEqual(captured, {})
+            ctx._ensure_langfuse_trace()
 
         self.assertIs(captured["client"], sentinel_client)
 
@@ -1103,6 +1162,22 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
             },
         )
         self.assertEqual(ctx._trace_root_span.end_kwargs, {})
+
+    def test_runtime_finalize_is_noop_when_trace_never_created(self):
+        ctx = _make_context()
+        ctx._trace = None
+        ctx._trace_root_span = None
+        ctx._trace_args = {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "name": "lesson_runtime/trace/Outline",
+        }
+        ctx._langfuse_output_chunks = ["existing output"]
+
+        ctx._finalize_langfuse_trace()
+
+        self.assertIsNone(ctx._trace)
+        self.assertIsNone(ctx._trace_root_span)
 
     def test_runtime_finalize_uses_accumulated_output(self):
         ctx = _make_context()
