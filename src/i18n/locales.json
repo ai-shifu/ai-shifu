@@ -24,6 +24,7 @@
     "component.outlineTree",
     "component.profileSelectModal",
     "module.auth",
+    "module.billing",
     "module.chapterSetting",
     "module.chat",
     "module.dashboard",

@@ -1,0 +1,13 @@
+{
+  "__namespace__": "module.billing",
+  "navTitle": "Membership & Credits",
+  "sidebar": {
+    "cta": "Open billing center",
+    "description": "Review your plan, credits, and upcoming billing actions.",
+    "placeholderValue": "--",
+    "subscriptionPending": "Coming soon",
+    "subscriptionStatusLabel": "Subscription",
+    "title": "My Membership",
+    "totalCreditsLabel": "Total credits"
+  }
+}

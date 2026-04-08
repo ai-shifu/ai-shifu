@@ -7,8 +7,9 @@ import React, {
   useState,
 } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import {
+  BanknotesIcon,
+  CreditCardIcon,
   DocumentIcon,
   PresentationChartLineIcon,
   ShoppingCartIcon,
@@ -45,6 +46,13 @@ type SidebarContentProps = {
   userMenuClassName?: string;
   logoSrc: string | StaticImageData;
   activePath?: string;
+  billingTitle: string;
+  billingDescription: string;
+  billingCreditsLabel: string;
+  billingCreditsValue: string;
+  billingStatusLabel: string;
+  billingStatusValue: string;
+  billingCtaLabel: string;
 };
 
 const SidebarContent = ({
@@ -56,6 +64,13 @@ const SidebarContent = ({
   userMenuClassName,
   logoSrc,
   activePath,
+  billingTitle,
+  billingDescription,
+  billingCreditsLabel,
+  billingCreditsValue,
+  billingStatusLabel,
+  billingStatusValue,
+  billingCtaLabel,
 }: SidebarContentProps) => {
   const logoHeight = 32;
   const logoWidth = useMemo(() => {
@@ -136,6 +151,7 @@ const SidebarContent = ({
               <Link
                 key={index}
                 href={item.href || '#'}
+                data-testid={item.id ? `admin-nav-${item.id}` : undefined}
                 className={cn(
                   'flex min-w-0 items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100',
                   isActive && 'bg-gray-200 text-gray-900 font-semibold',
@@ -150,6 +166,44 @@ const SidebarContent = ({
             );
           })}
         </nav>
+        <div
+          className='mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
+          data-testid='admin-billing-sidebar-card'
+        >
+          <div className='flex items-start justify-between gap-3'>
+            <div className='min-w-0'>
+              <p className='text-sm font-semibold text-slate-900'>
+                {billingTitle}
+              </p>
+              <p className='mt-1 text-xs leading-5 text-slate-500'>
+                {billingDescription}
+              </p>
+            </div>
+            <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600'>
+              <CreditCardIcon className='h-5 w-5' />
+            </div>
+          </div>
+          <div className='mt-4 grid gap-2 rounded-xl bg-slate-50 p-3'>
+            <div className='flex items-center justify-between gap-3 text-sm'>
+              <span className='text-slate-500'>{billingCreditsLabel}</span>
+              <span className='font-semibold text-slate-900'>
+                {billingCreditsValue}
+              </span>
+            </div>
+            <div className='flex items-center justify-between gap-3 text-sm'>
+              <span className='text-slate-500'>{billingStatusLabel}</span>
+              <span className='font-semibold text-slate-900'>
+                {billingStatusValue}
+              </span>
+            </div>
+          </div>
+          <Button
+            asChild
+            className='mt-4 w-full justify-between rounded-xl'
+          >
+            <Link href='/admin/billing'>{billingCtaLabel}</Link>
+          </Button>
+        </div>
       </div>
       <NavFooter
         ref={footerRef}
@@ -186,20 +240,9 @@ const MainInterface = ({
     onClose: closeDesktopMenu,
   } = useDisclosure();
 
-  const mobileFooterRef = useRef<any>(null);
-  const {
-    open: mobileMenuOpen,
-    onToggle: toggleMobileMenu,
-    onClose: closeMobileMenu,
-  } = useDisclosure();
-
   const onDesktopFooterClick = useCallback(() => {
     toggleDesktopMenu();
   }, [toggleDesktopMenu]);
-
-  const onMobileFooterClick = useCallback(() => {
-    toggleMobileMenu();
-  }, [toggleMobileMenu]);
 
   const handleDesktopMenuClose = useCallback(
     (e?: Event | React.MouseEvent) => {
@@ -211,31 +254,30 @@ const MainInterface = ({
     [closeDesktopMenu],
   );
 
-  const handleMobileMenuClose = useCallback(
-    (e?: Event | React.MouseEvent) => {
-      if (mobileFooterRef.current?.containElement?.(e?.target)) {
-        return;
-      }
-      closeMobileMenu();
-    },
-    [closeMobileMenu],
-  );
-
   const menuItems: MenuItem[] = [
     {
+      id: 'shifu',
       icon: <DocumentIcon className='w-4 h-4' />,
       label: t('common.core.shifu'),
       href: '/admin',
     },
     {
+      id: 'orders',
       icon: <ShoppingCartIcon className='w-4 h-4' />,
       label: t('module.order.title'),
       href: '/admin/orders',
     },
     {
+      id: 'dashboard',
       icon: <PresentationChartLineIcon className='w-4 h-4' />,
       label: t('module.dashboard.title'),
       href: '/admin/dashboard',
+    },
+    {
+      id: 'billing',
+      icon: <BanknotesIcon className='w-4 h-4' />,
+      label: t('module.billing.navTitle'),
+      href: '/admin/billing',
     },
   ];
 
@@ -263,6 +305,15 @@ const MainInterface = ({
           userMenuClassName={adminSidebarStyles.navMenuPopup}
           logoSrc={resolvedLogo}
           activePath={pathname}
+          billingTitle={t('module.billing.sidebar.title')}
+          billingDescription={t('module.billing.sidebar.description')}
+          billingCreditsLabel={t('module.billing.sidebar.totalCreditsLabel')}
+          billingCreditsValue={t('module.billing.sidebar.placeholderValue')}
+          billingStatusLabel={t(
+            'module.billing.sidebar.subscriptionStatusLabel',
+          )}
+          billingStatusValue={t('module.billing.sidebar.subscriptionPending')}
+          billingCtaLabel={t('module.billing.sidebar.cta')}
         />
       </div>
       <div className='flex-1 p-5  overflow-hidden bg-background'>

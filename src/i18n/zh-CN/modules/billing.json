@@ -1,0 +1,13 @@
+{
+  "__namespace__": "module.billing",
+  "navTitle": "会员与积分",
+  "sidebar": {
+    "cta": "前往会员中心",
+    "description": "查看会员状态、积分余额与后续账务动作。",
+    "placeholderValue": "--",
+    "subscriptionPending": "即将开放",
+    "subscriptionStatusLabel": "订阅状态",
+    "title": "我的会员",
+    "totalCreditsLabel": "总积分"
+  }
+}
