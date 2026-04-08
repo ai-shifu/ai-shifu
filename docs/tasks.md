@@ -98,7 +98,7 @@
 
 ### Celery 与基础设施
 
-- [ ] 引入 Redis broker 与 Celery worker/beat 进程配置。
+- [x] 引入 Redis broker 与 Celery worker/beat 进程配置。
 - [x] 新增 Celery app factory，并让 worker 复用 Flask `create_app()` 配置。
 - [x] 在 `requirements.txt`、配置定义和环境变量示例中接入 Celery/Redis 配置。
 - [x] 在 `docker-compose.yml`、`docker-compose.latest.yml`、`docker-compose.dev.yml` 中增加 `redis`、`celery-worker`、`celery-beat`。
