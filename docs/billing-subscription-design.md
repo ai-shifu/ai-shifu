@@ -711,6 +711,7 @@ v1 的改造要求：
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
 - 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/c1d2e3f4a5b6_add_billing_entitlement_and_domain_tables.py` 落地，先提供 schema 和常量基础，不让 v1 主链路依赖这两张表
 - 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
+- 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
@@ -883,6 +884,7 @@ v1 冻结低余额阈值、告警与错误码规则：
   - `server.billing.subscriptionInactive`：当前没有 active-like subscription，且也没有任何 `free/topup` bucket 可兜底
 - `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先充值或开通订阅”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/充值积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
 - v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
+- v1.1 在 entitlement/runtime enforcement 中新增 `server.billing.concurrencyExceeded`，语义固定为“当前创作者运行时并发已满，请等待其他会话结束后再试”
 
 ### 6.4 Worker / Beat 分工
 
