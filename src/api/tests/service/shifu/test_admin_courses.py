@@ -6,7 +6,8 @@ from unittest.mock import patch
 from flask import Flask
 
 from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.shifu.admin import list_operator_courses
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin import _load_latest_shifus, list_operator_courses
 from flaskr.service.shifu.admin_dtos import AdminOperationCourseSummaryDTO
 
 
@@ -277,3 +278,166 @@ def test_list_operator_courses_filters_by_course_status():
     assert unpublished_result.data[0].course_status == "unpublished"
     assert [item.shifu_bid for item in published_result.data] == ["course-published"]
     assert published_result.data[0].course_status == "published"
+
+
+class FakeColumn:
+    def __init__(self, name: str):
+        self.name = name
+
+    def __eq__(self, other):
+        return ("eq", self.name, other)
+
+    def __ge__(self, other):
+        return ("ge", self.name, other)
+
+    def __le__(self, other):
+        return ("le", self.name, other)
+
+    def ilike(self, value: str):
+        return ("ilike", self.name, value)
+
+    def in_(self, value):
+        return ("in", self.name, value)
+
+    def desc(self):
+        return ("desc", self.name)
+
+    def label(self, alias: str):
+        return ("label", self.name, alias)
+
+
+class FakeMaxExpression:
+    def __init__(self, column: FakeColumn):
+        self.column = column
+
+    def label(self, alias: str):
+        return ("max", self.column.name, alias)
+
+
+class FakeLatestSubquery:
+    def __init__(self):
+        self.c = type("Columns", (), {"max_id": "latest-max-id"})()
+
+
+class FakeLatestQuery:
+    def __init__(self):
+        self.filters = []
+        self.grouped_by = []
+        self.subquery_value = FakeLatestSubquery()
+
+    def filter(self, *conditions):
+        self.filters.extend(conditions)
+        return self
+
+    def group_by(self, *columns):
+        self.grouped_by.extend(columns)
+        return self
+
+    def subquery(self):
+        return self.subquery_value
+
+
+class FakeIdQuery:
+    def __init__(self, target):
+        self.target = target
+
+
+class FakeOuterQuery:
+    def __init__(self, result):
+        self.filters = []
+        self.ordering = []
+        self.result = result
+
+    def filter(self, *conditions):
+        self.filters.extend(conditions)
+        return self
+
+    def order_by(self, *ordering):
+        self.ordering.extend(ordering)
+        return self
+
+    def all(self):
+        return self.result
+
+
+class FakeSession:
+    def __init__(self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery):
+        self.latest_query = latest_query
+        self.outer_query = outer_query
+        self.id_queries = []
+
+    def query(self, target):
+        if target == ("max", "id", "max_id"):
+            return self.latest_query
+        if target is FakeModel:
+            return self.outer_query
+        id_query = FakeIdQuery(target)
+        self.id_queries.append(id_query)
+        return id_query
+
+
+class FakeFunc:
+    @staticmethod
+    def max(column: FakeColumn):
+        return FakeMaxExpression(column)
+
+
+class FakeDB:
+    def __init__(self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery):
+        self.session = FakeSession(latest_query, outer_query)
+        self.func = FakeFunc()
+
+
+class FakeModel:
+    id = FakeColumn("id")
+    deleted = FakeColumn("deleted")
+    shifu_bid = FakeColumn("shifu_bid")
+    title = FakeColumn("title")
+    created_user_bid = FakeColumn("created_user_bid")
+    created_at = FakeColumn("created_at")
+    updated_at = FakeColumn("updated_at")
+
+
+def test_load_latest_shifus_filters_on_latest_rows(monkeypatch):
+    latest_query = FakeLatestQuery()
+    expected_rows = ["latest-course-row"]
+    outer_query = FakeOuterQuery(expected_rows)
+    fake_db = FakeDB(latest_query, outer_query)
+    monkeypatch.setattr(admin_module, "db", fake_db)
+
+    creator_bids = {"creator-1"}
+    start_time = datetime(2025, 4, 1, 0, 0, 0)
+    end_time = datetime(2025, 4, 30, 23, 59, 59)
+    updated_start_time = datetime(2025, 4, 2, 0, 0, 0)
+    updated_end_time = datetime(2025, 4, 3, 23, 59, 59)
+
+    result = _load_latest_shifus(
+        FakeModel,
+        shifu_bid="course-1",
+        course_name="Latest Title",
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        updated_start_time=updated_start_time,
+        updated_end_time=updated_end_time,
+    )
+
+    assert result == expected_rows
+    assert latest_query.filters == [
+        ("eq", "deleted", 0),
+        ("eq", "shifu_bid", "course-1"),
+    ]
+    assert latest_query.grouped_by == [FakeModel.shifu_bid]
+    assert outer_query.filters == [
+        ("in", "id", fake_db.session.id_queries[0]),
+        ("ilike", "title", "%Latest Title%"),
+        ("in", "created_user_bid", creator_bids),
+        ("ge", "created_at", start_time),
+        ("le", "created_at", end_time),
+        ("ge", "updated_at", updated_start_time),
+        ("le", "updated_at", updated_end_time),
+    ]
+    assert outer_query.ordering == [
+        ("desc", "updated_at"),
+        ("desc", "id"),
+    ]

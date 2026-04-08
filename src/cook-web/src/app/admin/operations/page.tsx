@@ -408,6 +408,8 @@ const OperationsPage = () => {
     ),
   );
   const initializedManualRef = useRef(false);
+  const requestedPageRef = useRef(1);
+  const requestIdRef = useRef(0);
   const fetchCoursesRef = useRef<
     | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
     | undefined
@@ -455,6 +457,9 @@ const OperationsPage = () => {
   const fetchCourses = useCallback(
     async (targetPage: number, nextFilters?: CourseFilters) => {
       const resolvedFilters = nextFilters ?? filters;
+      requestedPageRef.current = targetPage;
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
       setLoading(true);
       setError(null);
       try {
@@ -470,10 +475,17 @@ const OperationsPage = () => {
           updated_start_time: resolvedFilters.updated_start_time,
           updated_end_time: resolvedFilters.updated_end_time,
         })) as AdminOperationCourseListResponse;
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         setCourses(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
       } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        setPageIndex(targetPage);
         if (err instanceof ErrorWithCode) {
           setError({ message: err.message, code: err.code });
         } else if (err instanceof Error) {
@@ -482,6 +494,9 @@ const OperationsPage = () => {
           setError({ message: t('common.core.unknownError') });
         }
       } finally {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         setLoading(false);
       }
     },
@@ -881,7 +896,7 @@ const OperationsPage = () => {
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
-          onRetry={() => fetchCourses(pageIndex)}
+          onRetry={() => fetchCourses(requestedPageRef.current)}
         />
       </div>
     );

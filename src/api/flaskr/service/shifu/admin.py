@@ -144,30 +144,26 @@ def _load_latest_shifus(
     )
     if shifu_bid:
         latest_subquery = latest_subquery.filter(model.shifu_bid == shifu_bid)
+    latest_subquery = latest_subquery.group_by(model.shifu_bid).subquery()
+    latest_rows = db.session.query(model).filter(
+        model.id.in_(db.session.query(latest_subquery.c.max_id))
+    )
     if course_name:
-        latest_subquery = latest_subquery.filter(model.title.ilike(f"%{course_name}%"))
+        latest_rows = latest_rows.filter(model.title.ilike(f"%{course_name}%"))
     if creator_bids is not None:
         if not creator_bids:
             return []
-        latest_subquery = latest_subquery.filter(
-            model.created_user_bid.in_(creator_bids)
-        )
+        latest_rows = latest_rows.filter(model.created_user_bid.in_(creator_bids))
     if start_time:
-        latest_subquery = latest_subquery.filter(model.created_at >= start_time)
+        latest_rows = latest_rows.filter(model.created_at >= start_time)
     if end_time:
-        latest_subquery = latest_subquery.filter(model.created_at <= end_time)
+        latest_rows = latest_rows.filter(model.created_at <= end_time)
     if updated_start_time:
-        latest_subquery = latest_subquery.filter(model.updated_at >= updated_start_time)
+        latest_rows = latest_rows.filter(model.updated_at >= updated_start_time)
     if updated_end_time:
-        latest_subquery = latest_subquery.filter(model.updated_at <= updated_end_time)
+        latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
 
-    latest_subquery = latest_subquery.group_by(model.shifu_bid).subquery()
-    return (
-        db.session.query(model)
-        .filter(model.id.in_(db.session.query(latest_subquery.c.max_id)))
-        .order_by(model.updated_at.desc(), model.id.desc())
-        .all()
-    )
+    return latest_rows.order_by(model.updated_at.desc(), model.id.desc()).all()
 
 
 def _build_course_summary(

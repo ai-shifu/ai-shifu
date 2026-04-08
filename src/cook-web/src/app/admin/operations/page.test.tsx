@@ -80,8 +80,24 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
-  default: ({ errorMessage }: { errorMessage: string }) => (
-    <div>{errorMessage}</div>
+  default: ({
+    errorMessage,
+    onRetry,
+  }: {
+    errorMessage: string;
+    onRetry?: () => void;
+  }) => (
+    <div>
+      <div>{errorMessage}</div>
+      {onRetry ? (
+        <button
+          type='button'
+          onClick={onRetry}
+        >
+          retry
+        </button>
+      ) : null}
+    </div>
   ),
 }));
 
@@ -239,6 +255,16 @@ jest.mock('@/components/ui/DropdownMenu', () => {
 });
 
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('OperationsPage', () => {
   const renderAndWaitForLoadedPage = async () => {
@@ -449,6 +475,167 @@ describe('OperationsPage', () => {
           course_status: 'published',
         }),
       );
+    });
+  });
+
+  test('retries the last requested page after a page change fails', async () => {
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      items: [
+        {
+          shifu_bid: 'course-1',
+          course_name: 'Course 1',
+          course_status: 'published',
+          price: '99',
+          creator_user_bid: 'creator-1',
+          creator_mobile: '15811112222',
+          creator_email: 'creator@example.com',
+          creator_nickname: 'Creator Mars',
+          updater_user_bid: 'editor-1',
+          updater_mobile: '15833334444',
+          updater_email: 'editor@example.com',
+          updater_nickname: '',
+          created_at: '2025-04-01 10:00:00',
+          updated_at: '2025-04-02 10:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 2,
+      page_size: 20,
+      total: 2,
+    });
+    mockGetAdminOperationCourses.mockRejectedValueOnce(
+      new Error('load failed'),
+    );
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      items: [],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 2,
+    });
+
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('link', {
+        name: '2',
+      }),
+    );
+
+    expect(await screen.findByText('load failed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page_index: 2,
+        }),
+      );
+    });
+  });
+
+  test('ignores stale responses when a newer search finishes later', async () => {
+    const firstSearch = createDeferred<{
+      items: Array<Record<string, string>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const secondSearch = createDeferred<{
+      items: Array<Record<string, string>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+
+    await renderAndWaitForLoadedPage();
+
+    const courseIdInput = screen.getByPlaceholderText(
+      'module.operationsCourse.filters.courseId',
+    ) as HTMLInputElement;
+
+    mockGetAdminOperationCourses.mockImplementationOnce(
+      () => firstSearch.promise,
+    );
+    fireEvent.change(courseIdInput, {
+      target: { value: 'course-first' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    mockGetAdminOperationCourses.mockImplementationOnce(
+      () => secondSearch.promise,
+    );
+    fireEvent.change(courseIdInput, {
+      target: { value: 'course-second' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    secondSearch.resolve({
+      items: [
+        {
+          shifu_bid: 'course-second',
+          course_name: 'Course Second',
+          course_status: 'published',
+          price: '29',
+          creator_user_bid: 'creator-2',
+          creator_mobile: '15899990000',
+          creator_email: 'second@example.com',
+          creator_nickname: 'Second Creator',
+          updater_user_bid: 'editor-2',
+          updater_mobile: '15899991111',
+          updater_email: 'editor-second@example.com',
+          updater_nickname: '',
+          created_at: '2025-04-05 10:00:00',
+          updated_at: '2025-04-06 10:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    expect(await screen.findByText('Course Second')).toBeInTheDocument();
+
+    firstSearch.resolve({
+      items: [
+        {
+          shifu_bid: 'course-first',
+          course_name: 'Course First',
+          course_status: 'published',
+          price: '19',
+          creator_user_bid: 'creator-1',
+          creator_mobile: '15888880000',
+          creator_email: 'first@example.com',
+          creator_nickname: 'First Creator',
+          updater_user_bid: 'editor-1',
+          updater_mobile: '15888881111',
+          updater_email: 'editor-first@example.com',
+          updater_nickname: '',
+          created_at: '2025-04-03 10:00:00',
+          updated_at: '2025-04-04 10:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Course Second')).toBeInTheDocument();
+      expect(screen.queryByText('Course First')).not.toBeInTheDocument();
     });
   });
 
