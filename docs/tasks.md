@@ -136,7 +136,7 @@
 - [x] 增加 billing 常量静态校验，确保不与 `user/promo/profile/shifu/metering` 常量撞码，并且 `usage_type/usage_scene` 直接复用 metering。
 - [x] 增加 `CELERY_TASK_ALWAYS_EAGER=1` 下的任务集成测试与调度回归测试。
 - [x] 增加旧 `/order` 学员购课流程回归测试。
-- [ ] 编写 rollout、migration、backfill、监控告警和回滚 runbook。
+- [x] 编写 rollout、migration、backfill、监控告警和回滚 runbook。
 
 ## v1.1 扩展交付
 
