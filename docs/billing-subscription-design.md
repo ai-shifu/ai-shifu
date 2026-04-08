@@ -645,6 +645,7 @@ v1 的改造要求：
 - 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/4fd52d0d9a01_add_billing_core_tables.py` 落地
 - 当前实现中，`credit_usage_rates`、`billing_renewal_events` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py` 落地
 - 当前实现中，核心表 business id 唯一约束和 bootstrap `credit_usage_rates` seed 已由 `src/api/migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py` 落地
+- 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
 
 旧 `order` 域明确不改的范围：
@@ -777,6 +778,13 @@ v1 需要补充以下环境变量和配置项：
 | `BILLING_BUCKET_EXPIRE_CRON` | 余额桶过期扫描调度表达式 |
 | `BILLING_LOW_BALANCE_CRON` | 低余额扫描调度表达式 |
 | `BILLING_DAILY_AGGREGATE_CRON` | 日汇总调度表达式，v1.1 才启用 |
+
+同时在 `sys_configs` 预置以下 billing bootstrap 配置：
+
+- `BILLING_ENABLED=1`
+- `BILLING_LOW_BALANCE_THRESHOLD=0.0000000000`
+- `BILLING_RENEWAL_TASK_CONFIG={"enabled":0,"batch_size":100,"lookahead_minutes":60,"queue":"billing-renewal"}`
+- `BILLING_RATE_VERSION=bootstrap-v1`
 
 ### 6.4 Worker / Beat 分工
 

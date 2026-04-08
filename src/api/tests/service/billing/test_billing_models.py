@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
+    BILLING_CONFIG_KEY_ENABLED,
+    BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+    BILLING_CONFIG_KEY_RATE_VERSION,
+    BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_PRODUCT_SEEDS,
@@ -11,6 +15,7 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
+    BILLING_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.models import BillingProduct, CreditUsageRate
@@ -96,3 +101,14 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
     assert "uq_credit_usage_rates_rate_bid" in unique_constraint_names
     assert "uq_credit_usage_rates_lookup" in unique_constraint_names
+
+
+def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
+    assert len(BILLING_SYS_CONFIG_SEEDS) == 4
+    assert {row["key"] for row in BILLING_SYS_CONFIG_SEEDS} == {
+        BILLING_CONFIG_KEY_ENABLED,
+        BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+        BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+        BILLING_CONFIG_KEY_RATE_VERSION,
+    }
+    assert all(row["is_encrypted"] == 0 for row in BILLING_SYS_CONFIG_SEEDS)

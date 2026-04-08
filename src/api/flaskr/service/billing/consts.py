@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from decimal import Decimal
 
@@ -293,6 +294,11 @@ BILLING_PRODUCT_SEEDS = (
     },
 )
 
+BILLING_CONFIG_KEY_ENABLED = "BILLING_ENABLED"
+BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILLING_LOW_BALANCE_THRESHOLD"
+BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILLING_RENEWAL_TASK_CONFIG"
+BILLING_CONFIG_KEY_RATE_VERSION = "BILLING_RATE_VERSION"
+
 
 def _build_credit_usage_rate_seeds() -> tuple[dict[str, object], ...]:
     seeds: list[dict[str, object]] = []
@@ -345,3 +351,51 @@ def _build_credit_usage_rate_seeds() -> tuple[dict[str, object], ...]:
 
 
 CREDIT_USAGE_RATE_SEEDS = _build_credit_usage_rate_seeds()
+
+BILLING_SYS_CONFIG_SEEDS = (
+    {
+        "config_bid": "billing-config-enabled",
+        "key": BILLING_CONFIG_KEY_ENABLED,
+        "value": "1",
+        "is_encrypted": 0,
+        "remark": "Creator billing feature flag",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "billing-config-low-balance-threshold",
+        "key": BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+        "value": "0.0000000000",
+        "is_encrypted": 0,
+        "remark": "Low balance alert threshold in credits",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "billing-config-renewal-task-config",
+        "key": BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+        "value": json.dumps(
+            {
+                "enabled": 0,
+                "batch_size": 100,
+                "lookahead_minutes": 60,
+                "queue": "billing-renewal",
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        "is_encrypted": 0,
+        "remark": "Renewal task bootstrap config",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "billing-config-rate-version",
+        "key": BILLING_CONFIG_KEY_RATE_VERSION,
+        "value": "bootstrap-v1",
+        "is_encrypted": 0,
+        "remark": "Billing rate version bootstrap marker",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+)
