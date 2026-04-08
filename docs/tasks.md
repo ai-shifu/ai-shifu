@@ -116,7 +116,7 @@
 - [x] 在 `src/cook-web/src/api/api.ts` 中增加 billing 前后台接口定义。
 - [x] 新增 `src/cook-web/src/types/billing.ts`，定义 billing 前端类型。
 - [x] 新增 `src/cook-web/src/components/billing/` 组件目录，拆分 overview、catalog、ledger、orders、checkout、detail sheet 组件。
-- [ ] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
+- [x] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
 - [ ] 为 wallet 来源明细接入 `GET /billing/wallet-buckets` 的按需查询与只读展示。
 - [ ] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
 - [ ] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。

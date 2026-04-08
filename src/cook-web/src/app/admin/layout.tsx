@@ -6,10 +6,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@/components/ui/Button';
 import {
   BanknotesIcon,
-  CreditCardIcon,
   DocumentIcon,
   PresentationChartLineIcon,
   ShoppingCartIcon,
@@ -23,11 +21,14 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTranslation } from 'react-i18next';
 import { environment } from '@/config/environment';
 import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import { BillingSidebarCard } from '@/components/billing/BillingSidebarCard';
+import { useBillingOverview } from '@/hooks/useBillingOverview';
 import adminSidebarStyles from './AdminSidebar.module.scss';
 import styles from './layout.module.scss';
 import { cn } from '@/lib/utils';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import { CreatorBillingOverview } from '@/types/billing';
 
 type MenuItem = {
   type?: string;
@@ -46,13 +47,8 @@ type SidebarContentProps = {
   userMenuClassName?: string;
   logoSrc: string | StaticImageData;
   activePath?: string;
-  billingTitle: string;
-  billingDescription: string;
-  billingCreditsLabel: string;
-  billingCreditsValue: string;
-  billingStatusLabel: string;
-  billingStatusValue: string;
-  billingCtaLabel: string;
+  billingOverviewLoading?: boolean;
+  billingOverview?: CreatorBillingOverview;
 };
 
 const SidebarContent = ({
@@ -64,13 +60,8 @@ const SidebarContent = ({
   userMenuClassName,
   logoSrc,
   activePath,
-  billingTitle,
-  billingDescription,
-  billingCreditsLabel,
-  billingCreditsValue,
-  billingStatusLabel,
-  billingStatusValue,
-  billingCtaLabel,
+  billingOverviewLoading = false,
+  billingOverview,
 }: SidebarContentProps) => {
   const logoHeight = 32;
   const logoWidth = useMemo(() => {
@@ -166,44 +157,10 @@ const SidebarContent = ({
             );
           })}
         </nav>
-        <div
-          className='mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
-          data-testid='admin-billing-sidebar-card'
-        >
-          <div className='flex items-start justify-between gap-3'>
-            <div className='min-w-0'>
-              <p className='text-sm font-semibold text-slate-900'>
-                {billingTitle}
-              </p>
-              <p className='mt-1 text-xs leading-5 text-slate-500'>
-                {billingDescription}
-              </p>
-            </div>
-            <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600'>
-              <CreditCardIcon className='h-5 w-5' />
-            </div>
-          </div>
-          <div className='mt-4 grid gap-2 rounded-xl bg-slate-50 p-3'>
-            <div className='flex items-center justify-between gap-3 text-sm'>
-              <span className='text-slate-500'>{billingCreditsLabel}</span>
-              <span className='font-semibold text-slate-900'>
-                {billingCreditsValue}
-              </span>
-            </div>
-            <div className='flex items-center justify-between gap-3 text-sm'>
-              <span className='text-slate-500'>{billingStatusLabel}</span>
-              <span className='font-semibold text-slate-900'>
-                {billingStatusValue}
-              </span>
-            </div>
-          </div>
-          <Button
-            asChild
-            className='mt-4 w-full justify-between rounded-xl'
-          >
-            <Link href='/admin/billing'>{billingCtaLabel}</Link>
-          </Button>
-        </div>
+        <BillingSidebarCard
+          overview={billingOverview}
+          isLoading={billingOverviewLoading}
+        />
       </div>
       <NavFooter
         ref={footerRef}
@@ -284,6 +241,8 @@ const MainInterface = ({
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl,
   );
+  const { data: billingOverview, isLoading: billingOverviewLoading } =
+    useBillingOverview();
 
   const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
 
@@ -305,15 +264,8 @@ const MainInterface = ({
           userMenuClassName={adminSidebarStyles.navMenuPopup}
           logoSrc={resolvedLogo}
           activePath={pathname}
-          billingTitle={t('module.billing.sidebar.title')}
-          billingDescription={t('module.billing.sidebar.description')}
-          billingCreditsLabel={t('module.billing.sidebar.totalCreditsLabel')}
-          billingCreditsValue={t('module.billing.sidebar.placeholderValue')}
-          billingStatusLabel={t(
-            'module.billing.sidebar.subscriptionStatusLabel',
-          )}
-          billingStatusValue={t('module.billing.sidebar.subscriptionPending')}
-          billingCtaLabel={t('module.billing.sidebar.cta')}
+          billingOverview={billingOverview}
+          billingOverviewLoading={billingOverviewLoading}
         />
       </div>
       <div className='flex-1 p-5  overflow-hidden bg-background'>

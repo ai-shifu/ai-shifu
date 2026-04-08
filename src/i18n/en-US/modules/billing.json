@@ -1,5 +1,66 @@
 {
   "__namespace__": "module.billing",
+  "catalog": {
+    "actions": {
+      "buyWithPingxx": "Pay with Alipay QR",
+      "buyWithStripe": "Buy with Stripe",
+      "currentPlan": "Current plan",
+      "processing": "Processing...",
+      "subscribe": "Subscribe with Stripe",
+      "unavailable": "Unavailable"
+    },
+    "badges": {
+      "bestValue": "Best value",
+      "recommended": "Recommended"
+    },
+    "labels": {
+      "creditsOneTime": "{{credits}} credits one time",
+      "creditsPerCycle": "{{credits}} credits per cycle",
+      "perMonth": "/ month",
+      "perYear": "/ year",
+      "providerPingxx": "Pingxx / Alipay QR",
+      "providerStripe": "Stripe"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "Recurring credits for active creators who publish and iterate every month.",
+        "title": "Creator Monthly"
+      },
+      "creatorYearly": {
+        "description": "Lower annual cost for creators running long-term course operations and stable traffic.",
+        "title": "Creator Yearly"
+      }
+    },
+    "sections": {
+      "plans": "Membership plans",
+      "topups": "Top-up packs"
+    },
+    "topups": {
+      "creatorLarge": {
+        "description": "A larger refill for seasonal launches, campaign bursts, or heavy preview traffic.",
+        "title": "Growth top-up pack"
+      },
+      "creatorSmall": {
+        "description": "A flexible one-time refill for short spikes, workshops, or low-balance recovery.",
+        "title": "Starter top-up pack"
+      }
+    }
+  },
+  "checkout": {
+    "cancel": "Cancel",
+    "confirm": "Continue to payment",
+    "creditsLabel": "Credits",
+    "planDescription": "You are about to start a recurring creator subscription checkout.",
+    "priceLabel": "Price",
+    "processing": "Processing...",
+    "productLabel": "Product",
+    "providerLabel": "Payment provider",
+    "qrBlocked": "Please allow pop-ups to open the payment QR code.",
+    "qrOpened": "Payment QR opened in a new tab.",
+    "title": "Confirm purchase",
+    "topupDescription": "You are about to open a one-time credit top-up checkout.",
+    "unsupported": "This payment method is not available right now."
+  },
   "ledger": {
     "description": "Bucket details and ledger entries will appear here after the billing APIs are connected.",
     "title": "Credit Activity"
@@ -10,12 +71,23 @@
     "title": "Payments"
   },
   "overview": {
+    "actions": {
+      "choosePlan": "Choose a plan",
+      "managePlan": "Manage your plan",
+      "topupCredits": "Top up credits",
+      "watchRenewal": "Watch upcoming renewal"
+    },
     "availableCreditsLabel": "Available credits",
-    "catalogTitle": "Plans and top-ups",
-    "helper": "Live billing data will appear here once the backend APIs are connected.",
+    "loadError": "Billing data could not be loaded. Refresh and try again.",
     "nextActionLabel": "Next action",
     "pendingValue": "Coming soon",
+    "subscriptionEmptyDescription": "Choose a plan to unlock recurring credits for this creator workspace.",
+    "subscriptionEmptyTitle": "No active subscription",
+    "subscriptionEndsOn": "Ends on {{date}}",
+    "subscriptionProviderLabel": "Provider",
+    "subscriptionRenewsOn": "Renews on {{date}}",
     "subscriptionStatusLabel": "Subscription",
+    "subscriptionTimingLabel": "Renewal",
     "subscriptionTitle": "Current subscription",
     "walletTitle": "Credits Overview"
   },
@@ -49,5 +121,15 @@
     "subscriptionStatusLabel": "Subscription",
     "title": "My Membership",
     "totalCreditsLabel": "Total credits"
+  },
+  "status": {
+    "active": "Active",
+    "cancelScheduled": "Cancel scheduled",
+    "canceled": "Canceled",
+    "draft": "Draft",
+    "expired": "Expired",
+    "none": "Not started",
+    "pastDue": "Past due",
+    "paused": "Paused"
   }
 }

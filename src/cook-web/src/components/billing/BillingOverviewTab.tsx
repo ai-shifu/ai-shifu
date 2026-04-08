@@ -1,44 +1,337 @@
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
+import api from '@/api';
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { toast } from '@/hooks/useToast';
+import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
+import { useBillingOverview } from '@/hooks/useBillingOverview';
+import type {
+  BillingCheckoutResult,
+  BillingPlan,
+  BillingProvider,
+  BillingTopupProduct,
+} from '@/types/billing';
+import {
+  buildBillingStripeResultUrls,
+  formatBillingCredits,
+  openBillingCheckoutUrl,
+  openBillingPaymentWindow,
+  registerBillingTranslationUsage,
+  resolveBillingNextActionLabel,
+  resolveBillingSubscriptionStatusLabel,
+} from '@/lib/billing';
+import { BillingCatalogCards } from './BillingCatalogCards';
+import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingMetricCard } from './BillingMetricCard';
-import { BillingPlaceholderSection } from './BillingPlaceholderSection';
+import { BillingSubscriptionCard } from './BillingSubscriptionCard';
+
+type BillingCatalogResponse = {
+  plans: BillingPlan[];
+  topups: BillingTopupProduct[];
+};
+
+type CheckoutTarget =
+  | {
+      kind: 'plan';
+      product: BillingPlan;
+      provider: BillingProvider;
+    }
+  | {
+      kind: 'topup';
+      product: BillingTopupProduct;
+      provider: BillingProvider;
+    }
+  | null;
+
+function extractPingxxQrUrl(result: BillingCheckoutResult): string {
+  const credential =
+    typeof result.payment_payload === 'object' && result.payment_payload
+      ? (result.payment_payload as Record<string, unknown>).credential
+      : null;
+  if (!credential || typeof credential !== 'object') {
+    return '';
+  }
+  const qrUrl = (credential as Record<string, unknown>).alipay_qr;
+  return typeof qrUrl === 'string' ? qrUrl : '';
+}
 
 export function BillingOverviewTab() {
-  const { t } = useTranslation();
-  const placeholderValue = t('module.billing.sidebar.placeholderValue');
-  const pendingValue = t('module.billing.overview.pendingValue');
+  const { t, i18n } = useTranslation();
+  registerBillingTranslationUsage(t);
+  const {
+    data: overview,
+    error: overviewError,
+    isLoading: overviewLoading,
+  } = useBillingOverview();
+  const {
+    data: catalog,
+    error: catalogError,
+    isLoading: catalogLoading,
+  } = useSWR<BillingCatalogResponse>(
+    ['billing-catalog'],
+    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
+    {
+      revalidateOnFocus: false,
+    },
+  );
+  const { paymentChannels, runtimeConfigLoaded, stripeEnabled } = useEnvStore(
+    (state: EnvStoreState) => ({
+      paymentChannels: state.paymentChannels,
+      runtimeConfigLoaded: state.runtimeConfigLoaded,
+      stripeEnabled: state.stripeEnabled,
+    }),
+  );
+  const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
+  const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
+
+  const normalizedPaymentChannels = useMemo(
+    () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
+    [paymentChannels],
+  );
+  const stripeAvailable = useMemo(() => {
+    if (!normalizedPaymentChannels.includes('stripe')) {
+      return false;
+    }
+    return stripeEnabled === 'true' || !runtimeConfigLoaded;
+  }, [normalizedPaymentChannels, runtimeConfigLoaded, stripeEnabled]);
+  const pingxxAvailable = normalizedPaymentChannels.includes('pingxx');
+
+  const currentPlan = useMemo(() => {
+    if (!catalog?.plans?.length || !overview?.subscription?.product_bid) {
+      return null;
+    }
+    return (
+      catalog.plans.find(
+        item => item.product_bid === overview.subscription?.product_bid,
+      ) || null
+    );
+  }, [catalog?.plans, overview?.subscription?.product_bid]);
+
+  const availableCredits = overview?.wallet.available_credits || 0;
+  const availableCreditsLabel = overview
+    ? formatBillingCredits(availableCredits, i18n.language)
+    : t('module.billing.sidebar.placeholderValue');
+  const subscriptionStatusLabel = overview
+    ? resolveBillingSubscriptionStatusLabel(t, overview.subscription?.status)
+    : t('module.billing.overview.pendingValue');
+  const nextActionLabel = overview
+    ? resolveBillingNextActionLabel(t, overview.subscription, availableCredits)
+    : t('module.billing.overview.pendingValue');
+  const loadError = overviewError || catalogError;
+
+  const handleCheckout = useCallback(async () => {
+    if (!checkoutTarget) {
+      return;
+    }
+
+    const loadingKey = `${checkoutTarget.kind}:${checkoutTarget.provider}:${checkoutTarget.product.product_bid}`;
+    setCheckoutLoadingKey(loadingKey);
+    try {
+      let result: BillingCheckoutResult;
+      if (checkoutTarget.kind === 'plan') {
+        const { cancelUrl, successUrl } = buildBillingStripeResultUrls(
+          window.location.origin,
+        );
+        result = (await api.checkoutBillingSubscription({
+          cancel_url: cancelUrl,
+          payment_provider: checkoutTarget.provider,
+          product_bid: checkoutTarget.product.product_bid,
+          success_url: successUrl,
+        })) as BillingCheckoutResult;
+      } else {
+        const stripeUrls =
+          checkoutTarget.provider === 'stripe'
+            ? buildBillingStripeResultUrls(window.location.origin)
+            : { cancelUrl: '', successUrl: '' };
+        result = (await api.checkoutBillingTopup({
+          cancel_url: stripeUrls.cancelUrl || undefined,
+          channel:
+            checkoutTarget.provider === 'pingxx' ? 'alipay_qr' : undefined,
+          payment_provider: checkoutTarget.provider,
+          product_bid: checkoutTarget.product.product_bid,
+          success_url: stripeUrls.successUrl || undefined,
+        })) as BillingCheckoutResult;
+      }
+
+      if (result.status === 'unsupported') {
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
+        });
+        setCheckoutTarget(null);
+        return;
+      }
+
+      if (checkoutTarget.provider === 'stripe' && result.redirect_url) {
+        if (result.checkout_session_id) {
+          rememberStripeCheckoutSession(
+            result.checkout_session_id,
+            result.billing_order_bid,
+          );
+        }
+        setCheckoutTarget(null);
+        openBillingCheckoutUrl(result.redirect_url);
+        return;
+      }
+
+      if (checkoutTarget.provider === 'pingxx') {
+        const qrUrl = extractPingxxQrUrl(result);
+        if (!qrUrl) {
+          toast({
+            title: t('module.billing.checkout.unsupported'),
+            variant: 'destructive',
+          });
+          return;
+        }
+        const opened = openBillingPaymentWindow(qrUrl);
+        toast({
+          title: opened
+            ? t('module.billing.checkout.qrOpened')
+            : t('module.billing.checkout.qrBlocked'),
+          variant: opened ? 'default' : 'destructive',
+        });
+        if (opened) {
+          setCheckoutTarget(null);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: error?.message || t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckoutLoadingKey('');
+    }
+  }, [checkoutTarget, t]);
+
+  const openPlanCheckout = useCallback(
+    (plan: BillingPlan, provider: BillingProvider) => {
+      setCheckoutTarget({
+        kind: 'plan',
+        product: plan,
+        provider,
+      });
+    },
+    [],
+  );
+
+  const openTopupCheckout = useCallback(
+    (topup: BillingTopupProduct, provider: BillingProvider) => {
+      setCheckoutTarget({
+        kind: 'topup',
+        product: topup,
+        provider,
+      });
+    },
+    [],
+  );
+
+  const dialogPriceLabel = useMemo(() => {
+    if (!checkoutTarget) {
+      return '';
+    }
+    return new Intl.NumberFormat(i18n.language, {
+      style: 'currency',
+      currency: checkoutTarget.product.currency || 'CNY',
+      maximumFractionDigits: 2,
+    }).format(Number(checkoutTarget.product.price_amount || 0) / 100);
+  }, [checkoutTarget, i18n.language]);
+
+  const dialogCreditsLabel = useMemo(() => {
+    if (!checkoutTarget) {
+      return '';
+    }
+    return formatBillingCredits(
+      checkoutTarget.product.credit_amount,
+      i18n.language,
+    );
+  }, [checkoutTarget, i18n.language]);
+
+  const dialogProviderLabel = checkoutTarget
+    ? checkoutTarget.provider === 'stripe'
+      ? t('module.billing.catalog.labels.providerStripe')
+      : t('module.billing.catalog.labels.providerPingxx')
+    : '';
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-6'>
       <div>
         <h3 className='text-lg font-semibold text-slate-900'>
           {t('module.billing.overview.walletTitle')}
         </h3>
       </div>
+
       <div className='grid gap-4 md:grid-cols-3'>
         <BillingMetricCard
           label={t('module.billing.overview.availableCreditsLabel')}
-          value={placeholderValue}
+          value={availableCreditsLabel}
         />
         <BillingMetricCard
           label={t('module.billing.overview.subscriptionStatusLabel')}
-          value={pendingValue}
+          value={subscriptionStatusLabel}
         />
         <BillingMetricCard
           label={t('module.billing.overview.nextActionLabel')}
-          value={pendingValue}
+          value={nextActionLabel}
         />
       </div>
-      <div className='grid gap-4 xl:grid-cols-[1.1fr,0.9fr]'>
-        <BillingPlaceholderSection
-          title={t('module.billing.overview.subscriptionTitle')}
-          description={t('module.billing.overview.helper')}
-        />
-        <BillingPlaceholderSection
-          title={t('module.billing.overview.catalogTitle')}
-          description={t('module.billing.overview.helper')}
-        />
-      </div>
+
+      {loadError ? (
+        <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+          {t('module.billing.overview.loadError')}
+        </div>
+      ) : null}
+
+      {overviewLoading && catalogLoading ? (
+        <div className='grid gap-4 xl:grid-cols-[0.92fr,1.08fr]'>
+          <Skeleton className='h-[280px] rounded-[24px]' />
+          <Skeleton className='h-[420px] rounded-[24px]' />
+        </div>
+      ) : (
+        <div className='grid gap-4 xl:grid-cols-[0.92fr,1.08fr]'>
+          <BillingSubscriptionCard
+            currentPlan={currentPlan}
+            subscription={overview?.subscription || null}
+          />
+          <BillingCatalogCards
+            checkoutLoadingKey={checkoutLoadingKey}
+            plans={catalog?.plans || []}
+            stripeAvailable={stripeAvailable}
+            subscription={overview?.subscription || null}
+            topups={catalog?.topups || []}
+            pingxxAvailable={pingxxAvailable}
+            onCheckoutPlan={openPlanCheckout}
+            onCheckoutTopup={openTopupCheckout}
+          />
+        </div>
+      )}
+
+      <BillingCheckoutDialog
+        creditsLabel={dialogCreditsLabel}
+        description={t(
+          checkoutTarget?.kind === 'plan'
+            ? 'module.billing.checkout.planDescription'
+            : 'module.billing.checkout.topupDescription',
+        )}
+        isLoading={Boolean(checkoutLoadingKey)}
+        open={Boolean(checkoutTarget)}
+        priceLabel={dialogPriceLabel}
+        productName={
+          checkoutTarget
+            ? t(checkoutTarget.product.display_name)
+            : t('module.billing.checkout.productLabel')
+        }
+        providerLabel={dialogProviderLabel}
+        onConfirm={() => void handleCheckout()}
+        onOpenChange={open => {
+          if (!open) {
+            setCheckoutTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

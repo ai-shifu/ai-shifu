@@ -1,5 +1,66 @@
 {
   "__namespace__": "module.billing",
+  "catalog": {
+    "actions": {
+      "buyWithPingxx": "支付宝扫码支付",
+      "buyWithStripe": "使用 Stripe 购买",
+      "currentPlan": "当前套餐",
+      "processing": "处理中...",
+      "subscribe": "使用 Stripe 订阅",
+      "unavailable": "暂不可用"
+    },
+    "badges": {
+      "bestValue": "更划算",
+      "recommended": "推荐"
+    },
+    "labels": {
+      "creditsOneTime": "一次到账 {{credits}} 积分",
+      "creditsPerCycle": "每周期发放 {{credits}} 积分",
+      "perMonth": "/ 月",
+      "perYear": "/ 年",
+      "providerPingxx": "Pingxx / 支付宝二维码",
+      "providerStripe": "Stripe"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "适合持续更新课程、按月运营内容的创作者，按周期稳定发放积分。",
+        "title": "创作者月度会员"
+      },
+      "creatorYearly": {
+        "description": "适合长期经营课程与稳定招生的创作者，用更低年成本获得大额周期积分。",
+        "title": "创作者年度会员"
+      }
+    },
+    "sections": {
+      "plans": "会员套餐",
+      "topups": "充值包"
+    },
+    "topups": {
+      "creatorLarge": {
+        "description": "适合课程上新、活动放量或高频预览阶段的一次性大额补充。",
+        "title": "增长充值包"
+      },
+      "creatorSmall": {
+        "description": "适合短期流量波动、工作坊或低余额补充的一次性充值。",
+        "title": "基础充值包"
+      }
+    }
+  },
+  "checkout": {
+    "cancel": "取消",
+    "confirm": "继续支付",
+    "creditsLabel": "积分",
+    "planDescription": "你将进入创作者订阅套餐的支付确认流程。",
+    "priceLabel": "价格",
+    "processing": "处理中...",
+    "productLabel": "商品",
+    "providerLabel": "支付通道",
+    "qrBlocked": "请允许弹窗后再打开支付二维码。",
+    "qrOpened": "支付二维码已在新标签页打开。",
+    "title": "确认购买",
+    "topupDescription": "你将进入一次性积分充值的支付确认流程。",
+    "unsupported": "当前支付方式暂不可用。"
+  },
   "ledger": {
     "description": "接入 billing API 后，这里会展示余额桶明细和积分账本记录。",
     "title": "积分明细"
@@ -10,12 +71,23 @@
     "title": "付款记录"
   },
   "overview": {
+    "actions": {
+      "choosePlan": "选择套餐",
+      "managePlan": "管理当前套餐",
+      "topupCredits": "购买充值包",
+      "watchRenewal": "关注续费状态"
+    },
     "availableCreditsLabel": "可用积分",
-    "catalogTitle": "套餐与充值包",
-    "helper": "后端 billing API 接通后，这里会展示真实订阅、余额和目录数据。",
+    "loadError": "账务数据加载失败，请刷新后重试。",
     "nextActionLabel": "下一步",
     "pendingValue": "即将开放",
+    "subscriptionEmptyDescription": "选择一个套餐后，这个创作者空间会开始按周期获得积分。",
+    "subscriptionEmptyTitle": "当前还没有有效订阅",
+    "subscriptionEndsOn": "{{date}} 到期",
+    "subscriptionProviderLabel": "支付通道",
+    "subscriptionRenewsOn": "{{date}} 自动续费",
     "subscriptionStatusLabel": "订阅状态",
+    "subscriptionTimingLabel": "续费安排",
     "subscriptionTitle": "当前订阅",
     "walletTitle": "积分总览"
   },
@@ -49,5 +121,15 @@
     "subscriptionStatusLabel": "订阅状态",
     "title": "我的会员",
     "totalCreditsLabel": "总积分"
+  },
+  "status": {
+    "active": "生效中",
+    "cancelScheduled": "已计划取消",
+    "canceled": "已取消",
+    "draft": "待支付",
+    "expired": "已过期",
+    "none": "未开通",
+    "pastDue": "续费失败",
+    "paused": "已暂停"
   }
 }
