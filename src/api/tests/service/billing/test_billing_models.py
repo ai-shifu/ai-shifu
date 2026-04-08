@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flaskr.dao import db
+from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
     BILLING_CONFIG_KEY_ENABLED,
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
@@ -19,6 +20,10 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.models import BillingProduct, CreditUsageRate
+from flaskr.service.metering import consts as metering_consts
+from flaskr.service.promo import consts as promo_consts
+from flaskr.service.shifu import consts as shifu_consts
+from flaskr.service.user import consts as user_consts
 
 
 def test_billing_models_register_core_tables() -> None:
@@ -112,3 +117,32 @@ def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
         BILLING_CONFIG_KEY_RATE_VERSION,
     }
     assert all(row["is_encrypted"] == 0 for row in BILLING_SYS_CONFIG_SEEDS)
+
+
+def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (
+    None
+):
+    billing_segment_values = {
+        value
+        for name, value in vars(billing_consts).items()
+        if name.isupper() and isinstance(value, int) and 7100 <= value < 7600
+    }
+
+    assert billing_consts.BILL_USAGE_TYPE_LLM == metering_consts.BILL_USAGE_TYPE_LLM
+    assert billing_consts.BILL_USAGE_TYPE_TTS == metering_consts.BILL_USAGE_TYPE_TTS
+    assert (
+        billing_consts.BILL_USAGE_SCENE_DEBUG == metering_consts.BILL_USAGE_SCENE_DEBUG
+    )
+    assert (
+        billing_consts.BILL_USAGE_SCENE_PREVIEW
+        == metering_consts.BILL_USAGE_SCENE_PREVIEW
+    )
+    assert billing_consts.BILL_USAGE_SCENE_PROD == metering_consts.BILL_USAGE_SCENE_PROD
+
+    for module in (user_consts, promo_consts, shifu_consts, metering_consts):
+        module_values = {
+            value
+            for name, value in vars(module).items()
+            if name.isupper() and isinstance(value, int)
+        }
+        assert not (billing_segment_values & module_values)
