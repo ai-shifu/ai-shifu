@@ -1,0 +1,7 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "creditInsufficient": "积分余额不足，暂时无法继续调用，请先充值或开通订阅",
+    "subscriptionInactive": "当前订阅不可用，且没有可用的免费或充值积分"
+  }
+}

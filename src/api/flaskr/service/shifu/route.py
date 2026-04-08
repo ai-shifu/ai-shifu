@@ -57,6 +57,8 @@ from .funcs import (
 from flaskr.route.common import make_common_response, bypass_token_validation, fmt
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
+from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
@@ -259,6 +261,17 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             if trimmed:
                 normalized.append(trimmed)
         return normalized
+
+    def _admit_creator_debug_usage() -> None:
+        request_user = getattr(request, "user", None)
+        creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
+        if not creator_bid or not getattr(request_user, "is_creator", False):
+            return
+        admit_creator_usage(
+            app,
+            creator_bid=creator_bid,
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+        )
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
         """Validate and deduplicate contact identifiers."""
@@ -2123,6 +2136,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("ask_temperature")
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
+        _admit_creator_debug_usage()
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
@@ -2336,6 +2350,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             pitch=pitch_raw,
             emotion=emotion,
         )
+        _admit_creator_debug_usage()
 
         if not is_tts_configured(validated.provider):
             raise_param_error(f"TTS provider is not configured: {validated.provider}")

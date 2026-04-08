@@ -52,6 +52,8 @@
   "server.shifu.ttsNotEnabled": 4006,
   "server.shifu.draftConflict": 4007,
   "server.pay.payChannelNotSupport": 5001,
+  "server.billing.creditInsufficient": 7101,
+  "server.billing.subscriptionInactive": 7102,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

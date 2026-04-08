@@ -653,6 +653,7 @@ v1 需要新增的改造点：
   - creator 钱包余额
   - creator 订阅状态
 - admission 拒绝后，不进入新的 billable LLM/TTS 调用
+- 当前实现已落到 `src/api/flaskr/service/billing/admission.py`，并接入 `src/api/flaskr/service/learn/routes.py` 与 `src/api/flaskr/service/shifu/route.py` 的 billable 入口
 - usage 落库成功后，统一投递 Celery settlement task，再由 task 消费 `bill_usage` 并写入 `credit_ledger_entries`
 - 不允许在 learn / preview / debug 的请求线程内直接扣减积分、更新 `credit_wallet_buckets` 或刷新 `credit_wallets`
 - v1 不做运行时并发配额控制，但必须在结算层实现 `creator_bid` 维度串行化，避免多个学生同时学习同一 creator 课程时发生并发扣减算错
