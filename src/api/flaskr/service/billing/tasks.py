@@ -6,12 +6,9 @@ from datetime import datetime
 import os
 from typing import Any, Callable
 
-from .consts import (
-    BILLING_RENEWAL_EVENT_STATUS_LABELS,
-    BILLING_RENEWAL_EVENT_TYPE_LABELS,
-)
 from .funcs import build_billing_overview, sync_billing_order
-from .models import BillingOrder, BillingRenewalEvent, BillingSubscription, CreditWallet
+from .models import BillingOrder, BillingSubscription, CreditWallet
+from .renewal import run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
 
@@ -84,35 +81,6 @@ def _load_target_billing_order(
     return query.order_by(BillingOrder.id.desc()).first()
 
 
-def _load_target_renewal_event(
-    *,
-    renewal_event_bid: str = "",
-    subscription_bid: str = "",
-    creator_bid: str = "",
-):
-    normalized_renewal_event_bid = _normalize_bid(renewal_event_bid)
-    normalized_subscription_bid = _normalize_bid(subscription_bid)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-
-    query = BillingRenewalEvent.query.filter(BillingRenewalEvent.deleted == 0)
-    if normalized_creator_bid:
-        query = query.filter(BillingRenewalEvent.creator_bid == normalized_creator_bid)
-    if normalized_renewal_event_bid:
-        query = query.filter(
-            BillingRenewalEvent.renewal_event_bid == normalized_renewal_event_bid
-        )
-    elif normalized_subscription_bid:
-        query = query.filter(
-            BillingRenewalEvent.subscription_bid == normalized_subscription_bid
-        )
-    else:
-        return None
-    return query.order_by(
-        BillingRenewalEvent.scheduled_at.asc(),
-        BillingRenewalEvent.id.asc(),
-    ).first()
-
-
 def _run_reconcile_provider_reference(
     app,
     *,
@@ -163,23 +131,6 @@ def _run_reconcile_provider_reference(
         normalized_provider_reference_id or order.provider_reference_id or None
     )
     return payload
-
-
-def _serialize_renewal_event_snapshot(event: BillingRenewalEvent) -> dict[str, Any]:
-    return {
-        "renewal_event_bid": event.renewal_event_bid,
-        "subscription_bid": event.subscription_bid,
-        "creator_bid": event.creator_bid,
-        "event_type": BILLING_RENEWAL_EVENT_TYPE_LABELS.get(
-            int(event.event_type or 0), str(event.event_type or "")
-        ),
-        "event_status": BILLING_RENEWAL_EVENT_STATUS_LABELS.get(
-            int(event.status or 0), str(event.status or "")
-        ),
-        "scheduled_at": event.scheduled_at.isoformat() if event.scheduled_at else None,
-        "attempt_count": int(event.attempt_count or 0),
-        "payload": event.payload_json or {},
-    }
 
 
 def _collect_low_balance_creator_bids() -> list[str]:
@@ -338,27 +289,14 @@ def run_renewal_event_task(
     """Normalize and expose the renewal event payload to the worker queue."""
 
     app = _create_task_app()
-    with app.app_context():
-        event = _load_target_renewal_event(
-            renewal_event_bid=renewal_event_bid,
-            subscription_bid=subscription_bid,
-            creator_bid=creator_bid,
-        )
-        if event is None:
-            return {
-                "status": "event_not_found",
-                "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-                "subscription_bid": _normalize_bid(subscription_bid) or None,
-                "creator_bid": _normalize_bid(creator_bid) or None,
-                "task_name": "billing.run_renewal_event",
-            }
-        snapshot = _serialize_renewal_event_snapshot(event)
-
-    return {
-        "status": "pending_implementation",
-        **snapshot,
-        "task_name": "billing.run_renewal_event",
-    }
+    payload = run_billing_renewal_event(
+        app,
+        renewal_event_bid=renewal_event_bid,
+        subscription_bid=subscription_bid,
+        creator_bid=creator_bid,
+    )
+    payload["task_name"] = "billing.run_renewal_event"
+    return payload
 
 
 @shared_task(name="billing.retry_failed_renewal")

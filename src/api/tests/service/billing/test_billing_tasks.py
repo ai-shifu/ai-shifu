@@ -251,7 +251,7 @@ def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
     assert payload["task_name"] == "billing.send_low_balance_alert"
 
 
-def test_run_renewal_event_task_returns_pending_snapshot(
+def test_run_renewal_event_task_delegates_to_renewal_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
@@ -261,17 +261,12 @@ def test_run_renewal_event_task_returns_pending_snapshot(
         types.SimpleNamespace(create_app=lambda: fake_app),
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.tasks._load_target_renewal_event",
-        lambda **kwargs: types.SimpleNamespace(
-            renewal_event_bid="renewal-task-1",
-            subscription_bid="subscription-task-1",
-            creator_bid="creator-task-1",
-            event_type=7501,
-            status=7511,
-            scheduled_at=datetime(2026, 4, 9, 0, 0, 0),
-            attempt_count=2,
-            payload_json={"billing_order_bid": "billing-order-task-1"},
-        ),
+        "flaskr.service.billing.tasks.run_billing_renewal_event",
+        lambda app, **kwargs: {
+            "status": "applied",
+            "renewal_event_bid": kwargs["renewal_event_bid"],
+            "event_status": "succeeded",
+        },
     )
 
     payload = run_renewal_event_task(
@@ -280,10 +275,9 @@ def test_run_renewal_event_task_returns_pending_snapshot(
         creator_bid="creator-task-1",
     )
 
-    assert payload["status"] == "pending_implementation"
+    assert payload["status"] == "applied"
     assert payload["renewal_event_bid"] == "renewal-task-1"
-    assert payload["event_type"] == "renewal"
-    assert payload["event_status"] == "pending"
+    assert payload["event_status"] == "succeeded"
     assert payload["task_name"] == "billing.run_renewal_event"
 
 
