@@ -136,8 +136,12 @@ jest.mock('@/components/ui/DropdownMenu', () => {
       const { open, setOpen } = useDropdownContext();
 
       if (asChild && React.isValidElement(children)) {
-        return React.cloneElement(children, {
-          onClick: composeHandlers(children.props.onClick, () =>
+        const child = children as React.ReactElement<{
+          onClick?: (event: React.MouseEvent) => void;
+          'aria-expanded'?: boolean;
+        }>;
+        return React.cloneElement(child, {
+          onClick: composeHandlers(child.props.onClick, () =>
             setOpen(previous => !previous),
           ),
           'aria-expanded': open,
@@ -266,26 +270,11 @@ describe('OperationsPage', () => {
           created_at: '2025-04-03 10:00:00',
           updated_at: '2025-04-03 10:00:00',
         },
-        {
-          shifu_bid: 'course-system-demo',
-          course_name: 'AI-Shifu Creation Guide',
-          price: '0',
-          creator_user_bid: 'system',
-          creator_mobile: '',
-          creator_email: '',
-          creator_nickname: '',
-          updater_user_bid: 'system',
-          updater_mobile: '',
-          updater_email: '',
-          updater_nickname: '',
-          created_at: '2025-04-03 11:00:00',
-          updated_at: '2025-04-03 11:00:00',
-        },
       ],
       page: 1,
       page_count: 1,
       page_size: 20,
-      total: 3,
+      total: 2,
     });
   });
 
@@ -318,9 +307,6 @@ describe('OperationsPage', () => {
     expect(scopedRow.getAllByText('system')).toHaveLength(2);
     expect(
       scopedRow.queryByText('module.user.defaultUserName'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('AI-Shifu Creation Guide'),
     ).not.toBeInTheDocument();
   });
 

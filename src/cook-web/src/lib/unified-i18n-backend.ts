@@ -234,7 +234,10 @@ class UnifiedI18nBackend {
         );
 
         this.cache.set(language, mergedTranslations);
-        const loadedNamespaces = new Set(namespacesToFetch);
+        const loadedNamespaces = new Set(
+          this.loadedNamespaces.get(language) ?? [],
+        );
+        namespacesToFetch.forEach(namespace => loadedNamespaces.add(namespace));
         loadedNamespaces.add('translation');
         this.loadedNamespaces.set(language, loadedNamespaces);
         return mergedTranslations;

@@ -213,4 +213,25 @@ describe('AdminLayout', () => {
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
   });
+
+  test('renders sidebar once initialization completes even if user info is unavailable', () => {
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.isGuest = false;
+    mockUserStoreState.userInfo = null as unknown as {
+      is_operator: false;
+    };
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByLabelText('admin-sidebar-loading'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'common.core.shifu' }),
+    ).toBeInTheDocument();
+  });
 });

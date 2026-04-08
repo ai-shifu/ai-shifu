@@ -1,6 +1,21 @@
 import UnifiedI18nBackend from './unified-i18n-backend';
 
 describe('UnifiedI18nBackend', () => {
+  const readNamespace = (
+    backend: UnifiedI18nBackend,
+    language: string,
+    namespace: string,
+  ) =>
+    new Promise<Record<string, unknown>>((resolve, reject) => {
+      backend.read(language, namespace, (error, loadedResources) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(loadedResources as Record<string, unknown>);
+      });
+    });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -38,20 +53,10 @@ describe('UnifiedI18nBackend', () => {
       },
     });
 
-    const resources = await new Promise<Record<string, unknown>>(
-      (resolve, reject) => {
-        backend.read(
-          'zh-CN',
-          'module.operationsCourse',
-          (error, loadedResources) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-            resolve(loadedResources as Record<string, unknown>);
-          },
-        );
-      },
+    const resources = await readNamespace(
+      backend,
+      'zh-CN',
+      'module.operationsCourse',
     );
 
     const requestUrl = new URL(fetchMock.mock.calls[0][0] as string);
@@ -59,6 +64,68 @@ describe('UnifiedI18nBackend', () => {
     expect(requestUrl.searchParams.get('ns')).toBe(
       'module.operationsCourse,module.order',
     );
+    expect(resources).toEqual({
+      title: 'Course',
+    });
+
+    global.fetch = originalFetch;
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: originalWindow,
+    });
+  });
+
+  test('preserves previously loaded namespaces across incremental reads', async () => {
+    const backend = new UnifiedI18nBackend();
+    backend.init(null, {
+      loadPath: '/api/i18n',
+      namespaces: [],
+    });
+
+    const originalFetch = global.fetch;
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          translations: {
+            'module.operationsCourse': {
+              title: 'Course',
+            },
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          translations: {
+            'module.order': {
+              title: 'Orders',
+            },
+          },
+        }),
+      } as Response);
+    global.fetch = fetchMock as typeof fetch;
+
+    const originalWindow = global.window;
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: {
+        location: {
+          origin: 'http://localhost:3000',
+        },
+      },
+    });
+
+    await readNamespace(backend, 'zh-CN', 'module.operationsCourse');
+    await readNamespace(backend, 'zh-CN', 'module.order');
+    const resources = await readNamespace(
+      backend,
+      'zh-CN',
+      'module.operationsCourse',
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(resources).toEqual({
       title: 'Course',
     });

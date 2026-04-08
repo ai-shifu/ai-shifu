@@ -88,10 +88,6 @@ const DEFAULT_COLUMN_WIDTHS = {
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-const BUILTIN_DEMO_TITLES = new Set([
-  'AI 师傅教学引导',
-  'AI-Shifu Creation Guide',
-]);
 
 const createDefaultFilters = (): CourseFilters => ({
   shifu_bid: '',
@@ -103,17 +99,13 @@ const createDefaultFilters = (): CourseFilters => ({
   updated_end_time: '',
 });
 
-const isBuiltinDemoCourse = (course: AdminOperationCourseItem): boolean =>
-  course.creator_user_bid === 'system' &&
-  BUILTIN_DEMO_TITLES.has((course.course_name || '').trim());
-
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
 
 const createColumnWidthState = (
   overrides?: Partial<ColumnWidthState>,
 ): ColumnWidthState => {
-  const widths = { ...DEFAULT_COLUMN_WIDTHS };
+  const widths: ColumnWidthState = { ...DEFAULT_COLUMN_WIDTHS };
   COLUMN_KEYS.forEach(key => {
     const nextValue = overrides?.[key];
     if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
@@ -358,10 +350,10 @@ const OperationsPage = () => {
     ),
   );
   const initializedManualRef = useRef(false);
-  const fetchCoursesRef =
-    useRef<
-      (targetPage: number, nextFilters?: CourseFilters) => Promise<void>
-    >();
+  const fetchCoursesRef = useRef<
+    | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
+    | undefined
+  >(undefined);
 
   const formatMoney = useCallback(
     (value?: string) =>
@@ -418,9 +410,7 @@ const OperationsPage = () => {
           updated_start_time: resolvedFilters.updated_start_time,
           updated_end_time: resolvedFilters.updated_end_time,
         })) as AdminOperationCourseListResponse;
-        setCourses(
-          (response.items || []).filter(course => !isBuiltinDemoCourse(course)),
-        );
+        setCourses(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
       } catch (err) {
@@ -684,7 +674,7 @@ const OperationsPage = () => {
         return;
       }
 
-      const nextWidths: Partial<ColumnWidthState> = {};
+      const nextWidths: Partial<Record<ColumnKey, number>> = {};
       const columnValueExtractors: Record<
         ColumnKey,
         (course: AdminOperationCourseItem) => string[]
@@ -725,7 +715,7 @@ const OperationsPage = () => {
           const required = texts.reduce(
             (maxWidth, text) =>
               Math.max(maxWidth, estimateWidth(text, multiplier)),
-            DEFAULT_COLUMN_WIDTHS[key],
+            Number(DEFAULT_COLUMN_WIDTHS[key]),
           );
           if (
             !nextWidths[key] ||

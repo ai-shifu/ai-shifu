@@ -294,11 +294,10 @@ const MainInterface = ({
   const pathname = usePathname();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
-  const userInfo = useUserStore(state => state.userInfo);
   const isOperator = useUserStore(state =>
     Boolean(state.userInfo?.is_operator),
   );
-  const menuReady = isInitialized && !isGuest && Boolean(userInfo);
+  const menuReady = isInitialized && !isGuest;
   useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
