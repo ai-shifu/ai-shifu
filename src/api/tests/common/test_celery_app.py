@@ -26,6 +26,11 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert getattr(celery_app, "flask_app") is flask_app
     assert "billing.settle_usage" in celery_app.tasks
     assert "billing.replay_usage_settlement" in celery_app.tasks
+    assert "billing.expire_wallet_buckets" in celery_app.tasks
+    assert "billing.reconcile_provider_reference" in celery_app.tasks
+    assert "billing.send_low_balance_alert" in celery_app.tasks
+    assert "billing.run_renewal_event" in celery_app.tasks
+    assert "billing.retry_failed_renewal" in celery_app.tasks
 
 
 def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:

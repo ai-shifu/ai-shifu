@@ -705,6 +705,7 @@ v1 的改造要求：
 - 当前实现中，`src/api/flaskr/common/celery_app.py` 已提供共享 Celery app factory，`src/api/celery_app.py` 作为 worker / beat 入口统一复用 `app.py:create_app()`
 - 当前实现中，`src/api/flaskr/common/config.py` 已注册 `CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`、`CELERY_TASK_ALWAYS_EAGER`，并同步刷新 `docker/.env.example.full`
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
+- 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal`
 - 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，当前批次先补齐默认异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
