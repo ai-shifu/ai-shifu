@@ -7,20 +7,23 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_PRODUCT_SEEDS,
-    BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
 )
 from flaskr.service.billing.models import (
+    BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
@@ -292,11 +295,23 @@ def test_run_billing_renewal_event_releases_future_event_back_to_pending(
         assert event.processed_at is None
 
 
-def test_run_billing_renewal_event_marks_unsupported_event_failed(
+def test_run_billing_renewal_event_queues_subscription_renewal_order(
     billing_renewal_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.renewal.sync_billing_order",
+        lambda app, creator_bid, billing_order_bid, payload: {
+            "status": "pending",
+            "creator_bid": creator_bid,
+            "billing_order_bid": billing_order_bid,
+        },
+    )
+
     with billing_renewal_app.app_context():
         subscription = _create_subscription("sub-unsupported-1")
+        subscription.provider_subscription_id = "sub_provider_unsupported_1"
+        subscription_bid = subscription.subscription_bid
         event = _create_renewal_event(
             "renewal-unsupported-1",
             subscription.subscription_bid,
@@ -312,13 +327,84 @@ def test_run_billing_renewal_event_marks_unsupported_event_failed(
         renewal_event_bid="renewal-unsupported-1",
     )
 
-    assert payload["status"] == "failed"
-    assert payload["event_status"] == "failed"
-    assert "renewal_event_handler_not_implemented:renewal" in payload["last_error"]
+    assert payload["status"] == "queued_for_reconcile"
+    assert payload["event_status"] == "succeeded"
+    assert payload["billing_order_bid"]
 
     with billing_renewal_app.app_context():
         event = BillingRenewalEvent.query.filter_by(
             renewal_event_bid="renewal-unsupported-1"
         ).one()
-        assert event.status == BILLING_RENEWAL_EVENT_STATUS_FAILED
-        assert "renewal_event_handler_not_implemented:renewal" in event.last_error
+        order = BillingOrder.query.filter_by(
+            billing_order_bid=payload["billing_order_bid"]
+        ).one()
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+        assert order.subscription_bid == subscription_bid
+        assert order.provider_reference_id == "sub_provider_unsupported_1"
+        assert order.metadata_json["provider_reference_type"] == "subscription"
+
+
+def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
+    billing_renewal_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.renewal.sync_billing_order",
+        lambda app, creator_bid, billing_order_bid, payload: {
+            "status": "paid",
+            "creator_bid": creator_bid,
+            "billing_order_bid": billing_order_bid,
+        },
+    )
+
+    cycle_start = datetime.now()
+    cycle_end = cycle_start + timedelta(days=30)
+    with billing_renewal_app.app_context():
+        subscription = _create_subscription(
+            "sub-retry-1",
+            current_period_end_at=cycle_start,
+        )
+        subscription.provider_subscription_id = "sub_provider_retry_1"
+        renewal_order = BillingOrder(
+            billing_order_bid="billing-renewal-retry-1",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=9900,
+            paid_amount=0,
+            payment_provider="stripe",
+            channel="subscription",
+            provider_reference_id="sub_provider_retry_1",
+            status=BILLING_ORDER_STATUS_FAILED,
+            metadata_json={
+                "provider_reference_type": "subscription",
+                "renewal_cycle_start_at": cycle_start.isoformat(),
+                "renewal_cycle_end_at": cycle_end.isoformat(),
+            },
+        )
+        event = _create_renewal_event(
+            "renewal-retry-1",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RETRY,
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(renewal_order)
+        dao.db.session.add(event)
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-retry-1",
+    )
+
+    assert payload["status"] == "applied"
+    assert payload["event_status"] == "succeeded"
+
+    with billing_renewal_app.app_context():
+        event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-retry-1"
+        ).one()
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED

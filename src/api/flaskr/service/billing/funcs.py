@@ -817,6 +817,11 @@ def apply_billing_stripe_notification(
             metadata=metadata,
         )
         if order is None and subscription is not None:
+            order = _load_billing_renewal_order_for_stripe_event(
+                subscription.subscription_bid,
+                data_object,
+            )
+        if order is None and subscription is not None:
             order = _load_latest_billing_order_by_subscription(
                 subscription.subscription_bid
             )
@@ -839,6 +844,11 @@ def apply_billing_stripe_notification(
         response_status = "acknowledged"
         if order is not None:
             target_status = _map_stripe_order_status(event_type)
+            if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
+                target_status = _resolve_stripe_subscription_order_status(
+                    order,
+                    data_object,
+                )
             applied = _apply_billing_order_provider_update(
                 order,
                 provider="stripe",
@@ -1194,6 +1204,18 @@ def _sync_stripe_order(
     *,
     session_id: str,
 ) -> None:
+    reference_type = _resolve_billing_order_provider_reference_type(order)
+    if reference_type == "subscription":
+        resolved_subscription_id = session_id or order.provider_reference_id
+        if not resolved_subscription_id:
+            raise_error("server.order.orderNotFound")
+        _sync_stripe_subscription_order(
+            app,
+            order,
+            subscription_id=resolved_subscription_id,
+        )
+        return
+
     provider = get_payment_provider("stripe")
     resolved_session_id = session_id or order.provider_reference_id
     if not resolved_session_id:
@@ -1239,6 +1261,72 @@ def _sync_stripe_order(
                 payload=session,
                 provider="stripe",
                 event_type="manual_sync",
+                source="sync",
+            )
+
+
+def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    normalized_reference_type = _normalize_bid(
+        metadata.get("provider_reference_type")
+    ).lower()
+    if normalized_reference_type:
+        return normalized_reference_type
+    if (
+        order.payment_provider == "stripe"
+        and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+    ):
+        return "subscription"
+    if order.payment_provider == "stripe":
+        return "checkout_session"
+    if order.payment_provider == "pingxx":
+        return "charge"
+    return ""
+
+
+def _sync_stripe_subscription_order(
+    app: Flask,
+    order: BillingOrder,
+    *,
+    subscription_id: str,
+) -> None:
+    provider = get_payment_provider("stripe")
+    sync_result = provider.sync_reference(
+        provider_reference=subscription_id,
+        reference_type="subscription",
+        app=app,
+    )
+    subscription_payload = sync_result.provider_payload.get("subscription", {}) or {}
+    target_status = _resolve_stripe_subscription_order_status(
+        order, subscription_payload
+    )
+    failure_code = ""
+    failure_message = ""
+    if target_status == BILLING_ORDER_STATUS_FAILED:
+        failure_code = str(subscription_payload.get("status") or "subscription_sync")
+        failure_message = "Stripe subscription sync indicates renewal is not paid yet"
+
+    _apply_billing_order_provider_update(
+        order,
+        provider="stripe",
+        event_type="manual_sync",
+        source="sync",
+        payload=subscription_payload,
+        provider_reference_id=str(subscription_payload.get("id") or subscription_id),
+        target_status=target_status,
+        failure_code=failure_code,
+        failure_message=failure_message,
+    )
+    if order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            _apply_billing_subscription_provider_update(
+                app,
+                subscription,
+                provider="stripe",
+                event_type="customer.subscription.updated",
+                payload=subscription_payload,
+                data_object=subscription_payload,
                 source="sync",
             )
 
@@ -1388,6 +1476,174 @@ def _load_latest_billing_order_by_subscription(
         .order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc())
         .first()
     )
+
+
+def _load_latest_subscription_renewal_order(
+    subscription_bid: str,
+    *,
+    statuses: tuple[int, ...] | None = None,
+) -> BillingOrder | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    query = BillingOrder.query.filter(
+        BillingOrder.deleted == 0,
+        BillingOrder.subscription_bid == normalized_subscription_bid,
+        BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    )
+    if statuses:
+        query = query.filter(BillingOrder.status.in_(statuses))
+    return query.order_by(
+        BillingOrder.created_at.desc(), BillingOrder.id.desc()
+    ).first()
+
+
+def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+    if not isinstance(metadata, dict):
+        return None
+    return _coerce_datetime(metadata.get(key))
+
+
+def _serialize_order_metadata_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
+def _load_subscription_renewal_order_by_cycle(
+    subscription_bid: str,
+    *,
+    cycle_start_at: datetime | None = None,
+    cycle_end_at: datetime | None = None,
+    statuses: tuple[int, ...] | None = None,
+) -> BillingOrder | None:
+    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    if not normalized_subscription_bid:
+        return None
+    query = BillingOrder.query.filter(
+        BillingOrder.deleted == 0,
+        BillingOrder.subscription_bid == normalized_subscription_bid,
+        BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    )
+    if statuses:
+        query = query.filter(BillingOrder.status.in_(statuses))
+    rows = query.order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc()).all()
+    for row in rows:
+        metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+        expected_start = _extract_order_metadata_datetime(
+            metadata, "renewal_cycle_start_at"
+        )
+        expected_end = _extract_order_metadata_datetime(
+            metadata, "renewal_cycle_end_at"
+        )
+        if cycle_start_at is not None and expected_start != cycle_start_at:
+            continue
+        if cycle_end_at is not None and expected_end != cycle_end_at:
+            continue
+        return row
+    return None
+
+
+def _calculate_billing_cycle_end(
+    product: BillingProduct,
+    *,
+    cycle_start_at: datetime,
+) -> datetime | None:
+    interval = int(product.billing_interval or 0)
+    interval_count = max(int(product.billing_interval_count or 0), 0)
+    if interval_count <= 0:
+        return None
+    if interval == BILLING_INTERVAL_MONTH:
+        return _add_months(cycle_start_at, interval_count)
+    if interval == BILLING_INTERVAL_YEAR:
+        return _add_years(cycle_start_at, interval_count)
+    return None
+
+
+def ensure_subscription_renewal_order(
+    app: Flask,
+    subscription: BillingSubscription,
+    *,
+    renewal_event_bid: str = "",
+    scheduled_at: datetime | None = None,
+) -> BillingOrder | None:
+    cycle_start_at = scheduled_at or subscription.current_period_end_at
+    if cycle_start_at is None:
+        return None
+
+    provider_name = _normalize_bid(subscription.billing_provider)
+    provider_reference_id = _normalize_bid(subscription.provider_subscription_id)
+    if provider_name != "stripe" or not provider_reference_id:
+        return None
+
+    product_bid = _normalize_bid(subscription.next_product_bid) or _normalize_bid(
+        subscription.product_bid
+    )
+    product = _load_billing_product_by_bid(product_bid)
+    if product is None:
+        return None
+
+    cycle_end_at = _calculate_billing_cycle_end(product, cycle_start_at=cycle_start_at)
+    if cycle_end_at is None:
+        return None
+
+    order = _load_subscription_renewal_order_by_cycle(
+        subscription.subscription_bid,
+        cycle_start_at=cycle_start_at,
+        cycle_end_at=cycle_end_at,
+    )
+    metadata = (
+        dict(order.metadata_json)
+        if order and isinstance(order.metadata_json, dict)
+        else {}
+    )
+    metadata.update(
+        _normalize_json_value(
+            {
+                "checkout_type": "subscription_renewal",
+                "provider_reference_type": "subscription",
+                "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
+                "renewal_cycle_start_at": _serialize_order_metadata_datetime(
+                    cycle_start_at
+                ),
+                "renewal_cycle_end_at": _serialize_order_metadata_datetime(
+                    cycle_end_at
+                ),
+                "subscription_bid": subscription.subscription_bid,
+                "product_bid": product.product_bid,
+            }
+        )
+    )
+
+    if order is None:
+        order = BillingOrder(
+            billing_order_bid=generate_id(app),
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=product.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency=product.currency,
+            payable_amount=int(product.price_amount or 0),
+            paid_amount=0,
+            payment_provider=provider_name,
+            channel="subscription",
+            provider_reference_id=provider_reference_id,
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json=metadata,
+        )
+    else:
+        order.creator_bid = subscription.creator_bid
+        order.product_bid = product.product_bid
+        order.currency = product.currency
+        order.payable_amount = int(product.price_amount or 0)
+        order.payment_provider = provider_name
+        order.channel = order.channel or "subscription"
+        order.provider_reference_id = provider_reference_id
+        order.metadata_json = metadata
+
+    db.session.add(order)
+    db.session.flush()
+    return order
 
 
 def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
@@ -1602,6 +1858,14 @@ def _resolve_credit_bucket_effective_to(
     product: BillingProduct,
     effective_from: datetime,
 ) -> datetime | None:
+    if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        renewal_cycle_end_at = _extract_order_metadata_datetime(
+            metadata, "renewal_cycle_end_at"
+        )
+        if renewal_cycle_end_at is not None:
+            return renewal_cycle_end_at
+
     if (
         order.subscription_bid
         and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
@@ -1628,6 +1892,12 @@ def _resolve_credit_bucket_effective_from(
 ) -> datetime:
     if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return default_effective_from
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    renewal_cycle_start_at = _extract_order_metadata_datetime(
+        metadata, "renewal_cycle_start_at"
+    )
+    if renewal_cycle_start_at is not None:
+        return renewal_cycle_start_at
     subscription = _load_subscription_by_bid(order.subscription_bid)
     if (
         subscription is None
@@ -1941,7 +2211,9 @@ def _can_transition_billing_order_status(
     }:
         return False
     if current_status == BILLING_ORDER_STATUS_FAILED:
-        return source == "sync" and target_status == BILLING_ORDER_STATUS_PAID
+        return (
+            source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID
+        )
     return True
 
 
@@ -1954,6 +2226,81 @@ def _map_stripe_order_status(event_type: str) -> int | None:
         return BILLING_ORDER_STATUS_REFUNDED
     if event_type in _STRIPE_CANCEL_EVENT_TYPES:
         return BILLING_ORDER_STATUS_CANCELED
+    return None
+
+
+def _resolve_stripe_subscription_order_status(
+    order: BillingOrder,
+    data_object: dict[str, Any],
+) -> int | None:
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        return None
+
+    subscription_status = str(data_object.get("status") or "").strip().lower()
+    if subscription_status in {"active", "trialing"}:
+        if _stripe_subscription_cycle_matches_renewal_order(order, data_object):
+            return BILLING_ORDER_STATUS_PAID
+        return BILLING_ORDER_STATUS_PENDING
+    if subscription_status in {"past_due", "unpaid", "incomplete_expired", "canceled"}:
+        return BILLING_ORDER_STATUS_FAILED
+    return BILLING_ORDER_STATUS_PENDING
+
+
+def _stripe_subscription_cycle_matches_renewal_order(
+    order: BillingOrder,
+    data_object: dict[str, Any],
+) -> bool:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    expected_cycle_start = _extract_order_metadata_datetime(
+        metadata, "renewal_cycle_start_at"
+    )
+    expected_cycle_end = _extract_order_metadata_datetime(
+        metadata, "renewal_cycle_end_at"
+    )
+    current_period_start = _coerce_datetime(data_object.get("current_period_start"))
+    current_period_end = _coerce_datetime(data_object.get("current_period_end"))
+
+    if expected_cycle_end is not None and current_period_end is not None:
+        if current_period_end >= expected_cycle_end:
+            if expected_cycle_start is None or current_period_start is None:
+                return True
+            return current_period_start >= expected_cycle_start
+        return False
+
+    if expected_cycle_start is not None and current_period_start is not None:
+        return current_period_start >= expected_cycle_start
+
+    return False
+
+
+def _load_billing_renewal_order_for_stripe_event(
+    subscription_bid: str,
+    data_object: dict[str, Any],
+) -> BillingOrder | None:
+    subscription_status = str(data_object.get("status") or "").strip().lower()
+    current_period_start = _coerce_datetime(data_object.get("current_period_start"))
+    current_period_end = _coerce_datetime(data_object.get("current_period_end"))
+
+    if subscription_status in {"active", "trialing"}:
+        return _load_subscription_renewal_order_by_cycle(
+            subscription_bid,
+            cycle_start_at=current_period_start,
+            cycle_end_at=current_period_end,
+            statuses=(
+                BILLING_ORDER_STATUS_PENDING,
+                BILLING_ORDER_STATUS_FAILED,
+            ),
+        )
+
+    if subscription_status in {"past_due", "unpaid", "incomplete_expired", "canceled"}:
+        return _load_latest_subscription_renewal_order(
+            subscription_bid,
+            statuses=(
+                BILLING_ORDER_STATUS_PENDING,
+                BILLING_ORDER_STATUS_FAILED,
+            ),
+        )
+
     return None
 
 
@@ -2180,7 +2527,7 @@ def _merge_provider_metadata(
 def _extract_provider_event_time(payload: Any) -> datetime | None:
     if not isinstance(payload, dict):
         return None
-    for key in ("created", "time_paid"):
+    for key in ("created", "time_paid", "current_period_end", "current_period_start"):
         value = _coerce_datetime(payload.get(key))
         if value is not None:
             return value
@@ -2199,6 +2546,12 @@ def _extract_provider_event_time(payload: Any) -> datetime | None:
         value = _coerce_datetime(charge.get(key))
         if value is not None:
             return value
+    subscription = payload.get("subscription", {}) or {}
+    if isinstance(subscription, dict):
+        for key in ("created", "current_period_end", "current_period_start"):
+            value = _coerce_datetime(subscription.get(key))
+            if value is not None:
+                return value
     return None
 
 

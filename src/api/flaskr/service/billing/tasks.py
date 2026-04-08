@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from .funcs import build_billing_overview, sync_billing_order
 from .models import BillingOrder, BillingSubscription, CreditWallet
-from .renewal import run_billing_renewal_event
+from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
 
@@ -324,12 +324,14 @@ def retry_failed_renewal_task(
         payload["task_name"] = "billing.retry_failed_renewal"
         return payload
 
-    return {
-        "status": "pending_implementation",
-        "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-        "billing_order_bid": _normalize_bid(billing_order_bid) or None,
-        "provider_reference_id": _normalize_bid(provider_reference_id) or None,
-        "payment_provider": _normalize_bid(payment_provider) or None,
-        "creator_bid": _normalize_bid(creator_bid) or None,
-        "task_name": "billing.retry_failed_renewal",
-    }
+    payload = retry_billing_renewal_event(
+        app,
+        renewal_event_bid=renewal_event_bid,
+        subscription_bid="",
+        creator_bid=creator_bid,
+        billing_order_bid=billing_order_bid,
+        provider_reference_id=provider_reference_id,
+        payment_provider=payment_provider,
+    )
+    payload["task_name"] = "billing.retry_failed_renewal"
+    return payload

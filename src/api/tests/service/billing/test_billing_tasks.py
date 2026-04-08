@@ -334,3 +334,32 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
     assert payload["status"] == "paid"
     assert payload["renewal_event_bid"] == "renewal-task-retry"
     assert payload["task_name"] == "billing.retry_failed_renewal"
+
+
+def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = Flask(__name__)
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: fake_app),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.retry_billing_renewal_event",
+        lambda app, **kwargs: {
+            "status": "paid",
+            "billing_order_bid": "billing-order-task-retry-auto",
+            "renewal_event_bid": kwargs["renewal_event_bid"],
+        },
+    )
+
+    payload = retry_failed_renewal_task(
+        renewal_event_bid="renewal-task-retry-auto",
+        creator_bid="creator-task-retry-auto",
+    )
+
+    assert payload["status"] == "paid"
+    assert payload["billing_order_bid"] == "billing-order-task-retry-auto"
+    assert payload["renewal_event_bid"] == "renewal-task-retry-auto"
+    assert payload["task_name"] == "billing.retry_failed_renewal"
