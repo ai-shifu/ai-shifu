@@ -48,7 +48,7 @@ import {
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import type { ListenMobileScreenModeChangeHandler } from './listenModeTypes';
+import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -65,7 +65,7 @@ interface NewChatComponentsProps {
   previewMode?: boolean;
   isNavOpen?: boolean;
   onListenPlayerVisibilityChange?: (visible: boolean) => void;
-  onListenMobileScreenModeChange?: ListenMobileScreenModeChangeHandler;
+  onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
 }
 
@@ -183,7 +183,7 @@ export const NewChatComponents = ({
   previewMode = false,
   isNavOpen = false,
   onListenPlayerVisibilityChange,
-  onListenMobileScreenModeChange,
+  onListenMobileViewModeChange,
   showGenerateBtn = false,
 }: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
@@ -830,7 +830,7 @@ export const NewChatComponents = ({
               shifuBid={shifuBid}
               previewMode={previewMode}
               lessonStatus={lessonStatus}
-              onMobileScreenModeChange={onListenMobileScreenModeChange}
+              onMobileViewModeChange={onListenMobileViewModeChange}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onPlaybackStateChange={setListenPlaybackState}

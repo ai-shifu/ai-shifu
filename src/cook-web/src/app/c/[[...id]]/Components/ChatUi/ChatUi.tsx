@@ -13,7 +13,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
-import type { ListenMobileScreenModeChangeHandler } from './listenModeTypes';
+import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 
 interface ChatUiProps {
   chapterId: string;
@@ -31,7 +31,7 @@ interface ChatUiProps {
   updateSelectedLesson: any;
   getNextLessonId: any;
   isNavOpen?: boolean;
-  onListenMobileScreenModeChange?: ListenMobileScreenModeChangeHandler;
+  onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
 }
 
@@ -54,7 +54,7 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
   isNavOpen = false,
-  onListenMobileScreenModeChange,
+  onListenMobileViewModeChange,
   showGenerateBtn = false,
 }: ChatUiProps) => {
   const { t } = useTranslation();
@@ -160,7 +160,7 @@ export const ChatUi = ({
           updateSelectedLesson={updateSelectedLesson}
           getNextLessonId={getNextLessonId}
           isNavOpen={isNavOpen}
-          onListenMobileScreenModeChange={onListenMobileScreenModeChange}
+          onListenMobileViewModeChange={onListenMobileViewModeChange}
           onListenPlayerVisibilityChange={setIsListenPlayerVisible}
           showGenerateBtn={showGenerateBtn}
         />
