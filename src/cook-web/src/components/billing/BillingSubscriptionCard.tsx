@@ -13,6 +13,7 @@ import type { BillingPlan, BillingSubscription } from '@/types/billing';
 import {
   formatBillingDate,
   resolveBillingEmptyLabel,
+  resolveBillingPlanCreditsLabel,
   resolveBillingProviderLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
@@ -89,16 +90,20 @@ export function BillingSubscriptionCard({
     subscriptionStatus !== 'canceled' &&
     subscriptionStatus !== 'expired' &&
     subscriptionStatus !== 'draft';
+  const creditsLabel =
+    currentPlan && subscription
+      ? resolveBillingPlanCreditsLabel(t, currentPlan, i18n.language)
+      : t('module.billing.overview.subscriptionEmptyDescription');
 
   return (
-    <Card className='border-slate-200 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.06)]'>
-      <CardHeader className='gap-4'>
+    <Card className='h-full rounded-[30px] border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]'>
+      <CardHeader className='gap-5 pb-5'>
         <div className='flex items-center justify-between gap-3'>
           <div>
-            <CardDescription>
+            <CardDescription className='text-sm font-medium uppercase tracking-[0.12em] text-slate-400'>
               {t('module.billing.overview.subscriptionTitle')}
             </CardDescription>
-            <CardTitle className='mt-2 text-2xl text-slate-900'>
+            <CardTitle className='mt-3 text-2xl leading-tight text-slate-950'>
               {subscription && currentPlan
                 ? resolveBillingProductTitle(t, currentPlan)
                 : t('module.billing.overview.subscriptionEmptyTitle')}
@@ -112,13 +117,17 @@ export function BillingSubscriptionCard({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className='space-y-4'>
-        <p className='text-sm leading-6 text-slate-500'>
+      <CardContent className='space-y-5'>
+        <p className='text-sm leading-7 text-slate-500'>
           {subscription && currentPlan
             ? resolveBillingProductDescription(t, currentPlan)
             : t('module.billing.overview.subscriptionEmptyDescription')}
         </p>
-        <div className='grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600'>
+        <div className='grid gap-3 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600'>
+          <div className='flex items-center justify-between gap-3'>
+            <span>{t('module.billing.overview.availableCreditsLabel')}</span>
+            <span className='font-semibold text-slate-900'>{creditsLabel}</span>
+          </div>
           <div className='flex items-center justify-between gap-3'>
             <span>
               {t('module.billing.overview.subscriptionProviderLabel')}
@@ -142,6 +151,7 @@ export function BillingSubscriptionCard({
             {canCancel ? (
               <Button
                 variant='outline'
+                className='rounded-full'
                 disabled={actionLoading === 'cancel'}
                 onClick={() => onCancelSubscription?.(subscription)}
               >
@@ -152,6 +162,7 @@ export function BillingSubscriptionCard({
             ) : null}
             {canResume ? (
               <Button
+                className='rounded-full'
                 disabled={actionLoading === 'resume'}
                 onClick={() => onResumeSubscription?.(subscription)}
               >
