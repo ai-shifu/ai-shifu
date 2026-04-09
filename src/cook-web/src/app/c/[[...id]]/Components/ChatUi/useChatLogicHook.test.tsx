@@ -543,6 +543,67 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBe(true);
   });
 
+  it('does not auto-run when switching to a completed lesson with persisted content', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'Completed lesson content',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          lessonStatus: 'completed',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    expect(
+      result.current.items.some(item => item.element_bid === 'content-1'),
+    ).toBe(true);
+  });
+
+  it('does not auto-run when switching to a completed lesson without persisted content', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [],
+      slides: [],
+      records: [],
+    });
+
+    const params = buildBaseParams();
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...params,
+          lessonStatus: 'completed',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockGetLessonStudyRecord).toHaveBeenCalledTimes(1),
+    );
+
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    expect(params.trackEvent).not.toHaveBeenCalled();
+  });
+
   it('maps history ask/answer elements into ask block messages', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
@@ -803,6 +864,118 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(askItems).toHaveLength(1);
     expect(likeStatusIndex).toBeGreaterThan(-1);
     expect(askIndex).toBe(likeStatusIndex + 1);
+  });
+
+  it('continues the lesson stream after a non-terminal done event', async () => {
+    renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+  });
+
+  it('continues auto-continuation even when done is marked terminal', async () => {
+    renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: true,
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+  });
+
+  it('stops auto-continuation after the lesson reports completed', async () => {
+    const params = buildBaseParams();
+    renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+        content: {
+          outline_bid: 'lesson-1',
+          title: 'Lesson 1',
+          status: 'completed',
+          has_children: false,
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+      });
+    });
+
+    expect(params.lessonUpdate).toHaveBeenCalledWith({
+      id: 'lesson-1',
+      name: 'Lesson 1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
   });
 
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {
