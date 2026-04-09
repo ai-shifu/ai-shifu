@@ -366,6 +366,7 @@ export const NewChatComponents = ({
     shifuBid,
     outlineBid: lessonId,
     lessonId,
+    lessonStatus,
     chapterId,
     previewMode,
     isListenMode: isListenModeActive,

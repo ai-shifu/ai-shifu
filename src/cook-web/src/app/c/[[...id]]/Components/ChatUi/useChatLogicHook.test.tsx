@@ -543,6 +543,67 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBe(true);
   });
 
+  it('does not auto-run when switching to a completed lesson with persisted content', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'Completed lesson content',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          lessonStatus: 'completed',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    expect(
+      result.current.items.some(item => item.element_bid === 'content-1'),
+    ).toBe(true);
+  });
+
+  it('does not auto-run when switching to a completed lesson without persisted content', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [],
+      slides: [],
+      records: [],
+    });
+
+    const params = buildBaseParams();
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...params,
+          lessonStatus: 'completed',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockGetLessonStudyRecord).toHaveBeenCalledTimes(1),
+    );
+
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+    expect(params.trackEvent).not.toHaveBeenCalled();
+  });
+
   it('maps history ask/answer elements into ask block messages', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

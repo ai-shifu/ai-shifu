@@ -133,6 +133,7 @@ export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
   lessonId: string;
+  lessonStatus?: string;
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
@@ -192,6 +193,7 @@ function useChatLogicHook({
   onGoChapter,
   outlineBid,
   lessonId,
+  lessonStatus = '',
   chapterId,
   previewMode,
   isListenMode = false,
@@ -210,6 +212,7 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
+  const isCompletedLesson = lessonStatus === LESSON_STATUS_VALUE.COMPLETED;
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -1805,8 +1808,9 @@ function useChatLogicHook({
           setLoadedChapterId(chapterId);
         }
         if (
+          !isCompletedLesson &&
           recordResp.elements[recordResp.elements.length - 1].element_type !==
-          ELEMENT_TYPE.INTERACTION
+            ELEMENT_TYPE.INTERACTION
           //   ||
           // recordResp.elements[recordResp.elements.length - 1].element_type ===
           //   BLOCK_TYPE.ERROR
@@ -1817,11 +1821,13 @@ function useChatLogicHook({
           });
         }
       } else {
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
-        if (!effectivePreviewMode) {
+        if (!isCompletedLesson) {
+          runRef.current?.({
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          });
+        }
+        if (!effectivePreviewMode && !isCompletedLesson) {
           trackEvent('learner_lesson_start', {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
@@ -1844,6 +1850,7 @@ function useChatLogicHook({
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
+    isCompletedLesson,
     // lessonId,
     effectivePreviewMode,
     trackEvent,
