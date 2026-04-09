@@ -601,7 +601,6 @@ def _load_latest_outline_items(model, shifu_bid: str):
         db.session.query(db.func.max(model.id).label("max_id"))
         .filter(
             model.shifu_bid == shifu_bid,
-            model.deleted == 0,
         )
         .group_by(model.outline_item_bid)
         .subquery()
@@ -610,6 +609,7 @@ def _load_latest_outline_items(model, shifu_bid: str):
         db.session.query(model)
         .filter(
             model.id.in_(db.session.query(latest_subquery.c.max_id)),
+            model.deleted == 0,
         )
         .all()
     )

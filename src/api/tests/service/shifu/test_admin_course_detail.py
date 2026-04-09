@@ -823,6 +823,83 @@ def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
     assert payload["data"]["chapters"] == []
 
 
+def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline_revision(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        db.session.add(
+            DraftOutlineItem(
+                outline_item_bid="chapter-1",
+                shifu_bid="course-detail",
+                title="Chapter 1",
+                parent_bid="",
+                position="1",
+                hidden=0,
+                type=UNIT_TYPE_VALUE_GUEST,
+                llm="",
+                llm_temperature=0,
+                llm_system_prompt="",
+                ask_enabled_status=0,
+                ask_llm="",
+                ask_llm_temperature=0,
+                ask_llm_system_prompt="",
+                content="",
+                deleted=0,
+                created_at=updated_at,
+                created_user_bid="creator-1",
+                updated_at=updated_at,
+                updated_user_bid="creator-1",
+            )
+        )
+        db.session.add(
+            DraftOutlineItem(
+                outline_item_bid="chapter-1",
+                shifu_bid="course-detail",
+                title="Chapter 1 deleted",
+                parent_bid="",
+                position="1",
+                hidden=0,
+                type=UNIT_TYPE_VALUE_GUEST,
+                llm="",
+                llm_temperature=0,
+                llm_system_prompt="",
+                ask_enabled_status=0,
+                ask_llm="",
+                ask_llm_temperature=0,
+                ask_llm_system_prompt="",
+                content="",
+                deleted=1,
+                created_at=updated_at,
+                created_user_bid="creator-1",
+                updated_at=updated_at,
+                updated_user_bid="creator-1",
+            )
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["chapters"] == []
+
+
 def test_admin_operation_course_detail_route_rejects_missing_course(
     app,
     test_client,
