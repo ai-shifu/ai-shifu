@@ -66,6 +66,22 @@ interface ListenModeSlideRendererProps {
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
 
+const getDocumentFullscreenElement = () => {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return (
+    document.fullscreenElement ??
+    (
+      document as Document & {
+        webkitFullscreenElement?: Element | null;
+      }
+    ).webkitFullscreenElement ??
+    null
+  );
+};
+
 type ResolveRenderSequence = (params: {
   item: ChatContentItem;
   itemType: 'content' | 'interaction';
@@ -1205,24 +1221,56 @@ const ListenModeSlideRenderer = ({
     onMobileViewModeChange?.(mobileViewMode);
   }, [mobileViewMode, onMobileViewModeChange]);
 
-  useEffect(() => {
-    if (!isMobileFullscreen) {
+  const syncFullscreenPortalContainer = useCallback(() => {
+    const slideShellElement = slideShellRef.current;
+    if (!slideShellElement) {
       setFullscreenPortalContainer(null);
       return;
     }
 
-    const animationFrameId = window.requestAnimationFrame(() => {
-      const nextContainer =
-        slideShellRef.current?.querySelector<HTMLElement>(
-          '.listen-slide-root .slide__viewport',
-        ) ?? null;
+    const nextContainer =
+      slideShellElement.querySelector<HTMLElement>(
+        '.listen-slide-root .slide__viewport',
+      ) ?? null;
+
+    if (!nextContainer) {
+      setFullscreenPortalContainer(null);
+      return;
+    }
+
+    if (isMobileFullscreen) {
       setFullscreenPortalContainer(nextContainer);
-    });
+      return;
+    }
+
+    const fullscreenElement = getDocumentFullscreenElement();
+    const isCurrentSlideInBrowserFullscreen = Boolean(
+      fullscreenElement && slideShellElement.contains(fullscreenElement),
+    );
+
+    setFullscreenPortalContainer(
+      isCurrentSlideInBrowserFullscreen ? nextContainer : null,
+    );
+  }, [isMobileFullscreen]);
+
+  useEffect(() => {
+    const syncContainer = () => {
+      window.requestAnimationFrame(() => {
+        syncFullscreenPortalContainer();
+      });
+    };
+
+    syncContainer();
+
+    document.addEventListener('fullscreenchange', syncContainer);
+    document.addEventListener('webkitfullscreenchange', syncContainer);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('fullscreenchange', syncContainer);
+      document.removeEventListener('webkitfullscreenchange', syncContainer);
     };
-  }, [isMobileFullscreen]);
+  }, [syncFullscreenPortalContainer]);
+
   const mobileAskEntryButton = shouldRenderMobileAskEntry ? (
     <button
       type='button'
@@ -1248,6 +1296,37 @@ const ListenModeSlideRenderer = ({
   ) : null;
 
   // console.log('elementlist', elementList);
+
+  const desktopAskOverlay =
+    playerCustomActionState.isActive &&
+    !mobileStyle &&
+    !shouldRenderEmptyPpt ? (
+      <div
+        className={cn(
+          'slide-ask-overlay',
+          isPlayerVisible
+            ? 'slide-ask-overlay--with-player'
+            : 'slide-ask-overlay--standalone',
+        )}
+        ref={customAskOverlayRef}
+      >
+        <div className='slide-player__ask-card'>
+          <div className='slide-player__ask-body'>
+            <AskBlock
+              askList={playerCustomAskList}
+              className='listen-slide-ask-block'
+              element_bid={playerCustomAskElementBid}
+              isExpanded={true}
+              onToggleAskExpanded={handlePlayerCustomActionClose}
+              outline_bid={lessonId}
+              preview_mode={previewMode}
+              shifu_bid={shifuBid}
+            />
+          </div>
+        </div>
+        <div className='slide-player__ask-arrow' />
+      </div>
+    ) : null;
 
   return (
     <div
@@ -1308,35 +1387,11 @@ const ListenModeSlideRenderer = ({
             )
           ) : null
         ) : null}
-        {playerCustomActionState.isActive &&
-        !mobileStyle &&
-        !shouldRenderEmptyPpt ? (
-          <div
-            className={cn(
-              'slide-ask-overlay',
-              isPlayerVisible
-                ? 'slide-ask-overlay--with-player'
-                : 'slide-ask-overlay--standalone',
-            )}
-            ref={customAskOverlayRef}
-          >
-            <div className='slide-player__ask-card'>
-              <div className='slide-player__ask-body'>
-                <AskBlock
-                  askList={playerCustomAskList}
-                  className='listen-slide-ask-block'
-                  element_bid={playerCustomAskElementBid}
-                  isExpanded={true}
-                  onToggleAskExpanded={handlePlayerCustomActionClose}
-                  outline_bid={lessonId}
-                  preview_mode={previewMode}
-                  shifu_bid={shifuBid}
-                />
-              </div>
-            </div>
-            <div className='slide-player__ask-arrow' />
-          </div>
-        ) : null}
+        {desktopAskOverlay
+          ? fullscreenPortalContainer
+            ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
+            : desktopAskOverlay
+          : null}
         <Slide
           // playerAlwaysVisible={true}
           className={cn(
