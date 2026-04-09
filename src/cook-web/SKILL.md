@@ -22,6 +22,7 @@
 - `skills/chat-actionbar-ask-placement/SKILL.md`
 - `skills/listen-mode-audio-streaming/SKILL.md`
 - `skills/listen-mode-slide-mobile-integration/SKILL.md`
+- `skills/fullscreen-dialog-portal/SKILL.md`
 - `skills/next-build-node-runtime/SKILL.md`
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`

@@ -366,6 +366,10 @@
 }
 
 .slide-player__interaction-arrow {
-  left: auto !important;
-  right: 7px !important;
+  display: none;
+  // left: auto !important;
+  // right: 7px !important;
+}
+.slide-player__ask-arrow{
+  display: none;
 }
