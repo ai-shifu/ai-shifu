@@ -22,10 +22,15 @@ class RequestTraceIdTests(unittest.TestCase):
             self.assertEqual(get_request_trace_id(), "thread-local-request-id")
 
     def test_falls_back_to_request_header(self):
-        app = Flask("langfuse-request-header")
-
-        with app.test_request_context(headers={"X-Request-ID": "header-request-id"}):
+        fake_request = types.SimpleNamespace(
+            headers={"X-Request-ID": "header-request-id"}
+        )
+        original_request = get_request_trace_id.__globals__["request"]
+        get_request_trace_id.__globals__["request"] = fake_request
+        try:
             self.assertEqual(get_request_trace_id(), "header-request-id")
+        finally:
+            get_request_trace_id.__globals__["request"] = original_request
 
     def test_generates_uuid_when_request_id_is_missing(self):
         fake_uuid = types.SimpleNamespace(hex="generated-request-id")

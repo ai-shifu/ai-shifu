@@ -11,6 +11,7 @@ from flask import Flask, current_app, request
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
+from flaskr.api.langfuse import get_request_trace_id
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.metering import UsageContext, record_llm_usage
@@ -140,6 +141,27 @@ def _get_request_id() -> str:
         return request.headers.get("X-Request-ID", "") or ""
     except RuntimeError:
         return ""
+
+
+def _resolve_langfuse_trace_id(
+    span: StatefulSpanClient, trace_id: Optional[str] = None
+) -> str:
+    return trace_id or getattr(span, "trace_id", "") or get_request_trace_id()
+
+
+def _build_langfuse_generation_link(
+    span: StatefulSpanClient, trace_id: Optional[str]
+) -> Dict[str, str]:
+    generation_link: Dict[str, str] = {}
+    resolved_trace_id = _resolve_langfuse_trace_id(span, trace_id)
+    parent_observation_id = (
+        getattr(span, "id", "") or getattr(span, "observation_id", "") or ""
+    )
+    if resolved_trace_id:
+        generation_link["trace_id"] = resolved_trace_id
+    if parent_observation_id:
+        generation_link["parent_observation_id"] = parent_observation_id
+    return generation_link
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -599,15 +621,29 @@ def invoke_llm(
     )
     billable = billable if billable is not None else kwargs.pop("billable", None)
     request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
-    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    trace_id = _resolve_langfuse_trace_id(
+        span, trace_id or kwargs.pop("trace_id", None)
+    )
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = []
     if system:
         generation_input.append({"role": "system", "content": system})
     generation_input.append({"role": "user", "content": message})
+    generation_link = _build_langfuse_generation_link(span, trace_id)
     generation = span.generation(
-        model=model, input=generation_input, name=generation_name
+        model=model,
+        input=generation_input,
+        name=generation_name,
+        **generation_link,
+    )
+    app.logger.info(
+        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
+        request_id or "",
+        generation_link.get("trace_id", ""),
+        generation_link.get("parent_observation_id", ""),
+        generation_name,
+        model,
     )
     response_text = ""
     usage = None
@@ -764,12 +800,26 @@ def chat_llm(
     )
     billable = billable if billable is not None else kwargs.pop("billable", None)
     request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
-    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    trace_id = _resolve_langfuse_trace_id(
+        span, trace_id or kwargs.pop("trace_id", None)
+    )
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = messages
+    generation_link = _build_langfuse_generation_link(span, trace_id)
     generation = span.generation(
-        model=model, input=generation_input, name=generation_name
+        model=model,
+        input=generation_input,
+        name=generation_name,
+        **generation_link,
+    )
+    app.logger.info(
+        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
+        request_id or "",
+        generation_link.get("trace_id", ""),
+        generation_link.get("parent_observation_id", ""),
+        generation_name,
+        model,
     )
     response_text = ""
     usage = None
