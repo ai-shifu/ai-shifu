@@ -54,6 +54,8 @@ export type AdminOperationCourseDetailChapter = {
   learning_permission: 'guest' | 'free' | 'paid' | LooseString;
   is_visible: boolean;
   content_status: 'has' | 'empty' | LooseString;
+  follow_up_count: number;
+  rating_count: number;
   modifier_user_bid: string;
   modifier_mobile: string;
   modifier_email: string;

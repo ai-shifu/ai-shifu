@@ -143,6 +143,10 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
     )
     is_visible: bool = Field(..., description="Visibility flag", required=False)
     content_status: str = Field(..., description="has or empty", required=False)
+    follow_up_count: int = Field(
+        ..., description="Follow-up question count", required=False
+    )
+    rating_count: int = Field(..., description="Rating record count", required=False)
     modifier_user_bid: str = Field(
         ..., description="Last modifier user business identifier", required=False
     )

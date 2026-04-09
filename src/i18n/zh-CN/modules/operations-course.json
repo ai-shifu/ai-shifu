@@ -17,10 +17,12 @@
       "contentStatus": "内容状态",
       "detailAction": "详情",
       "empty": "暂无章节数据",
+      "followUpCount": "追问数",
       "learningPermission": "学习权限",
       "modifier": "修改者",
       "name": "章节名称",
       "position": "序号",
+      "ratingCount": "评分次数",
       "type": "类型",
       "updatedAt": "更新时间",
       "visibility": "可见性"

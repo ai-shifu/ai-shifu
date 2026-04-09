@@ -64,13 +64,15 @@ const CHAPTER_COLUMN_WIDTH_STORAGE_KEY =
 const CHAPTER_COLUMN_DEFAULT_WIDTHS = {
   position: 90,
   name: 220,
+  chapterId: 220,
   learningPermission: 130,
   visibility: 110,
   contentStatus: 110,
   modifier: 170,
-  contentDetail: 100,
-  chapterId: 220,
   updatedAt: 170,
+  contentDetail: 100,
+  followUpCount: 100,
+  ratingCount: 100,
 } as const;
 
 type ChapterColumnKey = keyof typeof CHAPTER_COLUMN_DEFAULT_WIDTHS;
@@ -243,6 +245,8 @@ function OverflowTooltipText({
  * t('module.operationsCourse.detail.chaptersTable.contentStatus')
  * t('module.operationsCourse.detail.chaptersTable.modifier')
  * t('module.operationsCourse.detail.chaptersTable.contentDetail')
+ * t('module.operationsCourse.detail.chaptersTable.followUpCount')
+ * t('module.operationsCourse.detail.chaptersTable.ratingCount')
  * t('module.operationsCourse.detail.chaptersTable.chapterId')
  * t('module.operationsCourse.detail.chaptersTable.updatedAt')
  * t('module.operationsCourse.detail.chaptersTable.empty')
@@ -783,6 +787,8 @@ export default function AdminOperationCourseDetailPage() {
           return [modifier.primary, modifier.secondary];
         },
         contentDetail: () => [tOperations('detail.chaptersTable.detailAction')],
+        followUpCount: chapter => [formatCount(chapter.follow_up_count)],
+        ratingCount: chapter => [formatCount(chapter.rating_count)],
         chapterId: chapter => [chapter.outline_item_bid],
         updatedAt: chapter => [chapter.updated_at],
       };
@@ -795,6 +801,8 @@ export default function AdminOperationCourseDetailPage() {
         contentStatus: 6,
         modifier: 5.2,
         contentDetail: 5,
+        followUpCount: 5,
+        ratingCount: 5,
         chapterId: 5,
         updatedAt: 5,
       };
@@ -947,6 +955,7 @@ export default function AdminOperationCourseDetailPage() {
           </h1>
           <Button
             variant='outline'
+            className='sm:mr-3'
             onClick={() => router.push('/admin/operations')}
           >
             {tOperations('detail.back')}
@@ -1029,6 +1038,13 @@ export default function AdminOperationCourseDetailPage() {
                       </TableHead>
                       <TableHead
                         className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                        style={getChapterColumnStyle('chapterId')}
+                      >
+                        {tOperations('detail.chaptersTable.chapterId')}
+                        {renderChapterResizeHandle('chapterId')}
+                      </TableHead>
+                      <TableHead
+                        className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
                         style={getChapterColumnStyle('learningPermission')}
                       >
                         {tOperations('detail.chaptersTable.learningPermission')}
@@ -1050,13 +1066,6 @@ export default function AdminOperationCourseDetailPage() {
                       </TableHead>
                       <TableHead
                         className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                        style={getChapterColumnStyle('modifier')}
-                      >
-                        {tOperations('detail.chaptersTable.modifier')}
-                        {renderChapterResizeHandle('modifier')}
-                      </TableHead>
-                      <TableHead
-                        className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
                         style={getChapterColumnStyle('contentDetail')}
                       >
                         {tOperations('detail.chaptersTable.contentDetail')}
@@ -1064,23 +1073,37 @@ export default function AdminOperationCourseDetailPage() {
                       </TableHead>
                       <TableHead
                         className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                        style={getChapterColumnStyle('chapterId')}
+                        style={getChapterColumnStyle('modifier')}
                       >
-                        {tOperations('detail.chaptersTable.chapterId')}
-                        {renderChapterResizeHandle('chapterId')}
+                        {tOperations('detail.chaptersTable.modifier')}
+                        {renderChapterResizeHandle('modifier')}
                       </TableHead>
                       <TableHead
-                        className='relative h-10 whitespace-nowrap bg-muted/80 text-center text-xs font-medium text-muted-foreground'
+                        className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
                         style={getChapterColumnStyle('updatedAt')}
                       >
                         {tOperations('detail.chaptersTable.updatedAt')}
                         {renderChapterResizeHandle('updatedAt')}
                       </TableHead>
+                      <TableHead
+                        className='relative h-10 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                        style={getChapterColumnStyle('followUpCount')}
+                      >
+                        {tOperations('detail.chaptersTable.followUpCount')}
+                        {renderChapterResizeHandle('followUpCount')}
+                      </TableHead>
+                      <TableHead
+                        className='relative h-10 whitespace-nowrap bg-muted/80 text-center text-xs font-medium text-muted-foreground'
+                        style={getChapterColumnStyle('ratingCount')}
+                      >
+                        {tOperations('detail.chaptersTable.ratingCount')}
+                        {renderChapterResizeHandle('ratingCount')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {chapterRows.length === 0 ? (
-                      <TableEmpty colSpan={9}>
+                      <TableEmpty colSpan={11}>
                         {tOperations('detail.chaptersTable.empty')}
                       </TableEmpty>
                     ) : (
@@ -1126,6 +1149,15 @@ export default function AdminOperationCourseDetailPage() {
                             </TableCell>
                             <TableCell
                               className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                              style={getChapterColumnStyle('chapterId')}
+                            >
+                              <OverflowTooltipText
+                                text={chapter.outline_item_bid || emptyValue}
+                                className='mx-auto block max-w-[240px] font-mono text-[11px] text-muted-foreground/65'
+                              />
+                            </TableCell>
+                            <TableCell
+                              className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
                               style={getChapterColumnStyle(
                                 'learningPermission',
                               )}
@@ -1151,6 +1183,20 @@ export default function AdminOperationCourseDetailPage() {
                               )}
                             </TableCell>
                             <TableCell
+                              className='py-2.5 whitespace-nowrap border-r border-border text-center last:border-r-0'
+                              style={getChapterColumnStyle('contentDetail')}
+                            >
+                              <button
+                                type='button'
+                                className='text-sm text-primary transition-colors hover:text-primary/80'
+                                onClick={() => setSelectedChapter(chapter)}
+                              >
+                                {tOperations(
+                                  'detail.chaptersTable.detailAction',
+                                )}
+                              </button>
+                            </TableCell>
+                            <TableCell
                               className='py-2.5 border-r border-border text-center last:border-r-0'
                               style={getChapterColumnStyle('modifier')}
                             >
@@ -1168,33 +1214,25 @@ export default function AdminOperationCourseDetailPage() {
                               </div>
                             </TableCell>
                             <TableCell
-                              className='py-2.5 whitespace-nowrap border-r border-border text-center last:border-r-0'
-                              style={getChapterColumnStyle('contentDetail')}
-                            >
-                              <button
-                                type='button'
-                                className='text-sm text-primary transition-colors hover:text-primary/80'
-                                onClick={() => setSelectedChapter(chapter)}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.detailAction',
-                                )}
-                              </button>
-                            </TableCell>
-                            <TableCell
-                              className='py-2.5 border-r border-border text-center font-mono text-[11px] text-muted-foreground/65 last:border-r-0'
-                              style={getChapterColumnStyle('chapterId')}
+                              className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                              style={getChapterColumnStyle('updatedAt')}
                             >
                               <OverflowTooltipText
-                                text={chapter.outline_item_bid || emptyValue}
-                                className='mx-auto block max-w-[240px]'
+                                text={chapter.updated_at || emptyValue}
+                                className='mx-auto block max-w-full'
                               />
                             </TableCell>
                             <TableCell
-                              className='py-2.5 whitespace-nowrap text-center text-sm text-muted-foreground/75'
-                              style={getChapterColumnStyle('updatedAt')}
+                              className='py-2.5 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                              style={getChapterColumnStyle('followUpCount')}
                             >
-                              {chapter.updated_at || emptyValue}
+                              {formatCount(chapter.follow_up_count)}
+                            </TableCell>
+                            <TableCell
+                              className='py-2.5 whitespace-nowrap text-center text-sm text-muted-foreground/75'
+                              style={getChapterColumnStyle('ratingCount')}
+                            >
+                              {formatCount(chapter.rating_count)}
                             </TableCell>
                           </TableRow>
                         );

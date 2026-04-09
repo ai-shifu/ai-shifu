@@ -1,4 +1,5 @@
 import React from 'react';
+import { within } from '@testing-library/dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminOperationCourseDetailPage from './page';
 
@@ -126,6 +127,8 @@ describe('AdminOperationCourseDetailPage', () => {
           learning_permission: 'guest',
           is_visible: true,
           content_status: 'empty',
+          follow_up_count: 3,
+          rating_count: 2,
           modifier_user_bid: 'creator-1',
           modifier_mobile: '13800001234',
           modifier_email: '',
@@ -141,6 +144,8 @@ describe('AdminOperationCourseDetailPage', () => {
               learning_permission: 'paid',
               is_visible: false,
               content_status: 'has',
+              follow_up_count: 3,
+              rating_count: 2,
               modifier_user_bid: 'modifier-1',
               modifier_mobile: '13900001234',
               modifier_email: '',
@@ -184,6 +189,8 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('13900001234')).toBeInTheDocument();
     expect(screen.getByText('Bob')).toBeInTheDocument();
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -199,10 +206,13 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await screen.findByText('Course One');
 
+    const lessonRow = screen.getByText('Lesson 1').closest('tr');
+    expect(lessonRow).not.toBeNull();
+
     fireEvent.click(
-      screen.getAllByRole('button', {
+      within(lessonRow as HTMLElement).getByRole('button', {
         name: 'module.operationsCourse.detail.chaptersTable.detailAction',
-      })[1],
+      }),
     );
 
     expect(

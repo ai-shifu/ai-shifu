@@ -4,25 +4,27 @@
     "transferCreator": "Transfer creator"
   },
   "detail": {
-    "back": "Back to course list",
+    "back": "Back to list",
     "basicInfo": "Basic Info",
     "chapterType": {
       "chapter": "Ch.",
       "lesson": "Sec."
     },
-    "chapters": "Course Chapters",
+    "chapters": "Chapters",
     "chaptersTable": {
       "chapterId": "Chapter ID",
-      "contentDetail": "Content Detail",
+      "contentDetail": "Detail",
       "contentStatus": "Content",
       "detailAction": "Detail",
       "empty": "No chapter data",
+      "followUpCount": "Ask",
       "learningPermission": "Access",
       "modifier": "Modifier",
-      "name": "Chapter Name",
+      "name": "Chapter",
       "position": "Position",
+      "ratingCount": "Ratings",
       "type": "Type",
-      "updatedAt": "Updated At",
+      "updatedAt": "Updated",
       "visibility": "Visibility"
     },
     "contentDetailDialog": {
@@ -62,7 +64,7 @@
     },
     "metrics": "Metrics",
     "metricsLabels": {
-      "followUpCount": "Follow-up Questions",
+      "followUpCount": "Ask",
       "learnerCount": "Learners",
       "orderAmount": "Gross Revenue",
       "orderCount": "Orders",
