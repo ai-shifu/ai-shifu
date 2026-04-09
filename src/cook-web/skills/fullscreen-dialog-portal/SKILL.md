@@ -12,6 +12,7 @@ description: 当 cook-web 页面在浏览器 fullscreen 场景下需要展示基
 - 若通用封装允许外部传入 `container`，fullscreen 自动兜底必须保留显式覆盖能力，避免影响已有定制挂载点。
 - 监听 fullscreen 状态变化时，要兼容进入和退出全屏两个方向，确保弹层在切换后仍能落到当前正确的容器上。
 - 若首帧就可能在 fullscreen 内打开弹窗，容器解析不能只依赖异步 effect；需要提供首屏同步兜底，避免弹窗先挂到 `body` 导致闪烁或不可见。
+- 若 fullscreen 的宿主节点承载了播放器或阅读器主容器，切换 lesson / chapter 时不要用 loading skeleton 把该宿主整棵卸载掉；应保留原节点并在内部叠加 loading，否则浏览器会因 fullscreen owner 被移除而自动退出全屏。
 
 ## 工作流
 
@@ -19,4 +20,5 @@ description: 当 cook-web 页面在浏览器 fullscreen 场景下需要展示基
 2. 复现时重点观察触发弹层时页面是否已经进入浏览器 fullscreen，而不是仅仅组件内部切换了“全屏样式”。
 3. 若是浏览器 fullscreen，优先检查 `DialogPortal` 的 `container` 是否仍为空，导致默认挂到 `body`。
 4. 在通用封装层补齐 fullscreen 容器解析与 `fullscreenchange` 监听，并保留外部 `container` 的覆盖入口。
-5. 修改后至少验证一次“进入 slide fullscreen 后直接触发支付弹窗/业务弹窗”的路径，并补一次定向类型检查。
+5. 若问题发生在章节切换、重新加载或数据刷新后，再检查 fullscreen owner 在 loading 阶段是否被条件渲染卸载；优先改成保留宿主节点、仅在内部显示 loading overlay。
+6. 修改后至少验证一次“进入 slide fullscreen 后直接触发支付弹窗/业务弹窗”或“fullscreen 中切换章节仍保持屏幕状态”的路径，并补一次定向类型检查。

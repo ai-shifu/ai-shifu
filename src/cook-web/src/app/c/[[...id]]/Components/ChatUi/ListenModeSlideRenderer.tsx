@@ -2,8 +2,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
@@ -1364,6 +1365,18 @@ const ListenModeSlideRenderer = ({
           playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
+        {isLoading ? (
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-0 z-[91] flex items-center justify-center backdrop-blur-sm',
+              mobileStyle
+                ? 'bg-white/75'
+                : 'bg-[var(--color-slide-desktop-bg)]/70',
+            )}
+          >
+            <Loader2 className='size-6 animate-spin text-primary' />
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, Loader2, X } from 'lucide-react';
+import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -813,29 +813,23 @@ export const NewChatComponents = ({
     >
       {isListenMode ? (
         isListenModeAvailable ? (
-          isLoading ? (
-            <div className='w-full h-full flex items-center justify-center'>
-              <Loader2 className='animate-spin size-6 text-primary' />
-            </div>
-          ) : (
-            <ListenModeSlideRenderer
-              items={listenModeItems}
-              mobileStyle={mobileStyle}
-              chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              isLoading={isLoading}
-              courseAvatar={courseAvatar}
-              courseName={courseName}
-              sectionTitle={lessonTitle}
-              lessonId={lessonId}
-              shifuBid={shifuBid}
-              previewMode={previewMode}
-              lessonStatus={lessonStatus}
-              onMobileViewModeChange={onListenMobileViewModeChange}
-              onSend={memoizedOnSend}
-              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-              onPlaybackStateChange={setListenPlaybackState}
-            />
-          )
+          <ListenModeSlideRenderer
+            items={listenModeItems}
+            mobileStyle={mobileStyle}
+            chatRef={chatRef as React.RefObject<HTMLDivElement>}
+            isLoading={isLoading}
+            courseAvatar={courseAvatar}
+            courseName={courseName}
+            sectionTitle={lessonTitle}
+            lessonId={lessonId}
+            shifuBid={shifuBid}
+            previewMode={previewMode}
+            lessonStatus={lessonStatus}
+            onMobileViewModeChange={onListenMobileViewModeChange}
+            onSend={memoizedOnSend}
+            onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+            onPlaybackStateChange={setListenPlaybackState}
+          />
         ) : (
           <div
             className={cn(
