@@ -9,3 +9,4 @@
 - `next-build-node-runtime`
 - `module-augmentation-guardrails`
 - `hook-contract-refactor-safety`
+- `chat-system-interaction-button-overrides`

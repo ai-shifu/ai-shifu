@@ -9,6 +9,7 @@ import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 import { SYS_INTERACTION_TYPE } from '@/c-api/studyV2';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
@@ -326,6 +327,7 @@ const buildSlideElementList = ({
     // Prefer in-memory interaction state, then fall back to persisted user_input.
     const currentUserInput =
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
+    const isPayInteraction = isPaySystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -344,12 +346,13 @@ const buildSlideElementList = ({
       is_new: item.is_new ?? true,
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
-      user_input: currentUserInput,
+      user_input: isPayInteraction ? '' : currentUserInput,
       ask_list: askList,
       readonly:
-        Boolean(item.readonly) ||
-        Boolean(currentUserInput) ||
-        !isLatestEditable,
+        !isPayInteraction &&
+        (Boolean(item.readonly) ||
+          Boolean(currentUserInput) ||
+          !isLatestEditable),
     });
   });
 

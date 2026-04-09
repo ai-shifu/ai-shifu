@@ -153,6 +153,24 @@ body.listen-mode-vh-fallback #root {
   }
 }
 
+.content-render-theme.pay-system-interaction {
+  .content-render .single-select-container button,
+  .content-render .single-select-container .select,
+  .content-render .single-select-container button:disabled,
+  .content-render .single-select-container button:hover,
+  .content-render .single-select-container button:active,
+  .content-render .single-select-container button:focus-visible {
+    border-color: var(--base-border, #e5e5e5);
+    background: var(--base-background, #fff);
+    color: var(--base-foreground, #0a0a0a);
+    opacity: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+  }
+}
+
 .content-render-iframe-sandbox {
   strong {
     color: var(--primary);

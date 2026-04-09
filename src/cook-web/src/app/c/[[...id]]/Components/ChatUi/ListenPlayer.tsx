@@ -11,6 +11,7 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
+import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   ContentRender,
@@ -71,10 +72,15 @@ const ListenPlayer = ({
     typeof interactionReadonly === 'boolean'
       ? interactionReadonly
       : Boolean(interaction?.readonly);
+  const isPayInteraction = isPaySystemInteractionContent(interaction?.content);
   const isLessonFeedbackInteraction = Boolean(
     interaction?.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
   );
   const effectiveInteraction = isLessonFeedbackInteraction ? null : interaction;
+  const resolvedInteractionReadonly = isPayInteraction ? false : resolvedReadonly;
+  const resolvedInteractionUserInput = isPayInteraction
+    ? ''
+    : effectiveInteraction?.user_input;
   const interactionHintText = t('module.chat.listenInteractionHint');
 
   useEffect(() => {
@@ -147,6 +153,7 @@ const ListenPlayer = ({
               className={cn(
                 'overflow-y-auto px-4 pb-3 text-[var(--card-foreground)]',
                 'content-render-theme',
+                isPayInteraction && 'pay-system-interaction',
                 'max-h-60',
               )}
             >
@@ -154,14 +161,14 @@ const ListenPlayer = ({
                 enableTypewriter={false}
                 content={effectiveInteraction.content || ''}
                 customRenderBar={effectiveInteraction.customRenderBar}
-                userInput={effectiveInteraction.user_input}
+                userInput={resolvedInteractionUserInput}
                 interactionDefaultValueOptions={
                   lessonFeedbackInteractionDefaultValueOptions
                 }
                 confirmButtonText={t('module.renderUi.core.confirm')}
                 copyButtonText={t('module.renderUi.core.copyCode')}
                 copiedButtonText={t('module.renderUi.core.copied')}
-                readonly={resolvedReadonly}
+                readonly={resolvedInteractionReadonly}
                 sandboxMode='content'
                 onSend={_onSend}
               />
