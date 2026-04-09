@@ -22,6 +22,7 @@ import type {
 } from '@/types/billing';
 import {
   buildBillingStripeResultUrls,
+  extractBillingPingxxQrUrl,
   formatBillingCredits,
   formatBillingDate,
   formatBillingPlanInterval,
@@ -29,6 +30,7 @@ import {
   openBillingCheckoutUrl,
   openBillingPaymentWindow,
   registerBillingTranslationUsage,
+  resolveBillingPlanCreditsLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
   resolveBillingSubscriptionStatusLabel,
@@ -60,18 +62,6 @@ type CheckoutTarget =
       provider: BillingProvider;
     }
   | null;
-
-function extractPingxxQrUrl(result: BillingCheckoutResult): string {
-  const credential =
-    typeof result.payment_payload === 'object' && result.payment_payload
-      ? (result.payment_payload as Record<string, unknown>).credential
-      : null;
-  if (!credential || typeof credential !== 'object') {
-    return '';
-  }
-  const qrUrl = (credential as Record<string, unknown>).alipay_qr;
-  return typeof qrUrl === 'string' ? qrUrl : '';
-}
 
 function getPlanFeatureKeys(product: BillingPlan): string[] {
   const productHighlights = product.highlights?.filter(item => Boolean(item));
@@ -408,14 +398,15 @@ export function BillingOverviewTab({
     try {
       let result: BillingCheckoutResult;
       if (checkoutTarget.kind === 'plan') {
-        const { cancelUrl, successUrl } = buildBillingStripeResultUrls(
-          window.location.origin,
-        );
+        const stripeUrls =
+          checkoutTarget.provider === 'stripe'
+            ? buildBillingStripeResultUrls(window.location.origin)
+            : { cancelUrl: '', successUrl: '' };
         result = (await api.checkoutBillingSubscription({
-          cancel_url: cancelUrl,
+          cancel_url: stripeUrls.cancelUrl || undefined,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
-          success_url: successUrl,
+          success_url: stripeUrls.successUrl || undefined,
         })) as BillingCheckoutResult;
       } else {
         const stripeUrls =
@@ -454,7 +445,7 @@ export function BillingOverviewTab({
       }
 
       if (checkoutTarget.provider === 'pingxx') {
-        const qrUrl = extractPingxxQrUrl(result);
+        const qrUrl = extractBillingPingxxQrUrl(result);
         if (!qrUrl) {
           toast({
             title: t('module.billing.checkout.unsupported'),
@@ -801,13 +792,20 @@ export function BillingOverviewTab({
 
           {(showcaseTab === 'monthly' ? monthlyPlans : yearlyPlans).map(
             (plan, index) => {
+              const provider = stripeAvailable
+                ? 'stripe'
+                : pingxxAvailable
+                  ? 'pingxx'
+                  : null;
               const isCurrentPlan =
                 currentPlan?.product_bid === plan.product_bid;
               const isFeatured =
                 isCurrentPlan ||
                 (!hasActiveSubscription && index === 0) ||
                 Boolean(plan.status_badge_key);
-              const checkoutKey = `plan:stripe:${plan.product_bid}`;
+              const checkoutKey = provider
+                ? `plan:${provider}:${plan.product_bid}`
+                : '';
 
               return (
                 <PlanShowcaseCard
@@ -820,27 +818,21 @@ export function BillingOverviewTab({
                         : t('module.billing.package.actions.subscribeNow')
                   }
                   actionLoading={checkoutLoadingKey === checkoutKey}
-                  creditSummary={t(
-                    plan.billing_interval === 'year'
-                      ? 'module.billing.package.creditSummary.yearly'
-                      : 'module.billing.package.creditSummary.monthly',
-                    {
-                      credits: formatBillingCredits(
-                        plan.credit_amount,
-                        i18n.language,
-                      ),
-                    },
+                  creditSummary={resolveBillingPlanCreditsLabel(
+                    t,
+                    plan,
+                    i18n.language,
                   )}
                   description={resolveBillingProductDescription(t, plan)}
-                  disabled={!stripeAvailable || isCurrentPlan}
+                  disabled={!provider || isCurrentPlan}
                   featured={isFeatured}
                   footer={<PlanFeatureList items={getPlanFeatureKeys(plan)} />}
                   onAction={() =>
-                    stripeAvailable &&
+                    provider &&
                     setCheckoutTarget({
                       kind: 'plan',
                       product: plan,
-                      provider: 'stripe',
+                      provider,
                     })
                   }
                   priceLabel={`${formatBillingPrice(

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
+import { openBillingPaymentWindow } from '@/lib/billing';
 
 import { BillingOrdersTable } from './BillingOrdersTable';
 
@@ -24,6 +25,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    checkoutBillingOrder: jest.fn(),
     getBillingOrderDetail: jest.fn(),
     getBillingOrders: jest.fn(),
     syncBillingOrder: jest.fn(),
@@ -35,13 +37,35 @@ jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
+jest.mock('@/lib/billing', () => {
+  const actual = jest.requireActual('@/lib/billing');
+  return {
+    ...actual,
+    openBillingPaymentWindow: jest.fn(),
+  };
+});
+
+const mockCheckoutBillingOrder = api.checkoutBillingOrder as jest.Mock;
 const mockGetBillingOrderDetail = api.getBillingOrderDetail as jest.Mock;
 const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 const mockSyncBillingOrder = api.syncBillingOrder as jest.Mock;
+const mockOpenBillingPaymentWindow = openBillingPaymentWindow as jest.Mock;
 const mockToast = toast as jest.Mock;
 
 describe('BillingOrdersTable', () => {
   beforeEach(() => {
+    mockCheckoutBillingOrder.mockReset();
+    mockCheckoutBillingOrder.mockResolvedValue({
+      billing_order_bid: 'order-2',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          alipay_qr: 'https://pingxx.test/qr',
+        },
+      },
+    });
     mockGetBillingOrderDetail.mockReset();
     mockGetBillingOrderDetail.mockResolvedValue({
       billing_order_bid: 'order-1',
@@ -95,6 +119,8 @@ describe('BillingOrdersTable', () => {
       billing_order_bid: 'order-1',
       status: 'paid',
     });
+    mockOpenBillingPaymentWindow.mockReset();
+    mockOpenBillingPaymentWindow.mockReturnValue(true);
     mockToast.mockReset();
   });
 
@@ -162,5 +188,69 @@ describe('BillingOrdersTable', () => {
           ),
       ),
     ).toBeInTheDocument();
+  });
+
+  test('continues payment for pending Pingxx subscription orders', async () => {
+    const user = userEvent.setup();
+    mockGetBillingOrders.mockResolvedValue({
+      items: [
+        {
+          billing_order_bid: 'order-2',
+          creator_bid: 'creator-1',
+          product_bid: 'billing-product-plan-monthly',
+          subscription_bid: 'sub-2',
+          order_type: 'subscription_renewal',
+          status: 'pending',
+          payment_provider: 'pingxx',
+          payment_mode: 'subscription',
+          payable_amount: 9900,
+          paid_amount: 0,
+          currency: 'CNY',
+          provider_reference_id: '',
+          failure_message: '',
+          created_at: '2026-04-06T12:00:00Z',
+          paid_at: null,
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <BillingOrdersTable />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('order-2')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.orders.actions.continuePayment',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
+        billing_order_bid: 'order-2',
+      });
+    });
+
+    expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
+      'https://pingxx.test/qr',
+    );
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'module.billing.checkout.qrOpened',
+      }),
+    );
   });
 });

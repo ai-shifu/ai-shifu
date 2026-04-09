@@ -129,6 +129,7 @@ const api = {
   getBillingLedger: 'GET /billing/ledger',
   getBillingOrders: 'GET /billing/orders',
   getBillingOrderDetail: 'GET /billing/orders/{billing_order_bid}',
+  checkoutBillingOrder: 'POST /billing/orders/{billing_order_bid}/checkout',
   syncBillingOrder: 'POST /billing/orders/{billing_order_bid}/sync',
   checkoutBillingSubscription: 'POST /billing/subscriptions/checkout',
   cancelBillingSubscription: 'POST /billing/subscriptions/cancel',

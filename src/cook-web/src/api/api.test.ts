@@ -17,6 +17,9 @@ describe('billing api definitions', () => {
     expect(api.getBillingOrderDetail).toBe(
       'GET /billing/orders/{billing_order_bid}',
     );
+    expect(api.checkoutBillingOrder).toBe(
+      'POST /billing/orders/{billing_order_bid}/checkout',
+    );
     expect(api.syncBillingOrder).toBe(
       'POST /billing/orders/{billing_order_bid}/sync',
     );

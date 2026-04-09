@@ -2,6 +2,7 @@ import type {
   BillingBucketCategory,
   BillingBucketSourceType,
   BillingBucketStatus,
+  BillingCheckoutResult,
   BillingLedgerEntryType,
   BillingMetricName,
   BillingPaymentMode,
@@ -248,6 +249,21 @@ export function formatBillingPlanInterval(
   return t('module.billing.catalog.labels.perMonth');
 }
 
+export function resolveBillingPlanCreditsLabel(
+  t: BillingTranslator,
+  product: BillingPlan,
+  locale: string,
+): string {
+  return t(
+    product.billing_interval === 'year'
+      ? 'module.billing.package.creditSummary.yearly'
+      : 'module.billing.package.creditSummary.monthly',
+    {
+      credits: formatBillingCredits(product.credit_amount, locale),
+    },
+  );
+}
+
 export function resolveBillingBucketCategoryLabel(
   t: BillingTranslator,
   category: BillingBucketCategory,
@@ -399,6 +415,20 @@ export function openBillingPaymentWindow(url: string): boolean {
   }
   const paymentWindow = window.open(url, '_blank', 'noopener,noreferrer');
   return paymentWindow !== null;
+}
+
+export function extractBillingPingxxQrUrl(
+  result: BillingCheckoutResult,
+): string {
+  const credential =
+    typeof result.payment_payload === 'object' && result.payment_payload
+      ? (result.payment_payload as Record<string, unknown>).credential
+      : null;
+  if (!credential || typeof credential !== 'object') {
+    return '';
+  }
+  const qrUrl = (credential as Record<string, unknown>).alipay_qr;
+  return typeof qrUrl === 'string' ? qrUrl : '';
 }
 
 export function registerBillingTranslationUsage(t: BillingTranslator): void {

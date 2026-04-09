@@ -10,6 +10,7 @@ from flask import Flask
 from flaskr.dao import db
 
 from .consts import (
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
@@ -30,8 +31,10 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
 )
 from .funcs import (
+    _activate_subscription_for_paid_order,
     _load_latest_subscription_renewal_order,
     _load_subscription_by_bid,
+    _load_subscription_renewal_order_by_cycle,
     _sync_subscription_lifecycle_events,
     ensure_subscription_renewal_order,
     sync_billing_order,
@@ -234,6 +237,9 @@ def _execute_expire_subscription(
     now: datetime,
 ) -> dict[str, Any]:
     subscription = _load_subscription_by_bid(event.subscription_bid)
+    boundary_at = event.scheduled_at or (
+        subscription.current_period_end_at if subscription is not None else None
+    )
     if subscription is None:
         _fail_renewal_event(event, now=now, error="subscription_not_found")
         db.session.commit()
@@ -248,6 +254,48 @@ def _execute_expire_subscription(
         return {
             "status": "already_applied",
             "subscription_status": "expired",
+            **_serialize_renewal_event(event),
+        }
+
+    if (
+        boundary_at is not None
+        and subscription.current_period_start_at is not None
+        and subscription.current_period_start_at >= boundary_at
+    ):
+        _complete_renewal_event(event, now=now)
+        db.session.commit()
+        return {
+            "status": "already_applied",
+            "subscription_status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+                int(subscription.status or 0),
+                "active",
+            ),
+            **_serialize_renewal_event(event),
+        }
+
+    paid_renewal_order = None
+    if boundary_at is not None:
+        paid_renewal_order = _load_subscription_renewal_order_by_cycle(
+            subscription.subscription_bid,
+            cycle_start_at=boundary_at,
+            statuses=(BILLING_ORDER_STATUS_PAID,),
+        )
+    if paid_renewal_order is not None:
+        _activate_subscription_for_paid_order(
+            app,
+            paid_renewal_order,
+            subscription=subscription,
+            force=True,
+        )
+        _complete_renewal_event(event, now=now)
+        db.session.commit()
+        return {
+            "status": "applied",
+            "billing_order_bid": paid_renewal_order.billing_order_bid,
+            "subscription_status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+                int(subscription.status or 0),
+                "active",
+            ),
             **_serialize_renewal_event(event),
         }
 
@@ -342,6 +390,15 @@ def _execute_subscription_renewal(
     payload_json["billing_order_bid"] = order.billing_order_bid
     event.payload_json = payload_json
     db.session.add(event)
+
+    if order.payment_provider == "pingxx" and not order.provider_reference_id:
+        _complete_renewal_event(event, now=now)
+        db.session.commit()
+        return {
+            "status": "queued_for_reconcile",
+            "billing_order_bid": order.billing_order_bid,
+            **_serialize_renewal_event(event),
+        }
 
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.get("status") or "")
@@ -456,6 +513,14 @@ def _sync_billing_renewal_order(
     event: BillingRenewalEvent | None,
 ) -> dict[str, Any]:
     billing_order_bid = str(order.billing_order_bid or "")
+    if order.payment_provider == "pingxx" and not order.provider_reference_id:
+        return {
+            "status": "pending",
+            "billing_order_bid": billing_order_bid or None,
+            "renewal_event_bid": (
+                event.renewal_event_bid if event is not None else None
+            ),
+        }
     try:
         payload = sync_billing_order(
             app,

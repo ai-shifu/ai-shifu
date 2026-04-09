@@ -175,7 +175,6 @@
     },
     "labels": {
       "creditsOneTime": "{{credits}} credits one time",
-      "creditsPerCycle": "{{credits}} credits per cycle",
       "perMonth": "/ month",
       "perYear": "/ year",
       "providerPingxx": "Pingxx / Alipay QR",
@@ -458,6 +457,7 @@
   "navTitle": "Membership & Credits",
   "orders": {
     "actions": {
+      "continuePayment": "Continue payment",
       "sync": "Sync status"
     },
     "description": "Review billing order status and trigger a manual sync when a payment provider callback is delayed.",
@@ -510,6 +510,7 @@
     },
     "syncSuccess": "Order status refreshed: {{status}}",
     "table": {
+      "actions": "Actions",
       "amount": "Amount",
       "createdAt": "Created at",
       "failure": "Failure",

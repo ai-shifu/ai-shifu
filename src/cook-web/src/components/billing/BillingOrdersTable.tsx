@@ -23,13 +23,16 @@ import {
 } from '@/components/ui/Table';
 import { toast } from '@/hooks/useToast';
 import type {
+  BillingCheckoutResult,
   BillingOrderStatus,
   BillingOrderSummary,
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  extractBillingPingxxQrUrl,
   formatBillingDateTime,
   formatBillingPrice,
+  openBillingPaymentWindow,
   registerBillingTranslationUsage,
   resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
@@ -44,6 +47,15 @@ type BillingSyncResponse = {
   billing_order_bid: string;
   status: BillingOrderStatus;
 };
+
+function canContinueBillingOrderCheckout(order: BillingOrderSummary): boolean {
+  return (
+    order.payment_provider === 'pingxx' &&
+    order.status === 'pending' &&
+    (order.order_type === 'subscription_start' ||
+      order.order_type === 'subscription_renewal')
+  );
+}
 
 function resolveOrderStatusClassName(status: BillingOrderStatus): string {
   if (status === 'paid') {
@@ -63,6 +75,7 @@ export function BillingOrdersTable() {
   registerBillingTranslationUsage(t);
   const [pageIndex, setPageIndex] = useState(1);
   const [syncLoadingBid, setSyncLoadingBid] = useState('');
+  const [checkoutLoadingBid, setCheckoutLoadingBid] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailOrderBid, setDetailOrderBid] = useState('');
   const { mutate: mutateCache } = useSWRConfig();
@@ -114,6 +127,37 @@ export function BillingOrdersTable() {
     setDetailOpen(true);
   };
 
+  const handleContinueCheckout = async (order: BillingOrderSummary) => {
+    setCheckoutLoadingBid(order.billing_order_bid);
+    try {
+      const result = (await api.checkoutBillingOrder({
+        billing_order_bid: order.billing_order_bid,
+      })) as BillingCheckoutResult;
+      const qrUrl = extractBillingPingxxQrUrl(result);
+      if (!qrUrl) {
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
+        });
+        return;
+      }
+      const opened = openBillingPaymentWindow(qrUrl);
+      toast({
+        title: opened
+          ? t('module.billing.checkout.qrOpened')
+          : t('module.billing.checkout.qrBlocked'),
+        variant: opened ? 'default' : 'destructive',
+      });
+    } catch (error: any) {
+      toast({
+        title: error?.message || t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckoutLoadingBid('');
+    }
+  };
+
   return (
     <>
       <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
@@ -163,7 +207,7 @@ export function BillingOrdersTable() {
                       {t('module.billing.orders.table.failure')}
                     </TableHead>
                     <TableHead>
-                      {t('module.billing.orders.table.sync')}
+                      {t('module.billing.orders.table.actions')}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -223,16 +267,40 @@ export function BillingOrdersTable() {
                           {item.failure_message || resolveBillingEmptyLabel(t)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            disabled={syncLoadingBid === item.billing_order_bid}
-                            onClick={() => void handleSync(item)}
-                          >
-                            {syncLoadingBid === item.billing_order_bid
-                              ? t('module.billing.catalog.actions.processing')
-                              : t('module.billing.orders.actions.sync')}
-                          </Button>
+                          <div className='flex flex-wrap gap-2'>
+                            {canContinueBillingOrderCheckout(item) ? (
+                              <Button
+                                variant='default'
+                                size='sm'
+                                disabled={
+                                  checkoutLoadingBid === item.billing_order_bid
+                                }
+                                onClick={() =>
+                                  void handleContinueCheckout(item)
+                                }
+                              >
+                                {checkoutLoadingBid === item.billing_order_bid
+                                  ? t(
+                                      'module.billing.catalog.actions.processing',
+                                    )
+                                  : t(
+                                      'module.billing.orders.actions.continuePayment',
+                                    )}
+                              </Button>
+                            ) : null}
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              disabled={
+                                syncLoadingBid === item.billing_order_bid
+                              }
+                              onClick={() => void handleSync(item)}
+                            >
+                              {syncLoadingBid === item.billing_order_bid
+                                ? t('module.billing.catalog.actions.processing')
+                                : t('module.billing.orders.actions.sync')}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

@@ -175,7 +175,6 @@
     },
     "labels": {
       "creditsOneTime": "一次到账 {{credits}} 积分",
-      "creditsPerCycle": "每周期发放 {{credits}} 积分",
       "perMonth": "/ 月",
       "perYear": "/ 年",
       "providerPingxx": "Pingxx / 支付宝二维码",
@@ -458,6 +457,7 @@
   "navTitle": "会员与积分",
   "orders": {
     "actions": {
+      "continuePayment": "继续支付",
       "sync": "同步状态"
     },
     "description": "查看 billing 订单状态，并在 provider 回调延迟时手动补一次同步。",
@@ -510,6 +510,7 @@
     },
     "syncSuccess": "订单状态已刷新：{{status}}",
     "table": {
+      "actions": "操作",
       "amount": "金额",
       "createdAt": "创建时间",
       "failure": "失败信息",

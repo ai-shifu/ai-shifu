@@ -20,6 +20,7 @@ import {
   formatBillingCredits,
   formatBillingPlanInterval,
   formatBillingPrice,
+  resolveBillingPlanCreditsLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
 } from '@/lib/billing';
@@ -43,6 +44,7 @@ type CatalogCardShellProps = {
   creditsLabel: string;
   description: string;
   priceLabel: string;
+  tone?: 'plan' | 'topup';
   title: string;
   children: React.ReactNode;
 };
@@ -52,30 +54,42 @@ function CatalogCardShell({
   creditsLabel,
   description,
   priceLabel,
+  tone = 'plan',
   title,
   children,
 }: CatalogCardShellProps) {
   return (
-    <Card className='h-full border-slate-200 bg-white/90 shadow-[0_12px_28px_rgba(15,23,42,0.06)]'>
-      <CardHeader className='gap-4'>
+    <Card
+      className={cn(
+        'h-full overflow-hidden rounded-[28px] border-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.08)]',
+        tone === 'plan'
+          ? 'bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)]'
+          : 'bg-[linear-gradient(180deg,#ffffff_0%,#fffaf3_100%)]',
+      )}
+    >
+      <CardHeader className='gap-5 pb-5'>
         <div className='flex items-start justify-between gap-3'>
-          <div className='space-y-2'>
-            <CardTitle className='text-xl text-slate-900'>{title}</CardTitle>
-            <CardDescription className='leading-6 text-slate-500'>
+          <div className='space-y-3'>
+            <CardTitle className='text-2xl leading-tight text-slate-950'>
+              {title}
+            </CardTitle>
+            <CardDescription className='leading-7 text-slate-500'>
               {description}
             </CardDescription>
           </div>
           {badgeLabel ? (
-            <Badge className='bg-amber-100 text-amber-800'>{badgeLabel}</Badge>
+            <Badge className='rounded-full bg-amber-100 px-3 py-1 text-amber-800'>
+              {badgeLabel}
+            </Badge>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className='space-y-5'>
-        <div className='rounded-2xl bg-slate-50 p-4'>
-          <div className='text-3xl font-semibold tracking-tight text-slate-900'>
+        <div className='rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-sm'>
+          <div className='text-3xl font-semibold tracking-tight text-slate-950'>
             {priceLabel}
           </div>
-          <div className='mt-2 text-sm font-medium text-slate-600'>
+          <div className='mt-3 text-sm font-medium text-slate-600'>
             {creditsLabel}
           </div>
         </div>
@@ -95,7 +109,9 @@ function CatalogSection({
   return (
     <div className='space-y-3'>
       <div className='flex items-center justify-between gap-3'>
-        <h4 className='text-base font-semibold text-slate-900'>{title}</h4>
+        <h4 className='text-xl font-semibold tracking-tight text-slate-950'>
+          {title}
+        </h4>
       </div>
       {children}
     </div>
@@ -117,11 +133,18 @@ export function BillingCatalogCards({
   const currentProductBid = subscription?.product_bid || '';
 
   return (
-    <div className='space-y-5'>
+    <div className='space-y-8'>
       <CatalogSection title={t('module.billing.catalog.sections.plans')}>
-        <div className='grid gap-4 xl:grid-cols-2'>
+        <div className='grid gap-5 xl:grid-cols-2'>
           {plans.map(plan => {
-            const checkoutKey = `plan:stripe:${plan.product_bid}`;
+            const provider = stripeAvailable
+              ? 'stripe'
+              : pingxxAvailable
+                ? 'pingxx'
+                : null;
+            const checkoutKey = provider
+              ? `plan:${provider}:${plan.product_bid}`
+              : '';
             const isCurrentPlan =
               currentProductBid === plan.product_bid &&
               subscription?.status !== 'expired' &&
@@ -133,14 +156,10 @@ export function BillingCatalogCards({
                 badgeLabel={
                   plan.status_badge_key ? t(plan.status_badge_key) : undefined
                 }
-                creditsLabel={t(
-                  'module.billing.catalog.labels.creditsPerCycle',
-                  {
-                    credits: formatBillingCredits(
-                      plan.credit_amount,
-                      i18n.language,
-                    ),
-                  },
+                creditsLabel={resolveBillingPlanCreditsLabel(
+                  t,
+                  plan,
+                  i18n.language,
                 )}
                 description={resolveBillingProductDescription(t, plan)}
                 priceLabel={`${formatBillingPrice(
@@ -148,23 +167,24 @@ export function BillingCatalogCards({
                   plan.currency,
                   i18n.language,
                 )} ${formatBillingPlanInterval(t, plan)}`}
+                tone='plan'
                 title={resolveBillingProductTitle(t, plan)}
               >
                 <div className='flex gap-3'>
                   <Button
-                    className='flex-1 rounded-xl'
+                    className='flex-1 rounded-full'
                     disabled={
                       isCurrentPlan ||
-                      !stripeAvailable ||
+                      !provider ||
                       checkoutLoadingKey === checkoutKey
                     }
-                    onClick={() => onCheckoutPlan(plan, 'stripe')}
+                    onClick={() => provider && onCheckoutPlan(plan, provider)}
                   >
                     {isCurrentPlan
                       ? t('module.billing.catalog.actions.currentPlan')
                       : checkoutLoadingKey === checkoutKey
                         ? t('module.billing.catalog.actions.processing')
-                        : stripeAvailable
+                        : provider
                           ? t('module.billing.catalog.actions.subscribe')
                           : t('module.billing.catalog.actions.unavailable')}
                   </Button>
@@ -176,7 +196,7 @@ export function BillingCatalogCards({
       </CatalogSection>
 
       <CatalogSection title={t('module.billing.catalog.sections.topups')}>
-        <div className='grid gap-4 xl:grid-cols-2'>
+        <div className='grid gap-5 xl:grid-cols-2'>
           {topups.map(product => {
             const stripeKey = `topup:stripe:${product.product_bid}`;
             const pingxxKey = `topup:pingxx:${product.product_bid}`;
@@ -204,6 +224,7 @@ export function BillingCatalogCards({
                   product.currency,
                   i18n.language,
                 )}
+                tone='topup'
                 title={resolveBillingProductTitle(t, product)}
               >
                 <div
@@ -215,7 +236,7 @@ export function BillingCatalogCards({
                   )}
                 >
                   <Button
-                    className='rounded-xl'
+                    className='rounded-full'
                     disabled={
                       !stripeAvailable || checkoutLoadingKey === stripeKey
                     }
@@ -229,7 +250,7 @@ export function BillingCatalogCards({
                         : t('module.billing.catalog.actions.unavailable')}
                   </Button>
                   <Button
-                    className='rounded-xl'
+                    className='rounded-full'
                     disabled={
                       !pingxxAvailable || checkoutLoadingKey === pingxxKey
                     }

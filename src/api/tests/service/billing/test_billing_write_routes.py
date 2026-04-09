@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 import sys
@@ -22,7 +22,6 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
-    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
@@ -31,11 +30,13 @@ from flaskr.service.billing.consts import (
     BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+    BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
 )
@@ -358,29 +359,107 @@ class TestBillingWriteRoutes:
             == "month"
         )
 
-    def test_pingxx_subscription_checkout_returns_unsupported(
+    def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
 
-        response = client.post(
+        checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "billing-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
-        )
-        payload = response.get_json(force=True)
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
 
-        assert payload["code"] == 0
-        assert payload["data"]["status"] == "unsupported"
-        assert payload["data"]["payment_mode"] == "subscription"
+        assert checkout["code"] == 0
+        assert checkout["data"]["provider"] == "pingxx"
+        assert checkout["data"]["status"] == "pending"
+        assert checkout["data"]["payment_mode"] == "subscription"
+        assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
+            "https://pingxx.test/qr"
+        )
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(creator_bid="creator-1").one()
-            assert order.status == BILLING_ORDER_STATUS_FAILED
-            assert BillingSubscription.query.count() == 0
+            order = BillingOrder.query.filter_by(
+                billing_order_bid=billing_order_bid
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1"
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PENDING
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
+            assert subscription.billing_provider == "pingxx"
+            assert subscription.provider_subscription_id == ""
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                billing_order_bid=billing_order_bid
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1"
+            ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            renewal_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid=subscription.subscription_bid,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            ).one()
+            expire_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid=subscription.subscription_bid,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.provider_subscription_id == ""
+            assert wallet.available_credits == 5
+            assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+            assert renewal_event.scheduled_at == (
+                subscription.current_period_end_at - timedelta(days=7)
+            )
+            assert expire_event.scheduled_at == subscription.current_period_end_at
+
+    def test_pending_pingxx_subscription_order_can_refresh_checkout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "pingxx",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        refreshed = client.post(
+            f"/api/billing/orders/{billing_order_bid}/checkout",
+        ).get_json(force=True)
+
+        assert refreshed["code"] == 0
+        assert refreshed["data"]["provider"] == "pingxx"
+        assert refreshed["data"]["payment_mode"] == "subscription"
+        assert refreshed["data"]["status"] == "pending"
+        assert refreshed["data"]["payment_payload"]["credential"]["alipay_qr"] == (
+            "https://pingxx.test/qr"
+        )
+        assert len(billing_write_client["pingxx_requests"]) == 2
+        assert (
+            billing_write_client["pingxx_requests"][1]["order_bid"] == billing_order_bid
+        )
 
     def test_topup_checkout_and_sync_mark_order_paid(
         self, billing_write_client
@@ -424,13 +503,13 @@ class TestBillingWriteRoutes:
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
-            assert wallet.available_credits == 500000
+            assert wallet.available_credits == 20
             assert wallet.reserved_credits == Decimal("0E-10")
             assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
             assert bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
             assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
-            assert bucket.available_credits == 500000
-            assert ledger.amount == 500000
+            assert bucket.available_credits == 20
+            assert ledger.amount == 20
             assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
 
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
@@ -531,7 +610,7 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
-            assert wallet.available_credits == Decimal("500100.0000000000")
+            assert wallet.available_credits == Decimal("120.0000000000")
             assert wallet.reserved_credits == Decimal("0E-10")
             assert new_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
             assert new_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
@@ -583,12 +662,12 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.provider_subscription_id == "sub_provider_test"
-            assert wallet.available_credits == 300000
+            assert wallet.available_credits == 5
             assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
             assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
-            assert bucket.available_credits == 300000
-            assert ledger.amount == 300000
+            assert bucket.available_credits == 5
+            assert ledger.amount == 5
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
@@ -806,7 +885,7 @@ class TestBillingWriteRoutes:
             assert subscription.next_product_bid == ""
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.cancel_at_period_end == 0
-            assert wallet.available_credits == 3600000
+            assert wallet.available_credits == 10000
             assert upgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
 
     def test_paid_renewal_order_applies_scheduled_next_product(
@@ -864,6 +943,148 @@ class TestBillingWriteRoutes:
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
+    def test_paid_pingxx_renewal_before_cycle_start_keeps_current_period(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+        renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-pingxx-early-renewal",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_cycle_start,
+                current_period_end_at=renewal_cycle_start,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
+            order = BillingOrder(
+                billing_order_bid="billing-pingxx-renewal-early-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                product_bid="billing-product-plan-monthly",
+                subscription_bid="sub-pingxx-early-renewal",
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=9900,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="ch_pingxx_renewal_early_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=datetime(2026, 4, 24, 9, 0, 0),
+                metadata_json={
+                    "provider_reference_type": "charge",
+                    "renewal_cycle_start_at": renewal_cycle_start.isoformat(),
+                    "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+                },
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            granted = _grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-pingxx-renewal-early-1",
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-pingxx-early-renewal"
+            ).one()
+
+            assert granted is True
+            assert bucket.effective_from == renewal_cycle_start
+            assert bucket.effective_to == renewal_cycle_end
+            assert subscription.current_period_start_at == current_cycle_start
+            assert subscription.current_period_end_at == renewal_cycle_start
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+
+    def test_paid_pingxx_renewal_after_cycle_end_shifts_cycle_from_payment_time(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+        paid_at = datetime(2026, 6, 5, 10, 0, 0)
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-pingxx-late-renewal",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+                current_period_end_at=renewal_cycle_start,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=datetime(2026, 4, 1, 0, 0, 0),
+                updated_at=datetime(2026, 6, 1, 0, 0, 0),
+            )
+            order = BillingOrder(
+                billing_order_bid="billing-pingxx-renewal-late-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                product_bid="billing-product-plan-monthly",
+                subscription_bid="sub-pingxx-late-renewal",
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=9900,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="ch_pingxx_renewal_late_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=paid_at,
+                metadata_json={
+                    "provider_reference_type": "charge",
+                    "renewal_cycle_start_at": renewal_cycle_start.isoformat(),
+                    "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
+                },
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            granted = _grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-pingxx-renewal-late-1",
+            ).one()
+            order = BillingOrder.query.filter_by(
+                billing_order_bid="billing-pingxx-renewal-late-1"
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-pingxx-late-renewal"
+            ).one()
+
+            assert granted is True
+            assert bucket.effective_from == paid_at
+            assert bucket.effective_to == datetime(2026, 7, 5, 10, 0, 0)
+            assert order.metadata_json["applied_cycle_start_at"] == paid_at.isoformat()
+            assert (
+                order.metadata_json["applied_cycle_end_at"]
+                == datetime(2026, 7, 5, 10, 0, 0).isoformat()
+            )
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.current_period_start_at == paid_at
+            assert subscription.current_period_end_at == datetime(2026, 7, 5, 10, 0, 0)
+
     def test_refund_paid_stripe_order_marks_order_refunded(
         self, billing_write_client
     ) -> None:
@@ -916,12 +1137,12 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_REFUNDED
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
-            assert wallet.available_credits == 1000000
+            assert wallet.available_credits == 40
             assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_FREE
-            assert refund_bucket.available_credits == 500000
+            assert refund_bucket.available_credits == 20
             assert refund_bucket.metadata_json["billing_order_bid"] == billing_order_bid
             assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
-            assert refund_ledger.amount == 500000
+            assert refund_ledger.amount == 20
 
     def test_refund_pingxx_order_returns_unsupported(
         self, billing_write_client

@@ -27,6 +27,7 @@ from flaskr.service.billing.funcs import (
     build_billing_daily_usage_metrics_page,
     build_billing_route_bootstrap,
     build_billing_wallet_buckets,
+    create_billing_order_checkout,
     create_billing_subscription_checkout,
     create_billing_topup_checkout,
     refund_billing_order,
@@ -192,6 +193,18 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         _require_creator()
         return make_common_response(
             sync_billing_order(
+                app,
+                _get_creator_bid(),
+                billing_order_bid,
+                request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(path_prefix + "/orders/<billing_order_bid>/checkout", methods=["POST"])
+    def billing_order_checkout_api(billing_order_bid: str):
+        _require_creator()
+        return make_common_response(
+            create_billing_order_checkout(
                 app,
                 _get_creator_bid(),
                 billing_order_bid,

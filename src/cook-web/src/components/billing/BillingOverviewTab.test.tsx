@@ -579,6 +579,79 @@ describe('BillingOverviewTab', () => {
     );
   });
 
+  test('falls back to Pingxx subscription checkout when Stripe is unavailable', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 12,
+          reserved_credits: 0,
+          lifetime_granted_credits: 120,
+          lifetime_consumed_credits: 108,
+        },
+        subscription: null,
+        billing_alerts: [],
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      billing_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          alipay_qr: 'https://pingxx.test/plan-qr',
+        },
+      },
+    });
+    mockOpenBillingPaymentWindow.mockReturnValue(true);
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.yearly',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-billing-product-plan-yearly-action',
+        ),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_provider: 'pingxx',
+          product_bid: 'billing-product-plan-yearly',
+        }),
+      );
+    });
+
+    expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
+      'https://pingxx.test/plan-qr',
+    );
+  });
+
   test('opens a Pingxx QR top-up checkout when Stripe is unavailable', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];

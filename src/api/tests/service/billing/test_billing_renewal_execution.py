@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
@@ -74,6 +75,8 @@ def _create_subscription(
     next_product_bid: str = "",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     current_period_end_at: datetime | None = None,
+    billing_provider: str = "stripe",
+    provider_subscription_id: str | None = None,
 ) -> BillingSubscription:
     now = datetime.now()
     return BillingSubscription(
@@ -81,8 +84,10 @@ def _create_subscription(
         creator_bid=creator_bid,
         product_bid=product_bid,
         status=status,
-        billing_provider="stripe",
-        provider_subscription_id=f"provider-{subscription_bid}",
+        billing_provider=billing_provider,
+        provider_subscription_id=provider_subscription_id
+        if provider_subscription_id is not None
+        else (f"provider-{subscription_bid}" if billing_provider == "stripe" else ""),
         provider_customer_id=f"customer-{subscription_bid}",
         current_period_start_at=now - timedelta(days=29),
         current_period_end_at=current_period_end_at or (now + timedelta(days=1)),
@@ -342,6 +347,120 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
         assert order.subscription_bid == subscription_bid
         assert order.provider_reference_id == "sub_provider_unsupported_1"
         assert order.metadata_json["provider_reference_type"] == "subscription"
+
+
+def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
+    billing_renewal_app: Flask,
+) -> None:
+    cycle_end = datetime.now() - timedelta(hours=1)
+    with billing_renewal_app.app_context():
+        subscription = _create_subscription(
+            "sub-pingxx-renewal-1",
+            current_period_end_at=cycle_end,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+        )
+        event = _create_renewal_event(
+            "renewal-pingxx-1",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            scheduled_at=cycle_end - timedelta(days=7),
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(event)
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-pingxx-1",
+    )
+
+    assert payload["status"] == "queued_for_reconcile"
+    assert payload["event_status"] == "succeeded"
+
+    with billing_renewal_app.app_context():
+        order = BillingOrder.query.filter_by(
+            billing_order_bid=payload["billing_order_bid"]
+        ).one()
+        assert order.payment_provider == "pingxx"
+        assert order.provider_reference_id == ""
+        assert order.metadata_json["provider_reference_type"] == "charge"
+        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
+
+
+def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
+    billing_renewal_app: Flask,
+) -> None:
+    current_cycle_start = datetime.now() - timedelta(days=30)
+    current_cycle_end = datetime.now() - timedelta(minutes=1)
+    next_cycle_end = current_cycle_end + timedelta(days=30)
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-pingxx-expire-paid",
+            creator_bid="creator-renewal-1",
+            product_bid="billing-product-plan-monthly",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+            provider_customer_id="customer-sub-pingxx-expire-paid",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={},
+            created_at=current_cycle_start,
+            updated_at=current_cycle_start,
+        )
+        order = BillingOrder(
+            billing_order_bid="billing-pingxx-expire-paid-1",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=9900,
+            paid_amount=9900,
+            payment_provider="pingxx",
+            channel="alipay_qr",
+            provider_reference_id="ch_pingxx_expire_paid_1",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_end - timedelta(days=5),
+            metadata_json={
+                "provider_reference_type": "charge",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        event = _create_renewal_event(
+            "renewal-expire-paid-1",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=current_cycle_end,
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(order)
+        dao.db.session.add(event)
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-expire-paid-1",
+    )
+
+    assert payload["status"] == "applied"
+    assert payload["subscription_status"] == "active"
+    assert payload["billing_order_bid"] == "billing-pingxx-expire-paid-1"
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-pingxx-expire-paid"
+        ).one()
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert subscription.current_period_start_at == current_cycle_end
+        assert subscription.current_period_end_at == next_cycle_end
 
 
 def test_run_billing_renewal_event_retries_latest_failed_renewal_order(

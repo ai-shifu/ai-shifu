@@ -604,6 +604,10 @@ class TestBillingRoutes:
             "path": "/api/billing/orders/{billing_order_bid}/sync",
         } in payload["data"]["creator_routes"]
         assert {
+            "method": "POST",
+            "path": "/api/billing/orders/{billing_order_bid}/checkout",
+        } in payload["data"]["creator_routes"]
+        assert {
             "method": "GET",
             "path": "/api/admin/billing/entitlements",
         } in payload["data"]["admin_routes"]
