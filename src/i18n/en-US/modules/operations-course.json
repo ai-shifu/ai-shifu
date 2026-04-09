@@ -104,5 +104,24 @@
     "status": "Status",
     "updatedAt": "Updated At"
   },
-  "title": "Course"
+  "title": "Course Management",
+  "transferCreatorDialog": {
+    "confirm": "Transfer",
+    "confirmDescriptionCourseSuffix": " from",
+    "confirmDescriptionPrefix": "Transfer the creator of",
+    "confirmDescriptionTargetPrefix": "to",
+    "confirmTitle": "Confirm Creator Transfer",
+    "contactPlaceholderEmail": "Enter target creator email",
+    "contactPlaceholderPhone": "Enter target creator mobile",
+    "contactType": "Contact Type",
+    "contactTypeEmail": "Email",
+    "contactTypePhone": "Mobile",
+    "currentCreator": "Current Creator",
+    "description": "Only the course creator changes. Course content, configuration, and shared permissions stay unchanged.",
+    "identifier": "Target Creator",
+    "identifierRequired": "Please enter a valid target creator contact",
+    "sameCreator": "The target contact already belongs to the current creator",
+    "submitSuccess": "Creator transferred",
+    "title": "Transfer Creator"
+  }
 }

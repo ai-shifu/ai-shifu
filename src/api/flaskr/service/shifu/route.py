@@ -107,6 +107,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     list_operator_courses,
+    transfer_operator_course_creator,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
@@ -619,6 +620,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_item_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/transfer-creator",
+        methods=["POST"],
+    )
+    def admin_transfer_course_creator(shifu_bid: str):
+        _require_operator()
+        payload = request.get_json() or {}
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+
+        return make_common_response(
+            transfer_operator_course_creator(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
             )
         )
 

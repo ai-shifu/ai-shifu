@@ -105,6 +105,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
+  transferAdminOperationCourseCreator:
+    'POST /shifu/admin/operations/courses/{shifu_bid}/transfer-creator',
 
   // profile
 
