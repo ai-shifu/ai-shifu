@@ -1,5 +1,83 @@
+# ruff: noqa: E402
+import sys
 import types
 
+
+def _install_litellm_stub() -> None:
+    if "litellm" in sys.modules:
+        return
+
+    litellm_stub = types.ModuleType("litellm")
+    litellm_stub.get_max_tokens = lambda _model: 4096
+    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    sys.modules["litellm"] = litellm_stub
+
+
+def _install_openai_responses_stub() -> None:
+    if "openai.types.responses" in sys.modules:
+        return
+
+    responses_pkg = types.ModuleType("openai.types.responses")
+    responses_pkg.__path__ = []
+    response_mod = types.ModuleType("openai.types.responses.response")
+    response_create_mod = types.ModuleType(
+        "openai.types.responses.response_create_params"
+    )
+    response_function_mod = types.ModuleType(
+        "openai.types.responses.response_function_tool_call"
+    )
+    response_text_mod = types.ModuleType(
+        "openai.types.responses.response_text_config_param"
+    )
+
+    for name in [
+        "IncompleteDetails",
+        "Response",
+        "ResponseOutputItem",
+        "Tool",
+        "ToolChoice",
+    ]:
+        setattr(response_mod, name, type(name, (), {}))
+
+    for name in [
+        "Reasoning",
+        "ResponseIncludable",
+        "ResponseInputParam",
+        "ToolChoice",
+        "ToolParam",
+        "Text",
+    ]:
+        setattr(response_create_mod, name, type(name, (), {}))
+
+    response_function_tool_call = type("ResponseFunctionToolCall", (), {})
+    response_text_config = type("ResponseTextConfigParam", (), {})
+    setattr(
+        response_function_mod,
+        "ResponseFunctionToolCall",
+        response_function_tool_call,
+    )
+    setattr(
+        response_text_mod,
+        "ResponseTextConfigParam",
+        response_text_config,
+    )
+    setattr(
+        responses_pkg,
+        "ResponseFunctionToolCall",
+        response_function_tool_call,
+    )
+
+    sys.modules["openai.types.responses"] = responses_pkg
+    sys.modules["openai.types.responses.response"] = response_mod
+    sys.modules["openai.types.responses.response_create_params"] = response_create_mod
+    sys.modules["openai.types.responses.response_function_tool_call"] = (
+        response_function_mod
+    )
+    sys.modules["openai.types.responses.response_text_config_param"] = response_text_mod
+
+
+_install_litellm_stub()
+_install_openai_responses_stub()
 
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
 from flaskr.service.learn.learn_dtos import GeneratedType
@@ -163,7 +241,14 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
     monkeypatch.setattr(module, "_", lambda key: key)
     monkeypatch.setattr(module, "LearnGeneratedBlock", _DummyLearnGeneratedBlockModel)
     monkeypatch.setattr(
-        module, "LearnGeneratedElement", _DummyLearnGeneratedElementModel
+        module,
+        "_load_latest_active_element_row",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        module,
+        "find_follow_up_element_rows",
+        lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
         module,
@@ -539,7 +624,7 @@ def test_ask_event_emitted(app, monkeypatch):
 
 
 def test_ask_event_uses_ask_block_bid(app, monkeypatch):
-    """ASK uses ask block bid while teacher content stays on answer block bid."""
+    """ASK and teacher content both use the answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
     _setup_llm_only_patches(monkeypatch, module, ["reply"])
@@ -565,7 +650,7 @@ def test_ask_event_uses_ask_block_bid(app, monkeypatch):
 
     assert len(ask_events) == 1
     assert len(content_events) == 1
-    assert ask_events[0].generated_block_bid == "gb-1"
+    assert ask_events[0].generated_block_bid == "gb-2"
     assert content_events[0].generated_block_bid == "gb-2"
 
 

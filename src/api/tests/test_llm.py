@@ -177,7 +177,9 @@ def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):
     monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
     monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
     monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
-    monkeypatch.setattr(llm, "get_request_trace_id", lambda: "request-trace-1")
+    monkeypatch.setattr(
+        "flaskr.api.langfuse.get_request_trace_id", lambda: "request-trace-1"
+    )
 
     span = DummySpan(trace_id="", span_id="span-2")
     list(

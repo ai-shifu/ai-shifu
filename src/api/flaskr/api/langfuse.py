@@ -27,7 +27,7 @@ def get_langfuse_client():
     return langfuse_client
 
 
-def get_request_trace_id() -> str:
+def get_request_id() -> str:
     request_id = getattr(thread_local, "request_id", "") or ""
     if request_id:
         return request_id
@@ -37,7 +37,32 @@ def get_request_trace_id() -> str:
     except RuntimeError:
         request_id = ""
 
-    return request_id or uuid.uuid4().hex
+    return request_id
+
+
+def get_request_trace_id() -> str:
+    return get_request_id() or uuid.uuid4().hex
+
+
+def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> str:
+    return trace_id or getattr(observation, "trace_id", "") or get_request_trace_id()
+
+
+def build_langfuse_observation_link(
+    observation: Any, trace_id: str | None = None
+) -> dict[str, str]:
+    observation_link: dict[str, str] = {}
+    resolved_trace_id = resolve_langfuse_trace_id(observation, trace_id)
+    parent_observation_id = (
+        getattr(observation, "id", "")
+        or getattr(observation, "observation_id", "")
+        or ""
+    )
+    if resolved_trace_id:
+        observation_link["trace_id"] = resolved_trace_id
+    if parent_observation_id:
+        observation_link["parent_observation_id"] = parent_observation_id
+    return observation_link
 
 
 def init_langfuse(app: Flask):
