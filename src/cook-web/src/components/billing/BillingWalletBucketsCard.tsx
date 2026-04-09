@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
-import api from '@/api';
 import {
   Card,
   CardContent,
@@ -21,10 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
-import type {
-  BillingWalletBucket,
-  BillingWalletBucketList,
-} from '@/types/billing';
+import type { BillingWalletBucket } from '@/types/billing';
 import {
   formatBillingCredits,
   formatBillingDate,
@@ -34,9 +29,8 @@ import {
   resolveBillingBucketStatusLabel,
   resolveBillingEmptyLabel,
 } from '@/lib/billing';
+import { useBillingWalletBuckets } from '@/hooks/useBillingWalletBuckets';
 import { BillingMetricCard } from './BillingMetricCard';
-
-const BILLING_WALLET_BUCKETS_SWR_KEY = ['billing-wallet-buckets'];
 
 function resolveBucketStatusClasses(
   status: BillingWalletBucket['status'],
@@ -70,18 +64,7 @@ function renderWindowLabel(
 export function BillingWalletBucketsCard() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const {
-    data: buckets,
-    error,
-    isLoading,
-  } = useSWR<BillingWalletBucketList>(
-    BILLING_WALLET_BUCKETS_SWR_KEY,
-    async () =>
-      (await api.getBillingWalletBuckets({})) as BillingWalletBucketList,
-    {
-      revalidateOnFocus: false,
-    },
-  );
+  const { data: buckets, error, isLoading } = useBillingWalletBuckets();
   const bucketList = useMemo(() => buckets?.items || [], [buckets]);
 
   const summary = useMemo(() => {
@@ -265,5 +248,3 @@ export function BillingWalletBucketsCard() {
     </Card>
   );
 }
-
-export { BILLING_WALLET_BUCKETS_SWR_KEY };

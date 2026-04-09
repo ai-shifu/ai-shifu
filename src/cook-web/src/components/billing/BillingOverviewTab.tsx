@@ -1,11 +1,14 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
+import { CheckIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { toast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useBillingOverview } from '@/hooks/useBillingOverview';
@@ -20,22 +23,30 @@ import type {
 import {
   buildBillingStripeResultUrls,
   formatBillingCredits,
+  formatBillingDate,
+  formatBillingPlanInterval,
+  formatBillingPrice,
   openBillingCheckoutUrl,
   openBillingPaymentWindow,
   registerBillingTranslationUsage,
-  resolveBillingNextActionLabel,
+  resolveBillingProductDescription,
+  resolveBillingProductTitle,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
+import { cn } from '@/lib/utils';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
-import { BillingCatalogCards } from './BillingCatalogCards';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
-import { BillingMetricCard } from './BillingMetricCard';
-import { BillingSubscriptionCard } from './BillingSubscriptionCard';
 
 type BillingCatalogResponse = {
   plans: BillingPlan[];
   topups: BillingTopupProduct[];
 };
+
+type BillingOverviewTabProps = {
+  onOpenOrdersTab?: () => void;
+};
+
+type ShowcaseTab = 'monthly' | 'yearly' | 'topup';
 
 type CheckoutTarget =
   | {
@@ -62,9 +73,210 @@ function extractPingxxQrUrl(result: BillingCheckoutResult): string {
   return typeof qrUrl === 'string' ? qrUrl : '';
 }
 
-type BillingOverviewTabProps = {
-  onOpenOrdersTab?: () => void;
+function getPlanFeatureKeys(product: BillingPlan): string[] {
+  const productHighlights = product.highlights?.filter(item => Boolean(item));
+  if (productHighlights && productHighlights.length > 0) {
+    return productHighlights;
+  }
+  if (product.billing_interval === 'year') {
+    return [
+      'module.billing.package.features.yearly.pro.branding',
+      'module.billing.package.features.yearly.pro.domain',
+      'module.billing.package.features.yearly.pro.priority',
+      'module.billing.package.features.yearly.pro.analytics',
+      'module.billing.package.features.yearly.pro.support',
+    ];
+  }
+  return [
+    'module.billing.package.features.monthly.publish',
+    'module.billing.package.features.monthly.preview',
+    'module.billing.package.features.monthly.support',
+  ];
+}
+
+function getFreeFeatureKeys(): string[] {
+  return [
+    'module.billing.package.features.free.publish',
+    'module.billing.package.features.free.preview',
+  ];
+}
+
+function PlanFeatureList({ items }: { items: string[] }) {
+  const { t } = useTranslation();
+  return (
+    <div className='space-y-4'>
+      <p className='text-lg font-semibold text-slate-950'>
+        {t('module.billing.package.featuresTitle')}
+      </p>
+      <ul className='space-y-3'>
+        {items.map(item => (
+          <li
+            key={item}
+            className='flex items-center justify-between gap-4 text-base text-slate-600'
+          >
+            <div className='flex items-center gap-3'>
+              <CheckIcon className='h-6 w-6 text-slate-950' />
+              <span>{t(item)}</span>
+            </div>
+            <InformationCircleIcon className='h-5 w-5 shrink-0 text-slate-300' />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+type PlanShowcaseCardProps = {
+  actionLabel: string;
+  actionLoading?: boolean;
+  compact?: boolean;
+  creditSummary: string;
+  description: string;
+  disabled?: boolean;
+  featured?: boolean;
+  footer: React.ReactNode;
+  onAction?: () => void;
+  priceLabel: string;
+  testId: string;
+  title: string;
 };
+
+function PlanShowcaseCard({
+  actionLabel,
+  actionLoading = false,
+  compact = false,
+  creditSummary,
+  description,
+  disabled = false,
+  featured = false,
+  footer,
+  onAction,
+  priceLabel,
+  testId,
+  title,
+}: PlanShowcaseCardProps) {
+  return (
+    <div
+      className={cn(
+        'flex h-full flex-col rounded-[34px] border bg-white p-7 shadow-[0_20px_56px_rgba(15,23,42,0.08)] transition-all',
+        compact ? 'min-h-[260px]' : 'min-h-[620px]',
+        featured
+          ? 'border-[#1d5bd8] bg-[radial-gradient(circle_at_top,#eef5ff_0%,#ffffff_72%)] shadow-[0_24px_64px_rgba(29,91,216,0.18)]'
+          : 'border-slate-200',
+      )}
+      data-testid={testId}
+    >
+      <div className='space-y-4'>
+        <h3
+          className={cn(
+            'text-[2rem] font-semibold leading-tight tracking-tight',
+            featured ? 'text-[#1d5bd8]' : 'text-slate-950',
+          )}
+        >
+          {title}
+        </h3>
+        <p className='min-h-[72px] text-[1.1rem] leading-9 text-slate-500'>
+          {description}
+        </p>
+      </div>
+
+      <div className='mt-8 flex items-end gap-2'>
+        <div className='text-[4rem] font-semibold leading-none tracking-tight text-slate-950'>
+          {priceLabel}
+        </div>
+      </div>
+
+      <Button
+        className={cn(
+          'mt-10 h-14 rounded-2xl text-xl font-semibold',
+          featured
+            ? 'bg-[#1d5bd8] text-white hover:bg-[#194fbc]'
+            : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+        )}
+        data-testid={`${testId}-action`}
+        disabled={disabled || actionLoading}
+        onClick={onAction}
+        type='button'
+        variant={featured ? 'default' : 'secondary'}
+      >
+        {actionLoading ? '...' : actionLabel}
+      </Button>
+
+      <div className='mt-8 rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm'>
+        <div className='text-[2rem] font-semibold leading-tight text-slate-950'>
+          {creditSummary}
+        </div>
+      </div>
+
+      <div className='mt-8 flex-1'>{footer}</div>
+    </div>
+  );
+}
+
+type TopupCardProps = {
+  actionLabel: string;
+  actionLoading?: boolean;
+  creditsLabel: string;
+  description: string;
+  disabled?: boolean;
+  featured?: boolean;
+  onAction?: () => void;
+  priceLabel: string;
+  testId: string;
+};
+
+function TopupCard({
+  actionLabel,
+  actionLoading = false,
+  creditsLabel,
+  description,
+  disabled = false,
+  featured = false,
+  onAction,
+  priceLabel,
+  testId,
+}: TopupCardProps) {
+  return (
+    <div
+      className={cn(
+        'flex min-h-[250px] flex-col justify-between rounded-[30px] border bg-white p-8 shadow-[0_18px_48px_rgba(15,23,42,0.08)]',
+        featured
+          ? 'border-[#1d5bd8] shadow-[0_24px_60px_rgba(29,91,216,0.16)]'
+          : 'border-slate-200',
+      )}
+      data-testid={testId}
+    >
+      <div className='space-y-3'>
+        <div className='flex items-center gap-4'>
+          <div className='flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef5ff] text-[#1d5bd8]'>
+            <InformationCircleIcon className='h-7 w-7' />
+          </div>
+          <div>
+            <div className='text-[2rem] font-semibold leading-tight text-slate-950'>
+              {creditsLabel}
+            </div>
+            <div className='text-base text-slate-500'>{description}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className='mt-8 flex items-end justify-between gap-4'>
+        <div className='text-[3rem] font-semibold leading-none tracking-tight text-slate-950'>
+          {priceLabel}
+        </div>
+        <Button
+          className='h-14 rounded-2xl px-8 text-lg font-semibold'
+          data-testid={`${testId}-action`}
+          disabled={disabled || actionLoading}
+          onClick={onAction}
+          type='button'
+        >
+          {actionLoading ? '...' : actionLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function BillingOverviewTab({
   onOpenOrdersTab,
@@ -95,6 +307,8 @@ export function BillingOverviewTab({
       stripeEnabled: state.stripeEnabled,
     })),
   );
+
+  const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('monthly');
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
@@ -105,6 +319,7 @@ export function BillingOverviewTab({
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
     [paymentChannels],
   );
+
   const stripeAvailable = useMemo(() => {
     if (!normalizedPaymentChannels.includes('stripe')) {
       return false;
@@ -112,25 +327,6 @@ export function BillingOverviewTab({
     return stripeEnabled === 'true' || !runtimeConfigLoaded;
   }, [normalizedPaymentChannels, runtimeConfigLoaded, stripeEnabled]);
   const pingxxAvailable = normalizedPaymentChannels.includes('pingxx');
-  const firstAvailableTopup = useMemo(() => {
-    const firstTopup = catalog?.topups?.[0] || null;
-    if (!firstTopup) {
-      return null;
-    }
-    if (stripeAvailable) {
-      return {
-        product: firstTopup,
-        provider: 'stripe' as const,
-      };
-    }
-    if (pingxxAvailable) {
-      return {
-        product: firstTopup,
-        provider: 'pingxx' as const,
-      };
-    }
-    return null;
-  }, [catalog?.topups, pingxxAvailable, stripeAvailable]);
 
   const currentPlan = useMemo(() => {
     if (!catalog?.plans?.length || !overview?.subscription?.product_bid) {
@@ -143,17 +339,64 @@ export function BillingOverviewTab({
     );
   }, [catalog?.plans, overview?.subscription?.product_bid]);
 
-  const availableCredits = overview?.wallet.available_credits || 0;
-  const availableCreditsLabel = overview
-    ? formatBillingCredits(availableCredits, i18n.language)
-    : t('module.billing.sidebar.placeholderValue');
-  const subscriptionStatusLabel = overview
-    ? resolveBillingSubscriptionStatusLabel(t, overview.subscription?.status)
-    : t('module.billing.overview.pendingValue');
-  const nextActionLabel = overview
-    ? resolveBillingNextActionLabel(t, overview.subscription, availableCredits)
-    : t('module.billing.overview.pendingValue');
-  const loadError = overviewError || catalogError;
+  useEffect(() => {
+    if (currentPlan?.billing_interval === 'year') {
+      setShowcaseTab(currentTab =>
+        currentTab === 'monthly' ? 'yearly' : currentTab,
+      );
+    }
+  }, [currentPlan?.billing_interval]);
+
+  const monthlyPlans = useMemo(
+    () =>
+      (catalog?.plans || []).filter(
+        product => product.billing_interval === 'month',
+      ),
+    [catalog?.plans],
+  );
+  const yearlyPlans = useMemo(
+    () =>
+      (catalog?.plans || []).filter(
+        product => product.billing_interval === 'year',
+      ),
+    [catalog?.plans],
+  );
+  const topups = useMemo(() => catalog?.topups || [], [catalog?.topups]);
+  const hasActiveSubscription = Boolean(
+    overview?.subscription &&
+    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+  );
+  const firstAvailableTopup = useMemo(() => {
+    const firstTopup = topups[0] || null;
+    if (!firstTopup) {
+      return null;
+    }
+    if (stripeAvailable) {
+      return { product: firstTopup, provider: 'stripe' as const };
+    }
+    if (pingxxAvailable) {
+      return { product: firstTopup, provider: 'pingxx' as const };
+    }
+    return null;
+  }, [pingxxAvailable, stripeAvailable, topups]);
+
+  const renewalMessage = useMemo(() => {
+    if (!overview?.subscription?.current_period_end_at) {
+      return t('module.billing.overview.subscriptionEmptyDescription');
+    }
+    const cycleDate = formatBillingDate(
+      overview.subscription.current_period_end_at,
+      i18n.language,
+    );
+    if (overview.subscription.cancel_at_period_end) {
+      return t('module.billing.overview.subscriptionEndsOn', {
+        date: cycleDate,
+      });
+    }
+    return t('module.billing.overview.subscriptionRenewsOn', {
+      date: cycleDate,
+    });
+  }, [i18n.language, overview?.subscription, t]);
 
   const handleCheckout = useCallback(async () => {
     if (!checkoutTarget) {
@@ -240,28 +483,6 @@ export function BillingOverviewTab({
     }
   }, [checkoutTarget, t]);
 
-  const openPlanCheckout = useCallback(
-    (plan: BillingPlan, provider: BillingProvider) => {
-      setCheckoutTarget({
-        kind: 'plan',
-        product: plan,
-        provider,
-      });
-    },
-    [],
-  );
-
-  const openTopupCheckout = useCallback(
-    (topup: BillingTopupProduct, provider: BillingProvider) => {
-      setCheckoutTarget({
-        kind: 'topup',
-        product: topup,
-        provider,
-      });
-    },
-    [],
-  );
-
   const handleSubscriptionMutation = useCallback(
     async (action: 'cancel' | 'resume', subscription: BillingSubscription) => {
       setSubscriptionActionLoading(action);
@@ -307,10 +528,12 @@ export function BillingOverviewTab({
     (alert: BillingAlert) => {
       if (alert.action_type === 'checkout_topup') {
         if (firstAvailableTopup) {
-          openTopupCheckout(
-            firstAvailableTopup.product,
-            firstAvailableTopup.provider,
-          );
+          setShowcaseTab('topup');
+          setCheckoutTarget({
+            kind: 'topup',
+            product: firstAvailableTopup.product,
+            provider: firstAvailableTopup.provider,
+          });
         }
         return;
       }
@@ -331,7 +554,6 @@ export function BillingOverviewTab({
       firstAvailableTopup,
       handleSubscriptionMutation,
       onOpenOrdersTab,
-      openTopupCheckout,
       overview?.subscription,
     ],
   );
@@ -340,11 +562,11 @@ export function BillingOverviewTab({
     if (!checkoutTarget) {
       return '';
     }
-    return new Intl.NumberFormat(i18n.language, {
-      style: 'currency',
-      currency: checkoutTarget.product.currency || 'CNY',
-      maximumFractionDigits: 2,
-    }).format(Number(checkoutTarget.product.price_amount || 0) / 100);
+    return formatBillingPrice(
+      checkoutTarget.product.price_amount,
+      checkoutTarget.product.currency,
+      i18n.language,
+    );
   }, [checkoutTarget, i18n.language]);
 
   const dialogCreditsLabel = useMemo(() => {
@@ -363,27 +585,88 @@ export function BillingOverviewTab({
       : t('module.billing.catalog.labels.providerPingxx')
     : '';
 
-  return (
-    <div className='space-y-6'>
-      <div>
-        <h3 className='text-lg font-semibold text-slate-900'>
-          {t('module.billing.overview.walletTitle')}
-        </h3>
-      </div>
+  const loadError = overviewError || catalogError;
 
-      <div className='grid gap-4 md:grid-cols-3'>
-        <BillingMetricCard
-          label={t('module.billing.overview.availableCreditsLabel')}
-          value={availableCreditsLabel}
-        />
-        <BillingMetricCard
-          label={t('module.billing.overview.subscriptionStatusLabel')}
-          value={subscriptionStatusLabel}
-        />
-        <BillingMetricCard
-          label={t('module.billing.overview.nextActionLabel')}
-          value={nextActionLabel}
-        />
+  const renderFreeCard = showcaseTab === 'monthly';
+
+  return (
+    <section
+      className='space-y-8'
+      data-testid='billing-overview-tab'
+    >
+      <div className='space-y-4 text-center'>
+        <div className='space-y-2'>
+          <h1 className='text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl'>
+            {t('module.billing.package.title')}
+          </h1>
+          <p className='mx-auto max-w-4xl text-base leading-8 text-slate-500 md:text-lg'>
+            {t('module.billing.package.subtitle')}
+          </p>
+        </div>
+
+        {overview?.subscription ? (
+          <div className='mx-auto max-w-5xl rounded-[28px] border border-slate-200 bg-white px-6 py-5 text-left shadow-[0_18px_40px_rgba(15,23,42,0.06)]'>
+            <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+              <div className='space-y-1'>
+                <div className='text-sm font-medium uppercase tracking-[0.12em] text-slate-400'>
+                  {t('module.billing.overview.subscriptionTitle')}
+                </div>
+                <div className='flex flex-wrap items-center gap-3'>
+                  <div className='text-2xl font-semibold text-slate-950'>
+                    {currentPlan
+                      ? resolveBillingProductTitle(t, currentPlan)
+                      : t('module.billing.overview.subscriptionEmptyTitle')}
+                  </div>
+                  <span className='rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600'>
+                    {resolveBillingSubscriptionStatusLabel(
+                      t,
+                      overview.subscription.status,
+                    )}
+                  </span>
+                </div>
+                <div className='text-sm text-slate-500'>{renewalMessage}</div>
+              </div>
+
+              <div className='flex flex-wrap gap-3'>
+                {overview.subscription.cancel_at_period_end ||
+                overview.subscription.status === 'paused' ? (
+                  <Button
+                    className='rounded-2xl'
+                    disabled={subscriptionActionLoading === 'resume'}
+                    onClick={() =>
+                      void handleSubscriptionMutation(
+                        'resume',
+                        overview.subscription as BillingSubscription,
+                      )
+                    }
+                    type='button'
+                  >
+                    {subscriptionActionLoading === 'resume'
+                      ? t('module.billing.catalog.actions.processing')
+                      : t('module.billing.overview.actions.resumeSubscription')}
+                  </Button>
+                ) : (
+                  <Button
+                    className='rounded-2xl'
+                    disabled={subscriptionActionLoading === 'cancel'}
+                    onClick={() =>
+                      void handleSubscriptionMutation(
+                        'cancel',
+                        overview.subscription as BillingSubscription,
+                      )
+                    }
+                    type='button'
+                    variant='outline'
+                  >
+                    {subscriptionActionLoading === 'cancel'
+                      ? t('module.billing.catalog.actions.processing')
+                      : t('module.billing.overview.actions.cancelSubscription')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {loadError ? (
@@ -412,34 +695,165 @@ export function BillingOverviewTab({
         onAlertAction={handleAlertAction}
       />
 
-      {overviewLoading && catalogLoading ? (
-        <div className='grid gap-4 xl:grid-cols-[0.92fr,1.08fr]'>
-          <Skeleton className='h-[280px] rounded-[24px]' />
-          <Skeleton className='h-[420px] rounded-[24px]' />
+      <div className='flex justify-center'>
+        <Tabs
+          className='w-full'
+          onValueChange={value => setShowcaseTab(value as ShowcaseTab)}
+          value={showcaseTab}
+        >
+          <TabsList className='mx-auto h-auto rounded-[24px] bg-slate-100 p-1.5 shadow-sm'>
+            <TabsTrigger
+              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              value='monthly'
+            >
+              {t('module.billing.package.intervalTabs.monthly')}
+            </TabsTrigger>
+            <TabsTrigger
+              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              value='yearly'
+            >
+              {t('module.billing.package.intervalTabs.yearly')}
+            </TabsTrigger>
+            <TabsTrigger
+              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              value='topup'
+            >
+              {t('module.billing.package.intervalTabs.topup')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {overviewLoading || catalogLoading ? (
+        <div className='grid gap-6 xl:grid-cols-3'>
+          <Skeleton className='h-[620px] rounded-[34px]' />
+          <Skeleton className='h-[620px] rounded-[34px]' />
+          <Skeleton className='h-[620px] rounded-[34px]' />
+        </div>
+      ) : showcaseTab === 'topup' ? (
+        <div className='grid gap-6 xl:grid-cols-2'>
+          {topups.map(product => {
+            const provider = stripeAvailable
+              ? 'stripe'
+              : pingxxAvailable
+                ? 'pingxx'
+                : null;
+            const checkoutKey = provider
+              ? `topup:${provider}:${product.product_bid}`
+              : '';
+
+            return (
+              <TopupCard
+                key={product.product_bid}
+                actionLabel={t('module.billing.package.actions.buyNow')}
+                actionLoading={checkoutLoadingKey === checkoutKey}
+                creditsLabel={t('module.billing.package.topup.creditLabel', {
+                  credits: formatBillingCredits(
+                    product.credit_amount,
+                    i18n.language,
+                  ),
+                })}
+                description={resolveBillingProductDescription(t, product)}
+                disabled={!provider}
+                featured={Boolean(product.status_badge_key)}
+                onAction={() =>
+                  provider &&
+                  setCheckoutTarget({
+                    kind: 'topup',
+                    product,
+                    provider,
+                  })
+                }
+                priceLabel={formatBillingPrice(
+                  product.price_amount,
+                  product.currency,
+                  i18n.language,
+                )}
+                testId={`billing-topup-card-${product.product_bid}`}
+              />
+            );
+          })}
         </div>
       ) : (
-        <div className='grid gap-4 xl:grid-cols-[0.92fr,1.08fr]'>
-          <BillingSubscriptionCard
-            currentPlan={currentPlan}
-            subscription={overview?.subscription || null}
-            actionLoading={subscriptionActionLoading}
-            onCancelSubscription={subscription =>
-              void handleSubscriptionMutation('cancel', subscription)
-            }
-            onResumeSubscription={subscription =>
-              void handleSubscriptionMutation('resume', subscription)
-            }
-          />
-          <BillingCatalogCards
-            checkoutLoadingKey={checkoutLoadingKey}
-            plans={catalog?.plans || []}
-            stripeAvailable={stripeAvailable}
-            subscription={overview?.subscription || null}
-            topups={catalog?.topups || []}
-            pingxxAvailable={pingxxAvailable}
-            onCheckoutPlan={openPlanCheckout}
-            onCheckoutTopup={openTopupCheckout}
-          />
+        <div
+          className={cn(
+            'grid gap-6',
+            renderFreeCard ? 'xl:grid-cols-3' : 'xl:grid-cols-2',
+          )}
+        >
+          {renderFreeCard ? (
+            <PlanShowcaseCard
+              actionLabel={t(
+                hasActiveSubscription
+                  ? 'module.billing.package.actions.freeTrial'
+                  : 'module.billing.package.actions.currentUsing',
+              )}
+              compact={false}
+              creditSummary={t('module.billing.package.free.creditSummary')}
+              description={t('module.billing.package.free.description')}
+              disabled
+              footer={<PlanFeatureList items={getFreeFeatureKeys()} />}
+              priceLabel={t('module.billing.package.free.price')}
+              testId='billing-plan-card-free'
+              title={t('module.billing.package.free.title')}
+            />
+          ) : null}
+
+          {(showcaseTab === 'monthly' ? monthlyPlans : yearlyPlans).map(
+            (plan, index) => {
+              const isCurrentPlan =
+                currentPlan?.product_bid === plan.product_bid;
+              const isFeatured =
+                isCurrentPlan ||
+                (!hasActiveSubscription && index === 0) ||
+                Boolean(plan.status_badge_key);
+              const checkoutKey = `plan:stripe:${plan.product_bid}`;
+
+              return (
+                <PlanShowcaseCard
+                  key={plan.product_bid}
+                  actionLabel={
+                    isCurrentPlan
+                      ? t('module.billing.package.actions.currentSubscription')
+                      : hasActiveSubscription
+                        ? t('module.billing.package.actions.upgradeNow')
+                        : t('module.billing.package.actions.subscribeNow')
+                  }
+                  actionLoading={checkoutLoadingKey === checkoutKey}
+                  creditSummary={t(
+                    plan.billing_interval === 'year'
+                      ? 'module.billing.package.creditSummary.yearly'
+                      : 'module.billing.package.creditSummary.monthly',
+                    {
+                      credits: formatBillingCredits(
+                        plan.credit_amount,
+                        i18n.language,
+                      ),
+                    },
+                  )}
+                  description={resolveBillingProductDescription(t, plan)}
+                  disabled={!stripeAvailable || isCurrentPlan}
+                  featured={isFeatured}
+                  footer={<PlanFeatureList items={getPlanFeatureKeys(plan)} />}
+                  onAction={() =>
+                    stripeAvailable &&
+                    setCheckoutTarget({
+                      kind: 'plan',
+                      product: plan,
+                      provider: 'stripe',
+                    })
+                  }
+                  priceLabel={`${formatBillingPrice(
+                    plan.price_amount,
+                    plan.currency,
+                    i18n.language,
+                  )} ${formatBillingPlanInterval(t, plan)}`}
+                  testId={`billing-plan-card-${plan.product_bid}`}
+                  title={resolveBillingProductTitle(t, plan)}
+                />
+              );
+            },
+          )}
         </div>
       )}
 
@@ -466,6 +880,6 @@ export function BillingOverviewTab({
           }
         }}
       />
-    </div>
+    </section>
   );
 }

@@ -3504,7 +3504,14 @@ def _serialize_product(row: BillingProduct) -> dict[str, Any]:
             str(item) for item in highlights if str(item or "").strip()
         ]
     if badge:
-        payload["status_badge_key"] = f"module.billing.catalog.badges.{badge}"
+        badge_key = str(badge).strip()
+        if "_" in badge_key:
+            parts = [part for part in badge_key.split("_") if part]
+            if parts:
+                badge_key = parts[0] + "".join(
+                    part[:1].upper() + part[1:] for part in parts[1:]
+                )
+        payload["status_badge_key"] = f"module.billing.catalog.badges.{badge_key}"
     if row.product_type == BILLING_PRODUCT_TYPE_PLAN:
         payload["billing_interval"] = BILLING_INTERVAL_LABELS.get(
             row.billing_interval,

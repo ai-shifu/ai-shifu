@@ -1,95 +1,100 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import {
-  BillingDomainsTab,
-  BillingEntitlementsTab,
-  BillingLedgerTab,
-  BillingOrdersTab,
+  BillingCreditDetailsPanel,
   BillingOverviewTab,
-  BillingPageHeader,
-  BillingReportsTab,
+  BillingRecentActivitySection,
 } from '@/components/billing';
-import { BillingCenterTab } from '@/types/billing';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 
 export default function AdminBillingPage() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = React.useState<BillingCenterTab>('plans');
+  const [activeTab, setActiveTab] = React.useState<'packages' | 'details'>(
+    'packages',
+  );
+  const [scrollToOrdersRequested, setScrollToOrdersRequested] =
+    React.useState(false);
+
+  const handleOpenOrdersSection = React.useCallback(() => {
+    setActiveTab('details');
+    setScrollToOrdersRequested(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!scrollToOrdersRequested || activeTab !== 'details') {
+      return;
+    }
+    let canceled = false;
+    let attempts = 0;
+
+    const scrollWhenReady = () => {
+      if (canceled) {
+        return;
+      }
+      const target = document.getElementById('billing-recent-orders');
+      if (!target) {
+        if (attempts < 10) {
+          attempts += 1;
+          window.setTimeout(scrollWhenReady, 0);
+        }
+        return;
+      }
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      setScrollToOrdersRequested(false);
+    };
+
+    scrollWhenReady();
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeTab, scrollToOrdersRequested]);
 
   return (
     <div
-      className='flex h-full flex-col gap-6 overflow-auto pb-4'
+      className='flex h-full flex-col gap-6 overflow-auto px-1 pb-6'
       data-testid='admin-billing-page'
     >
-      <BillingPageHeader />
-
-      <div className='flex justify-end'>
-        <Button
-          asChild
-          variant='outline'
-          className='rounded-full'
-        >
-          <Link href='/admin/billing/admin'>
-            {t('module.billing.page.adminLink')}
-          </Link>
-        </Button>
-      </div>
-
       <Tabs
+        className='space-y-6'
+        onValueChange={value => setActiveTab(value as 'packages' | 'details')}
         value={activeTab}
-        className='flex flex-col gap-4'
-        onValueChange={value => setActiveTab(value as BillingCenterTab)}
       >
-        <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
-          <TabsTrigger value='plans'>
+        <TabsList className='h-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm'>
+          <TabsTrigger
+            className='rounded-lg px-5 py-2 text-base font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
+            value='packages'
+          >
             {t('module.billing.page.tabs.plans')}
           </TabsTrigger>
-          <TabsTrigger value='ledger'>
+          <TabsTrigger
+            className='rounded-lg px-5 py-2 text-base font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
+            value='details'
+          >
             {t('module.billing.page.tabs.ledger')}
-          </TabsTrigger>
-          <TabsTrigger value='orders'>
-            {t('module.billing.page.tabs.orders')}
-          </TabsTrigger>
-          <TabsTrigger value='entitlements'>
-            {t('module.billing.page.tabs.entitlements')}
-          </TabsTrigger>
-          <TabsTrigger value='domains'>
-            {t('module.billing.page.tabs.domains')}
-          </TabsTrigger>
-          <TabsTrigger value='reports'>
-            {t('module.billing.page.tabs.reports')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent
-          value='plans'
-          className='space-y-4'
+          className='mt-0'
+          value='packages'
         >
-          <BillingOverviewTab onOpenOrdersTab={() => setActiveTab('orders')} />
+          <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
         </TabsContent>
 
-        <TabsContent value='ledger'>
-          <BillingLedgerTab />
-        </TabsContent>
-
-        <TabsContent value='orders'>
-          <BillingOrdersTab />
-        </TabsContent>
-
-        <TabsContent value='entitlements'>
-          <BillingEntitlementsTab />
-        </TabsContent>
-
-        <TabsContent value='domains'>
-          <BillingDomainsTab />
-        </TabsContent>
-
-        <TabsContent value='reports'>
-          <BillingReportsTab />
+        <TabsContent
+          className='mt-0 space-y-8'
+          value='details'
+        >
+          <BillingCreditDetailsPanel
+            onUpgrade={() => setActiveTab('packages')}
+          />
+          <BillingRecentActivitySection />
         </TabsContent>
       </Tabs>
     </div>

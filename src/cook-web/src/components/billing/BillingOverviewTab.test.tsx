@@ -12,6 +12,12 @@ import {
 } from '@/lib/billing';
 import { BillingOverviewTab } from './BillingOverviewTab';
 
+const mockEnvState = {
+  paymentChannels: ['stripe', 'pingxx'],
+  runtimeConfigLoaded: true,
+  stripeEnabled: 'true',
+};
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
@@ -68,18 +74,8 @@ jest.mock('@/lib/billing', () => {
 
 jest.mock('@/c-store', () => ({
   __esModule: true,
-  useEnvStore: (
-    selector: (state: {
-      paymentChannels: string[];
-      runtimeConfigLoaded: boolean;
-      stripeEnabled: string;
-    }) => unknown,
-  ) =>
-    selector({
-      paymentChannels: ['stripe', 'pingxx'],
-      runtimeConfigLoaded: true,
-      stripeEnabled: 'true',
-    }),
+  useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
+    selector(mockEnvState),
 }));
 
 jest.mock('@/components/ui/Dialog', () => ({
@@ -103,22 +99,23 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockCancelBillingSubscription =
   api.cancelBillingSubscription as jest.Mock;
 const mockCheckoutBillingSubscription =
   api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutBillingTopup = api.checkoutBillingTopup as jest.Mock;
+const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockResumeBillingSubscription =
   api.resumeBillingSubscription as jest.Mock;
-const mockUseBillingOverview = useBillingOverview as jest.Mock;
-const mockUseSWR = useSWR as jest.Mock;
 const mockRememberStripeCheckoutSession =
   rememberStripeCheckoutSession as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
 const mockOpenBillingPaymentWindow = openBillingPaymentWindow as jest.Mock;
 const mockToast = toast as jest.Mock;
+const mockUseBillingOverview = useBillingOverview as jest.Mock;
+const mockUseSWR = useSWR as jest.Mock;
 const mockMutateOverview = jest.fn();
+
 const CATALOG_RESPONSE = {
   plans: [
     {
@@ -130,9 +127,49 @@ const CATALOG_RESPONSE = {
       billing_interval: 'month' as const,
       billing_interval_count: 1,
       currency: 'CNY',
-      price_amount: 9900,
-      credit_amount: 300000,
+      price_amount: 990,
+      credit_amount: 5,
       auto_renew_enabled: true,
+      highlights: [
+        'module.billing.package.features.monthly.publish',
+        'module.billing.package.features.monthly.preview',
+      ],
+    },
+    {
+      product_bid: 'billing-product-plan-monthly-pro',
+      product_code: 'creator-plan-monthly-pro',
+      product_type: 'plan' as const,
+      display_name: 'module.billing.catalog.plans.creatorMonthlyPro.title',
+      description: 'module.billing.catalog.plans.creatorMonthlyPro.description',
+      billing_interval: 'month' as const,
+      billing_interval_count: 1,
+      currency: 'CNY',
+      price_amount: 19900,
+      credit_amount: 100,
+      auto_renew_enabled: true,
+      highlights: [
+        'module.billing.package.features.monthly.publish',
+        'module.billing.package.features.monthly.preview',
+        'module.billing.package.features.monthly.support',
+      ],
+      status_badge_key: 'module.billing.catalog.badges.recommended',
+    },
+    {
+      product_bid: 'billing-product-plan-yearly-lite',
+      product_code: 'creator-plan-yearly-lite',
+      product_type: 'plan' as const,
+      display_name: 'module.billing.catalog.plans.creatorYearlyLite.title',
+      description: 'module.billing.catalog.plans.creatorYearlyLite.description',
+      billing_interval: 'year' as const,
+      billing_interval_count: 1,
+      currency: 'CNY',
+      price_amount: 800000,
+      credit_amount: 5000,
+      auto_renew_enabled: true,
+      highlights: [
+        'module.billing.package.features.yearly.lite.ops',
+        'module.billing.package.features.yearly.lite.publish',
+      ],
     },
     {
       product_bid: 'billing-product-plan-yearly',
@@ -143,10 +180,38 @@ const CATALOG_RESPONSE = {
       billing_interval: 'year' as const,
       billing_interval_count: 1,
       currency: 'CNY',
-      price_amount: 99900,
-      credit_amount: 3600000,
+      price_amount: 1500000,
+      credit_amount: 10000,
       auto_renew_enabled: true,
-      status_badge_key: 'module.billing.catalog.badges.recommended',
+      highlights: [
+        'module.billing.package.features.yearly.pro.branding',
+        'module.billing.package.features.yearly.pro.domain',
+        'module.billing.package.features.yearly.pro.priority',
+        'module.billing.package.features.yearly.pro.analytics',
+        'module.billing.package.features.yearly.pro.support',
+      ],
+    },
+    {
+      product_bid: 'billing-product-plan-yearly-premium',
+      product_code: 'creator-plan-yearly-premium',
+      product_type: 'plan' as const,
+      display_name: 'module.billing.catalog.plans.creatorYearlyPremium.title',
+      description:
+        'module.billing.catalog.plans.creatorYearlyPremium.description',
+      billing_interval: 'year' as const,
+      billing_interval_count: 1,
+      currency: 'CNY',
+      price_amount: 3000000,
+      credit_amount: 22000,
+      auto_renew_enabled: true,
+      highlights: [
+        'module.billing.package.features.yearly.premium.branding',
+        'module.billing.package.features.yearly.premium.domain',
+        'module.billing.package.features.yearly.premium.priority',
+        'module.billing.package.features.yearly.premium.analytics',
+        'module.billing.package.features.yearly.premium.support',
+      ],
+      status_badge_key: 'module.billing.catalog.badges.bestValue',
     },
   ],
   topups: [
@@ -157,29 +222,66 @@ const CATALOG_RESPONSE = {
       display_name: 'module.billing.catalog.topups.creatorSmall.title',
       description: 'module.billing.catalog.topups.creatorSmall.description',
       currency: 'CNY',
+      price_amount: 5000,
+      credit_amount: 20,
+    },
+    {
+      product_bid: 'billing-product-topup-medium',
+      product_code: 'creator-topup-medium',
+      product_type: 'topup' as const,
+      display_name: 'module.billing.catalog.topups.creatorMedium.title',
+      description: 'module.billing.catalog.topups.creatorMedium.description',
+      currency: 'CNY',
+      price_amount: 9900,
+      credit_amount: 50,
+    },
+    {
+      product_bid: 'billing-product-topup-large',
+      product_code: 'creator-topup-large',
+      product_type: 'topup' as const,
+      display_name: 'module.billing.catalog.topups.creatorLarge.title',
+      description: 'module.billing.catalog.topups.creatorLarge.description',
+      currency: 'CNY',
       price_amount: 19900,
-      credit_amount: 500000,
+      credit_amount: 120,
+    },
+    {
+      product_bid: 'billing-product-topup-xlarge',
+      product_code: 'creator-topup-xlarge',
+      product_type: 'topup' as const,
+      display_name: 'module.billing.catalog.topups.creatorXLarge.title',
+      description: 'module.billing.catalog.topups.creatorXLarge.description',
+      currency: 'CNY',
+      price_amount: 49900,
+      credit_amount: 320,
+      status_badge_key: 'module.billing.catalog.badges.bestValue',
     },
   ],
 };
 
-function renderOverviewTab() {
-  return render(<BillingOverviewTab />);
+function renderOverviewTab(
+  props?: React.ComponentProps<typeof BillingOverviewTab>,
+) {
+  return render(<BillingOverviewTab {...props} />);
 }
 
 describe('BillingOverviewTab', () => {
   beforeEach(() => {
-    mockGetBillingCatalog.mockReset();
+    mockEnvState.paymentChannels = ['stripe', 'pingxx'];
+    mockEnvState.runtimeConfigLoaded = true;
+    mockEnvState.stripeEnabled = 'true';
+
     mockCancelBillingSubscription.mockReset();
     mockCheckoutBillingSubscription.mockReset();
     mockCheckoutBillingTopup.mockReset();
+    mockGetBillingCatalog.mockReset();
     mockResumeBillingSubscription.mockReset();
-    mockUseBillingOverview.mockReset();
-    mockUseSWR.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
     mockOpenBillingPaymentWindow.mockReset();
     mockToast.mockReset();
+    mockUseBillingOverview.mockReset();
+    mockUseSWR.mockReset();
     mockMutateOverview.mockReset();
 
     mockUseBillingOverview.mockReturnValue({
@@ -212,9 +314,7 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
 
-    mockGetBillingCatalog.mockResolvedValue({
-      ...CATALOG_RESPONSE,
-    });
+    mockGetBillingCatalog.mockResolvedValue(CATALOG_RESPONSE);
     mockUseSWR.mockReturnValue({
       data: CATALOG_RESPONSE,
       error: undefined,
@@ -222,7 +322,78 @@ describe('BillingOverviewTab', () => {
     });
   });
 
-  test('cancels a subscription from the current subscription card', async () => {
+  test('renders the prototype-oriented package layout and switches sub-tabs', async () => {
+    const user = userEvent.setup();
+    renderOverviewTab();
+
+    expect(
+      screen.getByText('module.billing.package.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.billing.package.intervalTabs.monthly',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-monthly-pro'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.yearly',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-yearly-lite'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-yearly'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-billing-product-plan-yearly-premium',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.features.yearly.pro.domain'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.package.features.yearly.domain'),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.topup',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByTestId('billing-topup-card-billing-product-topup-small'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-topup-card-billing-product-topup-medium'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-topup-card-billing-product-topup-large'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-topup-card-billing-product-topup-xlarge'),
+    ).toBeInTheDocument();
+  });
+
+  test('cancels a subscription from the current subscription summary', async () => {
     const user = userEvent.setup();
     mockCancelBillingSubscription.mockResolvedValue({
       subscription_bid: 'sub-1',
@@ -263,7 +434,7 @@ describe('BillingOverviewTab', () => {
     );
   });
 
-  test('resumes a cancel-scheduled subscription from the current subscription card', async () => {
+  test('resumes a cancel-scheduled subscription from the current subscription summary', async () => {
     const user = userEvent.setup();
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -333,96 +504,24 @@ describe('BillingOverviewTab', () => {
     );
   });
 
-  test('renders wallet summary, subscription card, and catalog cards', async () => {
-    renderOverviewTab();
-
-    expect(screen.getByText('120.5')).toBeInTheDocument();
-    expect(
-      screen.getAllByText('module.billing.status.active').length,
-    ).toBeGreaterThan(0);
-
-    expect(
-      screen.getAllByText('module.billing.catalog.plans.creatorMonthly.title')
-        .length,
-    ).toBeGreaterThan(0);
-
-    expect(
-      screen.getByText('module.billing.catalog.topups.creatorSmall.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.catalog.badges.recommended'),
-    ).toBeInTheDocument();
-  });
-
-  test('renders structured billing alerts and opens topup checkout from the alert action', async () => {
+  test('opens a Stripe subscription checkout from the yearly showcase card', async () => {
     const user = userEvent.setup();
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
         wallet: {
-          available_credits: 0,
+          available_credits: 12,
           reserved_credits: 0,
-          lifetime_granted_credits: 500,
-          lifetime_consumed_credits: 500,
+          lifetime_granted_credits: 120,
+          lifetime_consumed_credits: 108,
         },
-        subscription: {
-          subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly',
-          product_code: 'creator-plan-monthly',
-          status: 'active',
-          billing_provider: 'stripe',
-          current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-05-01T00:00:00Z',
-          grace_period_end_at: null,
-          cancel_at_period_end: false,
-          next_product_bid: null,
-          last_renewed_at: null,
-          last_failed_at: null,
-        },
-        billing_alerts: [
-          {
-            code: 'low_balance',
-            severity: 'warning',
-            message_key: 'module.billing.alerts.lowBalance',
-            message_params: {
-              available_credits: 0,
-            },
-            action_type: 'checkout_topup',
-            action_payload: {},
-          },
-        ],
+        subscription: null,
+        billing_alerts: [],
       },
       error: undefined,
       isLoading: false,
       mutate: mockMutateOverview,
     });
-
-    renderOverviewTab();
-
-    expect(
-      screen.getByText('module.billing.alerts.lowBalance'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('low_balance')).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.alerts.actions.checkoutTopup',
-        }),
-      );
-    });
-
-    expect(
-      screen.getByText('module.billing.checkout.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByText('module.billing.catalog.topups.creatorSmall.title')
-        .length,
-    ).toBeGreaterThan(0);
-  });
-
-  test('opens a Stripe subscription checkout from the confirmation dialog', async () => {
-    const user = userEvent.setup();
     mockCheckoutBillingSubscription.mockResolvedValue({
       billing_order_bid: 'order-plan-1',
       provider: 'stripe',
@@ -436,11 +535,17 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        (
-          await screen.findAllByRole('button', {
-            name: 'module.billing.catalog.actions.subscribe',
-          })
-        )[0],
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.yearly',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-billing-product-plan-yearly-action',
+        ),
       );
     });
 
@@ -474,8 +579,10 @@ describe('BillingOverviewTab', () => {
     );
   });
 
-  test('opens a Pingxx QR top-up checkout from the confirmation dialog', async () => {
+  test('opens a Pingxx QR top-up checkout when Stripe is unavailable', async () => {
     const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
     mockCheckoutBillingTopup.mockResolvedValue({
       billing_order_bid: 'order-topup-1',
       provider: 'pingxx',
@@ -493,9 +600,17 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        await screen.findByRole('button', {
-          name: 'module.billing.catalog.actions.buyWithPingxx',
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.topup',
         }),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-topup-card-billing-product-topup-small-action',
+        ),
       );
     });
 
@@ -519,11 +634,6 @@ describe('BillingOverviewTab', () => {
 
     expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
       'https://pingxx.test/qr',
-    );
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'module.billing.checkout.qrOpened',
-      }),
     );
   });
 });

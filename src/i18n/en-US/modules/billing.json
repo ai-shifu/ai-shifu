@@ -183,12 +183,24 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Recurring credits for active creators who publish and iterate every month.",
-        "title": "Creator Monthly"
+        "description": "Best for partial course research and a first experience with a smaller group of learners.",
+        "title": "Monthly · Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "Built for complete course research and a full experience for a small learner cohort.",
+        "title": "Monthly · Pro"
       },
       "creatorYearly": {
-        "description": "Lower annual cost for creators running long-term course operations and stable traffic.",
-        "title": "Creator Yearly"
+        "description": "Complete course delivery and operations for programs serving roughly 300 to 500 learners.",
+        "title": "Yearly · Pro"
+      },
+      "creatorYearlyLite": {
+        "description": "Complete course delivery and operations for programs serving roughly 100 to 300 learners.",
+        "title": "Yearly · Lite"
+      },
+      "creatorYearlyPremium": {
+        "description": "Complete course delivery and operations for larger programs serving roughly 8000 to 12000 learners.",
+        "title": "Yearly · Premium"
       }
     },
     "sections": {
@@ -197,12 +209,20 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "A larger refill for seasonal launches, campaign bursts, or heavy preview traffic.",
-        "title": "Growth top-up pack"
+        "description": "A larger refill for focused launch windows, heavy previews, or seasonal demand spikes.",
+        "title": "120-credit pack"
+      },
+      "creatorMedium": {
+        "description": "A flexible refill for active course iteration and medium-volume creator workloads.",
+        "title": "50-credit pack"
       },
       "creatorSmall": {
-        "description": "A flexible one-time refill for short spikes, workshops, or low-balance recovery.",
-        "title": "Starter top-up pack"
+        "description": "A lightweight refill for low-balance recovery, trial runs, or short bursts of creation.",
+        "title": "20-credit pack"
+      },
+      "creatorXLarge": {
+        "description": "A high-capacity refill for major launches, bulk generation, or pre-peak traffic preparation.",
+        "title": "320-credit pack"
       }
     }
   },
@@ -223,6 +243,20 @@
   },
   "common": {
     "empty": "Not available"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "Upgrade now"
+    },
+    "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
+    "table": {
+      "balance": "Credit balance",
+      "creditType": "Credit type",
+      "validUntil": "Valid until"
+    },
+    "title": "Credit Details",
+    "totalCreditsDescription": "Credits are consumed in the order of free, subscription, and top-up buckets. Within the same category, the earliest-expiring balance is consumed first.",
+    "totalCreditsLabel": "Total credits"
   },
   "domains": {
     "actions": {
@@ -509,29 +543,84 @@
       "resumeSuccess": "Subscription renewal has been restored."
     },
     "loadError": "Billing data could not be loaded. Refresh and try again.",
-    "nextActionLabel": "Next action",
-    "pendingValue": "Coming soon",
     "subscriptionEmptyDescription": "Choose a plan to unlock recurring credits for this creator workspace.",
     "subscriptionEmptyTitle": "No active subscription",
     "subscriptionEndsOn": "Ends on {{date}}",
     "subscriptionProviderLabel": "Provider",
     "subscriptionRenewsOn": "Renews on {{date}}",
-    "subscriptionStatusLabel": "Subscription",
     "subscriptionTimingLabel": "Renewal",
     "subscriptionTitle": "Current subscription",
     "walletTitle": "Credits Overview"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "Buy now",
+      "currentSubscription": "Current subscription",
+      "currentUsing": "Current plan",
+      "freeTrial": "Free access",
+      "subscribeNow": "Subscribe now",
+      "upgradeNow": "Upgrade now"
+    },
+    "creditSummary": {
+      "monthly": "Monthly credits {{credits}}",
+      "yearly": "Yearly credits {{credits}}"
+    },
+    "features": {
+      "free": {
+        "preview": "Basic preview capability",
+        "publish": "Basic publishing and trial access"
+      },
+      "monthly": {
+        "preview": "Preview and iterate on lessons quickly",
+        "publish": "Designed for steady publishing and admissions",
+        "support": "Creator operations support"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "Supports complete course delivery with foundational operations",
+          "publish": "Designed for programs serving roughly 100 to 300 learners"
+        },
+        "premium": {
+          "analytics": "Deeper analytics for performance review and business tracking",
+          "branding": "Premium branding presence with a stronger custom identity",
+          "domain": "Custom domain support and a more complete brand experience",
+          "priority": "Highest-priority generation queues and system capacity",
+          "support": "Dedicated technical support with priority response"
+        },
+        "pro": {
+          "analytics": "Deeper analytics and operational visibility",
+          "branding": "Custom branding and logo replacement support",
+          "domain": "Custom domain binding support",
+          "priority": "Priority generation queues and higher concurrency",
+          "support": "Dedicated technical support response"
+        }
+      }
+    },
+    "featuresTitle": "Included benefits:",
+    "free": {
+      "creditSummary": "100 bonus credits",
+      "description": "Best for exploring the creator workspace and basic publishing capabilities.",
+      "price": "¥0 / valid within 15 days of signup",
+      "title": "Free"
+    },
+    "intervalTabs": {
+      "monthly": "Monthly Plans",
+      "topup": "Credit Top-ups",
+      "yearly": "Yearly Plans"
+    },
+    "subtitle": "Choose a credit package that fits the size of your course catalog, admissions rhythm, and creator operations stage.",
+    "title": "Credit Plans",
+    "topup": {
+      "creditLabel": "{{credits}} credits"
+    }
   },
   "page": {
     "adminLink": "Open billing ops",
     "badge": "Preview",
     "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {
-      "domains": "Domains",
-      "entitlements": "Entitlements",
-      "ledger": "Credit Activity",
-      "orders": "Payments",
-      "plans": "Plans & Credits",
-      "reports": "Reports"
+      "ledger": "Credit Details",
+      "plans": "Credit Plans"
     },
     "title": "Membership & Credits"
   },

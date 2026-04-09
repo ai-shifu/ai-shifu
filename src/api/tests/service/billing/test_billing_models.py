@@ -50,7 +50,7 @@ def test_billing_models_register_core_tables() -> None:
 
 
 def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
-    assert len(BILLING_PRODUCT_SEEDS) == 4
+    assert len(BILLING_PRODUCT_SEEDS) == 9
 
     plan_products = [
         row
@@ -63,15 +63,20 @@ def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
         if row["product_type"] == BILLING_PRODUCT_TYPE_TOPUP
     ]
 
-    assert len(plan_products) == 2
-    assert len(topup_products) == 2
+    assert len(plan_products) == 5
+    assert len(topup_products) == 4
     assert all(row["billing_mode"] == BILLING_MODE_RECURRING for row in plan_products)
     assert all(row["billing_mode"] == BILLING_MODE_ONE_TIME for row in topup_products)
     assert {row["product_code"] for row in BILLING_PRODUCT_SEEDS} == {
         "creator-plan-monthly",
+        "creator-plan-monthly-pro",
         "creator-plan-yearly",
+        "creator-plan-yearly-lite",
+        "creator-plan-yearly-premium",
         "creator-topup-small",
+        "creator-topup-medium",
         "creator-topup-large",
+        "creator-topup-xlarge",
     }
 
 

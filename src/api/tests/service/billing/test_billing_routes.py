@@ -632,10 +632,23 @@ class TestBillingRoutes:
         bucket_payload = bucket_response.get_json(force=True)
 
         assert catalog_payload["code"] == 0
-        assert len(catalog_payload["data"]["plans"]) == 2
-        assert len(catalog_payload["data"]["topups"]) == 2
-        assert catalog_payload["data"]["plans"][1]["status_badge_key"] == (
+        assert len(catalog_payload["data"]["plans"]) == 5
+        assert len(catalog_payload["data"]["topups"]) == 4
+        plan_map = {
+            item["product_bid"]: item for item in catalog_payload["data"]["plans"]
+        }
+        topup_map = {
+            item["product_bid"]: item for item in catalog_payload["data"]["topups"]
+        }
+        assert plan_map["billing-product-plan-monthly-pro"]["status_badge_key"] == (
             "module.billing.catalog.badges.recommended"
+        )
+        assert (
+            plan_map["billing-product-plan-yearly-premium"]["status_badge_key"]
+            == "module.billing.catalog.badges.bestValue"
+        )
+        assert topup_map["billing-product-topup-xlarge"]["status_badge_key"] == (
+            "module.billing.catalog.badges.bestValue"
         )
 
         assert overview_payload["code"] == 0
