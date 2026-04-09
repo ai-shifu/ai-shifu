@@ -838,7 +838,7 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('stops auto-continuation after a terminal done event', async () => {
+  it('continues auto-continuation even when done is marked terminal', async () => {
     renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper,
     });
@@ -866,7 +866,9 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
   });
 
   it('stops auto-continuation after the lesson reports completed', async () => {
