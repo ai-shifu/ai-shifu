@@ -1044,6 +1044,10 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 return_value=sentinel_client,
             ),
             patch(
+                "flaskr.service.learn.context_v2.get_request_trace_id",
+                return_value="req-trace-1",
+            ),
+            patch(
                 "flaskr.service.learn.context_v2.create_trace_with_root_span",
                 side_effect=_fake_create_trace_with_root_span,
             ),
@@ -1063,6 +1067,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
             )
 
         self.assertIs(captured["client"], sentinel_client)
+        self.assertEqual(captured["trace_payload"]["id"], "req-trace-1")
 
     def test_set_input_normalizes_structured_value_for_trace(self):
         ctx = _make_context()
@@ -1232,6 +1237,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 "flaskr.service.learn.context_v2.create_trace_with_root_span",
                 side_effect=_fake_create_trace_with_root_span,
             ),
+            patch(
+                "flaskr.service.learn.context_v2.get_request_trace_id",
+                return_value="preview-req-trace-1",
+            ),
         ):
             messages = list(
                 preview_ctx.stream_preview(
@@ -1244,6 +1253,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             )
 
         self.assertTrue(messages)
+        self.assertEqual(captured["trace_payload"]["id"], "preview-req-trace-1")
         self.assertEqual(captured["trace_payload"]["session_id"], "preview-session-1")
         self.assertEqual(captured["trace"].updated["input"], "Prompt block")
         self.assertEqual(captured["trace"].updated["output"], "Hello preview")

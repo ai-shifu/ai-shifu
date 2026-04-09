@@ -2347,6 +2347,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 provider_resp = stream_provider_with_langfuse(
                     provider_stream=provider_resp,
                     span=preview_span,
+                    app=app,
                     provider_name=provider_name,
                     generation_name=build_langfuse_generation_name(
                         preview_title,

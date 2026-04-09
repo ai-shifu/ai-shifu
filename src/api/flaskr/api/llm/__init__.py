@@ -7,10 +7,15 @@ from datetime import datetime
 import logging
 import requests
 import litellm
-from flask import Flask, current_app, request
+from flask import Flask, current_app
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
+from flaskr.api.langfuse import (
+    build_langfuse_observation_link,
+    get_request_id,
+    resolve_langfuse_trace_id,
+)
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.metering import UsageContext, record_llm_usage
@@ -133,13 +138,6 @@ def _extract_input_cache(usage: Any) -> int:
     if details is not None:
         return int(getattr(details, "cached_tokens", 0) or 0)
     return 0
-
-
-def _get_request_id() -> str:
-    try:
-        return request.headers.get("X-Request-ID", "") or ""
-    except RuntimeError:
-        return ""
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -598,16 +596,28 @@ def invoke_llm(
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
     )
     billable = billable if billable is not None else kwargs.pop("billable", None)
-    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
-    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
+    trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = []
     if system:
         generation_input.append({"role": "system", "content": system})
     generation_input.append({"role": "user", "content": message})
+    generation_link = build_langfuse_observation_link(span, trace_id)
     generation = span.generation(
-        model=model, input=generation_input, name=generation_name
+        model=model,
+        input=generation_input,
+        name=generation_name,
+        **generation_link,
+    )
+    app.logger.info(
+        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
+        request_id or "",
+        generation_link.get("trace_id", ""),
+        generation_link.get("parent_observation_id", ""),
+        generation_name,
+        model,
     )
     response_text = ""
     usage = None
@@ -763,13 +773,25 @@ def chat_llm(
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
     )
     billable = billable if billable is not None else kwargs.pop("billable", None)
-    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
-    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    request_id = request_id or kwargs.pop("request_id", None) or get_request_id()
+    trace_id = resolve_langfuse_trace_id(span, trace_id or kwargs.pop("trace_id", None))
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = messages
+    generation_link = build_langfuse_observation_link(span, trace_id)
     generation = span.generation(
-        model=model, input=generation_input, name=generation_name
+        model=model,
+        input=generation_input,
+        name=generation_name,
+        **generation_link,
+    )
+    app.logger.info(
+        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
+        request_id or "",
+        generation_link.get("trace_id", ""),
+        generation_link.get("parent_observation_id", ""),
+        generation_name,
+        model,
     )
     response_text = ""
     usage = None

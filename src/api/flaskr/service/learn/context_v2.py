@@ -56,6 +56,7 @@ from ...api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
+    get_request_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
 )
@@ -621,6 +622,7 @@ class RunScriptPreviewContextV2:
 
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
+        request_trace_id = get_request_trace_id()
         trace_args = {
             "user_id": user_bid,
             "session_id": session_id,
@@ -635,7 +637,7 @@ class RunScriptPreviewContextV2:
         }
         trace, root_span = create_trace_with_root_span(
             client=get_langfuse_client(),
-            trace_payload=trace_args,
+            trace_payload={"id": request_trace_id, **trace_args},
             root_span_payload={
                 "name": build_langfuse_span_name(
                     chapter_title,
@@ -643,6 +645,16 @@ class RunScriptPreviewContextV2:
                     "root",
                 ),
             },
+        )
+        self.app.logger.info(
+            "langfuse preview trace created | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
+            request_trace_id,
+            request_trace_id,
+            trace_scene,
+            user_bid,
+            shifu_bid,
+            outline_bid,
+            session_id,
         )
         usage_context = UsageContext(
             user_bid=user_bid,
@@ -1220,6 +1232,7 @@ class RunScriptContextV2:
     _shifu_model: Union[DraftShifu, PublishedShifu]
     _outline_model: Union[DraftOutlineItem, PublishedOutlineItem]
     _trace_args: dict
+    _trace_id: str
     _shifu_info: ShifuInfoDto
     _trace: Union[StatefulTraceClient, MockClient]
     _trace_root_span: Any
@@ -1277,6 +1290,7 @@ class RunScriptContextV2:
         self._trace_args = {}
         chapter_title = self._outline_item_info.title
         trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
+        self._trace_id = get_request_trace_id()
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
         self._trace_args["metadata"] = {
@@ -1288,7 +1302,7 @@ class RunScriptContextV2:
         }
         self._trace, self._trace_root_span = create_trace_with_root_span(
             client=get_langfuse_client(),
-            trace_payload=self._trace_args,
+            trace_payload={"id": self._trace_id, **self._trace_args},
             root_span_payload={
                 "name": build_langfuse_span_name(
                     chapter_title,
@@ -1296,6 +1310,16 @@ class RunScriptContextV2:
                     "root",
                 ),
             },
+        )
+        self.app.logger.info(
+            "langfuse runtime trace created | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
+            self._trace_id,
+            self._trace_id,
+            trace_scene,
+            user_info.user_id,
+            self._outline_item_info.shifu_bid,
+            self._outline_item_info.bid,
+            "",
         )
         context_local.current_context = self
 
@@ -2216,6 +2240,16 @@ class RunScriptContextV2:
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
+        self.app.logger.info(
+            "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
+            self._trace_id,
+            self._trace_id,
+            self._trace_args["metadata"].get("scene", ""),
+            self._trace_args.get("user_id", ""),
+            self._outline_item_info.shifu_bid,
+            self._outline_item_info.bid,
+            self._trace_args["session_id"],
+        )
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0 and self._input_type != "ask":
             yield from self._render_outline_updates(outline_updates, new_chapter=False)

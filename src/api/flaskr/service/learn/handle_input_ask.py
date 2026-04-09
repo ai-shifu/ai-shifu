@@ -589,6 +589,7 @@ def handle_input_ask(
             provider_resp = stream_provider_with_langfuse(
                 provider_stream=provider_resp,
                 span=span,
+                app=app,
                 provider_name=provider_name,
                 generation_name=build_langfuse_generation_name(
                     chapter_title,
