@@ -154,3 +154,20 @@ def test_resolve_usage_creator_bid_returns_none_without_match(
         )
         is None
     )
+
+
+def test_resolve_usage_creator_bid_falls_back_to_debug_creator_user_bid(
+    billing_ownership_app: Flask,
+) -> None:
+    assert (
+        resolve_usage_creator_bid(
+            billing_ownership_app,
+            {
+                "usage_bid": "usage-debug-direct-1",
+                "user_bid": "creator-debug-direct-1",
+                "shifu_bid": "",
+                "usage_scene": BILL_USAGE_SCENE_DEBUG,
+            },
+        )
+        == "creator-debug-direct-1"
+    )

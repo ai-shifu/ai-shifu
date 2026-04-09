@@ -31,13 +31,11 @@ Date: 2025-08-07
 
 import os
 import tempfile
-import base64
 import json
 import uuid
 import re
 from contextlib import nullcontext
 from datetime import datetime
-from dataclasses import replace
 from pathlib import Path
 
 from flask import (
@@ -47,7 +45,6 @@ from flask import (
     send_file,
     after_this_request,
     Response,
-    stream_with_context,
 )
 from .funcs import (
     mark_or_unmark_favorite_shifu,
@@ -2216,6 +2213,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             AskProviderTimeoutError,
             stream_ask_provider_response,
         )
+        from flaskr.service.metering import UsageContext
         from flaskr.service.shifu.shifu_draft_funcs import (
             ASK_PROVIDER_LLM,
             ASK_PROVIDER_MODE_PROVIDER_ONLY,
@@ -2305,6 +2303,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
         def _build_llm_runtime() -> AskProviderRuntime:
+            runtime_billable = (
+                1
+                if bool(getattr(getattr(request, "user", None), "is_creator", False))
+                else 0
+            )
             return AskProviderRuntime(
                 llm_stream_factory=lambda: chat_llm(
                     app,
@@ -2314,6 +2317,13 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     messages=messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,
+                    usage_context=UsageContext(
+                        user_bid=preview_user_id,
+                        usage_scene=BILL_USAGE_SCENE_DEBUG,
+                        billable=runtime_billable,
+                    ),
+                    usage_scene=BILL_USAGE_SCENE_DEBUG,
+                    billable=runtime_billable,
                     stream=True,
                 )
             )
@@ -2465,35 +2475,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                             type: string
                             example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
         """
-        from flaskr.api.tts import (
-            synthesize_text,
-            is_tts_configured,
-            get_default_voice_settings,
-            get_default_audio_settings,
-        )
-        from flaskr.service.tts.pipeline import split_text_for_tts
-        from flaskr.service.tts.validation import validate_tts_settings_strict
+        from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
         json_data = request.get_json() or {}
-        provider_name = (json_data.get("provider") or "").strip().lower()
-        model = (json_data.get("model") or "").strip()
-        voice_id = json_data.get("voice_id") or ""
-        speed_raw = json_data.get("speed")
-        pitch_raw = json_data.get("pitch")
-        emotion = json_data.get("emotion", "")
-        text = json_data.get(
-            "text",
-            "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
-        )
-
-        validated = validate_tts_settings_strict(
-            provider=provider_name,
-            model=model,
-            voice_id=voice_id,
-            speed=speed_raw,
-            pitch=pitch_raw,
-            emotion=emotion,
-        )
         admission_payload = _admit_creator_debug_usage()
         runtime_lease = None
         if admission_payload is not None:
@@ -2501,87 +2485,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 admission_payload=admission_payload,
             )
-
-        if not is_tts_configured(validated.provider):
-            raise_param_error(f"TTS provider is not configured: {validated.provider}")
-
-        # Limit text length for preview
-        if len(text) > 200:
-            text = text[:200]
-
-        voice_settings = get_default_voice_settings(validated.provider)
-        voice_settings.voice_id = validated.voice_id
-        voice_settings.speed = validated.speed
-        voice_settings.pitch = validated.pitch
-        voice_settings.emotion = validated.emotion
-
-        segments = split_text_for_tts(text, provider_name=validated.provider)
-        if not segments:
-            raise_error("TTS_PREVIEW_FAILED")
-
-        audio_settings = get_default_audio_settings(validated.provider)
-        safe_audio_settings = replace(audio_settings, format="mp3")
-        audio_bid = uuid.uuid4().hex
-
-        def event_stream():
-            total_duration_ms = 0
-            try:
-                with runtime_lease or nullcontext():
-                    for index, segment_text in enumerate(segments):
-                        result = synthesize_text(
-                            text=segment_text,
-                            voice_settings=voice_settings,
-                            audio_settings=safe_audio_settings,
-                            model=validated.model or None,
-                            provider_name=validated.provider,
-                        )
-                        total_duration_ms += int(result.duration_ms or 0)
-                        audio_base64 = base64.b64encode(result.audio_data).decode(
-                            "utf-8"
-                        )
-                        payload = {
-                            "outline_bid": "",
-                            "generated_block_bid": "",
-                            "type": "audio_segment",
-                            "content": {
-                                "segment_index": index,
-                                "audio_data": audio_base64,
-                                "duration_ms": int(result.duration_ms or 0),
-                                "is_final": False,
-                            },
-                        }
-                        yield (
-                            "data: "
-                            + json.dumps(payload, ensure_ascii=False)
-                            + "\n\n".encode("utf-8").decode("utf-8")
-                        )
-
-                    payload = {
-                        "outline_bid": "",
-                        "generated_block_bid": "",
-                        "type": "audio_complete",
-                        "content": {
-                            "audio_url": "",
-                            "audio_bid": audio_bid,
-                            "duration_ms": total_duration_ms,
-                        },
-                    }
-                    yield (
-                        "data: "
-                        + json.dumps(payload, ensure_ascii=False)
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
-            except GeneratorExit:
-                current_app.logger.info("client closed tts preview stream early")
-                raise
-            except Exception:
-                current_app.logger.error("TTS preview stream failed", exc_info=True)
-                raise
-
-        return Response(
-            stream_with_context(event_stream()),
-            headers={"Cache-Control": "no-cache"},
-            mimetype="text/event-stream",
+        request_user = getattr(request, "user", None)
+        return build_tts_preview_response(
+            json_data,
+            request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
+            request_user_is_creator=bool(getattr(request_user, "is_creator", False)),
+            runtime_lease=runtime_lease,
         )
 
     return app

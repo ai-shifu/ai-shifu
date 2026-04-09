@@ -2,8 +2,8 @@
 Usage metering recorder.
 
 Provides best-effort helpers to persist LLM and TTS usage records.
-Billing settlement is intentionally deferred; request threads stop after
-`bill_usage` persistence and must not mutate `credit_*` tables directly.
+Billing settlement stays asynchronous; request threads stop after raw
+`bill_usage` persistence and may only enqueue follow-up settlement work.
 """
 
 from __future__ import annotations
@@ -69,6 +69,47 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
         return False
 
 
+def _should_enqueue_usage_settlement(
+    *,
+    billable: int,
+    status: int,
+    record_level: int,
+) -> bool:
+    return (
+        int(billable or 0) == 1
+        and int(status or 0) == 0
+        and int(record_level or 0) == 0
+    )
+
+
+def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
+    normalized_usage_bid = str(usage_bid or "").strip()
+    if not normalized_usage_bid:
+        return
+    try:
+        from flaskr.common.celery_app import get_celery_app
+
+        celery_app = get_celery_app(flask_app=app)
+        task = celery_app.tasks.get("billing.settle_usage")
+        if task is None:
+            app.logger.warning(
+                "billing.settle_usage is unavailable for usage_bid=%s",
+                normalized_usage_bid,
+            )
+            return
+        task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
+    except Exception as exc:
+        try:
+            app.logger.error(
+                "Usage settlement enqueue failed for usage_bid=%s: %s",
+                normalized_usage_bid,
+                exc,
+                exc_info=True,
+            )
+        except Exception:
+            pass
+
+
 def record_llm_usage(
     app: Flask,
     context: UsageContext,
@@ -120,6 +161,12 @@ def record_llm_usage(
         extra=extra or None,
     )
     if _persist_usage_record(app, record):
+        if _should_enqueue_usage_settlement(
+            billable=resolved_billable,
+            status=status,
+            record_level=0,
+        ):
+            _enqueue_usage_settlement(app, usage_bid=usage_bid)
         try:
             usage_source = (
                 (extra or {}).get("usage_source", "") if isinstance(extra, dict) else ""
@@ -175,6 +222,7 @@ def record_tts_usage(
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)
+    resolved_billable = _resolve_billable(context.usage_scene, context.billable)
     record = BillUsageRecord(
         usage_bid=resolved_usage_bid,
         parent_usage_bid=parent_usage_bid or "",
@@ -200,11 +248,17 @@ def record_tts_usage(
         latency_ms=int(latency_ms or 0),
         segment_index=int(segment_index or 0),
         segment_count=int(segment_count or 0),
-        billable=_resolve_billable(context.usage_scene, context.billable),
+        billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
         extra=extra or None,
     )
     if _persist_usage_record(app, record):
+        if _should_enqueue_usage_settlement(
+            billable=resolved_billable,
+            status=status,
+            record_level=record_level,
+        ):
+            _enqueue_usage_settlement(app, usage_bid=resolved_usage_bid)
         return resolved_usage_bid
     return ""

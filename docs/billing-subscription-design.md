@@ -754,12 +754,12 @@ v1 的改造要求：
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排已分别落在 `src/api/flaskr/service/billing/checkout.py`、`src/api/flaskr/service/billing/webhooks.py`、`src/api/flaskr/service/billing/provider_state.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx；`src/api/flaskr/service/billing/funcs.py` 仅保留兼容导出层
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
-- 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，当前批次先补齐默认异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
+- 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
 - 当前实现中，usage settlement 已固定按 `free > subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后
 - 当前实现中，LLM usage 已拆成 `input`、`cache`、`output` 三个 billing metric 独立计算费率与扣分，并把每个 metric 的 breakdown 写入 `credit_ledger_entries.metadata`
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分
-- 当前实现中，`production`、`preview`、`debug` 三种 billing scene 都统一通过 `src/api/flaskr/service/billing/ownership.py` 的 `resolve_usage_creator_bid` 按 `shifu_bid -> creator_bid` 解析归属 creator
+- 当前实现中，`production`、`preview`、`debug` 三种 billing scene 都统一通过 `src/api/flaskr/service/billing/ownership.py` 的 `resolve_usage_creator_bid` 解析归属 creator；优先按 `shifu_bid -> creator_bid`，无 `shifu_bid` 的 debug authoring usage 则回落到 `user_bid`
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 会在 creator 归属解析完成后，按 `creator_bid` 获取 `billing:settle_usage:{creator_bid}` cache lock，串行执行同一 creator 的 usage settlement 并在异常时释放锁
 - 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化钱包快照，冲突时抛出 `credit_wallet_version_conflict`
 - 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
@@ -794,8 +794,8 @@ v1 的改造要求：
 
 - `production`、`preview`、`debug` 三种 scene 都允许计费
 - 是否真正扣费不再由 metering 常量决定，而由 billing service 的 admission / settlement 规则决定
-- `record_llm_usage` / `record_tts_usage` 继续只负责原始 usage 落库，不直接承担 creator 账务逻辑
-- 结算层新增 `creator ownership resolver`，把 `shifu_bid -> creator_bid` 固化给 billing settlement 使用
+- `record_llm_usage` / `record_tts_usage` 继续只负责原始 usage 落库，并在 billable 的 root usage 成功写入后异步投递 settlement，不直接承担 creator 账务逻辑
+- 结算层新增 `creator ownership resolver`，优先把 `shifu_bid -> creator_bid` 固化给 billing settlement 使用，debug authoring 的无 `shifu_bid` usage 再回落到 `user_bid`
 - 当前实现将该边界收敛到 `src/api/flaskr/service/billing/ownership.py`，由 billing 域统一复用 `resolve_shifu_creator_bid` / `resolve_usage_creator_bid`
 
 ### 5.3 Learn / Preview / Debug 入口改造
