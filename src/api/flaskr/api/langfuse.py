@@ -1,9 +1,12 @@
 import ast
 import json
+import uuid
 from typing import Any
 
-from flask import Flask
+from flask import Flask, request
 from langfuse import Langfuse
+
+from flaskr.common.log import thread_local
 
 
 class MockClient:
@@ -22,6 +25,19 @@ langfuse_client = MockClient()
 
 def get_langfuse_client():
     return langfuse_client
+
+
+def get_request_trace_id() -> str:
+    request_id = getattr(thread_local, "request_id", "") or ""
+    if request_id:
+        return request_id
+
+    try:
+        request_id = request.headers.get("X-Request-ID", "") or ""
+    except RuntimeError:
+        request_id = ""
+
+    return request_id or uuid.uuid4().hex
 
 
 def init_langfuse(app: Flask):
