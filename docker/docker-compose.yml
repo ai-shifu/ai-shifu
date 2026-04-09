@@ -27,7 +27,7 @@ services:
   ai-shifu-celery-worker:
     container_name: ai-shifu-celery-worker
     image: aishifu/ai-shifu-api:v1.4.0
-    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec celery -A celery_app:celery_app worker --loglevel info"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec python -m celery -A celery_app:celery_app worker --loglevel info"]
     env_file:
       - ./.env
     environment: *default-env
@@ -39,7 +39,7 @@ services:
   ai-shifu-celery-beat:
     container_name: ai-shifu-celery-beat
     image: aishifu/ai-shifu-api:v1.4.0
-    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec celery -A celery_app:celery_app beat --loglevel info"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec python -m celery -A celery_app:celery_app beat --loglevel info"]
     env_file:
       - ./.env
     environment: *default-env

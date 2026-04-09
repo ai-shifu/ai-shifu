@@ -26,7 +26,7 @@ services:
     command:
       - sh
       - -c
-      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec celery -A celery_app:celery_app worker --loglevel info
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app worker --loglevel info
     env_file:
       - ./.env
     environment:
@@ -49,7 +49,7 @@ services:
     command:
       - sh
       - -c
-      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec celery -A celery_app:celery_app beat --loglevel info
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app beat --loglevel info
     env_file:
       - ./.env
     environment:
