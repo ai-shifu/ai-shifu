@@ -1156,6 +1156,7 @@ const ListenModeSlideRenderer = ({
       screenLabel: t('module.chat.listenPlayerScreenLabel'),
       nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
       fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
+      fullscreenHintText: t('module.chat.listenPlayerFullscreenHint'),
     }),
     [t],
   );

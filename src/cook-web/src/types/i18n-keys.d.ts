@@ -215,6 +215,7 @@ export type I18nKey =
   | 'module.chat.listenInteractionHint'
   | 'module.chat.listenPlayerBack'
   | 'module.chat.listenPlayerLandscapeLabel'
+  | 'module.chat.listenPlayerFullscreenHint'
   | 'module.chat.listenPlayerPortraitLabel'
   | 'module.chat.listenPlayerScreenLabel'
   | 'module.chat.listenPlayerSettingsTitle'

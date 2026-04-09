@@ -12,6 +12,7 @@
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
   "listenInteractionHint": "Submit the following to continue learning",
   "listenPlayerBack": "Back to non-full screen",
+  "listenPlayerFullscreenHint": "Please rotate your screen for the best experience",
   "listenPlayerLandscapeLabel": "Full screen",
   "listenPlayerPortraitLabel": "Non-full screen",
   "listenPlayerScreenLabel": "Screen",
