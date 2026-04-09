@@ -3,12 +3,13 @@ services:
     container_name: ai-shifu-api-dev
     image: ai-shifu-api-dev:latest
 #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade  && cd /app && exec gunicorn -k gevent -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
     environment:
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     volumes:
@@ -31,6 +32,7 @@ services:
     environment:
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     depends_on:
@@ -53,6 +55,7 @@ services:
     environment:
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     depends_on:

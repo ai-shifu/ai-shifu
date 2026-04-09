@@ -35,6 +35,15 @@ import { BillingMetricCard } from './BillingMetricCard';
 
 const BILLING_WALLET_BUCKETS_SWR_KEY = ['billing-wallet-buckets'];
 
+type BillingWalletBucketsPayload =
+  | BillingWalletBucket[]
+  | {
+      data?: BillingWalletBucket[] | null;
+      items?: BillingWalletBucket[] | null;
+    }
+  | null
+  | undefined;
+
 function resolveBucketStatusClasses(
   status: BillingWalletBucket['status'],
 ): string {
@@ -64,6 +73,21 @@ function renderWindowLabel(
   };
 }
 
+function normalizeBillingWalletBuckets(
+  payload: BillingWalletBucketsPayload,
+): BillingWalletBucket[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (Array.isArray(payload?.items)) {
+    return payload.items;
+  }
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  return [];
+}
+
 export function BillingWalletBucketsCard() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
@@ -71,17 +95,20 @@ export function BillingWalletBucketsCard() {
     data: buckets,
     error,
     isLoading,
-  } = useSWR<BillingWalletBucket[]>(
+  } = useSWR<BillingWalletBucketsPayload>(
     BILLING_WALLET_BUCKETS_SWR_KEY,
     async () =>
-      (await api.getBillingWalletBuckets({})) as BillingWalletBucket[],
+      (await api.getBillingWalletBuckets({})) as BillingWalletBucketsPayload,
     {
       revalidateOnFocus: false,
     },
   );
+  const bucketList = useMemo(
+    () => normalizeBillingWalletBuckets(buckets),
+    [buckets],
+  );
 
   const summary = useMemo(() => {
-    const bucketList = buckets || [];
     const activeBuckets = bucketList.filter(
       bucket => bucket.status === 'active',
     );
@@ -99,7 +126,7 @@ export function BillingWalletBucketsCard() {
         0,
       ),
     };
-  }, [buckets]);
+  }, [bucketList]);
 
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
 
@@ -183,12 +210,12 @@ export function BillingWalletBucketsCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!buckets?.length ? (
+                {!bucketList.length ? (
                   <TableEmpty colSpan={5}>
                     {t('module.billing.ledger.empty')}
                   </TableEmpty>
                 ) : (
-                  buckets.map(bucket => {
+                  bucketList.map(bucket => {
                     const windowLabel = renderWindowLabel(
                       bucket,
                       i18n.language,

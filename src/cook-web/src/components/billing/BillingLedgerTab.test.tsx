@@ -134,4 +134,70 @@ describe('BillingLedgerTab', () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText('usage-1').length).toBeGreaterThan(1);
   });
+
+  test('accepts item-wrapped wallet bucket payloads', async () => {
+    mockGetBillingWalletBuckets.mockResolvedValue({
+      items: [
+        {
+          wallet_bucket_bid: 'bucket-free',
+          category: 'free',
+          source_type: 'gift',
+          source_bid: 'grant-items',
+          available_credits: 18,
+          effective_from: '2026-03-01T00:00:00Z',
+          effective_to: null,
+          priority: 10,
+          status: 'active',
+        },
+      ],
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <BillingLedgerTab />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('grant-items')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('module.billing.ledger.neverExpires').length,
+    ).toBeGreaterThan(0);
+  });
+
+  test('accepts data-wrapped wallet bucket payloads', async () => {
+    mockGetBillingWalletBuckets.mockResolvedValue({
+      data: [
+        {
+          wallet_bucket_bid: 'bucket-topup',
+          category: 'topup',
+          source_type: 'topup',
+          source_bid: 'grant-data',
+          available_credits: 42,
+          effective_from: '2026-03-01T00:00:00Z',
+          effective_to: null,
+          priority: 30,
+          status: 'active',
+        },
+      ],
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <BillingLedgerTab />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('grant-data')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.ledger.source.topup'),
+    ).toBeInTheDocument();
+  });
 });

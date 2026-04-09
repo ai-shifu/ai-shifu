@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
@@ -88,11 +89,11 @@ export function BillingOverviewTab({
     },
   );
   const { paymentChannels, runtimeConfigLoaded, stripeEnabled } = useEnvStore(
-    (state: EnvStoreState) => ({
+    useShallow((state: EnvStoreState) => ({
       paymentChannels: state.paymentChannels,
       runtimeConfigLoaded: state.runtimeConfigLoaded,
       stripeEnabled: state.stripeEnabled,
-    }),
+    })),
   );
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');

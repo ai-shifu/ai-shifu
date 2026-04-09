@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
@@ -98,12 +99,14 @@ export function BillingDomainsTab() {
     },
   );
   const branding = useEnvStore(
-    (state: EnvStoreState): CreatorBrandingConfig => ({
-      logo_wide_url: state.logoWideUrl || null,
-      logo_square_url: state.logoSquareUrl || null,
-      favicon_url: state.faviconUrl || null,
-      home_url: state.homeUrl || null,
-    }),
+    useShallow(
+      (state: EnvStoreState): CreatorBrandingConfig => ({
+        logo_wide_url: state.logoWideUrl || null,
+        logo_square_url: state.logoSquareUrl || null,
+        favicon_url: state.faviconUrl || null,
+        home_url: state.homeUrl || null,
+      }),
+    ),
   );
   const [host, setHost] = useState('');
   const [submittingAction, setSubmittingAction] = useState('');
