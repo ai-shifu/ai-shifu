@@ -1,7 +1,7 @@
 """add billing core tables
 
 Revision ID: 4fd52d0d9a01
-Revises: 7b3c5d9e1a2f
+Revises: 2b7c9d1e4f6a
 Create Date: 2026-04-08 00:00:00.000000
 
 """
@@ -16,7 +16,7 @@ from sqlalchemy.dialects import mysql
 
 
 revision = "4fd52d0d9a01"
-down_revision = "7b3c5d9e1a2f"
+down_revision = "2b7c9d1e4f6a"
 branch_labels = None
 depends_on = None
 
