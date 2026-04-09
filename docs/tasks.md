@@ -6,7 +6,7 @@
 - [x] 审查现有 metering 与 runtime config 流程。
 - [x] 确认计费主体、产品范围、续费模式、权益范围和文档存放路径。
 - [x] 将商品目录统一为 `billing_products` 单表，并保留 `plans[]` / `topups[]` API 投影。
-- [x] 将支付持久化模型统一为 `billing_orders`，并将最近一次 provider payload 收敛到 `billing_orders.metadata`。
+- [x] 将支付业务真相源统一为 `billing_orders`，最近一次 provider 摘要保留在 `billing_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`。
 - [x] 统一扣分场景为 `production`、`preview`、`debug`，并明确由课程所属创作者承担。
 - [x] 统一 LLM `input/cache/output` 与 TTS `按次/按字数` 的扣分口径。
 - [x] 将库表分层为 `v1 核心表` 与 `v1.1 扩展表`。
@@ -23,7 +23,7 @@
 - [x] 新增 `/admin/billing`，按 `套餐与积分`、`积分明细`、`付款记录` 三个 tab 落地 Billing Center。
 - [x] 新增 `src/cook-web/src/components/billing/`、`src/cook-web/src/types/billing.ts` 和 `module.billing.*` i18n。
 - [x] 新增 `/payment/stripe/billing-result`，回跳后先调用 `/billing/orders/{billing_order_bid}/sync` 再回到 `/admin/billing`。
-- [x] 新增 `service/billing` 模块与 `/api/billing` 路由，不复用旧 `order_*` 表。
+- [x] 新增 `service/billing` 模块与 `/api/billing` 路由；业务状态不复用旧 `order_orders`，provider raw snapshot 通过 `biz_domain` 复用旧 `order_pingxx_orders` / `order_stripe_orders`。
 - [x] 新增 `billing_products`、`billing_subscriptions`、`billing_orders`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 迁移和 seed。
 - [x] 实现 `GET /billing/catalog`、`GET /billing/overview`、`GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`。
 - [x] 实现 `POST /billing/subscriptions/checkout`、`POST /billing/subscriptions/cancel`、`POST /billing/subscriptions/resume`、`POST /billing/topups/checkout`、`POST /billing/orders/{billing_order_bid}/sync`。
@@ -51,7 +51,7 @@
 
 ### 现有代码改造
 
-- [x] 明确并落地 `service/order/payment_providers` 在 billing 域的复用边界，不复用旧 `order_*` 表。
+- [x] 明确并落地 `service/order/payment_providers` 在 billing 域的复用边界；业务真相源不复用旧 `order_orders`，provider raw snapshot 通过 `biz_domain` 复用旧 provider raw 表。
 - [x] 新增 `service/billing/consts.py`，统一承载 billing 专属 `7100+` 编码。
 - [x] 扩展 `payment_providers/base.py` 支持 billing recurring/subscription/webhook 统一接口。
 - [x] 调整 metering 的 `debug/preview` billable 逻辑，移除常量层硬编码 non-billable 判定。
@@ -75,7 +75,7 @@
 - [x] 实现 `GET /billing/wallet-buckets` creator 侧只读接口。
 - [x] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
 - [x] 实现基于 `billing_orders` 的 webhook 幂等状态机，确保重复和乱序回调不会回退状态或重复入账。
-- [x] 在 `billing_orders.metadata` 中仅保留最近一次 provider 原始 payload 与事件摘要。
+- [x] 在 `billing_orders.metadata` 中保留最近一次 provider 摘要与编排兼容字段，同时把 provider raw snapshot 镜像写入 `order_pingxx_orders` / `order_stripe_orders`。
 - [x] 实现找不到关联订单的 webhook ignore 策略，并依赖 sync/reconcile 补偿。
 - [x] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
 - [x] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
