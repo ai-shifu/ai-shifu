@@ -252,10 +252,12 @@ function OverflowTooltipText({
  * t('module.operationsCourse.detail.learningPermission.guest')
  * t('module.operationsCourse.detail.learningPermission.free')
  * t('module.operationsCourse.detail.learningPermission.paid')
+ * t('module.operationsCourse.detail.learningPermission.unknown')
  * t('module.operationsCourse.detail.visibility.visible')
  * t('module.operationsCourse.detail.visibility.hidden')
  * t('module.operationsCourse.detail.contentStatus.has')
  * t('module.operationsCourse.detail.contentStatus.empty')
+ * t('module.operationsCourse.detail.contentStatus.unknown')
  * t('module.operationsCourse.detail.contentDetailDialog.title')
  * t('module.operationsCourse.detail.contentDetailDialog.copy')
  * t('module.operationsCourse.detail.contentDetailDialog.copySuccess')
@@ -266,6 +268,7 @@ function OverflowTooltipText({
  * t('module.operationsCourse.detail.contentDetailDialog.sources.lesson')
  * t('module.operationsCourse.detail.contentDetailDialog.sources.chapter')
  * t('module.operationsCourse.detail.contentDetailDialog.sources.course')
+ * t('module.operationsCourse.statusLabels.unknown')
  */
 export default function AdminOperationCourseDetailPage() {
   const router = useRouter();
@@ -345,14 +348,33 @@ export default function AdminOperationCourseDetailPage() {
     fetchDetail();
   }, [fetchDetail, isReady]);
 
+  const formatUnknownEnumLabel = useCallback(
+    (labelKey: string, rawValue?: string) => {
+      const fallbackLabel = tOperations(labelKey);
+      const normalizedValue = (rawValue || '').trim();
+      if (!normalizedValue) {
+        return fallbackLabel;
+      }
+
+      const wrapper = /[^\x00-\x7F]/.test(`${fallbackLabel}${normalizedValue}`)
+        ? ['（', '）']
+        : [' (', ')'];
+      return `${fallbackLabel}${wrapper[0]}${normalizedValue}${wrapper[1]}`;
+    },
+    [tOperations],
+  );
+
   const resolveCourseStatusLabel = useCallback(
     (courseStatus?: string) => {
       if (courseStatus === 'published') {
         return tOperations('statusLabels.published');
       }
-      return tOperations('statusLabels.unpublished');
+      if (courseStatus === 'unpublished') {
+        return tOperations('statusLabels.unpublished');
+      }
+      return formatUnknownEnumLabel('statusLabels.unknown', courseStatus);
     },
-    [tOperations],
+    [formatUnknownEnumLabel, tOperations],
   );
 
   const resolveLearningPermissionLabel = useCallback(
@@ -363,9 +385,15 @@ export default function AdminOperationCourseDetailPage() {
       if (permission === 'free') {
         return tOperations('detail.learningPermission.free');
       }
-      return tOperations('detail.learningPermission.paid');
+      if (permission === 'paid') {
+        return tOperations('detail.learningPermission.paid');
+      }
+      return formatUnknownEnumLabel(
+        'detail.learningPermission.unknown',
+        permission,
+      );
     },
-    [tOperations],
+    [formatUnknownEnumLabel, tOperations],
   );
 
   const resolveContentStatusLabel = useCallback(
@@ -373,9 +401,15 @@ export default function AdminOperationCourseDetailPage() {
       if (contentStatus === 'has') {
         return tOperations('detail.contentStatus.has');
       }
-      return tOperations('detail.contentStatus.empty');
+      if (contentStatus === 'empty') {
+        return tOperations('detail.contentStatus.empty');
+      }
+      return formatUnknownEnumLabel(
+        'detail.contentStatus.unknown',
+        contentStatus,
+      );
     },
-    [tOperations],
+    [formatUnknownEnumLabel, tOperations],
   );
 
   const resolveModifierDisplay = useCallback(
