@@ -81,6 +81,69 @@ interface LessonFeedbackPopupState {
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 
+type StreamResponseLike = Record<string, unknown> & {
+  content?: unknown;
+  data?: unknown;
+};
+
+const parseObjectPayload = (value: unknown): Record<string, unknown> | null => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Ignore malformed payloads and fall back to legacy client-side inference.
+  }
+  return null;
+};
+
+const readBooleanField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+): boolean | null => {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+  }
+  return null;
+};
+
+const resolveDoneIsTerminal = (
+  response: StreamResponseLike,
+): boolean | null => {
+  const topLevelFlag = readBooleanField(response, ['is_terminal']);
+  if (topLevelFlag !== null) {
+    return topLevelFlag;
+  }
+  const payloadObject =
+    parseObjectPayload(response.content) || parseObjectPayload(response.data);
+  if (!payloadObject) {
+    return null;
+  }
+  return readBooleanField(payloadObject, ['is_terminal']);
+};
+
 export enum ChatContentItemType {
   CONTENT = 'content',
   INTERACTION = 'interaction',
@@ -247,6 +310,7 @@ function useChatLogicHook({
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
+  const doneTerminalStateRef = useRef<boolean | null>(null);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -1119,6 +1183,7 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
+      doneTerminalStateRef.current = null;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
       currentContentRef.current = '';
@@ -1450,6 +1515,9 @@ function useChatLogicHook({
               } else {
                 // only update current lesson
                 if (outline_bid && outline_bid === lessonId) {
+                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                    isEnd = true;
+                  }
                   lessonUpdateResp(response, isEnd);
                 }
               }
@@ -1457,6 +1525,9 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              doneTerminalStateRef.current = resolveDoneIsTerminal(
+                response as StreamResponseLike,
+              );
               const completedElementBid =
                 currentBlockIdRef.current || blockId || '';
               setCurrentStreamingElementBid('');
@@ -1473,6 +1544,8 @@ function useChatLogicHook({
                   .reverse()
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
                 if (
+                  doneTerminalStateRef.current !== true &&
+                  !isEnd &&
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
