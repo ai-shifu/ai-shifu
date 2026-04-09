@@ -30,6 +30,46 @@
     },
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
+    "domains": {
+      "description": "审核创作者自定义域名状态、权益开关，以及仍需跟进的 host。",
+      "empty": "暂无自定义域名绑定。",
+      "loadError": "无法加载后台域名审核数据。",
+      "table": {
+        "creator": "创作者",
+        "effective": "是否生效",
+        "entitlement": "域名权益",
+        "host": "域名",
+        "lastVerified": "最近校验",
+        "ssl": "SSL",
+        "status": "状态"
+      },
+      "title": "域名审核",
+      "values": {
+        "effective": "已生效",
+        "inactive": "未生效"
+      }
+    },
+    "entitlements": {
+      "description": "查看每个创作者当前解析到的有效权益快照。",
+      "empty": "暂无权益快照。",
+      "loadError": "无法加载后台权益数据。",
+      "source": {
+        "default": "默认回退",
+        "productPayload": "商品 payload",
+        "snapshot": "存储快照"
+      },
+      "table": {
+        "analytics": "分析等级",
+        "concurrency": "最大并发",
+        "creator": "创作者",
+        "features": "功能开关",
+        "priority": "优先级",
+        "source": "来源",
+        "support": "支持等级",
+        "window": "生效窗口"
+      },
+      "title": "权益查看"
+    },
     "exceptions": {
       "description": "聚焦仍需要人工跟进的订阅和订单异常。",
       "empty": "当前没有需要处理的账务异常。",
@@ -65,6 +105,23 @@
     "pagination": {
       "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条记录"
     },
+    "reports": {
+      "description": "在运营后台直接查看跨创作者的 usage 与账本日报表。",
+      "sections": {
+        "ledger": {
+          "description": "按天查看跨创作者的账本变动汇总。",
+          "title": "账本汇总"
+        },
+        "usage": {
+          "description": "按创作者、shifu、scene 与 metric 查看 usage 成本汇总。",
+          "title": "Usage 汇总"
+        }
+      },
+      "table": {
+        "creator": "创作者"
+      },
+      "title": "报表"
+    },
     "subscriptions": {
       "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
@@ -84,8 +141,11 @@
     },
     "subtitle": "用于查看订阅状态、失败支付和需要人工跟进的账务异常。",
     "tabs": {
+      "domains": "域名",
+      "entitlements": "权益",
       "exceptions": "异常处理",
       "orders": "订单视图",
+      "reports": "报表",
       "subscriptions": "订阅视图"
     },
     "title": "后台账务视图"

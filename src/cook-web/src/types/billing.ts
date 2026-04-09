@@ -6,7 +6,13 @@ export type BillingCenterTab =
   | 'domains'
   | 'reports';
 
-export type AdminBillingConsoleTab = 'subscriptions' | 'orders' | 'exceptions';
+export type AdminBillingConsoleTab =
+  | 'subscriptions'
+  | 'orders'
+  | 'exceptions'
+  | 'entitlements'
+  | 'domains'
+  | 'reports';
 
 export type BillingProvider = 'stripe' | 'pingxx';
 
@@ -344,6 +350,11 @@ export type BillingRenewalEventSummary = {
   payload?: Record<string, unknown> | null;
 };
 
+export type AdminBillingEntitlementSourceKind =
+  | 'snapshot'
+  | 'product_payload'
+  | 'default';
+
 export type AdminBillingSubscriptionItem = BillingSubscription & {
   creator_bid: string;
   next_product_code?: string;
@@ -358,6 +369,31 @@ export type AdminBillingOrderItem = BillingOrderSummary & {
   refunded_at?: string | null;
   has_attention: boolean;
 };
+
+export type AdminBillingEntitlementItem = BillingEntitlements & {
+  creator_bid: string;
+  source_kind: AdminBillingEntitlementSourceKind;
+  source_type: BillingBucketSourceType | '';
+  source_bid: string;
+  product_bid: string;
+  effective_from: string | null;
+  effective_to: string | null;
+  feature_payload?: Record<string, unknown>;
+};
+
+export type AdminBillingDomainBindingItem = BillingDomainBinding & {
+  custom_domain_enabled: boolean;
+  has_attention: boolean;
+};
+
+export type AdminBillingDailyUsageMetricItem = BillingDailyUsageMetricItem & {
+  creator_bid: string;
+};
+
+export type AdminBillingDailyLedgerSummaryItem =
+  BillingDailyLedgerSummaryItem & {
+    creator_bid: string;
+  };
 
 export type AdminBillingLedgerAdjustPayload = {
   creator_bid: string;

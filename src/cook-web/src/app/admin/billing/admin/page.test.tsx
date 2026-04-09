@@ -19,12 +19,24 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     adjustAdminBillingLedger: jest.fn(),
+    getAdminBillingDailyLedgerSummary: jest.fn(),
+    getAdminBillingDailyUsageMetrics: jest.fn(),
+    getAdminBillingDomainAudits: jest.fn(),
+    getAdminBillingEntitlements: jest.fn(),
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOrders: jest.fn(),
   },
 }));
 
 const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
+const mockGetAdminBillingDailyLedgerSummary =
+  api.getAdminBillingDailyLedgerSummary as jest.Mock;
+const mockGetAdminBillingDailyUsageMetrics =
+  api.getAdminBillingDailyUsageMetrics as jest.Mock;
+const mockGetAdminBillingDomainAudits =
+  api.getAdminBillingDomainAudits as jest.Mock;
+const mockGetAdminBillingEntitlements =
+  api.getAdminBillingEntitlements as jest.Mock;
 const mockGetAdminBillingSubscriptions =
   api.getAdminBillingSubscriptions as jest.Mock;
 const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
@@ -32,6 +44,10 @@ const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 describe('AdminBillingConsolePage', () => {
   beforeEach(() => {
     mockAdjustAdminBillingLedger.mockReset();
+    mockGetAdminBillingDailyLedgerSummary.mockReset();
+    mockGetAdminBillingDailyUsageMetrics.mockReset();
+    mockGetAdminBillingDomainAudits.mockReset();
+    mockGetAdminBillingEntitlements.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
 
@@ -105,6 +121,97 @@ describe('AdminBillingConsolePage', () => {
       page: 1,
       page_count: 1,
       page_size: 10,
+      total: 1,
+    });
+    mockGetAdminBillingEntitlements.mockResolvedValue({
+      items: [
+        {
+          creator_bid: 'creator-2',
+          source_kind: 'snapshot',
+          source_type: 'manual',
+          source_bid: 'manual-2',
+          product_bid: '',
+          branding_enabled: true,
+          custom_domain_enabled: false,
+          priority_class: 'priority',
+          max_concurrency: 3,
+          analytics_tier: 'advanced',
+          support_tier: 'business_hours',
+          effective_from: '2026-04-01T00:00:00Z',
+          effective_to: null,
+          feature_payload: {},
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+    mockGetAdminBillingDomainAudits.mockResolvedValue({
+      items: [
+        {
+          domain_binding_bid: 'binding-1',
+          creator_bid: 'creator-2',
+          host: 'academy.creator-two.com',
+          status: 'pending',
+          verification_method: 'dns_txt',
+          verification_token: 'token-1',
+          verification_record_name: '_ai-shifu.academy.creator-two.com',
+          verification_record_value: 'token-1',
+          last_verified_at: null,
+          ssl_status: 'pending',
+          is_effective: false,
+          custom_domain_enabled: false,
+          has_attention: true,
+          metadata: {},
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+    mockGetAdminBillingDailyUsageMetrics.mockResolvedValue({
+      items: [
+        {
+          creator_bid: 'creator-2',
+          daily_usage_metric_bid: 'daily-usage-1',
+          stat_date: '2026-04-06',
+          shifu_bid: 'shifu-2',
+          usage_scene: 'production',
+          usage_type: 'llm',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          billing_metric: 'llm_output_tokens',
+          raw_amount: 4096,
+          record_count: 4,
+          consumed_credits: 6.5,
+          window_started_at: '2026-04-06T00:00:00Z',
+          window_ended_at: '2026-04-07T00:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 6,
+      total: 1,
+    });
+    mockGetAdminBillingDailyLedgerSummary.mockResolvedValue({
+      items: [
+        {
+          creator_bid: 'creator-2',
+          daily_ledger_summary_bid: 'daily-ledger-1',
+          stat_date: '2026-04-06',
+          entry_type: 'consume',
+          source_type: 'usage',
+          amount: -6.5,
+          entry_count: 4,
+          window_started_at: '2026-04-06T00:00:00Z',
+          window_ended_at: '2026-04-07T00:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 6,
       total: 1,
     });
     mockAdjustAdminBillingLedger.mockResolvedValue({
@@ -182,6 +289,50 @@ describe('AdminBillingConsolePage', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
     expect(screen.getByText('Card was declined')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.entitlements',
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText('module.billing.admin.entitlements.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('manual-2')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.domains',
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText('module.billing.admin.domains.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('academy.creator-two.com')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.admin.tabs.reports',
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText('module.billing.admin.reports.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.admin.reports.sections.usage.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.reports.metric.llmOutputTokens'),
+    ).toBeInTheDocument();
   });
 
   test('submits a manual ledger adjustment and revalidates admin billing data', async () => {

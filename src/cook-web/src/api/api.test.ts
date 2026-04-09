@@ -37,8 +37,20 @@ describe('billing api definitions', () => {
       'GET /admin/billing/subscriptions',
     );
     expect(api.getAdminBillingOrders).toBe('GET /admin/billing/orders');
+    expect(api.getAdminBillingEntitlements).toBe(
+      'GET /admin/billing/entitlements',
+    );
     expect(api.getAdminBillingDomainBindings).toBe(
       'GET /admin/billing/domain-bindings',
+    );
+    expect(api.getAdminBillingDomainAudits).toBe(
+      'GET /admin/billing/domain-audits',
+    );
+    expect(api.getAdminBillingDailyUsageMetrics).toBe(
+      'GET /admin/billing/reports/usage-daily',
+    );
+    expect(api.getAdminBillingDailyLedgerSummary).toBe(
+      'GET /admin/billing/reports/ledger-daily',
     );
     expect(api.bindAdminBillingDomain).toBe('POST /admin/billing/domains/bind');
     expect(api.adjustAdminBillingLedger).toBe(

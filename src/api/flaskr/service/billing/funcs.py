@@ -30,6 +30,13 @@ from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .consts import (
+    BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+    BILLING_DOMAIN_BINDING_STATUS_FAILED,
+    BILLING_DOMAIN_BINDING_STATUS_LABELS,
+    BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_DOMAIN_SSL_STATUS_LABELS,
+    BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
     BILLING_INTERVAL_LABELS,
@@ -80,8 +87,10 @@ from .consts import (
     CREDIT_SOURCE_TYPE_LABELS,
 )
 from .models import (
+    BillingDomainBinding,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
+    BillingEntitlement,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -145,6 +154,10 @@ _SUBSCRIPTION_STATUS_CODES_BY_LABEL = {
 
 _ORDER_STATUS_CODES_BY_LABEL = {
     label: code for code, label in BILLING_ORDER_STATUS_LABELS.items()
+}
+
+_DOMAIN_BINDING_STATUS_CODES_BY_LABEL = {
+    label: code for code, label in BILLING_DOMAIN_BINDING_STATUS_LABELS.items()
 }
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
@@ -225,6 +238,10 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
     admin_routes = [
         {"method": "POST", "path": "/api/admin/billing/domains/bind"},
         {"method": "GET", "path": "/api/admin/billing/domain-bindings"},
+        {"method": "GET", "path": "/api/admin/billing/domain-audits"},
+        {"method": "GET", "path": "/api/admin/billing/entitlements"},
+        {"method": "GET", "path": "/api/admin/billing/reports/usage-daily"},
+        {"method": "GET", "path": "/api/admin/billing/reports/ledger-daily"},
         {"method": "GET", "path": "/api/admin/billing/subscriptions"},
         {"method": "GET", "path": "/api/admin/billing/orders"},
         {"method": "POST", "path": "/api/admin/billing/ledger/adjust"},
@@ -601,6 +618,131 @@ def build_admin_billing_subscriptions_page(
         }
 
 
+def build_admin_billing_entitlements_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated effective entitlement snapshots for admin billing."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+
+    with app.app_context():
+        creator_bids = _load_admin_creator_bids(creator_bid=normalized_creator_bid)
+        items = [
+            _serialize_admin_entitlement_state(
+                app,
+                resolve_creator_entitlement_state(candidate_creator_bid),
+                timezone_name=timezone_name,
+            )
+            for candidate_creator_bid in creator_bids
+        ]
+        return _build_list_page_payload(
+            items,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+        )
+
+
+def build_admin_billing_domain_audits_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    status: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated cross-creator domain binding rows for admin audit."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    status_code = _resolve_domain_binding_status_filter(status)
+
+    with app.app_context():
+        query = BillingDomainBinding.query.filter(BillingDomainBinding.deleted == 0)
+        if normalized_creator_bid:
+            query = query.filter(
+                BillingDomainBinding.creator_bid == normalized_creator_bid,
+            )
+        if status_code is not None:
+            query = query.filter(BillingDomainBinding.status == status_code)
+
+        query = query.order_by(
+            case(
+                (
+                    BillingDomainBinding.status
+                    == BILLING_DOMAIN_BINDING_STATUS_PENDING,
+                    1,
+                ),
+                (
+                    BillingDomainBinding.status == BILLING_DOMAIN_BINDING_STATUS_FAILED,
+                    2,
+                ),
+                (
+                    BillingDomainBinding.status
+                    == BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+                    3,
+                ),
+                (
+                    BillingDomainBinding.status
+                    == BILLING_DOMAIN_BINDING_STATUS_DISABLED,
+                    4,
+                ),
+                else_=9,
+            ),
+            BillingDomainBinding.updated_at.desc(),
+            BillingDomainBinding.id.desc(),
+        )
+
+        total = query.order_by(None).count()
+        if total == 0:
+            return {
+                "items": [],
+                "page": safe_page_index,
+                "page_count": 0,
+                "page_size": safe_page_size,
+                "total": 0,
+            }
+
+        page_count = (total + safe_page_size - 1) // safe_page_size
+        resolved_page = min(safe_page_index, max(page_count, 1))
+        offset = (resolved_page - 1) * safe_page_size
+        rows = query.offset(offset).limit(safe_page_size).all()
+        entitlement_flags = {
+            candidate_creator_bid: bool(
+                resolve_creator_entitlement_state(candidate_creator_bid).get(
+                    "custom_domain_enabled",
+                )
+            )
+            for candidate_creator_bid in {
+                _normalize_bid(row.creator_bid) for row in rows if row.creator_bid
+            }
+        }
+        return {
+            "items": [
+                _serialize_admin_domain_binding(
+                    app,
+                    row,
+                    custom_domain_enabled=entitlement_flags.get(
+                        _normalize_bid(row.creator_bid),
+                        False,
+                    ),
+                    timezone_name=timezone_name,
+                )
+                for row in rows
+            ],
+            "page": resolved_page,
+            "page_count": page_count,
+            "page_size": safe_page_size,
+            "total": total,
+        }
+
+
 def build_admin_billing_orders_page(
     app: Flask,
     *,
@@ -639,6 +781,123 @@ def build_admin_billing_orders_page(
             page_index=safe_page_index,
             page_size=safe_page_size,
             serializer=lambda row: _serialize_admin_order_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
+            ),
+        )
+
+
+def build_admin_billing_daily_usage_metrics_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    stat_date_from: str = "",
+    stat_date_to: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated cross-creator daily usage rows for admin reporting."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_stat_date_from = _normalize_stat_date_filter(
+        stat_date_from,
+        parameter_name="date_from",
+    )
+    normalized_stat_date_to = _normalize_stat_date_filter(
+        stat_date_to,
+        parameter_name="date_to",
+    )
+
+    with app.app_context():
+        query = BillingDailyUsageMetric.query.filter(
+            BillingDailyUsageMetric.deleted == 0
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                BillingDailyUsageMetric.creator_bid == normalized_creator_bid,
+            )
+        if normalized_stat_date_from:
+            query = query.filter(
+                BillingDailyUsageMetric.stat_date >= normalized_stat_date_from
+            )
+        if normalized_stat_date_to:
+            query = query.filter(
+                BillingDailyUsageMetric.stat_date <= normalized_stat_date_to
+            )
+
+        query = query.order_by(
+            BillingDailyUsageMetric.stat_date.desc(),
+            BillingDailyUsageMetric.creator_bid.asc(),
+            BillingDailyUsageMetric.consumed_credits.desc(),
+            BillingDailyUsageMetric.raw_amount.desc(),
+            BillingDailyUsageMetric.id.desc(),
+        )
+        return _build_page_payload(
+            query,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+            serializer=lambda row: _serialize_admin_daily_usage_metric(
+                app,
+                row,
+                timezone_name=timezone_name,
+            ),
+        )
+
+
+def build_admin_billing_daily_ledger_summary_page(
+    app: Flask,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    creator_bid: str = "",
+    stat_date_from: str = "",
+    stat_date_to: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated cross-creator daily ledger rows for admin reporting."""
+
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_stat_date_from = _normalize_stat_date_filter(
+        stat_date_from,
+        parameter_name="date_from",
+    )
+    normalized_stat_date_to = _normalize_stat_date_filter(
+        stat_date_to,
+        parameter_name="date_to",
+    )
+
+    with app.app_context():
+        query = BillingDailyLedgerSummary.query.filter(
+            BillingDailyLedgerSummary.deleted == 0,
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                BillingDailyLedgerSummary.creator_bid == normalized_creator_bid,
+            )
+        if normalized_stat_date_from:
+            query = query.filter(
+                BillingDailyLedgerSummary.stat_date >= normalized_stat_date_from
+            )
+        if normalized_stat_date_to:
+            query = query.filter(
+                BillingDailyLedgerSummary.stat_date <= normalized_stat_date_to
+            )
+
+        query = query.order_by(
+            BillingDailyLedgerSummary.stat_date.desc(),
+            BillingDailyLedgerSummary.creator_bid.asc(),
+            BillingDailyLedgerSummary.entry_count.desc(),
+            BillingDailyLedgerSummary.id.desc(),
+        )
+        return _build_page_payload(
+            query,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+            serializer=lambda row: _serialize_admin_daily_ledger_summary(
                 app,
                 row,
                 timezone_name=timezone_name,
@@ -3255,6 +3514,36 @@ def _load_latest_renewal_event_map(
     return payload
 
 
+def _load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if normalized_creator_bid:
+        return [normalized_creator_bid]
+
+    creator_bids: set[str] = set()
+    creator_columns = (
+        (BillingEntitlement, BillingEntitlement.creator_bid),
+        (BillingSubscription, BillingSubscription.creator_bid),
+        (BillingOrder, BillingOrder.creator_bid),
+        (BillingDomainBinding, BillingDomainBinding.creator_bid),
+        (CreditWallet, CreditWallet.creator_bid),
+        (BillingDailyUsageMetric, BillingDailyUsageMetric.creator_bid),
+        (BillingDailyLedgerSummary, BillingDailyLedgerSummary.creator_bid),
+    )
+    for model, column in creator_columns:
+        rows = (
+            db.session.query(column)
+            .filter(model.deleted == 0, column != "")
+            .distinct()
+            .all()
+        )
+        creator_bids.update(
+            normalized
+            for normalized in (_normalize_bid(row[0]) for row in rows)
+            if normalized
+        )
+    return sorted(creator_bids)
+
+
 def _serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
@@ -3562,6 +3851,123 @@ def _serialize_daily_ledger_summary(
     }
 
 
+def _serialize_admin_entitlement_state(
+    app: Flask,
+    state: dict[str, Any],
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "creator_bid": _normalize_bid(state.get("creator_bid")),
+        "source_kind": str(state.get("source_kind") or "default"),
+        "source_type": str(state.get("source_type") or ""),
+        "source_bid": _normalize_bid(state.get("source_bid")),
+        "product_bid": _normalize_bid(state.get("product_bid")),
+        "branding_enabled": bool(state.get("branding_enabled")),
+        "custom_domain_enabled": bool(state.get("custom_domain_enabled")),
+        "priority_class": str(state.get("priority_class") or "standard"),
+        "max_concurrency": max(int(state.get("max_concurrency") or 1), 1),
+        "analytics_tier": str(state.get("analytics_tier") or "basic"),
+        "support_tier": str(state.get("support_tier") or "self_serve"),
+        "effective_from": _serialize_dt(
+            app,
+            state.get("effective_from"),
+            timezone_name=timezone_name,
+        ),
+        "effective_to": _serialize_dt(
+            app,
+            state.get("effective_to"),
+            timezone_name=timezone_name,
+        ),
+        "feature_payload": _normalize_json_value(state.get("feature_payload")) or {},
+    }
+
+
+def _serialize_admin_domain_binding(
+    app: Flask,
+    row: BillingDomainBinding,
+    *,
+    custom_domain_enabled: bool = False,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    metadata = _normalize_json_value(row.metadata_json) or {}
+    verification_record_name = str(
+        metadata.get("verification_record_name") or f"_ai-shifu.{row.host}"
+    )
+    verification_record_value = str(
+        metadata.get("verification_record_value") or row.verification_token or ""
+    )
+    is_effective = bool(
+        custom_domain_enabled and row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+    )
+    return {
+        "domain_binding_bid": row.domain_binding_bid,
+        "creator_bid": row.creator_bid,
+        "host": row.host,
+        "status": BILLING_DOMAIN_BINDING_STATUS_LABELS.get(row.status, "pending"),
+        "verification_method": BILLING_DOMAIN_VERIFICATION_METHOD_LABELS.get(
+            row.verification_method,
+            "dns_txt",
+        ),
+        "verification_token": row.verification_token,
+        "verification_record_name": verification_record_name,
+        "verification_record_value": verification_record_value,
+        "last_verified_at": _serialize_dt(
+            app,
+            row.last_verified_at,
+            timezone_name=timezone_name,
+        ),
+        "ssl_status": BILLING_DOMAIN_SSL_STATUS_LABELS.get(
+            row.ssl_status,
+            "not_requested",
+        ),
+        "is_effective": is_effective,
+        "custom_domain_enabled": custom_domain_enabled,
+        "has_attention": bool(
+            row.status
+            in {
+                BILLING_DOMAIN_BINDING_STATUS_PENDING,
+                BILLING_DOMAIN_BINDING_STATUS_FAILED,
+            }
+            or (
+                row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+                and not custom_domain_enabled
+            )
+        ),
+        "metadata": metadata,
+    }
+
+
+def _serialize_admin_daily_usage_metric(
+    app: Flask,
+    row: BillingDailyUsageMetric,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    payload = _serialize_daily_usage_metric(
+        app,
+        row,
+        timezone_name=timezone_name,
+    )
+    payload["creator_bid"] = row.creator_bid
+    return payload
+
+
+def _serialize_admin_daily_ledger_summary(
+    app: Flask,
+    row: BillingDailyLedgerSummary,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    payload = _serialize_daily_ledger_summary(
+        app,
+        row,
+        timezone_name=timezone_name,
+    )
+    payload["creator_bid"] = row.creator_bid
+    return payload
+
+
 def _serialize_order_summary(
     app: Flask,
     row: BillingOrder,
@@ -3661,6 +4067,15 @@ def _resolve_order_status_filter(value: str) -> int | None:
     return _ORDER_STATUS_CODES_BY_LABEL[normalized_value]
 
 
+def _resolve_domain_binding_status_filter(value: str) -> int | None:
+    normalized_value = _normalize_bid(value)
+    if not normalized_value:
+        return None
+    if normalized_value not in _DOMAIN_BINDING_STATUS_CODES_BY_LABEL:
+        raise_param_error("status")
+    return _DOMAIN_BINDING_STATUS_CODES_BY_LABEL[normalized_value]
+
+
 def _build_page_payload(
     query, *, page_index: int, page_size: int, serializer
 ) -> dict[str, Any]:
@@ -3680,6 +4095,34 @@ def _build_page_payload(
     rows = query.offset(offset).limit(page_size).all()
     return {
         "items": [serializer(row) for row in rows],
+        "page": resolved_page,
+        "page_count": page_count,
+        "page_size": page_size,
+        "total": total,
+    }
+
+
+def _build_list_page_payload(
+    items: list[dict[str, Any]],
+    *,
+    page_index: int,
+    page_size: int,
+) -> dict[str, Any]:
+    total = len(items)
+    if total == 0:
+        return {
+            "items": [],
+            "page": page_index,
+            "page_count": 0,
+            "page_size": page_size,
+            "total": 0,
+        }
+
+    page_count = (total + page_size - 1) // page_size
+    resolved_page = min(page_index, max(page_count, 1))
+    offset = (resolved_page - 1) * page_size
+    return {
+        "items": items[offset : offset + page_size],
         "page": resolved_page,
         "page_count": page_count,
         "page_size": page_size,

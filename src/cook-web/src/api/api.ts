@@ -137,7 +137,11 @@ const api = {
   // billing admin api
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
   getAdminBillingOrders: 'GET /admin/billing/orders',
+  getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
   getAdminBillingDomainBindings: 'GET /admin/billing/domain-bindings',
+  getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
+  getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
+  getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
   bindAdminBillingDomain: 'POST /admin/billing/domains/bind',
   adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };

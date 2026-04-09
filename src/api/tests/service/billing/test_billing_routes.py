@@ -539,6 +539,22 @@ class TestBillingRoutes:
             "method": "POST",
             "path": "/api/billing/orders/{billing_order_bid}/sync",
         } in payload["data"]["creator_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/entitlements",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/domain-audits",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/reports/usage-daily",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/reports/ledger-daily",
+        } in payload["data"]["admin_routes"]
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
         self, billing_test_client
@@ -660,6 +676,93 @@ class TestBillingRoutes:
         assert ledger_payload["data"]["total"] == 1
         assert ledger_payload["data"]["items"] == [
             {
+                "daily_ledger_summary_bid": "daily-ledger-1",
+                "stat_date": "2026-04-06",
+                "entry_type": "consume",
+                "source_type": "usage",
+                "amount": -4.5,
+                "entry_count": 3,
+                "window_started_at": "2026-04-06T00:00:00+00:00",
+                "window_ended_at": "2026-04-07T00:00:00+00:00",
+            }
+        ]
+
+    def test_admin_entitlements_and_reports_routes_return_cross_creator_rows(
+        self, billing_test_client
+    ) -> None:
+        entitlements_response = billing_test_client.get(
+            "/api/admin/billing/entitlements?page_index=1&page_size=10"
+        )
+        usage_response = billing_test_client.get(
+            "/api/admin/billing/reports/usage-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06"
+        )
+        ledger_response = billing_test_client.get(
+            "/api/admin/billing/reports/ledger-daily?page_index=1&page_size=10&creator_bid=creator-1&date_from=2026-04-06"
+        )
+
+        entitlements_payload = entitlements_response.get_json(force=True)
+        usage_payload = usage_response.get_json(force=True)
+        ledger_payload = ledger_response.get_json(force=True)
+
+        assert entitlements_payload["code"] == 0
+        assert entitlements_payload["data"]["total"] == 3
+        assert entitlements_payload["data"]["items"][0] == {
+            "creator_bid": "creator-1",
+            "source_kind": "snapshot",
+            "source_type": "subscription",
+            "source_bid": "sub-1",
+            "product_bid": "",
+            "branding_enabled": True,
+            "custom_domain_enabled": True,
+            "priority_class": "priority",
+            "max_concurrency": 3,
+            "analytics_tier": "advanced",
+            "support_tier": "business_hours",
+            "effective_from": "2026-04-01T00:00:00+00:00",
+            "effective_to": None,
+            "feature_payload": {"custom_css": True},
+        }
+        assert entitlements_payload["data"]["items"][2] == {
+            "creator_bid": "creator-3",
+            "source_kind": "product_payload",
+            "source_type": "subscription",
+            "source_bid": "sub-creator-3",
+            "product_bid": "billing-product-plan-yearly",
+            "branding_enabled": True,
+            "custom_domain_enabled": True,
+            "priority_class": "vip",
+            "max_concurrency": 8,
+            "analytics_tier": "enterprise",
+            "support_tier": "priority",
+            "effective_from": "2026-04-01T00:00:00+00:00",
+            "effective_to": "2026-05-01T00:00:00+00:00",
+            "feature_payload": {"beta_reports": True},
+        }
+
+        assert usage_payload["code"] == 0
+        assert usage_payload["data"]["items"] == [
+            {
+                "creator_bid": "creator-1",
+                "daily_usage_metric_bid": "daily-usage-1",
+                "stat_date": "2026-04-06",
+                "shifu_bid": "shifu-1",
+                "usage_scene": "production",
+                "usage_type": "llm",
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "billing_metric": "llm_output_tokens",
+                "raw_amount": 1234,
+                "record_count": 3,
+                "consumed_credits": 4.5,
+                "window_started_at": "2026-04-06T00:00:00+00:00",
+                "window_ended_at": "2026-04-07T00:00:00+00:00",
+            }
+        ]
+
+        assert ledger_payload["code"] == 0
+        assert ledger_payload["data"]["items"] == [
+            {
+                "creator_bid": "creator-1",
                 "daily_ledger_summary_bid": "daily-ledger-1",
                 "stat_date": "2026-04-06",
                 "entry_type": "consume",

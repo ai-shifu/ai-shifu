@@ -3,6 +3,7 @@ import type {
   BillingBucketSourceType,
   BillingBucketStatus,
   BillingLedgerEntryType,
+  BillingMetricName,
   BillingPaymentMode,
   BillingOrderStatus,
   BillingOrderType,
@@ -15,6 +16,7 @@ import type {
   BillingSubscriptionStatus,
   BillingTopupProduct,
   BillingUsageScene,
+  BillingUsageType,
 } from '@/types/billing';
 
 type BillingTranslator = (
@@ -282,6 +284,38 @@ export function resolveBillingUsageSceneLabel(
     return '';
   }
   return t(BILLING_USAGE_SCENE_KEYS[scene]);
+}
+
+export function resolveBillingUsageTypeLabel(
+  t: BillingTranslator,
+  usageType: BillingUsageType,
+): string {
+  switch (usageType) {
+    case 'tts':
+      return t('module.billing.reports.usageType.tts');
+    default:
+      return t('module.billing.reports.usageType.llm');
+  }
+}
+
+export function resolveBillingMetricLabel(
+  t: BillingTranslator,
+  metric: BillingMetricName,
+): string {
+  switch (metric) {
+    case 'llm_input_tokens':
+      return t('module.billing.reports.metric.llmInputTokens');
+    case 'llm_cache_tokens':
+      return t('module.billing.reports.metric.llmCacheTokens');
+    case 'tts_request_count':
+      return t('module.billing.reports.metric.ttsRequestCount');
+    case 'tts_output_chars':
+      return t('module.billing.reports.metric.ttsOutputChars');
+    case 'tts_input_chars':
+      return t('module.billing.reports.metric.ttsInputChars');
+    default:
+      return t('module.billing.reports.metric.llmOutputTokens');
+  }
 }
 
 export function resolveBillingOrderStatusLabel(
@@ -605,6 +639,19 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.reports.usageType.llm'),
     t('module.billing.reports.usageType.tts'),
     t('module.billing.admin.attention'),
+    t('module.billing.admin.domains.description'),
+    t('module.billing.admin.domains.empty'),
+    t('module.billing.admin.domains.loadError'),
+    t('module.billing.admin.domains.table.creator'),
+    t('module.billing.admin.domains.table.effective'),
+    t('module.billing.admin.domains.table.entitlement'),
+    t('module.billing.admin.domains.table.host'),
+    t('module.billing.admin.domains.table.lastVerified'),
+    t('module.billing.admin.domains.table.ssl'),
+    t('module.billing.admin.domains.table.status'),
+    t('module.billing.admin.domains.title'),
+    t('module.billing.admin.domains.values.effective'),
+    t('module.billing.admin.domains.values.inactive'),
     t('module.billing.admin.adjust.cancel'),
     t('module.billing.admin.adjust.description'),
     t('module.billing.admin.adjust.errors.amountInvalid'),
@@ -622,9 +669,27 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.adjust.submitting'),
     t('module.billing.admin.adjust.success'),
     t('module.billing.admin.backToCreatorBilling'),
+    t('module.billing.admin.entitlements.description'),
+    t('module.billing.admin.entitlements.empty'),
+    t('module.billing.admin.entitlements.loadError'),
+    t('module.billing.admin.entitlements.source.default'),
+    t('module.billing.admin.entitlements.source.productPayload'),
+    t('module.billing.admin.entitlements.source.snapshot'),
+    t('module.billing.admin.entitlements.table.analytics'),
+    t('module.billing.admin.entitlements.table.concurrency'),
+    t('module.billing.admin.entitlements.table.creator'),
+    t('module.billing.admin.entitlements.table.features'),
+    t('module.billing.admin.entitlements.table.priority'),
+    t('module.billing.admin.entitlements.table.source'),
+    t('module.billing.admin.entitlements.table.support'),
+    t('module.billing.admin.entitlements.table.window'),
+    t('module.billing.admin.entitlements.title'),
     t('module.billing.admin.subtitle'),
     t('module.billing.admin.tabs.exceptions'),
+    t('module.billing.admin.tabs.domains'),
+    t('module.billing.admin.tabs.entitlements'),
     t('module.billing.admin.tabs.orders'),
+    t('module.billing.admin.tabs.reports'),
     t('module.billing.admin.tabs.subscriptions'),
     t('module.billing.admin.title'),
     t('module.billing.admin.pagination.page'),
@@ -652,6 +717,13 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.orders.table.provider'),
     t('module.billing.admin.orders.table.status'),
     t('module.billing.admin.orders.title'),
+    t('module.billing.admin.reports.description'),
+    t('module.billing.admin.reports.sections.ledger.description'),
+    t('module.billing.admin.reports.sections.ledger.title'),
+    t('module.billing.admin.reports.sections.usage.description'),
+    t('module.billing.admin.reports.sections.usage.title'),
+    t('module.billing.admin.reports.table.creator'),
+    t('module.billing.admin.reports.title'),
     t('module.billing.admin.exceptions.description'),
     t('module.billing.admin.exceptions.empty'),
     t('module.billing.admin.exceptions.fields.amount'),

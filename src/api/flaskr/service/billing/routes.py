@@ -9,8 +9,12 @@ from flask import Flask, request
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.billing.funcs import (
     adjust_admin_billing_ledger,
+    build_admin_billing_daily_ledger_summary_page,
+    build_admin_billing_daily_usage_metrics_page,
+    build_admin_billing_domain_audits_page,
     bind_admin_billing_domain,
     cancel_billing_subscription,
+    build_admin_billing_entitlements_page,
     build_admin_billing_orders_page,
     build_admin_billing_domain_bindings,
     build_admin_billing_subscriptions_page,
@@ -285,6 +289,21 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(admin_path_prefix + "/domain-audits", methods=["GET"])
+    def admin_billing_domain_audits_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_domain_audits_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
+                status=_get_optional_query_arg("status"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
     @app.route(admin_path_prefix + "/domains/bind", methods=["POST"])
     def admin_billing_domain_bind_api():
         _require_creator()
@@ -293,6 +312,20 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 creator_bid=_get_creator_bid(),
                 payload=request.get_json(silent=True) or {},
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/entitlements", methods=["GET"])
+    def admin_billing_entitlements_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_entitlements_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
                 timezone_name=_get_timezone_name(),
             )
         )
@@ -308,6 +341,38 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/reports/usage-daily", methods=["GET"])
+    def admin_billing_daily_usage_reports_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_daily_usage_metrics_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
+                stat_date_from=_get_optional_query_arg("date_from"),
+                stat_date_to=_get_optional_query_arg("date_to"),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/reports/ledger-daily", methods=["GET"])
+    def admin_billing_daily_ledger_reports_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_admin_billing_daily_ledger_summary_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_bid=_get_optional_query_arg("creator_bid"),
+                stat_date_from=_get_optional_query_arg("date_from"),
+                stat_date_to=_get_optional_query_arg("date_to"),
                 timezone_name=_get_timezone_name(),
             )
         )

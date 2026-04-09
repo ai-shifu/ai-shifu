@@ -174,6 +174,19 @@ class TestBillingDomains:
             "status": "pending",
         }.items() <= list_payload["data"]["items"][1].items()
 
+        audit_response = client.get(
+            "/api/admin/billing/domain-audits?page_index=1&page_size=10"
+        )
+        audit_payload = audit_response.get_json(force=True)
+
+        assert audit_payload["code"] == 0
+        assert audit_payload["data"]["total"] == 3
+        assert audit_payload["data"]["items"][0]["host"] == "courses.example.com"
+        assert audit_payload["data"]["items"][0]["status"] == "pending"
+        assert audit_payload["data"]["items"][0]["creator_bid"] == "creator-1"
+        assert audit_payload["data"]["items"][0]["custom_domain_enabled"] is True
+        assert audit_payload["data"]["items"][0]["has_attention"] is True
+
     def test_admin_billing_domains_bind_requires_entitlement_and_prevents_conflict(
         self, billing_domain_client
     ) -> None:

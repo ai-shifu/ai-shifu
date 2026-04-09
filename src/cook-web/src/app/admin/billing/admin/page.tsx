@@ -7,8 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
 import { AdminBillingAdjustDialog } from '@/components/billing/AdminBillingAdjustDialog';
+import { AdminBillingDomainsTable } from '@/components/billing/AdminBillingDomainsTable';
+import { AdminBillingEntitlementsTable } from '@/components/billing/AdminBillingEntitlementsTable';
 import { AdminBillingExceptionsPanel } from '@/components/billing/AdminBillingExceptionsPanel';
 import { AdminBillingOrdersTable } from '@/components/billing/AdminBillingOrdersTable';
+import { AdminBillingReportsPanel } from '@/components/billing/AdminBillingReportsPanel';
 import { AdminBillingSubscriptionsTable } from '@/components/billing/AdminBillingSubscriptionsTable';
 
 export default function AdminBillingConsolePage() {
@@ -74,6 +77,15 @@ export default function AdminBillingConsolePage() {
             <TabsTrigger value='exceptions'>
               {t('module.billing.admin.tabs.exceptions')}
             </TabsTrigger>
+            <TabsTrigger value='entitlements'>
+              {t('module.billing.admin.tabs.entitlements')}
+            </TabsTrigger>
+            <TabsTrigger value='domains'>
+              {t('module.billing.admin.tabs.domains')}
+            </TabsTrigger>
+            <TabsTrigger value='reports'>
+              {t('module.billing.admin.tabs.reports')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent
@@ -97,6 +109,27 @@ export default function AdminBillingConsolePage() {
             <AdminBillingExceptionsPanel
               onAdjustCreatorBid={handleOpenAdjustDialog}
             />
+          </TabsContent>
+
+          <TabsContent
+            value='entitlements'
+            className='space-y-4'
+          >
+            <AdminBillingEntitlementsTable />
+          </TabsContent>
+
+          <TabsContent
+            value='domains'
+            className='space-y-4'
+          >
+            <AdminBillingDomainsTable />
+          </TabsContent>
+
+          <TabsContent
+            value='reports'
+            className='space-y-4'
+          >
+            <AdminBillingReportsPanel />
           </TabsContent>
         </Tabs>
       </div>

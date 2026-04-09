@@ -30,6 +30,46 @@
     },
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
+    "domains": {
+      "description": "Audit creator custom domains, inspect entitlement gates, and spot hosts that still need follow-up.",
+      "empty": "No custom domain bindings yet.",
+      "loadError": "Admin domain audit data could not be loaded.",
+      "table": {
+        "creator": "Creator",
+        "effective": "Effective",
+        "entitlement": "Domain entitlement",
+        "host": "Host",
+        "lastVerified": "Last verified",
+        "ssl": "SSL",
+        "status": "Status"
+      },
+      "title": "Domain Audits",
+      "values": {
+        "effective": "Effective",
+        "inactive": "Inactive"
+      }
+    },
+    "entitlements": {
+      "description": "Review the effective entitlement snapshot resolved for each creator workspace.",
+      "empty": "No entitlement snapshots yet.",
+      "loadError": "Admin entitlement data could not be loaded.",
+      "source": {
+        "default": "Default fallback",
+        "productPayload": "Product payload",
+        "snapshot": "Stored snapshot"
+      },
+      "table": {
+        "analytics": "Analytics tier",
+        "concurrency": "Max concurrency",
+        "creator": "Creator",
+        "features": "Features",
+        "priority": "Priority class",
+        "source": "Source",
+        "support": "Support tier",
+        "window": "Effective window"
+      },
+      "title": "Entitlements"
+    },
     "exceptions": {
       "description": "Focus on the subscriptions and orders that still need manual follow-up.",
       "empty": "No billing exceptions right now.",
@@ -65,6 +105,23 @@
     "pagination": {
       "page": "Page {{page}} / {{pageCount}} · {{total}} records"
     },
+    "reports": {
+      "description": "Inspect cross-creator usage and ledger rollups without leaving the operations console.",
+      "sections": {
+        "ledger": {
+          "description": "Cross-creator ledger movement by day, source, and entry type.",
+          "title": "Ledger Rollups"
+        },
+        "usage": {
+          "description": "Cross-creator usage cost rollups by creator, shifu, scene, and metric.",
+          "title": "Usage Rollups"
+        }
+      },
+      "table": {
+        "creator": "Creator"
+      },
+      "title": "Reports"
+    },
     "subscriptions": {
       "description": "Inspect creator subscriptions, wallet balances, and renewal context.",
       "empty": "No subscriptions yet.",
@@ -84,8 +141,11 @@
     },
     "subtitle": "Operations view for subscriptions, failed payments, and billing exceptions.",
     "tabs": {
+      "domains": "Domains",
+      "entitlements": "Entitlements",
       "exceptions": "Exceptions",
       "orders": "Orders",
+      "reports": "Reports",
       "subscriptions": "Subscriptions"
     },
     "title": "Billing Ops"
