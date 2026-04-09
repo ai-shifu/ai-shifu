@@ -175,6 +175,18 @@ Recommended first version:
 - backfill the last `N` days on every run
 - suggested `N = 3`
 
+#### Canonical timezone
+
+Recommended first version:
+
+- use `UTC` as the single canonical timezone for the sync job
+- convert Umami event timestamps into UTC before deriving `stat_date`
+- use the same UTC basis when calculating:
+  - the `last N days` sync backfill window
+  - the `last 30 days` snapshot window
+- keep `window_start_date`, `window_end_date`, and `stat_date` all defined in
+  UTC so daily buckets stay stable across environments and timezone changes
+
 This makes late-arriving analytics updates less risky.
 
 #### Job responsibilities

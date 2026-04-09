@@ -126,6 +126,35 @@ const loadStoredChapterColumnWidthOverrides =
     }
   };
 
+const persistManualChapterColumnWidths = (
+  chapterColumnWidths: ChapterColumnWidthState,
+  manualResizeMap: Record<ChapterColumnKey, boolean>,
+): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    const manualOverrides = CHAPTER_COLUMN_KEYS.reduce<
+      Partial<ChapterColumnWidthState>
+    >((acc, key) => {
+      if (manualResizeMap[key]) {
+        acc[key] = chapterColumnWidths[key];
+      }
+      return acc;
+    }, {});
+    if (Object.keys(manualOverrides).length === 0) {
+      window.localStorage.removeItem(CHAPTER_COLUMN_WIDTH_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(
+      CHAPTER_COLUMN_WIDTH_STORAGE_KEY,
+      JSON.stringify(manualOverrides),
+    );
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
 const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
   basic_info: {
     shifu_bid: '',
@@ -298,6 +327,7 @@ export default function AdminOperationCourseDetailPage() {
     useState<ChapterColumnWidthState>(() =>
       createChapterColumnWidthState(storedChapterManualWidthsRef.current),
     );
+  const chapterColumnWidthsRef = useRef(chapterColumnWidths);
   const chapterColumnResizeRef = useRef<{
     key: ChapterColumnKey;
     startX: number;
@@ -351,6 +381,10 @@ export default function AdminOperationCourseDetailPage() {
     }
     fetchDetail();
   }, [fetchDetail, isReady]);
+
+  useEffect(() => {
+    chapterColumnWidthsRef.current = chapterColumnWidths;
+  }, [chapterColumnWidths]);
 
   const formatUnknownEnumLabel = useCallback(
     (labelKey: string, rawValue?: string) => {
@@ -412,6 +446,19 @@ export default function AdminOperationCourseDetailPage() {
         'detail.contentStatus.unknown',
         contentStatus,
       );
+    },
+    [formatUnknownEnumLabel, tOperations],
+  );
+
+  const resolveChapterTypeLabel = useCallback(
+    (nodeType?: string) => {
+      if (nodeType === 'chapter') {
+        return tOperations('detail.chapterType.chapter');
+      }
+      if (nodeType === 'lesson') {
+        return tOperations('detail.chapterType.lesson');
+      }
+      return formatUnknownEnumLabel('statusLabels.unknown', nodeType);
     },
     [formatUnknownEnumLabel, tOperations],
   );
@@ -651,35 +698,6 @@ export default function AdminOperationCourseDetailPage() {
     };
   }, [selectedChapter?.outline_item_bid, shifuBid, t]);
 
-  useEffect(() => {
-    const hasManualResize = Object.values(manualChapterResizeRef.current).some(
-      Boolean,
-    );
-    if (!hasManualResize || typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const manualOverrides = CHAPTER_COLUMN_KEYS.reduce<
-        Partial<ChapterColumnWidthState>
-      >((acc, key) => {
-        if (manualChapterResizeRef.current[key]) {
-          acc[key] = chapterColumnWidths[key];
-        }
-        return acc;
-      }, {});
-      if (Object.keys(manualOverrides).length === 0) {
-        window.localStorage.removeItem(CHAPTER_COLUMN_WIDTH_STORAGE_KEY);
-        return;
-      }
-      window.localStorage.setItem(
-        CHAPTER_COLUMN_WIDTH_STORAGE_KEY,
-        JSON.stringify(manualOverrides),
-      );
-    } catch {
-      // Ignore storage errors.
-    }
-  }, [chapterColumnWidths]);
-
   const startChapterColumnResize = useCallback(
     (key: ChapterColumnKey, clientX: number) => {
       chapterColumnResizeRef.current = {
@@ -709,6 +727,12 @@ export default function AdminOperationCourseDetailPage() {
     };
 
     const handleMouseUp = () => {
+      if (chapterColumnResizeRef.current) {
+        persistManualChapterColumnWidths(
+          chapterColumnWidthsRef.current,
+          manualChapterResizeRef.current,
+        );
+      }
       chapterColumnResizeRef.current = null;
     };
 
@@ -1135,11 +1159,7 @@ export default function AdminOperationCourseDetailPage() {
                                   variant='outline'
                                   className='shrink-0 rounded-full border-border/60 bg-background px-1.5 py-0 text-[10px] font-medium text-muted-foreground'
                                 >
-                                  {tOperations(
-                                    chapter.node_type === 'chapter'
-                                      ? 'detail.chapterType.chapter'
-                                      : 'detail.chapterType.lesson',
-                                  )}
+                                  {resolveChapterTypeLabel(chapter.node_type)}
                                 </Badge>
                                 <OverflowTooltipText
                                   text={chapter.title || emptyValue}

@@ -511,6 +511,81 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     ]
 
 
+def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-10",
+            title="Chapter 10",
+            position="10",
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-2",
+            title="Chapter 2",
+            position="2",
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-2",
+            position="2.2",
+            item_type=0,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-10",
+            title="Lesson 10",
+            parent_bid="chapter-2",
+            position="2.10",
+            item_type=UNIT_TYPE_VALUE_TRIAL,
+            updated_at=updated_at,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert [chapter["outline_item_bid"] for chapter in payload["data"]["chapters"]] == [
+        "chapter-2",
+        "chapter-10",
+    ]
+    assert [
+        lesson["outline_item_bid"]
+        for lesson in payload["data"]["chapters"][0]["children"]
+    ] == ["lesson-2", "lesson-10"]
+    assert payload["data"]["chapters"][0]["children"][0]["learning_permission"] == (
+        "unknown"
+    )
+
+
 @pytest.mark.parametrize(
     "path",
     [
@@ -762,4 +837,32 @@ def test_admin_operation_course_detail_route_rejects_missing_course(
     payload = response.get_json(force=True)
 
     assert response.status_code == 200
-    assert payload["code"] != 0
+    assert payload["code"] == 4008
+
+
+def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_item(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/chapters/missing-lesson/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 4009

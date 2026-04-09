@@ -262,4 +262,55 @@ describe('AdminOperationCourseDetailPage', () => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
     });
   });
+
+  test('surfaces unknown chapter type values instead of mislabeling them', async () => {
+    mockGetAdminOperationCourseDetail.mockResolvedValue({
+      basic_info: {
+        shifu_bid: 'course-1',
+        course_name: 'Course One',
+        course_status: 'published',
+        creator_user_bid: 'creator-1',
+        creator_mobile: '13800001234',
+        creator_email: '',
+        creator_nickname: 'Alice',
+        created_at: '2026-04-08 10:00:00',
+        updated_at: '2026-04-08 11:00:00',
+      },
+      metrics: {
+        learner_count: 12,
+        order_count: 4,
+        order_amount: '88',
+        follow_up_count: 9,
+        rating_score: '4.2',
+      },
+      chapters: [
+        {
+          outline_item_bid: 'chapter-1',
+          title: 'Chapter 1',
+          parent_bid: '',
+          position: '1',
+          node_type: 'mystery',
+          learning_permission: 'guest',
+          is_visible: true,
+          content_status: 'empty',
+          follow_up_count: 3,
+          rating_count: 2,
+          modifier_user_bid: 'creator-1',
+          modifier_mobile: '13800001234',
+          modifier_email: '',
+          modifier_nickname: 'Alice',
+          updated_at: '2026-04-08 11:00:00',
+          children: [],
+        },
+      ],
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.statusLabels.unknown (mystery)',
+      ),
+    ).toBeInTheDocument();
+  });
 });

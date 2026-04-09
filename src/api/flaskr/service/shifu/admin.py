@@ -613,9 +613,23 @@ def _load_latest_outline_items(model, shifu_bid: str):
         )
         .all()
     )
-    return sorted(
-        rows, key=lambda item: (len(item.position or ""), item.position or "")
-    )
+
+    def _position_key(item) -> tuple[tuple[int, int | str], ...]:
+        position = str(getattr(item, "position", "") or "").strip()
+        if not position:
+            return ()
+        key_parts: list[tuple[int, int | str]] = []
+        for part in position.split("."):
+            normalized_part = part.strip()
+            if not normalized_part:
+                continue
+            if normalized_part.isdigit():
+                key_parts.append((0, int(normalized_part)))
+            else:
+                key_parts.append((1, normalized_part))
+        return tuple(key_parts)
+
+    return sorted(rows, key=_position_key)
 
 
 def _resolve_learning_permission(item_type: Optional[int]) -> str:
@@ -625,7 +639,7 @@ def _resolve_learning_permission(item_type: Optional[int]) -> str:
         return "free"
     if item_type == UNIT_TYPE_VALUE_NORMAL:
         return "paid"
-    return "paid"
+    return "unknown"
 
 
 def _resolve_content_status(item) -> str:
@@ -795,8 +809,6 @@ def _load_operator_course_outline_items(
 ) -> tuple[dict[str, object], list[DraftOutlineItem | PublishedOutlineItem]]:
     detail_source = _load_operator_course_detail_source(shifu_bid)
     if detail_source is None:
-        from flaskr.service.common.models import raise_error
-
         raise_error("server.shifu.shifuNotFound")
 
     outline_model = detail_source["outline_model"]
@@ -822,9 +834,6 @@ def get_operator_course_detail(
         course_status = detail_source["course_status"]
 
         creator_user_bid = str(course.created_user_bid or "").strip()
-        creator_map = _load_user_map([creator_user_bid] if creator_user_bid else [])
-        creator = creator_map.get(creator_user_bid, {})
-
         learner_count = (
             db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
             .filter(
@@ -879,7 +888,7 @@ def get_operator_course_detail(
             if str(user_bid or "").strip()
         }
         detail_user_map = _load_user_map(sorted(detail_user_bids))
-        creator = detail_user_map.get(creator_user_bid, creator)
+        creator = detail_user_map.get(creator_user_bid, {})
         outline_learning_stats = _load_outline_learning_stats(
             normalized_shifu_bid,
             [
@@ -926,8 +935,6 @@ def get_operator_course_chapter_detail(
     outline_item_bid: str,
 ) -> AdminOperationCourseChapterDetailDTO:
     with app.app_context():
-        from flaskr.service.common.models import raise_error
-
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()
         if not normalized_shifu_bid:
@@ -944,15 +951,7 @@ def get_operator_course_chapter_detail(
             for item in outline_items
             if str(item.outline_item_bid or "").strip()
         }
-        outline_item = next(
-            (
-                item
-                for item in outline_items
-                if str(item.outline_item_bid or "").strip()
-                == normalized_outline_item_bid
-            ),
-            None,
-        )
+        outline_item = outline_item_map.get(normalized_outline_item_bid)
         if outline_item is None:
             raise_error("server.shifu.outlineItemNotFound")
 
