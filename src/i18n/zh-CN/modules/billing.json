@@ -165,8 +165,80 @@
     "empty": "暂无"
   },
   "domains": {
-    "description": "域名路由、校验状态和品牌配置会在下一步接入到这个工作区页签中。",
-    "title": "域名与品牌"
+    "actions": {
+      "bind": "绑定域名",
+      "binding": "绑定中...",
+      "disable": "停用",
+      "disabling": "停用中...",
+      "loadError": "域名设置读取失败，请刷新后重试。",
+      "verify": "立即校验",
+      "verifying": "校验中..."
+    },
+    "branding": {
+      "description": "查看当前已经进入 runtime-config 的品牌配置快照。真正的品牌素材来源仍由权益 payload 决定。",
+      "disabled": "品牌能力未开启",
+      "enabled": "品牌能力已生效",
+      "fields": {
+        "favicon": "Favicon 地址",
+        "homeUrl": "首页地址",
+        "logoSquare": "方形 Logo",
+        "logoWide": "横版 Logo"
+      },
+      "runtimeNote": "这里展示的是当前 runtime-config 实际生效的品牌值，创作者后台和学员入口都会复用这组结果。",
+      "title": "品牌配置快照"
+    },
+    "description": "在创作者账务中心里管理当前生效的品牌快照和自定义域名绑定。",
+    "feedback": {
+      "bind": "域名绑定已更新。",
+      "disable": "域名绑定已停用。",
+      "verify": "域名校验结果已刷新。"
+    },
+    "form": {
+      "capabilityBlocked": "当前套餐还不支持自定义域名，请先升级权益后再绑定。",
+      "errors": {
+        "hostRequired": "请先输入要绑定的域名。"
+      },
+      "hostHelp": "只填写 host 即可，例如 creator.example.com。后端会在保存前统一做规范化处理。",
+      "hostLabel": "自定义域名 Host",
+      "hostPlaceholder": "creator.example.com"
+    },
+    "records": {
+      "description": "查看每条绑定记录、TXT 校验值，以及当前真正生效的域名。",
+      "effective": "当前生效",
+      "empty": "当前还没有域名绑定，先绑定一个 host 后会生成校验记录。",
+      "fields": {
+        "lastVerified": "最近校验时间",
+        "method": "校验方式",
+        "recordName": "TXT 记录名",
+        "recordValue": "TXT 记录值"
+      },
+      "neverVerified": "尚未校验",
+      "title": "绑定记录",
+      "verificationError": "校验失败：{{code}}"
+    },
+    "settings": {
+      "description": "在账务中心直接完成域名绑定、校验和停用，不再跳到其它配置页。",
+      "disabled": "自定义域名未开启",
+      "effectiveDomain": "当前生效域名：{{host}}",
+      "enabled": "自定义域名已开启",
+      "noEffectiveDomain": "当前还没有已生效的校验域名。",
+      "title": "域名设置"
+    },
+    "ssl": {
+      "issued": "SSL 已签发",
+      "not_requested": "SSL 未申请",
+      "pending": "SSL 处理中"
+    },
+    "status": {
+      "disabled": "已停用",
+      "failed": "校验失败",
+      "pending": "待校验",
+      "verified": "已校验"
+    },
+    "title": "域名与品牌",
+    "verificationMethod": {
+      "dns_txt": "DNS TXT"
+    }
   },
   "entitlements": {
     "description": "套餐派生的运行时能力、支持等级、分析等级和并发限制会在这里统一展示。",

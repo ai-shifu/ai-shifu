@@ -19,10 +19,13 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    bindAdminBillingDomain: jest.fn(),
     getBillingCatalog: jest.fn(),
+    getBillingEntitlements: jest.fn(),
     getBillingLedger: jest.fn(),
     getBillingOrders: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
+    getAdminBillingDomainBindings: jest.fn(),
   },
 }));
 
@@ -47,18 +50,25 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
+const mockBindAdminBillingDomain = api.bindAdminBillingDomain as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
+const mockGetBillingEntitlements = api.getBillingEntitlements as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
+const mockGetAdminBillingDomainBindings =
+  api.getAdminBillingDomainBindings as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
 describe('AdminBillingPage', () => {
   beforeEach(() => {
+    mockBindAdminBillingDomain.mockReset();
     mockGetBillingCatalog.mockReset();
+    mockGetBillingEntitlements.mockReset();
     mockGetBillingLedger.mockReset();
     mockGetBillingOrders.mockReset();
     mockGetBillingWalletBuckets.mockReset();
+    mockGetAdminBillingDomainBindings.mockReset();
     mockUseBillingOverview.mockReset();
 
     mockGetBillingCatalog.mockResolvedValue({
@@ -137,6 +147,51 @@ describe('AdminBillingPage', () => {
       page_count: 1,
       page_size: 10,
       total: 1,
+    });
+    mockGetBillingEntitlements.mockResolvedValue({
+      branding_enabled: true,
+      custom_domain_enabled: true,
+      priority_class: 'priority',
+      max_concurrency: 3,
+      analytics_tier: 'advanced',
+      support_tier: 'business_hours',
+    });
+    mockGetAdminBillingDomainBindings.mockResolvedValue({
+      creator_bid: 'creator-1',
+      custom_domain_enabled: true,
+      items: [
+        {
+          domain_binding_bid: 'domain-1',
+          creator_bid: 'creator-1',
+          host: 'creator.example.com',
+          status: 'verified',
+          verification_method: 'dns_txt',
+          verification_token: 'verify-token-1',
+          verification_record_name: '_ai-shifu.creator.example.com',
+          verification_record_value: 'verify-token-1',
+          last_verified_at: '2026-04-06T12:00:00Z',
+          ssl_status: 'issued',
+          is_effective: true,
+          metadata: {},
+        },
+      ],
+    });
+    mockBindAdminBillingDomain.mockResolvedValue({
+      action: 'bind',
+      binding: {
+        domain_binding_bid: 'domain-2',
+        creator_bid: 'creator-1',
+        host: 'new.example.com',
+        status: 'pending',
+        verification_method: 'dns_txt',
+        verification_token: 'verify-token-2',
+        verification_record_name: '_ai-shifu.new.example.com',
+        verification_record_value: 'verify-token-2',
+        last_verified_at: null,
+        ssl_status: 'not_requested',
+        is_effective: false,
+        metadata: {},
+      },
     });
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -238,10 +293,11 @@ describe('AdminBillingPage', () => {
     });
 
     expect(
-      screen.getByText('module.billing.domains.title'),
+      screen.getByText('module.billing.domains.branding.title'),
     ).toBeInTheDocument();
+    expect(await screen.findByText('creator.example.com')).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.domains.description'),
+      screen.getByText('module.billing.domains.settings.effectiveDomain'),
     ).toBeInTheDocument();
 
     await act(async () => {

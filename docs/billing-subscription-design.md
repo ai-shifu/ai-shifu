@@ -1199,15 +1199,19 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 当前实现状态：
 
 - `src/cook-web/src/app/admin/billing/page.tsx` 已补齐 6-tab shell：`Plans`、`Ledger`、`Orders`、`Entitlements`、`Domains`、`Reports`
-- 当前 `Entitlements`、`Domains`、`Reports` 三个扩展 tab 先通过独立组件挂到页面骨架，并展示 placeholder section；后续任务再分别填入权益详情、域名设置和日报表视图
+- `Domains` tab 已接入真实数据：复用 `GET /billing/entitlements`、`GET /admin/billing/domain-bindings`、`POST /admin/billing/domains/bind`
+- `Domains` tab 当前同时展示 runtime-config 生效中的 branding snapshot，以及 creator 侧的 domain bind / verify / disable 交互
+- 当前 `Entitlements`、`Reports` 两个扩展 tab 仍先保留 placeholder section，后续任务再分别填入权益详情和日报表视图
 
 页面职责：
 
 - `Entitlements`
   - 展示当前权益快照、并发等级、优先级、分析等级、支持等级
 - `Domains`
+  - 展示当前 runtime-config 生效中的品牌配置快照：`logo_wide_url`、`logo_square_url`、`favicon_url`、`home_url`
   - 展示域名绑定状态、校验 token、最近校验时间、证书状态
   - 发起域名绑定和重试校验
+  - 停用已绑定域名
 - `Reports`
   - 展示 usage 日汇总和 ledger 日汇总
 

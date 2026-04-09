@@ -121,6 +121,7 @@ const api = {
   // billing creator api
   getBillingCatalog: 'GET /billing/catalog',
   getBillingOverview: 'GET /billing/overview',
+  getBillingEntitlements: 'GET /billing/entitlements',
   getBillingWalletBuckets: 'GET /billing/wallet-buckets',
   getBillingLedger: 'GET /billing/ledger',
   getBillingOrders: 'GET /billing/orders',
@@ -134,6 +135,8 @@ const api = {
   // billing admin api
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
   getAdminBillingOrders: 'GET /admin/billing/orders',
+  getAdminBillingDomainBindings: 'GET /admin/billing/domain-bindings',
+  bindAdminBillingDomain: 'POST /admin/billing/domains/bind',
   adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };
 

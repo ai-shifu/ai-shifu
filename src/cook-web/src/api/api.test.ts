@@ -4,6 +4,7 @@ describe('billing api definitions', () => {
   test('exposes creator billing endpoints', () => {
     expect(api.getBillingCatalog).toBe('GET /billing/catalog');
     expect(api.getBillingOverview).toBe('GET /billing/overview');
+    expect(api.getBillingEntitlements).toBe('GET /billing/entitlements');
     expect(api.getBillingWalletBuckets).toBe('GET /billing/wallet-buckets');
     expect(api.getBillingLedger).toBe('GET /billing/ledger');
     expect(api.getBillingOrders).toBe('GET /billing/orders');
@@ -30,6 +31,10 @@ describe('billing api definitions', () => {
       'GET /admin/billing/subscriptions',
     );
     expect(api.getAdminBillingOrders).toBe('GET /admin/billing/orders');
+    expect(api.getAdminBillingDomainBindings).toBe(
+      'GET /admin/billing/domain-bindings',
+    );
+    expect(api.bindAdminBillingDomain).toBe('POST /admin/billing/domains/bind');
     expect(api.adjustAdminBillingLedger).toBe(
       'POST /admin/billing/ledger/adjust',
     );

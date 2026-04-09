@@ -56,6 +56,22 @@ export type BillingBucketStatus =
   | 'expired'
   | 'canceled';
 
+export type BillingDomainBindingStatus =
+  | 'pending'
+  | 'verified'
+  | 'failed'
+  | 'disabled';
+
+export type BillingDomainVerificationMethod = 'dns_txt';
+
+export type BillingDomainSslStatus = 'not_requested' | 'pending' | 'issued';
+
+export type BillingPriorityClass = 'standard' | 'priority' | 'vip';
+
+export type BillingAnalyticsTier = 'basic' | 'advanced' | 'enterprise';
+
+export type BillingSupportTier = 'self_serve' | 'business_hours' | 'priority';
+
 export type BillingLedgerEntryType =
   | 'grant'
   | 'consume'
@@ -244,6 +260,48 @@ export type BillingCheckoutResult = {
   redirect_url?: string;
   checkout_session_id?: string;
   payment_payload?: Record<string, unknown>;
+};
+
+export type BillingEntitlements = {
+  branding_enabled: boolean;
+  custom_domain_enabled: boolean;
+  priority_class: BillingPriorityClass;
+  max_concurrency: number;
+  analytics_tier: BillingAnalyticsTier;
+  support_tier: BillingSupportTier;
+};
+
+export type CreatorBrandingConfig = {
+  logo_wide_url: string | null;
+  logo_square_url: string | null;
+  favicon_url: string | null;
+  home_url: string | null;
+};
+
+export type BillingDomainBinding = {
+  domain_binding_bid: string;
+  creator_bid: string;
+  host: string;
+  status: BillingDomainBindingStatus;
+  verification_method: BillingDomainVerificationMethod;
+  verification_token: string;
+  verification_record_name: string;
+  verification_record_value: string;
+  last_verified_at: string | null;
+  ssl_status: BillingDomainSslStatus;
+  is_effective: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type BillingDomainBindingsResponse = {
+  creator_bid: string;
+  custom_domain_enabled: boolean;
+  items: BillingDomainBinding[];
+};
+
+export type BillingDomainBindingMutationResult = {
+  action: 'bind' | 'verify' | 'disable';
+  binding: BillingDomainBinding;
 };
 
 export type BillingRenewalEventSummary = {

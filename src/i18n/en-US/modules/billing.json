@@ -165,8 +165,80 @@
     "empty": "Not available"
   },
   "domains": {
-    "description": "Domain routing, verification state, and branding setup will appear in this workspace tab next.",
-    "title": "Domains & Branding"
+    "actions": {
+      "bind": "Bind domain",
+      "binding": "Binding...",
+      "disable": "Disable",
+      "disabling": "Disabling...",
+      "loadError": "Domain settings could not be loaded. Refresh and try again.",
+      "verify": "Verify now",
+      "verifying": "Verifying..."
+    },
+    "branding": {
+      "description": "Preview the branding values currently flowing through runtime-config. Updating these assets still depends on your entitlement payload.",
+      "disabled": "Branding locked",
+      "enabled": "Branding active",
+      "fields": {
+        "favicon": "Favicon URL",
+        "homeUrl": "Home URL",
+        "logoSquare": "Square logo",
+        "logoWide": "Wide logo"
+      },
+      "runtimeNote": "This panel reflects the effective runtime snapshot that already powers the creator shell and learner entry points.",
+      "title": "Branding Snapshot"
+    },
+    "description": "Manage the effective branding snapshot and custom-domain bindings for your creator workspace.",
+    "feedback": {
+      "bind": "Domain binding updated.",
+      "disable": "Domain binding disabled.",
+      "verify": "Domain verification refreshed."
+    },
+    "form": {
+      "capabilityBlocked": "Your current entitlement does not allow custom domains yet. Upgrade the plan before binding a host.",
+      "errors": {
+        "hostRequired": "Enter a domain host before binding."
+      },
+      "hostHelp": "Use only the host, for example creator.example.com. The backend will normalize the value before saving.",
+      "hostLabel": "Custom domain host",
+      "hostPlaceholder": "creator.example.com"
+    },
+    "records": {
+      "description": "Track every binding, inspect the TXT verification record, and see which host is currently effective.",
+      "effective": "Effective",
+      "empty": "No domain bindings yet. Bind a host to generate the verification record.",
+      "fields": {
+        "lastVerified": "Last verified",
+        "method": "Verification method",
+        "recordName": "TXT record name",
+        "recordValue": "TXT record value"
+      },
+      "neverVerified": "Not verified yet",
+      "title": "Binding Records",
+      "verificationError": "Verification failed: {{code}}"
+    },
+    "settings": {
+      "description": "Bind a domain, verify it, and disable stale hosts without leaving the billing center.",
+      "disabled": "Custom domain locked",
+      "effectiveDomain": "Current effective domain: {{host}}",
+      "enabled": "Custom domain enabled",
+      "noEffectiveDomain": "No verified host is active yet.",
+      "title": "Domain Settings"
+    },
+    "ssl": {
+      "issued": "SSL issued",
+      "not_requested": "SSL not requested",
+      "pending": "SSL pending"
+    },
+    "status": {
+      "disabled": "Disabled",
+      "failed": "Verification failed",
+      "pending": "Pending verification",
+      "verified": "Verified"
+    },
+    "title": "Domains & Branding",
+    "verificationMethod": {
+      "dns_txt": "DNS TXT"
+    }
   },
   "entitlements": {
     "description": "Plan-derived runtime limits, support tier, analytics tier, and concurrency settings will be shown here next.",
