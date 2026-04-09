@@ -15,7 +15,9 @@ from flaskr.service.billing.consts import (
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     CREDIT_SOURCE_TYPE_MANUAL,
 )
+from flaskr.service.billing.dtos import RuntimeBillingContextDTO, RuntimeConfigDTO
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
+from flaskr.service.billing.runtime_config import build_runtime_billing_context
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 _ROUTE_PACKAGE = types.ModuleType("flaskr.route")
@@ -189,6 +191,10 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "favicon_url": "https://cdn.example.com/creator-favicon.ico",
         "home_url": "https://creator.example.com/home",
     }
+    assert payload["legalUrls"]["agreement"] == {
+        "zh-CN": "/legal/agreement/zh",
+        "en-US": "/legal/agreement/en",
+    }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
         "matched": True,
@@ -258,4 +264,31 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
         "domain_binding_bid": None,
         "host": None,
         "binding_status": None,
+    }
+
+
+def test_runtime_billing_builder_and_route_config_use_dto_outputs(
+    runtime_config_client,
+) -> None:
+    app = runtime_config_client.application
+
+    billing_context = build_runtime_billing_context(
+        app,
+        creator_bid="creator-1",
+        request_host="creator.example.com",
+    )
+    assert isinstance(billing_context, RuntimeBillingContextDTO)
+    assert billing_context.__json__()["domain"]["binding_status"] == "verified"
+
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={"Host": "creator.example.com"},
+    )
+    route_payload = response.get_json(force=True)["data"]
+    config = RuntimeConfigDTO(**route_payload)
+
+    assert isinstance(config, RuntimeConfigDTO)
+    assert config.__json__()["legalUrls"]["privacy"] == {
+        "zh-CN": "/legal/privacy/zh",
+        "en-US": "/legal/privacy/en",
     }

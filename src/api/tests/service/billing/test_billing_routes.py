@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
+import sys
 from types import SimpleNamespace
+import types
 
 from flask import Flask, jsonify, request
 import pytest
@@ -39,9 +43,69 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.routes import register_billing_routes
+from flaskr.service.billing.dtos import (
+    BillingCatalogDTO,
+    BillingDailyLedgerSummaryPageDTO,
+    BillingDailyUsageMetricsPageDTO,
+    BillingEntitlementsDTO,
+    BillingLedgerPageDTO,
+    BillingOrderDetailDTO,
+    BillingOrdersPageDTO,
+    BillingOverviewDTO,
+    BillingRouteBootstrapDTO,
+    BillingWalletBucketListDTO,
+)
+from flaskr.service.billing.funcs import (
+    build_billing_catalog,
+    build_billing_daily_ledger_summary_page,
+    build_billing_daily_usage_metrics_page,
+    build_billing_entitlements,
+    build_billing_ledger_page,
+    build_billing_order_detail,
+    build_billing_orders_page,
+    build_billing_overview,
+    build_billing_route_bootstrap,
+    build_billing_wallet_buckets,
+)
 from flaskr.service.common.models import AppException
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
+
+_API_ROOT = Path(__file__).resolve().parents[3]
+_ROUTE_DIR = _API_ROOT / "flaskr" / "route"
+_BILLING_ROUTE_FILE = _API_ROOT / "flaskr" / "service" / "billing" / "routes.py"
+
+
+def _load_register_billing_routes():
+    package_name = "flaskr.route"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(_ROUTE_DIR)]
+        sys.modules[package_name] = package
+
+    common_name = f"{package_name}.common"
+    if common_name not in sys.modules:
+        common_spec = importlib.util.spec_from_file_location(
+            common_name,
+            _ROUTE_DIR / "common.py",
+        )
+        assert common_spec is not None and common_spec.loader is not None
+        common_module = importlib.util.module_from_spec(common_spec)
+        sys.modules[common_name] = common_module
+        common_spec.loader.exec_module(common_module)
+
+    full_name = "flaskr.service.billing.routes"
+    if full_name in sys.modules:
+        return sys.modules[full_name].register_billing_routes
+
+    spec = importlib.util.spec_from_file_location(full_name, _BILLING_ROUTE_FILE)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    spec.loader.exec_module(module)
+    return module.register_billing_routes
+
+
+register_billing_routes = _load_register_billing_routes()
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -584,13 +648,55 @@ class TestBillingRoutes:
         )
 
         assert bucket_payload["code"] == 0
-        assert [item["wallet_bucket_bid"] for item in bucket_payload["data"]] == [
+        assert [
+            item["wallet_bucket_bid"] for item in bucket_payload["data"]["items"]
+        ] == [
             "bucket-free",
             "bucket-subscription",
             "bucket-topup",
         ]
-        assert bucket_payload["data"][0]["category"] == "free"
-        assert bucket_payload["data"][2]["source_bid"] == "topup-1"
+        assert bucket_payload["data"]["items"][0]["category"] == "free"
+        assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
+
+    def test_billing_public_builders_return_dto_instances(
+        self,
+        billing_test_client,
+    ) -> None:
+        app = billing_test_client.application
+
+        results = {
+            "bootstrap": build_billing_route_bootstrap("/api/billing"),
+            "catalog": build_billing_catalog(app),
+            "overview": build_billing_overview(app, "creator-1"),
+            "entitlements": build_billing_entitlements(app, "creator-1"),
+            "usage_daily": build_billing_daily_usage_metrics_page(app, "creator-1"),
+            "ledger_daily": build_billing_daily_ledger_summary_page(app, "creator-1"),
+            "wallet_buckets": build_billing_wallet_buckets(app, "creator-1"),
+            "ledger": build_billing_ledger_page(app, "creator-1"),
+            "orders": build_billing_orders_page(app, "creator-1"),
+            "order_detail": build_billing_order_detail(app, "creator-1", "order-1"),
+        }
+
+        assert isinstance(results["bootstrap"], BillingRouteBootstrapDTO)
+        assert isinstance(results["catalog"], BillingCatalogDTO)
+        assert isinstance(results["overview"], BillingOverviewDTO)
+        assert isinstance(results["entitlements"], BillingEntitlementsDTO)
+        assert isinstance(results["usage_daily"], BillingDailyUsageMetricsPageDTO)
+        assert isinstance(results["ledger_daily"], BillingDailyLedgerSummaryPageDTO)
+        assert isinstance(results["wallet_buckets"], BillingWalletBucketListDTO)
+        assert isinstance(results["ledger"], BillingLedgerPageDTO)
+        assert isinstance(results["orders"], BillingOrdersPageDTO)
+        assert isinstance(results["order_detail"], BillingOrderDetailDTO)
+
+        for value in results.values():
+            assert not isinstance(value, dict)
+            assert not isinstance(value, list)
+            assert isinstance(value.__json__(), dict)
+
+    def test_billing_routes_module_uses_shared_common_response(self) -> None:
+        routes_source = _BILLING_ROUTE_FILE.read_text(encoding="utf-8")
+
+        assert "def _make_common_response" not in routes_source
 
     def test_entitlements_route_returns_snapshot_then_product_fallback(
         self, billing_test_client

@@ -124,19 +124,21 @@ describe('AdminBillingPage', () => {
       page_size: 8,
       total: 1,
     });
-    mockGetBillingWalletBuckets.mockResolvedValue([
-      {
-        wallet_bucket_bid: 'bucket-free',
-        category: 'free',
-        source_type: 'gift',
-        source_bid: 'grant-1',
-        available_credits: 80,
-        effective_from: '2026-03-01T00:00:00Z',
-        effective_to: '2026-05-01T00:00:00Z',
-        priority: 10,
-        status: 'active',
-      },
-    ]);
+    mockGetBillingWalletBuckets.mockResolvedValue({
+      items: [
+        {
+          wallet_bucket_bid: 'bucket-free',
+          category: 'free',
+          source_type: 'gift',
+          source_bid: 'grant-1',
+          available_credits: 80,
+          effective_from: '2026-03-01T00:00:00Z',
+          effective_to: '2026-05-01T00:00:00Z',
+          priority: 10,
+          status: 'active',
+        },
+      ],
+    });
     mockGetBillingLedger.mockResolvedValue({
       items: [
         {

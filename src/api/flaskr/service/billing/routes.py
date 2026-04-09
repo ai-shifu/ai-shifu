@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
-
 from flask import Flask, request
 
 from flaskr.framework.plugin.inject import inject
+from flaskr.route.common import make_common_response
 from flaskr.service.billing.funcs import (
     adjust_admin_billing_ledger,
     build_admin_billing_daily_ledger_summary_page,
@@ -35,13 +34,6 @@ from flaskr.service.billing.funcs import (
     sync_billing_order,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
-
-
-def _make_common_response(data):
-    return json.dumps(
-        {"code": 0, "message": "success", "data": data or {}},
-        ensure_ascii=False,
-    )
 
 
 def _require_creator() -> None:
@@ -84,17 +76,17 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix, methods=["GET"])
     def billing_bootstrap_api():
         _require_creator()
-        return _make_common_response(build_billing_route_bootstrap(path_prefix))
+        return make_common_response(build_billing_route_bootstrap(path_prefix))
 
     @app.route(path_prefix + "/catalog", methods=["GET"])
     def billing_catalog_api():
         _require_creator()
-        return _make_common_response(build_billing_catalog(app))
+        return make_common_response(build_billing_catalog(app))
 
     @app.route(path_prefix + "/overview", methods=["GET"])
     def billing_overview_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             build_billing_overview(
                 app,
                 _get_creator_bid(),
@@ -105,7 +97,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/entitlements", methods=["GET"])
     def billing_entitlements_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             build_billing_entitlements(
                 app,
                 _get_creator_bid(),
@@ -116,7 +108,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def billing_daily_usage_reports_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_billing_daily_usage_metrics_page(
                 app,
                 _get_creator_bid(),
@@ -132,7 +124,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def billing_daily_ledger_reports_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_billing_daily_ledger_summary_page(
                 app,
                 _get_creator_bid(),
@@ -147,7 +139,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/wallet-buckets", methods=["GET"])
     def billing_wallet_buckets_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             build_billing_wallet_buckets(
                 app,
                 _get_creator_bid(),
@@ -159,7 +151,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def billing_ledger_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_billing_ledger_page(
                 app,
                 _get_creator_bid(),
@@ -173,7 +165,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def billing_orders_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_billing_orders_page(
                 app,
                 _get_creator_bid(),
@@ -186,7 +178,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/orders/<billing_order_bid>", methods=["GET"])
     def billing_order_detail_api(billing_order_bid: str):
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             build_billing_order_detail(
                 app,
                 _get_creator_bid(),
@@ -198,7 +190,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/orders/<billing_order_bid>/sync", methods=["POST"])
     def billing_order_sync_api(billing_order_bid: str):
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             sync_billing_order(
                 app,
                 _get_creator_bid(),
@@ -210,7 +202,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/orders/<billing_order_bid>/refund", methods=["POST"])
     def billing_order_refund_api(billing_order_bid: str):
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             refund_billing_order(
                 app,
                 _get_creator_bid(),
@@ -222,7 +214,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/subscriptions/checkout", methods=["POST"])
     def billing_subscription_checkout_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             create_billing_subscription_checkout(
                 app,
                 _get_creator_bid(),
@@ -233,7 +225,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/subscriptions/cancel", methods=["POST"])
     def billing_subscription_cancel_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             cancel_billing_subscription(
                 app,
                 _get_creator_bid(),
@@ -244,7 +236,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/subscriptions/resume", methods=["POST"])
     def billing_subscription_resume_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             resume_billing_subscription(
                 app,
                 _get_creator_bid(),
@@ -255,7 +247,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/topups/checkout", methods=["POST"])
     def billing_topup_checkout_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             create_billing_topup_checkout(
                 app,
                 _get_creator_bid(),
@@ -267,7 +259,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_subscriptions_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_subscriptions_page(
                 app,
                 page_index=page_index,
@@ -281,7 +273,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(admin_path_prefix + "/domain-bindings", methods=["GET"])
     def admin_billing_domain_bindings_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_domain_bindings(
                 app,
                 creator_bid=_get_creator_bid(),
@@ -293,7 +285,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_domain_audits_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_domain_audits_page(
                 app,
                 page_index=page_index,
@@ -307,7 +299,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(admin_path_prefix + "/domains/bind", methods=["POST"])
     def admin_billing_domain_bind_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             bind_admin_billing_domain(
                 app,
                 creator_bid=_get_creator_bid(),
@@ -320,7 +312,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_entitlements_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_entitlements_page(
                 app,
                 page_index=page_index,
@@ -334,7 +326,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_orders_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_orders_page(
                 app,
                 page_index=page_index,
@@ -349,7 +341,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_daily_usage_reports_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_daily_usage_metrics_page(
                 app,
                 page_index=page_index,
@@ -365,7 +357,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     def admin_billing_daily_ledger_reports_api():
         _require_creator()
         page_index, page_size = _get_page_args()
-        return _make_common_response(
+        return make_common_response(
             build_admin_billing_daily_ledger_summary_page(
                 app,
                 page_index=page_index,
@@ -380,7 +372,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(admin_path_prefix + "/ledger/adjust", methods=["POST"])
     def admin_billing_ledger_adjust_api():
         _require_creator()
-        return _make_common_response(
+        return make_common_response(
             adjust_admin_billing_ledger(
                 app,
                 operator_user_bid=_get_creator_bid(),

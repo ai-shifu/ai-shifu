@@ -86,6 +86,47 @@ from .consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_LABELS,
 )
+from .dtos import (
+    AdminBillingDailyLedgerSummaryDTO,
+    AdminBillingDailyLedgerSummaryPageDTO,
+    AdminBillingDailyUsageMetricDTO,
+    AdminBillingDailyUsageMetricsPageDTO,
+    AdminBillingDomainBindingDTO,
+    AdminBillingEntitlementDTO,
+    AdminBillingOrderDTO,
+    AdminBillingOrdersPageDTO,
+    AdminBillingSubscriptionDTO,
+    BillingAlertDTO,
+    BillingCatalogDTO,
+    BillingCheckoutResultDTO,
+    BillingDailyLedgerSummaryDTO,
+    BillingDailyLedgerSummaryPageDTO,
+    BillingDailyUsageMetricDTO,
+    BillingDailyUsageMetricsPageDTO,
+    BillingDomainAuditsPageDTO,
+    BillingDomainBindResultDTO,
+    BillingDomainBindingsDTO,
+    BillingEntitlementsDTO,
+    BillingEntitlementsPageDTO,
+    BillingLedgerAdjustResultDTO,
+    BillingLedgerItemDTO,
+    BillingLedgerPageDTO,
+    BillingOrderDetailDTO,
+    BillingOrderSummaryDTO,
+    BillingOrderSyncResultDTO,
+    BillingOrdersPageDTO,
+    BillingPlanDTO,
+    BillingRefundResultDTO,
+    BillingRouteBootstrapDTO,
+    BillingRouteItemDTO,
+    BillingSubscriptionDTO,
+    BillingSubscriptionsPageDTO,
+    BillingTopupProductDTO,
+    BillingOverviewDTO,
+    BillingWalletBucketDTO,
+    BillingWalletBucketListDTO,
+    BillingWalletSnapshotDTO,
+)
 from .models import (
     BillingDomainBinding,
     BillingDailyLedgerSummary,
@@ -213,7 +254,7 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
 )
 
 
-def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
+def build_billing_route_bootstrap(path_prefix: str) -> BillingRouteBootstrapDTO:
     """Return the billing route manifest defined by the design doc."""
 
     creator_routes = [
@@ -246,21 +287,21 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
         {"method": "GET", "path": "/api/admin/billing/orders"},
         {"method": "POST", "path": "/api/admin/billing/ledger/adjust"},
     ]
-    return {
-        "service": "billing",
-        "status": "bootstrap",
-        "path_prefix": path_prefix,
-        "creator_routes": creator_routes,
-        "admin_routes": admin_routes,
-        "notes": [
+    return BillingRouteBootstrapDTO(
+        service="billing",
+        status="bootstrap",
+        path_prefix=path_prefix,
+        creator_routes=[BillingRouteItemDTO(**item) for item in creator_routes],
+        admin_routes=[BillingRouteItemDTO(**item) for item in admin_routes],
+        notes=[
             "Registered via plugin route loading from flaskr/service.",
             "Keeps creator billing separate from legacy /order tables and routes.",
             "Stripe/Pingxx provider callbacks are reused from legacy webhook endpoints.",
         ],
-    }
+    )
 
 
-def build_billing_catalog(app: Flask) -> dict[str, list[dict[str, Any]]]:
+def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
     """Return plan and topup catalog projections."""
 
     with app.app_context():
@@ -276,16 +317,16 @@ def build_billing_catalog(app: Flask) -> dict[str, list[dict[str, Any]]]:
             .all()
         )
 
-        plans: list[dict[str, Any]] = []
-        topups: list[dict[str, Any]] = []
+        plans: list[BillingPlanDTO] = []
+        topups: list[BillingTopupProductDTO] = []
         for row in rows:
             payload = _serialize_product(row)
             if payload["product_type"] == "plan":
-                plans.append(payload)
+                plans.append(BillingPlanDTO(**payload))
             elif payload["product_type"] == "topup":
-                topups.append(payload)
+                topups.append(BillingTopupProductDTO(**payload))
 
-        return {"plans": plans, "topups": topups}
+        return BillingCatalogDTO(plans=plans, topups=topups)
 
 
 def build_billing_overview(
@@ -293,7 +334,7 @@ def build_billing_overview(
     creator_bid: str,
     *,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingOverviewDTO:
     """Return the wallet snapshot, current subscription, and alerts."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -308,25 +349,32 @@ def build_billing_overview(
         )
         subscription = _load_current_subscription(normalized_creator_bid)
 
-        wallet_payload = _serialize_wallet(wallet)
+        wallet_payload = BillingWalletSnapshotDTO(**_serialize_wallet(wallet))
         subscription_payload = _serialize_subscription(
             app, subscription, timezone_name=timezone_name
         )
-        return {
-            "creator_bid": normalized_creator_bid,
-            "wallet": wallet_payload,
-            "subscription": subscription_payload,
-            "billing_alerts": _build_billing_alerts(wallet_payload, subscription),
-        }
+        return BillingOverviewDTO(
+            creator_bid=normalized_creator_bid,
+            wallet=wallet_payload,
+            subscription=BillingSubscriptionDTO(**subscription_payload)
+            if subscription_payload is not None
+            else None,
+            billing_alerts=[
+                BillingAlertDTO(**item)
+                for item in _build_billing_alerts(
+                    wallet_payload.__json__(), subscription
+                )
+            ],
+        )
 
 
-def build_billing_entitlements(app: Flask, creator_bid: str) -> dict[str, Any]:
+def build_billing_entitlements(app: Flask, creator_bid: str) -> BillingEntitlementsDTO:
     """Return the creator entitlement snapshot for v1.1 surfaces."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         state = resolve_creator_entitlement_state(normalized_creator_bid)
-        return serialize_creator_entitlements(state)
+        return BillingEntitlementsDTO(**serialize_creator_entitlements(state))
 
 
 def build_billing_daily_usage_metrics_page(
@@ -338,7 +386,7 @@ def build_billing_daily_usage_metrics_page(
     stat_date_from: str = "",
     stat_date_to: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDailyUsageMetricsPageDTO:
     """Return paginated creator-scoped daily usage aggregate rows."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -372,16 +420,19 @@ def build_billing_daily_usage_metrics_page(
             BillingDailyUsageMetric.raw_amount.desc(),
             BillingDailyUsageMetric.id.desc(),
         )
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_daily_usage_metric(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: BillingDailyUsageMetricDTO(
+                **_serialize_daily_usage_metric(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return BillingDailyUsageMetricsPageDTO(**payload)
 
 
 def build_billing_daily_ledger_summary_page(
@@ -393,7 +444,7 @@ def build_billing_daily_ledger_summary_page(
     stat_date_from: str = "",
     stat_date_to: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDailyLedgerSummaryPageDTO:
     """Return paginated creator-scoped daily ledger summary rows."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -426,16 +477,19 @@ def build_billing_daily_ledger_summary_page(
             BillingDailyLedgerSummary.entry_count.desc(),
             BillingDailyLedgerSummary.id.desc(),
         )
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_daily_ledger_summary(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: BillingDailyLedgerSummaryDTO(
+                **_serialize_daily_ledger_summary(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return BillingDailyLedgerSummaryPageDTO(**payload)
 
 
 def build_billing_wallet_buckets(
@@ -443,7 +497,7 @@ def build_billing_wallet_buckets(
     creator_bid: str,
     *,
     timezone_name: str | None = None,
-) -> list[dict[str, Any]]:
+) -> BillingWalletBucketListDTO:
     """Return wallet bucket projections sorted by actual consumption order."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -462,10 +516,14 @@ def build_billing_wallet_buckets(
             )
             .all()
         )
-        return [
-            _serialize_wallet_bucket(app, row, timezone_name=timezone_name)
-            for row in rows
-        ]
+        return BillingWalletBucketListDTO(
+            items=[
+                BillingWalletBucketDTO(
+                    **_serialize_wallet_bucket(app, row, timezone_name=timezone_name)
+                )
+                for row in rows
+            ]
+        )
 
 
 def build_billing_ledger_page(
@@ -475,7 +533,7 @@ def build_billing_ledger_page(
     page_index: int = DEFAULT_PAGE_INDEX,
     page_size: int = DEFAULT_PAGE_SIZE,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingLedgerPageDTO:
     """Return paginated credit ledger entries for a creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -485,16 +543,19 @@ def build_billing_ledger_page(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == normalized_creator_bid,
         ).order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_ledger_entry(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: BillingLedgerItemDTO(
+                **_serialize_ledger_entry(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return BillingLedgerPageDTO(**payload)
 
 
 def build_billing_orders_page(
@@ -504,7 +565,7 @@ def build_billing_orders_page(
     page_index: int = DEFAULT_PAGE_INDEX,
     page_size: int = DEFAULT_PAGE_SIZE,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingOrdersPageDTO:
     """Return paginated billing orders for a creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -514,16 +575,19 @@ def build_billing_orders_page(
             BillingOrder.deleted == 0,
             BillingOrder.creator_bid == normalized_creator_bid,
         ).order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc())
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_order_summary(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: BillingOrderSummaryDTO(
+                **_serialize_order_summary(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return BillingOrdersPageDTO(**payload)
 
 
 def build_admin_billing_subscriptions_page(
@@ -534,7 +598,7 @@ def build_admin_billing_subscriptions_page(
     creator_bid: str = "",
     status: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingSubscriptionsPageDTO:
     """Return paginated billing subscriptions for the admin billing surface."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -572,13 +636,13 @@ def build_admin_billing_subscriptions_page(
         )
         total = query.order_by(None).count()
         if total == 0:
-            return {
-                "items": [],
-                "page": safe_page_index,
-                "page_count": 0,
-                "page_size": safe_page_size,
-                "total": 0,
-            }
+            return BillingSubscriptionsPageDTO(
+                items=[],
+                page=safe_page_index,
+                page_count=0,
+                page_size=safe_page_size,
+                total=0,
+            )
 
         page_count = (total + safe_page_size - 1) // safe_page_size
         resolved_page = min(safe_page_index, max(page_count, 1))
@@ -599,23 +663,25 @@ def build_admin_billing_subscriptions_page(
         renewal_events = _load_latest_renewal_event_map(
             [row.subscription_bid for row in rows]
         )
-        return {
-            "items": [
-                _serialize_admin_subscription(
-                    app,
-                    row,
-                    product_codes=product_codes,
-                    wallet=wallets.get(row.creator_bid),
-                    renewal_event=renewal_events.get(row.subscription_bid),
-                    timezone_name=timezone_name,
+        return BillingSubscriptionsPageDTO(
+            items=[
+                AdminBillingSubscriptionDTO(
+                    **_serialize_admin_subscription(
+                        app,
+                        row,
+                        product_codes=product_codes,
+                        wallet=wallets.get(row.creator_bid),
+                        renewal_event=renewal_events.get(row.subscription_bid),
+                        timezone_name=timezone_name,
+                    )
                 )
                 for row in rows
             ],
-            "page": resolved_page,
-            "page_count": page_count,
-            "page_size": safe_page_size,
-            "total": total,
-        }
+            page=resolved_page,
+            page_count=page_count,
+            page_size=safe_page_size,
+            total=total,
+        )
 
 
 def build_admin_billing_entitlements_page(
@@ -625,7 +691,7 @@ def build_admin_billing_entitlements_page(
     page_size: int = DEFAULT_PAGE_SIZE,
     creator_bid: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingEntitlementsPageDTO:
     """Return paginated effective entitlement snapshots for admin billing."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -634,18 +700,21 @@ def build_admin_billing_entitlements_page(
     with app.app_context():
         creator_bids = _load_admin_creator_bids(creator_bid=normalized_creator_bid)
         items = [
-            _serialize_admin_entitlement_state(
-                app,
-                resolve_creator_entitlement_state(candidate_creator_bid),
-                timezone_name=timezone_name,
+            AdminBillingEntitlementDTO(
+                **_serialize_admin_entitlement_state(
+                    app,
+                    resolve_creator_entitlement_state(candidate_creator_bid),
+                    timezone_name=timezone_name,
+                )
             )
             for candidate_creator_bid in creator_bids
         ]
-        return _build_list_page_payload(
+        payload = _build_list_page_payload(
             items,
             page_index=safe_page_index,
             page_size=safe_page_size,
         )
+        return BillingEntitlementsPageDTO(**payload)
 
 
 def build_admin_billing_domain_audits_page(
@@ -656,7 +725,7 @@ def build_admin_billing_domain_audits_page(
     creator_bid: str = "",
     status: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDomainAuditsPageDTO:
     """Return paginated cross-creator domain binding rows for admin audit."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -701,13 +770,13 @@ def build_admin_billing_domain_audits_page(
 
         total = query.order_by(None).count()
         if total == 0:
-            return {
-                "items": [],
-                "page": safe_page_index,
-                "page_count": 0,
-                "page_size": safe_page_size,
-                "total": 0,
-            }
+            return BillingDomainAuditsPageDTO(
+                items=[],
+                page=safe_page_index,
+                page_count=0,
+                page_size=safe_page_size,
+                total=0,
+            )
 
         page_count = (total + safe_page_size - 1) // safe_page_size
         resolved_page = min(safe_page_index, max(page_count, 1))
@@ -723,24 +792,26 @@ def build_admin_billing_domain_audits_page(
                 _normalize_bid(row.creator_bid) for row in rows if row.creator_bid
             }
         }
-        return {
-            "items": [
-                _serialize_admin_domain_binding(
-                    app,
-                    row,
-                    custom_domain_enabled=entitlement_flags.get(
-                        _normalize_bid(row.creator_bid),
-                        False,
-                    ),
-                    timezone_name=timezone_name,
+        return BillingDomainAuditsPageDTO(
+            items=[
+                AdminBillingDomainBindingDTO(
+                    **_serialize_admin_domain_binding(
+                        app,
+                        row,
+                        custom_domain_enabled=entitlement_flags.get(
+                            _normalize_bid(row.creator_bid),
+                            False,
+                        ),
+                        timezone_name=timezone_name,
+                    )
                 )
                 for row in rows
             ],
-            "page": resolved_page,
-            "page_count": page_count,
-            "page_size": safe_page_size,
-            "total": total,
-        }
+            page=resolved_page,
+            page_count=page_count,
+            page_size=safe_page_size,
+            total=total,
+        )
 
 
 def build_admin_billing_orders_page(
@@ -751,7 +822,7 @@ def build_admin_billing_orders_page(
     creator_bid: str = "",
     status: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> AdminBillingOrdersPageDTO:
     """Return paginated billing orders for the admin billing surface."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -776,16 +847,19 @@ def build_admin_billing_orders_page(
             BillingOrder.created_at.desc(),
             BillingOrder.id.desc(),
         )
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_admin_order_summary(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: AdminBillingOrderDTO(
+                **_serialize_admin_order_summary(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return AdminBillingOrdersPageDTO(**payload)
 
 
 def build_admin_billing_daily_usage_metrics_page(
@@ -797,7 +871,7 @@ def build_admin_billing_daily_usage_metrics_page(
     stat_date_from: str = "",
     stat_date_to: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> AdminBillingDailyUsageMetricsPageDTO:
     """Return paginated cross-creator daily usage rows for admin reporting."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -835,16 +909,19 @@ def build_admin_billing_daily_usage_metrics_page(
             BillingDailyUsageMetric.raw_amount.desc(),
             BillingDailyUsageMetric.id.desc(),
         )
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_admin_daily_usage_metric(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: AdminBillingDailyUsageMetricDTO(
+                **_serialize_admin_daily_usage_metric(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return AdminBillingDailyUsageMetricsPageDTO(**payload)
 
 
 def build_admin_billing_daily_ledger_summary_page(
@@ -856,7 +933,7 @@ def build_admin_billing_daily_ledger_summary_page(
     stat_date_from: str = "",
     stat_date_to: str = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> AdminBillingDailyLedgerSummaryPageDTO:
     """Return paginated cross-creator daily ledger rows for admin reporting."""
 
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -893,16 +970,19 @@ def build_admin_billing_daily_ledger_summary_page(
             BillingDailyLedgerSummary.entry_count.desc(),
             BillingDailyLedgerSummary.id.desc(),
         )
-        return _build_page_payload(
+        payload = _build_page_payload(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_admin_daily_ledger_summary(
-                app,
-                row,
-                timezone_name=timezone_name,
+            serializer=lambda row: AdminBillingDailyLedgerSummaryDTO(
+                **_serialize_admin_daily_ledger_summary(
+                    app,
+                    row,
+                    timezone_name=timezone_name,
+                )
             ),
         )
+        return AdminBillingDailyLedgerSummaryPageDTO(**payload)
 
 
 def build_billing_order_detail(
@@ -911,7 +991,7 @@ def build_billing_order_detail(
     billing_order_bid: str,
     *,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingOrderDetailDTO:
     """Return a single billing order detail for the current creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -938,7 +1018,7 @@ def build_billing_order_detail(
         payload["failed_at"] = _serialize_dt(
             app, row.failed_at, timezone_name=timezone_name
         )
-        return payload
+        return BillingOrderDetailDTO(**payload)
 
 
 def build_admin_billing_domain_bindings(
@@ -946,13 +1026,15 @@ def build_admin_billing_domain_bindings(
     *,
     creator_bid: str,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDomainBindingsDTO:
     """Return creator-scoped custom domain bindings for admin billing pages."""
 
-    return build_creator_domain_bindings(
-        app,
-        creator_bid,
-        timezone_name=timezone_name,
+    return BillingDomainBindingsDTO(
+        **build_creator_domain_bindings(
+            app,
+            creator_bid,
+            timezone_name=timezone_name,
+        )
     )
 
 
@@ -962,14 +1044,16 @@ def bind_admin_billing_domain(
     creator_bid: str,
     payload: dict[str, Any],
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDomainBindResultDTO:
     """Create, verify, or disable a creator custom domain binding."""
 
-    return manage_creator_domain_binding(
-        app,
-        creator_bid,
-        payload,
-        timezone_name=timezone_name,
+    return BillingDomainBindResultDTO(
+        **manage_creator_domain_binding(
+            app,
+            creator_bid,
+            payload,
+            timezone_name=timezone_name,
+        )
     )
 
 
@@ -978,7 +1062,7 @@ def adjust_admin_billing_ledger(
     *,
     operator_user_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through wallet buckets."""
 
     normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))
@@ -997,12 +1081,14 @@ def adjust_admin_billing_ledger(
     if len(note) > 255:
         raise_param_error("note")
 
-    return adjust_credit_wallet_balance(
-        app,
-        creator_bid=normalized_creator_bid,
-        amount=normalized_amount,
-        note=note,
-        operator_user_bid=_normalize_bid(operator_user_bid),
+    return BillingLedgerAdjustResultDTO(
+        **adjust_credit_wallet_balance(
+            app,
+            creator_bid=normalized_creator_bid,
+            amount=normalized_amount,
+            note=note,
+            operator_user_bid=_normalize_bid(operator_user_bid),
+        )
     )
 
 
@@ -1010,7 +1096,7 @@ def create_billing_subscription_checkout(
     app: Flask,
     creator_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1042,12 +1128,12 @@ def create_billing_subscription_checkout(
             )
             db.session.add(order)
             db.session.commit()
-            return {
-                "billing_order_bid": order.billing_order_bid,
-                "provider": payment_provider,
-                "payment_mode": "subscription",
-                "status": "unsupported",
-            }
+            return BillingCheckoutResultDTO(
+                billing_order_bid=order.billing_order_bid,
+                provider=payment_provider,
+                payment_mode="subscription",
+                status="unsupported",
+            )
 
         subscription = BillingSubscription(
             subscription_bid=generate_id(app),
@@ -1094,14 +1180,14 @@ def create_billing_subscription_checkout(
             cancel_url=cancel_url,
         )
         db.session.commit()
-        return checkout_result
+        return BillingCheckoutResultDTO(**checkout_result)
 
 
 def create_billing_topup_checkout(
     app: Flask,
     creator_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1146,14 +1232,14 @@ def create_billing_topup_checkout(
             cancel_url=cancel_url,
         )
         db.session.commit()
-        return checkout_result
+        return BillingCheckoutResultDTO(**checkout_result)
 
 
 def cancel_billing_subscription(
     app: Flask,
     creator_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
 
     with app.app_context():
@@ -1189,14 +1275,14 @@ def cancel_billing_subscription(
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
-        return _serialize_subscription(app, subscription)
+        return BillingSubscriptionDTO(**_serialize_subscription(app, subscription))
 
 
 def resume_billing_subscription(
     app: Flask,
     creator_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
 
     with app.app_context():
@@ -1230,7 +1316,7 @@ def resume_billing_subscription(
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
-        return _serialize_subscription(app, subscription)
+        return BillingSubscriptionDTO(**_serialize_subscription(app, subscription))
 
 
 def refund_billing_order(
@@ -1238,7 +1324,7 @@ def refund_billing_order(
     creator_bid: str,
     billing_order_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingRefundResultDTO:
     """Refund a paid billing order through the shared provider adapter."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1263,18 +1349,18 @@ def refund_billing_order(
             raise_error("server.order.orderNotFound")
 
         if order.payment_provider == "pingxx":
-            return {
-                "billing_order_bid": order.billing_order_bid,
-                "provider": order.payment_provider,
-                "status": "unsupported",
-            }
+            return BillingRefundResultDTO(
+                billing_order_bid=order.billing_order_bid,
+                provider=order.payment_provider,
+                status="unsupported",
+            )
 
         if order.status == BILLING_ORDER_STATUS_REFUNDED:
-            return {
-                "billing_order_bid": order.billing_order_bid,
-                "provider": order.payment_provider,
-                "status": "refunded",
-            }
+            return BillingRefundResultDTO(
+                billing_order_bid=order.billing_order_bid,
+                provider=order.payment_provider,
+                status="refunded",
+            )
 
         if order.status != BILLING_ORDER_STATUS_PAID:
             raise_error("server.order.orderStatusError")
@@ -1351,12 +1437,12 @@ def refund_billing_order(
             )
 
         db.session.commit()
-        return {
-            "billing_order_bid": order.billing_order_bid,
-            "provider": order.payment_provider,
-            "status": "refunded",
-            "refund_reference_id": refund_result.provider_reference,
-        }
+        return BillingRefundResultDTO(
+            billing_order_bid=order.billing_order_bid,
+            provider=order.payment_provider,
+            status="refunded",
+            refund_reference_id=refund_result.provider_reference,
+        )
 
 
 def sync_billing_order(
@@ -1364,7 +1450,7 @@ def sync_billing_order(
     creator_bid: str,
     billing_order_bid: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1398,12 +1484,15 @@ def sync_billing_order(
         db.session.commit()
 
         if order.status == BILLING_ORDER_STATUS_PAID:
-            return {"billing_order_bid": order.billing_order_bid, "status": "paid"}
+            return BillingOrderSyncResultDTO(
+                billing_order_bid=order.billing_order_bid,
+                status="paid",
+            )
         if order.status == BILLING_ORDER_STATUS_PENDING:
-            return {
-                "billing_order_bid": order.billing_order_bid,
-                "status": "pending",
-            }
+            return BillingOrderSyncResultDTO(
+                billing_order_bid=order.billing_order_bid,
+                status="pending",
+            )
         raise_error("server.order.orderStatusError")
 
 

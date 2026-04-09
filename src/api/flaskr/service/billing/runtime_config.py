@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from flask import Flask
 
+from .dtos import (
+    RuntimeBillingBrandingDTO,
+    RuntimeBillingContextDTO,
+    RuntimeBillingDomainDTO,
+    RuntimeBillingEntitlementsDTO,
+)
 from .domains import resolve_runtime_domain_result
 from .entitlements import (
     resolve_creator_entitlement_state,
@@ -18,26 +22,32 @@ def build_runtime_billing_context(
     *,
     creator_bid: str,
     request_host: str = "",
-) -> dict[str, Any]:
+) -> RuntimeBillingContextDTO:
     """Build entitlement, branding, and domain payloads for runtime-config."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
     entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
-    entitlements = serialize_creator_entitlements(entitlement_state)
-    branding = _build_branding_payload(entitlement_state)
-    domain = resolve_runtime_domain_result(
-        app,
-        request_host,
-        creator_bid=normalized_creator_bid,
+    entitlements = RuntimeBillingEntitlementsDTO(
+        **serialize_creator_entitlements(entitlement_state)
     )
-    return {
-        "entitlements": entitlements,
-        "branding": branding,
-        "domain": domain,
-    }
+    branding = RuntimeBillingBrandingDTO(**_build_branding_payload(entitlement_state))
+    domain = RuntimeBillingDomainDTO(
+        **resolve_runtime_domain_result(
+            app,
+            request_host,
+            creator_bid=normalized_creator_bid,
+        )
+    )
+    return RuntimeBillingContextDTO(
+        entitlements=entitlements,
+        branding=branding,
+        domain=domain,
+    )
 
 
-def _build_branding_payload(entitlement_state: dict[str, Any]) -> dict[str, Any]:
+def _build_branding_payload(
+    entitlement_state: dict[str, object],
+) -> dict[str, str | None]:
     feature_payload = entitlement_state.get("feature_payload")
     normalized_feature_payload = (
         feature_payload if isinstance(feature_payload, dict) else {}

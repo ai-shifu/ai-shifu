@@ -178,6 +178,10 @@ export type BillingWalletBucket = {
   status: BillingBucketStatus;
 };
 
+export type BillingWalletBucketList = {
+  items: BillingWalletBucket[];
+};
+
 export type BillingMetricBreakdownItem = {
   billing_metric: BillingMetricName;
   raw_amount: number;

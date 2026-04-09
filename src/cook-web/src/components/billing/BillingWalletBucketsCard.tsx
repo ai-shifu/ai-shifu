@@ -21,7 +21,10 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
-import type { BillingWalletBucket } from '@/types/billing';
+import type {
+  BillingWalletBucket,
+  BillingWalletBucketList,
+} from '@/types/billing';
 import {
   formatBillingCredits,
   formatBillingDate,
@@ -34,15 +37,6 @@ import {
 import { BillingMetricCard } from './BillingMetricCard';
 
 const BILLING_WALLET_BUCKETS_SWR_KEY = ['billing-wallet-buckets'];
-
-type BillingWalletBucketsPayload =
-  | BillingWalletBucket[]
-  | {
-      data?: BillingWalletBucket[] | null;
-      items?: BillingWalletBucket[] | null;
-    }
-  | null
-  | undefined;
 
 function resolveBucketStatusClasses(
   status: BillingWalletBucket['status'],
@@ -73,21 +67,6 @@ function renderWindowLabel(
   };
 }
 
-function normalizeBillingWalletBuckets(
-  payload: BillingWalletBucketsPayload,
-): BillingWalletBucket[] {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (Array.isArray(payload?.items)) {
-    return payload.items;
-  }
-  if (Array.isArray(payload?.data)) {
-    return payload.data;
-  }
-  return [];
-}
-
 export function BillingWalletBucketsCard() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
@@ -95,18 +74,15 @@ export function BillingWalletBucketsCard() {
     data: buckets,
     error,
     isLoading,
-  } = useSWR<BillingWalletBucketsPayload>(
+  } = useSWR<BillingWalletBucketList>(
     BILLING_WALLET_BUCKETS_SWR_KEY,
     async () =>
-      (await api.getBillingWalletBuckets({})) as BillingWalletBucketsPayload,
+      (await api.getBillingWalletBuckets({})) as BillingWalletBucketList,
     {
       revalidateOnFocus: false,
     },
   );
-  const bucketList = useMemo(
-    () => normalizeBillingWalletBuckets(buckets),
-    [buckets],
-  );
+  const bucketList = useMemo(() => buckets?.items || [], [buckets]);
 
   const summary = useMemo(() => {
     const activeBuckets = bucketList.filter(

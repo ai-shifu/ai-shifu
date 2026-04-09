@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
+import sys
 from types import SimpleNamespace
+import types
 
 from flask import Flask, jsonify, request
 import pytest
@@ -27,6 +31,26 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
+from flaskr.service.billing.dtos import (
+    BillingDomainAuditsPageDTO,
+    BillingDomainBindingsDTO,
+    BillingEntitlementsPageDTO,
+    BillingLedgerAdjustResultDTO,
+    BillingSubscriptionsPageDTO,
+    AdminBillingDailyLedgerSummaryPageDTO,
+    AdminBillingDailyUsageMetricsPageDTO,
+    AdminBillingOrdersPageDTO,
+)
+from flaskr.service.billing.funcs import (
+    adjust_admin_billing_ledger,
+    build_admin_billing_daily_ledger_summary_page,
+    build_admin_billing_daily_usage_metrics_page,
+    build_admin_billing_domain_audits_page,
+    build_admin_billing_domain_bindings,
+    build_admin_billing_entitlements_page,
+    build_admin_billing_orders_page,
+    build_admin_billing_subscriptions_page,
+)
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
@@ -36,8 +60,44 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.routes import register_billing_routes
 from flaskr.service.common.models import AppException
+
+_API_ROOT = Path(__file__).resolve().parents[3]
+_ROUTE_DIR = _API_ROOT / "flaskr" / "route"
+_BILLING_ROUTE_FILE = _API_ROOT / "flaskr" / "service" / "billing" / "routes.py"
+
+
+def _load_register_billing_routes():
+    package_name = "flaskr.route"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(_ROUTE_DIR)]
+        sys.modules[package_name] = package
+
+    common_name = f"{package_name}.common"
+    if common_name not in sys.modules:
+        common_spec = importlib.util.spec_from_file_location(
+            common_name,
+            _ROUTE_DIR / "common.py",
+        )
+        assert common_spec is not None and common_spec.loader is not None
+        common_module = importlib.util.module_from_spec(common_spec)
+        sys.modules[common_name] = common_module
+        common_spec.loader.exec_module(common_module)
+
+    full_name = "flaskr.service.billing.routes"
+    if full_name in sys.modules:
+        return sys.modules[full_name].register_billing_routes
+
+    spec = importlib.util.spec_from_file_location(full_name, _BILLING_ROUTE_FILE)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[full_name] = module
+    spec.loader.exec_module(module)
+    return module.register_billing_routes
+
+
+register_billing_routes = _load_register_billing_routes()
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -387,3 +447,51 @@ class TestAdminBillingRoutes:
 
         assert payload["code"] == 401
         assert payload["message"] == "server.shifu.noPermission"
+
+    def test_admin_billing_public_builders_return_dto_instances(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+
+        results = {
+            "subscriptions": build_admin_billing_subscriptions_page(app),
+            "domain_bindings": build_admin_billing_domain_bindings(
+                app,
+                creator_bid="creator-1",
+            ),
+            "domain_audits": build_admin_billing_domain_audits_page(app),
+            "entitlements": build_admin_billing_entitlements_page(app),
+            "orders": build_admin_billing_orders_page(app),
+            "usage_daily": build_admin_billing_daily_usage_metrics_page(app),
+            "ledger_daily": build_admin_billing_daily_ledger_summary_page(app),
+            "adjust": adjust_admin_billing_ledger(
+                app,
+                operator_user_bid="admin-creator",
+                payload={
+                    "creator_bid": "creator-1",
+                    "amount": "1.5000000000",
+                    "note": "contract-check",
+                },
+            ),
+        }
+
+        assert isinstance(results["subscriptions"], BillingSubscriptionsPageDTO)
+        assert isinstance(results["domain_bindings"], BillingDomainBindingsDTO)
+        assert isinstance(results["domain_audits"], BillingDomainAuditsPageDTO)
+        assert isinstance(results["entitlements"], BillingEntitlementsPageDTO)
+        assert isinstance(results["orders"], AdminBillingOrdersPageDTO)
+        assert isinstance(
+            results["usage_daily"],
+            AdminBillingDailyUsageMetricsPageDTO,
+        )
+        assert isinstance(
+            results["ledger_daily"],
+            AdminBillingDailyLedgerSummaryPageDTO,
+        )
+        assert isinstance(results["adjust"], BillingLedgerAdjustResultDTO)
+
+        for value in results.values():
+            assert not isinstance(value, dict)
+            assert not isinstance(value, list)
+            assert isinstance(value.__json__(), dict)
