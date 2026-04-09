@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -26,10 +27,11 @@ from .consts import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_GIFT,
 )
+from .dtos import BillingTrialOfferDTO
 from .models import CreditLedgerEntry, CreditWalletBucket
 from .serializers import decimal_to_number as _decimal_to_number
 from .serializers import coerce_bool as _coerce_bool
-from .serializers import normalize_json_value as _normalize_json_value
+from .serializers import normalize_json_object as _normalize_json_object
 from .serializers import parse_config_datetime as _parse_config_datetime
 from .serializers import safe_to_decimal as _safe_to_decimal
 from .serializers import safe_to_positive_int as _safe_to_positive_int
@@ -47,30 +49,72 @@ _BUCKET_PRIORITY_BY_CATEGORY = {
 }
 
 
+@dataclass(slots=True, frozen=True)
+class NewCreatorTrialConfig:
+    enabled: bool
+    program_code: str
+    credit_amount: str
+    valid_days: int
+    eligible_registered_after: str
+    grant_trigger: str
+
+
+@dataclass(slots=True, frozen=True)
+class TrialOfferState:
+    enabled: bool
+    status: str
+    credit_amount: Decimal
+    valid_days: int
+    starts_on_first_grant: bool
+    granted_at: datetime | None = None
+    expires_at: datetime | None = None
+
+    def to_dto(
+        self, app: Flask, *, timezone_name: str | None = None
+    ) -> BillingTrialOfferDTO:
+        return BillingTrialOfferDTO(
+            enabled=bool(self.enabled),
+            status=str(self.status),
+            credit_amount=_decimal_to_number(self.credit_amount),
+            valid_days=int(self.valid_days),
+            starts_on_first_grant=bool(self.starts_on_first_grant),
+            granted_at=_serialize_dt(
+                app,
+                self.granted_at,
+                timezone_name=timezone_name,
+            ),
+            expires_at=_serialize_dt(
+                app,
+                self.expires_at,
+                timezone_name=timezone_name,
+            ),
+        )
+
+
 def _resolve_new_creator_trial_offer(
     app: Flask,
     creator_bid: str,
     *,
     trigger: str,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingTrialOfferDTO:
     config = _load_new_creator_trial_config(app)
     existing_entry = _load_new_creator_trial_entry(
         creator_bid,
-        program_code=str(config["program_code"]),
+        program_code=config.program_code,
     )
     if existing_entry is not None:
         return _serialize_trial_offer(
             app,
             _build_trial_offer_state_from_entry(
                 existing_entry,
-                enabled=bool(config["enabled"]),
+                enabled=bool(config.enabled),
                 config=config,
             ),
             timezone_name=timezone_name,
         )
 
-    if not config["enabled"]:
+    if not config.enabled:
         return _serialize_trial_offer(
             app,
             _build_trial_offer_state(
@@ -81,9 +125,7 @@ def _resolve_new_creator_trial_offer(
             timezone_name=timezone_name,
         )
 
-    eligible_registered_after = _parse_config_datetime(
-        config["eligible_registered_after"]
-    )
+    eligible_registered_after = _parse_config_datetime(config.eligible_registered_after)
     if eligible_registered_after is None:
         app.logger.warning(
             "New creator trial config enabled without eligible_registered_after"
@@ -122,7 +164,7 @@ def _resolve_new_creator_trial_offer(
             timezone_name=timezone_name,
         )
 
-    if str(config["grant_trigger"]) != trigger:
+    if str(config.grant_trigger) != trigger:
         return _serialize_trial_offer(
             app,
             _build_trial_offer_state(
@@ -151,12 +193,12 @@ def _grant_new_creator_trial_credits(
     app: Flask,
     *,
     creator_bid: str,
-    config: dict[str, Any],
+    config: NewCreatorTrialConfig,
     registered_at: datetime,
     trigger: str,
-) -> dict[str, Any]:
-    amount = _to_decimal(config["credit_amount"])
-    valid_days = int(config["valid_days"])
+) -> TrialOfferState:
+    amount = _to_decimal(config.credit_amount)
+    valid_days = int(config.valid_days)
     if amount <= 0 or valid_days <= 0:
         return _build_trial_offer_state(
             enabled=True,
@@ -166,11 +208,11 @@ def _grant_new_creator_trial_credits(
 
     idempotency_key = _build_new_creator_trial_idempotency_key(
         creator_bid=creator_bid,
-        program_code=str(config["program_code"]),
+        program_code=config.program_code,
     )
     existing_entry = _load_new_creator_trial_entry(
         creator_bid,
-        program_code=str(config["program_code"]),
+        program_code=config.program_code,
     )
     if existing_entry is not None:
         return _build_trial_offer_state_from_entry(
@@ -182,20 +224,20 @@ def _grant_new_creator_trial_credits(
     wallet = _load_or_create_credit_wallet(app, creator_bid)
     granted_at = datetime.now()
     expires_at = granted_at + timedelta(days=valid_days)
-    trial_metadata = _normalize_json_value(
+    trial_metadata = _normalize_json_object(
         {
-            "trial_program": config["program_code"],
+            "trial_program": config.program_code,
             "grant_trigger": trigger,
             "registered_at": registered_at,
             "trial_config": {
                 "credit_amount": amount,
-                "eligible_registered_after": config["eligible_registered_after"],
-                "grant_trigger": config["grant_trigger"],
-                "program_code": config["program_code"],
+                "eligible_registered_after": config.eligible_registered_after,
+                "grant_trigger": config.grant_trigger,
+                "program_code": config.program_code,
                 "valid_days": valid_days,
             },
         }
-    )
+    ).to_metadata_json()
 
     bucket = CreditWalletBucket(
         wallet_bucket_bid=generate_id(app),
@@ -203,7 +245,7 @@ def _grant_new_creator_trial_credits(
         creator_bid=creator_bid,
         bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
         source_type=CREDIT_SOURCE_TYPE_GIFT,
-        source_bid=str(config["program_code"]),
+        source_bid=config.program_code,
         priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_FREE],
         original_credits=amount,
         available_credits=amount,
@@ -229,7 +271,7 @@ def _grant_new_creator_trial_credits(
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
             source_type=CREDIT_SOURCE_TYPE_GIFT,
-            source_bid=str(config["program_code"]),
+            source_bid=config.program_code,
             idempotency_key=idempotency_key,
             amount=amount,
             balance_after=balance_after,
@@ -255,7 +297,7 @@ def _grant_new_creator_trial_credits(
         db.session.rollback()
         existing_entry = _load_new_creator_trial_entry(
             creator_bid,
-            program_code=str(config["program_code"]),
+            program_code=config.program_code,
         )
         if existing_entry is not None:
             return _build_trial_offer_state_from_entry(
@@ -296,7 +338,7 @@ def _build_new_creator_trial_idempotency_key(
     return f"trial:{program_code}:{creator_bid}"
 
 
-def _load_new_creator_trial_config(app: Flask) -> dict[str, Any]:
+def _load_new_creator_trial_config(app: Flask) -> NewCreatorTrialConfig:
     raw_value = get_config(BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG, "")
     payload = dict(BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT)
     if isinstance(raw_value, dict):
@@ -315,75 +357,79 @@ def _load_new_creator_trial_config(app: Flask) -> dict[str, Any]:
             if isinstance(loaded, dict):
                 candidate = loaded
     payload.update(candidate)
-    return {
-        "enabled": _coerce_bool(payload.get("enabled")),
-        "program_code": str(
+    return NewCreatorTrialConfig(
+        enabled=_coerce_bool(payload.get("enabled")),
+        program_code=str(
             payload.get("program_code")
             or BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["program_code"]
         ).strip(),
-        "credit_amount": str(
+        credit_amount=str(
             _safe_to_decimal(
                 payload.get("credit_amount"),
                 default=BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["credit_amount"],
             )
         ),
-        "valid_days": _safe_to_positive_int(
+        valid_days=_safe_to_positive_int(
             payload.get("valid_days"),
             default=int(BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["valid_days"]),
         ),
-        "eligible_registered_after": str(
+        eligible_registered_after=str(
             payload.get("eligible_registered_after") or ""
         ).strip(),
-        "grant_trigger": str(
+        grant_trigger=str(
             payload.get("grant_trigger")
             or BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["grant_trigger"]
         ).strip(),
-    }
+    )
 
 
 def _build_trial_offer_state(
     *,
     enabled: bool,
     status: str,
-    config: dict[str, Any],
+    config: NewCreatorTrialConfig,
     granted_at: datetime | None = None,
     expires_at: datetime | None = None,
-) -> dict[str, Any]:
-    return {
-        "enabled": enabled,
-        "status": status,
-        "credit_amount": _to_decimal(config["credit_amount"]),
-        "valid_days": int(config["valid_days"]),
-        "starts_on_first_grant": True,
-        "granted_at": granted_at,
-        "expires_at": expires_at,
-    }
+) -> TrialOfferState:
+    return TrialOfferState(
+        enabled=enabled,
+        status=status,
+        credit_amount=_to_decimal(config.credit_amount),
+        valid_days=int(config.valid_days),
+        starts_on_first_grant=True,
+        granted_at=granted_at,
+        expires_at=expires_at,
+    )
 
 
 def _build_trial_offer_state_from_entry(
     entry: CreditLedgerEntry,
     *,
     enabled: bool,
-    config: dict[str, Any],
-) -> dict[str, Any]:
+    config: NewCreatorTrialConfig,
+) -> TrialOfferState:
     metadata = entry.metadata_json if isinstance(entry.metadata_json, dict) else {}
     config_snapshot = (
         metadata.get("trial_config")
         if isinstance(metadata.get("trial_config"), dict)
         else {}
     )
-    offer_config = {
-        "credit_amount": str(
+    offer_config = NewCreatorTrialConfig(
+        enabled=enabled,
+        program_code=config.program_code,
+        credit_amount=str(
             _safe_to_decimal(
                 config_snapshot.get("credit_amount"),
-                default=config["credit_amount"],
+                default=config.credit_amount,
             )
         ),
-        "valid_days": _safe_to_positive_int(
+        valid_days=_safe_to_positive_int(
             config_snapshot.get("valid_days"),
-            default=int(config["valid_days"]),
+            default=int(config.valid_days),
         ),
-    }
+        eligible_registered_after=config.eligible_registered_after,
+        grant_trigger=config.grant_trigger,
+    )
     return _build_trial_offer_state(
         enabled=enabled,
         status="granted",
@@ -395,27 +441,11 @@ def _build_trial_offer_state_from_entry(
 
 def _serialize_trial_offer(
     app: Flask,
-    state: dict[str, Any],
+    state: TrialOfferState,
     *,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
-    return {
-        "enabled": bool(state["enabled"]),
-        "status": str(state["status"]),
-        "credit_amount": _decimal_to_number(state["credit_amount"]),
-        "valid_days": int(state["valid_days"]),
-        "starts_on_first_grant": bool(state["starts_on_first_grant"]),
-        "granted_at": _serialize_dt(
-            app,
-            state.get("granted_at"),
-            timezone_name=timezone_name,
-        ),
-        "expires_at": _serialize_dt(
-            app,
-            state.get("expires_at"),
-            timezone_name=timezone_name,
-        ),
-    }
+) -> BillingTrialOfferDTO:
+    return state.to_dto(app, timezone_name=timezone_name)
 
 
 resolve_new_creator_trial_offer = _resolve_new_creator_trial_offer

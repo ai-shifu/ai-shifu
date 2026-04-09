@@ -17,6 +17,14 @@ class BillingBaseDTO(BaseModel):
     def __json__(self) -> dict[str, Any]:
         return self.model_dump(mode="python", by_alias=True)
 
+    def __getitem__(self, key: str) -> Any:
+        return self.__json__()[key]
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, dict):
+            return self.__json__() == other
+        return super().__eq__(other)
+
 
 @register_schema_to_swagger
 class BillingRouteItemDTO(BillingBaseDTO):

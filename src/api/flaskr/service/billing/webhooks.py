@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask
@@ -50,11 +51,45 @@ _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
 }
 
 
+@dataclass(slots=True, frozen=True)
+class BillingWebhookResult:
+    status: str
+    status_code: int
+    message: str | None = None
+    matched: bool | None = None
+    event_type: str | None = None
+    billing_order_bid: str | None = None
+    subscription_bid: str | None = None
+    charge_id: str | None = None
+    order_no: str | None = None
+
+    def to_response_dict(self) -> dict[str, Any]:
+        payload = {
+            "status": self.status,
+            "event_type": self.event_type,
+            "billing_order_bid": self.billing_order_bid,
+            "subscription_bid": self.subscription_bid,
+            "matched": self.matched,
+            "charge_id": self.charge_id,
+            "order_no": self.order_no,
+        }
+        if self.message is not None:
+            payload["message"] = self.message
+        return payload
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_response_dict()[key]
+
+    def __iter__(self):
+        yield self.to_response_dict()
+        yield self.status_code
+
+
 def handle_billing_stripe_webhook(
     app: Flask,
     raw_body: bytes,
     sig_header: str,
-) -> tuple[dict[str, Any], int]:
+) -> BillingWebhookResult:
     """Handle Stripe billing webhooks using the shared provider verifier."""
 
     provider = get_payment_provider("stripe")
@@ -66,7 +101,11 @@ def handle_billing_stripe_webhook(
         )
     except Exception as exc:  # pragma: no cover - verified via route tests
         app.logger.exception("Stripe billing webhook verification failed: %s", exc)
-        return {"status": "error", "message": str(exc)}, 400
+        return BillingWebhookResult(
+            status="error",
+            message=str(exc),
+            status_code=400,
+        )
 
     return apply_billing_stripe_notification(app, notification)
 
@@ -74,7 +113,7 @@ def handle_billing_stripe_webhook(
 def apply_billing_stripe_notification(
     app: Flask,
     notification: PaymentNotificationResult,
-) -> tuple[dict[str, Any], int]:
+) -> BillingWebhookResult:
     """Apply a normalized Stripe notification to billing state."""
 
     event = notification.provider_payload or {}
@@ -113,13 +152,11 @@ def apply_billing_stripe_notification(
                 event_type,
                 billing_order_bid,
             )
-            return (
-                {
-                    "status": "ignored",
-                    "event_type": event_type,
-                    "billing_order_bid": billing_order_bid or None,
-                },
-                202,
+            return BillingWebhookResult(
+                status="ignored",
+                event_type=event_type,
+                billing_order_bid=billing_order_bid or None,
+                status_code=202,
             )
 
         response_status = "acknowledged"
@@ -222,23 +259,19 @@ def apply_billing_stripe_notification(
             _grant_paid_order_credits(app, order)
 
         db.session.commit()
-        return (
-            {
-                "status": response_status,
-                "event_type": event_type,
-                "billing_order_bid": order.billing_order_bid if order else None,
-                "subscription_bid": (
-                    subscription.subscription_bid if subscription else None
-                ),
-            },
-            200,
+        return BillingWebhookResult(
+            status=response_status,
+            event_type=event_type,
+            billing_order_bid=order.billing_order_bid if order else None,
+            subscription_bid=subscription.subscription_bid if subscription else None,
+            status_code=200,
         )
 
 
 def handle_billing_pingxx_webhook(
     app: Flask,
     payload: dict[str, Any],
-) -> tuple[dict[str, Any], int]:
+) -> BillingWebhookResult:
     """Handle Pingxx billing callbacks using the shared billing state machine."""
 
     event_type = str((payload or {}).get("type", "") or "")
@@ -252,15 +285,13 @@ def handle_billing_pingxx_webhook(
             order_no=order_no,
         )
         if order is None:
-            return (
-                {
-                    "status": "not_billing",
-                    "matched": False,
-                    "event_type": event_type or None,
-                    "charge_id": charge_id or None,
-                    "order_no": order_no or None,
-                },
-                202,
+            return BillingWebhookResult(
+                status="not_billing",
+                matched=False,
+                event_type=event_type or None,
+                charge_id=charge_id or None,
+                order_no=order_no or None,
+                status_code=202,
             )
 
         target_status = None
@@ -296,14 +327,12 @@ def handle_billing_pingxx_webhook(
         if order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
         db.session.commit()
-        return (
-            {
-                "status": "paid"
-                if target_status == BILLING_ORDER_STATUS_PAID
-                else "acknowledged",
-                "matched": True,
-                "event_type": event_type or None,
-                "billing_order_bid": order.billing_order_bid,
-            },
-            200,
+        return BillingWebhookResult(
+            status="paid"
+            if target_status == BILLING_ORDER_STATUS_PAID
+            else "acknowledged",
+            matched=True,
+            event_type=event_type or None,
+            billing_order_bid=order.billing_order_bid,
+            status_code=200,
         )

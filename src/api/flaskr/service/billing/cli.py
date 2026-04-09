@@ -272,10 +272,22 @@ def register_billing_commands(console) -> None:
         _echo_payload(payload)
 
 
-def _echo_payload(payload: dict[str, Any]) -> None:
+def _serialize_cli_payload(payload: Any) -> Any:
+    if hasattr(payload, "to_task_payload"):
+        return payload.to_task_payload()
+    if hasattr(payload, "to_payload"):
+        return payload.to_payload()
+    if hasattr(payload, "to_response_dict"):
+        return payload.to_response_dict()
+    if hasattr(payload, "__json__"):
+        return payload.__json__()
+    return payload
+
+
+def _echo_payload(payload: Any) -> None:
     click.echo(
         json.dumps(
-            payload,
+            _serialize_cli_payload(payload),
             sort_keys=True,
             ensure_ascii=False,
             default=_serialize_json_value,

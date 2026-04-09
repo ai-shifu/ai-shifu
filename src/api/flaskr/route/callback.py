@@ -18,8 +18,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
             order_no = body.get("data", {}).get("object", {}).get("order_no", "")
             id = body.get("data", {}).get("object", {}).get("id", "")
             app.logger.info("pingxx-callback: charge.succeeded order_no: %s", order_no)
-            billing_payload, _ = handle_billing_pingxx_webhook(app, body)
-            if not billing_payload.get("matched", False):
+            billing_result = handle_billing_pingxx_webhook(app, body)
+            if not billing_result.matched:
                 success_buy_record_from_pingxx(app, id, body)
             # 处理支付成功逻辑
             # do something

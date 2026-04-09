@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -21,9 +22,95 @@ from .models import (
 )
 from .charges import build_usage_metric_charges
 from .ownership import resolve_usage_creator_bid
+from .value_objects import UsageConsumedCreditIndex
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
+
+
+@dataclass(slots=True, frozen=True)
+class DailyAggregateJobResult:
+    status: str
+    stat_date: str
+    creator_bid: str | None = None
+    shifu_bid: str | None = None
+    finalize: bool = False
+    window_started_at: str | None = None
+    window_ended_at: str | None = None
+    usage_count: int = 0
+    metric_count: int = 0
+    skipped_usage_count: int = 0
+    entry_count: int = 0
+    row_count: int = 0
+    deleted_count: int = 0
+    reason: str | None = None
+
+    def to_task_payload(self) -> dict[str, Any]:
+        payload = {
+            "status": self.status,
+            "stat_date": self.stat_date,
+            "creator_bid": self.creator_bid,
+            "shifu_bid": self.shifu_bid,
+            "finalize": self.finalize,
+            "window_started_at": self.window_started_at,
+            "window_ended_at": self.window_ended_at,
+            "usage_count": self.usage_count,
+            "metric_count": self.metric_count,
+            "skipped_usage_count": self.skipped_usage_count,
+            "entry_count": self.entry_count,
+            "row_count": self.row_count,
+            "deleted_count": self.deleted_count,
+        }
+        if self.reason:
+            payload["reason"] = self.reason
+        return payload
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class RebuildDailyAggregatesResult:
+    status: str
+    creator_bid: str | None
+    shifu_bid: str | None
+    date_from: str
+    date_to: str
+    day_count: int
+    usage_days: list[DailyAggregateJobResult] = field(default_factory=list)
+    ledger_days: list[DailyAggregateJobResult] = field(default_factory=list)
+
+    def to_task_payload(self) -> dict[str, Any]:
+        ledger_processed_days = [
+            item for item in self.ledger_days if item.status != "skipped"
+        ]
+        ledger_skipped_days = [
+            item for item in self.ledger_days if item.status == "skipped"
+        ]
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "shifu_bid": self.shifu_bid,
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "day_count": self.day_count,
+            "usage": {
+                "processed_days": len(self.usage_days),
+                "row_count": sum(int(item.row_count or 0) for item in self.usage_days),
+                "days": [item.to_task_payload() for item in self.usage_days],
+            },
+            "ledger": {
+                "processed_days": len(ledger_processed_days),
+                "skipped_days": len(ledger_skipped_days),
+                "row_count": sum(
+                    int(item.row_count or 0) for item in ledger_processed_days
+                ),
+                "days": [item.to_task_payload() for item in self.ledger_days],
+            },
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
 
 
 def aggregate_daily_usage_metrics(
@@ -34,7 +121,7 @@ def aggregate_daily_usage_metrics(
     shifu_bid: str = "",
     finalize: bool = False,
     now: datetime | None = None,
-) -> dict[str, Any]:
+) -> DailyAggregateJobResult:
     """Rebuild one day's usage aggregates from usage and ledger details."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -102,7 +189,7 @@ def aggregate_daily_usage_metrics(
 
             usage_count += 1
             for charge in metric_charges:
-                metric_code = int(charge["billing_metric"])
+                metric_code = int(charge.billing_metric)
                 aggregate_key = (
                     resolved_creator_bid,
                     str(usage.shifu_bid or "").strip(),
@@ -127,10 +214,11 @@ def aggregate_daily_usage_metrics(
                         "consumed_credits": _ZERO,
                     },
                 )
-                row_payload["raw_amount"] += int(charge["raw_amount"])
+                row_payload["raw_amount"] += int(charge.raw_amount)
                 row_payload["record_count"] += 1
                 row_payload["consumed_credits"] += consumed_credit_map.get(
-                    (str(usage.usage_bid or "").strip(), metric_code),
+                    str(usage.usage_bid or "").strip(),
+                    metric_code,
                     _ZERO,
                 )
                 metric_count += 1
@@ -169,20 +257,20 @@ def aggregate_daily_usage_metrics(
             )
 
         db.session.commit()
-        return {
-            "status": "finalized" if finalize else "aggregated",
-            "stat_date": normalized_stat_date,
-            "creator_bid": normalized_creator_bid or None,
-            "shifu_bid": normalized_shifu_bid or None,
-            "finalize": bool(finalize),
-            "window_started_at": window_started_at.isoformat(),
-            "window_ended_at": window_ended_at.isoformat(),
-            "usage_count": usage_count,
-            "metric_count": metric_count,
-            "skipped_usage_count": skipped_usage_count,
-            "row_count": len(aggregates),
-            "deleted_count": deleted_count,
-        }
+        return DailyAggregateJobResult(
+            status="finalized" if finalize else "aggregated",
+            stat_date=normalized_stat_date,
+            creator_bid=normalized_creator_bid or None,
+            shifu_bid=normalized_shifu_bid or None,
+            finalize=bool(finalize),
+            window_started_at=window_started_at.isoformat(),
+            window_ended_at=window_ended_at.isoformat(),
+            usage_count=usage_count,
+            metric_count=metric_count,
+            skipped_usage_count=skipped_usage_count,
+            row_count=len(aggregates),
+            deleted_count=deleted_count,
+        )
 
 
 def finalize_daily_usage_metrics(
@@ -192,7 +280,7 @@ def finalize_daily_usage_metrics(
     creator_bid: str = "",
     shifu_bid: str = "",
     now: datetime | None = None,
-) -> dict[str, Any]:
+) -> DailyAggregateJobResult:
     """Close one day's usage aggregate window by recomputing the full day."""
 
     return aggregate_daily_usage_metrics(
@@ -212,7 +300,7 @@ def aggregate_daily_ledger_summary(
     creator_bid: str = "",
     finalize: bool = False,
     now: datetime | None = None,
-) -> dict[str, Any]:
+) -> DailyAggregateJobResult:
     """Rebuild one day's ledger summary directly from ledger detail rows."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -282,17 +370,17 @@ def aggregate_daily_ledger_summary(
             )
 
         db.session.commit()
-        return {
-            "status": "finalized" if finalize else "aggregated",
-            "stat_date": normalized_stat_date,
-            "creator_bid": normalized_creator_bid or None,
-            "finalize": bool(finalize),
-            "window_started_at": window_started_at.isoformat(),
-            "window_ended_at": window_ended_at.isoformat(),
-            "entry_count": len(ledger_rows),
-            "row_count": len(aggregates),
-            "deleted_count": deleted_count,
-        }
+        return DailyAggregateJobResult(
+            status="finalized" if finalize else "aggregated",
+            stat_date=normalized_stat_date,
+            creator_bid=normalized_creator_bid or None,
+            finalize=bool(finalize),
+            window_started_at=window_started_at.isoformat(),
+            window_ended_at=window_ended_at.isoformat(),
+            entry_count=len(ledger_rows),
+            row_count=len(aggregates),
+            deleted_count=deleted_count,
+        )
 
 
 def finalize_daily_ledger_summary(
@@ -301,7 +389,7 @@ def finalize_daily_ledger_summary(
     stat_date: str = "",
     creator_bid: str = "",
     now: datetime | None = None,
-) -> dict[str, Any]:
+) -> DailyAggregateJobResult:
     """Close one day's ledger summary window by recomputing the full day."""
 
     return aggregate_daily_ledger_summary(
@@ -321,7 +409,7 @@ def rebuild_daily_aggregates(
     date_from: str = "",
     date_to: str = "",
     now: datetime | None = None,
-) -> dict[str, Any]:
+) -> RebuildDailyAggregatesResult:
     """Rebuild usage and ledger daily aggregates across one date window."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -332,8 +420,8 @@ def rebuild_daily_aggregates(
         now=now,
     )
 
-    usage_days: list[dict[str, Any]] = []
-    ledger_days: list[dict[str, Any]] = []
+    usage_days: list[DailyAggregateJobResult] = []
+    ledger_days: list[DailyAggregateJobResult] = []
     current_date = start_date
     while current_date <= end_date:
         stat_date = current_date.strftime("%Y-%m-%d")
@@ -348,13 +436,13 @@ def rebuild_daily_aggregates(
         )
         if normalized_shifu_bid:
             ledger_days.append(
-                {
-                    "status": "skipped",
-                    "reason": "shifu_scope_not_supported",
-                    "stat_date": stat_date,
-                    "creator_bid": normalized_creator_bid or None,
-                    "shifu_bid": normalized_shifu_bid,
-                }
+                DailyAggregateJobResult(
+                    status="skipped",
+                    reason="shifu_scope_not_supported",
+                    stat_date=stat_date,
+                    creator_bid=normalized_creator_bid or None,
+                    shifu_bid=normalized_shifu_bid,
+                )
             )
         else:
             ledger_days.append(
@@ -367,33 +455,16 @@ def rebuild_daily_aggregates(
             )
         current_date += timedelta(days=1)
 
-    ledger_processed_days = [
-        item for item in ledger_days if item.get("status") != "skipped"
-    ]
-    ledger_skipped_days = [
-        item for item in ledger_days if item.get("status") == "skipped"
-    ]
-    return {
-        "status": "rebuilt",
-        "creator_bid": normalized_creator_bid or None,
-        "shifu_bid": normalized_shifu_bid or None,
-        "date_from": start_date.strftime("%Y-%m-%d"),
-        "date_to": end_date.strftime("%Y-%m-%d"),
-        "day_count": len(usage_days),
-        "usage": {
-            "processed_days": len(usage_days),
-            "row_count": sum(int(item.get("row_count") or 0) for item in usage_days),
-            "days": usage_days,
-        },
-        "ledger": {
-            "processed_days": len(ledger_processed_days),
-            "skipped_days": len(ledger_skipped_days),
-            "row_count": sum(
-                int(item.get("row_count") or 0) for item in ledger_processed_days
-            ),
-            "days": ledger_days,
-        },
-    }
+    return RebuildDailyAggregatesResult(
+        status="rebuilt",
+        creator_bid=normalized_creator_bid or None,
+        shifu_bid=normalized_shifu_bid or None,
+        date_from=start_date.strftime("%Y-%m-%d"),
+        date_to=end_date.strftime("%Y-%m-%d"),
+        day_count=len(usage_days),
+        usage_days=usage_days,
+        ledger_days=ledger_days,
+    )
 
 
 def detect_daily_aggregate_rebuild_range(
@@ -463,7 +534,7 @@ def _load_usage_consumed_credit_map(
     window_started_at: datetime,
     window_ended_at: datetime,
     creator_bid: str = "",
-) -> dict[tuple[str, int], Decimal]:
+) -> UsageConsumedCreditIndex:
     query = CreditLedgerEntry.query.filter(
         CreditLedgerEntry.deleted == 0,
         CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -497,7 +568,7 @@ def _load_usage_consumed_credit_map(
             else:
                 consumed_value = _quantize_decimal(consumed_credits)
             consumed_map[(usage_bid, metric_code)] += consumed_value
-    return dict(consumed_map)
+    return UsageConsumedCreditIndex(values=dict(consumed_map))
 
 
 def _resolve_stat_window(

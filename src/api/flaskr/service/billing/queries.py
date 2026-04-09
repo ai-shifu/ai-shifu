@@ -42,6 +42,7 @@ from .models import (
 )
 from .serializers import coerce_datetime as _coerce_datetime
 from .serializers import normalize_bid as _normalize_bid
+from .value_objects import PageWindow, ProductCodeIndex, RenewalEventIndex, WalletIndex
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
@@ -285,10 +286,10 @@ def _load_current_subscription(creator_bid: str) -> BillingSubscription | None:
     )
 
 
-def _load_product_code_map(product_bids: list[str]) -> dict[str, str]:
+def _load_product_code_map(product_bids: list[str]) -> ProductCodeIndex:
     normalized_bids = [bid for bid in product_bids if bid]
     if not normalized_bids:
-        return {}
+        return ProductCodeIndex()
     rows = (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
@@ -297,13 +298,15 @@ def _load_product_code_map(product_bids: list[str]) -> dict[str, str]:
         .order_by(BillingProduct.id.desc())
         .all()
     )
-    return {row.product_bid: row.product_code for row in rows}
+    return ProductCodeIndex(
+        values={row.product_bid: row.product_code for row in rows},
+    )
 
 
-def _load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
+def _load_wallet_map(creator_bids: list[str]) -> WalletIndex:
     normalized_creator_bids = [_normalize_bid(bid) for bid in creator_bids if bid]
     if not normalized_creator_bids:
-        return {}
+        return WalletIndex()
     rows = (
         CreditWallet.query.filter(
             CreditWallet.deleted == 0,
@@ -315,17 +318,17 @@ def _load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
     payload: dict[str, CreditWallet] = {}
     for row in rows:
         payload.setdefault(row.creator_bid, row)
-    return payload
+    return WalletIndex(values=payload)
 
 
 def _load_latest_renewal_event_map(
     subscription_bids: list[str],
-) -> dict[str, BillingRenewalEvent]:
+) -> RenewalEventIndex:
     normalized_subscription_bids = [
         _normalize_bid(bid) for bid in subscription_bids if bid
     ]
     if not normalized_subscription_bids:
-        return {}
+        return RenewalEventIndex()
     rows = (
         BillingRenewalEvent.query.filter(
             BillingRenewalEvent.deleted == 0,
@@ -341,7 +344,7 @@ def _load_latest_renewal_event_map(
     payload: dict[str, BillingRenewalEvent] = {}
     for row in rows:
         payload.setdefault(row.subscription_bid, row)
-    return payload
+    return RenewalEventIndex(values=payload)
 
 
 def _load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
@@ -425,56 +428,56 @@ def _resolve_domain_binding_status_filter(value: str) -> int | None:
 
 def _build_page_payload(
     query, *, page_index: int, page_size: int, serializer
-) -> dict[str, Any]:
+) -> PageWindow[Any]:
     total = query.order_by(None).count()
     if total == 0:
-        return {
-            "items": [],
-            "page": page_index,
-            "page_count": 0,
-            "page_size": page_size,
-            "total": 0,
-        }
+        return PageWindow(
+            items=[],
+            page=page_index,
+            page_count=0,
+            page_size=page_size,
+            total=0,
+        )
 
     page_count = (total + page_size - 1) // page_size
     resolved_page = min(page_index, max(page_count, 1))
     offset = (resolved_page - 1) * page_size
     rows = query.offset(offset).limit(page_size).all()
-    return {
-        "items": [serializer(row) for row in rows],
-        "page": resolved_page,
-        "page_count": page_count,
-        "page_size": page_size,
-        "total": total,
-    }
+    return PageWindow(
+        items=[serializer(row) for row in rows],
+        page=resolved_page,
+        page_count=page_count,
+        page_size=page_size,
+        total=total,
+    )
 
 
 def _build_list_page_payload(
-    items: list[dict[str, Any]],
+    items: list[Any],
     *,
     page_index: int,
     page_size: int,
-) -> dict[str, Any]:
+) -> PageWindow[Any]:
     total = len(items)
     if total == 0:
-        return {
-            "items": [],
-            "page": page_index,
-            "page_count": 0,
-            "page_size": page_size,
-            "total": 0,
-        }
+        return PageWindow(
+            items=[],
+            page=page_index,
+            page_count=0,
+            page_size=page_size,
+            total=0,
+        )
 
     page_count = (total + page_size - 1) // page_size
     resolved_page = min(page_index, max(page_count, 1))
     offset = (resolved_page - 1) * page_size
-    return {
-        "items": items[offset : offset + page_size],
-        "page": resolved_page,
-        "page_count": page_count,
-        "page_size": page_size,
-        "total": total,
-    }
+    return PageWindow(
+        items=items[offset : offset + page_size],
+        page=resolved_page,
+        page_count=page_count,
+        page_size=page_size,
+        total=total,
+    )
 
 
 normalize_stat_date_filter = _normalize_stat_date_filter

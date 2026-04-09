@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Any
@@ -33,11 +34,74 @@ _ROUNDING_LABELS = {
 }
 
 
+@dataclass(slots=True, frozen=True)
+class UsageMetricCharge:
+    billing_metric: int
+    metric_label: str
+    raw_amount: int
+    unit_size: int
+    credits_per_unit: Decimal
+    rounding_mode: int
+    rounded_units: Decimal
+    consumed_credits: Decimal
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+
+@dataclass(slots=True, frozen=True)
+class UsageMetricBreakdownItem:
+    billing_metric: str
+    billing_metric_code: int
+    raw_amount: int
+    unit_size: int
+    rounded_units: Decimal
+    credits_per_unit: Decimal
+    rounding_mode: str
+    consumed_credits: Decimal
+
+    def to_metadata_json(self) -> dict[str, Any]:
+        return {
+            "billing_metric": self.billing_metric,
+            "billing_metric_code": int(self.billing_metric_code),
+            "raw_amount": int(self.raw_amount),
+            "unit_size": int(self.unit_size),
+            "rounded_units": decimal_to_number(self.rounded_units),
+            "credits_per_unit": decimal_to_number(self.credits_per_unit),
+            "rounding_mode": self.rounding_mode,
+            "consumed_credits": decimal_to_number(self.consumed_credits),
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class UsageEntryMetadata:
+    usage_bid: str
+    usage_record_id: int
+    usage_scene: int
+    usage_type: int
+    provider: str
+    model: str
+    metric_breakdown: list[UsageMetricBreakdownItem]
+
+    def to_metadata_json(self) -> dict[str, Any]:
+        return {
+            "usage_bid": self.usage_bid,
+            "usage_record_id": self.usage_record_id,
+            "usage_scene": self.usage_scene,
+            "usage_type": self.usage_type,
+            "provider": self.provider,
+            "model": self.model,
+            "metric_breakdown": [
+                item.to_metadata_json() for item in self.metric_breakdown
+            ],
+        }
+
+
 def build_usage_metric_charges(
     usage: BillUsageRecord,
     *,
     settlement_at: datetime,
-) -> list[dict[str, Any]]:
+) -> list[UsageMetricCharge]:
     usage_type = int(usage.usage_type or 0)
     if usage_type == BILL_USAGE_TYPE_LLM:
         return [
@@ -66,7 +130,7 @@ def build_usage_metric_charges(
         ]
 
     if usage_type == BILL_USAGE_TYPE_TTS:
-        charges: list[dict[str, Any]] = []
+        charges: list[UsageMetricCharge] = []
         for billing_metric, raw_amount in (
             (BILLING_METRIC_TTS_REQUEST_COUNT, 1),
             (BILLING_METRIC_TTS_OUTPUT_CHARS, int(usage.output or 0)),
@@ -81,7 +145,7 @@ def build_usage_metric_charges(
             if charge is None:
                 continue
             charges.append(charge)
-            if to_decimal(charge["consumed_credits"]) > _ZERO:
+            if to_decimal(charge.consumed_credits) > _ZERO:
                 break
         return charges[:1]
 
@@ -94,7 +158,7 @@ def build_metric_charge(
     billing_metric: int,
     raw_amount: int,
     settlement_at: datetime,
-) -> dict[str, Any] | None:
+) -> UsageMetricCharge | None:
     if raw_amount <= 0:
         return None
     rate = load_usage_rate(
@@ -113,16 +177,16 @@ def build_metric_charge(
     consumed_credits = (rounded_units * to_decimal(rate.credits_per_unit)).quantize(
         _DECIMAL_QUANT
     )
-    return {
-        "billing_metric": int(rate.billing_metric or billing_metric),
-        "metric_label": BILLING_METRIC_LABELS.get(billing_metric, str(billing_metric)),
-        "raw_amount": raw_amount,
-        "unit_size": int(rate.unit_size or 1),
-        "credits_per_unit": to_decimal(rate.credits_per_unit),
-        "rounding_mode": int(rate.rounding_mode or CREDIT_ROUNDING_MODE_CEIL),
-        "rounded_units": rounded_units,
-        "consumed_credits": consumed_credits,
-    }
+    return UsageMetricCharge(
+        billing_metric=int(rate.billing_metric or billing_metric),
+        metric_label=BILLING_METRIC_LABELS.get(billing_metric, str(billing_metric)),
+        raw_amount=raw_amount,
+        unit_size=int(rate.unit_size or 1),
+        credits_per_unit=to_decimal(rate.credits_per_unit),
+        rounding_mode=int(rate.rounding_mode or CREDIT_ROUNDING_MODE_CEIL),
+        rounded_units=rounded_units,
+        consumed_credits=consumed_credits,
+    )
 
 
 def load_usage_rate(
@@ -185,44 +249,32 @@ def round_usage_units(
 def build_usage_entry_metadata(
     *,
     usage: BillUsageRecord,
-    charge: dict[str, Any],
+    charge: UsageMetricCharge,
     consumed: Decimal,
-) -> dict[str, Any]:
-    return json_ready(
-        {
-            "usage_bid": usage.usage_bid,
-            "usage_record_id": int(usage.id or 0),
-            "usage_scene": int(usage.usage_scene or 0),
-            "usage_type": int(usage.usage_type or 0),
-            "provider": str(usage.provider or ""),
-            "model": str(usage.model or ""),
-            "metric_breakdown": [
-                {
-                    "billing_metric": charge["metric_label"],
-                    "billing_metric_code": int(charge["billing_metric"]),
-                    "raw_amount": int(charge["raw_amount"]),
-                    "unit_size": int(charge["unit_size"]),
-                    "rounded_units": decimal_to_number(charge["rounded_units"]),
-                    "credits_per_unit": decimal_to_number(charge["credits_per_unit"]),
-                    "rounding_mode": _ROUNDING_LABELS.get(
-                        int(charge["rounding_mode"] or CREDIT_ROUNDING_MODE_CEIL),
-                        "ceil",
-                    ),
-                    "consumed_credits": decimal_to_number(consumed),
-                }
-            ],
-        }
+) -> UsageEntryMetadata:
+    return UsageEntryMetadata(
+        usage_bid=usage.usage_bid,
+        usage_record_id=int(usage.id or 0),
+        usage_scene=int(usage.usage_scene or 0),
+        usage_type=int(usage.usage_type or 0),
+        provider=str(usage.provider or ""),
+        model=str(usage.model or ""),
+        metric_breakdown=[
+            UsageMetricBreakdownItem(
+                billing_metric=charge.metric_label,
+                billing_metric_code=int(charge.billing_metric),
+                raw_amount=int(charge.raw_amount),
+                unit_size=int(charge.unit_size),
+                rounded_units=charge.rounded_units,
+                credits_per_unit=charge.credits_per_unit,
+                rounding_mode=_ROUNDING_LABELS.get(
+                    int(charge.rounding_mode or CREDIT_ROUNDING_MODE_CEIL),
+                    "ceil",
+                ),
+                consumed_credits=consumed,
+            )
+        ],
     )
-
-
-def json_ready(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return decimal_to_number(value)
-    if isinstance(value, list):
-        return [json_ready(item) for item in value]
-    if isinstance(value, dict):
-        return {str(key): json_ready(item) for key, item in value.items()}
-    return value
 
 
 def to_decimal(value: Any) -> Decimal:

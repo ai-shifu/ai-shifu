@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -61,7 +62,7 @@ from .provider_state import (
 )
 from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
 from .serializers import normalize_bid as _normalize_bid
-from .serializers import normalize_json_value as _normalize_json_value
+from .serializers import normalize_json_object as _normalize_json_object
 from .serializers import to_decimal as _to_decimal
 from .subscriptions import (
     grant_paid_order_credits as _grant_paid_order_credits,
@@ -80,6 +81,69 @@ _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
     BILLING_ORDER_STATUS_TIMEOUT: 3,
     BILLING_ORDER_STATUS_FAILED: 4,
 }
+
+
+@dataclass(slots=True, frozen=True)
+class ProviderReferenceReconcileResult:
+    status: str
+    creator_bid: str | None
+    billing_order_bid: str | None
+    provider_reference_id: str | None
+    payment_provider: str | None
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "billing_order_bid": self.billing_order_bid,
+            "provider_reference_id": self.provider_reference_id,
+            "payment_provider": self.payment_provider,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class StripeLineItemPayload:
+    currency: str
+    unit_amount: int
+    product_name: str
+    interval: str | None = None
+    interval_count: int | None = None
+    quantity: int = 1
+
+    def to_provider_payload(self) -> dict[str, Any]:
+        price_data: dict[str, Any] = {
+            "currency": self.currency,
+            "unit_amount": self.unit_amount,
+            "product_data": {"name": self.product_name},
+        }
+        if self.interval is not None:
+            price_data["recurring"] = {
+                "interval": self.interval,
+                "interval_count": self.interval_count or 1,
+            }
+        return {"price_data": price_data, "quantity": self.quantity}
+
+
+@dataclass(slots=True, frozen=True)
+class RefundProviderMetadata:
+    billing_order_bid: str
+    creator_bid: str
+    payment_intent_id: str | None = None
+    charge_id: str | None = None
+
+    def to_provider_payload(self) -> dict[str, Any]:
+        payload = {
+            "billing_order_bid": self.billing_order_bid,
+            "creator_bid": self.creator_bid,
+        }
+        if self.payment_intent_id:
+            payload["payment_intent_id"] = self.payment_intent_id
+        if self.charge_id:
+            payload["charge_id"] = self.charge_id
+        return payload
 
 
 def create_billing_subscription_checkout(
@@ -148,7 +212,7 @@ def create_billing_subscription_checkout(
             cancel_url=cancel_url,
         )
         db.session.commit()
-        return BillingCheckoutResultDTO(**checkout_result)
+        return checkout_result
 
 
 def create_billing_topup_checkout(
@@ -199,7 +263,7 @@ def create_billing_topup_checkout(
             cancel_url=cancel_url,
         )
         db.session.commit()
-        return BillingCheckoutResultDTO(**checkout_result)
+        return checkout_result
 
 
 def create_billing_order_checkout(
@@ -255,7 +319,7 @@ def create_billing_order_checkout(
             cancel_url="",
         )
         db.session.commit()
-        return BillingCheckoutResultDTO(**checkout_result)
+        return checkout_result
 
 
 def refund_billing_order(
@@ -318,7 +382,7 @@ def refund_billing_order(
                 order_bid=order.billing_order_bid,
                 amount=refund_amount,
                 reason=refund_reason or None,
-                metadata=_build_refund_provider_metadata(order),
+                metadata=_build_refund_provider_metadata(order).to_provider_payload(),
             ),
             app=app,
         )
@@ -339,7 +403,9 @@ def refund_billing_order(
         )
         merged_order_metadata["refund_reference_id"] = refund_result.provider_reference
         merged_order_metadata["refund_status"] = refund_result.status
-        order.metadata_json = _normalize_json_value(merged_order_metadata)
+        order.metadata_json = _normalize_json_object(
+            merged_order_metadata
+        ).to_metadata_json()
         db.session.add(order)
         _persist_billing_stripe_raw_snapshot(
             order,
@@ -452,7 +518,7 @@ def reconcile_billing_provider_reference(
     provider_reference_id: str = "",
     billing_order_bid: str = "",
     session_id: str = "",
-) -> dict[str, Any]:
+) -> ProviderReferenceReconcileResult:
     """Reconcile a provider reference back into one billing order state."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -474,26 +540,26 @@ def reconcile_billing_provider_reference(
                 BillingOrder.provider_reference_id == normalized_provider_reference_id
             )
         else:
-            return {
-                "status": "order_not_found",
-                "creator_bid": normalized_creator_bid or None,
-                "billing_order_bid": normalized_billing_order_bid or None,
-                "provider_reference_id": normalized_provider_reference_id or None,
-                "payment_provider": normalized_payment_provider or None,
-            }
+            return ProviderReferenceReconcileResult(
+                status="order_not_found",
+                creator_bid=normalized_creator_bid or None,
+                billing_order_bid=normalized_billing_order_bid or None,
+                provider_reference_id=normalized_provider_reference_id or None,
+                payment_provider=normalized_payment_provider or None,
+            )
         if normalized_payment_provider:
             query = query.filter(
                 BillingOrder.payment_provider == normalized_payment_provider
             )
         order = query.order_by(BillingOrder.id.desc()).first()
         if order is None:
-            return {
-                "status": "order_not_found",
-                "creator_bid": normalized_creator_bid or None,
-                "billing_order_bid": normalized_billing_order_bid or None,
-                "provider_reference_id": normalized_provider_reference_id or None,
-                "payment_provider": normalized_payment_provider or None,
-            }
+            return ProviderReferenceReconcileResult(
+                status="order_not_found",
+                creator_bid=normalized_creator_bid or None,
+                billing_order_bid=normalized_billing_order_bid or None,
+                provider_reference_id=normalized_provider_reference_id or None,
+                payment_provider=normalized_payment_provider or None,
+            )
 
     sync_payload: dict[str, Any] = {}
     if order.payment_provider == "stripe":
@@ -507,13 +573,15 @@ def reconcile_billing_provider_reference(
         order.billing_order_bid,
         sync_payload,
     )
-    payload["creator_bid"] = order.creator_bid
-    payload["billing_order_bid"] = order.billing_order_bid
-    payload["payment_provider"] = order.payment_provider
-    payload["provider_reference_id"] = (
-        normalized_provider_reference_id or order.provider_reference_id or None
+    return ProviderReferenceReconcileResult(
+        status=payload.status,
+        creator_bid=order.creator_bid,
+        billing_order_bid=order.billing_order_bid,
+        provider_reference_id=(
+            normalized_provider_reference_id or order.provider_reference_id or None
+        ),
+        payment_provider=order.payment_provider,
     )
-    return payload
 
 
 def _resolve_billing_payment_channel(
@@ -576,7 +644,7 @@ def _create_provider_checkout(
     channel: str,
     success_url: str,
     cancel_url: str,
-) -> dict[str, Any]:
+) -> BillingCheckoutResultDTO:
     provider = get_payment_provider(payment_provider)
     subject = product.product_code or product.product_bid
     metadata = {
@@ -604,7 +672,10 @@ def _create_provider_checkout(
                 "metadata": metadata
             }
         provider_options["line_items"] = [
-            _build_stripe_line_item(product, payment_mode=payment_mode)
+            _build_stripe_line_item(
+                product,
+                payment_mode=payment_mode,
+            ).to_provider_payload()
         ]
     else:
         provider_options["charge_extra"] = {}
@@ -633,7 +704,7 @@ def _create_provider_checkout(
         )
 
     order.provider_reference_id = str(result.provider_reference or "")
-    order.metadata_json = _normalize_json_value(
+    order.metadata_json = _normalize_json_object(
         {
             **(
                 dict(order.metadata_json)
@@ -645,7 +716,7 @@ def _create_provider_checkout(
             "checkout": result.raw_response,
             "provider_extra": result.extra,
         }
-    )
+    ).to_metadata_json()
     db.session.add(order)
     _persist_billing_raw_snapshot_from_checkout(order, result)
 
@@ -662,14 +733,14 @@ def _create_provider_checkout(
         if result.checkout_session_id:
             response["checkout_session_id"] = result.checkout_session_id
     else:
-        response["payment_payload"] = _normalize_json_value(
+        response["payment_payload"] = _normalize_json_object(
             {
                 "provider_reference_id": result.provider_reference,
                 "credential": result.extra.get("credential"),
                 "raw_response": result.raw_response,
             }
-        )
-    return response
+        ).to_metadata_json()
+    return BillingCheckoutResultDTO(**response)
 
 
 def _persist_billing_raw_snapshot_from_checkout(
@@ -811,19 +882,20 @@ def _build_stripe_line_item(
     product: BillingProduct,
     *,
     payment_mode: str,
-) -> dict[str, Any]:
-    price_data: dict[str, Any] = {
-        "currency": str(product.currency or "CNY").lower(),
-        "unit_amount": int(product.price_amount or 0),
-        "product_data": {"name": product.product_code or product.product_bid},
-    }
+) -> StripeLineItemPayload:
+    interval: str | None = None
+    interval_count: int | None = None
     if payment_mode == "subscription":
         interval = BILLING_INTERVAL_LABELS.get(product.billing_interval, "month")
-        price_data["recurring"] = {
-            "interval": interval,
-            "interval_count": int(product.billing_interval_count or 1),
-        }
-    return {"price_data": price_data, "quantity": 1}
+        interval_count = int(product.billing_interval_count or 1)
+    return StripeLineItemPayload(
+        currency=str(product.currency or "CNY").lower(),
+        unit_amount=int(product.price_amount or 0),
+        product_name=product.product_code or product.product_bid,
+        interval=interval,
+        interval_count=interval_count,
+        quantity=1,
+    )
 
 
 def _inject_billing_query(url: str, billing_order_bid: str) -> str:
@@ -844,17 +916,13 @@ def _inject_billing_query(url: str, billing_order_bid: str) -> str:
     )
 
 
-def _build_refund_provider_metadata(order: BillingOrder) -> dict[str, Any]:
+def _build_refund_provider_metadata(order: BillingOrder) -> RefundProviderMetadata:
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
     provider_extra = metadata.get("provider_extra", {}) or {}
     latest_provider_payload = metadata.get("latest_provider_payload", {}) or {}
 
-    refund_metadata: dict[str, Any] = {
-        "billing_order_bid": order.billing_order_bid,
-        "creator_bid": order.creator_bid,
-    }
     payment_intent_id = _normalize_bid(provider_extra.get("payment_intent_id"))
     charge_id = _normalize_bid(provider_extra.get("charge_id"))
 
@@ -866,11 +934,12 @@ def _build_refund_provider_metadata(order: BillingOrder) -> dict[str, Any]:
     charge_id = charge_id or _normalize_bid(charge_payload.get("id"))
     charge_id = charge_id or _normalize_bid(payment_intent_payload.get("latest_charge"))
 
-    if payment_intent_id:
-        refund_metadata["payment_intent_id"] = payment_intent_id
-    if charge_id:
-        refund_metadata["charge_id"] = charge_id
-    return refund_metadata
+    return RefundProviderMetadata(
+        billing_order_bid=order.billing_order_bid,
+        creator_bid=order.creator_bid,
+        payment_intent_id=payment_intent_id or None,
+        charge_id=charge_id or None,
+    )
 
 
 def _sync_stripe_order(

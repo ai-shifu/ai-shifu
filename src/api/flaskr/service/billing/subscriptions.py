@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import calendar
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -66,6 +67,7 @@ from .queries import (
     serialize_order_metadata_datetime as _serialize_order_metadata_datetime,
 )
 from .serializers import normalize_bid as _normalize_bid
+from .serializers import normalize_json_object as _normalize_json_object
 from .serializers import normalize_json_value as _normalize_json_value
 from .serializers import serialize_subscription as _serialize_subscription
 from .serializers import to_decimal as _to_decimal
@@ -74,6 +76,7 @@ from .wallets import (
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
 )
+from .value_objects import JsonObjectMap
 
 _BUCKET_PRIORITY_BY_CATEGORY = {
     CREDIT_BUCKET_CATEGORY_FREE: 10,
@@ -94,6 +97,14 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
+
+
+@dataclass(slots=True, frozen=True)
+class CreditGrantContext:
+    source_type: int
+    bucket_category: int
+    priority: int
+    grant_reason: str
 
 
 def _load_owned_subscription(
@@ -120,15 +131,20 @@ def _merge_provider_metadata(
     event_type: str,
     payload: dict[str, Any],
     event_time: datetime | None,
-) -> dict[str, Any]:
-    metadata = dict(existing) if isinstance(existing, dict) else {}
+) -> JsonObjectMap:
+    if isinstance(existing, JsonObjectMap):
+        metadata = existing.copy()
+    elif isinstance(existing, dict):
+        metadata = JsonObjectMap(values=dict(existing))
+    else:
+        metadata = JsonObjectMap()
     metadata["provider"] = provider
     metadata["latest_source"] = source
     metadata["latest_event_type"] = event_type
     metadata["latest_provider_payload"] = _normalize_json_value(payload)
     if event_time is not None:
         metadata["latest_event_time"] = event_time.isoformat()
-    return _normalize_json_value(metadata)
+    return _normalize_json_object(metadata)
 
 
 def _resolve_pingxx_renewal_scheduled_at(
@@ -177,14 +193,14 @@ def cancel_billing_subscription(
                 event_type="cancel_subscription",
                 payload=provider_result.raw_response,
                 event_time=None,
-            )
+            ).to_metadata_json()
         subscription.cancel_at_period_end = 1
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         subscription.updated_at = datetime.now()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
-        return BillingSubscriptionDTO(**_serialize_subscription(app, subscription))
+        return _serialize_subscription(app, subscription)
 
 
 def resume_billing_subscription(
@@ -218,14 +234,14 @@ def resume_billing_subscription(
                 event_type="resume_subscription",
                 payload=provider_result.raw_response,
                 event_time=None,
-            )
+            ).to_metadata_json()
         subscription.cancel_at_period_end = 0
         subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
         subscription.updated_at = datetime.now()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
-        return BillingSubscriptionDTO(**_serialize_subscription(app, subscription))
+        return _serialize_subscription(app, subscription)
 
 
 def ensure_subscription_renewal_order(
@@ -270,7 +286,7 @@ def ensure_subscription_renewal_order(
         else {}
     )
     metadata.update(
-        _normalize_json_value(
+        _normalize_json_object(
             {
                 "checkout_type": "subscription_renewal",
                 "provider_reference_type": (
@@ -366,7 +382,7 @@ def _ensure_pingxx_renewal_applied_cycle(
         return
 
     metadata.update(
-        _normalize_json_value(
+        _normalize_json_object(
             {
                 "applied_cycle_start_at": _serialize_order_metadata_datetime(
                     shifted_cycle_start_at
@@ -531,10 +547,10 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         wallet_bucket_bid=generate_id(app),
         wallet_bid=wallet.wallet_bid,
         creator_bid=order.creator_bid,
-        bucket_category=grant_context["bucket_category"],
-        source_type=grant_context["source_type"],
+        bucket_category=grant_context.bucket_category,
+        source_type=grant_context.source_type,
         source_bid=order.billing_order_bid,
-        priority=grant_context["priority"],
+        priority=grant_context.priority,
         original_credits=amount,
         available_credits=amount,
         reserved_credits=Decimal("0"),
@@ -543,13 +559,13 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         effective_from=effective_from,
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
-        metadata_json=_normalize_json_value(
+        metadata_json=_normalize_json_object(
             {
                 "billing_order_bid": order.billing_order_bid,
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
             }
-        ),
+        ).to_metadata_json(),
     )
 
     db.session.add(bucket)
@@ -563,22 +579,22 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         wallet_bid=wallet.wallet_bid,
         wallet_bucket_bid=bucket.wallet_bucket_bid,
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-        source_type=grant_context["source_type"],
+        source_type=grant_context.source_type,
         source_bid=order.billing_order_bid,
         idempotency_key=idempotency_key,
         amount=amount,
         balance_after=balance_after,
         expires_at=effective_to,
         consumable_from=effective_from,
-        metadata_json=_normalize_json_value(
+        metadata_json=_normalize_json_object(
             {
                 "billing_order_bid": order.billing_order_bid,
                 "subscription_bid": order.subscription_bid or None,
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
-                "grant_reason": grant_context["grant_reason"],
+                "grant_reason": grant_context.grant_reason,
             }
-        ),
+        ).to_metadata_json(),
     )
 
     wallet.available_credits = balance_after
@@ -596,27 +612,25 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     return True
 
 
-def _resolve_credit_grant_context(order: BillingOrder) -> dict[str, Any] | None:
+def _resolve_credit_grant_context(order: BillingOrder) -> CreditGrantContext | None:
     if order.order_type in {
         BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
-        return {
-            "source_type": CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-            "bucket_category": CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-            "priority": _BUCKET_PRIORITY_BY_CATEGORY[
-                CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-            ],
-            "grant_reason": "subscription",
-        }
+        return CreditGrantContext(
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_SUBSCRIPTION],
+            grant_reason="subscription",
+        )
     if order.order_type == BILLING_ORDER_TYPE_TOPUP:
-        return {
-            "source_type": CREDIT_SOURCE_TYPE_TOPUP,
-            "bucket_category": CREDIT_BUCKET_CATEGORY_TOPUP,
-            "priority": _BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_TOPUP],
-            "grant_reason": "topup",
-        }
+        return CreditGrantContext(
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_TOPUP],
+            grant_reason="topup",
+        )
     return None
 
 
@@ -859,7 +873,7 @@ def _upsert_subscription_renewal_event(
     event_type: int,
     scheduled_at: datetime,
 ) -> None:
-    payload = _normalize_json_value(
+    payload = _normalize_json_object(
         {
             "subscription_bid": subscription.subscription_bid,
             "creator_bid": subscription.creator_bid,
@@ -892,14 +906,14 @@ def _upsert_subscription_renewal_event(
             status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
             attempt_count=0,
             last_error="",
-            payload_json=payload,
+            payload_json=payload.to_metadata_json(),
             processed_at=None,
         )
     else:
         event.creator_bid = subscription.creator_bid
         event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
         event.last_error = ""
-        event.payload_json = payload
+        event.payload_json = payload.to_metadata_json()
         event.processed_at = None
         event.updated_at = datetime.now()
 

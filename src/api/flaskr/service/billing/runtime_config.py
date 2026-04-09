@@ -7,7 +7,6 @@ from flask import Flask
 from .dtos import (
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
-    RuntimeBillingDomainDTO,
     RuntimeBillingEntitlementsDTO,
 )
 from .domains import resolve_runtime_domain_result
@@ -28,15 +27,13 @@ def build_runtime_billing_context(
     normalized_creator_bid = str(creator_bid or "").strip()
     entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
     entitlements = RuntimeBillingEntitlementsDTO(
-        **serialize_creator_entitlements(entitlement_state)
+        **serialize_creator_entitlements(entitlement_state).__json__()
     )
-    branding = RuntimeBillingBrandingDTO(**_build_branding_payload(entitlement_state))
-    domain = RuntimeBillingDomainDTO(
-        **resolve_runtime_domain_result(
-            app,
-            request_host,
-            creator_bid=normalized_creator_bid,
-        )
+    branding = _build_branding_payload(entitlement_state)
+    domain = resolve_runtime_domain_result(
+        app,
+        request_host,
+        creator_bid=normalized_creator_bid,
     )
     return RuntimeBillingContextDTO(
         entitlements=entitlements,
@@ -46,12 +43,9 @@ def build_runtime_billing_context(
 
 
 def _build_branding_payload(
-    entitlement_state: dict[str, object],
-) -> dict[str, str | None]:
-    feature_payload = entitlement_state.get("feature_payload")
-    normalized_feature_payload = (
-        feature_payload if isinstance(feature_payload, dict) else {}
-    )
+    entitlement_state,
+) -> RuntimeBillingBrandingDTO:
+    normalized_feature_payload = entitlement_state.feature_payload.to_metadata_json()
     branding_payload = normalized_feature_payload.get("branding")
     normalized_branding_payload = (
         branding_payload if isinstance(branding_payload, dict) else {}
@@ -67,17 +61,17 @@ def _build_branding_payload(
                 return normalized_value
         return None
 
-    if not bool(entitlement_state.get("branding_enabled")):
-        return {
-            "logo_wide_url": None,
-            "logo_square_url": None,
-            "favicon_url": None,
-            "home_url": None,
-        }
+    if not bool(entitlement_state.branding_enabled):
+        return RuntimeBillingBrandingDTO(
+            logo_wide_url=None,
+            logo_square_url=None,
+            favicon_url=None,
+            home_url=None,
+        )
 
-    return {
-        "logo_wide_url": pick("logo_wide_url", "logoWideUrl"),
-        "logo_square_url": pick("logo_square_url", "logoSquareUrl"),
-        "favicon_url": pick("favicon_url", "faviconUrl"),
-        "home_url": pick("home_url", "homeUrl"),
-    }
+    return RuntimeBillingBrandingDTO(
+        logo_wide_url=pick("logo_wide_url", "logoWideUrl"),
+        logo_square_url=pick("logo_square_url", "logoSquareUrl"),
+        favicon_url=pick("favicon_url", "faviconUrl"),
+        home_url=pick("home_url", "homeUrl"),
+    )

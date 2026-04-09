@@ -27,20 +27,11 @@ from .consts import (
 )
 from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
-    AdminBillingDailyLedgerSummaryDTO,
     AdminBillingDailyLedgerSummaryPageDTO,
-    AdminBillingDailyUsageMetricDTO,
     AdminBillingDailyUsageMetricsPageDTO,
-    AdminBillingDomainBindingDTO,
-    AdminBillingEntitlementDTO,
-    AdminBillingOrderDTO,
     AdminBillingOrdersPageDTO,
-    AdminBillingSubscriptionDTO,
-    BillingAlertDTO,
     BillingCatalogDTO,
-    BillingDailyLedgerSummaryDTO,
     BillingDailyLedgerSummaryPageDTO,
-    BillingDailyUsageMetricDTO,
     BillingDailyUsageMetricsPageDTO,
     BillingDomainAuditsPageDTO,
     BillingDomainBindResultDTO,
@@ -48,20 +39,14 @@ from .dtos import (
     BillingEntitlementsDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
-    BillingLedgerItemDTO,
     BillingLedgerPageDTO,
     BillingOrderDetailDTO,
-    BillingOrderSummaryDTO,
     BillingOrdersPageDTO,
     BillingPlanDTO,
-    BillingSubscriptionDTO,
     BillingSubscriptionsPageDTO,
     BillingTopupProductDTO,
-    BillingTrialOfferDTO,
     BillingOverviewDTO,
-    BillingWalletBucketDTO,
     BillingWalletBucketListDTO,
-    BillingWalletSnapshotDTO,
 )
 from .entitlements import (
     resolve_creator_entitlement_state,
@@ -94,7 +79,7 @@ from .queries import (
 from .serializers import (
     build_billing_alerts as _build_billing_alerts,
     normalize_bid as _normalize_bid,
-    normalize_json_value as _normalize_json_value,
+    normalize_json_object as _normalize_json_object,
     serialize_admin_daily_ledger_summary as _serialize_admin_daily_ledger_summary,
     serialize_admin_daily_usage_metric as _serialize_admin_daily_usage_metric,
     serialize_admin_domain_binding as _serialize_admin_domain_binding,
@@ -140,10 +125,10 @@ def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
         topups: list[BillingTopupProductDTO] = []
         for row in rows:
             payload = _serialize_product(row)
-            if payload["product_type"] == "plan":
-                plans.append(BillingPlanDTO(**payload))
-            elif payload["product_type"] == "topup":
-                topups.append(BillingTopupProductDTO(**payload))
+            if isinstance(payload, BillingPlanDTO):
+                plans.append(payload)
+            elif isinstance(payload, BillingTopupProductDTO):
+                topups.append(payload)
 
         return BillingCatalogDTO(plans=plans, topups=topups)
 
@@ -174,23 +159,16 @@ def build_billing_overview(
         )
         subscription = _load_current_subscription(normalized_creator_bid)
 
-        wallet_payload = BillingWalletSnapshotDTO(**_serialize_wallet(wallet))
+        wallet_payload = _serialize_wallet(wallet)
         subscription_payload = _serialize_subscription(
             app, subscription, timezone_name=timezone_name
         )
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,
             wallet=wallet_payload,
-            subscription=BillingSubscriptionDTO(**subscription_payload)
-            if subscription_payload is not None
-            else None,
-            billing_alerts=[
-                BillingAlertDTO(**item)
-                for item in _build_billing_alerts(
-                    wallet_payload.__json__(), subscription
-                )
-            ],
-            trial_offer=BillingTrialOfferDTO(**trial_offer),
+            subscription=subscription_payload,
+            billing_alerts=_build_billing_alerts(wallet_payload, subscription),
+            trial_offer=trial_offer,
         )
 
 
@@ -200,7 +178,7 @@ def build_billing_entitlements(app: Flask, creator_bid: str) -> BillingEntitleme
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         state = resolve_creator_entitlement_state(normalized_creator_bid)
-        return BillingEntitlementsDTO(**serialize_creator_entitlements(state))
+        return serialize_creator_entitlements(state)
 
 
 def build_billing_daily_usage_metrics_page(
@@ -250,15 +228,13 @@ def build_billing_daily_usage_metrics_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: BillingDailyUsageMetricDTO(
-                **_serialize_daily_usage_metric(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_daily_usage_metric(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return BillingDailyUsageMetricsPageDTO(**payload)
+        return BillingDailyUsageMetricsPageDTO(**payload.to_dto_kwargs())
 
 
 def build_billing_daily_ledger_summary_page(
@@ -307,15 +283,13 @@ def build_billing_daily_ledger_summary_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: BillingDailyLedgerSummaryDTO(
-                **_serialize_daily_ledger_summary(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_daily_ledger_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return BillingDailyLedgerSummaryPageDTO(**payload)
+        return BillingDailyLedgerSummaryPageDTO(**payload.to_dto_kwargs())
 
 
 def build_billing_wallet_buckets(
@@ -344,9 +318,7 @@ def build_billing_wallet_buckets(
         )
         return BillingWalletBucketListDTO(
             items=[
-                BillingWalletBucketDTO(
-                    **_serialize_wallet_bucket(app, row, timezone_name=timezone_name)
-                )
+                _serialize_wallet_bucket(app, row, timezone_name=timezone_name)
                 for row in rows
             ]
         )
@@ -373,15 +345,13 @@ def build_billing_ledger_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: BillingLedgerItemDTO(
-                **_serialize_ledger_entry(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_ledger_entry(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return BillingLedgerPageDTO(**payload)
+        return BillingLedgerPageDTO(**payload.to_dto_kwargs())
 
 
 def build_billing_orders_page(
@@ -405,15 +375,13 @@ def build_billing_orders_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: BillingOrderSummaryDTO(
-                **_serialize_order_summary(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_order_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return BillingOrdersPageDTO(**payload)
+        return BillingOrdersPageDTO(**payload.to_dto_kwargs())
 
 
 def build_admin_billing_subscriptions_page(
@@ -491,15 +459,13 @@ def build_admin_billing_subscriptions_page(
         )
         return BillingSubscriptionsPageDTO(
             items=[
-                AdminBillingSubscriptionDTO(
-                    **_serialize_admin_subscription(
-                        app,
-                        row,
-                        product_codes=product_codes,
-                        wallet=wallets.get(row.creator_bid),
-                        renewal_event=renewal_events.get(row.subscription_bid),
-                        timezone_name=timezone_name,
-                    )
+                _serialize_admin_subscription(
+                    app,
+                    row,
+                    product_codes=product_codes,
+                    wallet=wallets.get(row.creator_bid),
+                    renewal_event=renewal_events.get(row.subscription_bid),
+                    timezone_name=timezone_name,
                 )
                 for row in rows
             ],
@@ -526,12 +492,10 @@ def build_admin_billing_entitlements_page(
     with app.app_context():
         creator_bids = _load_admin_creator_bids(creator_bid=normalized_creator_bid)
         items = [
-            AdminBillingEntitlementDTO(
-                **_serialize_admin_entitlement_state(
-                    app,
-                    resolve_creator_entitlement_state(candidate_creator_bid),
-                    timezone_name=timezone_name,
-                )
+            _serialize_admin_entitlement_state(
+                app,
+                resolve_creator_entitlement_state(candidate_creator_bid),
+                timezone_name=timezone_name,
             )
             for candidate_creator_bid in creator_bids
         ]
@@ -540,7 +504,7 @@ def build_admin_billing_entitlements_page(
             page_index=safe_page_index,
             page_size=safe_page_size,
         )
-        return BillingEntitlementsPageDTO(**payload)
+        return BillingEntitlementsPageDTO(**payload.to_dto_kwargs())
 
 
 def build_admin_billing_domain_audits_page(
@@ -610,9 +574,9 @@ def build_admin_billing_domain_audits_page(
         rows = query.offset(offset).limit(safe_page_size).all()
         entitlement_flags = {
             candidate_creator_bid: bool(
-                resolve_creator_entitlement_state(candidate_creator_bid).get(
-                    "custom_domain_enabled",
-                )
+                resolve_creator_entitlement_state(
+                    candidate_creator_bid
+                ).custom_domain_enabled
             )
             for candidate_creator_bid in {
                 _normalize_bid(row.creator_bid) for row in rows if row.creator_bid
@@ -620,16 +584,14 @@ def build_admin_billing_domain_audits_page(
         }
         return BillingDomainAuditsPageDTO(
             items=[
-                AdminBillingDomainBindingDTO(
-                    **_serialize_admin_domain_binding(
-                        app,
-                        row,
-                        custom_domain_enabled=entitlement_flags.get(
-                            _normalize_bid(row.creator_bid),
-                            False,
-                        ),
-                        timezone_name=timezone_name,
-                    )
+                _serialize_admin_domain_binding(
+                    app,
+                    row,
+                    custom_domain_enabled=entitlement_flags.get(
+                        _normalize_bid(row.creator_bid),
+                        False,
+                    ),
+                    timezone_name=timezone_name,
                 )
                 for row in rows
             ],
@@ -677,15 +639,13 @@ def build_admin_billing_orders_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: AdminBillingOrderDTO(
-                **_serialize_admin_order_summary(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_admin_order_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return AdminBillingOrdersPageDTO(**payload)
+        return AdminBillingOrdersPageDTO(**payload.to_dto_kwargs())
 
 
 def build_admin_billing_daily_usage_metrics_page(
@@ -739,15 +699,13 @@ def build_admin_billing_daily_usage_metrics_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: AdminBillingDailyUsageMetricDTO(
-                **_serialize_admin_daily_usage_metric(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_admin_daily_usage_metric(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return AdminBillingDailyUsageMetricsPageDTO(**payload)
+        return AdminBillingDailyUsageMetricsPageDTO(**payload.to_dto_kwargs())
 
 
 def build_admin_billing_daily_ledger_summary_page(
@@ -800,15 +758,13 @@ def build_admin_billing_daily_ledger_summary_page(
             query,
             page_index=safe_page_index,
             page_size=safe_page_size,
-            serializer=lambda row: AdminBillingDailyLedgerSummaryDTO(
-                **_serialize_admin_daily_ledger_summary(
-                    app,
-                    row,
-                    timezone_name=timezone_name,
-                )
+            serializer=lambda row: _serialize_admin_daily_ledger_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
             ),
         )
-        return AdminBillingDailyLedgerSummaryPageDTO(**payload)
+        return AdminBillingDailyLedgerSummaryPageDTO(**payload.to_dto_kwargs())
 
 
 def build_billing_order_detail(
@@ -836,15 +792,21 @@ def build_billing_order_detail(
             raise_error("server.order.orderNotFound")
 
         payload = _serialize_order_summary(app, row, timezone_name=timezone_name)
-        payload["metadata"] = _normalize_json_value(row.metadata_json)
-        payload["failure_code"] = str(row.failure_code or "")
-        payload["refunded_at"] = _serialize_dt(
-            app, row.refunded_at, timezone_name=timezone_name
+        return BillingOrderDetailDTO(
+            **payload.__json__(),
+            metadata=_normalize_json_object(row.metadata_json).to_metadata_json(),
+            failure_code=str(row.failure_code or ""),
+            refunded_at=_serialize_dt(
+                app,
+                row.refunded_at,
+                timezone_name=timezone_name,
+            ),
+            failed_at=_serialize_dt(
+                app,
+                row.failed_at,
+                timezone_name=timezone_name,
+            ),
         )
-        payload["failed_at"] = _serialize_dt(
-            app, row.failed_at, timezone_name=timezone_name
-        )
-        return BillingOrderDetailDTO(**payload)
 
 
 def build_admin_billing_domain_bindings(
@@ -855,12 +817,10 @@ def build_admin_billing_domain_bindings(
 ) -> BillingDomainBindingsDTO:
     """Return creator-scoped custom domain bindings for admin billing pages."""
 
-    return BillingDomainBindingsDTO(
-        **build_creator_domain_bindings(
-            app,
-            creator_bid,
-            timezone_name=timezone_name,
-        )
+    return build_creator_domain_bindings(
+        app,
+        creator_bid,
+        timezone_name=timezone_name,
     )
 
 
@@ -873,13 +833,11 @@ def bind_admin_billing_domain(
 ) -> BillingDomainBindResultDTO:
     """Create, verify, or disable a creator custom domain binding."""
 
-    return BillingDomainBindResultDTO(
-        **manage_creator_domain_binding(
-            app,
-            creator_bid,
-            payload,
-            timezone_name=timezone_name,
-        )
+    return manage_creator_domain_binding(
+        app,
+        creator_bid,
+        payload,
+        timezone_name=timezone_name,
     )
 
 
@@ -907,12 +865,10 @@ def adjust_admin_billing_ledger(
     if len(note) > 255:
         raise_param_error("note")
 
-    return BillingLedgerAdjustResultDTO(
-        **adjust_credit_wallet_balance(
-            app,
-            creator_bid=normalized_creator_bid,
-            amount=normalized_amount,
-            note=note,
-            operator_user_bid=_normalize_bid(operator_user_bid),
-        )
+    return adjust_credit_wallet_balance(
+        app,
+        creator_bid=normalized_creator_bid,
+        amount=normalized_amount,
+        note=note,
+        operator_user_bid=_normalize_bid(operator_user_bid),
     )

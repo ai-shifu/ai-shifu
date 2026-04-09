@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -20,7 +21,9 @@ from .consts import (
     CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
+from .dtos import BillingEntitlementsDTO
 from .models import BillingEntitlement, BillingProduct, BillingSubscription
+from .value_objects import JsonObjectMap
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -31,11 +34,44 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
 )
 
 
+@dataclass(slots=True, frozen=True)
+class CreatorEntitlementState:
+    creator_bid: str
+    source_kind: str
+    source_type: str | None
+    source_bid: str | None
+    product_bid: str | None
+    effective_from: datetime | None
+    effective_to: datetime | None
+    branding_enabled: bool
+    custom_domain_enabled: bool
+    priority_class: str
+    max_concurrency: int
+    analytics_tier: str
+    support_tier: str
+    feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
+
+    def to_public_payload(self) -> dict[str, Any]:
+        return {
+            "branding_enabled": self.branding_enabled,
+            "custom_domain_enabled": self.custom_domain_enabled,
+            "priority_class": self.priority_class,
+            "max_concurrency": self.max_concurrency,
+            "analytics_tier": self.analytics_tier,
+            "support_tier": self.support_tier,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "feature_payload":
+            return self.feature_payload.to_metadata_json()
+        return getattr(self, key)
+
+
 def resolve_creator_entitlement_state(
     creator_bid: str,
     *,
     as_of: datetime | None = None,
-) -> dict[str, Any]:
+) -> CreatorEntitlementState:
     """Resolve the effective entitlement snapshot for a creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -58,17 +94,12 @@ def resolve_creator_entitlement_state(
     return _build_default_entitlement_state(normalized_creator_bid)
 
 
-def serialize_creator_entitlements(state: dict[str, Any]) -> dict[str, Any]:
+def serialize_creator_entitlements(
+    state: CreatorEntitlementState,
+) -> BillingEntitlementsDTO:
     """Return the public creator entitlement projection."""
 
-    return {
-        "branding_enabled": bool(state.get("branding_enabled")),
-        "custom_domain_enabled": bool(state.get("custom_domain_enabled")),
-        "priority_class": str(state.get("priority_class") or "standard"),
-        "max_concurrency": max(int(state.get("max_concurrency") or 1), 1),
-        "analytics_tier": str(state.get("analytics_tier") or "basic"),
-        "support_tier": str(state.get("support_tier") or "self_serve"),
-    }
+    return BillingEntitlementsDTO(**state.to_public_payload())
 
 
 def _load_active_entitlement_snapshot(
@@ -99,7 +130,7 @@ def _resolve_subscription_product_entitlement_state(
     creator_bid: str,
     *,
     as_of: datetime,
-) -> dict[str, Any] | None:
+) -> CreatorEntitlementState | None:
     subscription = (
         BillingSubscription.query.filter(
             BillingSubscription.deleted == 0,
@@ -129,121 +160,143 @@ def _resolve_subscription_product_entitlement_state(
         return None
 
     default_state = _build_default_entitlement_state(creator_bid)
-    default_state.update(
-        {
-            "source_kind": "product_payload",
-            "source_type": CREDIT_SOURCE_TYPE_LABELS.get(
-                CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-                "subscription",
-            ),
-            "source_bid": _normalize_bid(subscription.subscription_bid) or None,
-            "product_bid": _normalize_bid(subscription.product_bid) or None,
-            "effective_from": _coalesce_datetime(
-                subscription.current_period_start_at,
-                as_of,
-            ),
-            "effective_to": subscription.current_period_end_at,
-            "feature_payload": _normalize_feature_payload(
-                payload.get("feature_payload"),
-            ),
-        }
+    seed_state = CreatorEntitlementState(
+        creator_bid=default_state.creator_bid,
+        source_kind="product_payload",
+        source_type=CREDIT_SOURCE_TYPE_LABELS.get(
+            CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            "subscription",
+        ),
+        source_bid=_normalize_bid(subscription.subscription_bid) or None,
+        product_bid=_normalize_bid(subscription.product_bid) or None,
+        effective_from=_coalesce_datetime(
+            subscription.current_period_start_at,
+            as_of,
+        ),
+        effective_to=subscription.current_period_end_at,
+        branding_enabled=default_state.branding_enabled,
+        custom_domain_enabled=default_state.custom_domain_enabled,
+        priority_class=default_state.priority_class,
+        max_concurrency=default_state.max_concurrency,
+        analytics_tier=default_state.analytics_tier,
+        support_tier=default_state.support_tier,
+        feature_payload=_normalize_feature_payload(
+            payload.get("feature_payload"),
+        ),
     )
-    return _apply_entitlement_payload(default_state, payload)
+    return _apply_entitlement_payload(seed_state, payload)
 
 
-def _build_default_entitlement_state(creator_bid: str) -> dict[str, Any]:
-    return {
-        "creator_bid": creator_bid,
-        "source_kind": "default",
-        "source_type": None,
-        "source_bid": None,
-        "product_bid": None,
-        "effective_from": None,
-        "effective_to": None,
-        "branding_enabled": False,
-        "custom_domain_enabled": False,
-        "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
+def _build_default_entitlement_state(creator_bid: str) -> CreatorEntitlementState:
+    return CreatorEntitlementState(
+        creator_bid=creator_bid,
+        source_kind="default",
+        source_type=None,
+        source_bid=None,
+        product_bid=None,
+        effective_from=None,
+        effective_to=None,
+        branding_enabled=False,
+        custom_domain_enabled=False,
+        priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
             BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
             "standard",
         ),
-        "max_concurrency": 1,
-        "analytics_tier": BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
+        max_concurrency=1,
+        analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
             BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
             "basic",
         ),
-        "support_tier": BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS.get(
+        support_tier=BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS.get(
             BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
             "self_serve",
         ),
-        "feature_payload": {},
-    }
+        feature_payload=JsonObjectMap(),
+    )
 
 
-def _serialize_entitlement_row_state(row: BillingEntitlement) -> dict[str, Any]:
-    return {
-        "creator_bid": _normalize_bid(row.creator_bid),
-        "source_kind": "snapshot",
-        "source_type": CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
-        "source_bid": _normalize_bid(row.source_bid) or None,
-        "product_bid": None,
-        "effective_from": row.effective_from,
-        "effective_to": row.effective_to,
-        "branding_enabled": bool(row.branding_enabled),
-        "custom_domain_enabled": bool(row.custom_domain_enabled),
-        "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
+def _serialize_entitlement_row_state(
+    row: BillingEntitlement,
+) -> CreatorEntitlementState:
+    return CreatorEntitlementState(
+        creator_bid=_normalize_bid(row.creator_bid),
+        source_kind="snapshot",
+        source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
+        source_bid=_normalize_bid(row.source_bid) or None,
+        product_bid=None,
+        effective_from=row.effective_from,
+        effective_to=row.effective_to,
+        branding_enabled=bool(row.branding_enabled),
+        custom_domain_enabled=bool(row.custom_domain_enabled),
+        priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
             row.priority_class,
             "standard",
         ),
-        "max_concurrency": max(int(row.max_concurrency or 1), 1),
-        "analytics_tier": BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
+        max_concurrency=max(int(row.max_concurrency or 1), 1),
+        analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
             row.analytics_tier,
             "basic",
         ),
-        "support_tier": BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS.get(
+        support_tier=BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS.get(
             row.support_tier,
             "self_serve",
         ),
-        "feature_payload": _normalize_feature_payload(row.feature_payload),
-    }
+        feature_payload=_normalize_feature_payload(row.feature_payload),
+    )
 
 
 def _apply_entitlement_payload(
-    base_state: dict[str, Any],
+    base_state: CreatorEntitlementState,
     payload: dict[str, Any],
-) -> dict[str, Any]:
-    state = dict(base_state)
-    state["branding_enabled"] = _to_bool(
+) -> CreatorEntitlementState:
+    branding_enabled = _to_bool(
         payload.get("branding_enabled"),
-        default=state["branding_enabled"],
+        default=base_state.branding_enabled,
     )
-    state["custom_domain_enabled"] = _to_bool(
+    custom_domain_enabled = _to_bool(
         payload.get("custom_domain_enabled"),
-        default=state["custom_domain_enabled"],
+        default=base_state.custom_domain_enabled,
     )
-    state["priority_class"] = _resolve_labeled_value(
+    priority_class = _resolve_labeled_value(
         payload.get("priority_class"),
         labels=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS,
-        default=state["priority_class"],
+        default=base_state.priority_class,
     )
-    state["max_concurrency"] = _to_positive_int(
+    max_concurrency = _to_positive_int(
         payload.get("max_concurrency"),
-        default=state["max_concurrency"],
+        default=base_state.max_concurrency,
     )
-    state["analytics_tier"] = _resolve_labeled_value(
+    analytics_tier = _resolve_labeled_value(
         payload.get("analytics_tier"),
         labels=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
-        default=state["analytics_tier"],
+        default=base_state.analytics_tier,
     )
-    state["support_tier"] = _resolve_labeled_value(
+    support_tier = _resolve_labeled_value(
         payload.get("support_tier"),
         labels=BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
-        default=state["support_tier"],
+        default=base_state.support_tier,
     )
+    feature_payload = base_state.feature_payload
     if "feature_payload" in payload:
-        state["feature_payload"] = _normalize_feature_payload(
+        feature_payload = _normalize_feature_payload(
             payload.get("feature_payload"),
         )
-    return state
+    return CreatorEntitlementState(
+        creator_bid=base_state.creator_bid,
+        source_kind=base_state.source_kind,
+        source_type=base_state.source_type,
+        source_bid=base_state.source_bid,
+        product_bid=base_state.product_bid,
+        effective_from=base_state.effective_from,
+        effective_to=base_state.effective_to,
+        branding_enabled=branding_enabled,
+        custom_domain_enabled=custom_domain_enabled,
+        priority_class=priority_class,
+        max_concurrency=max_concurrency,
+        analytics_tier=analytics_tier,
+        support_tier=support_tier,
+        feature_payload=feature_payload,
+    )
 
 
 def _resolve_labeled_value(
@@ -267,10 +320,10 @@ def _resolve_labeled_value(
         return default
 
 
-def _normalize_feature_payload(value: Any) -> dict[str, Any]:
+def _normalize_feature_payload(value: Any) -> JsonObjectMap:
     if not isinstance(value, dict):
-        return {}
-    return {str(key): item for key, item in value.items()}
+        return JsonObjectMap()
+    return JsonObjectMap(values={str(key): item for key, item in value.items()})
 
 
 def _coalesce_datetime(

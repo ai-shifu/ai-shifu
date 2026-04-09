@@ -28,10 +28,12 @@ from .queries import (
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
 )
+from .serializers import normalize_json_object as _normalize_json_object
 from .serializers import normalize_json_value as _normalize_json_value
 from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
+from .value_objects import JsonObjectMap
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
@@ -84,7 +86,7 @@ def _apply_billing_order_provider_update(
         event_type=event_type,
         payload=payload,
         event_time=event_time,
-    )
+    ).to_metadata_json()
 
     if not _can_transition_billing_order_status(
         current_status=int(order.status or 0),
@@ -431,7 +433,7 @@ def _record_subscription_provider_event(
         event_type=event_type,
         payload=payload,
         event_time=event_time,
-    )
+    ).to_metadata_json()
 
 
 def _merge_provider_metadata(
@@ -442,15 +444,20 @@ def _merge_provider_metadata(
     event_type: str,
     payload: dict[str, Any],
     event_time: datetime | None,
-) -> dict[str, Any]:
-    metadata = dict(existing) if isinstance(existing, dict) else {}
+) -> JsonObjectMap:
+    if isinstance(existing, JsonObjectMap):
+        metadata = existing.copy()
+    elif isinstance(existing, dict):
+        metadata = JsonObjectMap(values=dict(existing))
+    else:
+        metadata = JsonObjectMap()
     metadata["provider"] = provider
     metadata["latest_source"] = source
     metadata["latest_event_type"] = event_type
     metadata["latest_provider_payload"] = _normalize_json_value(payload)
     if event_time is not None:
         metadata["latest_event_time"] = event_time.isoformat()
-    return _normalize_json_value(metadata)
+    return _normalize_json_object(metadata)
 
 
 def _extract_provider_event_time(payload: Any) -> datetime | None:

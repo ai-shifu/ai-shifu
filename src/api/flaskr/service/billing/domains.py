@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import ipaddress
 import re
 from datetime import datetime
@@ -26,8 +27,15 @@ from .consts import (
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
 )
+from .dtos import (
+    BillingDomainBindResultDTO,
+    BillingDomainBindingDTO,
+    BillingDomainBindingsDTO,
+    RuntimeBillingDomainDTO,
+)
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingDomainBinding
+from .value_objects import JsonObjectMap
 
 _DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -38,18 +46,35 @@ _DOMAIN_VERIFICATION_METHOD_CODES = {
 }
 
 
+@dataclass(slots=True, frozen=True)
+class DomainVerificationResult:
+    creator_bid: str
+    action: str
+    binding: BillingDomainBindingDTO
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "creator_bid": self.creator_bid,
+            "action": self.action,
+            "binding": self.binding.__json__(),
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
 def build_creator_domain_bindings(
     app: Flask,
     creator_bid: str,
     *,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDomainBindingsDTO:
     """Return the creator domain binding list and entitlement gate state."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
-        custom_domain_enabled = bool(entitlement_state.get("custom_domain_enabled"))
+        custom_domain_enabled = bool(entitlement_state.custom_domain_enabled)
         rows = (
             BillingDomainBinding.query.filter(
                 BillingDomainBinding.deleted == 0,
@@ -62,10 +87,10 @@ def build_creator_domain_bindings(
             )
             .all()
         )
-        return {
-            "creator_bid": normalized_creator_bid,
-            "custom_domain_enabled": custom_domain_enabled,
-            "items": [
+        return BillingDomainBindingsDTO(
+            creator_bid=normalized_creator_bid,
+            custom_domain_enabled=custom_domain_enabled,
+            items=[
                 _serialize_domain_binding(
                     app,
                     row,
@@ -74,7 +99,7 @@ def build_creator_domain_bindings(
                 )
                 for row in rows
             ],
-        }
+        )
 
 
 def manage_creator_domain_binding(
@@ -83,7 +108,7 @@ def manage_creator_domain_binding(
     payload: dict[str, Any],
     *,
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> BillingDomainBindResultDTO:
     """Bind, verify, or disable a creator custom domain."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -96,7 +121,7 @@ def manage_creator_domain_binding(
 
     with app.app_context():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
-        custom_domain_enabled = bool(entitlement_state.get("custom_domain_enabled"))
+        custom_domain_enabled = bool(entitlement_state.custom_domain_enabled)
 
         if action in {"bind", "verify"} and not custom_domain_enabled:
             raise_error("server.billing.customDomainDisabled")
@@ -125,15 +150,15 @@ def manage_creator_domain_binding(
 
         db.session.add(binding)
         db.session.commit()
-        return {
-            "action": action,
-            "binding": _serialize_domain_binding(
+        return BillingDomainBindResultDTO(
+            action=action,
+            binding=_serialize_domain_binding(
                 app,
                 binding,
                 timezone_name=timezone_name,
                 custom_domain_enabled=custom_domain_enabled,
             ),
-        }
+        )
 
 
 def verify_domain_binding(
@@ -144,7 +169,7 @@ def verify_domain_binding(
     host: Any = "",
     verification_token: Any = "",
     timezone_name: str | None = None,
-) -> dict[str, Any]:
+) -> DomainVerificationResult:
     """Verify one domain binding by business id or host for background tasks."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -175,8 +200,11 @@ def verify_domain_binding(
             },
             timezone_name=timezone_name,
         )
-        result["creator_bid"] = binding_creator_bid
-        return result
+        return DomainVerificationResult(
+            creator_bid=binding_creator_bid,
+            action=result.action,
+            binding=result.binding,
+        )
 
 
 def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
@@ -200,7 +228,7 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
             return None
 
         entitlement_state = resolve_creator_entitlement_state(binding.creator_bid)
-        if not bool(entitlement_state.get("custom_domain_enabled")):
+        if not bool(entitlement_state.custom_domain_enabled):
             return None
 
         return _normalize_bid(binding.creator_bid) or None
@@ -211,21 +239,21 @@ def resolve_runtime_domain_result(
     host: Any,
     *,
     creator_bid: str = "",
-) -> dict[str, Any]:
+) -> RuntimeBillingDomainDTO:
     """Return runtime-config domain metadata for the current request host."""
 
     normalized_host = normalize_domain_host(host, strict=False)
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_host:
-        return {
-            "request_host": None,
-            "matched": False,
-            "is_custom_domain": False,
-            "creator_bid": normalized_creator_bid or None,
-            "domain_binding_bid": None,
-            "host": None,
-            "binding_status": None,
-        }
+        return RuntimeBillingDomainDTO(
+            request_host=None,
+            matched=False,
+            is_custom_domain=False,
+            creator_bid=normalized_creator_bid or None,
+            domain_binding_bid=None,
+            host=None,
+            binding_status=None,
+        )
 
     with app.app_context():
         binding = (
@@ -237,19 +265,19 @@ def resolve_runtime_domain_result(
             .first()
         )
         if binding is None:
-            return {
-                "request_host": normalized_host,
-                "matched": False,
-                "is_custom_domain": False,
-                "creator_bid": normalized_creator_bid or None,
-                "domain_binding_bid": None,
-                "host": None,
-                "binding_status": None,
-            }
+            return RuntimeBillingDomainDTO(
+                request_host=normalized_host,
+                matched=False,
+                is_custom_domain=False,
+                creator_bid=normalized_creator_bid or None,
+                domain_binding_bid=None,
+                host=None,
+                binding_status=None,
+            )
 
         binding_creator_bid = _normalize_bid(binding.creator_bid)
         entitlement_state = resolve_creator_entitlement_state(binding_creator_bid)
-        custom_domain_enabled = bool(entitlement_state.get("custom_domain_enabled"))
+        custom_domain_enabled = bool(entitlement_state.custom_domain_enabled)
         creator_matches = not normalized_creator_bid or (
             normalized_creator_bid == binding_creator_bid
         )
@@ -258,20 +286,18 @@ def resolve_runtime_domain_result(
             and custom_domain_enabled
             and binding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
         )
-        return {
-            "request_host": normalized_host,
-            "matched": True,
-            "is_custom_domain": is_custom_domain,
-            "creator_bid": binding_creator_bid if is_custom_domain else None,
-            "domain_binding_bid": (
-                binding.domain_binding_bid if is_custom_domain else None
-            ),
-            "host": binding.host if is_custom_domain else None,
-            "binding_status": BILLING_DOMAIN_BINDING_STATUS_LABELS.get(
+        return RuntimeBillingDomainDTO(
+            request_host=normalized_host,
+            matched=True,
+            is_custom_domain=is_custom_domain,
+            creator_bid=binding_creator_bid if is_custom_domain else None,
+            domain_binding_bid=binding.domain_binding_bid if is_custom_domain else None,
+            host=binding.host if is_custom_domain else None,
+            binding_status=BILLING_DOMAIN_BINDING_STATUS_LABELS.get(
                 binding.status,
                 "pending",
             ),
-        }
+        )
 
 
 def normalize_domain_host(value: Any, *, strict: bool = True) -> str:
@@ -356,7 +382,7 @@ def _bind_creator_domain(
     binding.last_verified_at = None
     binding.ssl_status = BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED
     binding.metadata_json = {
-        **_as_dict(binding.metadata_json),
+        **_as_dict(binding.metadata_json).to_metadata_json(),
         "verification_error": "",
         "verification_record_name": _build_verification_record_name(host),
         "verification_record_value": binding.verification_token,
@@ -384,7 +410,7 @@ def _verify_creator_domain(
     if not normalized_token:
         raise_param_error("verification_token")
 
-    metadata = _as_dict(binding.metadata_json)
+    metadata = _as_dict(binding.metadata_json).to_metadata_json()
     if normalized_token == _normalize_bid(binding.verification_token):
         binding.status = BILLING_DOMAIN_BINDING_STATUS_VERIFIED
         binding.last_verified_at = datetime.now()
@@ -413,7 +439,7 @@ def _disable_creator_domain(
 
     binding.status = BILLING_DOMAIN_BINDING_STATUS_DISABLED
     binding.metadata_json = {
-        **_as_dict(binding.metadata_json),
+        **_as_dict(binding.metadata_json).to_metadata_json(),
         "verification_error": "",
         "updated_by": "creator_disable",
     }
@@ -467,7 +493,7 @@ def _serialize_domain_binding(
     *,
     timezone_name: str | None = None,
     custom_domain_enabled: bool = False,
-) -> dict[str, Any]:
+) -> BillingDomainBindingDTO:
     metadata = _as_dict(row.metadata_json)
     verification_record_name = str(
         metadata.get("verification_record_name")
@@ -476,33 +502,33 @@ def _serialize_domain_binding(
     verification_record_value = str(
         metadata.get("verification_record_value") or row.verification_token or ""
     )
-    return {
-        "domain_binding_bid": row.domain_binding_bid,
-        "creator_bid": row.creator_bid,
-        "host": row.host,
-        "status": BILLING_DOMAIN_BINDING_STATUS_LABELS.get(row.status, "pending"),
-        "verification_method": BILLING_DOMAIN_VERIFICATION_METHOD_LABELS.get(
+    return BillingDomainBindingDTO(
+        domain_binding_bid=row.domain_binding_bid,
+        creator_bid=row.creator_bid,
+        host=row.host,
+        status=BILLING_DOMAIN_BINDING_STATUS_LABELS.get(row.status, "pending"),
+        verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_LABELS.get(
             row.verification_method,
             "dns_txt",
         ),
-        "verification_token": row.verification_token,
-        "verification_record_name": verification_record_name,
-        "verification_record_value": verification_record_value,
-        "last_verified_at": serialize_with_app_timezone(
+        verification_token=row.verification_token,
+        verification_record_name=verification_record_name,
+        verification_record_value=verification_record_value,
+        last_verified_at=serialize_with_app_timezone(
             app,
             row.last_verified_at,
             timezone_name,
         ),
-        "ssl_status": BILLING_DOMAIN_SSL_STATUS_LABELS.get(
+        ssl_status=BILLING_DOMAIN_SSL_STATUS_LABELS.get(
             row.ssl_status,
             "not_requested",
         ),
-        "is_effective": bool(
+        is_effective=bool(
             custom_domain_enabled
             and row.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED
         ),
-        "metadata": metadata,
-    }
+        metadata=metadata.to_metadata_json(),
+    )
 
 
 def _normalize_action(value: Any) -> str:
@@ -551,7 +577,7 @@ def _normalize_bid(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _as_dict(value: Any) -> dict[str, Any]:
+def _as_dict(value: Any) -> JsonObjectMap:
     if isinstance(value, dict):
-        return {str(key): item for key, item in value.items()}
-    return {}
+        return JsonObjectMap(values={str(key): item for key, item in value.items()})
+    return JsonObjectMap()

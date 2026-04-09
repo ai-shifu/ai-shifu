@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -503,8 +505,27 @@ BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT = {
 }
 
 
-def _build_credit_usage_rate_seeds() -> tuple[dict[str, object], ...]:
-    seeds: list[dict[str, object]] = []
+@dataclass(slots=True, frozen=True)
+class CreditUsageRateSeed:
+    rate_bid: str
+    usage_type: int
+    provider: str
+    model: str
+    usage_scene: int
+    billing_metric: int
+    unit_size: int
+    credits_per_unit: Decimal
+    rounding_mode: int
+    effective_from: datetime
+    effective_to: datetime | None
+    status: int
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+
+def _build_credit_usage_rate_seeds() -> tuple[CreditUsageRateSeed, ...]:
+    seeds: list[CreditUsageRateSeed] = []
     effective_from = datetime(2026, 1, 1, 0, 0, 0)
     scene_specs = (
         ("debug", BILL_USAGE_SCENE_DEBUG),
@@ -519,36 +540,36 @@ def _build_credit_usage_rate_seeds() -> tuple[dict[str, object], ...]:
     for scene_name, usage_scene in scene_specs:
         for metric_name, billing_metric in llm_metrics:
             seeds.append(
-                {
-                    "rate_bid": f"credit-rate-llm-{scene_name}-{metric_name}-default",
-                    "usage_type": BILL_USAGE_TYPE_LLM,
-                    "provider": "*",
-                    "model": "*",
-                    "usage_scene": usage_scene,
-                    "billing_metric": billing_metric,
-                    "unit_size": 1000,
-                    "credits_per_unit": Decimal("0.0000000000"),
-                    "rounding_mode": CREDIT_ROUNDING_MODE_CEIL,
-                    "effective_from": effective_from,
-                    "effective_to": None,
-                    "status": CREDIT_USAGE_RATE_STATUS_ACTIVE,
-                }
+                CreditUsageRateSeed(
+                    rate_bid=f"credit-rate-llm-{scene_name}-{metric_name}-default",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="*",
+                    model="*",
+                    usage_scene=usage_scene,
+                    billing_metric=billing_metric,
+                    unit_size=1000,
+                    credits_per_unit=Decimal("0.0000000000"),
+                    rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+                    effective_from=effective_from,
+                    effective_to=None,
+                    status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+                )
             )
         seeds.append(
-            {
-                "rate_bid": f"credit-rate-tts-{scene_name}-request-default",
-                "usage_type": BILL_USAGE_TYPE_TTS,
-                "provider": "*",
-                "model": "*",
-                "usage_scene": usage_scene,
-                "billing_metric": BILLING_METRIC_TTS_REQUEST_COUNT,
-                "unit_size": 1,
-                "credits_per_unit": Decimal("0.0000000000"),
-                "rounding_mode": CREDIT_ROUNDING_MODE_CEIL,
-                "effective_from": effective_from,
-                "effective_to": None,
-                "status": CREDIT_USAGE_RATE_STATUS_ACTIVE,
-            }
+            CreditUsageRateSeed(
+                rate_bid=f"credit-rate-tts-{scene_name}-request-default",
+                usage_type=BILL_USAGE_TYPE_TTS,
+                provider="*",
+                model="*",
+                usage_scene=usage_scene,
+                billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+                unit_size=1,
+                credits_per_unit=Decimal("0.0000000000"),
+                rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+                effective_from=effective_from,
+                effective_to=None,
+                status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            )
         )
     return tuple(seeds)
 

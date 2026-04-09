@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from decimal import Decimal
 from datetime import datetime
 from typing import Any
@@ -24,6 +25,7 @@ from .consts import (
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
 )
+from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 
 _ZERO = Decimal("0")
@@ -32,6 +34,88 @@ _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
 }
+
+
+@dataclass(slots=True, frozen=True)
+class WalletSnapshotRecord:
+    wallet_bid: str
+    creator_bid: str
+    available_credits: int | float
+    reserved_credits: int | float
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "wallet_bid": self.wallet_bid,
+            "creator_bid": self.creator_bid,
+            "available_credits": self.available_credits,
+            "reserved_credits": self.reserved_credits,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class WalletSnapshotRebuildResult:
+    status: str
+    creator_bid: str | None
+    wallet_bid: str | None
+    wallet_count: int
+    wallets: list[WalletSnapshotRecord] = field(default_factory=list)
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "wallet_bid": self.wallet_bid,
+            "wallet_count": self.wallet_count,
+            "wallets": [wallet.to_payload() for wallet in self.wallets],
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class RefundReturnCreditsResult:
+    status: str
+    creator_bid: str | None
+    source_bid: str | None
+    amount: int | float = 0
+    wallet_bucket_bid: str | None = None
+    ledger_bid: str | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "source_bid": self.source_bid,
+            "amount": self.amount,
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "ledger_bid": self.ledger_bid,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class WalletExpirationResult:
+    status: str
+    creator_bid: str | None
+    bucket_count: int
+    expired_credits: int | float
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "bucket_count": self.bucket_count,
+            "expired_credits": self.expired_credits,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
 
 
 def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
@@ -111,7 +195,7 @@ def rebuild_credit_wallet_snapshots(
     *,
     creator_bid: str = "",
     wallet_bid: str = "",
-) -> dict[str, Any]:
+) -> WalletSnapshotRebuildResult:
     """Rebuild wallet snapshots from bucket rows for one or many creators."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -124,16 +208,16 @@ def rebuild_credit_wallet_snapshots(
             query = query.filter(CreditWallet.wallet_bid == normalized_wallet_bid)
         wallets = query.order_by(CreditWallet.id.asc()).all()
         if not wallets:
-            return {
-                "status": "noop",
-                "creator_bid": normalized_creator_bid or None,
-                "wallet_bid": normalized_wallet_bid or None,
-                "wallet_count": 0,
-                "wallets": [],
-            }
+            return WalletSnapshotRebuildResult(
+                status="noop",
+                creator_bid=normalized_creator_bid or None,
+                wallet_bid=normalized_wallet_bid or None,
+                wallet_count=0,
+                wallets=[],
+            )
 
         rebuilt_at = datetime.now()
-        payload_wallets: list[dict[str, Any]] = []
+        payload_wallets: list[WalletSnapshotRecord] = []
         for wallet in wallets:
             refresh_credit_wallet_snapshot(wallet)
             persist_credit_wallet_snapshot(
@@ -143,22 +227,22 @@ def rebuild_credit_wallet_snapshots(
                 updated_at=rebuilt_at,
             )
             payload_wallets.append(
-                {
-                    "wallet_bid": wallet.wallet_bid,
-                    "creator_bid": wallet.creator_bid,
-                    "available_credits": _decimal_to_number(wallet.available_credits),
-                    "reserved_credits": _decimal_to_number(wallet.reserved_credits),
-                }
+                WalletSnapshotRecord(
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid=wallet.creator_bid,
+                    available_credits=_decimal_to_number(wallet.available_credits),
+                    reserved_credits=_decimal_to_number(wallet.reserved_credits),
+                )
             )
 
         db.session.commit()
-        return {
-            "status": "rebuilt",
-            "creator_bid": normalized_creator_bid or None,
-            "wallet_bid": normalized_wallet_bid or None,
-            "wallet_count": len(payload_wallets),
-            "wallets": payload_wallets,
-        }
+        return WalletSnapshotRebuildResult(
+            status="rebuilt",
+            creator_bid=normalized_creator_bid or None,
+            wallet_bid=normalized_wallet_bid or None,
+            wallet_count=len(payload_wallets),
+            wallets=payload_wallets,
+        )
 
 
 def grant_refund_return_credits(
@@ -169,7 +253,7 @@ def grant_refund_return_credits(
     refund_bid: str,
     metadata: dict[str, Any] | None = None,
     effective_from: datetime | None = None,
-) -> dict[str, Any]:
+) -> RefundReturnCreditsResult:
     """Grant refunded credits back as a new free bucket."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -180,12 +264,12 @@ def grant_refund_return_credits(
         or not normalized_refund_bid
         or normalized_amount <= _ZERO
     ):
-        return {
-            "status": "noop",
-            "creator_bid": normalized_creator_bid or None,
-            "source_bid": normalized_refund_bid or None,
-            "amount": _decimal_to_number(normalized_amount),
-        }
+        return RefundReturnCreditsResult(
+            status="noop",
+            creator_bid=normalized_creator_bid or None,
+            source_bid=normalized_refund_bid or None,
+            amount=_decimal_to_number(normalized_amount),
+        )
 
     with app.app_context():
         idempotency_key = f"refund_return:{normalized_refund_bid}"
@@ -199,13 +283,13 @@ def grant_refund_return_credits(
             .first()
         )
         if existing_entry is not None:
-            return {
-                "status": "already_granted",
-                "creator_bid": normalized_creator_bid,
-                "source_bid": normalized_refund_bid,
-                "wallet_bucket_bid": existing_entry.wallet_bucket_bid,
-                "ledger_bid": existing_entry.ledger_bid,
-            }
+            return RefundReturnCreditsResult(
+                status="already_granted",
+                creator_bid=normalized_creator_bid,
+                source_bid=normalized_refund_bid,
+                wallet_bucket_bid=existing_entry.wallet_bucket_bid,
+                ledger_bid=existing_entry.ledger_bid,
+            )
 
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         now = effective_from or datetime.now()
@@ -259,13 +343,13 @@ def grant_refund_return_credits(
         )
         db.session.add(ledger_entry)
         db.session.commit()
-        return {
-            "status": "granted",
-            "creator_bid": normalized_creator_bid,
-            "source_bid": normalized_refund_bid,
-            "wallet_bucket_bid": bucket.wallet_bucket_bid,
-            "ledger_bid": ledger_entry.ledger_bid,
-        }
+        return RefundReturnCreditsResult(
+            status="granted",
+            creator_bid=normalized_creator_bid,
+            source_bid=normalized_refund_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            ledger_bid=ledger_entry.ledger_bid,
+        )
 
 
 def adjust_credit_wallet_balance(
@@ -275,7 +359,7 @@ def adjust_credit_wallet_balance(
     amount: Decimal | Any,
     note: str = "",
     operator_user_bid: str = "",
-) -> dict[str, Any]:
+) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through credit buckets."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -283,11 +367,11 @@ def adjust_credit_wallet_balance(
     normalized_note = str(note or "").strip()
     normalized_operator_user_bid = str(operator_user_bid or "").strip()
     if not normalized_creator_bid or normalized_amount == _ZERO:
-        return {
-            "status": "noop",
-            "creator_bid": normalized_creator_bid or None,
-            "amount": _decimal_to_number(normalized_amount),
-        }
+        return BillingLedgerAdjustResultDTO(
+            status="noop",
+            creator_bid=normalized_creator_bid or None,
+            amount=_decimal_to_number(normalized_amount),
+        )
 
     with app.app_context():
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
@@ -350,19 +434,19 @@ def adjust_credit_wallet_balance(
             )
             db.session.add(ledger_entry)
             db.session.commit()
-            return {
-                "status": "adjusted",
-                "adjustment_bid": adjustment_bid,
-                "creator_bid": normalized_creator_bid,
-                "amount": _decimal_to_number(normalized_amount),
-                "wallet": {
-                    "wallet_bid": wallet.wallet_bid,
-                    "available_credits": _decimal_to_number(wallet.available_credits),
-                    "reserved_credits": _decimal_to_number(wallet.reserved_credits),
-                },
-                "wallet_bucket_bids": [bucket.wallet_bucket_bid],
-                "ledger_bids": [ledger_entry.ledger_bid],
-            }
+            return BillingLedgerAdjustResultDTO(
+                status="adjusted",
+                adjustment_bid=adjustment_bid,
+                creator_bid=normalized_creator_bid,
+                amount=_decimal_to_number(normalized_amount),
+                wallet=BillingWalletRefDTO(
+                    wallet_bid=wallet.wallet_bid,
+                    available_credits=_decimal_to_number(wallet.available_credits),
+                    reserved_credits=_decimal_to_number(wallet.reserved_credits),
+                ),
+                wallet_bucket_bids=[bucket.wallet_bucket_bid],
+                ledger_bids=[ledger_entry.ledger_bid],
+            )
 
         remaining = normalized_amount.copy_abs()
         buckets = _load_adjustable_credit_buckets(
@@ -423,19 +507,19 @@ def adjust_credit_wallet_balance(
             remaining -= adjusted_amount
 
         db.session.commit()
-        return {
-            "status": "adjusted",
-            "adjustment_bid": adjustment_bid,
-            "creator_bid": normalized_creator_bid,
-            "amount": _decimal_to_number(normalized_amount),
-            "wallet": {
-                "wallet_bid": wallet.wallet_bid,
-                "available_credits": _decimal_to_number(wallet.available_credits),
-                "reserved_credits": _decimal_to_number(wallet.reserved_credits),
-            },
-            "wallet_bucket_bids": wallet_bucket_bids,
-            "ledger_bids": ledger_bids,
-        }
+        return BillingLedgerAdjustResultDTO(
+            status="adjusted",
+            adjustment_bid=adjustment_bid,
+            creator_bid=normalized_creator_bid,
+            amount=_decimal_to_number(normalized_amount),
+            wallet=BillingWalletRefDTO(
+                wallet_bid=wallet.wallet_bid,
+                available_credits=_decimal_to_number(wallet.available_credits),
+                reserved_credits=_decimal_to_number(wallet.reserved_credits),
+            ),
+            wallet_bucket_bids=wallet_bucket_bids,
+            ledger_bids=ledger_bids,
+        )
 
 
 def expire_credit_wallet_buckets(
@@ -443,7 +527,7 @@ def expire_credit_wallet_buckets(
     *,
     creator_bid: str = "",
     expire_before: datetime | None = None,
-) -> dict[str, Any]:
+) -> WalletExpirationResult:
     """Expire currently active buckets whose effective window has ended."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -465,12 +549,12 @@ def expire_credit_wallet_buckets(
             CreditWalletBucket.id.asc(),
         ).all()
         if not buckets:
-            return {
-                "status": "noop",
-                "creator_bid": normalized_creator_bid or None,
-                "bucket_count": 0,
-                "expired_credits": 0,
-            }
+            return WalletExpirationResult(
+                status="noop",
+                creator_bid=normalized_creator_bid or None,
+                bucket_count=0,
+                expired_credits=0,
+            )
 
         wallets: dict[str, CreditWallet] = {}
         expired_total = _ZERO
@@ -524,12 +608,12 @@ def expire_credit_wallet_buckets(
             expired_count += 1
 
         db.session.commit()
-        return {
-            "status": "expired" if expired_count else "noop",
-            "creator_bid": normalized_creator_bid or None,
-            "bucket_count": expired_count,
-            "expired_credits": _decimal_to_number(expired_total),
-        }
+        return WalletExpirationResult(
+            status="expired" if expired_count else "noop",
+            creator_bid=normalized_creator_bid or None,
+            bucket_count=expired_count,
+            expired_credits=_decimal_to_number(expired_total),
+        )
 
 
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:

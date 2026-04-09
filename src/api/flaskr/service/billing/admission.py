@@ -71,13 +71,40 @@ class CreatorRuntimeAdmissionLease:
         self.release()
 
 
+@dataclass(slots=True, frozen=True)
+class CreatorUsageAdmission:
+    allowed: bool
+    creator_bid: str
+    shifu_bid: str
+    usage_scene: int | None
+    wallet_available_credits: Decimal
+    subscription_status: int | None
+    priority_class: str
+    max_concurrency: int
+
+    def to_response_dict(self) -> dict[str, Any]:
+        return {
+            "allowed": self.allowed,
+            "creator_bid": self.creator_bid,
+            "shifu_bid": self.shifu_bid,
+            "usage_scene": self.usage_scene,
+            "wallet_available_credits": self.wallet_available_credits,
+            "subscription_status": self.subscription_status,
+            "priority_class": self.priority_class,
+            "max_concurrency": self.max_concurrency,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_response_dict()[key]
+
+
 def admit_creator_usage(
     app: Flask,
     *,
     creator_bid: str = "",
     shifu_bid: str = "",
     usage_scene: int | None = None,
-) -> dict[str, Any]:
+) -> CreatorUsageAdmission:
     """Validate whether a creator-owned usage request may proceed."""
 
     normalized_creator_bid = _resolve_creator_bid(
@@ -140,27 +167,27 @@ def admit_creator_usage(
             normalized_creator_bid,
             as_of=admission_at,
         )
-        return {
-            "allowed": True,
-            "creator_bid": normalized_creator_bid,
-            "shifu_bid": str(shifu_bid or "").strip(),
-            "usage_scene": usage_scene,
-            "wallet_available_credits": wallet_available_credits,
-            "subscription_status": getattr(subscription, "status", None),
-            "priority_class": entitlement_state["priority_class"],
-            "max_concurrency": int(entitlement_state["max_concurrency"]),
-        }
+        return CreatorUsageAdmission(
+            allowed=True,
+            creator_bid=normalized_creator_bid,
+            shifu_bid=str(shifu_bid or "").strip(),
+            usage_scene=usage_scene,
+            wallet_available_credits=wallet_available_credits,
+            subscription_status=getattr(subscription, "status", None),
+            priority_class=entitlement_state.priority_class,
+            max_concurrency=int(entitlement_state.max_concurrency),
+        )
 
 
 def reserve_creator_runtime_slot(
     app: Flask,
     *,
-    admission_payload: dict[str, Any],
+    admission_payload: CreatorUsageAdmission,
 ) -> CreatorRuntimeAdmissionLease:
     """Reserve one creator-scoped runtime slot for an admitted request."""
 
-    creator_bid = _resolve_required_bid(admission_payload.get("creator_bid"))
-    max_concurrency = _resolve_positive_int(admission_payload.get("max_concurrency"))
+    creator_bid = _resolve_required_bid(admission_payload.creator_bid)
+    max_concurrency = _resolve_positive_int(admission_payload.max_concurrency)
     prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu") or "ai-shifu")
     counter_key = f"{prefix}{_RUNTIME_CONCURRENCY_KEY_SUFFIX}{creator_bid}"
     lock_key = f"{prefix}{_RUNTIME_CONCURRENCY_LOCK_KEY_SUFFIX}{creator_bid}"

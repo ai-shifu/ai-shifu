@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -51,13 +52,83 @@ _TERMINAL_EVENT_STATUSES = (
 )
 
 
+@dataclass(slots=True, frozen=True)
+class RenewalEventSnapshot:
+    renewal_event_bid: str | None
+    subscription_bid: str | None
+    creator_bid: str | None
+    event_type: str | None
+    event_status: str | None
+    scheduled_at: str | None
+    attempt_count: int
+    last_error: str
+    payload: Any
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "renewal_event_bid": self.renewal_event_bid,
+            "subscription_bid": self.subscription_bid,
+            "creator_bid": self.creator_bid,
+            "event_type": self.event_type,
+            "event_status": self.event_status,
+            "scheduled_at": self.scheduled_at,
+            "attempt_count": self.attempt_count,
+            "last_error": self.last_error,
+            "payload": self.payload,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class RenewalEventResult:
+    status: str
+    event: RenewalEventSnapshot | None = None
+    renewal_event_bid: str | None = None
+    subscription_bid: str | None = None
+    creator_bid: str | None = None
+    billing_order_bid: str | None = None
+    subscription_status: str | None = None
+    product_bid: str | None = None
+    message: str | None = None
+    order_status: int | None = None
+
+    def to_task_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"status": self.status}
+        if self.event is not None:
+            payload.update(self.event.to_payload())
+        else:
+            payload.update(
+                {
+                    "renewal_event_bid": self.renewal_event_bid,
+                    "subscription_bid": self.subscription_bid,
+                    "creator_bid": self.creator_bid,
+                }
+            )
+        if self.billing_order_bid is not None:
+            payload["billing_order_bid"] = self.billing_order_bid
+        if self.subscription_status is not None:
+            payload["subscription_status"] = self.subscription_status
+        if self.product_bid is not None:
+            payload["product_bid"] = self.product_bid
+        if self.message is not None:
+            payload["message"] = self.message
+        if self.order_status is not None:
+            payload["order_status"] = self.order_status
+        return payload
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
 def claim_billing_renewal_event(
     app: Flask,
     *,
     renewal_event_bid: str = "",
     subscription_bid: str = "",
     creator_bid: str = "",
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     """Atomically claim a renewal event for execution."""
 
     with app.app_context():
@@ -66,20 +137,16 @@ def claim_billing_renewal_event(
             subscription_bid=subscription_bid,
             creator_bid=creator_bid,
         )
-        payload = {"status": status}
-        if event is not None:
-            payload.update(_serialize_renewal_event(event))
-        else:
-            payload.update(
-                {
-                    "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-                    "subscription_bid": _normalize_bid(subscription_bid) or None,
-                    "creator_bid": _normalize_bid(creator_bid) or None,
-                }
-            )
         if status == "claimed":
             db.session.commit()
-        return payload
+        if event is not None:
+            return _result_from_event(status, event)
+        return _result_without_event(
+            status,
+            renewal_event_bid=renewal_event_bid,
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+        )
 
 
 def run_billing_renewal_event(
@@ -88,7 +155,7 @@ def run_billing_renewal_event(
     renewal_event_bid: str = "",
     subscription_bid: str = "",
     creator_bid: str = "",
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     """Claim and execute a renewal event with idempotent state transitions."""
 
     with app.app_context():
@@ -98,26 +165,20 @@ def run_billing_renewal_event(
             creator_bid=creator_bid,
         )
         if event is None:
-            return {
-                "status": claim_status,
-                "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-                "subscription_bid": _normalize_bid(subscription_bid) or None,
-                "creator_bid": _normalize_bid(creator_bid) or None,
-            }
+            return _result_without_event(
+                claim_status,
+                renewal_event_bid=renewal_event_bid,
+                subscription_bid=subscription_bid,
+                creator_bid=creator_bid,
+            )
         if claim_status != "claimed":
-            return {
-                "status": claim_status,
-                **_serialize_renewal_event(event),
-            }
+            return _result_from_event(claim_status, event)
 
         now = datetime.now()
         if event.scheduled_at and event.scheduled_at > now:
             _release_renewal_event(event, now=now)
             db.session.commit()
-            return {
-                "status": "deferred_until_scheduled_at",
-                **_serialize_renewal_event(event),
-            }
+            return _result_from_event("deferred_until_scheduled_at", event)
 
         if int(event.event_type or 0) == BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE:
             return _execute_cancel_effective(app, event, now=now)
@@ -142,10 +203,7 @@ def run_billing_renewal_event(
             ),
         )
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
 
 def retry_billing_renewal_event(
@@ -157,7 +215,7 @@ def retry_billing_renewal_event(
     billing_order_bid: str = "",
     provider_reference_id: str = "",
     payment_provider: str = "",
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     """Resolve the latest renewal order context and sync it with the provider."""
 
     del provider_reference_id, payment_provider
@@ -174,15 +232,15 @@ def retry_billing_renewal_event(
             subscription_bid=subscription_bid,
         )
         if order is None:
-            return {
-                "status": "order_not_found",
-                "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-                "subscription_bid": _normalize_bid(subscription_bid)
+            return RenewalEventResult(
+                status="order_not_found",
+                renewal_event_bid=_normalize_bid(renewal_event_bid) or None,
+                subscription_bid=_normalize_bid(subscription_bid)
                 or (event.subscription_bid if event is not None else None),
-                "creator_bid": _normalize_bid(creator_bid)
+                creator_bid=_normalize_bid(creator_bid)
                 or (event.creator_bid if event is not None else None),
-                "billing_order_bid": _normalize_bid(billing_order_bid) or None,
-            }
+                billing_order_bid=_normalize_bid(billing_order_bid) or None,
+            )
 
     return _sync_billing_renewal_order(app, order=order, event=event)
 
@@ -192,15 +250,12 @@ def _execute_cancel_effective(
     event: BillingRenewalEvent,
     *,
     now: datetime,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     subscription = _load_subscription_by_bid(event.subscription_bid)
     if subscription is None:
         _fail_renewal_event(event, now=now, error="subscription_not_found")
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
     if int(subscription.status or 0) in {
         BILLING_SUBSCRIPTION_STATUS_CANCELED,
@@ -208,13 +263,13 @@ def _execute_cancel_effective(
     }:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "already_applied",
-            "subscription_status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+        return _result_from_event(
+            "already_applied",
+            event,
+            subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
                 int(subscription.status or 0), "canceled"
             ),
-            **_serialize_renewal_event(event),
-        }
+        )
 
     subscription.cancel_at_period_end = 1
     subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
@@ -223,11 +278,7 @@ def _execute_cancel_effective(
     _sync_subscription_lifecycle_events(app, subscription)
     _complete_renewal_event(event, now=now)
     db.session.commit()
-    return {
-        "status": "applied",
-        "subscription_status": "canceled",
-        **_serialize_renewal_event(event),
-    }
+    return _result_from_event("applied", event, subscription_status="canceled")
 
 
 def _execute_expire_subscription(
@@ -235,7 +286,7 @@ def _execute_expire_subscription(
     event: BillingRenewalEvent,
     *,
     now: datetime,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     subscription = _load_subscription_by_bid(event.subscription_bid)
     boundary_at = event.scheduled_at or (
         subscription.current_period_end_at if subscription is not None else None
@@ -243,19 +294,14 @@ def _execute_expire_subscription(
     if subscription is None:
         _fail_renewal_event(event, now=now, error="subscription_not_found")
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
     if int(subscription.status or 0) == BILLING_SUBSCRIPTION_STATUS_EXPIRED:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "already_applied",
-            "subscription_status": "expired",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event(
+            "already_applied", event, subscription_status="expired"
+        )
 
     if (
         boundary_at is not None
@@ -264,14 +310,14 @@ def _execute_expire_subscription(
     ):
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "already_applied",
-            "subscription_status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+        return _result_from_event(
+            "already_applied",
+            event,
+            subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
                 int(subscription.status or 0),
                 "active",
             ),
-            **_serialize_renewal_event(event),
-        }
+        )
 
     paid_renewal_order = None
     if boundary_at is not None:
@@ -289,15 +335,15 @@ def _execute_expire_subscription(
         )
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "applied",
-            "billing_order_bid": paid_renewal_order.billing_order_bid,
-            "subscription_status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+        return _result_from_event(
+            "applied",
+            event,
+            billing_order_bid=paid_renewal_order.billing_order_bid,
+            subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
                 int(subscription.status or 0),
                 "active",
             ),
-            **_serialize_renewal_event(event),
-        }
+        )
 
     subscription.status = BILLING_SUBSCRIPTION_STATUS_EXPIRED
     subscription.updated_at = now
@@ -305,11 +351,7 @@ def _execute_expire_subscription(
     _sync_subscription_lifecycle_events(app, subscription)
     _complete_renewal_event(event, now=now)
     db.session.commit()
-    return {
-        "status": "applied",
-        "subscription_status": "expired",
-        **_serialize_renewal_event(event),
-    }
+    return _result_from_event("applied", event, subscription_status="expired")
 
 
 def _execute_downgrade_effective(
@@ -317,25 +359,22 @@ def _execute_downgrade_effective(
     event: BillingRenewalEvent,
     *,
     now: datetime,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     subscription = _load_subscription_by_bid(event.subscription_bid)
     if subscription is None:
         _fail_renewal_event(event, now=now, error="subscription_not_found")
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
     next_product_bid = _normalize_bid(subscription.next_product_bid)
     if not next_product_bid:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "already_applied",
-            "product_bid": subscription.product_bid,
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event(
+            "already_applied",
+            event,
+            product_bid=subscription.product_bid,
+        )
 
     subscription.product_bid = next_product_bid
     subscription.next_product_bid = ""
@@ -344,11 +383,7 @@ def _execute_downgrade_effective(
     _sync_subscription_lifecycle_events(app, subscription)
     _complete_renewal_event(event, now=now)
     db.session.commit()
-    return {
-        "status": "applied",
-        "product_bid": subscription.product_bid,
-        **_serialize_renewal_event(event),
-    }
+    return _result_from_event("applied", event, product_bid=subscription.product_bid)
 
 
 def _execute_subscription_renewal(
@@ -356,15 +391,12 @@ def _execute_subscription_renewal(
     event: BillingRenewalEvent,
     *,
     now: datetime,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     subscription = _load_subscription_by_bid(event.subscription_bid)
     if subscription is None:
         _fail_renewal_event(event, now=now, error="subscription_not_found")
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
     order = ensure_subscription_renewal_order(
         app,
@@ -379,10 +411,7 @@ def _execute_subscription_renewal(
             error="renewal_order_context_unavailable",
         )
         db.session.commit()
-        return {
-            "status": "failed",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("failed", event)
 
     payload_json = (
         dict(event.payload_json) if isinstance(event.payload_json, dict) else {}
@@ -394,42 +423,40 @@ def _execute_subscription_renewal(
     if order.payment_provider == "pingxx" and not order.provider_reference_id:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "queued_for_reconcile",
-            "billing_order_bid": order.billing_order_bid,
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event(
+            "queued_for_reconcile",
+            event,
+            billing_order_bid=order.billing_order_bid,
+        )
 
     result = _sync_billing_renewal_order(app, order=order, event=event)
-    sync_status = str(result.get("status") or "")
+    sync_status = str(result.status or "")
     if sync_status in {"paid", "applied", "already_applied"}:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "applied",
-            "billing_order_bid": order.billing_order_bid,
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event(
+            "applied",
+            event,
+            billing_order_bid=order.billing_order_bid,
+        )
     if sync_status == "pending":
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "queued_for_reconcile",
-            "billing_order_bid": order.billing_order_bid,
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event(
+            "queued_for_reconcile",
+            event,
+            billing_order_bid=order.billing_order_bid,
+        )
 
     _fail_renewal_event(
         event,
         now=now,
-        error=str(result.get("message") or sync_status or "renewal_sync_failed"),
+        error=str(result.message or sync_status or "renewal_sync_failed"),
     )
     db.session.commit()
-    return {
-        "status": "failed",
-        "billing_order_bid": order.billing_order_bid,
-        **_serialize_renewal_event(event),
-    }
+    return _result_from_event(
+        "failed", event, billing_order_bid=order.billing_order_bid
+    )
 
 
 def _execute_retry_or_reconcile(
@@ -437,32 +464,29 @@ def _execute_retry_or_reconcile(
     event: BillingRenewalEvent,
     *,
     now: datetime,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     result = retry_billing_renewal_event(
         app,
         renewal_event_bid=event.renewal_event_bid,
         subscription_bid=event.subscription_bid,
         creator_bid=event.creator_bid,
     )
-    result_status = str(result.get("status") or "")
+    result_status = str(result.status or "")
     if result_status in {"paid", "applied", "already_applied"}:
         _complete_renewal_event(event, now=now)
         db.session.commit()
-        return {
-            "status": "applied",
-            **_serialize_renewal_event(event),
-        }
+        return _result_from_event("applied", event)
 
     _fail_renewal_event(
         event,
         now=now,
-        error=str(result.get("message") or result_status or "renewal_retry_pending"),
+        error=str(result.message or result_status or "renewal_retry_pending"),
     )
     db.session.commit()
-    return {
-        "status": "failed" if result_status != "order_not_found" else "order_not_found",
-        **_serialize_renewal_event(event),
-    }
+    return _result_from_event(
+        "failed" if result_status != "order_not_found" else "order_not_found",
+        event,
+    )
 
 
 def _resolve_retry_target_order(
@@ -511,16 +535,14 @@ def _sync_billing_renewal_order(
     *,
     order: BillingOrder,
     event: BillingRenewalEvent | None,
-) -> dict[str, Any]:
+) -> RenewalEventResult:
     billing_order_bid = str(order.billing_order_bid or "")
     if order.payment_provider == "pingxx" and not order.provider_reference_id:
-        return {
-            "status": "pending",
-            "billing_order_bid": billing_order_bid or None,
-            "renewal_event_bid": (
-                event.renewal_event_bid if event is not None else None
-            ),
-        }
+        return RenewalEventResult(
+            status="pending",
+            billing_order_bid=billing_order_bid or None,
+            renewal_event_bid=event.renewal_event_bid if event is not None else None,
+        )
     try:
         payload = sync_billing_order(
             app,
@@ -538,25 +560,22 @@ def _sync_billing_renewal_order(
             .order_by(BillingOrder.id.desc())
             .first()
         )
-        return {
-            "status": "failed",
-            "message": str(exc),
-            "billing_order_bid": billing_order_bid or None,
-            "renewal_event_bid": (
-                event.renewal_event_bid if event is not None else None
-            ),
-            "order_status": (
+        return RenewalEventResult(
+            status="failed",
+            message=str(exc),
+            billing_order_bid=billing_order_bid or None,
+            renewal_event_bid=event.renewal_event_bid if event is not None else None,
+            order_status=(
                 int(refreshed_order.status or 0)
                 if refreshed_order is not None
                 else None
             ),
-        }
-
-    payload["renewal_event_bid"] = (
-        event.renewal_event_bid if event is not None else None
+        )
+    return RenewalEventResult(
+        status=payload["status"] if isinstance(payload, dict) else payload.status,
+        renewal_event_bid=event.renewal_event_bid if event is not None else None,
+        billing_order_bid=billing_order_bid or None,
     )
-    payload["billing_order_bid"] = billing_order_bid or None
-    return payload
 
 
 def _claim_target_renewal_event(
@@ -676,22 +695,58 @@ def _load_target_renewal_event(
     ).first()
 
 
-def _serialize_renewal_event(event: BillingRenewalEvent) -> dict[str, Any]:
-    return {
-        "renewal_event_bid": event.renewal_event_bid,
-        "subscription_bid": event.subscription_bid,
-        "creator_bid": event.creator_bid,
-        "event_type": BILLING_RENEWAL_EVENT_TYPE_LABELS.get(
+def _serialize_renewal_event(event: BillingRenewalEvent) -> RenewalEventSnapshot:
+    return RenewalEventSnapshot(
+        renewal_event_bid=event.renewal_event_bid,
+        subscription_bid=event.subscription_bid,
+        creator_bid=event.creator_bid,
+        event_type=BILLING_RENEWAL_EVENT_TYPE_LABELS.get(
             int(event.event_type or 0), str(event.event_type or "")
         ),
-        "event_status": BILLING_RENEWAL_EVENT_STATUS_LABELS.get(
+        event_status=BILLING_RENEWAL_EVENT_STATUS_LABELS.get(
             int(event.status or 0), str(event.status or "")
         ),
-        "scheduled_at": event.scheduled_at.isoformat() if event.scheduled_at else None,
-        "attempt_count": int(event.attempt_count or 0),
-        "last_error": str(event.last_error or ""),
-        "payload": event.payload_json or {},
-    }
+        scheduled_at=event.scheduled_at.isoformat() if event.scheduled_at else None,
+        attempt_count=int(event.attempt_count or 0),
+        last_error=str(event.last_error or ""),
+        payload=event.payload_json or {},
+    )
+
+
+def _result_from_event(
+    status: str,
+    event: BillingRenewalEvent,
+    *,
+    billing_order_bid: str | None = None,
+    subscription_status: str | None = None,
+    product_bid: str | None = None,
+    message: str | None = None,
+    order_status: int | None = None,
+) -> RenewalEventResult:
+    return RenewalEventResult(
+        status=status,
+        event=_serialize_renewal_event(event),
+        billing_order_bid=billing_order_bid,
+        subscription_status=subscription_status,
+        product_bid=product_bid,
+        message=message,
+        order_status=order_status,
+    )
+
+
+def _result_without_event(
+    status: str,
+    *,
+    renewal_event_bid: str = "",
+    subscription_bid: str = "",
+    creator_bid: str = "",
+) -> RenewalEventResult:
+    return RenewalEventResult(
+        status=status,
+        renewal_event_bid=_normalize_bid(renewal_event_bid) or None,
+        subscription_bid=_normalize_bid(subscription_bid) or None,
+        creator_bid=_normalize_bid(creator_bid) or None,
+    )
 
 
 def _normalize_bid(value: Any) -> str:

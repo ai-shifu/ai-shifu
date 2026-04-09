@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 import os
 from typing import Any, Callable
@@ -67,6 +68,58 @@ def _coerce_bool(value: Any) -> bool:
     raise ValueError(f"Unsupported bool value: {value!r}")
 
 
+@dataclass(slots=True, frozen=True)
+class LowBalanceAlertCandidate:
+    creator_bid: str
+    wallet_available_credits: Any
+    alerts: list[Any]
+
+    def to_task_payload(self) -> dict[str, Any]:
+        serialized_alerts: list[Any] = []
+        for alert in self.alerts:
+            if hasattr(alert, "__json__"):
+                serialized_alerts.append(alert.__json__())
+            elif isinstance(alert, dict):
+                serialized_alerts.append(dict(alert))
+            else:
+                serialized_alerts.append(alert)
+        return {
+            "creator_bid": self.creator_bid,
+            "wallet_available_credits": self.wallet_available_credits,
+            "alerts": serialized_alerts,
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class LowBalanceAlertTaskResult:
+    status: str
+    creator_count: int
+    alert_count: int
+    creators: list[LowBalanceAlertCandidate]
+    task_name: str = "billing.send_low_balance_alert"
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_count": self.creator_count,
+            "alert_count": self.alert_count,
+            "creators": [creator.to_task_payload() for creator in self.creators],
+            "task_name": self.task_name,
+        }
+
+
+def _serialize_task_payload(result: Any) -> Any:
+    if isinstance(result, dict):
+        return dict(result)
+    if hasattr(result, "to_task_payload"):
+        return result.to_task_payload()
+    if hasattr(result, "to_payload"):
+        return result.to_payload()
+    if hasattr(result, "__json__"):
+        return result.__json__()
+    raise TypeError(f"Unsupported task payload type: {type(result)!r}")
+
+
 def _run_reconcile_provider_reference(
     app,
     *,
@@ -75,7 +128,7 @@ def _run_reconcile_provider_reference(
     provider_reference_id: str = "",
     billing_order_bid: str = "",
     session_id: str = "",
-) -> dict[str, Any]:
+):
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)
@@ -122,7 +175,7 @@ def settle_usage_task(*, creator_bid: str = "", usage_bid: str = "") -> dict[str
     """Default async entrypoint for usage credit settlement."""
 
     app = _create_task_app()
-    payload = settle_bill_usage(app, usage_bid=usage_bid)
+    payload = _serialize_task_payload(settle_bill_usage(app, usage_bid=usage_bid))
     payload["requested_creator_bid"] = str(creator_bid or "").strip() or None
     payload["task_name"] = "billing.settle_usage"
     return payload
@@ -142,6 +195,7 @@ def replay_usage_settlement_task(
         creator_bid=creator_bid,
         usage_bid=usage_bid,
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.replay_usage_settlement"
     return payload
 
@@ -160,6 +214,7 @@ def expire_wallet_buckets_task(
         creator_bid=_normalize_bid(creator_bid),
         expire_before=_coerce_datetime(expire_before),
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.expire_wallet_buckets"
     return payload
 
@@ -184,6 +239,7 @@ def reconcile_provider_reference_task(
         billing_order_bid=billing_order_bid,
         session_id=session_id,
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.reconcile_provider_reference"
     return payload
 
@@ -205,37 +261,48 @@ def send_low_balance_alert_task(
             else _collect_low_balance_creator_bids()
         )
 
-    creators: list[dict[str, Any]] = []
+    creators: list[LowBalanceAlertCandidate] = []
     for item_creator_bid in creator_bids:
         overview = build_billing_overview(
             app,
             item_creator_bid,
             timezone_name=_normalize_bid(timezone_name) or None,
         )
-        low_balance_alerts = [
-            alert
-            for alert in overview.get("billing_alerts", [])
-            if alert.get("code") == "low_balance"
-        ]
+        if isinstance(overview, dict):
+            low_balance_alerts = [
+                alert
+                for alert in overview.get("billing_alerts", [])
+                if alert.get("code") == "low_balance"
+            ]
+            wallet_available_credits = overview.get("wallet", {}).get(
+                "available_credits"
+            )
+            alerts = low_balance_alerts
+        else:
+            low_balance_alerts = [
+                alert
+                for alert in overview.billing_alerts
+                if alert.code == "low_balance"
+            ]
+            wallet_available_credits = overview.wallet.available_credits
+            alerts = low_balance_alerts
         if not low_balance_alerts:
             continue
         creators.append(
-            {
-                "creator_bid": item_creator_bid,
-                "wallet_available_credits": overview.get("wallet", {}).get(
-                    "available_credits"
-                ),
-                "alerts": low_balance_alerts,
-            }
+            LowBalanceAlertCandidate(
+                creator_bid=item_creator_bid,
+                wallet_available_credits=wallet_available_credits,
+                alerts=list(alerts),
+            )
         )
 
-    return {
-        "status": "alerts_found" if creators else "noop",
-        "creator_count": len(creator_bids),
-        "alert_count": len(creators),
-        "creators": creators,
-        "task_name": "billing.send_low_balance_alert",
-    }
+    result = LowBalanceAlertTaskResult(
+        status="alerts_found" if creators else "noop",
+        creator_count=len(creator_bids),
+        alert_count=len(creators),
+        creators=creators,
+    )
+    return result.to_task_payload()
 
 
 @shared_task(name="billing.run_renewal_event")
@@ -254,6 +321,7 @@ def run_renewal_event_task(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.run_renewal_event"
     return payload
 
@@ -279,6 +347,7 @@ def retry_failed_renewal_task(
             billing_order_bid=billing_order_bid,
             session_id=provider_reference_id,
         )
+        payload = _serialize_task_payload(payload)
         payload["renewal_event_bid"] = _normalize_bid(renewal_event_bid) or None
         payload["task_name"] = "billing.retry_failed_renewal"
         return payload
@@ -292,6 +361,7 @@ def retry_failed_renewal_task(
         provider_reference_id=provider_reference_id,
         payment_provider=payment_provider,
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.retry_failed_renewal"
     return payload
 
@@ -312,6 +382,7 @@ def aggregate_daily_usage_metrics_task(
         creator_bid=_normalize_bid(creator_bid),
         finalize=_coerce_bool(finalize),
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.aggregate_daily_usage_metrics"
     return payload
 
@@ -332,6 +403,7 @@ def aggregate_daily_ledger_summary_task(
         creator_bid=_normalize_bid(creator_bid),
         finalize=_coerce_bool(finalize),
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.aggregate_daily_ledger_summary"
     return payload
 
@@ -354,6 +426,7 @@ def rebuild_daily_aggregates_task(
         date_from=_normalize_bid(date_from),
         date_to=_normalize_bid(date_to),
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.rebuild_daily_aggregates"
     return payload
 
@@ -376,5 +449,6 @@ def verify_domain_binding_task(
         host=_normalize_bid(host),
         verification_token=_normalize_bid(verification_token),
     )
+    payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.verify_domain_binding"
     return payload

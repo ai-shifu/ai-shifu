@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -37,23 +38,106 @@ _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 
 
+@dataclass(slots=True, frozen=True)
+class SettlementResult:
+    status: str
+    usage_bid: str | None
+    creator_bid: str | None = None
+    usage_id: int | None = None
+    entry_count: int = 0
+    consumed_credits: int | float = 0
+    reason: str | None = None
+    requested_creator_bid: str | None = None
+    replay: bool = False
+    backfill: bool = False
+
+    def to_task_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "status": self.status,
+            "usage_bid": self.usage_bid,
+            "creator_bid": self.creator_bid,
+            "usage_id": self.usage_id,
+            "entry_count": self.entry_count,
+            "consumed_credits": self.consumed_credits,
+            "requested_creator_bid": self.requested_creator_bid,
+            "replay": self.replay,
+            "backfill": self.backfill,
+        }
+        if self.reason:
+            payload["reason"] = self.reason
+        return payload
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class BackfillSettlementItem:
+    usage_bid: str
+    usage_id: int
+    status: str
+    creator_bid: str | None = None
+    requested_creator_bid: str | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "usage_bid": self.usage_bid,
+            "usage_id": self.usage_id,
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "requested_creator_bid": self.requested_creator_bid,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class BackfillSettlementResult:
+    status: str
+    creator_bid: str | None
+    usage_id_start: int | None
+    usage_id_end: int | None
+    limit: int | None
+    processed_count: int
+    status_counts: dict[str, int] = field(default_factory=dict)
+    items: list[BackfillSettlementItem] = field(default_factory=list)
+    backfill: bool = True
+
+    def to_task_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "usage_id_start": self.usage_id_start,
+            "usage_id_end": self.usage_id_end,
+            "limit": self.limit,
+            "processed_count": self.processed_count,
+            "status_counts": dict(self.status_counts),
+            "items": [item.to_payload() for item in self.items],
+            "backfill": self.backfill,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_task_payload()[key]
+
+
 def settle_bill_usage(
     app: Flask,
     *,
     usage_bid: str = "",
     usage_id: int | None = None,
-) -> dict[str, Any]:
+) -> SettlementResult:
     """Settle a single metering usage record into credit ledger consumption."""
 
     normalized_usage_bid = str(usage_bid or "").strip()
     with app.app_context():
         usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
         if usage is None:
-            return {
-                "status": "not_found",
-                "usage_bid": normalized_usage_bid or None,
-                "usage_id": usage_id,
-            }
+            return SettlementResult(
+                status="not_found",
+                usage_bid=normalized_usage_bid or None,
+                usage_id=usage_id,
+            )
 
         if int(usage.record_level or 0) != 0:
             return _build_skip_result(usage, reason="segment_record")
@@ -82,12 +166,12 @@ def settle_bill_usage(
                 .all()
             )
             if existing_entries:
-                return {
-                    "status": "already_settled",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": len(existing_entries),
-                }
+                return SettlementResult(
+                    status="already_settled",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=len(existing_entries),
+                )
 
             settlement_at = usage.created_at or datetime.now()
             metric_charges = build_usage_metric_charges(
@@ -108,35 +192,32 @@ def settle_bill_usage(
                         updated_at=datetime.now(),
                     )
                     db.session.commit()
-                return {
-                    "status": "noop",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": 0,
-                    "consumed_credits": 0,
-                }
+                return SettlementResult(
+                    status="noop",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=0,
+                    consumed_credits=0,
+                )
 
             wallet = _load_credit_wallet(creator_bid)
             if wallet is None:
-                return {
-                    "status": "insufficient",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": 0,
-                    "consumed_credits": _decimal_to_number(
+                return SettlementResult(
+                    status="insufficient",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=0,
+                    consumed_credits=_decimal_to_number(
                         sum(
-                            (
-                                _to_decimal(item["consumed_credits"])
-                                for item in metric_charges
-                            ),
+                            (charge.consumed_credits for charge in metric_charges),
                             start=_ZERO,
                         )
                     ),
-                }
+                )
 
             buckets = _load_consumable_buckets(creator_bid, settlement_at=settlement_at)
             total_required = sum(
-                (_to_decimal(item["consumed_credits"]) for item in metric_charges),
+                (charge.consumed_credits for charge in metric_charges),
                 start=_ZERO,
             )
             total_available = sum(
@@ -144,27 +225,27 @@ def settle_bill_usage(
                 start=_ZERO,
             )
             if total_required <= _ZERO:
-                return {
-                    "status": "noop",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": 0,
-                    "consumed_credits": 0,
-                }
+                return SettlementResult(
+                    status="noop",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=0,
+                    consumed_credits=0,
+                )
             if total_available < total_required:
-                return {
-                    "status": "insufficient",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": 0,
-                    "consumed_credits": _decimal_to_number(total_required),
-                }
+                return SettlementResult(
+                    status="insufficient",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=0,
+                    consumed_credits=_decimal_to_number(total_required),
+                )
 
             balance_after = total_available
             entry_count = 0
             total_consumed = _ZERO
             for charge in metric_charges:
-                remaining = _to_decimal(charge["consumed_credits"])
+                remaining = charge.consumed_credits
                 for bucket in buckets:
                     bucket_available = _to_decimal(bucket.available_credits)
                     if remaining <= _ZERO:
@@ -192,7 +273,7 @@ def settle_bill_usage(
                         source_type=CREDIT_SOURCE_TYPE_USAGE,
                         source_bid=usage.usage_bid,
                         idempotency_key=(
-                            f"usage:{usage.usage_bid}:{charge['billing_metric']}:"
+                            f"usage:{usage.usage_bid}:{charge.billing_metric}:"
                             f"{bucket.wallet_bucket_bid}:consume"
                         ),
                         amount=-consumed,
@@ -203,7 +284,7 @@ def settle_bill_usage(
                             usage=usage,
                             charge=charge,
                             consumed=consumed,
-                        ),
+                        ).to_metadata_json(),
                     )
                     db.session.add(ledger_entry)
                     entry_count += 1
@@ -211,13 +292,13 @@ def settle_bill_usage(
                 if remaining <= _ZERO:
                     continue
                 db.session.rollback()
-                return {
-                    "status": "insufficient",
-                    "usage_bid": usage.usage_bid,
-                    "creator_bid": creator_bid,
-                    "entry_count": 0,
-                    "consumed_credits": _decimal_to_number(total_required),
-                }
+                return SettlementResult(
+                    status="insufficient",
+                    usage_bid=usage.usage_bid,
+                    creator_bid=creator_bid,
+                    entry_count=0,
+                    consumed_credits=_decimal_to_number(total_required),
+                )
 
             refresh_credit_wallet_snapshot(wallet)
             persist_credit_wallet_snapshot(
@@ -233,13 +314,13 @@ def settle_bill_usage(
                 updated_at=datetime.now(),
             )
             db.session.commit()
-            return {
-                "status": "settled",
-                "usage_bid": usage.usage_bid,
-                "creator_bid": creator_bid,
-                "entry_count": entry_count,
-                "consumed_credits": _decimal_to_number(total_consumed),
-            }
+            return SettlementResult(
+                status="settled",
+                usage_bid=usage.usage_bid,
+                creator_bid=creator_bid,
+                entry_count=entry_count,
+                consumed_credits=_decimal_to_number(total_consumed),
+            )
 
 
 def replay_bill_usage_settlement(
@@ -248,7 +329,7 @@ def replay_bill_usage_settlement(
     creator_bid: str = "",
     usage_bid: str = "",
     usage_id: int | None = None,
-) -> dict[str, Any]:
+) -> SettlementResult:
     """Replay a usage settlement safely without duplicating credit consumption."""
 
     requested_creator_bid = str(creator_bid or "").strip() or None
@@ -256,13 +337,13 @@ def replay_bill_usage_settlement(
     with app.app_context():
         usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
         if usage is None:
-            return {
-                "status": "not_found",
-                "usage_bid": normalized_usage_bid or None,
-                "usage_id": usage_id,
-                "requested_creator_bid": requested_creator_bid,
-                "replay": True,
-            }
+            return SettlementResult(
+                status="not_found",
+                usage_bid=normalized_usage_bid or None,
+                usage_id=usage_id,
+                requested_creator_bid=requested_creator_bid,
+                replay=True,
+            )
 
         resolved_creator_bid = str(resolve_usage_creator_bid(app, usage) or "").strip()
         if (
@@ -270,23 +351,31 @@ def replay_bill_usage_settlement(
             and resolved_creator_bid
             and requested_creator_bid != resolved_creator_bid
         ):
-            return {
-                "status": "creator_mismatch",
-                "usage_bid": usage.usage_bid,
-                "usage_id": int(usage.id or 0),
-                "creator_bid": resolved_creator_bid,
-                "requested_creator_bid": requested_creator_bid,
-                "replay": True,
-            }
+            return SettlementResult(
+                status="creator_mismatch",
+                usage_bid=usage.usage_bid,
+                usage_id=int(usage.id or 0),
+                creator_bid=resolved_creator_bid,
+                requested_creator_bid=requested_creator_bid,
+                replay=True,
+            )
 
     payload = settle_bill_usage(
         app,
         usage_bid=normalized_usage_bid,
         usage_id=usage_id,
     )
-    payload["requested_creator_bid"] = requested_creator_bid
-    payload["replay"] = True
-    return payload
+    return SettlementResult(
+        status=payload.status,
+        usage_bid=payload.usage_bid,
+        creator_bid=payload.creator_bid,
+        usage_id=payload.usage_id,
+        entry_count=payload.entry_count,
+        consumed_credits=payload.consumed_credits,
+        reason=payload.reason,
+        requested_creator_bid=requested_creator_bid,
+        replay=True,
+    )
 
 
 def backfill_bill_usage_settlement(
@@ -297,7 +386,7 @@ def backfill_bill_usage_settlement(
     usage_id_start: int | None = None,
     usage_id_end: int | None = None,
     limit: int | None = None,
-) -> dict[str, Any]:
+) -> SettlementResult | BackfillSettlementResult:
     """Replay one or many usage settlements for offline repair/backfill."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -310,8 +399,18 @@ def backfill_bill_usage_settlement(
             creator_bid=normalized_creator_bid,
             usage_bid=normalized_usage_bid,
         )
-        payload["backfill"] = True
-        return payload
+        return SettlementResult(
+            status=payload.status,
+            usage_bid=payload.usage_bid,
+            creator_bid=payload.creator_bid,
+            usage_id=payload.usage_id,
+            entry_count=payload.entry_count,
+            consumed_credits=payload.consumed_credits,
+            reason=payload.reason,
+            requested_creator_bid=payload.requested_creator_bid,
+            replay=payload.replay,
+            backfill=True,
+        )
 
     with app.app_context():
         query = BillUsageRecord.query.filter(BillUsageRecord.deleted == 0).order_by(
@@ -326,7 +425,7 @@ def backfill_bill_usage_settlement(
         rows = query.all()
 
     status_counts: dict[str, int] = {}
-    items: list[dict[str, Any]] = []
+    items: list[BackfillSettlementItem] = []
     for row in rows:
         payload = replay_bill_usage_settlement(
             app,
@@ -334,29 +433,29 @@ def backfill_bill_usage_settlement(
             usage_bid=row.usage_bid,
             usage_id=int(row.id or 0),
         )
-        status = str(payload.get("status") or "unknown")
+        status = str(payload.status or "unknown")
         status_counts[status] = status_counts.get(status, 0) + 1
         items.append(
-            {
-                "usage_bid": row.usage_bid,
-                "usage_id": int(row.id or 0),
-                "status": status,
-                "creator_bid": payload.get("creator_bid"),
-                "requested_creator_bid": payload.get("requested_creator_bid"),
-            }
+            BackfillSettlementItem(
+                usage_bid=row.usage_bid,
+                usage_id=int(row.id or 0),
+                status=status,
+                creator_bid=payload.creator_bid,
+                requested_creator_bid=payload.requested_creator_bid,
+            )
         )
 
-    return {
-        "status": "completed" if items else "noop",
-        "creator_bid": normalized_creator_bid or None,
-        "usage_id_start": usage_id_start,
-        "usage_id_end": usage_id_end,
-        "limit": normalized_limit,
-        "processed_count": len(items),
-        "status_counts": status_counts,
-        "items": items,
-        "backfill": True,
-    }
+    return BackfillSettlementResult(
+        status="completed" if items else "noop",
+        creator_bid=normalized_creator_bid or None,
+        usage_id_start=usage_id_start,
+        usage_id_end=usage_id_end,
+        limit=normalized_limit,
+        processed_count=len(items),
+        status_counts=status_counts,
+        items=items,
+        backfill=True,
+    )
 
 
 @contextmanager
@@ -401,12 +500,12 @@ def _load_usage_record(
     )
 
 
-def _build_skip_result(usage: BillUsageRecord, *, reason: str) -> dict[str, Any]:
-    return {
-        "status": "skipped",
-        "reason": reason,
-        "usage_bid": usage.usage_bid,
-    }
+def _build_skip_result(usage: BillUsageRecord, *, reason: str) -> SettlementResult:
+    return SettlementResult(
+        status="skipped",
+        reason=reason,
+        usage_bid=usage.usage_bid,
+    )
 
 
 def _load_credit_wallet(creator_bid: str) -> CreditWallet | None:
