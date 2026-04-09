@@ -262,10 +262,9 @@ const renderPagination = (
 };
 
 const renderTooltipText = (text?: string, className?: string) => {
-  const value = text && text.trim().length > 0 ? text : '--';
   return (
     <OverflowTooltipText
-      text={value}
+      text={text}
       className={className}
     />
   );

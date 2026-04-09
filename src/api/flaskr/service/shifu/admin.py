@@ -436,8 +436,6 @@ def _load_operator_course_outline_items(
 
     outline_model = detail_source["outline_model"]
     outline_items = _load_latest_outline_items(outline_model, shifu_bid)
-    if not outline_items and outline_model is DraftOutlineItem:
-        outline_items = _load_latest_outline_items(PublishedOutlineItem, shifu_bid)
 
     return detail_source, outline_items
 
@@ -537,9 +535,7 @@ def get_operator_course_detail(
                     Decimal(str(getattr(order_summary, "order_amount", 0) or 0))
                 ),
                 follow_up_count=int(follow_up_count),
-                rating_score=_format_average_score(
-                    Decimal(str(rating_score)) if rating_score is not None else None
-                ),
+                rating_score=_format_average_score(rating_score),
             ),
             chapters=_build_chapter_tree(outline_items, detail_user_map),
         )

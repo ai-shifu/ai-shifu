@@ -273,7 +273,7 @@ export default function AdminOperationCourseDetailPage() {
   const { t } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
-  const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
+  const currencySymbol = useEnvStore(state => state.currencySymbol || '');
   const storedChapterManualWidthsRef = useRef<Partial<ChapterColumnWidthState>>(
     loadStoredChapterColumnWidthOverrides(),
   );
@@ -1051,17 +1051,10 @@ export default function AdminOperationCourseDetailPage() {
                       </TableEmpty>
                     ) : (
                       chapterRows.map(chapter => {
-                        const modifierPrimary =
-                          chapter.modifier_mobile ||
-                          chapter.modifier_email ||
-                          chapter.modifier_user_bid ||
-                          emptyValue;
-                        const modifierSecondary =
-                          chapter.modifier_nickname &&
-                          chapter.modifier_nickname !==
-                            t('module.user.defaultUserName')
-                            ? chapter.modifier_nickname
-                            : '';
+                        const {
+                          primary: modifierPrimary,
+                          secondary: modifierSecondary,
+                        } = resolveModifierDisplay(chapter);
 
                         return (
                           <TableRow key={chapter.outline_item_bid}>

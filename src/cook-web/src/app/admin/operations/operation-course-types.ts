@@ -1,3 +1,5 @@
+type LooseString = string & {};
+
 export type AdminOperationCourseItem = {
   shifu_bid: string;
   course_name: string;
@@ -48,10 +50,10 @@ export type AdminOperationCourseDetailChapter = {
   title: string;
   parent_bid: string;
   position: string;
-  node_type: 'chapter' | 'lesson' | string;
-  learning_permission: 'guest' | 'free' | 'paid' | string;
+  node_type: 'chapter' | 'lesson' | LooseString;
+  learning_permission: 'guest' | 'free' | 'paid' | LooseString;
   is_visible: boolean;
-  content_status: 'has' | 'empty' | string;
+  content_status: 'has' | 'empty' | LooseString;
   modifier_user_bid: string;
   modifier_mobile: string;
   modifier_email: string;
@@ -65,7 +67,7 @@ export type AdminOperationCourseChapterDetailResponse = {
   title: string;
   content: string;
   llm_system_prompt: string;
-  llm_system_prompt_source: 'lesson' | 'chapter' | 'course' | '' | string;
+  llm_system_prompt_source: 'lesson' | 'chapter' | 'course' | '' | LooseString;
 };
 
 export type AdminOperationCourseDetailResponse = {

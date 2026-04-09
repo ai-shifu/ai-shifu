@@ -37,15 +37,6 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 
-sys.modules.setdefault(
-    "bcrypt",
-    SimpleNamespace(
-        gensalt=lambda rounds=12: b"salt",
-        hashpw=lambda plain, salt: plain + b":" + salt,
-        checkpw=lambda plain, hashed: hashed == plain + b":salt",
-    ),
-)
-
 
 def _clear_tables() -> None:
     db.session.query(LearnLessonFeedback).delete()
@@ -63,6 +54,19 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _mock_bcrypt_module(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "bcrypt",
+        SimpleNamespace(
+            gensalt=lambda rounds=12: b"salt",
+            hashpw=lambda plain, salt: plain + b":" + salt,
+            checkpw=lambda plain, hashed: hashed == plain + b":salt",
+        ),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _isolate_tables(app):
     with app.app_context():
         _clear_tables()
@@ -71,10 +75,15 @@ def _isolate_tables(app):
         _clear_tables()
 
 
-def _mock_operator(monkeypatch, user_id: str = "operator-1") -> None:
+def _mock_operator(
+    monkeypatch,
+    user_id: str = "operator-1",
+    *,
+    is_operator: bool = True,
+) -> None:
     dummy_user = SimpleNamespace(
         user_id=user_id,
-        is_operator=True,
+        is_operator=is_operator,
         is_creator=False,
         language="en-US",
     )
@@ -496,6 +505,27 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     ]
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
+    ],
+)
+def test_admin_operation_course_detail_routes_require_operator(
+    test_client,
+    monkeypatch,
+    path,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(path, headers={"Token": "test-token"})
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
 def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
     app,
     test_client,
@@ -606,6 +636,110 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
         "llm_system_prompt": "chapter system prompt",
         "llm_system_prompt_source": "chapter",
     }
+
+
+def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        db.session.add(
+            DraftShifu(
+                shifu_bid="course-detail",
+                title="Draft Detail Course",
+                description="draft",
+                avatar_res_bid="",
+                keywords="",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="course system prompt",
+                price=Decimal("199.00"),
+                deleted=0,
+                created_at=updated_at,
+                created_user_bid="creator-1",
+                updated_at=updated_at,
+                updated_user_bid="creator-1",
+            )
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1.1",
+            parent_bid="chapter-1",
+            updated_at=updated_at,
+            content="# Lesson 1 content",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "outline_item_bid": "lesson-1",
+        "title": "Lesson 1",
+        "content": "# Lesson 1 content",
+        "llm_system_prompt": "course system prompt",
+        "llm_system_prompt_source": "course",
+    }
+
+
+def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=PublishedOutlineItem,
+            outline_item_bid="published-chapter",
+            title="Published Chapter",
+            position="1",
+            updated_at=created_at,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["basic_info"]["course_name"] == "Draft Detail Course"
+    assert payload["data"]["chapters"] == []
 
 
 def test_admin_operation_course_detail_route_rejects_missing_course(

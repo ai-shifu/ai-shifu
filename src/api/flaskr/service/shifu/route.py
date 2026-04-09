@@ -544,6 +544,31 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
     )
     def admin_operation_course_detail(shifu_bid: str):
+        """
+        Get operator course detail
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+        responses:
+            200:
+                description: Operator course detail
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationCourseDetailDTO"
+        """
         _require_operator()
         return make_common_response(
             get_operator_course_detail(
@@ -558,6 +583,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["GET"],
     )
     def admin_operation_course_chapter_detail(shifu_bid: str, outline_item_bid: str):
+        """
+        Get operator course chapter detail
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: outline_item_bid
+              in: path
+              type: string
+              required: true
+              description: Outline item bid
+        responses:
+            200:
+                description: Operator course chapter detail
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationCourseChapterDetailDTO"
+        """
         _require_operator()
         return make_common_response(
             get_operator_course_chapter_detail(
