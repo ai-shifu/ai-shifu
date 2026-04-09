@@ -160,6 +160,112 @@
     "lowBalance": "Your creator wallet is out of credits. Start a top-up before the next settlement runs.",
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
   },
+  "capabilities": {
+    "description": "This summary marks which billing surfaces are live in the UI and which ones still exist only as config-guarded or internal flows.",
+    "fallbackDescription": "Capability status is tracked from the billing registry.",
+    "fallbackTitle": "Billing capability",
+    "items": {
+      "adminDomains": {
+        "description": "Admin domain bind and audit pages are still reachable.",
+        "title": "Admin domains"
+      },
+      "adminEntitlements": {
+        "description": "Admin entitlement review remains enabled.",
+        "title": "Admin entitlements"
+      },
+      "adminLedgerAdjust": {
+        "description": "Admin ledger adjustment stays available.",
+        "title": "Admin ledger adjustment"
+      },
+      "adminOrders": {
+        "description": "Admin billing order review remains enabled.",
+        "title": "Admin orders"
+      },
+      "adminReports": {
+        "description": "Admin usage and ledger reports remain enabled.",
+        "title": "Admin reports"
+      },
+      "adminSubscriptions": {
+        "description": "Admin subscription review remains enabled.",
+        "title": "Admin subscriptions"
+      },
+      "billingFeatureFlag": {
+        "description": "The billing feature flag still defaults to disabled in seed config.",
+        "title": "Billing feature flag"
+      },
+      "creatorCatalog": {
+        "description": "Catalog cards for plans and topups remain active.",
+        "title": "Creator catalog"
+      },
+      "creatorEntitlements": {
+        "description": "Creator entitlement snapshots remain visible.",
+        "title": "Creator entitlements"
+      },
+      "creatorOrders": {
+        "description": "Creator orders, sync, refund, and topup flows remain enabled.",
+        "title": "Creator orders"
+      },
+      "creatorReports": {
+        "description": "Creator daily usage and ledger reports remain enabled.",
+        "title": "Creator reports"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "Creator subscription checkout, cancel, and resume remain enabled.",
+        "title": "Creator subscription lifecycle"
+      },
+      "creatorWalletLedger": {
+        "description": "Wallet buckets and ledger read models remain enabled.",
+        "title": "Creator wallet and ledger"
+      },
+      "dailyAggregateRebuild": {
+        "description": "Daily aggregate rebuild and finalize flows remain internal-only.",
+        "title": "Daily aggregate rebuild"
+      },
+      "domainVerifyRefresh": {
+        "description": "Domain verification refresh remains internal-only.",
+        "title": "Domain verify refresh"
+      },
+      "lowBalanceAlerts": {
+        "description": "Low-balance alert generation remains internal-only.",
+        "title": "Low-balance alerts"
+      },
+      "providerReconcile": {
+        "description": "Provider reconcile remains an internal recovery flow.",
+        "title": "Provider reconcile"
+      },
+      "renewalCompensation": {
+        "description": "Renewal and retry compensation remain internal-only.",
+        "title": "Renewal compensation"
+      },
+      "renewalTaskQueue": {
+        "description": "Renewal worker execution still defaults to disabled in seed config.",
+        "title": "Renewal task queue"
+      },
+      "runtimeBillingExtensions": {
+        "description": "Runtime config still exposes billing entitlement and domain context.",
+        "title": "Runtime billing extensions"
+      },
+      "usageSettlement": {
+        "description": "Usage settlement and replay remain internal-only task/CLI flows.",
+        "title": "Usage settlement"
+      },
+      "walletBucketExpiration": {
+        "description": "Wallet bucket expiration remains internal-only.",
+        "title": "Wallet bucket expiration"
+      }
+    },
+    "status": {
+      "active": "Active",
+      "defaultDisabled": "Default disabled",
+      "internalOnly": "Internal only"
+    },
+    "summary": {
+      "active": "{count} active",
+      "defaultDisabled": "{count} default disabled",
+      "internalOnly": "{count} internal only"
+    },
+    "title": "Capability Status"
+  },
   "catalog": {
     "actions": {
       "buyWithPingxx": "Pay with Alipay QR",

@@ -167,7 +167,7 @@ def test_billing_overview_grants_new_creator_trial_once(
 ) -> None:
     app = trial_billing_client.application
     monkeypatch.setattr(
-        "flaskr.service.billing.funcs.get_config",
+        "flaskr.service.billing.trials.get_config",
         lambda key, default=None: (
             _build_trial_config(eligible_registered_after="2026-04-05T00:00:00Z")
             if key == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
@@ -227,7 +227,7 @@ def test_billing_overview_does_not_grant_when_cutoff_missing(
 ) -> None:
     app = trial_billing_client.application
     monkeypatch.setattr(
-        "flaskr.service.billing.funcs.get_config",
+        "flaskr.service.billing.trials.get_config",
         lambda key, default=None: (
             _build_trial_config()
             if key == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
@@ -270,7 +270,7 @@ def test_billing_overview_uses_earliest_verified_credential_for_cutoff(
 ) -> None:
     app = trial_billing_client.application
     monkeypatch.setattr(
-        "flaskr.service.billing.funcs.get_config",
+        "flaskr.service.billing.trials.get_config",
         lambda key, default=None: (
             _build_trial_config(eligible_registered_after="2026-04-05T00:00:00Z")
             if key == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG

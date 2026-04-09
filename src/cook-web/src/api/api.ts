@@ -120,6 +120,7 @@ const api = {
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
 
   // billing creator api
+  getBillingBootstrap: 'GET /billing',
   getBillingCatalog: 'GET /billing/catalog',
   getBillingOverview: 'GET /billing/overview',
   getBillingEntitlements: 'GET /billing/entitlements',

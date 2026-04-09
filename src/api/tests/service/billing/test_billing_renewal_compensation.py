@@ -72,7 +72,7 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
             )
 
     monkeypatch.setattr(
-        "flaskr.service.billing.funcs.get_payment_provider",
+        "flaskr.service.billing.checkout.get_payment_provider",
         lambda channel: FakeStripeProvider(),
     )
 

@@ -25,12 +25,32 @@ class BillingRouteItemDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class BillingCapabilityEntryPointDTO(BillingBaseDTO):
+    kind: str
+    method: str | None = None
+    path: str | None = None
+    name: str | None = None
+
+
+@register_schema_to_swagger
+class BillingCapabilityDTO(BillingBaseDTO):
+    key: str
+    status: str
+    audience: str
+    user_visible: bool
+    default_enabled: bool
+    entry_points: list[BillingCapabilityEntryPointDTO] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+@register_schema_to_swagger
 class BillingRouteBootstrapDTO(BillingBaseDTO):
     service: str
     status: str
     path_prefix: str
     creator_routes: list[BillingRouteItemDTO]
     admin_routes: list[BillingRouteItemDTO]
+    capabilities: list[BillingCapabilityDTO] = Field(default_factory=list)
     notes: list[str]
 
 

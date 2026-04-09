@@ -11,7 +11,7 @@ import click
 from flask import current_app
 from flask.cli import with_appcontext
 
-from .funcs import reconcile_billing_provider_reference
+from .checkout import reconcile_billing_provider_reference
 from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,

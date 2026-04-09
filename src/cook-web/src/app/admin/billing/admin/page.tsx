@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
 import { AdminBillingAdjustDialog } from '@/components/billing/AdminBillingAdjustDialog';
+import { BillingCapabilitySummary } from '@/components/billing/BillingCapabilitySummary';
 import { AdminBillingDomainsTable } from '@/components/billing/AdminBillingDomainsTable';
 import { AdminBillingEntitlementsTable } from '@/components/billing/AdminBillingEntitlementsTable';
 import { AdminBillingExceptionsPanel } from '@/components/billing/AdminBillingExceptionsPanel';
@@ -61,6 +62,8 @@ export default function AdminBillingConsolePage() {
             </div>
           </div>
         </div>
+
+        <BillingCapabilitySummary audience='admin' />
 
         <Tabs
           value={activeTab}

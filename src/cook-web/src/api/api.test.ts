@@ -2,6 +2,7 @@ import api from './api';
 
 describe('billing api definitions', () => {
   test('exposes creator billing endpoints', () => {
+    expect(api.getBillingBootstrap).toBe('GET /billing');
     expect(api.getBillingCatalog).toBe('GET /billing/catalog');
     expect(api.getBillingOverview).toBe('GET /billing/overview');
     expect(api.getBillingEntitlements).toBe('GET /billing/entitlements');

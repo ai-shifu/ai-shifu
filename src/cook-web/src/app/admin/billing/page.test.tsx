@@ -24,6 +24,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getBillingBootstrap: jest.fn(),
     getBillingCatalog: jest.fn(),
     getBillingDailyLedgerSummary: jest.fn(),
     getBillingDailyUsageMetrics: jest.fn(),
@@ -67,6 +68,7 @@ jest.mock('@/components/ui/Sheet', () => ({
 
 const mockGetAdminBillingDomainBindings =
   api.getAdminBillingDomainBindings as jest.Mock;
+const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockGetBillingDailyLedgerSummary =
   api.getBillingDailyLedgerSummary as jest.Mock;
@@ -98,6 +100,7 @@ describe('AdminBillingPage', () => {
     mockEnvState.stripeEnabled = 'true';
 
     mockGetAdminBillingDomainBindings.mockReset();
+    mockGetBillingBootstrap.mockReset();
     mockGetBillingCatalog.mockReset();
     mockGetBillingDailyLedgerSummary.mockReset();
     mockGetBillingDailyUsageMetrics.mockReset();
@@ -107,6 +110,44 @@ describe('AdminBillingPage', () => {
     mockGetBillingOrders.mockReset();
     mockGetBillingWalletBuckets.mockReset();
     mockUseBillingOverview.mockReset();
+
+    mockGetBillingBootstrap.mockResolvedValue({
+      service: 'billing',
+      status: 'bootstrap',
+      path_prefix: '/api/billing',
+      creator_routes: [],
+      admin_routes: [],
+      capabilities: [
+        {
+          key: 'creator_catalog',
+          status: 'active',
+          audience: 'creator',
+          user_visible: true,
+          default_enabled: true,
+          entry_points: [],
+          notes: [],
+        },
+        {
+          key: 'billing_feature_flag',
+          status: 'default_disabled',
+          audience: 'ops',
+          user_visible: false,
+          default_enabled: false,
+          entry_points: [],
+          notes: [],
+        },
+        {
+          key: 'usage_settlement',
+          status: 'internal_only',
+          audience: 'worker',
+          user_visible: false,
+          default_enabled: true,
+          entry_points: [],
+          notes: [],
+        },
+      ],
+      notes: [],
+    });
 
     mockGetBillingCatalog.mockResolvedValue({
       plans: [

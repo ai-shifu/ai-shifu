@@ -440,7 +440,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     from flaskr.service.billing import settlement as settlement_module
 
-    original_build_usage_metric_charges = settlement_module._build_usage_metric_charges
+    original_build_usage_metric_charges = settlement_module.build_usage_metric_charges
 
     def _blocking_build_usage_metric_charges(*args, **kwargs):
         usage = args[0]
@@ -451,7 +451,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     monkeypatch.setattr(
         settlement_module,
-        "_build_usage_metric_charges",
+        "build_usage_metric_charges",
         _blocking_build_usage_metric_charges,
     )
 

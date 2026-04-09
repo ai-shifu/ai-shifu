@@ -30,14 +30,14 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
 )
-from .funcs import (
-    _activate_subscription_for_paid_order,
-    _load_latest_subscription_renewal_order,
-    _load_subscription_by_bid,
-    _load_subscription_renewal_order_by_cycle,
-    _sync_subscription_lifecycle_events,
+from .checkout import sync_billing_order
+from .subscriptions import (
+    activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
-    sync_billing_order,
+    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+    load_subscription_by_bid as _load_subscription_by_bid,
+    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
+    sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .models import BillingOrder, BillingRenewalEvent
 

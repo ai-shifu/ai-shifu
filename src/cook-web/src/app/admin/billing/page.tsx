@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   BillingCreditDetailsPanel,
   BillingOverviewTab,
+  BillingPageHeader,
   BillingRecentActivitySection,
 } from '@/components/billing';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -60,6 +61,8 @@ export default function AdminBillingPage() {
       className='flex h-full flex-col gap-6 overflow-auto px-1 pb-6'
       data-testid='admin-billing-page'
     >
+      <BillingPageHeader />
+
       <Tabs
         className='space-y-6'
         onValueChange={value => setActiveTab(value as 'packages' | 'details')}

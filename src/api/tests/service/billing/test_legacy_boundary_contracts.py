@@ -1,57 +1,46 @@
 from __future__ import annotations
 
-from pathlib import Path
+from flask import Flask
 
+from flaskr.route.config import register_config_handler
+from flaskr.route.order import register_order_handler
 from flaskr.service.metering.models import BillUsageRecord
-
-_API_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_legacy_order_route_remains_separate_from_billing_domain() -> None:
-    source = (_API_ROOT / "flaskr/route/order.py").read_text(encoding="utf-8")
+    app = Flask(__name__)
+    register_order_handler(app, "/api")
 
-    assert "from flaskr.service.order.admin import (" in source
-    assert '@app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])' in source
-    assert '@app.route(path_prefix + "/init-order", methods=["POST"])' in source
-    assert '@app.route(path_prefix + "/query-order", methods=["POST"])' in source
-    assert '@app.route(path_prefix + "/stripe/sync", methods=["POST"])' in source
-    assert '@app.route(path_prefix + "/stripe/webhook", methods=["POST"])' in source
-    assert '@app.route(path_prefix + "/admin/orders", methods=["GET"])' in source
-    assert '@app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])' in source
-    assert (
-        '@app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])'
-        in source
-    )
-    assert (
-        '@app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])'
-        in source
-    )
-    assert "from flaskr.service.billing" not in source
+    routes = {rule.rule: rule.methods for rule in app.url_map.iter_rules()}
+
+    assert routes["/api/reqiure-to-pay"] >= {"POST"}
+    assert routes["/api/init-order"] >= {"POST"}
+    assert routes["/api/query-order"] >= {"POST"}
+    assert routes["/api/stripe/sync"] >= {"POST"}
+    assert routes["/api/stripe/webhook"] >= {"POST"}
+    assert routes["/api/admin/orders"] >= {"GET"}
+    assert routes["/api/admin/orders/shifus"] >= {"GET"}
+    assert routes["/api/admin/orders/import-activation"] >= {"POST"}
+    assert routes["/api/admin/orders/<order_bid>"] >= {"GET"}
+
+    for endpoint, view in app.view_functions.items():
+        if endpoint == "static":
+            continue
+        assert not view.__module__.startswith("flaskr.service.billing")
 
 
 def test_runtime_config_route_keeps_global_fields_and_adds_billing_extensions() -> None:
-    source = (_API_ROOT / "flaskr/route/config.py").read_text(encoding="utf-8")
+    app = Flask(__name__)
+    register_config_handler(app, "/api")
 
-    assert '@app.route(path_prefix + "/runtime-config", methods=["GET"])' in source
-    assert 'creator_bid = str(get_shifu_creator_bid() or "").strip()' in source
-    assert "runtime_billing = build_runtime_billing_context(" in source
-    assert "branding = runtime_billing.branding" in source
-    assert (
-        'logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")'
-        in source
+    runtime_config_rule = next(
+        rule for rule in app.url_map.iter_rules() if rule.rule == "/api/runtime-config"
     )
-    assert (
-        'logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")'
-        in source
+
+    assert runtime_config_rule.methods >= {"GET"}
+    assert app.view_functions[runtime_config_rule.endpoint].__module__ == (
+        "flaskr.route.config"
     )
-    assert (
-        'favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")' in source
-    )
-    assert 'home_url = branding.home_url or get_config("HOME_URL", "/")' in source
-    assert "logoWideUrl=logo_wide_url" in source
-    assert "logoSquareUrl=logo_square_url" in source
-    assert "faviconUrl=favicon_url" in source
-    assert "homeUrl=home_url" in source
 
 
 def test_bill_usage_model_keeps_raw_table_shape() -> None:

@@ -6,10 +6,7 @@ from datetime import datetime
 import os
 from typing import Any, Callable
 
-from .funcs import (
-    build_billing_overview,
-    reconcile_billing_provider_reference,
-)
+from .checkout import reconcile_billing_provider_reference
 from .daily_aggregates import (
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
@@ -17,6 +14,7 @@ from .daily_aggregates import (
 )
 from .domains import verify_domain_binding
 from .models import BillingSubscription, CreditWallet
+from .read_models import build_billing_overview
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets

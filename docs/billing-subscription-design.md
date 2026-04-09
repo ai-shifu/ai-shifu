@@ -47,6 +47,35 @@ v1.1 再补充下列扩展能力：
 - 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
 - 以上暂缓能力仍属于完整 v1 / v1.1 目标，继续保留在本文后续章节和任务清单中
 
+### 1.5 能力状态矩阵（代码真相源）
+
+以下矩阵以 `src/api/flaskr/service/billing/capabilities.py` 为唯一真相源。文档描述必须跟随代码状态，不再混用“已实现”“暂缓”“未来支持”三套口径。
+
+| capability | status | 入口 | 默认开关 | 用户可见 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `creator_catalog` | `active` | `GET /api/billing/catalog` | on | 是 | creator 可以查看当前可售套餐和充值包 |
+| `creator_subscription_checkout` | `active` | `/api/billing/overview`、`/subscriptions/checkout`、`/subscriptions/cancel`、`/subscriptions/resume` | on | 是 | 套餐购买、取消、恢复和 overview 当前正式可达 |
+| `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 钱包桶和账本明细当前正式可达 |
+| `creator_orders` | `active` | `GET /api/billing/orders*`、`POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/refund` | on | 是 | creator 订单、topup、sync、refund 当前正式可达 |
+| `creator_entitlements` | `active` | `GET /api/billing/entitlements` | on | 是 | 当前 billing center 已展示 entitlement 快照 |
+| `creator_reports` | `active` | `GET /api/billing/reports/*` | on | 是 | creator usage/ledger 日报表当前已暴露 |
+| `admin_subscriptions` | `active` | `GET /api/admin/billing/subscriptions` | on | 是 | admin 订阅审查当前正式可达 |
+| `admin_orders` | `active` | `GET /api/admin/billing/orders` | on | 是 | admin 订单审查当前正式可达 |
+| `admin_ledger_adjust` | `active` | `POST /api/admin/billing/ledger/adjust` | on | 是 | admin 手工账本调整当前正式可达 |
+| `admin_entitlements` | `active` | `GET /api/admin/billing/entitlements` | on | 是 | admin 权益查看当前正式可达 |
+| `admin_domains` | `active` | `GET/POST /api/admin/billing/domain*` | on | 是 | admin 域名绑定和审核当前正式可达 |
+| `admin_reports` | `active` | `GET /api/admin/billing/reports/*` | on | 是 | admin usage/ledger 报表当前正式可达 |
+| `runtime_billing_extensions` | `active` | `GET /api/config/runtime-config` | on | 否 | runtime config 已返回 billing entitlement/domain 扩展 |
+| `billing_feature_flag` | `default_disabled` | `BILLING_ENABLED` | off | 否 | feature flag seed 默认关闭，代码能力存在 |
+| `renewal_task_queue` | `default_disabled` | `BILLING_RENEWAL_TASK_CONFIG.enabled` | off | 否 | renewal worker 默认配置关闭 |
+| `usage_settlement` | `internal_only` | task/CLI | on | 否 | usage settlement 只供内部任务和补偿使用 |
+| `renewal_compensation` | `internal_only` | task/CLI | on | 否 | renewal/retry 补偿链路只供内部执行 |
+| `provider_reconcile` | `internal_only` | task/CLI | on | 否 | provider reconcile 只作为内部修复面保留 |
+| `wallet_bucket_expiration` | `internal_only` | task | on | 否 | bucket 过期扫描和 expire ledger 内部执行 |
+| `low_balance_alerts` | `internal_only` | task | on | 否 | 低余额告警生成属于后台任务 |
+| `daily_aggregate_rebuild` | `internal_only` | task/CLI | on | 否 | 日报表聚合重建和 finalize 属于内部修复能力 |
+| `domain_verify_refresh` | `internal_only` | task | on | 否 | 域名验证刷新属于后台任务 |
+
 ## 2. 字段类型与编码约定
 
 ### 2.1 公共基础字段

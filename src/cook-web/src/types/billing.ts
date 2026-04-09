@@ -16,6 +16,11 @@ export type AdminBillingConsoleTab =
 
 export type BillingProvider = 'stripe' | 'pingxx';
 
+export type BillingCapabilityStatus =
+  | 'active'
+  | 'default_disabled'
+  | 'internal_only';
+
 export type BillingPaymentMode = 'subscription' | 'one_time';
 
 export type BillingPlanInterval = 'month' | 'year';
@@ -120,6 +125,38 @@ export type BillingPagedResponse<TItem> = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type BillingCapabilityEntryPoint = {
+  kind: 'route' | 'task' | 'cli' | 'config';
+  method?: string | null;
+  path?: string | null;
+  name?: string | null;
+};
+
+export type BillingCapability = {
+  key: string;
+  status: BillingCapabilityStatus;
+  audience: string;
+  user_visible: boolean;
+  default_enabled: boolean;
+  entry_points: BillingCapabilityEntryPoint[];
+  notes: string[];
+};
+
+export type BillingRouteItem = {
+  method: string;
+  path: string;
+};
+
+export type BillingBootstrap = {
+  service: string;
+  status: string;
+  path_prefix: string;
+  creator_routes: BillingRouteItem[];
+  admin_routes: BillingRouteItem[];
+  capabilities: BillingCapability[];
+  notes: string[];
 };
 
 export type BillingPlan = {

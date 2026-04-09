@@ -29,6 +29,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.charges import build_usage_metric_charges
 from flaskr.service.billing.settlement import (
     backfill_bill_usage_settlement,
     replay_bill_usage_settlement,
@@ -887,7 +888,7 @@ def test_settle_usage_releases_creator_lock_on_error(
         lambda app, usage: "creator-lock-err",
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.settlement._build_usage_metric_charges",
+        "flaskr.service.billing.settlement.build_usage_metric_charges",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("lock-test-error")),
     )
 
@@ -1113,3 +1114,40 @@ def test_backfill_bill_usage_settlement_replays_one_usage_range_safely(
         assert first["backfill"] is True
         assert second["status_counts"] == {"already_settled": 1}
         assert wallet.available_credits == Decimal("3.0000000000")
+
+
+def test_build_usage_metric_charges_uses_public_charge_module(
+    billing_settlement_app: Flask,
+) -> None:
+    with billing_settlement_app.app_context():
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-public-charge-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="1.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-public-charge-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1200,
+                input_cache=0,
+                output=0,
+                total=1200,
+            )
+        )
+        dao.db.session.commit()
+
+        usage = BillUsageRecord.query.filter_by(usage_bid="usage-public-charge-1").one()
+        charges = build_usage_metric_charges(
+            usage,
+            settlement_at=datetime(2026, 4, 8, 12, 0, 0),
+        )
+
+        assert len(charges) == 1
+        assert charges[0]["billing_metric"] == BILLING_METRIC_LLM_INPUT_TOKENS
+        assert charges[0]["raw_amount"] == 1200

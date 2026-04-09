@@ -106,6 +106,7 @@ def _load_register_billing_routes():
 
 
 register_billing_routes = _load_register_billing_routes()
+billing_routes_module = sys.modules["flaskr.service.billing.routes"]
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -720,9 +721,15 @@ class TestBillingRoutes:
             assert isinstance(value.__json__(), dict)
 
     def test_billing_routes_module_uses_shared_common_response(self) -> None:
-        routes_source = _BILLING_ROUTE_FILE.read_text(encoding="utf-8")
+        from flaskr.route.common import make_common_response
 
-        assert "def _make_common_response" not in routes_source
+        assert getattr(billing_routes_module, "_make_common_response", None) is None
+        assert billing_routes_module.make_common_response.__name__ == (
+            make_common_response.__name__
+        )
+        assert billing_routes_module.make_common_response.__module__ == (
+            make_common_response.__module__
+        )
 
     def test_entitlements_route_returns_snapshot_then_product_fallback(
         self, billing_test_client

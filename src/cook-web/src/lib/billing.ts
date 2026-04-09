@@ -1,4 +1,6 @@
 import type {
+  BillingCapability,
+  BillingCapabilityStatus,
   BillingBucketCategory,
   BillingBucketSourceType,
   BillingBucketStatus,
@@ -34,6 +36,96 @@ const BILLING_STATUS_KEYS: Record<string, string> = {
   canceled: 'module.billing.status.canceled',
   expired: 'module.billing.status.expired',
   none: 'module.billing.status.none',
+};
+
+const BILLING_CAPABILITY_STATUS_KEYS: Record<BillingCapabilityStatus, string> =
+  {
+    active: 'module.billing.capabilities.status.active',
+    default_disabled: 'module.billing.capabilities.status.defaultDisabled',
+    internal_only: 'module.billing.capabilities.status.internalOnly',
+  };
+
+const BILLING_CAPABILITY_TITLE_KEYS: Record<string, string> = {
+  creator_catalog: 'module.billing.capabilities.items.creatorCatalog.title',
+  creator_subscription_checkout:
+    'module.billing.capabilities.items.creatorSubscriptionCheckout.title',
+  creator_wallet_ledger:
+    'module.billing.capabilities.items.creatorWalletLedger.title',
+  creator_orders: 'module.billing.capabilities.items.creatorOrders.title',
+  creator_entitlements:
+    'module.billing.capabilities.items.creatorEntitlements.title',
+  creator_reports: 'module.billing.capabilities.items.creatorReports.title',
+  admin_subscriptions:
+    'module.billing.capabilities.items.adminSubscriptions.title',
+  admin_orders: 'module.billing.capabilities.items.adminOrders.title',
+  admin_ledger_adjust:
+    'module.billing.capabilities.items.adminLedgerAdjust.title',
+  admin_entitlements:
+    'module.billing.capabilities.items.adminEntitlements.title',
+  admin_domains: 'module.billing.capabilities.items.adminDomains.title',
+  admin_reports: 'module.billing.capabilities.items.adminReports.title',
+  runtime_billing_extensions:
+    'module.billing.capabilities.items.runtimeBillingExtensions.title',
+  billing_feature_flag:
+    'module.billing.capabilities.items.billingFeatureFlag.title',
+  renewal_task_queue:
+    'module.billing.capabilities.items.renewalTaskQueue.title',
+  usage_settlement: 'module.billing.capabilities.items.usageSettlement.title',
+  renewal_compensation:
+    'module.billing.capabilities.items.renewalCompensation.title',
+  provider_reconcile:
+    'module.billing.capabilities.items.providerReconcile.title',
+  wallet_bucket_expiration:
+    'module.billing.capabilities.items.walletBucketExpiration.title',
+  low_balance_alerts:
+    'module.billing.capabilities.items.lowBalanceAlerts.title',
+  daily_aggregate_rebuild:
+    'module.billing.capabilities.items.dailyAggregateRebuild.title',
+  domain_verify_refresh:
+    'module.billing.capabilities.items.domainVerifyRefresh.title',
+};
+
+const BILLING_CAPABILITY_DESCRIPTION_KEYS: Record<string, string> = {
+  creator_catalog:
+    'module.billing.capabilities.items.creatorCatalog.description',
+  creator_subscription_checkout:
+    'module.billing.capabilities.items.creatorSubscriptionCheckout.description',
+  creator_wallet_ledger:
+    'module.billing.capabilities.items.creatorWalletLedger.description',
+  creator_orders: 'module.billing.capabilities.items.creatorOrders.description',
+  creator_entitlements:
+    'module.billing.capabilities.items.creatorEntitlements.description',
+  creator_reports:
+    'module.billing.capabilities.items.creatorReports.description',
+  admin_subscriptions:
+    'module.billing.capabilities.items.adminSubscriptions.description',
+  admin_orders: 'module.billing.capabilities.items.adminOrders.description',
+  admin_ledger_adjust:
+    'module.billing.capabilities.items.adminLedgerAdjust.description',
+  admin_entitlements:
+    'module.billing.capabilities.items.adminEntitlements.description',
+  admin_domains: 'module.billing.capabilities.items.adminDomains.description',
+  admin_reports: 'module.billing.capabilities.items.adminReports.description',
+  runtime_billing_extensions:
+    'module.billing.capabilities.items.runtimeBillingExtensions.description',
+  billing_feature_flag:
+    'module.billing.capabilities.items.billingFeatureFlag.description',
+  renewal_task_queue:
+    'module.billing.capabilities.items.renewalTaskQueue.description',
+  usage_settlement:
+    'module.billing.capabilities.items.usageSettlement.description',
+  renewal_compensation:
+    'module.billing.capabilities.items.renewalCompensation.description',
+  provider_reconcile:
+    'module.billing.capabilities.items.providerReconcile.description',
+  wallet_bucket_expiration:
+    'module.billing.capabilities.items.walletBucketExpiration.description',
+  low_balance_alerts:
+    'module.billing.capabilities.items.lowBalanceAlerts.description',
+  daily_aggregate_rebuild:
+    'module.billing.capabilities.items.dailyAggregateRebuild.description',
+  domain_verify_refresh:
+    'module.billing.capabilities.items.domainVerifyRefresh.description',
 };
 
 const BILLING_BUCKET_CATEGORY_KEYS: Record<BillingBucketCategory, string> = {
@@ -148,6 +240,33 @@ export function resolveBillingSubscriptionStatusLabel(
 ): string {
   const normalizedStatus = String(status || 'none');
   return t(BILLING_STATUS_KEYS[normalizedStatus] || BILLING_STATUS_KEYS.none);
+}
+
+export function resolveBillingCapabilityStatusLabel(
+  t: BillingTranslator,
+  status: BillingCapabilityStatus,
+): string {
+  return t(BILLING_CAPABILITY_STATUS_KEYS[status]);
+}
+
+export function resolveBillingCapabilityTitle(
+  t: BillingTranslator,
+  capability: BillingCapability,
+): string {
+  return t(
+    BILLING_CAPABILITY_TITLE_KEYS[capability.key] ||
+      'module.billing.capabilities.fallbackTitle',
+  );
+}
+
+export function resolveBillingCapabilityDescription(
+  t: BillingTranslator,
+  capability: BillingCapability,
+): string {
+  return t(
+    BILLING_CAPABILITY_DESCRIPTION_KEYS[capability.key] ||
+      'module.billing.capabilities.fallbackDescription',
+  );
 }
 
 export function resolveBillingProductTitle(
@@ -433,6 +552,57 @@ export function extractBillingPingxxQrUrl(
 
 export function registerBillingTranslationUsage(t: BillingTranslator): void {
   void [
+    t('module.billing.capabilities.fallbackDescription'),
+    t('module.billing.capabilities.fallbackTitle'),
+    t('module.billing.capabilities.items.adminDomains.description'),
+    t('module.billing.capabilities.items.adminDomains.title'),
+    t('module.billing.capabilities.items.adminEntitlements.description'),
+    t('module.billing.capabilities.items.adminEntitlements.title'),
+    t('module.billing.capabilities.items.adminLedgerAdjust.description'),
+    t('module.billing.capabilities.items.adminLedgerAdjust.title'),
+    t('module.billing.capabilities.items.adminOrders.description'),
+    t('module.billing.capabilities.items.adminOrders.title'),
+    t('module.billing.capabilities.items.adminReports.description'),
+    t('module.billing.capabilities.items.adminReports.title'),
+    t('module.billing.capabilities.items.adminSubscriptions.description'),
+    t('module.billing.capabilities.items.adminSubscriptions.title'),
+    t('module.billing.capabilities.items.billingFeatureFlag.description'),
+    t('module.billing.capabilities.items.billingFeatureFlag.title'),
+    t('module.billing.capabilities.items.creatorCatalog.description'),
+    t('module.billing.capabilities.items.creatorCatalog.title'),
+    t('module.billing.capabilities.items.creatorEntitlements.description'),
+    t('module.billing.capabilities.items.creatorEntitlements.title'),
+    t('module.billing.capabilities.items.creatorOrders.description'),
+    t('module.billing.capabilities.items.creatorOrders.title'),
+    t('module.billing.capabilities.items.creatorReports.description'),
+    t('module.billing.capabilities.items.creatorReports.title'),
+    t(
+      'module.billing.capabilities.items.creatorSubscriptionCheckout.description',
+    ),
+    t('module.billing.capabilities.items.creatorSubscriptionCheckout.title'),
+    t('module.billing.capabilities.items.creatorWalletLedger.description'),
+    t('module.billing.capabilities.items.creatorWalletLedger.title'),
+    t('module.billing.capabilities.items.dailyAggregateRebuild.description'),
+    t('module.billing.capabilities.items.dailyAggregateRebuild.title'),
+    t('module.billing.capabilities.items.domainVerifyRefresh.description'),
+    t('module.billing.capabilities.items.domainVerifyRefresh.title'),
+    t('module.billing.capabilities.items.lowBalanceAlerts.description'),
+    t('module.billing.capabilities.items.lowBalanceAlerts.title'),
+    t('module.billing.capabilities.items.providerReconcile.description'),
+    t('module.billing.capabilities.items.providerReconcile.title'),
+    t('module.billing.capabilities.items.renewalCompensation.description'),
+    t('module.billing.capabilities.items.renewalCompensation.title'),
+    t('module.billing.capabilities.items.renewalTaskQueue.description'),
+    t('module.billing.capabilities.items.renewalTaskQueue.title'),
+    t('module.billing.capabilities.items.runtimeBillingExtensions.description'),
+    t('module.billing.capabilities.items.runtimeBillingExtensions.title'),
+    t('module.billing.capabilities.items.usageSettlement.description'),
+    t('module.billing.capabilities.items.usageSettlement.title'),
+    t('module.billing.capabilities.items.walletBucketExpiration.description'),
+    t('module.billing.capabilities.items.walletBucketExpiration.title'),
+    t('module.billing.capabilities.status.active'),
+    t('module.billing.capabilities.status.defaultDisabled'),
+    t('module.billing.capabilities.status.internalOnly'),
     t('module.billing.catalog.badges.bestValue'),
     t('module.billing.catalog.badges.recommended'),
     t('module.billing.catalog.plans.creatorMonthly.description'),

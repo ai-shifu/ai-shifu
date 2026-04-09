@@ -19,6 +19,7 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     adjustAdminBillingLedger: jest.fn(),
+    getBillingBootstrap: jest.fn(),
     getAdminBillingDailyLedgerSummary: jest.fn(),
     getAdminBillingDailyUsageMetrics: jest.fn(),
     getAdminBillingDomainAudits: jest.fn(),
@@ -29,6 +30,7 @@ jest.mock('@/api', () => ({
 }));
 
 const mockAdjustAdminBillingLedger = api.adjustAdminBillingLedger as jest.Mock;
+const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetAdminBillingDailyLedgerSummary =
   api.getAdminBillingDailyLedgerSummary as jest.Mock;
 const mockGetAdminBillingDailyUsageMetrics =
@@ -44,12 +46,51 @@ const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 describe('AdminBillingConsolePage', () => {
   beforeEach(() => {
     mockAdjustAdminBillingLedger.mockReset();
+    mockGetBillingBootstrap.mockReset();
     mockGetAdminBillingDailyLedgerSummary.mockReset();
     mockGetAdminBillingDailyUsageMetrics.mockReset();
     mockGetAdminBillingDomainAudits.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOrders.mockReset();
+
+    mockGetBillingBootstrap.mockResolvedValue({
+      service: 'billing',
+      status: 'bootstrap',
+      path_prefix: '/api/billing',
+      creator_routes: [],
+      admin_routes: [],
+      capabilities: [
+        {
+          key: 'admin_orders',
+          status: 'active',
+          audience: 'admin',
+          user_visible: true,
+          default_enabled: true,
+          entry_points: [],
+          notes: [],
+        },
+        {
+          key: 'renewal_task_queue',
+          status: 'default_disabled',
+          audience: 'ops',
+          user_visible: false,
+          default_enabled: false,
+          entry_points: [],
+          notes: [],
+        },
+        {
+          key: 'renewal_compensation',
+          status: 'internal_only',
+          audience: 'worker',
+          user_visible: false,
+          default_enabled: true,
+          entry_points: [],
+          notes: [],
+        },
+      ],
+      notes: [],
+    });
 
     mockGetAdminBillingSubscriptions.mockResolvedValue({
       items: [

@@ -160,6 +160,112 @@
     "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
   },
+  "capabilities": {
+    "description": "这里统一标记哪些 billing 能力已经在 UI 中启用，哪些仍只存在于默认关闭配置或内部任务链路中。",
+    "fallbackDescription": "能力状态以 billing capability registry 为准。",
+    "fallbackTitle": "Billing 能力",
+    "items": {
+      "adminDomains": {
+        "description": "后台域名绑定与审核页面当前仍可使用。",
+        "title": "后台域名"
+      },
+      "adminEntitlements": {
+        "description": "后台权益查看当前仍可使用。",
+        "title": "后台权益"
+      },
+      "adminLedgerAdjust": {
+        "description": "后台账本调整当前仍可使用。",
+        "title": "后台账本调整"
+      },
+      "adminOrders": {
+        "description": "后台 billing 订单查看当前仍可使用。",
+        "title": "后台订单"
+      },
+      "adminReports": {
+        "description": "后台 usage 与 ledger 报表当前仍可使用。",
+        "title": "后台报表"
+      },
+      "adminSubscriptions": {
+        "description": "后台订阅查看当前仍可使用。",
+        "title": "后台订阅"
+      },
+      "billingFeatureFlag": {
+        "description": "billing 功能开关在 seed 配置中仍默认关闭。",
+        "title": "Billing 功能开关"
+      },
+      "creatorCatalog": {
+        "description": "套餐与充值包目录当前仍为 active。",
+        "title": "创作者商品目录"
+      },
+      "creatorEntitlements": {
+        "description": "创作者权益快照当前仍可查看。",
+        "title": "创作者权益"
+      },
+      "creatorOrders": {
+        "description": "创作者订单、sync、refund 和 topup 流程当前仍启用。",
+        "title": "创作者订单"
+      },
+      "creatorReports": {
+        "description": "创作者 usage 与 ledger 日报表当前仍启用。",
+        "title": "创作者报表"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "创作者订阅购买、取消与恢复当前仍启用。",
+        "title": "创作者订阅生命周期"
+      },
+      "creatorWalletLedger": {
+        "description": "钱包 bucket 与账本视图当前仍启用。",
+        "title": "创作者钱包与账本"
+      },
+      "dailyAggregateRebuild": {
+        "description": "日报表重建与 finalize 仍属于内部能力。",
+        "title": "日报表重建"
+      },
+      "domainVerifyRefresh": {
+        "description": "域名校验刷新仍属于内部能力。",
+        "title": "域名校验刷新"
+      },
+      "lowBalanceAlerts": {
+        "description": "低余额告警生成仍属于内部能力。",
+        "title": "低余额告警"
+      },
+      "providerReconcile": {
+        "description": "provider reconcile 仍属于内部恢复链路。",
+        "title": "Provider 对账补偿"
+      },
+      "renewalCompensation": {
+        "description": "续费与 retry 补偿仍属于内部能力。",
+        "title": "续费补偿"
+      },
+      "renewalTaskQueue": {
+        "description": "续费 worker 执行在 seed 配置中仍默认关闭。",
+        "title": "续费任务队列"
+      },
+      "runtimeBillingExtensions": {
+        "description": "runtime-config 当前仍会输出 billing entitlement 与 domain 上下文。",
+        "title": "运行时 billing 扩展"
+      },
+      "usageSettlement": {
+        "description": "usage settlement 与 replay 仍属于内部 task/CLI 流程。",
+        "title": "Usage 结算"
+      },
+      "walletBucketExpiration": {
+        "description": "wallet bucket 过期扫描仍属于内部能力。",
+        "title": "余额桶过期扫描"
+      }
+    },
+    "status": {
+      "active": "已启用",
+      "defaultDisabled": "默认关闭",
+      "internalOnly": "仅内部"
+    },
+    "summary": {
+      "active": "{count} 个已启用",
+      "defaultDisabled": "{count} 个默认关闭",
+      "internalOnly": "{count} 个仅内部"
+    },
+    "title": "能力状态"
+  },
   "catalog": {
     "actions": {
       "buyWithPingxx": "支付宝扫码支付",

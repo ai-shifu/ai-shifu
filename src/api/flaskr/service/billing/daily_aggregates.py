@@ -19,8 +19,8 @@ from .models import (
     BillingDailyUsageMetric,
     CreditLedgerEntry,
 )
+from .charges import build_usage_metric_charges
 from .ownership import resolve_usage_creator_bid
-from .settlement import _build_usage_metric_charges
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
@@ -92,7 +92,7 @@ def aggregate_daily_usage_metrics(
                 continue
 
             settlement_at = usage.created_at or window_started_at
-            metric_charges = _build_usage_metric_charges(
+            metric_charges = build_usage_metric_charges(
                 usage,
                 settlement_at=settlement_at,
             )

@@ -1,6 +1,6 @@
 from flask import Flask, make_response, request
 
-from flaskr.service.billing.funcs import handle_billing_pingxx_webhook
+from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
 
 from .common import bypass_token_validation
 from ..service.order import success_buy_record_from_pingxx
