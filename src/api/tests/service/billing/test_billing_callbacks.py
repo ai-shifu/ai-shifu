@@ -107,6 +107,35 @@ def _create_pingxx_billing_order(
     )
 
 
+def _create_billing_pingxx_raw_snapshot(
+    billing_order_bid: str, charge_id: str
+) -> PingxxOrder:
+    return PingxxOrder(
+        pingxx_order_bid=billing_order_bid,
+        biz_domain="billing",
+        billing_order_bid=billing_order_bid,
+        creator_bid="creator-1",
+        user_bid="",
+        shifu_bid="",
+        order_bid="",
+        transaction_no=billing_order_bid,
+        app_id="app_billing_test",
+        channel="alipay_qr",
+        amount=19900,
+        currency="CNY",
+        subject="Billing topup",
+        body="Billing topup",
+        client_ip="127.0.0.1",
+        extra="{}",
+        status=0,
+        charge_id=charge_id,
+        refund_id="",
+        failure_code="",
+        failure_msg="",
+        charge_object="{}",
+    )
+
+
 def _create_legacy_pingxx_records(
     order_bid: str, charge_id: str
 ) -> tuple[Order, PingxxOrder]:
@@ -151,6 +180,12 @@ class TestBillingPingxxCallbacks:
             dao.db.session.add(
                 _create_pingxx_billing_order("billing-pingxx-1", "ch_billing_pingxx_1")
             )
+            dao.db.session.add(
+                _create_billing_pingxx_raw_snapshot(
+                    "billing-pingxx-1",
+                    "ch_billing_pingxx_1",
+                )
+            )
             dao.db.session.commit()
 
             body = {
@@ -181,6 +216,10 @@ class TestBillingPingxxCallbacks:
             order = BillingOrder.query.filter_by(
                 billing_order_bid="billing-pingxx-1"
             ).one()
+            raw_order = PingxxOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid="billing-pingxx-1",
+            ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
@@ -192,9 +231,11 @@ class TestBillingPingxxCallbacks:
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
-            assert wallet.available_credits == 500000
-            assert bucket.available_credits == 500000
-            assert ledger.amount == 500000
+            assert raw_order.status == 1
+            assert raw_order.charge_id == "ch_billing_pingxx_1"
+            assert wallet.available_credits == 20
+            assert bucket.available_credits == 20
+            assert ledger.amount == 20
 
     def test_pingxx_callback_reports_non_billing_payload(
         self, billing_callback_app
@@ -238,6 +279,12 @@ class TestBillingPingxxCallbacks:
         with billing_callback_app.app_context():
             dao.db.session.add(
                 _create_pingxx_billing_order(
+                    "billing-pingxx-route-1",
+                    "ch_billing_pingxx_route_1",
+                )
+            )
+            dao.db.session.add(
+                _create_billing_pingxx_raw_snapshot(
                     "billing-pingxx-route-1",
                     "ch_billing_pingxx_route_1",
                 )
@@ -289,6 +336,10 @@ class TestBillingPingxxCallbacks:
             billing_order = BillingOrder.query.filter_by(
                 billing_order_bid="billing-pingxx-route-1"
             ).one()
+            billing_raw = PingxxOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid="billing-pingxx-route-1",
+            ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             legacy_order = Order.query.filter_by(
                 order_bid="legacy-pingxx-order-1"
@@ -298,6 +349,7 @@ class TestBillingPingxxCallbacks:
             ).one()
 
             assert billing_order.status == BILLING_ORDER_STATUS_PAID
-            assert wallet.available_credits == 500000
+            assert billing_raw.status == 1
+            assert wallet.available_credits == 20
             assert legacy_order.status == ORDER_STATUS_SUCCESS
             assert legacy_pingxx_order.status == 1

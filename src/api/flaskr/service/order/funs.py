@@ -46,6 +46,11 @@ from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.raw_snapshots import (
+    RAW_BIZ_DOMAIN_ORDER,
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+)
 import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from flaskr.common.shifu_context import set_shifu_context
@@ -595,6 +600,7 @@ def _generate_pingxx_charge(
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     pingxx_order = PingxxOrder()
     pingxx_order.pingxx_order_bid = order_no
+    pingxx_order.biz_domain = RAW_BIZ_DOMAIN_ORDER
     pingxx_order.user_bid = buy_record.user_bid
     pingxx_order.shifu_bid = buy_record.shifu_bid
     pingxx_order.order_bid = buy_record.order_bid
@@ -695,6 +701,7 @@ def _generate_stripe_charge(
 
     stripe_order = StripeOrder()
     stripe_order.order_bid = buy_record.order_bid
+    stripe_order.biz_domain = RAW_BIZ_DOMAIN_ORDER
     stripe_order.user_bid = buy_record.user_bid
     stripe_order.shifu_bid = buy_record.shifu_bid
     stripe_order.stripe_order_bid = order_no
@@ -777,9 +784,9 @@ def sync_stripe_checkout_session(
             raise_error("server.pay.payChannelNotSupport")
 
         stripe_order = (
-            StripeOrder.query.filter(
+            legacy_stripe_snapshot_query()
+            .filter(
                 StripeOrder.order_bid == order.order_bid,
-                StripeOrder.deleted == 0,
             )
             .order_by(StripeOrder.id.desc())
             .first()
@@ -947,7 +954,8 @@ def handle_stripe_webhook(
 
     with app.app_context():
         stripe_order: Optional[StripeOrder] = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            legacy_stripe_snapshot_query()
+            .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
             .first()
         )
@@ -1052,7 +1060,8 @@ def refund_order_payment(
             raise_error("server.pay.payChannelNotSupport")
 
         stripe_order = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            legacy_stripe_snapshot_query()
+            .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
             .first()
         )
@@ -1114,7 +1123,8 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
         payment_channel = order.payment_channel or "pingxx"
         if payment_channel == "stripe":
             stripe_order = (
-                StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+                legacy_stripe_snapshot_query()
+                .filter(StripeOrder.order_bid == order_bid)
                 .order_by(StripeOrder.id.desc())
                 .first()
             )
@@ -1140,7 +1150,8 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             }
 
         pingxx_order = (
-            PingxxOrder.query.filter(PingxxOrder.order_bid == order.order_bid)
+            legacy_pingxx_snapshot_query()
+            .filter(PingxxOrder.order_bid == order.order_bid)
             .order_by(PingxxOrder.id.desc())
             .first()
         )
@@ -1166,9 +1177,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
     Success buy record from pingxx
     """
     with app.app_context():
-        pingxx_order = PingxxOrder.query.filter(
-            PingxxOrder.charge_id == charge_id
-        ).first()
+        pingxx_order = (
+            legacy_pingxx_snapshot_query()
+            .filter(PingxxOrder.charge_id == charge_id)
+            .first()
+        )
         if not pingxx_order:
             return
         lock = cache_provider.lock(
@@ -1184,9 +1197,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 app.logger.info(
                     'success buy record from pingxx charge:"{}"'.format(charge_id)
                 )
-                pingxx_order: PingxxOrder = PingxxOrder.query.filter(
-                    PingxxOrder.charge_id == charge_id
-                ).first()
+                pingxx_order = (
+                    legacy_pingxx_snapshot_query()
+                    .filter(PingxxOrder.charge_id == charge_id)
+                    .first()
+                )
                 if not pingxx_order:
                     lock.release()
                     return None

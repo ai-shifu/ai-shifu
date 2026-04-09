@@ -29,7 +29,7 @@ v1.1 再补充下列扩展能力：
 - 计费主体固定为 `creator_bid`
 - 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
 - 商品目录统一使用 `billing_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
-- 支付持久化统一以 `billing_orders` 为主，provider 最新原始载荷只保留在 `billing_orders.metadata`
+- 支付持久化统一以 `billing_orders` 为业务真相源；provider 最新摘要保留在 `billing_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders` 并通过 `biz_domain`、`billing_order_bid`、`creator_bid` 隔离
 - 钱包/余额桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费余额桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
 - 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
@@ -41,7 +41,7 @@ v1.1 再补充下列扩展能力：
 
 - 前端以 Figma `方案1` 浅色稿为唯一视觉准绳，保留现有 `/admin` 作为创作中心首页，只补侧边栏会员卡、`会员与积分` 导航和新的 `/admin/billing`
 - 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
-- 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口，不复用旧 `order_*` 表
+- 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口；业务状态不复用旧 `order_orders`，provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
 - Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 只支持 topup checkout，subscription checkout 明确返回 `unsupported`
 - 支付成功后必须真实写入 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
 - 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
@@ -291,7 +291,7 @@ v1 冻结 subscription lifecycle 规则：
 | `refunded_at` | `DateTime` | `nullable=True` | 退款完成时间 | `Refunded timestamp` | 退款时间 |
 | `failure_code` | `String(255)` | `not null, default=""` | provider 错误码 | `Failure code` | 失败码 |
 | `failure_message` | `String(255)` | `not null, default=""` | provider 错误信息 | `Failure message` | 失败信息 |
-| `metadata` | `JSON` | `nullable=True` | 最近一次 webhook/sync 原始 payload、event type、event time、return url、补偿标记 | `Billing order metadata` | 支付动作扩展元数据 |
+| `metadata` | `JSON` | `nullable=True` | 最近一次 webhook/sync 摘要、event type、event time、return url、补偿标记；provider raw object 另镜像写入 `order_pingxx_orders` / `order_stripe_orders` | `Billing order metadata` | 支付动作扩展元数据 |
 
 主键 / 唯一索引 / 关键索引：
 
@@ -311,7 +311,7 @@ v1 冻结 subscription lifecycle 规则：
 - v1 不引入 `payment_attempts` 子表；支付重试通过创建新的 `billing_orders` 完成
 - `billing_orders` 通过 `provider_reference_id`、当前状态和单向状态推进规则承担 webhook 幂等
 - 订单级 webhook 直接推进 `billing_orders` 状态，并覆盖写入最近一次 provider payload 到 `metadata`
-- 订阅级 provider 事件优先回填同 `subscription_bid` 最近一笔 `billing_orders.metadata`；如找不到关联订单，则只推进状态或忽略，不额外落库存档
+- 订阅级 provider 事件优先回填同 `subscription_bid` 最近一笔 `billing_orders.metadata`，并更新关联 provider raw snapshot；如找不到关联订单，则只推进状态或忽略，不额外补 raw snapshot
 - 找不到关联订单的孤儿 webhook 直接忽略，后续依赖 `POST /billing/orders/{billing_order_bid}/sync` 或 reconcile 补偿
 
 ### 3.4 `credit_wallets`
@@ -965,7 +965,7 @@ v1 需要新增：
 - `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
 - `POST /billing/topups/checkout` 只能购买 `product_type=topup`
 - `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
-- webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新原始 payload 只保留最近一次
+- webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
 - 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
 - 当前批次 provider 能力矩阵固定为：
   - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、`refund_payment`、paid success grant
@@ -1062,7 +1062,7 @@ interface BillingPaymentProviderAdapter {
 
 - `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `billing_orders` / `billing_subscriptions`
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
-- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK，也不复用旧 `order_*` 表
+- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，但 provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
 
 ### 7.5 前端实现方案
 
@@ -1276,7 +1276,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/topups/checkout`：发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
-- `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，并把最近原始 payload 覆盖写入关联 `billing_orders.metadata`
+- `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，把最近摘要覆盖写入关联 `billing_orders.metadata`，并更新关联 provider raw snapshot
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
 
@@ -1312,7 +1312,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `BillingPlan` 和 `BillingTopupProduct` 是 `billing_products` 的展示层投影，不是底层独立表
 - v1 的 `CreatorBillingOverview` 只返回钱包、订阅和告警
 - `BillingWalletBucket` 是 `credit_wallet_buckets` 的只读投影，不并入 `CreatorBillingOverview`
-- billing order DTO 如需暴露 provider 调试信息，只读取 `billing_orders.metadata` 中最近一次 payload，不设计 append-only 事件历史
+- billing order DTO 如需暴露 provider 调试信息，优先读取 `billing_orders.metadata` 的最近一次摘要；更完整的 provider 原始对象从 `order_pingxx_orders` / `order_stripe_orders` 的 billing raw snapshot 查看，不设计 append-only 事件历史
 - `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
 - `usage_type` / `usage_scene` 的数值来源于 `metering.consts`
 - billing 相关状态、类型、metric 的数值来源于未来的 `service/billing/consts.py`
@@ -1470,7 +1470,7 @@ type CreatorBrandingConfig = {
 - LLM `input/cache/output` 三维扣分是否准确
 - TTS `按次` 与 `按字数` 两种 metric 是否准确
 - webhook 幂等、乱序到达、sync 补偿、防重复发放或重复扣分
-- 最近一次 provider payload 是否只覆盖写入关联 `billing_orders.metadata`
+- 最近一次 provider 摘要是否只覆盖写入关联 `billing_orders.metadata`，同时同步更新 provider raw snapshot
 - 找不到关联订单的 webhook 是否按 ignore 处理且不落库存档
 - bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger
 - `credit_wallets`、`credit_wallet_buckets` 与 `credit_ledger_entries` 三者是否保持一致

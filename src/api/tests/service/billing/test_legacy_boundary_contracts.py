@@ -33,13 +33,25 @@ def test_runtime_config_route_keeps_global_fields_and_adds_billing_extensions() 
     source = (_API_ROOT / "flaskr/route/config.py").read_text(encoding="utf-8")
 
     assert '@app.route(path_prefix + "/runtime-config", methods=["GET"])' in source
-    assert '"logoWideUrl": get_config("LOGO_WIDE_URL", "")' in source
-    assert '"logoSquareUrl": get_config("LOGO_SQUARE_URL", "")' in source
-    assert '"faviconUrl": get_config("FAVICON_URL", "")' in source
-    assert '"homeUrl": get_config("HOME_URL", "/")' in source
     assert 'creator_bid = str(get_shifu_creator_bid() or "").strip()' in source
     assert "runtime_billing = build_runtime_billing_context(" in source
-    assert "config.update(runtime_billing)" in source
+    assert "branding = runtime_billing.branding" in source
+    assert (
+        'logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")'
+        in source
+    )
+    assert (
+        'logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")'
+        in source
+    )
+    assert (
+        'favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")' in source
+    )
+    assert 'home_url = branding.home_url or get_config("HOME_URL", "/")' in source
+    assert "logoWideUrl=logo_wide_url" in source
+    assert "logoSquareUrl=logo_square_url" in source
+    assert "faviconUrl=favicon_url" in source
+    assert "homeUrl=home_url" in source
 
 
 def test_bill_usage_model_keeps_raw_table_shape() -> None:

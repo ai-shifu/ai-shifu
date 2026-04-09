@@ -55,6 +55,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import AppException
+from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentNotificationResult,
@@ -389,10 +390,17 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
+            raw_order = PingxxOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
             assert subscription.billing_provider == "pingxx"
             assert subscription.provider_subscription_id == ""
+            assert raw_order.status == 0
+            assert raw_order.order_bid == ""
+            assert raw_order.creator_bid == "creator-1"
 
         sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
             force=True
@@ -412,6 +420,10 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
+            raw_order = PingxxOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             renewal_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid=subscription.subscription_bid,
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -426,6 +438,15 @@ class TestBillingWriteRoutes:
             assert wallet.available_credits == 5
             assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+            assert raw_order.status == 1
+            assert raw_order.charge_id == "ch_billing_test"
+            assert (
+                PingxxOrder.query.filter_by(
+                    biz_domain="billing",
+                    billing_order_bid=billing_order_bid,
+                ).count()
+                == 1
+            )
             assert renewal_event.scheduled_at == (
                 subscription.current_period_end_at - timedelta(days=7)
             )
@@ -501,6 +522,10 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
+            raw_order = PingxxOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
             assert wallet.available_credits == 20
@@ -511,6 +536,15 @@ class TestBillingWriteRoutes:
             assert bucket.available_credits == 20
             assert ledger.amount == 20
             assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+            assert raw_order.status == 1
+            assert raw_order.charge_id == "ch_billing_test"
+            assert (
+                PingxxOrder.query.filter_by(
+                    biz_domain="billing",
+                    billing_order_bid=billing_order_bid,
+                ).count()
+                == 1
+            )
 
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
         self, billing_write_client, monkeypatch
@@ -610,11 +644,18 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
+            raw_order = StripeOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             assert wallet.available_credits == Decimal("120.0000000000")
             assert wallet.reserved_credits == Decimal("0E-10")
             assert new_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
             assert new_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
             assert new_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+            assert raw_order.status == 1
+            assert raw_order.checkout_session_id == "cs_billing_test"
+            assert raw_order.payment_intent_id == "pi_billing_test"
 
     def test_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
@@ -655,6 +696,10 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 source_bid=billing_order_bid,
             ).one()
+            raw_order = StripeOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             renewal_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid=subscription.subscription_bid,
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -668,6 +713,16 @@ class TestBillingWriteRoutes:
             assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert bucket.available_credits == 5
             assert ledger.amount == 5
+            assert raw_order.status == 1
+            assert raw_order.checkout_session_id == "cs_billing_test"
+            assert raw_order.payment_intent_id == "pi_billing_test"
+            assert (
+                StripeOrder.query.filter_by(
+                    biz_domain="billing",
+                    billing_order_bid=billing_order_bid,
+                ).count()
+                == 1
+            )
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
@@ -1134,6 +1189,10 @@ class TestBillingWriteRoutes:
                 source_type=CREDIT_SOURCE_TYPE_REFUND,
                 source_bid="re_billing_test",
             ).one()
+            raw_order = StripeOrder.query.filter_by(
+                biz_domain="billing",
+                billing_order_bid=billing_order_bid,
+            ).one()
             assert order.status == BILLING_ORDER_STATUS_REFUNDED
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
@@ -1143,6 +1202,15 @@ class TestBillingWriteRoutes:
             assert refund_bucket.metadata_json["billing_order_bid"] == billing_order_bid
             assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
             assert refund_ledger.amount == 20
+            assert raw_order.status == 2
+            assert "last_refund_id" in raw_order.metadata_json
+            assert (
+                StripeOrder.query.filter_by(
+                    biz_domain="billing",
+                    billing_order_bid=billing_order_bid,
+                ).count()
+                == 1
+            )
 
     def test_refund_pingxx_order_returns_unsupported(
         self, billing_write_client

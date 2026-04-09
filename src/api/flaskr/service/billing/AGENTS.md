@@ -18,8 +18,8 @@ module-specific ownership and risk points.
   `src/api/flaskr/service/billing/funcs.py`
 
 - Keep creator billing isolated from the legacy learner `/order` domain and
-  `order_*` tables unless the design doc explicitly says to reuse a shared
-  provider adapter boundary.
+  `order_orders` business state unless the design doc explicitly says to reuse
+  shared provider raw snapshot tables or the shared provider adapter boundary.
 
 - Preferred pytest location: `src/api/tests/service/billing/` should remain
   the first stop for focused route, model, and orchestration coverage.
@@ -41,8 +41,10 @@ module-specific ownership and risk points.
 
 ## Avoid
 
-- Do not write new creator billing behavior into legacy `/order` handlers or
-  reuse `order_orders`, `order_pingxx_orders`, or `order_stripe_orders`.
+- Do not write new creator billing business state into legacy `/order`
+  handlers or reuse `order_orders`; if provider raw snapshots are mirrored into
+  `order_pingxx_orders` / `order_stripe_orders`, keep them isolated with
+  billing-specific keys and domain filters.
 
 - Do not let route handlers absorb settlement, ledger mutation, or provider
   orchestration logic that belongs in dedicated billing helpers.

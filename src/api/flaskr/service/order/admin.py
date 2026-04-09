@@ -34,6 +34,10 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.raw_snapshots import (
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+)
 from flaskr.service.promo.consts import (
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_INACTIVE,
@@ -795,9 +799,9 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
     payment_channel = order.payment_channel or ""
     if payment_channel == "stripe":
         stripe_order = (
-            StripeOrder.query.filter(
+            legacy_stripe_snapshot_query()
+            .filter(
                 StripeOrder.order_bid == order.order_bid,
-                StripeOrder.deleted == 0,
             )
             .order_by(StripeOrder.id.desc())
             .first()
@@ -826,9 +830,9 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
 
     if payment_channel == "pingxx":
         pingxx_order = (
-            PingxxOrder.query.filter(
+            legacy_pingxx_snapshot_query()
+            .filter(
                 PingxxOrder.order_bid == order.order_bid,
-                PingxxOrder.deleted == 0,
             )
             .order_by(PingxxOrder.id.desc())
             .first()

@@ -27,6 +27,12 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
+_MONTHLY_PLAN_CREDITS = next(
+    seed["credit_amount"]
+    for seed in BILLING_PRODUCT_SEEDS
+    if seed["product_bid"] == "billing-product-plan-monthly"
+)
+
 
 def _seed_products() -> list[BillingProduct]:
     items: list[BillingProduct] = []
@@ -172,7 +178,7 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
         {},
     )
 
-    assert payload["status"] == "paid"
+    assert payload.status == "paid"
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
@@ -193,10 +199,10 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert subscription.current_period_start_at == cycle_start_at
         assert subscription.current_period_end_at == cycle_end_at
-        assert wallet.available_credits == 300000
+        assert wallet.available_credits == _MONTHLY_PLAN_CREDITS
         assert bucket.effective_from == cycle_start_at
         assert bucket.effective_to == cycle_end_at
-        assert ledger.balance_after == 300000
+        assert ledger.balance_after == _MONTHLY_PLAN_CREDITS
 
 
 def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
@@ -260,5 +266,5 @@ def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
             source_bid="billing-renewal-webhook-1",
         ).all()
         assert order.status == BILLING_ORDER_STATUS_PAID
-        assert wallet.available_credits == 300000
+        assert wallet.available_credits == _MONTHLY_PLAN_CREDITS
         assert len(ledgers) == 1
