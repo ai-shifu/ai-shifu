@@ -241,7 +241,47 @@
     }
   },
   "entitlements": {
-    "description": "套餐派生的运行时能力、支持等级、分析等级和并发限制会在这里统一展示。",
+    "analytics": {
+      "advanced": "高级分析",
+      "basic": "基础分析",
+      "enterprise": "企业分析"
+    },
+    "description": "查看当前 creator billing 状态真正激活的运行时能力和服务等级。",
+    "flags": {
+      "branding": "品牌覆写",
+      "brandingDescription": "决定 runtime-config 是否允许发布创作者专属的 logo、favicon 和 home URL。",
+      "customDomain": "自定义域名",
+      "customDomainDescription": "决定已校验的创作者域名是否可以接管流量并按 host 解析 creator 上下文。",
+      "description": "这两个开关决定品牌配置和自定义域名能力能否在运行时真正生效。",
+      "disabled": "未开启",
+      "enabled": "已开启",
+      "title": "功能开关"
+    },
+    "loadError": "权益数据读取失败，请刷新后重试。",
+    "metricDescriptions": {
+      "analyticsTier": "决定创作者端可以看到多少报表细节，以及会开放哪些日报聚合视图。",
+      "maxConcurrency": "限制同一个创作者在 admission / settlement 上允许并行推进的最大数量。",
+      "priorityClass": "决定在共享算力紧张时，当前创作者请求的优先级。",
+      "supportTier": "决定当前套餐对应的支持响应等级和后续处理路径。"
+    },
+    "metrics": {
+      "analyticsTier": "分析等级",
+      "maxConcurrency": "最大并发",
+      "priorityClass": "优先级",
+      "supportTier": "支持等级"
+    },
+    "priority": {
+      "priority": "优先级保障",
+      "standard": "标准",
+      "vip": "VIP"
+    },
+    "runtimeBadge": "运行时快照",
+    "runtimeNote": "这些值来自当前生效的 entitlement snapshot 或订阅商品 payload，并且会直接影响 admission、报表聚合和域名路由行为。",
+    "support": {
+      "businessHours": "工作时间支持",
+      "priority": "优先支持",
+      "selfServe": "自助支持"
+    },
     "title": "权益与能力"
   },
   "ledger": {

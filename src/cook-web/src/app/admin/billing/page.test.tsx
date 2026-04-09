@@ -285,6 +285,12 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByText('module.billing.entitlements.description'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.entitlements.priority.priority'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.entitlements.support.businessHours'),
+    ).toBeInTheDocument();
 
     await act(async () => {
       await user.click(

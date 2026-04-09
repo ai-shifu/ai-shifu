@@ -241,7 +241,47 @@
     }
   },
   "entitlements": {
-    "description": "Plan-derived runtime limits, support tier, analytics tier, and concurrency settings will be shown here next.",
+    "analytics": {
+      "advanced": "Advanced",
+      "basic": "Basic",
+      "enterprise": "Enterprise"
+    },
+    "description": "Review the runtime limits and service tier that your current creator billing state activates.",
+    "flags": {
+      "branding": "Branding override",
+      "brandingDescription": "Controls whether runtime-config can publish creator-specific logo, favicon, and home URL overrides.",
+      "customDomain": "Custom domain",
+      "customDomainDescription": "Controls whether verified creator domains can route traffic and resolve creator context by host.",
+      "description": "These switches gate whether branding and custom-domain features can take effect in runtime.",
+      "disabled": "Disabled",
+      "enabled": "Enabled",
+      "title": "Feature Gates"
+    },
+    "loadError": "Entitlement data could not be loaded. Refresh and try again.",
+    "metricDescriptions": {
+      "analyticsTier": "Determines how much reporting detail and daily aggregate data is exposed to the creator surface.",
+      "maxConcurrency": "Caps how many creator-scoped settlement or admission flows can proceed in parallel.",
+      "priorityClass": "Determines how creator traffic is prioritized when shared compute capacity is constrained.",
+      "supportTier": "Determines the expected support response path that accompanies the current plan."
+    },
+    "metrics": {
+      "analyticsTier": "Analytics tier",
+      "maxConcurrency": "Max concurrency",
+      "priorityClass": "Priority class",
+      "supportTier": "Support tier"
+    },
+    "priority": {
+      "priority": "Priority",
+      "standard": "Standard",
+      "vip": "VIP"
+    },
+    "runtimeBadge": "Runtime snapshot",
+    "runtimeNote": "These values are resolved from the active entitlement snapshot or the current subscription product payload, and they directly affect admission, reporting, and domain routing.",
+    "support": {
+      "businessHours": "Business hours",
+      "priority": "Priority support",
+      "selfServe": "Self-serve"
+    },
     "title": "Entitlements"
   },
   "ledger": {
