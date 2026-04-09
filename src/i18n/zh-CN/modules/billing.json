@@ -493,8 +493,49 @@
     }
   },
   "reports": {
-    "description": "等 v1.1 报表视图接入后，这里会展示 usage 日汇总和账本日汇总。",
-    "title": "用量与账本报表"
+    "description": "查看创作者维度的 usage 日汇总，以及账本变动的每日统计窗口。",
+    "empty": "暂无日报表数据。",
+    "loadError": "当前无法加载账务报表。",
+    "metric": {
+      "llmCacheTokens": "LLM 缓存 tokens",
+      "llmInputTokens": "LLM 输入 tokens",
+      "llmOutputTokens": "LLM 输出 tokens",
+      "ttsInputChars": "TTS 输入字符",
+      "ttsOutputChars": "TTS 输出字符",
+      "ttsRequestCount": "TTS 请求次数"
+    },
+    "pagination": {
+      "page": "第 {page} / {pageCount} 页 · 共 {total} 条"
+    },
+    "sections": {
+      "ledger": {
+        "description": "按天汇总不同账本 entry type 与积分来源 bucket 的变动情况。",
+        "title": "账本日汇总"
+      },
+      "usage": {
+        "description": "按 shifu、scene、metric 与 provider/model 窗口汇总创作者 usage 成本。",
+        "title": "Usage 日汇总"
+      }
+    },
+    "table": {
+      "count": "条目数",
+      "credits": "积分",
+      "date": "日期",
+      "entryType": "账本类型",
+      "metric": "计费指标",
+      "provider": "Provider / Model",
+      "rawAmount": "原始用量",
+      "scene": "场景",
+      "shifu": "Shifu",
+      "source": "来源",
+      "usageType": "Usage 类型",
+      "window": "统计窗口"
+    },
+    "title": "用量与账本报表",
+    "usageType": {
+      "llm": "LLM",
+      "tts": "TTS"
+    }
   },
   "result": {
     "countdown": "{seconds}s 后自动返回会员中心",

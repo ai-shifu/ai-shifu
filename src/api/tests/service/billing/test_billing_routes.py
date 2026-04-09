@@ -9,6 +9,8 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -27,6 +29,8 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
+    BillingDailyLedgerSummary,
+    BillingDailyUsageMetric,
     BillingOrder,
     BillingEntitlement,
     BillingProduct,
@@ -37,7 +41,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.routes import register_billing_routes
 from flaskr.service.common.models import AppException
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -396,6 +400,104 @@ def billing_test_client():
             ]
         )
 
+        dao.db.session.add_all(
+            [
+                BillingDailyUsageMetric(
+                    daily_usage_metric_bid="daily-usage-1",
+                    stat_date="2026-04-06",
+                    creator_bid="creator-1",
+                    shifu_bid="shifu-1",
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-4o-mini",
+                    billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                    raw_amount=1234,
+                    record_count=3,
+                    consumed_credits=Decimal("4.5000000000"),
+                    window_started_at=datetime(2026, 4, 6, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 7, 0, 0, 0),
+                    created_at=datetime(2026, 4, 7, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 7, 0, 0, 0),
+                ),
+                BillingDailyUsageMetric(
+                    daily_usage_metric_bid="daily-usage-2",
+                    stat_date="2026-04-05",
+                    creator_bid="creator-1",
+                    shifu_bid="shifu-1",
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-4o-mini",
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    raw_amount=2048,
+                    record_count=5,
+                    consumed_credits=Decimal("3.2500000000"),
+                    window_started_at=datetime(2026, 4, 5, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 6, 0, 0, 0),
+                    created_at=datetime(2026, 4, 6, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 0, 0, 0),
+                ),
+                BillingDailyUsageMetric(
+                    daily_usage_metric_bid="daily-usage-other",
+                    stat_date="2026-04-06",
+                    creator_bid="creator-2",
+                    shifu_bid="shifu-2",
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-4o-mini",
+                    billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                    raw_amount=999,
+                    record_count=1,
+                    consumed_credits=Decimal("9.0000000000"),
+                    window_started_at=datetime(2026, 4, 6, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 7, 0, 0, 0),
+                    created_at=datetime(2026, 4, 7, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 7, 0, 0, 0),
+                ),
+                BillingDailyLedgerSummary(
+                    daily_ledger_summary_bid="daily-ledger-1",
+                    stat_date="2026-04-06",
+                    creator_bid="creator-1",
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                    source_type=CREDIT_SOURCE_TYPE_USAGE,
+                    amount=Decimal("-4.5000000000"),
+                    entry_count=3,
+                    window_started_at=datetime(2026, 4, 6, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 7, 0, 0, 0),
+                    created_at=datetime(2026, 4, 7, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 7, 0, 0, 0),
+                ),
+                BillingDailyLedgerSummary(
+                    daily_ledger_summary_bid="daily-ledger-2",
+                    stat_date="2026-04-05",
+                    creator_bid="creator-1",
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    amount=Decimal("20.0000000000"),
+                    entry_count=1,
+                    window_started_at=datetime(2026, 4, 5, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 6, 0, 0, 0),
+                    created_at=datetime(2026, 4, 6, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 0, 0, 0),
+                ),
+                BillingDailyLedgerSummary(
+                    daily_ledger_summary_bid="daily-ledger-other",
+                    stat_date="2026-04-06",
+                    creator_bid="creator-2",
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                    source_type=CREDIT_SOURCE_TYPE_GIFT,
+                    amount=Decimal("99.0000000000"),
+                    entry_count=1,
+                    window_started_at=datetime(2026, 4, 6, 0, 0, 0),
+                    window_ended_at=datetime(2026, 4, 7, 0, 0, 0),
+                    created_at=datetime(2026, 4, 7, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 7, 0, 0, 0),
+                ),
+            ]
+        )
+
         dao.db.session.commit()
 
         with app.test_client() as client:
@@ -424,6 +526,14 @@ class TestBillingRoutes:
         assert {
             "method": "GET",
             "path": "/api/billing/entitlements",
+        } in payload["data"]["creator_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/billing/reports/usage-daily",
+        } in payload["data"]["creator_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/billing/reports/ledger-daily",
         } in payload["data"]["creator_routes"]
         assert {
             "method": "POST",
@@ -512,6 +622,54 @@ class TestBillingRoutes:
             "analytics_tier": "basic",
             "support_tier": "self_serve",
         }
+
+    def test_daily_reports_routes_return_creator_scoped_rows_with_date_filters(
+        self, billing_test_client
+    ) -> None:
+        usage_response = billing_test_client.get(
+            "/api/billing/reports/usage-daily?page_index=1&page_size=10&date_from=2026-04-06"
+        )
+        ledger_response = billing_test_client.get(
+            "/api/billing/reports/ledger-daily?page_index=1&page_size=10&date_from=2026-04-06"
+        )
+
+        usage_payload = usage_response.get_json(force=True)
+        ledger_payload = ledger_response.get_json(force=True)
+
+        assert usage_payload["code"] == 0
+        assert usage_payload["data"]["total"] == 1
+        assert usage_payload["data"]["items"] == [
+            {
+                "daily_usage_metric_bid": "daily-usage-1",
+                "stat_date": "2026-04-06",
+                "shifu_bid": "shifu-1",
+                "usage_scene": "production",
+                "usage_type": "llm",
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "billing_metric": "llm_output_tokens",
+                "raw_amount": 1234,
+                "record_count": 3,
+                "consumed_credits": 4.5,
+                "window_started_at": "2026-04-06T00:00:00+00:00",
+                "window_ended_at": "2026-04-07T00:00:00+00:00",
+            }
+        ]
+
+        assert ledger_payload["code"] == 0
+        assert ledger_payload["data"]["total"] == 1
+        assert ledger_payload["data"]["items"] == [
+            {
+                "daily_ledger_summary_bid": "daily-ledger-1",
+                "stat_date": "2026-04-06",
+                "entry_type": "consume",
+                "source_type": "usage",
+                "amount": -4.5,
+                "entry_count": 3,
+                "window_started_at": "2026-04-06T00:00:00+00:00",
+                "window_ended_at": "2026-04-07T00:00:00+00:00",
+            }
+        ]
 
     def test_ledger_and_orders_support_pagination_and_creator_isolation(
         self, billing_test_client

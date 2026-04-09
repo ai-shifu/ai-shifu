@@ -493,8 +493,49 @@
     }
   },
   "reports": {
-    "description": "Daily usage and ledger rollups will be added here once the v1.1 reporting views land.",
-    "title": "Usage Reports"
+    "description": "Track daily usage consumption and ledger movement windows for each creator billing workspace.",
+    "empty": "No daily report data yet.",
+    "loadError": "Unable to load billing reports right now.",
+    "metric": {
+      "llmCacheTokens": "LLM cache tokens",
+      "llmInputTokens": "LLM input tokens",
+      "llmOutputTokens": "LLM output tokens",
+      "ttsInputChars": "TTS input chars",
+      "ttsOutputChars": "TTS output chars",
+      "ttsRequestCount": "TTS request count"
+    },
+    "pagination": {
+      "page": "Page {page} / {pageCount} · {total} rows"
+    },
+    "sections": {
+      "ledger": {
+        "description": "Summarized ledger entry movement by day, entry type, and source bucket.",
+        "title": "Daily Ledger Summary"
+      },
+      "usage": {
+        "description": "Daily creator usage cost rollups by shifu, scene, metric, and provider/model window.",
+        "title": "Daily Usage Summary"
+      }
+    },
+    "table": {
+      "count": "Entry count",
+      "credits": "Credits",
+      "date": "Date",
+      "entryType": "Entry type",
+      "metric": "Metric",
+      "provider": "Provider / Model",
+      "rawAmount": "Raw amount",
+      "scene": "Scene",
+      "shifu": "Shifu",
+      "source": "Source",
+      "usageType": "Usage type",
+      "window": "Window"
+    },
+    "title": "Usage Reports",
+    "usageType": {
+      "llm": "LLM",
+      "tts": "TTS"
+    }
   },
   "result": {
     "countdown": "Redirecting to the billing center in {seconds}s",

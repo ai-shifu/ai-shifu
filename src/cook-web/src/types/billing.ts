@@ -304,6 +304,35 @@ export type BillingDomainBindingMutationResult = {
   binding: BillingDomainBinding;
 };
 
+export type BillingUsageType = 'llm' | 'tts';
+
+export type BillingDailyUsageMetricItem = {
+  daily_usage_metric_bid: string;
+  stat_date: string;
+  shifu_bid: string;
+  usage_scene: BillingUsageScene;
+  usage_type: BillingUsageType;
+  provider: string;
+  model: string;
+  billing_metric: BillingMetricName;
+  raw_amount: number;
+  record_count: number;
+  consumed_credits: number;
+  window_started_at: string;
+  window_ended_at: string;
+};
+
+export type BillingDailyLedgerSummaryItem = {
+  daily_ledger_summary_bid: string;
+  stat_date: string;
+  entry_type: BillingLedgerEntryType;
+  source_type: BillingBucketSourceType;
+  amount: number;
+  entry_count: number;
+  window_started_at: string;
+  window_ended_at: string;
+};
+
 export type BillingRenewalEventSummary = {
   renewal_event_bid: string;
   event_type: BillingRenewalEventType;

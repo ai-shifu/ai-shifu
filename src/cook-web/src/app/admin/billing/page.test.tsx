@@ -21,6 +21,8 @@ jest.mock('@/api', () => ({
   default: {
     bindAdminBillingDomain: jest.fn(),
     getBillingCatalog: jest.fn(),
+    getBillingDailyLedgerSummary: jest.fn(),
+    getBillingDailyUsageMetrics: jest.fn(),
     getBillingEntitlements: jest.fn(),
     getBillingLedger: jest.fn(),
     getBillingOrders: jest.fn(),
@@ -52,6 +54,10 @@ jest.mock('@/c-store', () => ({
 
 const mockBindAdminBillingDomain = api.bindAdminBillingDomain as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
+const mockGetBillingDailyLedgerSummary =
+  api.getBillingDailyLedgerSummary as jest.Mock;
+const mockGetBillingDailyUsageMetrics =
+  api.getBillingDailyUsageMetrics as jest.Mock;
 const mockGetBillingEntitlements = api.getBillingEntitlements as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
@@ -64,6 +70,8 @@ describe('AdminBillingPage', () => {
   beforeEach(() => {
     mockBindAdminBillingDomain.mockReset();
     mockGetBillingCatalog.mockReset();
+    mockGetBillingDailyLedgerSummary.mockReset();
+    mockGetBillingDailyUsageMetrics.mockReset();
     mockGetBillingEntitlements.mockReset();
     mockGetBillingLedger.mockReset();
     mockGetBillingOrders.mockReset();
@@ -74,6 +82,47 @@ describe('AdminBillingPage', () => {
     mockGetBillingCatalog.mockResolvedValue({
       plans: [],
       topups: [],
+    });
+    mockGetBillingDailyUsageMetrics.mockResolvedValue({
+      items: [
+        {
+          daily_usage_metric_bid: 'daily-usage-1',
+          stat_date: '2026-04-06',
+          shifu_bid: 'shifu-1',
+          usage_scene: 'production',
+          usage_type: 'llm',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          billing_metric: 'llm_output_tokens',
+          raw_amount: 1234,
+          record_count: 3,
+          consumed_credits: 4.5,
+          window_started_at: '2026-04-06T00:00:00+00:00',
+          window_ended_at: '2026-04-07T00:00:00+00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 8,
+      total: 1,
+    });
+    mockGetBillingDailyLedgerSummary.mockResolvedValue({
+      items: [
+        {
+          daily_ledger_summary_bid: 'daily-ledger-1',
+          stat_date: '2026-04-06',
+          entry_type: 'consume',
+          source_type: 'usage',
+          amount: -4.5,
+          entry_count: 3,
+          window_started_at: '2026-04-06T00:00:00+00:00',
+          window_ended_at: '2026-04-07T00:00:00+00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 8,
+      total: 1,
     });
     mockGetBillingWalletBuckets.mockResolvedValue([
       {
@@ -316,7 +365,14 @@ describe('AdminBillingPage', () => {
       screen.getByText('module.billing.reports.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.reports.description'),
+      screen.getByText('module.billing.reports.sections.usage.title'),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('shifu-1')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.reports.metric.llmOutputTokens'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.reports.sections.ledger.title'),
     ).toBeInTheDocument();
   });
 

@@ -20,6 +20,8 @@ from flaskr.service.billing.funcs import (
     build_billing_order_detail,
     build_billing_orders_page,
     build_billing_overview,
+    build_billing_daily_ledger_summary_page,
+    build_billing_daily_usage_metrics_page,
     build_billing_route_bootstrap,
     build_billing_wallet_buckets,
     create_billing_subscription_checkout,
@@ -103,6 +105,38 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_billing_entitlements(
                 app,
                 _get_creator_bid(),
+            )
+        )
+
+    @app.route(path_prefix + "/reports/usage-daily", methods=["GET"])
+    def billing_daily_usage_reports_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_billing_daily_usage_metrics_page(
+                app,
+                _get_creator_bid(),
+                page_index=page_index,
+                page_size=page_size,
+                stat_date_from=_get_optional_query_arg("date_from", max_length=10),
+                stat_date_to=_get_optional_query_arg("date_to", max_length=10),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(path_prefix + "/reports/ledger-daily", methods=["GET"])
+    def billing_daily_ledger_reports_api():
+        _require_creator()
+        page_index, page_size = _get_page_args()
+        return _make_common_response(
+            build_billing_daily_ledger_summary_page(
+                app,
+                _get_creator_bid(),
+                page_index=page_index,
+                page_size=page_size,
+                stat_date_from=_get_optional_query_arg("date_from", max_length=10),
+                stat_date_to=_get_optional_query_arg("date_to", max_length=10),
+                timezone_name=_get_timezone_name(),
             )
         )
 

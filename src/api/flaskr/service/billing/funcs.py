@@ -17,6 +17,8 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.order.payment_providers import (
     PaymentNotificationResult,
@@ -65,6 +67,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_METRIC_LABELS,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_CATEGORY_LABELS,
@@ -77,6 +80,8 @@ from .consts import (
     CREDIT_SOURCE_TYPE_LABELS,
 )
 from .models import (
+    BillingDailyLedgerSummary,
+    BillingDailyUsageMetric,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -109,6 +114,11 @@ _USAGE_SCENE_LABELS = {
     BILL_USAGE_SCENE_DEBUG: "debug",
     BILL_USAGE_SCENE_PREVIEW: "preview",
     BILL_USAGE_SCENE_PROD: "production",
+}
+
+_USAGE_TYPE_LABELS = {
+    BILL_USAGE_TYPE_LLM: "llm",
+    BILL_USAGE_TYPE_TTS: "tts",
 }
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
@@ -197,6 +207,8 @@ def build_billing_route_bootstrap(path_prefix: str) -> dict[str, Any]:
         {"method": "GET", "path": f"{path_prefix}/catalog"},
         {"method": "GET", "path": f"{path_prefix}/overview"},
         {"method": "GET", "path": f"{path_prefix}/entitlements"},
+        {"method": "GET", "path": f"{path_prefix}/reports/usage-daily"},
+        {"method": "GET", "path": f"{path_prefix}/reports/ledger-daily"},
         {"method": "GET", "path": f"{path_prefix}/wallet-buckets"},
         {"method": "GET", "path": f"{path_prefix}/ledger"},
         {"method": "GET", "path": f"{path_prefix}/orders"},
@@ -298,6 +310,115 @@ def build_billing_entitlements(app: Flask, creator_bid: str) -> dict[str, Any]:
     with app.app_context():
         state = resolve_creator_entitlement_state(normalized_creator_bid)
         return serialize_creator_entitlements(state)
+
+
+def build_billing_daily_usage_metrics_page(
+    app: Flask,
+    creator_bid: str,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    stat_date_from: str = "",
+    stat_date_to: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated creator-scoped daily usage aggregate rows."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_stat_date_from = _normalize_stat_date_filter(
+        stat_date_from,
+        parameter_name="date_from",
+    )
+    normalized_stat_date_to = _normalize_stat_date_filter(
+        stat_date_to,
+        parameter_name="date_to",
+    )
+
+    with app.app_context():
+        query = BillingDailyUsageMetric.query.filter(
+            BillingDailyUsageMetric.deleted == 0,
+            BillingDailyUsageMetric.creator_bid == normalized_creator_bid,
+        )
+        if normalized_stat_date_from:
+            query = query.filter(
+                BillingDailyUsageMetric.stat_date >= normalized_stat_date_from
+            )
+        if normalized_stat_date_to:
+            query = query.filter(
+                BillingDailyUsageMetric.stat_date <= normalized_stat_date_to
+            )
+
+        query = query.order_by(
+            BillingDailyUsageMetric.stat_date.desc(),
+            BillingDailyUsageMetric.consumed_credits.desc(),
+            BillingDailyUsageMetric.raw_amount.desc(),
+            BillingDailyUsageMetric.id.desc(),
+        )
+        return _build_page_payload(
+            query,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+            serializer=lambda row: _serialize_daily_usage_metric(
+                app,
+                row,
+                timezone_name=timezone_name,
+            ),
+        )
+
+
+def build_billing_daily_ledger_summary_page(
+    app: Flask,
+    creator_bid: str,
+    *,
+    page_index: int = DEFAULT_PAGE_INDEX,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    stat_date_from: str = "",
+    stat_date_to: str = "",
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    """Return paginated creator-scoped daily ledger summary rows."""
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
+    normalized_stat_date_from = _normalize_stat_date_filter(
+        stat_date_from,
+        parameter_name="date_from",
+    )
+    normalized_stat_date_to = _normalize_stat_date_filter(
+        stat_date_to,
+        parameter_name="date_to",
+    )
+
+    with app.app_context():
+        query = BillingDailyLedgerSummary.query.filter(
+            BillingDailyLedgerSummary.deleted == 0,
+            BillingDailyLedgerSummary.creator_bid == normalized_creator_bid,
+        )
+        if normalized_stat_date_from:
+            query = query.filter(
+                BillingDailyLedgerSummary.stat_date >= normalized_stat_date_from
+            )
+        if normalized_stat_date_to:
+            query = query.filter(
+                BillingDailyLedgerSummary.stat_date <= normalized_stat_date_to
+            )
+
+        query = query.order_by(
+            BillingDailyLedgerSummary.stat_date.desc(),
+            BillingDailyLedgerSummary.entry_count.desc(),
+            BillingDailyLedgerSummary.id.desc(),
+        )
+        return _build_page_payload(
+            query,
+            page_index=safe_page_index,
+            page_size=safe_page_size,
+            serializer=lambda row: _serialize_daily_ledger_summary(
+                app,
+                row,
+                timezone_name=timezone_name,
+            ),
+        )
 
 
 def build_billing_wallet_buckets(
@@ -1319,6 +1440,17 @@ def normalize_pagination(page_index: int, page_size: int) -> tuple[int, int]:
     except (TypeError, ValueError):
         safe_page_size = DEFAULT_PAGE_SIZE
     return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
+
+
+def _normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
+    normalized_value = _normalize_bid(value)
+    if not normalized_value:
+        return ""
+    try:
+        datetime.strptime(normalized_value, "%Y-%m-%d")
+    except ValueError:
+        raise_param_error(parameter_name)
+    return normalized_value
 
 
 def _normalize_payment_provider(value: Any) -> str:
@@ -3362,6 +3494,70 @@ def _serialize_ledger_entry(
         ),
         "metadata": _normalize_json_value(row.metadata_json) or {},
         "created_at": _serialize_dt(app, row.created_at, timezone_name=timezone_name)
+        or "",
+    }
+
+
+def _serialize_daily_usage_metric(
+    app: Flask,
+    row: BillingDailyUsageMetric,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "daily_usage_metric_bid": row.daily_usage_metric_bid,
+        "stat_date": row.stat_date,
+        "shifu_bid": row.shifu_bid,
+        "usage_scene": _USAGE_SCENE_LABELS.get(row.usage_scene, "production"),
+        "usage_type": _USAGE_TYPE_LABELS.get(row.usage_type, "llm"),
+        "provider": str(row.provider or ""),
+        "model": str(row.model or ""),
+        "billing_metric": BILLING_METRIC_LABELS.get(
+            row.billing_metric,
+            "llm_output_tokens",
+        ),
+        "raw_amount": int(row.raw_amount or 0),
+        "record_count": int(row.record_count or 0),
+        "consumed_credits": _decimal_to_number(row.consumed_credits),
+        "window_started_at": _serialize_dt(
+            app,
+            row.window_started_at,
+            timezone_name=timezone_name,
+        )
+        or "",
+        "window_ended_at": _serialize_dt(
+            app,
+            row.window_ended_at,
+            timezone_name=timezone_name,
+        )
+        or "",
+    }
+
+
+def _serialize_daily_ledger_summary(
+    app: Flask,
+    row: BillingDailyLedgerSummary,
+    *,
+    timezone_name: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "daily_ledger_summary_bid": row.daily_ledger_summary_bid,
+        "stat_date": row.stat_date,
+        "entry_type": CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
+        "source_type": CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
+        "amount": _decimal_to_number(row.amount),
+        "entry_count": int(row.entry_count or 0),
+        "window_started_at": _serialize_dt(
+            app,
+            row.window_started_at,
+            timezone_name=timezone_name,
+        )
+        or "",
+        "window_ended_at": _serialize_dt(
+            app,
+            row.window_ended_at,
+            timezone_name=timezone_name,
+        )
         or "",
     }
 

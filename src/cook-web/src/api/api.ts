@@ -122,6 +122,8 @@ const api = {
   getBillingCatalog: 'GET /billing/catalog',
   getBillingOverview: 'GET /billing/overview',
   getBillingEntitlements: 'GET /billing/entitlements',
+  getBillingDailyUsageMetrics: 'GET /billing/reports/usage-daily',
+  getBillingDailyLedgerSummary: 'GET /billing/reports/ledger-daily',
   getBillingWalletBuckets: 'GET /billing/wallet-buckets',
   getBillingLedger: 'GET /billing/ledger',
   getBillingOrders: 'GET /billing/orders',

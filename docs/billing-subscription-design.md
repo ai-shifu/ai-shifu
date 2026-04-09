@@ -1203,7 +1203,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `Entitlements` tab 当前展示 priority class、max concurrency、analytics tier、support tier，以及 branding/custom domain 两个 feature gate
 - `Domains` tab 已接入真实数据：复用 `GET /billing/entitlements`、`GET /admin/billing/domain-bindings`、`POST /admin/billing/domains/bind`
 - `Domains` tab 当前同时展示 runtime-config 生效中的 branding snapshot，以及 creator 侧的 domain bind / verify / disable 交互
-- 当前 `Reports` tab 仍先保留 placeholder section，后续任务再填入日报表视图
+- `Reports` tab 已接入 creator 侧日报表视图：复用 `GET /billing/reports/usage-daily` 与 `GET /billing/reports/ledger-daily`
+- `Reports` tab 当前展示 usage 日汇总与 ledger 日汇总两个 section，按 creator 维度读取最近分页窗口
 
 页面职责：
 
@@ -1280,12 +1281,16 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /admin/billing/domains/bind`
 - `GET /admin/billing/domain-bindings`
 - `GET /billing/entitlements`
+- `GET /billing/reports/usage-daily`
+- `GET /billing/reports/ledger-daily`
 
 扩展接口说明：
 
 - `POST /admin/billing/domains/bind`：统一处理 `bind`、`verify`、`disable` 三种 action；`bind` 生成新的校验 token，`verify` 按 token 刷新 `pending/verified/failed`，`disable` 停用域名
 - `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态，返回 `custom_domain_enabled` 和域名列表
 - `GET /billing/entitlements`：读取 v1.1 扩展权益快照
+- `GET /billing/reports/usage-daily`：按 creator 返回 usage 日汇总分页，支持 `page_index`、`page_size`、`date_from`、`date_to`、`timezone`
+- `GET /billing/reports/ledger-daily`：按 creator 返回 ledger 日汇总分页，支持 `page_index`、`page_size`、`date_from`、`date_to`、`timezone`
 - `GET /api/runtime-config`：在保留现有全局配置字段的同时，追加 `entitlements`、`branding`、`domain` 三个 v1.1 扩展结果；若 branding 命中，会同步覆盖顶层 logo/home 字段以兼容现有前端初始化逻辑
 
 ### 8.3 DTO 投影

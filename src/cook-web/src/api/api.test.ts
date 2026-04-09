@@ -5,6 +5,12 @@ describe('billing api definitions', () => {
     expect(api.getBillingCatalog).toBe('GET /billing/catalog');
     expect(api.getBillingOverview).toBe('GET /billing/overview');
     expect(api.getBillingEntitlements).toBe('GET /billing/entitlements');
+    expect(api.getBillingDailyUsageMetrics).toBe(
+      'GET /billing/reports/usage-daily',
+    );
+    expect(api.getBillingDailyLedgerSummary).toBe(
+      'GET /billing/reports/ledger-daily',
+    );
     expect(api.getBillingWalletBuckets).toBe('GET /billing/wallet-buckets');
     expect(api.getBillingLedger).toBe('GET /billing/ledger');
     expect(api.getBillingOrders).toBe('GET /billing/orders');
