@@ -601,7 +601,8 @@
     "free": {
       "creditSummary": "100 bonus credits",
       "description": "Best for exploring the creator workspace and basic publishing capabilities.",
-      "price": "¥0 / valid within 15 days of signup",
+      "priceNote": "/ valid within 15 days of signup",
+      "priceValue": "¥0",
       "title": "Free"
     },
     "intervalTabs": {

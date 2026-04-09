@@ -127,6 +127,7 @@ type PlanShowcaseCardProps = {
   footer: React.ReactNode;
   onAction?: () => void;
   priceLabel: string;
+  priceMetaLabel?: string;
   testId: string;
   title: string;
 };
@@ -142,6 +143,7 @@ function PlanShowcaseCard({
   footer,
   onAction,
   priceLabel,
+  priceMetaLabel,
   testId,
   title,
 }: PlanShowcaseCardProps) {
@@ -170,10 +172,15 @@ function PlanShowcaseCard({
         </p>
       </div>
 
-      <div className='mt-8 flex items-end gap-2'>
+      <div className='mt-8 flex flex-wrap items-end gap-x-2 gap-y-1'>
         <div className='text-3xl font-semibold leading-none tracking-tight text-slate-950 md:text-4xl'>
           {priceLabel}
         </div>
+        {priceMetaLabel ? (
+          <div className='text-sm font-medium leading-6 text-slate-500 md:text-base'>
+            {priceMetaLabel}
+          </div>
+        ) : null}
       </div>
 
       <Button
@@ -786,7 +793,8 @@ export function BillingOverviewTab({
               description={t('module.billing.package.free.description')}
               disabled
               footer={<PlanFeatureList items={getFreeFeatureKeys()} />}
-              priceLabel={t('module.billing.package.free.price')}
+              priceLabel={t('module.billing.package.free.priceValue')}
+              priceMetaLabel={t('module.billing.package.free.priceNote')}
               testId='billing-plan-card-free'
               title={t('module.billing.package.free.title')}
             />
