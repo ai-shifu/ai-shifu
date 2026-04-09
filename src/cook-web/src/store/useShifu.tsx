@@ -552,7 +552,7 @@ export const ShifuProvider = ({
         lastPersistedMdflowRef.current[outlineId] = mdflow || '';
         return false;
       }
-      if (!options?.canApply?.()) {
+      if (options?.canApply && !options.canApply()) {
         lastPersistedMdflowRef.current[outlineId] = mdflow || '';
         return false;
       }
@@ -564,7 +564,7 @@ export const ShifuProvider = ({
     } catch (error) {
       if (isLatest()) {
         console.error(error);
-        setError('Failed to load chapters');
+        setError('Failed to load lesson content');
       }
       return false;
     } finally {

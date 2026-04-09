@@ -317,6 +317,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       options?: {
         showNotice?: boolean;
         mode?: DraftConflictMode;
+        forceApply?: boolean;
       },
     ) => {
       const syncTargetKey = getDraftSyncTargetKey(shifuBid, outlineBid);
@@ -334,9 +335,12 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
         const didApplyRemote = await actionsRef.current.loadMdflow(
           outlineBid,
           shifuBid,
-          {
-            canApply: () => !actionsRef.current.hasUnsavedMdflow(outlineBid),
-          },
+          options?.forceApply
+            ? undefined
+            : {
+                canApply: () =>
+                  !actionsRef.current.hasUnsavedMdflow(outlineBid),
+              },
         );
         const latestMeta =
           (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid)) ??
@@ -347,11 +351,13 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
         ) {
           return;
         }
-        if (
-          !didApplyRemote &&
-          actionsRef.current.hasUnsavedMdflow(outlineBid)
-        ) {
-          markDraftConflict(latestMeta ?? meta, mode);
+        if (!didApplyRemote) {
+          if (
+            !options?.forceApply &&
+            actionsRef.current.hasUnsavedMdflow(outlineBid)
+          ) {
+            markDraftConflict(latestMeta ?? meta, mode);
+          }
           return;
         }
         if (latestMeta && typeof latestMeta.revision === 'number') {
@@ -594,6 +600,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     }
     void syncDraftFromRemote(shifuBid, outlineBid, latestDraftMeta, {
       mode: draftConflictMode,
+      forceApply: true,
     });
   }, [draftConflictMode, latestDraftMeta, syncDraftFromRemote]);
 
