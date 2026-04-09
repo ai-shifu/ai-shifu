@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 
 from flaskr.dao import db
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -33,6 +34,10 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
+)
+from flaskr.service.shifu.admin import (
+    get_operator_course_chapter_detail,
+    get_operator_course_detail,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
@@ -943,3 +948,30 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
 
     assert response.status_code == 200
     assert payload["code"] == 4009
+
+
+def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(app):
+    with pytest.raises(AppException) as exc_info:
+        get_operator_course_detail(app, shifu_bid="   ")
+
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
+def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
+    app,
+):
+    with pytest.raises(AppException) as exc_info:
+        get_operator_course_chapter_detail(
+            app,
+            shifu_bid="   ",
+            outline_item_bid="lesson-1",
+        )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+    with pytest.raises(AppException) as exc_info:
+        get_operator_course_chapter_detail(
+            app,
+            shifu_bid="course-detail",
+            outline_item_bid="   ",
+        )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]

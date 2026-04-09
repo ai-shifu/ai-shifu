@@ -17,7 +17,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin_dtos import (
@@ -825,7 +825,7 @@ def get_operator_course_detail(
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
-            raise ValueError("shifu_bid is required")
+            raise_param_error("shifu_bid is required")
 
         detail_source, outline_items = _load_operator_course_outline_items(
             normalized_shifu_bid
@@ -938,9 +938,9 @@ def get_operator_course_chapter_detail(
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()
         if not normalized_shifu_bid:
-            raise ValueError("shifu_bid is required")
+            raise_param_error("shifu_bid is required")
         if not normalized_outline_item_bid:
-            raise ValueError("outline_item_bid is required")
+            raise_param_error("outline_item_bid is required")
 
         detail_source, outline_items = _load_operator_course_outline_items(
             normalized_shifu_bid
