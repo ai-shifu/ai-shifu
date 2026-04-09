@@ -12,6 +12,7 @@ import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
   type Element as SlideElement,
+  type MobileViewMode,
   type SlidePlayerCustomActionContext,
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
@@ -28,7 +29,6 @@ import {
 } from './listenPlaybackState';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
-import type { ListenMobileViewMode } from './listenModeTypes';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
@@ -61,7 +61,7 @@ interface ListenModeSlideRendererProps {
     isAudioPlaying: boolean;
     isAudioSequenceActive: boolean;
   }) => void;
-  onMobileViewModeChange?: (viewMode: ListenMobileViewMode) => void;
+  onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
 
 type ResolveRenderSequence = (params: {
@@ -89,7 +89,7 @@ interface ListenSlideAskPlayerActionProps {
   renderButton?: boolean;
 }
 
-const DEFAULT_MOBILE_VIEW_MODE: ListenMobileViewMode = 'nonFullscreen';
+const DEFAULT_MOBILE_VIEW_MODE: MobileViewMode = 'nonFullscreen';
 
 const ListenSlideAskPlayerAction = memo(
   ({
@@ -406,7 +406,7 @@ const ListenModeSlideRenderer = ({
   });
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
-  const [mobileViewMode, setMobileViewMode] = useState<ListenMobileViewMode>(
+  const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_MOBILE_VIEW_MODE,
   );
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
@@ -1193,7 +1193,7 @@ const ListenModeSlideRenderer = ({
     [fullscreenHeaderContent, t],
   );
   const handleMobileViewModeChange = useCallback(
-    (viewMode: ListenMobileViewMode) => {
+    (viewMode: MobileViewMode) => {
       setMobileViewMode(viewMode);
       onMobileViewModeChange?.(viewMode);
     },

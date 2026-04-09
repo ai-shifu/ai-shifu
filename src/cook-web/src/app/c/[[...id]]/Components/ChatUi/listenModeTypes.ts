@@ -1,5 +1,5 @@
-export type ListenMobileViewMode = 'nonFullscreen' | 'fullscreen';
+import type { MobileViewMode } from 'markdown-flow-ui/slide';
 
 export type ListenMobileViewModeChangeHandler = (
-  viewMode: ListenMobileViewMode,
+  viewMode: MobileViewMode,
 ) => void;
