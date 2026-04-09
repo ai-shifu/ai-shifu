@@ -88,7 +88,7 @@
   "askTemperature": "追问温度",
   "askTemperatureHint": "设置追问回答的创造力（0-2）",
   "askTitle": "追问设置",
-  "draftConflictDescription": "课程已被 {phone} 修改，请刷新网页获取最新记录",
+  "draftConflictDescription": "课程已被 {phone} 修改，请加载最新内容获取最新记录",
   "draftConflictRefresh": "加载最新内容",
   "draftConflictSynced": "该章节已被 {phone} 更新，已同步最新内容。",
   "draftConflictTitle": "课程已更新",

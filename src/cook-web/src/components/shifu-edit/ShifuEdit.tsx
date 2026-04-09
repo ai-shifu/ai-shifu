@@ -267,11 +267,11 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
   const resolveDraftConflictMode = useCallback(
     (meta?: DraftMeta | null): DraftConflictMode => {
-      const updatedUser = meta?.updated_user?.user_bid || '';
-      const currentUser = currentUserIdRef.current || '';
-      return updatedUser && currentUser && updatedUser !== currentUser
-        ? 'other-user'
-        : 'same-user';
+      const updatedUser = meta?.updated_user?.user_bid;
+      const currentUser = currentUserIdRef.current;
+      return updatedUser && currentUser && updatedUser === currentUser
+        ? 'same-user'
+        : 'other-user';
     },
     [],
   );
@@ -304,9 +304,10 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       actionsRef.current.cancelAutoSaveBlocks();
       try {
         await actionsRef.current.loadMdflow(outlineBid, shifuBid);
-        const latestMeta =
-          meta ??
-          (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid));
+        const latestMeta = await actionsRef.current.loadDraftMeta(
+          shifuBid,
+          outlineBid,
+        );
         if (
           currentShifuBidRef.current !== shifuBid ||
           currentNodeBidRef.current !== outlineBid
