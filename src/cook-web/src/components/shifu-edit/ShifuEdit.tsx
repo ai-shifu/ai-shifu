@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/Button';
 import {
   Columns2,
   History,
+  Info,
   ListCollapse,
   Loader2,
   Plus,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
@@ -104,6 +106,8 @@ type ScriptEditorProps = {
   initialLessonId?: string;
 };
 
+type DraftConflictMode = 'other-user' | 'same-user';
+
 const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
@@ -120,6 +124,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
+  const [draftConflictMode, setDraftConflictMode] =
+    useState<DraftConflictMode>('other-user');
+  const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -233,6 +240,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const currentUserIdRef = useRef<string | null>(null);
   const currentShifuBidRef = useRef<string | null>(null);
   const initializedShifuRef = useRef<string | null>(null);
+  const isRemoteDraftSyncingRef = useRef(false);
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -257,6 +265,17 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const shouldSkipConflictCheck =
     !currentShifu?.bid || Boolean(currentShifu?.readonly);
 
+  const resolveDraftConflictMode = useCallback(
+    (meta?: DraftMeta | null): DraftConflictMode => {
+      const updatedUser = meta?.updated_user?.user_bid || '';
+      const currentUser = currentUserIdRef.current || '';
+      return updatedUser && currentUser && updatedUser !== currentUser
+        ? 'other-user'
+        : 'same-user';
+    },
+    [],
+  );
+
   const resetDraftConflictState = useCallback(() => {
     actionsRef.current.setDraftConflict(false);
     actionsRef.current.setAutosavePaused(false);
@@ -264,7 +283,63 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     actionsRef.current.setBaseRevision(null);
     actionsRef.current.cancelAutoSaveBlocks();
     setIsDraftConflictDialogOpen(false);
+    setRemoteSyncNotice(null);
   }, []);
+
+  const syncDraftFromRemote = useCallback(
+    async (
+      meta?: DraftMeta | null,
+      options?: {
+        showNotice?: boolean;
+        mode?: DraftConflictMode;
+      },
+    ) => {
+      const shifuBid = currentShifuBidRef.current;
+      const outlineBid = currentNodeBidRef.current;
+      if (!shifuBid || !outlineBid || isRemoteDraftSyncingRef.current) {
+        return;
+      }
+      const mode = options?.mode ?? resolveDraftConflictMode(meta);
+      isRemoteDraftSyncingRef.current = true;
+      actionsRef.current.cancelAutoSaveBlocks();
+      try {
+        await actionsRef.current.loadMdflow(outlineBid, shifuBid);
+        const latestMeta =
+          meta ?? (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid));
+        if (
+          currentShifuBidRef.current !== shifuBid ||
+          currentNodeBidRef.current !== outlineBid
+        ) {
+          return;
+        }
+        if (latestMeta && typeof latestMeta.revision === 'number') {
+          actionsRef.current.setBaseRevision(latestMeta.revision);
+          actionsRef.current.setLatestDraftMeta(latestMeta);
+        }
+        actionsRef.current.setDraftConflict(false);
+        actionsRef.current.setAutosavePaused(false);
+        setIsDraftConflictDialogOpen(false);
+        if (options?.showNotice) {
+          const phone =
+            latestMeta?.updated_user?.phone ||
+            t('module.shifuSetting.draftConflictUnknownUser');
+          setRemoteSyncNotice(
+            mode === 'other-user'
+              ? t('module.shifuSetting.draftConflictSynced', { phone })
+              : t('module.shifuSetting.draftSelfUpdateSynced'),
+          );
+        }
+      } catch (error) {
+        console.error('Failed to sync remote draft update', error);
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } finally {
+        isRemoteDraftSyncingRef.current = false;
+      }
+    },
+    [resolveDraftConflictMode, t],
+  );
 
   useEffect(() => {
     return () => {
@@ -345,7 +420,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
     resetDraftConflictState();
     let isActive = true;
-    const fetchDraftMeta = async () => {
+    const initializeDraftSync = async () => {
       const meta = await actionsRef.current.loadDraftMeta(shifuBid, outlineBid);
       if (
         !isActive ||
@@ -354,11 +429,12 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       ) {
         return;
       }
-      if (meta && typeof meta.revision === 'number') {
-        actionsRef.current.setBaseRevision(meta.revision);
-      }
+      await syncDraftFromRemote(meta, {
+        showNotice: false,
+        mode: resolveDraftConflictMode(meta),
+      });
     };
-    void fetchDraftMeta();
+    void initializeDraftSync();
     return () => {
       isActive = false;
     };
@@ -366,29 +442,38 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     currentNode?.bid,
     currentShifu?.bid,
     resetDraftConflictState,
+    resolveDraftConflictMode,
     shouldSkipConflictCheck,
+    syncDraftFromRemote,
   ]);
 
-  const markDraftConflict = useCallback((meta?: DraftMeta | null) => {
-    if (
-      conflictStateRef.current.hasDraftConflict ||
-      conflictStateRef.current.autosavePaused
-    ) {
-      return;
-    }
-    if (meta) {
-      actionsRef.current.setLatestDraftMeta(meta);
-    }
-    actionsRef.current.setDraftConflict(true);
-    actionsRef.current.setAutosavePaused(true);
-    actionsRef.current.cancelAutoSaveBlocks();
-    setIsDraftConflictDialogOpen(true);
-  }, []);
+  const markDraftConflict = useCallback(
+    (meta?: DraftMeta | null, mode: DraftConflictMode = 'other-user') => {
+      if (
+        conflictStateRef.current.hasDraftConflict ||
+        conflictStateRef.current.autosavePaused
+      ) {
+        return;
+      }
+      if (meta) {
+        actionsRef.current.setLatestDraftMeta(meta);
+      }
+      setDraftConflictMode(mode);
+      actionsRef.current.setDraftConflict(mode === 'other-user');
+      actionsRef.current.setAutosavePaused(true);
+      actionsRef.current.cancelAutoSaveBlocks();
+      setIsDraftConflictDialogOpen(true);
+    },
+    [],
+  );
 
   const detectDraftConflict = useCallback(async () => {
     const shifuId = currentShifuBidRef.current;
     const outlineBid = currentNodeBidRef.current;
     if (!shifuId || !outlineBid || shouldSkipConflictCheck) {
+      return;
+    }
+    if (isRemoteDraftSyncingRef.current) {
       return;
     }
     if (
@@ -412,25 +497,25 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       actionsRef.current.setBaseRevision(meta.revision);
       return;
     }
-    const updatedUser = meta.updated_user?.user_bid || '';
-    const currentUser = currentUserIdRef.current || '';
-    // Only trigger conflict when another user updated the draft.
-    if (
-      meta.revision > baseRev &&
-      updatedUser &&
-      currentUser &&
-      updatedUser !== currentUser
-    ) {
-      markDraftConflict(meta);
+    if (meta.revision <= baseRev) {
       return;
     }
-    if (
-      (!updatedUser || updatedUser === currentUser) &&
-      !conflictStateRef.current.autosavePaused
-    ) {
-      actionsRef.current.setBaseRevision(meta.revision);
+    const mode = resolveDraftConflictMode(meta);
+    const hasUnsavedChanges = actionsRef.current.hasUnsavedMdflow(outlineBid);
+    if (!hasUnsavedChanges) {
+      await syncDraftFromRemote(meta, {
+        showNotice: true,
+        mode,
+      });
+      return;
     }
-  }, [markDraftConflict, shouldSkipConflictCheck]);
+    markDraftConflict(meta, mode);
+  }, [
+    markDraftConflict,
+    resolveDraftConflictMode,
+    shouldSkipConflictCheck,
+    syncDraftFromRemote,
+  ]);
 
   useEffect(() => {
     if (shouldSkipConflictCheck) {
@@ -471,11 +556,15 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     }
   }, [hasDraftConflict]);
 
+  useEffect(() => {
+    setRemoteSyncNotice(null);
+  }, [currentNode?.bid]);
+
   const handleDraftConflictRefresh = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  }, []);
+    void syncDraftFromRemote(latestDraftMeta, {
+      mode: draftConflictMode,
+    });
+  }, [draftConflictMode, latestDraftMeta, syncDraftFromRemote]);
 
   const handleTogglePreviewPanel = () => {
     setIsPreviewPanelOpen(prev => !prev);
@@ -918,6 +1007,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       : !hasHiddenVariables;
 
   const onChangeMdflow = (value: string) => {
+    setRemoteSyncNotice(null);
     actions.setCurrentMdflow(value);
     // Pass snapshot so autosave persists pre-switch content + chapter id
     actions.autoSaveBlocks({
@@ -1203,6 +1293,25 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                       </Button>
                     </div>
                   </div>
+                  {remoteSyncNotice ? (
+                    <div className='mb-4 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900'>
+                      <Info className='mt-0.5 h-4 w-4 shrink-0' />
+                      <p className='min-w-0 flex-1 leading-6'>
+                        {remoteSyncNotice}
+                      </p>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='-mr-2 -mt-1 h-7 w-7 shrink-0 rounded-full text-sky-700 hover:bg-sky-100 hover:text-sky-900'
+                        onClick={() => setRemoteSyncNotice(null)}
+                        aria-label={t('common.core.close')}
+                        title={t('common.core.close')}
+                      >
+                        <X className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  ) : null}
                   {!isPreviewPanelOpen && (
                     <Button
                       type='button'
@@ -1301,6 +1410,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
         />
         <DraftConflictDialog
           open={isDraftConflictDialogOpen}
+          mode={draftConflictMode}
           phone={latestDraftMeta?.updated_user?.phone}
           onRefresh={handleDraftConflictRefresh}
         />
