@@ -305,7 +305,8 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       try {
         await actionsRef.current.loadMdflow(outlineBid, shifuBid);
         const latestMeta =
-          meta ?? (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid));
+          meta ??
+          (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid));
         if (
           currentShifuBidRef.current !== shifuBid ||
           currentNodeBidRef.current !== outlineBid
