@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -222,6 +223,8 @@ export const NewChatComponents = ({
   });
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [listenFullscreenPortalTarget, setListenFullscreenPortalTarget] =
+    useState<HTMLElement | null>(null);
   // const { scrollToBottom } = useAutoScroll(chatRef as any, {
   //   threshold: 120,
   // });
@@ -787,6 +790,45 @@ export const NewChatComponents = ({
     }
   }, [mobileStyle]);
 
+  const syncListenFullscreenPortalTarget = useCallback(() => {
+    const chatElement = chatRef.current;
+    if (!isListenModeActive || !chatElement) {
+      setListenFullscreenPortalTarget(null);
+      return;
+    }
+
+    const nextContainer =
+      chatElement.querySelector<HTMLElement>(
+        '.listen-slide-root .slide__viewport',
+      ) ?? null;
+    const fullscreenElement = getDocumentFullscreenElement();
+    const isCurrentSlideInBrowserFullscreen = Boolean(
+      fullscreenElement && chatElement.contains(fullscreenElement),
+    );
+
+    setListenFullscreenPortalTarget(
+      isCurrentSlideInBrowserFullscreen ? nextContainer : null,
+    );
+  }, [isListenModeActive]);
+
+  useEffect(() => {
+    const syncContainer = () => {
+      window.requestAnimationFrame(() => {
+        syncListenFullscreenPortalTarget();
+      });
+    };
+
+    syncContainer();
+
+    document.addEventListener('fullscreenchange', syncContainer);
+    document.addEventListener('webkitfullscreenchange', syncContainer);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncContainer);
+      document.removeEventListener('webkitfullscreenchange', syncContainer);
+    };
+  }, [lessonId, syncListenFullscreenPortalTarget]);
+
   const containerClassName = cn(
     styles.chatComponents,
     className,
@@ -805,6 +847,45 @@ export const NewChatComponents = ({
       <ChevronsDown size={20} />
     </button>
   );
+
+  const lessonFeedbackPopupContent =
+    lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
+      <div
+        className={cn(
+          'pointer-events-none z-20',
+          mobileStyle
+            ? isListenModeActive
+              ? 'fixed left-3 right-3 bottom-[88px]'
+              : 'fixed left-3 right-3 bottom-[56px]'
+            : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
+        )}
+      >
+        <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
+          <div className='mb-2 flex items-center justify-between gap-2'>
+            <p className='text-[14px] leading-5 text-[var(--foreground)]'>
+              {t('module.chat.lessonFeedbackPrompt')}
+            </p>
+            <button
+              type='button'
+              aria-label={t('common.core.cancel')}
+              onClick={lessonFeedbackPopup.onClose}
+              className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
+            >
+              <X className='h-4 w-4' />
+            </button>
+          </div>
+          <LessonFeedbackInteraction
+            defaultScoreText={lessonFeedbackPopup.defaultScoreText}
+            defaultCommentText={lessonFeedbackPopup.defaultCommentText}
+            placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+            submitLabel={confirmButtonText}
+            clearLabel={t('module.chat.lessonFeedbackClearInput')}
+            readonly={lessonFeedbackPopup.readonly}
+            onSubmit={lessonFeedbackPopup.onSubmit}
+          />
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div
@@ -1051,43 +1132,14 @@ export const NewChatComponents = ({
           showGenerateBtn={showGenerateBtn}
         />
       )}
-      {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
-        <div
-          className={cn(
-            'pointer-events-none z-20',
-            mobileStyle
-              ? isListenModeActive
-                ? 'fixed left-3 right-3 bottom-[88px]'
-                : 'fixed left-3 right-3 bottom-[56px]'
-              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
-          )}
-        >
-          <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
-            <div className='mb-2 flex items-center justify-between gap-2'>
-              <p className='text-[14px] leading-5 text-[var(--foreground)]'>
-                {t('module.chat.lessonFeedbackPrompt')}
-              </p>
-              <button
-                type='button'
-                aria-label={t('common.core.cancel')}
-                onClick={lessonFeedbackPopup.onClose}
-                className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
-              >
-                <X className='h-4 w-4' />
-              </button>
-            </div>
-            <LessonFeedbackInteraction
-              defaultScoreText={lessonFeedbackPopup.defaultScoreText}
-              defaultCommentText={lessonFeedbackPopup.defaultCommentText}
-              placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
-              submitLabel={confirmButtonText}
-              clearLabel={t('module.chat.lessonFeedbackClearInput')}
-              readonly={lessonFeedbackPopup.readonly}
-              onSubmit={lessonFeedbackPopup.onSubmit}
-            />
-          </div>
-        </div>
-      ) : null}
+      {lessonFeedbackPopupContent
+        ? listenFullscreenPortalTarget
+          ? createPortal(
+              lessonFeedbackPopupContent,
+              listenFullscreenPortalTarget,
+            )
+          : lessonFeedbackPopupContent
+        : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

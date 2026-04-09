@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
@@ -65,22 +66,6 @@ interface ListenModeSlideRendererProps {
   }) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
-
-const getDocumentFullscreenElement = () => {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  return (
-    document.fullscreenElement ??
-    (
-      document as Document & {
-        webkitFullscreenElement?: Element | null;
-      }
-    ).webkitFullscreenElement ??
-    null
-  );
-};
 
 type ResolveRenderSequence = (params: {
   item: ChatContentItem;

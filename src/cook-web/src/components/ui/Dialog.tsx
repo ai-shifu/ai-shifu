@@ -5,6 +5,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
@@ -19,19 +20,7 @@ type DialogPortalContainer =
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>['container'];
 
 const getFullscreenDialogContainer = (): DialogPortalContainer => {
-  if (typeof document === 'undefined') {
-    return undefined;
-  }
-
-  const nextContainer =
-    document.fullscreenElement ??
-    (
-      document as Document & {
-        webkitFullscreenElement?: Element | null;
-      }
-    ).webkitFullscreenElement;
-
-  return nextContainer ?? undefined;
+  return getDocumentFullscreenElement() ?? undefined;
 };
 
 const DialogOverlay = React.forwardRef<

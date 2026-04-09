@@ -13,6 +13,7 @@ description: 当 cook-web 页面在浏览器 fullscreen 场景下需要展示基
 - 监听 fullscreen 状态变化时，要兼容进入和退出全屏两个方向，确保弹层在切换后仍能落到当前正确的容器上。
 - 若首帧就可能在 fullscreen 内打开弹窗，容器解析不能只依赖异步 effect；需要提供首屏同步兜底，避免弹窗先挂到 `body` 导致闪烁或不可见。
 - 若 fullscreen 的宿主节点承载了播放器或阅读器主容器，切换 lesson / chapter 时不要用 loading skeleton 把该宿主整棵卸载掉；应保留原节点并在内部叠加 loading，否则浏览器会因 fullscreen owner 被移除而自动退出全屏。
+- 不止 `Dialog`，像追问浮层、评分卡片、引导卡片这类普通业务浮层若定位依赖 `absolute/fixed`，在 fullscreen 下也要确认它们是否仍渲染在 fullscreen 视口树内；若不是，同样需要 portal 到 `slide__viewport` 之类的宿主节点。
 
 ## 工作流
 
