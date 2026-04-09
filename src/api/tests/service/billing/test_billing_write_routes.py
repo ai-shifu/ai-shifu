@@ -288,6 +288,35 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutes:
+    def test_subscription_checkout_uses_configured_provider_when_omitted(
+        self, billing_write_client, monkeypatch
+    ) -> None:
+        client = billing_write_client["client"]
+
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "stripe"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["provider"] == "stripe"
+        assert payload["data"]["status"] == "pending"
+
     def test_subscription_checkout_creates_draft_subscription_and_pending_order(
         self, billing_write_client
     ) -> None:
@@ -403,6 +432,36 @@ class TestBillingWriteRoutes:
             assert bucket.available_credits == 500000
             assert ledger.amount == 500000
             assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+
+    def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
+        self, billing_write_client, monkeypatch
+    ) -> None:
+        client = billing_write_client["client"]
+
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "pingxx"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+            },
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        assert checkout["data"]["provider"] == "pingxx"
+        assert checkout["data"]["status"] == "pending"
+        assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
+            "https://pingxx.test/qr"
+        )
+        assert billing_write_client["pingxx_requests"][0]["channel"] == "alipay_qr"
 
     def test_topup_sync_rebuilds_wallet_snapshot_from_bucket_balances(
         self, billing_write_client

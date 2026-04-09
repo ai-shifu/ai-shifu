@@ -26,6 +26,7 @@ from flaskr.service.order.payment_providers import (
     PaymentRequest,
     get_payment_provider,
 )
+from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
@@ -1101,13 +1102,17 @@ def create_billing_subscription_checkout(
 
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
-    payment_provider = _normalize_payment_provider(payload.get("payment_provider"))
-    channel = _normalize_bid(payload.get("channel")) or "checkout_session"
+    payment_provider, channel = _resolve_billing_payment_channel(
+        payload,
+        default_pingxx_channel="alipay_qr",
+    )
     success_url = _normalize_bid(payload.get("success_url"))
     cancel_url = _normalize_bid(payload.get("cancel_url"))
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
+        if payment_provider == "stripe":
+            channel = "checkout_session"
         if payment_provider == "pingxx":
             order = BillingOrder(
                 billing_order_bid=generate_id(app),
@@ -1192,11 +1197,10 @@ def create_billing_topup_checkout(
 
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
-    payment_provider = _normalize_payment_provider(payload.get("payment_provider"))
-    default_channel = (
-        "checkout_session" if payment_provider == "stripe" else "alipay_qr"
+    payment_provider, channel = _resolve_billing_payment_channel(
+        payload,
+        default_pingxx_channel="alipay_qr",
     )
-    channel = _normalize_bid(payload.get("channel")) or default_channel
     success_url = _normalize_bid(payload.get("success_url"))
     cancel_url = _normalize_bid(payload.get("cancel_url"))
 
@@ -1801,11 +1805,29 @@ def _normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
     return normalized_value
 
 
-def _normalize_payment_provider(value: Any) -> str:
+def _normalize_payment_provider_hint(value: Any) -> str:
     provider = str(value or "").strip().lower()
+    if not provider:
+        return ""
     if provider not in {"stripe", "pingxx"}:
         raise_error("server.pay.payChannelNotSupport")
     return provider
+
+
+def _resolve_billing_payment_channel(
+    payload: dict[str, Any],
+    *,
+    default_pingxx_channel: str,
+) -> tuple[str, str]:
+    return resolve_payment_channel(
+        payment_channel_hint=_normalize_payment_provider_hint(
+            payload.get("payment_provider")
+        )
+        or None,
+        channel_hint=_normalize_bid(payload.get("channel")) or None,
+        stored_channel=None,
+        default_pingxx_channel=default_pingxx_channel,
+    )
 
 
 def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduct:
