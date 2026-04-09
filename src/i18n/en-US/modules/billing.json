@@ -164,6 +164,14 @@
   "common": {
     "empty": "Not available"
   },
+  "domains": {
+    "description": "Domain routing, verification state, and branding setup will appear in this workspace tab next.",
+    "title": "Domains & Branding"
+  },
+  "entitlements": {
+    "description": "Plan-derived runtime limits, support tier, analytics tier, and concurrency settings will be shown here next.",
+    "title": "Entitlements"
+  },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
     "bucketStatus": {
@@ -346,9 +354,12 @@
     "badge": "Preview",
     "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {
+      "domains": "Domains",
+      "entitlements": "Entitlements",
       "ledger": "Credit Activity",
       "orders": "Payments",
-      "plans": "Plans & Credits"
+      "plans": "Plans & Credits",
+      "reports": "Reports"
     },
     "title": "Membership & Credits"
   },
@@ -368,6 +379,10 @@
       "processing": "Processing",
       "succeeded": "Succeeded"
     }
+  },
+  "reports": {
+    "description": "Daily usage and ledger rollups will be added here once the v1.1 reporting views land.",
+    "title": "Usage Reports"
   },
   "result": {
     "countdown": "Redirecting to the billing center in {seconds}s",

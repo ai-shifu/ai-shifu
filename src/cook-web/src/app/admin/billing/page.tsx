@@ -6,10 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import {
+  BillingDomainsTab,
+  BillingEntitlementsTab,
   BillingLedgerTab,
   BillingOrdersTab,
   BillingOverviewTab,
   BillingPageHeader,
+  BillingReportsTab,
 } from '@/components/billing';
 import { BillingCenterTab } from '@/types/billing';
 
@@ -51,6 +54,15 @@ export default function AdminBillingPage() {
           <TabsTrigger value='orders'>
             {t('module.billing.page.tabs.orders')}
           </TabsTrigger>
+          <TabsTrigger value='entitlements'>
+            {t('module.billing.page.tabs.entitlements')}
+          </TabsTrigger>
+          <TabsTrigger value='domains'>
+            {t('module.billing.page.tabs.domains')}
+          </TabsTrigger>
+          <TabsTrigger value='reports'>
+            {t('module.billing.page.tabs.reports')}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -66,6 +78,18 @@ export default function AdminBillingPage() {
 
         <TabsContent value='orders'>
           <BillingOrdersTab />
+        </TabsContent>
+
+        <TabsContent value='entitlements'>
+          <BillingEntitlementsTab />
+        </TabsContent>
+
+        <TabsContent value='domains'>
+          <BillingDomainsTab />
+        </TabsContent>
+
+        <TabsContent value='reports'>
+          <BillingReportsTab />
         </TabsContent>
       </Tabs>
     </div>

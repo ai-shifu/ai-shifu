@@ -164,6 +164,14 @@
   "common": {
     "empty": "暂无"
   },
+  "domains": {
+    "description": "域名路由、校验状态和品牌配置会在下一步接入到这个工作区页签中。",
+    "title": "域名与品牌"
+  },
+  "entitlements": {
+    "description": "套餐派生的运行时能力、支持等级、分析等级和并发限制会在这里统一展示。",
+    "title": "权益与能力"
+  },
   "ledger": {
     "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
     "bucketStatus": {
@@ -346,9 +354,12 @@
     "badge": "预览版",
     "subtitle": "在一个页面里管理套餐、积分与付款记录。",
     "tabs": {
+      "domains": "域名与品牌",
+      "entitlements": "权益与能力",
       "ledger": "积分明细",
       "orders": "付款记录",
-      "plans": "套餐与积分"
+      "plans": "套餐与积分",
+      "reports": "分析报表"
     },
     "title": "会员与积分"
   },
@@ -368,6 +379,10 @@
       "processing": "处理中",
       "succeeded": "已完成"
     }
+  },
+  "reports": {
+    "description": "等 v1.1 报表视图接入后，这里会展示 usage 日汇总和账本日汇总。",
+    "title": "用量与账本报表"
   },
   "result": {
     "countdown": "{seconds}s 后自动返回会员中心",

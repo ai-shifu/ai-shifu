@@ -155,7 +155,7 @@ describe('AdminBillingPage', () => {
     });
   });
 
-  test('renders the three billing center tabs and switches content', async () => {
+  test('renders the expanded billing center tabs and switches content', async () => {
     const user = userEvent.setup();
 
     render(
@@ -176,6 +176,17 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByRole('tab', { name: 'module.billing.page.tabs.plans' }),
     ).toHaveAttribute('data-state', 'active');
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.billing.page.tabs.entitlements',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: 'module.billing.page.tabs.domains' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: 'module.billing.page.tabs.reports' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.overview.walletTitle'),
     ).toBeInTheDocument();
@@ -204,6 +215,47 @@ describe('AdminBillingPage', () => {
     expect(screen.getByText('module.billing.orders.title')).toBeInTheDocument();
     expect(await screen.findByText('order-1')).toBeInTheDocument();
     expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.page.tabs.entitlements',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.entitlements.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.entitlements.description'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', { name: 'module.billing.page.tabs.domains' }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.domains.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.domains.description'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', { name: 'module.billing.page.tabs.reports' }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.reports.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.reports.description'),
+    ).toBeInTheDocument();
   });
 
   test('opens the orders tab from a structured billing alert action', async () => {

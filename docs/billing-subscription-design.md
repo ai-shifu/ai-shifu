@@ -1196,6 +1196,11 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `Domains`
 - `Reports`
 
+当前实现状态：
+
+- `src/cook-web/src/app/admin/billing/page.tsx` 已补齐 6-tab shell：`Plans`、`Ledger`、`Orders`、`Entitlements`、`Domains`、`Reports`
+- 当前 `Entitlements`、`Domains`、`Reports` 三个扩展 tab 先通过独立组件挂到页面骨架，并展示 placeholder section；后续任务再分别填入权益详情、域名设置和日报表视图
+
 页面职责：
 
 - `Entitlements`

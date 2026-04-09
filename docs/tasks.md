@@ -158,7 +158,7 @@
 
 ### 前端与管理端扩展
 
-- [ ] 在 `/admin/billing` 增加 `Entitlements`、`Domains`、`Reports` 三个扩展 tab。
+- [x] 在 `/admin/billing` 增加 `Entitlements`、`Domains`、`Reports` 三个扩展 tab。
 - [ ] 实现品牌配置与域名设置页面。
 - [ ] 实现分析等级、支持等级、优先级和并发能力的展示。
 - [ ] 实现 usage 日汇总和 ledger 日汇总报表视图。

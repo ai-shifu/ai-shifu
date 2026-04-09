@@ -1,4 +1,10 @@
-export type BillingCenterTab = 'plans' | 'ledger' | 'orders';
+export type BillingCenterTab =
+  | 'plans'
+  | 'ledger'
+  | 'orders'
+  | 'entitlements'
+  | 'domains'
+  | 'reports';
 
 export type AdminBillingConsoleTab = 'subscriptions' | 'orders' | 'exceptions';
 
