@@ -11,6 +11,7 @@ import { useBillingOverview } from '@/hooks/useBillingData';
 import type {
   BillingAlert,
   BillingCheckoutResult,
+  BillingPingxxChannel,
   BillingPlan,
   BillingProvider,
   BillingSubscription,
@@ -18,18 +19,18 @@ import type {
 } from '@/types/billing';
 import {
   buildBillingStripeResultUrls,
-  extractBillingPingxxQrUrl,
+  extractBillingPingxxQrCode,
   formatBillingCredits,
   formatBillingDate,
   formatBillingPrice,
   openBillingCheckoutUrl,
-  openBillingPaymentWindow,
   registerBillingTranslationUsage,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingOverviewHero } from './BillingOverviewHero';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';
+import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
 import type { ShowcaseTab } from './BillingOverviewCards';
 
 type BillingCatalogResponse = {
@@ -53,6 +54,16 @@ type CheckoutTarget =
       provider: BillingProvider;
     }
   | null;
+
+type PingxxCheckoutState = {
+  amountInMinor: number;
+  billingOrderBid: string;
+  currency: string;
+  description: string;
+  productName: string;
+  qrUrl: string;
+  selectedChannel: BillingPingxxChannel;
+};
 
 export function BillingOverviewTab({
   onOpenOrdersTab,
@@ -88,6 +99,10 @@ export function BillingOverviewTab({
   const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('monthly');
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
+  const [pingxxCheckout, setPingxxCheckout] =
+    useState<PingxxCheckoutState | null>(null);
+  const [selectedPingxxChannel, setSelectedPingxxChannel] =
+    useState<BillingPingxxChannel>('wx_pub_qr');
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
     'cancel' | 'resume' | ''
   >('');
@@ -166,6 +181,10 @@ export function BillingOverviewTab({
       if (checkoutTarget.kind === 'plan') {
         result = (await api.checkoutBillingSubscription({
           cancel_url: stripeUrls.cancelUrl || undefined,
+          channel:
+            checkoutTarget.provider === 'pingxx'
+              ? selectedPingxxChannel
+              : undefined,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
           success_url: stripeUrls.successUrl || undefined,
@@ -174,7 +193,9 @@ export function BillingOverviewTab({
         result = (await api.checkoutBillingTopup({
           cancel_url: stripeUrls.cancelUrl || undefined,
           channel:
-            checkoutTarget.provider === 'pingxx' ? 'alipay_qr' : undefined,
+            checkoutTarget.provider === 'pingxx'
+              ? selectedPingxxChannel
+              : undefined,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
           success_url: stripeUrls.successUrl || undefined,
@@ -203,8 +224,11 @@ export function BillingOverviewTab({
       }
 
       if (checkoutTarget.provider === 'pingxx') {
-        const qrUrl = extractBillingPingxxQrUrl(result);
-        if (!qrUrl) {
+        const qrCode = extractBillingPingxxQrCode(
+          result,
+          selectedPingxxChannel,
+        );
+        if (!qrCode) {
           toast({
             title: t('module.billing.checkout.unsupported'),
             variant: 'destructive',
@@ -212,17 +236,64 @@ export function BillingOverviewTab({
           return;
         }
 
-        const opened = openBillingPaymentWindow(qrUrl);
-        toast({
-          title: opened
-            ? t('module.billing.checkout.qrOpened')
-            : t('module.billing.checkout.qrBlocked'),
-          variant: opened ? 'default' : 'destructive',
+        setPingxxCheckout({
+          amountInMinor: checkoutTarget.product.price_amount,
+          billingOrderBid: result.billing_order_bid,
+          currency: checkoutTarget.product.currency,
+          description: t(
+            checkoutTarget.kind === 'plan'
+              ? 'module.billing.checkout.planDescription'
+              : 'module.billing.checkout.topupDescription',
+          ),
+          productName: t(checkoutTarget.product.display_name),
+          qrUrl: qrCode.url,
+          selectedChannel: qrCode.channel,
         });
-        if (opened) {
-          setCheckoutTarget(null);
-        }
+        setSelectedPingxxChannel(qrCode.channel);
+        setCheckoutTarget(null);
       }
+    } catch (error: any) {
+      toast({
+        title: error?.message || t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckoutLoadingKey('');
+    }
+  }
+
+  async function handlePingxxQrChannelChange(channel: BillingPingxxChannel) {
+    if (!pingxxCheckout) {
+      return;
+    }
+
+    setCheckoutLoadingKey(
+      `pingxx:${pingxxCheckout.billingOrderBid}:${channel}`,
+    );
+    try {
+      const result = (await api.checkoutBillingOrder({
+        billing_order_bid: pingxxCheckout.billingOrderBid,
+        channel,
+      })) as BillingCheckoutResult;
+      const qrCode = extractBillingPingxxQrCode(result, channel);
+      if (!qrCode) {
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPingxxCheckout(current =>
+        current
+          ? {
+              ...current,
+              qrUrl: qrCode.url,
+              selectedChannel: qrCode.channel,
+            }
+          : current,
+      );
+      setSelectedPingxxChannel(qrCode.channel);
     } catch (error: any) {
       toast({
         title: error?.message || t('common.core.unknownError'),
@@ -278,6 +349,9 @@ export function BillingOverviewTab({
     if (alert.action_type === 'checkout_topup') {
       if (firstAvailableTopup) {
         setShowcaseTab('topup');
+        if (firstAvailableTopup.provider === 'pingxx') {
+          setSelectedPingxxChannel('wx_pub_qr');
+        }
         setCheckoutTarget({
           kind: 'topup',
           product: firstAvailableTopup.product,
@@ -373,20 +447,26 @@ export function BillingOverviewTab({
         topups={topups}
         trialOffer={trialOffer}
         yearlyPlans={yearlyPlans}
-        onSelectPlanCheckout={(plan, provider) =>
+        onSelectPlanCheckout={(plan, provider) => {
+          if (provider === 'pingxx') {
+            setSelectedPingxxChannel('wx_pub_qr');
+          }
           setCheckoutTarget({
             kind: 'plan',
             product: plan,
             provider,
-          })
-        }
-        onSelectTopupCheckout={(product, provider) =>
+          });
+        }}
+        onSelectTopupCheckout={(product, provider) => {
+          if (provider === 'pingxx') {
+            setSelectedPingxxChannel('wx_pub_qr');
+          }
           setCheckoutTarget({
             kind: 'topup',
             product,
             provider,
-          })
-        }
+          });
+        }}
         onShowcaseTabChange={setShowcaseTab}
       />
 
@@ -399,6 +479,9 @@ export function BillingOverviewTab({
         )}
         isLoading={Boolean(checkoutLoadingKey)}
         open={Boolean(checkoutTarget)}
+        pingxxChannel={
+          checkoutTarget?.provider === 'pingxx' ? selectedPingxxChannel : null
+        }
         priceLabel={dialogPriceLabel}
         productName={
           checkoutTarget
@@ -410,6 +493,24 @@ export function BillingOverviewTab({
         onOpenChange={open => {
           if (!open) {
             setCheckoutTarget(null);
+          }
+        }}
+        onPingxxChannelChange={setSelectedPingxxChannel}
+      />
+
+      <BillingPingxxQrDialog
+        amountInMinor={pingxxCheckout?.amountInMinor || 0}
+        currency={pingxxCheckout?.currency || 'CNY'}
+        description={pingxxCheckout?.description || ''}
+        isLoading={Boolean(checkoutLoadingKey)}
+        open={Boolean(pingxxCheckout)}
+        productName={pingxxCheckout?.productName || ''}
+        qrUrl={pingxxCheckout?.qrUrl || ''}
+        selectedChannel={pingxxCheckout?.selectedChannel || 'wx_pub_qr'}
+        onChannelChange={channel => void handlePingxxQrChannelChange(channel)}
+        onOpenChange={open => {
+          if (!open) {
+            setPingxxCheckout(null);
           }
         }}
       />

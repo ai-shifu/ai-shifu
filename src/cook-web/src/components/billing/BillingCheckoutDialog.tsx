@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { resolveBillingPingxxChannelLabel } from '@/lib/billing';
+import type { BillingPingxxChannel } from '@/types/billing';
 import {
   Dialog,
   DialogContent,
@@ -15,11 +17,13 @@ type BillingCheckoutDialogProps = {
   description: string;
   isLoading?: boolean;
   open: boolean;
+  pingxxChannel?: BillingPingxxChannel | null;
   priceLabel: string;
   productName: string;
   providerLabel: string;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
+  onPingxxChannelChange?: (channel: BillingPingxxChannel) => void;
 };
 
 export function BillingCheckoutDialog({
@@ -27,11 +31,13 @@ export function BillingCheckoutDialog({
   description,
   isLoading = false,
   open,
+  pingxxChannel = null,
   priceLabel,
   productName,
   providerLabel,
   onConfirm,
   onOpenChange,
+  onPingxxChannelChange,
 }: BillingCheckoutDialogProps) {
   const { t } = useTranslation();
 
@@ -71,6 +77,25 @@ export function BillingCheckoutDialog({
             </span>
           </div>
         </div>
+        {pingxxChannel ? (
+          <div className='grid grid-cols-2 gap-2'>
+            {(['wx_pub_qr', 'alipay_qr'] as BillingPingxxChannel[]).map(
+              channel => (
+                <Button
+                  key={channel}
+                  className='rounded-xl'
+                  data-testid={`billing-checkout-channel-${channel}`}
+                  disabled={isLoading}
+                  onClick={() => onPingxxChannelChange?.(channel)}
+                  type='button'
+                  variant={channel === pingxxChannel ? 'default' : 'outline'}
+                >
+                  {resolveBillingPingxxChannelLabel(t, channel)}
+                </Button>
+              ),
+            )}
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             type='button'

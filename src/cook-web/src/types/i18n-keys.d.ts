@@ -332,8 +332,6 @@ export type I18nKey =
   | 'module.billing.checkout.processing'
   | 'module.billing.checkout.productLabel'
   | 'module.billing.checkout.providerLabel'
-  | 'module.billing.checkout.qrBlocked'
-  | 'module.billing.checkout.qrOpened'
   | 'module.billing.checkout.title'
   | 'module.billing.checkout.topupDescription'
   | 'module.billing.checkout.unsupported'

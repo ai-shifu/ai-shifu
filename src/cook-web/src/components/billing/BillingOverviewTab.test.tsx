@@ -36,6 +36,7 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     cancelBillingSubscription: jest.fn(),
+    checkoutBillingOrder: jest.fn(),
     checkoutBillingSubscription: jest.fn(),
     checkoutBillingTopup: jest.fn(),
     getBillingCatalog: jest.fn(),
@@ -101,6 +102,7 @@ jest.mock('@/components/ui/Dialog', () => ({
 
 const mockCancelBillingSubscription =
   api.cancelBillingSubscription as jest.Mock;
+const mockCheckoutBillingOrder = api.checkoutBillingOrder as jest.Mock;
 const mockCheckoutBillingSubscription =
   api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutBillingTopup = api.checkoutBillingTopup as jest.Mock;
@@ -281,6 +283,7 @@ describe('BillingOverviewTab', () => {
     mockEnvState.stripeEnabled = 'true';
 
     mockCancelBillingSubscription.mockReset();
+    mockCheckoutBillingOrder.mockReset();
     mockCheckoutBillingSubscription.mockReset();
     mockCheckoutBillingTopup.mockReset();
     mockGetBillingCatalog.mockReset();
@@ -621,7 +624,7 @@ describe('BillingOverviewTab', () => {
     );
   });
 
-  test('falls back to Pingxx subscription checkout when Stripe is unavailable', async () => {
+  test('shows an in-app Pingxx subscription QR and allows switching channels', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
@@ -649,11 +652,21 @@ describe('BillingOverviewTab', () => {
       status: 'pending',
       payment_payload: {
         credential: {
-          alipay_qr: 'https://pingxx.test/plan-qr',
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
         },
       },
     });
-    mockOpenBillingPaymentWindow.mockReturnValue(true);
+    mockCheckoutBillingOrder.mockResolvedValue({
+      billing_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          alipay_qr: 'https://pingxx.test/plan-alipay-qr',
+        },
+      },
+    });
 
     renderOverviewTab();
 
@@ -684,18 +697,29 @@ describe('BillingOverviewTab', () => {
     await waitFor(() => {
       expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
         expect.objectContaining({
+          channel: 'wx_pub_qr',
           payment_provider: 'pingxx',
           product_bid: 'billing-product-plan-yearly',
         }),
       );
     });
 
-    expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
-      'https://pingxx.test/plan-qr',
-    );
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
+        billing_order_bid: 'order-plan-pingxx-1',
+        channel: 'alipay_qr',
+      });
+    });
   });
 
-  test('opens a Pingxx QR top-up checkout when Stripe is unavailable', async () => {
+  test('shows an in-app Pingxx top-up QR when Stripe is unavailable', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
@@ -706,11 +730,10 @@ describe('BillingOverviewTab', () => {
       status: 'pending',
       payment_payload: {
         credential: {
-          alipay_qr: 'https://pingxx.test/qr',
+          wx_pub_qr: 'https://pingxx.test/wechat-qr',
         },
       },
     });
-    mockOpenBillingPaymentWindow.mockReturnValue(true);
 
     renderOverviewTab();
 
@@ -741,15 +764,14 @@ describe('BillingOverviewTab', () => {
     await waitFor(() => {
       expect(mockCheckoutBillingTopup).toHaveBeenCalledWith(
         expect.objectContaining({
-          channel: 'alipay_qr',
+          channel: 'wx_pub_qr',
           payment_provider: 'pingxx',
           product_bid: 'billing-product-topup-small',
         }),
       );
     });
 
-    expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
-      'https://pingxx.test/qr',
-    );
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
   });
 });

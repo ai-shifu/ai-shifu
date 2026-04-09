@@ -10,6 +10,7 @@ import type {
   BillingPaymentMode,
   BillingOrderStatus,
   BillingOrderType,
+  BillingPingxxChannel,
   BillingPlan,
   BillingProvider,
   BillingRenewalEventStatus,
@@ -536,18 +537,48 @@ export function openBillingPaymentWindow(url: string): boolean {
   return paymentWindow !== null;
 }
 
-export function extractBillingPingxxQrUrl(
-  result: BillingCheckoutResult,
+export function resolveBillingPingxxChannelLabel(
+  t: BillingTranslator,
+  channel: BillingPingxxChannel,
 ): string {
+  return channel === 'wx_pub_qr'
+    ? t('module.pay.wechatPay')
+    : t('module.pay.alipay');
+}
+
+export function extractBillingPingxxQrCode(
+  result: BillingCheckoutResult,
+  preferredChannel: BillingPingxxChannel = 'wx_pub_qr',
+): { channel: BillingPingxxChannel; url: string } | null {
   const credential =
     typeof result.payment_payload === 'object' && result.payment_payload
       ? (result.payment_payload as Record<string, unknown>).credential
       : null;
   if (!credential || typeof credential !== 'object') {
-    return '';
+    return null;
   }
-  const qrUrl = (credential as Record<string, unknown>).alipay_qr;
-  return typeof qrUrl === 'string' ? qrUrl : '';
+
+  const normalizedCredential = credential as Record<string, unknown>;
+  const channels: BillingPingxxChannel[] =
+    preferredChannel === 'wx_pub_qr'
+      ? ['wx_pub_qr', 'alipay_qr']
+      : ['alipay_qr', 'wx_pub_qr'];
+
+  for (const channel of channels) {
+    const qrUrl = normalizedCredential[channel];
+    if (typeof qrUrl === 'string' && qrUrl) {
+      return { channel, url: qrUrl };
+    }
+  }
+
+  return null;
+}
+
+export function extractBillingPingxxQrUrl(
+  result: BillingCheckoutResult,
+  preferredChannel: BillingPingxxChannel = 'wx_pub_qr',
+): string {
+  return extractBillingPingxxQrCode(result, preferredChannel)?.url || '';
 }
 
 export function registerBillingTranslationUsage(t: BillingTranslator): void {

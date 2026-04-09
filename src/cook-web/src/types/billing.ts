@@ -16,6 +16,8 @@ export type AdminBillingConsoleTab =
 
 export type BillingProvider = 'stripe' | 'pingxx';
 
+export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
+
 export type BillingCapabilityStatus =
   | 'active'
   | 'default_disabled'

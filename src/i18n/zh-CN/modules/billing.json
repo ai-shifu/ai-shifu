@@ -268,7 +268,7 @@
   },
   "catalog": {
     "actions": {
-      "buyWithPingxx": "支付宝扫码支付",
+      "buyWithPingxx": "扫码支付",
       "buyWithStripe": "使用 Stripe 购买",
       "currentPlan": "当前套餐",
       "processing": "处理中...",
@@ -340,8 +340,6 @@
     "processing": "处理中...",
     "productLabel": "商品",
     "providerLabel": "支付通道",
-    "qrBlocked": "请允许弹窗后再打开支付二维码。",
-    "qrOpened": "支付二维码已在新标签页打开。",
     "title": "确认购买",
     "topupDescription": "你将进入一次性积分充值的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。"

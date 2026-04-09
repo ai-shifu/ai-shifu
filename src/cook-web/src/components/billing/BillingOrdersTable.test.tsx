@@ -62,7 +62,7 @@ describe('BillingOrdersTable', () => {
       status: 'pending',
       payment_payload: {
         credential: {
-          alipay_qr: 'https://pingxx.test/qr',
+          wx_pub_qr: 'https://pingxx.test/wechat-qr',
         },
       },
     });
@@ -120,7 +120,6 @@ describe('BillingOrdersTable', () => {
       status: 'paid',
     });
     mockOpenBillingPaymentWindow.mockReset();
-    mockOpenBillingPaymentWindow.mockReturnValue(true);
     mockToast.mockReset();
   });
 
@@ -241,16 +240,34 @@ describe('BillingOrdersTable', () => {
     await waitFor(() => {
       expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
         billing_order_bid: 'order-2',
+        channel: 'wx_pub_qr',
       });
     });
 
-    expect(mockOpenBillingPaymentWindow).toHaveBeenCalledWith(
-      'https://pingxx.test/qr',
-    );
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'module.billing.checkout.qrOpened',
-      }),
-    );
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
+
+    mockCheckoutBillingOrder.mockResolvedValueOnce({
+      billing_order_bid: 'order-2',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          alipay_qr: 'https://pingxx.test/alipay-qr',
+        },
+      },
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingOrder).toHaveBeenLastCalledWith({
+        billing_order_bid: 'order-2',
+        channel: 'alipay_qr',
+      });
+    });
   });
 });

@@ -26,13 +26,13 @@ import type {
   BillingCheckoutResult,
   BillingOrderStatus,
   BillingOrderSummary,
+  BillingPingxxChannel,
   BillingPagedResponse,
 } from '@/types/billing';
 import {
-  extractBillingPingxxQrUrl,
+  extractBillingPingxxQrCode,
   formatBillingDateTime,
   formatBillingPrice,
-  openBillingPaymentWindow,
   registerBillingTranslationUsage,
   resolveBillingEmptyLabel,
   resolveBillingOrderStatusLabel,
@@ -40,6 +40,7 @@ import {
   resolveBillingProviderLabel,
 } from '@/lib/billing';
 import { BillingOrderDetailSheet } from './BillingOrderDetailSheet';
+import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
 
 const BILLING_ORDERS_PAGE_SIZE = 10;
 
@@ -76,6 +77,11 @@ export function BillingOrdersTable() {
   const [pageIndex, setPageIndex] = useState(1);
   const [syncLoadingBid, setSyncLoadingBid] = useState('');
   const [checkoutLoadingBid, setCheckoutLoadingBid] = useState('');
+  const [pingxxCheckoutOrder, setPingxxCheckoutOrder] =
+    useState<BillingOrderSummary | null>(null);
+  const [selectedPingxxChannel, setSelectedPingxxChannel] =
+    useState<BillingPingxxChannel>('wx_pub_qr');
+  const [pingxxQrUrl, setPingxxQrUrl] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailOrderBid, setDetailOrderBid] = useState('');
   const { mutate: mutateCache } = useSWRConfig();
@@ -127,27 +133,27 @@ export function BillingOrdersTable() {
     setDetailOpen(true);
   };
 
-  const handleContinueCheckout = async (order: BillingOrderSummary) => {
+  const handleContinueCheckout = async (
+    order: BillingOrderSummary,
+    channel: BillingPingxxChannel = 'wx_pub_qr',
+  ) => {
     setCheckoutLoadingBid(order.billing_order_bid);
     try {
       const result = (await api.checkoutBillingOrder({
         billing_order_bid: order.billing_order_bid,
+        channel,
       })) as BillingCheckoutResult;
-      const qrUrl = extractBillingPingxxQrUrl(result);
-      if (!qrUrl) {
+      const qrCode = extractBillingPingxxQrCode(result, channel);
+      if (!qrCode) {
         toast({
           title: t('module.billing.checkout.unsupported'),
           variant: 'destructive',
         });
         return;
       }
-      const opened = openBillingPaymentWindow(qrUrl);
-      toast({
-        title: opened
-          ? t('module.billing.checkout.qrOpened')
-          : t('module.billing.checkout.qrBlocked'),
-        variant: opened ? 'default' : 'destructive',
-      });
+      setSelectedPingxxChannel(qrCode.channel);
+      setPingxxQrUrl(qrCode.url);
+      setPingxxCheckoutOrder(order);
     } catch (error: any) {
       toast({
         title: error?.message || t('common.core.unknownError'),
@@ -351,6 +357,39 @@ export function BillingOrdersTable() {
           setDetailOpen(open);
           if (!open) {
             setDetailOrderBid('');
+          }
+        }}
+      />
+      <BillingPingxxQrDialog
+        amountInMinor={
+          pingxxCheckoutOrder
+            ? pingxxCheckoutOrder.paid_amount ||
+              pingxxCheckoutOrder.payable_amount
+            : 0
+        }
+        currency={pingxxCheckoutOrder?.currency || 'CNY'}
+        description=''
+        isLoading={
+          Boolean(checkoutLoadingBid) &&
+          checkoutLoadingBid === pingxxCheckoutOrder?.billing_order_bid
+        }
+        open={Boolean(pingxxCheckoutOrder)}
+        productName={
+          pingxxCheckoutOrder
+            ? resolveBillingOrderTypeLabel(t, pingxxCheckoutOrder.order_type)
+            : ''
+        }
+        qrUrl={pingxxQrUrl}
+        selectedChannel={selectedPingxxChannel}
+        onChannelChange={channel => {
+          if (pingxxCheckoutOrder) {
+            void handleContinueCheckout(pingxxCheckoutOrder, channel);
+          }
+        }}
+        onOpenChange={open => {
+          if (!open) {
+            setPingxxCheckoutOrder(null);
+            setPingxxQrUrl('');
           }
         }}
       />

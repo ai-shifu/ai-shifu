@@ -268,7 +268,7 @@
   },
   "catalog": {
     "actions": {
-      "buyWithPingxx": "Pay with Alipay QR",
+      "buyWithPingxx": "Pay with QR code",
       "buyWithStripe": "Buy with Stripe",
       "currentPlan": "Current plan",
       "processing": "Processing...",
@@ -340,8 +340,6 @@
     "processing": "Processing...",
     "productLabel": "Product",
     "providerLabel": "Payment provider",
-    "qrBlocked": "Please allow pop-ups to open the payment QR code.",
-    "qrOpened": "Payment QR opened in a new tab.",
     "title": "Confirm purchase",
     "topupDescription": "You are about to open a one-time credit top-up checkout.",
     "unsupported": "This payment method is not available right now."
