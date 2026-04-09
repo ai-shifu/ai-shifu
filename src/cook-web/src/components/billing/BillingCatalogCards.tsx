@@ -70,7 +70,7 @@ function CatalogCardShell({
       <CardHeader className='gap-5 pb-5'>
         <div className='flex items-start justify-between gap-3'>
           <div className='space-y-3'>
-            <CardTitle className='text-xl leading-tight text-slate-950 md:text-2xl'>
+            <CardTitle className='text-lg leading-tight text-slate-950 md:text-xl'>
               {title}
             </CardTitle>
             <CardDescription className='text-sm leading-6 text-slate-500 md:text-base md:leading-7'>
@@ -86,7 +86,7 @@ function CatalogCardShell({
       </CardHeader>
       <CardContent className='space-y-5'>
         <div className='rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-sm'>
-          <div className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
+          <div className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
             {priceLabel}
           </div>
           <div className='mt-3 text-sm font-medium text-slate-600'>
@@ -109,7 +109,7 @@ function CatalogSection({
   return (
     <div className='space-y-3'>
       <div className='flex items-center justify-between gap-3'>
-        <h4 className='text-lg font-semibold tracking-tight text-slate-950'>
+        <h4 className='text-base font-semibold tracking-tight text-slate-950 md:text-lg'>
           {title}
         </h4>
       </div>

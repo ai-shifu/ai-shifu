@@ -118,7 +118,7 @@ export function BillingCreditDetailsPanel({
           {t('module.billing.page.tabs.ledger')}
         </div>
         <div className='space-y-2'>
-          <h1 className='text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl'>
+          <h1 className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
             {t('module.billing.details.title')}
           </h1>
           <p className='max-w-3xl text-sm leading-7 text-slate-500 md:text-base'>
@@ -131,13 +131,13 @@ export function BillingCreditDetailsPanel({
         <CardHeader className='gap-6 border-b border-slate-100 pb-8 md:flex-row md:items-start md:justify-between'>
           <div className='space-y-4'>
             <div className='flex flex-wrap items-end gap-4'>
-              <CardTitle className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
+              <CardTitle className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
                 {t('module.billing.details.totalCreditsLabel')}
               </CardTitle>
               {overviewLoading ? (
                 <Skeleton className='h-12 w-36 rounded-xl' />
               ) : (
-                <div className='text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl'>
+                <div className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
                   {totalCreditsLabel}
                 </div>
               )}
@@ -188,7 +188,7 @@ export function BillingCreditDetailsPanel({
                 {summaryRows.map(row => (
                   <div
                     key={row.category}
-                    className='grid grid-cols-[1.4fr_0.7fr_0.9fr] gap-4 border-b border-slate-100 px-6 py-5 text-sm text-slate-700 last:border-b-0 md:text-base'
+                    className='grid grid-cols-[1.4fr_0.7fr_0.9fr] gap-4 border-b border-slate-100 px-6 py-5 text-sm text-slate-700 last:border-b-0'
                   >
                     <div className='font-semibold text-slate-950'>
                       {resolveBillingBucketCategoryLabel(t, row.category)}

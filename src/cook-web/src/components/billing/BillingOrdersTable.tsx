@@ -162,7 +162,7 @@ export function BillingOrdersTable() {
     <>
       <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
         <CardHeader className='space-y-2'>
-          <CardTitle className='text-lg text-slate-900'>
+          <CardTitle className='text-base text-slate-900 md:text-lg'>
             {t('module.billing.orders.title')}
           </CardTitle>
           <CardDescription className='leading-6 text-slate-600'>

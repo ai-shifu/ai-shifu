@@ -126,7 +126,7 @@ export function BillingRecentActivitySection() {
           <CardHeader className='space-y-3 pb-4'>
             <div className='flex items-center justify-between gap-3'>
               <div className='space-y-1'>
-                <CardTitle className='text-lg text-slate-950'>
+                <CardTitle className='text-base text-slate-950 md:text-lg'>
                   {t('module.billing.ledger.title')}
                 </CardTitle>
                 <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
@@ -172,11 +172,11 @@ export function BillingRecentActivitySection() {
                         >
                           {resolveBillingLedgerEntryLabel(t, item.entry_type)}
                         </Badge>
-                        <span className='text-sm text-slate-500'>
+                        <span className='text-xs text-slate-500 md:text-sm'>
                           {resolveBillingBucketSourceLabel(t, item.source_type)}
                         </span>
                       </div>
-                      <div className='text-sm text-slate-500'>
+                      <div className='text-xs text-slate-500 md:text-sm'>
                         {item.source_bid}
                       </div>
                       <div className='text-xs text-slate-400'>
@@ -185,7 +185,7 @@ export function BillingRecentActivitySection() {
                     </div>
                     <div className='flex flex-col items-end gap-3'>
                       <div className='text-right'>
-                        <div className='text-base font-semibold text-slate-950 md:text-lg'>
+                        <div className='text-sm font-semibold text-slate-950 md:text-base'>
                           {formatSignedCredits(item.amount, i18n.language)}
                         </div>
                         <div className='flex items-center justify-end gap-1 text-xs text-slate-500'>
@@ -224,7 +224,7 @@ export function BillingRecentActivitySection() {
           <CardHeader className='space-y-3 pb-4'>
             <div className='flex items-center justify-between gap-3'>
               <div className='space-y-1'>
-                <CardTitle className='text-lg text-slate-950'>
+                <CardTitle className='text-base text-slate-950 md:text-lg'>
                   {t('module.billing.orders.title')}
                 </CardTitle>
                 <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
@@ -282,7 +282,7 @@ export function BillingRecentActivitySection() {
                           {resolveBillingOrderStatusLabel(t, item.status)}
                         </Badge>
                       </div>
-                      <div className='text-sm text-slate-500'>
+                      <div className='text-xs text-slate-500 md:text-sm'>
                         {resolveBillingProviderLabel(t, item.payment_provider)}
                       </div>
                       <div className='text-xs text-slate-400'>
@@ -291,7 +291,7 @@ export function BillingRecentActivitySection() {
                     </div>
                     <div className='flex flex-col items-end gap-3'>
                       <div className='text-right'>
-                        <div className='text-base font-semibold text-slate-950 md:text-lg'>
+                        <div className='text-sm font-semibold text-slate-950 md:text-base'>
                           {formatBillingPrice(
                             item.paid_amount || item.payable_amount,
                             item.currency,
