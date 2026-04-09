@@ -229,7 +229,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
   const currentUserId = useMemo(() => {
     if (!profile) return '';
-    return profile.user_id || profile.user_bid || '';
+    return profile.user_bid || profile.user_id || '';
   }, [profile]);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
@@ -288,14 +288,14 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
   const syncDraftFromRemote = useCallback(
     async (
+      shifuBid: string,
+      outlineBid: string,
       meta?: DraftMeta | null,
       options?: {
         showNotice?: boolean;
         mode?: DraftConflictMode;
       },
     ) => {
-      const shifuBid = currentShifuBidRef.current;
-      const outlineBid = currentNodeBidRef.current;
       if (!shifuBid || !outlineBid || isRemoteDraftSyncingRef.current) {
         return;
       }
@@ -304,10 +304,8 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       actionsRef.current.cancelAutoSaveBlocks();
       try {
         await actionsRef.current.loadMdflow(outlineBid, shifuBid);
-        const latestMeta = await actionsRef.current.loadDraftMeta(
-          shifuBid,
-          outlineBid,
-        );
+        const latestMeta =
+          (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid)) ?? meta;
         if (
           currentShifuBidRef.current !== shifuBid ||
           currentNodeBidRef.current !== outlineBid
@@ -431,7 +429,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       ) {
         return;
       }
-      await syncDraftFromRemote(meta, {
+      await syncDraftFromRemote(shifuBid, outlineBid, meta, {
         showNotice: false,
         mode: resolveDraftConflictMode(meta),
       });
@@ -505,7 +503,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     const mode = resolveDraftConflictMode(meta);
     const hasUnsavedChanges = actionsRef.current.hasUnsavedMdflow(outlineBid);
     if (!hasUnsavedChanges) {
-      await syncDraftFromRemote(meta, {
+      await syncDraftFromRemote(shifuId, outlineBid, meta, {
         showNotice: true,
         mode,
       });
@@ -563,7 +561,12 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   }, [currentNode?.bid]);
 
   const handleDraftConflictRefresh = useCallback(() => {
-    void syncDraftFromRemote(latestDraftMeta, {
+    const shifuBid = currentShifuBidRef.current;
+    const outlineBid = currentNodeBidRef.current;
+    if (!shifuBid || !outlineBid) {
+      return;
+    }
+    void syncDraftFromRemote(shifuBid, outlineBid, latestDraftMeta, {
       mode: draftConflictMode,
     });
   }, [draftConflictMode, latestDraftMeta, syncDraftFromRemote]);
