@@ -31,6 +31,7 @@ import { shifu } from '@/c-service/Shifu';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
+  replaceCurrentUrlWithLessonId,
 } from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -250,6 +251,13 @@ export default function ChatPage() {
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
   const resolvedLessonId = selectedLessonId || lessonId;
+  const syncLessonUrl = useCallback((nextLessonId: string) => {
+    if (!nextLessonId?.trim()) {
+      return;
+    }
+    replaceCurrentUrlWithLessonId(nextLessonId);
+  }, []);
+
   const currentLessonTitle = useMemo(() => {
     if (!tree || !resolvedLessonId) {
       return '';
@@ -286,6 +294,7 @@ export default function ChatPage() {
       return;
     }
     updateLessonId(id);
+    syncLessonUrl(id);
     if (chapter.id !== chapterId) {
       updateChapterId(chapter.id);
     }
@@ -316,6 +325,7 @@ export default function ChatPage() {
   const onGoChapter = async id => {
     // updateChapterId(id);
     updateLessonId(id);
+    syncLessonUrl(id);
   };
 
   const onChapterUpdate = useCallback(
@@ -336,6 +346,14 @@ export default function ChatPage() {
       }
     }
   }, [tree, getCurrElement, updateLessonId, updateChapterId]);
+
+  useEffect(() => {
+    if (!selectedLessonId || selectedLessonId === urlLessonId) {
+      return;
+    }
+
+    syncLessonUrl(selectedLessonId);
+  }, [selectedLessonId, syncLessonUrl, urlLessonId]);
 
   useEffect(() => {
     if (initialized) {

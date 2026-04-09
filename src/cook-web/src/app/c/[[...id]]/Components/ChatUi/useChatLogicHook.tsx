@@ -158,6 +158,13 @@ export interface UseChatSessionResult {
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
   toggleAskExpanded: (parentElementBid: string) => void;
+  syncAskListByParentElement: (
+    parentElementBid: string,
+    askList: ChatContentItem[],
+    options?: {
+      expand?: boolean;
+    },
+  ) => void;
   requestAudioForBlock: (
     elementBid: string,
   ) => Promise<AudioCompleteData | null>;
@@ -2388,6 +2395,107 @@ function useChatLogicHook({
     [setTrackedContentList],
   );
 
+  const syncAskListByParentElement = useCallback(
+    (
+      parentElementBid: string,
+      askList: ChatContentItem[],
+      options?: {
+        expand?: boolean;
+      },
+    ) => {
+      if (!parentElementBid) {
+        return;
+      }
+
+      setTrackedContentList(prev => {
+        const shouldAutoExpandAskBlock = !mobileStyle;
+        const normalizedAskList = askList.map((message, index) => {
+          const fallbackElementBid = `${message.type}-${parentElementBid}-${index}`;
+          const resolvedElementBid =
+            message.element_bid ||
+            message.generated_block_bid ||
+            fallbackElementBid;
+
+          return {
+            ...message,
+            element_bid: resolvedElementBid,
+            generated_block_bid:
+              message.generated_block_bid || resolvedElementBid,
+            parent_element_bid: parentElementBid,
+            content: message.content || '',
+            readonly: message.readonly ?? true,
+            user_input: message.user_input || '',
+          };
+        });
+        const askEntries = prev
+          .map((item, index) => ({ item, index }))
+          .filter(
+            ({ item }) =>
+              item.parent_element_bid === parentElementBid &&
+              item.type === ChatContentItemType.ASK,
+          );
+
+        if (askEntries.length > 0) {
+          const primaryAskEntry = askEntries[askEntries.length - 1];
+          const primaryAskIndex = primaryAskEntry.index;
+          const primaryAskItem = primaryAskEntry.item;
+
+          return prev
+            .filter(
+              (item, index) =>
+                !(
+                  index !== primaryAskIndex &&
+                  item.parent_element_bid === parentElementBid &&
+                  item.type === ChatContentItemType.ASK
+                ),
+            )
+            .map(item =>
+              item === primaryAskItem
+                ? {
+                    ...item,
+                    ask_list: normalizedAskList,
+                    isAskExpanded:
+                      options?.expand ??
+                      item.isAskExpanded ??
+                      shouldAutoExpandAskBlock,
+                  }
+                : item,
+            );
+        }
+
+        const nextAskBlock: ChatContentItem = {
+          element_bid: '',
+          parent_element_bid: parentElementBid,
+          type: ChatContentItemType.ASK,
+          content: '',
+          isAskExpanded: options?.expand ?? shouldAutoExpandAskBlock,
+          ask_list: normalizedAskList,
+          readonly: false,
+          customRenderBar: () => null,
+          user_input: '',
+        };
+        const likeStatusIndex = prev.findIndex(
+          item =>
+            item.parent_element_bid === parentElementBid &&
+            item.type === ChatContentItemType.LIKE_STATUS,
+        );
+        const parentContentIndex =
+          likeStatusIndex >= 0
+            ? likeStatusIndex
+            : prev.findIndex(item => item.element_bid === parentElementBid);
+
+        if (parentContentIndex < 0) {
+          return [...prev, nextAskBlock];
+        }
+
+        const nextList = [...prev];
+        nextList.splice(parentContentIndex + 1, 0, nextAskBlock);
+        return nextList;
+      });
+    },
+    [mobileStyle, setTrackedContentList],
+  );
+
   // Create a stable null render bar function
   const nullRenderBar = useCallback(() => null, []);
 
@@ -2570,6 +2678,7 @@ function useChatLogicHook({
     onSend,
     onRefresh,
     toggleAskExpanded,
+    syncAskListByParentElement,
     requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,

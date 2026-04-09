@@ -26,12 +26,13 @@ import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
-export interface AskMessage {
-  type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
-  content: string;
-  isStreaming?: boolean;
-  element_bid?: string;
-}
+import {
+  EMPTY_ASK_MESSAGE_LIST,
+  normalizeAskMessageList,
+  type AskMessage,
+} from './askState';
+import { useAskStateStore } from './useAskStateStore';
+export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
   askList?: AskMessage[];
@@ -63,12 +64,22 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
-    return askList.map(item => ({
-      content: item.content || '',
-      type: item.type,
-    }));
-  });
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
+  const setAskList = useAskStateStore(state => state.setAskList);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const scopedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
+  const storedAskList =
+    lessonScopeKey === outline_bid
+      ? (scopedAskListByAnchorElementBid[element_bid] ?? EMPTY_ASK_MESSAGE_LIST)
+      : EMPTY_ASK_MESSAGE_LIST;
+  const displayList =
+    storedAskList.length || !askList.length
+      ? storedAskList
+      : normalizeAskMessageList(askList);
+  const hasDisplayMessages = displayList.length > 0;
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -76,19 +87,48 @@ export default function AskBlock({
   const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
+  const [showMobileDialog, setShowMobileDialog] = useState(hasDisplayMessages);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
-  const expanded = isExpanded ?? (!mobileStyle && askList.length > 0);
+  const isSlideAskBlock = className?.includes('listen-slide-ask-block');
+  const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
+  const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const shouldForceSlideMobileDialog =
+    Boolean(isSlideAskBlock) && mobileStyle && expanded;
+  const shouldShowMobileDialog =
+    showMobileDialog || shouldForceSlideMobileDialog;
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+  const dismissAskInputFocus = useCallback(() => {
+    if (!mobileStyle || typeof document === 'undefined') {
+      return;
+    }
+
+    const focusable =
+      inputWrapperRef.current?.querySelector<
+        HTMLTextAreaElement | HTMLInputElement | HTMLElement
+      >('textarea, input, [contenteditable="true"]') ?? null;
+    const activeElement = document.activeElement as HTMLElement | null;
+    const shouldBlurActiveElement =
+      Boolean(activeElement) &&
+      inputWrapperRef.current?.contains(activeElement);
+
+    requestAnimationFrame(() => {
+      if (shouldBlurActiveElement) {
+        activeElement?.blur();
+        return;
+      }
+
+      focusable?.blur();
+    });
+  }, [mobileStyle]);
 
   const finalizeStreamingMessage = useCallback(() => {
     isStreamingRef.current = false;
-    setDisplayList(prev => {
+    setAskList(element_bid, prev => {
       const newList = [...prev];
       const lastIndex = newList.length - 1;
       if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
@@ -99,27 +139,30 @@ export default function AskBlock({
       }
       return newList;
     });
-  }, []);
+  }, [element_bid, setAskList]);
 
-  const updateStreamingAnswerMessage = useCallback((incomingText: string) => {
-    const prevText = currentContentRef.current || '';
-    const delta = fixMarkdownStream(prevText, incomingText || '');
-    const nextText = prevText + delta;
-    currentContentRef.current = nextText;
+  const updateStreamingAnswerMessage = useCallback(
+    (incomingText: string) => {
+      const prevText = currentContentRef.current || '';
+      const delta = fixMarkdownStream(prevText, incomingText || '');
+      const nextText = prevText + delta;
+      currentContentRef.current = nextText;
 
-    setDisplayList(prev => {
-      const newList = [...prev];
-      const lastIndex = newList.length - 1;
-      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-        newList[lastIndex] = {
-          ...newList[lastIndex],
-          content: nextText,
-          isStreaming: true,
-        };
-      }
-      return newList;
-    });
-  }, []);
+      setAskList(element_bid, prev => {
+        const newList = [...prev];
+        const lastIndex = newList.length - 1;
+        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+          newList[lastIndex] = {
+            ...newList[lastIndex],
+            content: nextText,
+            isStreaming: true,
+          };
+        }
+        return newList;
+      });
+    },
+    [element_bid, setAskList],
+  );
 
   const replaceStreamingAnswerMessage = useCallback(
     (incomingText: string, answerElementBid = '') => {
@@ -129,7 +172,7 @@ export default function AskBlock({
         currentAnswerElementBidRef.current = answerElementBid;
       }
 
-      setDisplayList(prev => {
+      setAskList(element_bid, prev => {
         const newList = [...prev];
         const lastIndex = newList.length - 1;
         if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
@@ -143,7 +186,7 @@ export default function AskBlock({
         return newList;
       });
     },
-    [],
+    [element_bid, setAskList],
   );
 
   const handleSendCustomQuestion = useCallback(async () => {
@@ -167,7 +210,7 @@ export default function AskBlock({
     setShowMobileDialog(true);
 
     // Append the new question as a user message at the end
-    setDisplayList(prev => [
+    setAskList(element_bid, prev => [
       ...prev,
       {
         type: BLOCK_TYPE.ASK,
@@ -176,9 +219,10 @@ export default function AskBlock({
     ]);
 
     setInputValue('');
+    dismissAskInputFocus();
 
     // Add an empty teacher reply placeholder to receive streaming content
-    setDisplayList(prev => [
+    setAskList(element_bid, prev => [
       ...prev,
       {
         type: BLOCK_TYPE.ANSWER,
@@ -231,6 +275,7 @@ export default function AskBlock({
               typeof elementRecord?.element_type === 'string'
                 ? elementRecord.element_type
                 : '';
+
             if (elementType === BLOCK_TYPE.ANSWER) {
               const answerElementBid =
                 typeof elementRecord?.target_element_bid === 'string' &&
@@ -243,6 +288,7 @@ export default function AskBlock({
                 typeof elementRecord?.content === 'string'
                   ? elementRecord.content
                   : '';
+
               replaceStreamingAnswerMessage(answerText, answerElementBid);
               return;
             }
@@ -283,9 +329,11 @@ export default function AskBlock({
     preview_mode,
     element_bid,
     inputValue,
+    dismissAskInputFocus,
     showOutputInProgressToast,
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
+    setAskList,
     updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(
@@ -297,6 +345,15 @@ export default function AskBlock({
 
   // Decide which messages to display
   const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
+  const hasAskAnswerMessages = messagesToShow.length > 0;
+
+  useEffect(() => {
+    ensureLessonScope(outline_bid);
+  }, [ensureLessonScope, outline_bid]);
+
+  useEffect(() => {
+    hydrateAskList(element_bid, askList);
+  }, [askList, element_bid, hydrateAskList]);
 
   useEffect(() => {
     if (!expanded) {
@@ -311,10 +368,10 @@ export default function AskBlock({
   }, []);
 
   useEffect(() => {
-    if (askList.length > 0) {
+    if (hasDisplayMessages) {
       setShowMobileDialog(true);
     }
-  }, [askList.length]);
+  }, [hasDisplayMessages]);
 
   useEffect(() => {
     if (!mobileStyle || !expanded) {
@@ -334,7 +391,7 @@ export default function AskBlock({
   }, [mobileStyle, expanded]);
 
   useEffect(() => {
-    if (!mobileStyle || !showMobileDialog || !expanded) {
+    if (!mobileStyle || !shouldShowMobileDialog || !expanded) {
       return;
     }
 
@@ -343,14 +400,53 @@ export default function AskBlock({
       return;
     }
 
-    const rafId = requestAnimationFrame(() => {
+    const syncScrollToBottom = () => {
       container.scrollTop = container.scrollHeight;
+    };
+    const rafId = requestAnimationFrame(syncScrollToBottom);
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(syncScrollToBottom);
+    });
+
+    resizeObserver.observe(container);
+    Array.from(container.children).forEach(child => {
+      resizeObserver.observe(child);
     });
 
     return () => {
+      resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
     };
-  }, [mobileStyle, showMobileDialog, expanded, messagesToShow.length]);
+  }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow]);
+
+  useEffect(() => {
+    if (!isDesktopSlideAskBlock || !expanded) {
+      return;
+    }
+
+    const container = mobileContentRef.current;
+    if (!container) {
+      return;
+    }
+
+    const syncScrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+    const rafId = requestAnimationFrame(syncScrollToBottom);
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(syncScrollToBottom);
+    });
+
+    resizeObserver.observe(container);
+    Array.from(container.children).forEach(child => {
+      resizeObserver.observe(child);
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      cancelAnimationFrame(rafId);
+    };
+  }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
@@ -494,7 +590,11 @@ export default function AskBlock({
     );
   };
 
-  if (mobileStyle && showMobileDialog && messagesToShow.length > 0) {
+  if (
+    mobileStyle &&
+    shouldShowMobileDialog &&
+    (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
+  ) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
@@ -543,7 +643,10 @@ export default function AskBlock({
                 </div>
               </div>
               <div
-                className={styles.mobileContent}
+                className={cn(
+                  styles.mobileContent,
+                  !hasAskAnswerMessages && styles.mobileContentHidden,
+                )}
                 ref={mobileContentRef}
               >
                 {renderMessages({
@@ -558,6 +661,43 @@ export default function AskBlock({
     );
   }
 
+  if (isDesktopSlideAskBlock && expanded) {
+    return (
+      <div
+        className={cn(
+          styles.askBlock,
+          className,
+          styles.desktopSlidePanel,
+          !hasAskAnswerMessages && styles.desktopSlidePanelEmpty,
+        )}
+      >
+        <div className={styles.desktopSlideHeader}>
+          <div className={styles.desktopSlideTitle}>{t('module.chat.ask')}</div>
+          <button
+            type='button'
+            className={styles.desktopSlideActionButton}
+            onClick={handleClose}
+            aria-label='Close'
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div
+          className={cn(
+            styles.desktopSlideContent,
+            !hasAskAnswerMessages && styles.desktopSlideContentHidden,
+          )}
+          ref={mobileContentRef}
+        >
+          {renderMessages({
+            extraClass: styles.desktopSlideMessageList,
+          })}
+        </div>
+        {renderInput(styles.desktopSlideInput)}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -565,10 +705,14 @@ export default function AskBlock({
         className,
         mobileStyle ? styles.mobile : '',
       )}
-      style={{
-        marginTop: expanded || messagesToShow.length > 0 ? '8px' : '0',
-        padding: expanded || messagesToShow.length > 0 ? '16px' : '0',
-      }}
+      style={
+        isSlideAskBlock
+          ? undefined
+          : {
+              marginTop: expanded || messagesToShow.length > 0 ? '8px' : '0',
+              padding: expanded || messagesToShow.length > 0 ? '16px' : '0',
+            }
+      }
     >
       {renderMessages()}
       {renderInput()}

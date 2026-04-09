@@ -68,8 +68,8 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
         raising=False,
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.route.langfuse_client",
-        fake_langfuse,
+        "flaskr.service.shifu.route.get_langfuse_client",
+        lambda: fake_langfuse,
         raising=False,
     )
 
@@ -98,6 +98,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert payload["data"]["fallback_used"] is False
     assert len(fake_langfuse.traces) == 1
     trace = fake_langfuse.traces[0]
+    assert trace.kwargs["input"] == "hello"
     assert trace.last_span is not None
     assert len(trace.last_span.generations) == 1
     generation = trace.last_span.generations[0]

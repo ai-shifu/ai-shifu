@@ -41,7 +41,12 @@ def _insert_email_credential(user_bid: str, email: str) -> AuthCredential:
     return credential
 
 
-def _create_user(user_bid: str, email: str) -> UserEntity:
+def _create_user(
+    user_bid: str,
+    email: str,
+    *,
+    is_operator: bool = False,
+) -> UserEntity:
     entity = create_user_entity(
         user_bid=user_bid,
         identify=email,
@@ -50,6 +55,7 @@ def _create_user(user_bid: str, email: str) -> UserEntity:
         avatar="",
         state=USER_STATE_REGISTERED,
     )
+    entity.is_operator = 1 if is_operator else 0
     entity.created_at = datetime.utcnow()
     entity.updated_at = datetime.utcnow()
     db.session.flush()
@@ -61,7 +67,7 @@ def _create_user(user_bid: str, email: str) -> UserEntity:
 def test_load_user_aggregate_returns_expected_data(app, user_bid):
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
-        _create_user(user_bid, email)
+        _create_user(user_bid, email, is_operator=True)
         aggregate = load_user_aggregate(user_bid)
         try:
             assert aggregate is not None
@@ -70,11 +76,13 @@ def test_load_user_aggregate_returns_expected_data(app, user_bid):
             assert aggregate.username == email
             assert aggregate.display_name == "Test User"
             assert aggregate.public_state == 1
+            assert aggregate.is_operator is True
 
             dto = build_user_info_from_aggregate(aggregate)
             assert dto.email == email
             assert dto.name == "Test User"
             assert dto.user_state == "已注册"
+            assert dto.is_operator is True
         finally:
             AuthCredential.query.filter_by(user_bid=user_bid).delete()
             UserEntity.query.filter_by(user_bid=user_bid).delete()
