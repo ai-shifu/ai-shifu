@@ -35,5 +35,24 @@
     "status": "状态",
     "updatedAt": "更新时间"
   },
-  "title": "课程"
+  "title": "课程管理",
+  "transferCreatorDialog": {
+    "confirm": "确认转移",
+    "confirmDescriptionCourseSuffix": "课程的创作者从",
+    "confirmDescriptionPrefix": "将",
+    "confirmDescriptionTargetPrefix": "转移到",
+    "confirmTitle": "确认转移创作者",
+    "contactPlaceholderEmail": "请输入目标创作者邮箱",
+    "contactPlaceholderPhone": "请输入目标创作者手机号",
+    "contactType": "联系方式类型",
+    "contactTypeEmail": "邮箱",
+    "contactTypePhone": "手机号",
+    "currentCreator": "当前创作者",
+    "description": "仅更换创作者，课程内容、配置和共享权限均保持不变。",
+    "identifier": "目标创作者",
+    "identifierRequired": "请输入合法的目标创作者联系方式",
+    "sameCreator": "目标联系方式已属于当前创作者",
+    "submitSuccess": "创作者转移成功",
+    "title": "转移创作者"
+  }
 }

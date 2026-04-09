@@ -14,8 +14,26 @@ import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import {
   Select,
   SelectContent,
@@ -59,6 +77,7 @@ import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
+import { isValidEmail } from '@/lib/validators';
 import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
   AdminOperationCourseItem,
@@ -102,6 +121,9 @@ type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
+
+type TransferContactType = 'email' | 'phone';
 
 const createDefaultFilters = (): CourseFilters => ({
   shifu_bid: '',
@@ -116,6 +138,27 @@ const createDefaultFilters = (): CourseFilters => ({
 
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
+
+const normalizeTransferIdentifier = (
+  contactType: TransferContactType,
+  value: string,
+): string => {
+  const trimmed = value.trim();
+  return contactType === 'email' ? trimmed.toLowerCase() : trimmed;
+};
+
+const isValidTransferIdentifier = (
+  contactType: TransferContactType,
+  value: string,
+): boolean => {
+  if (!value) {
+    return false;
+  }
+  if (contactType === 'email') {
+    return isValidEmail(value);
+  }
+  return TRANSFER_PHONE_PATTERN.test(value);
+};
 
 const createColumnWidthState = (
   overrides?: Partial<ColumnWidthState>,
@@ -346,6 +389,23 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.table.createdAt')
  * t('module.operationsCourse.table.updatedAt')
  * t('module.operationsCourse.table.action')
+ * t('module.operationsCourse.transferCreatorDialog.title')
+ * t('module.operationsCourse.transferCreatorDialog.description')
+ * t('module.operationsCourse.transferCreatorDialog.currentCreator')
+ * t('module.operationsCourse.transferCreatorDialog.contactType')
+ * t('module.operationsCourse.transferCreatorDialog.contactTypeEmail')
+ * t('module.operationsCourse.transferCreatorDialog.contactTypePhone')
+ * t('module.operationsCourse.transferCreatorDialog.identifier')
+ * t('module.operationsCourse.transferCreatorDialog.contactPlaceholderEmail')
+ * t('module.operationsCourse.transferCreatorDialog.contactPlaceholderPhone')
+ * t('module.operationsCourse.transferCreatorDialog.identifierRequired')
+ * t('module.operationsCourse.transferCreatorDialog.sameCreator')
+ * t('module.operationsCourse.transferCreatorDialog.confirm')
+ * t('module.operationsCourse.transferCreatorDialog.submitSuccess')
+ * t('module.operationsCourse.transferCreatorDialog.confirmTitle')
+ * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionPrefix')
+ * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionCourseSuffix')
+ * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionTargetPrefix')
  */
 const OperationsPage = () => {
   const router = useRouter();
@@ -367,6 +427,38 @@ const OperationsPage = () => {
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
+  const transferContactOptions = useMemo<TransferContactType[]>(() => {
+    const methods = loginMethodsEnabled || [];
+    const normalizedMethods = methods
+      .map(method => method.trim().toLowerCase())
+      .filter(Boolean);
+    const options: TransferContactType[] = [];
+    if (normalizedMethods.includes('phone')) {
+      options.push('phone');
+    }
+    if (
+      normalizedMethods.includes('email') ||
+      normalizedMethods.includes('google')
+    ) {
+      options.push('email');
+    }
+    if (options.length === 0) {
+      options.push(contactType);
+    }
+    return Array.from(new Set(options));
+  }, [contactType, loginMethodsEnabled]);
+  const defaultTransferContactType = useMemo<TransferContactType>(() => {
+    if (transferContactOptions.includes('phone')) {
+      return 'phone';
+    }
+    if (transferContactOptions.includes('email')) {
+      return 'email';
+    }
+    if (transferContactOptions.includes(contactType)) {
+      return contactType;
+    }
+    return transferContactOptions[0] || 'phone';
+  }, [contactType, transferContactOptions]);
   const isEmailMode = contactType === 'email';
   const creatorPlaceholder = useMemo(
     () =>
@@ -406,6 +498,15 @@ const OperationsPage = () => {
   const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
     createColumnWidthState(storedManualWidthsRef.current),
   );
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferTargetCourse, setTransferTargetCourse] =
+    useState<AdminOperationCourseItem | null>(null);
+  const [transferContactType, setTransferContactType] =
+    useState<TransferContactType>(defaultTransferContactType);
+  const [transferIdentifier, setTransferIdentifier] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState('');
+  const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
   const columnResizeRef = useRef<{
     key: ColumnKey;
     startX: number;
@@ -553,11 +654,34 @@ const OperationsPage = () => {
     router.push(detailUrl);
   };
 
-  const handleTransferCreatorClick = () => {
-    toast({
-      title: t('common.core.waitingForCompletion'),
-    });
-  };
+  const handleTransferDialogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setTransferDialogOpen(nextOpen);
+      if (nextOpen) {
+        return;
+      }
+      setTransferTargetCourse(null);
+      setTransferContactType(defaultTransferContactType);
+      setTransferIdentifier('');
+      setTransferError('');
+      setTransferConfirmOpen(false);
+      setTransferLoading(false);
+    },
+    [defaultTransferContactType],
+  );
+
+  const handleTransferCreatorClick = useCallback(
+    (course: AdminOperationCourseItem) => {
+      setTransferTargetCourse(course);
+      setTransferContactType(defaultTransferContactType);
+      setTransferIdentifier('');
+      setTransferError('');
+      setTransferConfirmOpen(false);
+      setTransferLoading(false);
+      setTransferDialogOpen(true);
+    },
+    [defaultTransferContactType],
+  );
 
   const resolveCourseStatusLabel = useCallback(
     (courseStatus?: string) => {
@@ -606,6 +730,126 @@ const OperationsPage = () => {
     },
     [defaultUserName, resolvePrimaryContact],
   );
+
+  const transferCreatorDisplay = useMemo(() => {
+    if (!transferTargetCourse) {
+      return { primary: '--', secondary: '' };
+    }
+    return resolveActorDisplay(transferTargetCourse, 'creator');
+  }, [resolveActorDisplay, transferTargetCourse]);
+  const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
+
+  const normalizedTransferIdentifier = useMemo(
+    () => normalizeTransferIdentifier(transferContactType, transferIdentifier),
+    [transferContactType, transferIdentifier],
+  );
+  const transferCurrentCreatorIdentifier = useMemo(() => {
+    if (!transferTargetCourse) {
+      return '';
+    }
+    const currentIdentifier =
+      transferContactType === 'email'
+        ? transferTargetCourse.creator_email
+        : transferTargetCourse.creator_mobile;
+    return normalizeTransferIdentifier(transferContactType, currentIdentifier);
+  }, [transferContactType, transferTargetCourse]);
+  const transferIdentifierPlaceholder = useMemo(
+    () =>
+      transferContactType === 'email'
+        ? tOperations('transferCreatorDialog.contactPlaceholderEmail')
+        : tOperations('transferCreatorDialog.contactPlaceholderPhone'),
+    [tOperations, transferContactType],
+  );
+  const transferHintText = useMemo(
+    () => tOperations('transferCreatorDialog.description'),
+    [tOperations],
+  );
+  const transferCurrentCreatorText = transferCurrentCreatorIdentifier || '--';
+  const transferTargetCreatorText = normalizedTransferIdentifier || '--';
+
+  useEffect(() => {
+    if (!transferDialogOpen) {
+      return;
+    }
+    if (!transferContactOptions.includes(transferContactType)) {
+      setTransferContactType(defaultTransferContactType);
+    }
+  }, [
+    defaultTransferContactType,
+    transferContactOptions,
+    transferContactType,
+    transferDialogOpen,
+  ]);
+
+  const handleTransferSubmit = useCallback(() => {
+    if (!transferTargetCourse) {
+      return;
+    }
+
+    if (
+      !isValidTransferIdentifier(
+        transferContactType,
+        normalizedTransferIdentifier,
+      )
+    ) {
+      setTransferError(tOperations('transferCreatorDialog.identifierRequired'));
+      return;
+    }
+
+    if (
+      transferCurrentCreatorIdentifier &&
+      normalizedTransferIdentifier === transferCurrentCreatorIdentifier
+    ) {
+      setTransferError(tOperations('transferCreatorDialog.sameCreator'));
+      return;
+    }
+
+    setTransferError('');
+    setTransferConfirmOpen(true);
+  }, [
+    normalizedTransferIdentifier,
+    tOperations,
+    transferContactType,
+    transferCurrentCreatorIdentifier,
+    transferTargetCourse,
+  ]);
+
+  const handleTransferConfirm = useCallback(async () => {
+    if (!transferTargetCourse) {
+      return;
+    }
+
+    setTransferConfirmOpen(false);
+    setTransferError('');
+    setTransferLoading(true);
+    try {
+      await api.transferAdminOperationCourseCreator({
+        shifu_bid: transferTargetCourse.shifu_bid,
+        contact_type: transferContactType,
+        identifier: normalizedTransferIdentifier,
+      });
+      toast({
+        title: tOperations('transferCreatorDialog.submitSuccess'),
+      });
+      handleTransferDialogOpenChange(false);
+      await fetchCourses(requestedPageRef.current);
+    } catch (error) {
+      setTransferError(
+        error instanceof Error ? error.message : t('common.core.unknownError'),
+      );
+    } finally {
+      setTransferLoading(false);
+    }
+  }, [
+    fetchCourses,
+    handleTransferDialogOpenChange,
+    normalizedTransferIdentifier,
+    t,
+    tOperations,
+    toast,
+    transferContactType,
+    transferTargetCourse,
+  ]);
 
   const startColumnResize = useCallback(
     (key: ColumnKey, clientX: number) => {
@@ -1222,7 +1466,9 @@ const OperationsPage = () => {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align='center'>
                                 <DropdownMenuItem
-                                  onClick={handleTransferCreatorClick}
+                                  onClick={() =>
+                                    handleTransferCreatorClick(course)
+                                  }
                                 >
                                   {tOperations('actions.transferCreator')}
                                 </DropdownMenuItem>
@@ -1238,6 +1484,145 @@ const OperationsPage = () => {
             </TooltipProvider>
           )}
         </div>
+
+        <Dialog
+          open={transferDialogOpen}
+          onOpenChange={handleTransferDialogOpenChange}
+        >
+          <DialogContent className='overflow-hidden p-0 gap-0 sm:max-w-[440px]'>
+            <DialogHeader className='border-b border-border px-6 pb-4 pt-6'>
+              <DialogTitle>
+                {tOperations('transferCreatorDialog.title')}
+              </DialogTitle>
+              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                {transferHintText}
+              </p>
+            </DialogHeader>
+
+            <div className='space-y-5 px-6 py-5'>
+              <div className='rounded-xl border border-border bg-muted/[0.18] p-3.5'>
+                <div className='space-y-3'>
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('table.courseName')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {transferCourseName}
+                    </div>
+                  </div>
+
+                  <div className='h-px bg-border/80' />
+
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('transferCreatorDialog.currentCreator')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {transferCreatorDisplay.secondary ||
+                        transferCreatorDisplay.primary ||
+                        '--'}
+                    </div>
+                    {transferCreatorDisplay.primary &&
+                    transferCreatorDisplay.secondary ? (
+                      <div className='text-sm text-muted-foreground'>
+                        {transferCreatorDisplay.primary}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className='space-y-2.5'>
+                <Label
+                  htmlFor='transfer-identifier'
+                  className='text-sm font-medium text-foreground'
+                >
+                  {tOperations('transferCreatorDialog.identifier')}
+                </Label>
+                <Input
+                  id='transfer-identifier'
+                  value={transferIdentifier}
+                  placeholder={transferIdentifierPlaceholder}
+                  className='h-11 rounded-lg'
+                  onChange={event => {
+                    setTransferIdentifier(event.target.value);
+                    if (transferError) {
+                      setTransferError('');
+                    }
+                  }}
+                  autoComplete='off'
+                />
+                {transferError ? (
+                  <p className='text-sm text-destructive'>{transferError}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <DialogFooter className='gap-2 border-t border-border bg-background px-6 py-4'>
+              <Button
+                variant='outline'
+                onClick={() => handleTransferDialogOpenChange(false)}
+                disabled={transferLoading}
+                className='min-w-24'
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                onClick={handleTransferSubmit}
+                disabled={transferLoading || !transferTargetCourse}
+                className='min-w-28'
+              >
+                {tOperations('transferCreatorDialog.confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog
+          open={transferConfirmOpen}
+          onOpenChange={setTransferConfirmOpen}
+        >
+          <AlertDialogContent className='sm:max-w-[420px]'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tOperations('transferCreatorDialog.confirmTitle')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className='leading-8 text-muted-foreground'>
+                  {tOperations(
+                    'transferCreatorDialog.confirmDescriptionPrefix',
+                  )}
+                  <span className='mx-1 text-foreground'>
+                    {transferCourseName}
+                  </span>
+                  {tOperations(
+                    'transferCreatorDialog.confirmDescriptionCourseSuffix',
+                  )}
+                  <span className='mx-1 text-foreground'>
+                    {transferCurrentCreatorText}
+                  </span>
+                  {tOperations(
+                    'transferCreatorDialog.confirmDescriptionTargetPrefix',
+                  )}
+                  <span className='ml-1 font-semibold text-foreground'>
+                    {transferTargetCreatorText}
+                  </span>
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={transferLoading}>
+                {t('common.core.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleTransferConfirm}
+                disabled={transferLoading}
+              >
+                {tOperations('transferCreatorDialog.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <div className='mt-4 mb-4 flex justify-end'>
           <Pagination className='justify-end w-auto mx-0'>

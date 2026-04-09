@@ -17,6 +17,7 @@ const mockErrorDisplay = jest.fn();
 const originalLocation = window.location;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
+const RETRY_LABEL = 'retry';
 
 const mockUserState: {
   isInitialized: boolean;
@@ -41,6 +42,7 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationCourses: jest.fn(),
+    transferAdminOperationCourseCreator: jest.fn(),
   },
 }));
 
@@ -103,7 +105,7 @@ jest.mock('@/components/ErrorDisplay', () => ({
             type='button'
             onClick={props.onRetry}
           >
-            retry
+            {RETRY_LABEL}
           </button>
         ) : null}
       </div>
@@ -165,6 +167,75 @@ jest.mock('@/components/ui/Select', () => {
     },
   };
 });
+
+jest.mock('@/components/ui/Dialog', () => ({
+  __esModule: true,
+  Dialog: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
+    open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: React.PropsWithChildren) => (
+    <div role='dialog'>{children}</div>
+  ),
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+}));
+
+jest.mock('@/components/ui/AlertDialog', () => ({
+  __esModule: true,
+  AlertDialog: ({
+    open,
+    children,
+  }: React.PropsWithChildren<{ open?: boolean }>) =>
+    open ? <div>{children}</div> : null,
+  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
+    <div role='alertdialog'>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogCancel: ({
+    children,
+    onClick,
+    disabled,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  ),
+  AlertDialogAction: ({
+    children,
+    onClick,
+    disabled,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  ),
+}));
 
 jest.mock('@/components/ui/DropdownMenu', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -265,6 +336,8 @@ jest.mock('@/components/ui/DropdownMenu', () => {
 });
 
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
+const mockTransferAdminOperationCourseCreator =
+  api.transferAdminOperationCourseCreator as jest.Mock;
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -314,6 +387,7 @@ describe('OperationsPage', () => {
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockGetAdminOperationCourses.mockReset();
+    mockTransferAdminOperationCourseCreator.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = {
@@ -365,6 +439,7 @@ describe('OperationsPage', () => {
       page_size: 20,
       total: 2,
     });
+    mockTransferAdminOperationCourseCreator.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -414,7 +489,7 @@ describe('OperationsPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('navigates from course name and fires placeholder action toast', async () => {
+  test('navigates from course name and transfers creator from the action menu', async () => {
     await renderAndWaitForLoadedPage();
 
     fireEvent.click(
@@ -443,9 +518,73 @@ describe('OperationsPage', () => {
 
     fireEvent.click(transferCreatorMenuItem);
 
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'common.core.waitingForCompletion',
+    expect(
+      screen.getByText('module.operationsCourse.transferCreatorDialog.title'),
+    ).toBeInTheDocument();
+    const transferDialog = screen.getByRole('dialog');
+    expect(
+      within(transferDialog).getByText(
+        'module.operationsCourse.table.courseName',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(transferDialog).getByText('creator@example.com'),
+    ).toBeInTheDocument();
+    expect(within(transferDialog).getByText('Course 1')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.transferCreatorDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'next-creator@example.com' },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.transferCreatorDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    expect(
+      within(confirmDialog).getByText(
+        'module.operationsCourse.transferCreatorDialog.confirmTitle',
+      ),
+    ).toBeInTheDocument();
+    expect(within(confirmDialog).getByText('Course 1')).toBeInTheDocument();
+    expect(
+      within(confirmDialog).getByText('creator@example.com'),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmDialog).getByText('next-creator@example.com'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.transferCreatorDialog.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockTransferAdminOperationCourseCreator).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        contact_type: 'email',
+        identifier: 'next-creator@example.com',
+      });
     });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.operationsCourse.transferCreatorDialog.submitSuccess',
+    });
+    expect(
+      screen.queryByText('module.operationsCourse.transferCreatorDialog.title'),
+    ).not.toBeInTheDocument();
   });
 
   test('clears search input with the right-side clear action', async () => {
@@ -494,6 +633,77 @@ describe('OperationsPage', () => {
           course_status: 'published',
         }),
       );
+    });
+  });
+
+  test('shows inline validation and request errors for transfer creator', async () => {
+    mockTransferAdminOperationCourseCreator.mockRejectedValueOnce(
+      new Error('transfer failed'),
+    );
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.transferCreator',
+      }),
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.transferCreatorDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'creator@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.transferCreatorDialog.confirm',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.transferCreatorDialog.sameCreator',
+      ),
+    ).toBeInTheDocument();
+    expect(mockTransferAdminOperationCourseCreator).not.toHaveBeenCalled();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.transferCreatorDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'valid@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.transferCreatorDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.transferCreatorDialog.confirm',
+      }),
+    );
+
+    expect(await screen.findByText('transfer failed')).toBeInTheDocument();
+    expect(mockTransferAdminOperationCourseCreator).toHaveBeenCalledWith({
+      shifu_bid: 'course-1',
+      contact_type: 'email',
+      identifier: 'valid@example.com',
     });
   });
 
