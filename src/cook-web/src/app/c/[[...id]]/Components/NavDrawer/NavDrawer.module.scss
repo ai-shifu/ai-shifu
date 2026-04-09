@@ -60,7 +60,7 @@
     width: 100%;
     height: calc(calc(var(--app-viewport-block-unit, 1dvh) * 100) - 58px);
     display: block;
-    z-index: 100;
+    z-index: 20;
 
     .navHeader {
       display: none;
