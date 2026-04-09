@@ -170,8 +170,12 @@
   &.mobile.listenMode {
     display: flex;
     flex: 1 1 0;
-    height: calc(100dvh - 58px - 40px);
-    max-height: calc(100dvh - 58px - 40px);
+    height: calc(
+      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 58px - 40px
+    );
+    max-height: calc(
+      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 58px - 40px
+    );
     min-height: 0;
     flex-direction: column;
     overflow: visible;
@@ -205,7 +209,7 @@
 
     height: 100%;
     min-width: 0;
-    min-height: 100dvh;
+    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
     background: #fff;
     flex: 1 1 auto;
     justify-content: center;

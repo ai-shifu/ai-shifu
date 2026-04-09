@@ -1,6 +1,6 @@
 .newChatPage {
   width: 100%;
-  min-height: 100dvh;
+  min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   display: flex;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-4-1);
@@ -17,8 +17,8 @@
   }
 
   &.listenMode {
-    height: 100dvh;
-    min-height: 100dvh;
+    height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
     overflow: hidden;
 
     .chatMobileHeader {

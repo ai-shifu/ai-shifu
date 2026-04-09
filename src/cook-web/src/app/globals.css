@@ -10,6 +10,10 @@ html {
   -moz-osx-font-smoothing: auto;
 }
 
+:root {
+  --app-viewport-block-unit: 1dvh;
+}
+
 /* Listen mode layout bounds live in global CSS to avoid CSS Modules purity errors */
 html.listen-mode,
 body.listen-mode {
@@ -18,8 +22,14 @@ body.listen-mode {
 }
 
 body.listen-mode #root {
-  height: 100dvh;
+  height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   min-height: auto;
+}
+
+html.listen-mode-vh-fallback,
+body.listen-mode-vh-fallback,
+body.listen-mode-vh-fallback #root {
+  --app-viewport-block-unit: 1vh;
 }
 
 @layer base {

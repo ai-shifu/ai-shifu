@@ -240,7 +240,10 @@
 }
 
 .slide-player__ask-body {
-  max-height: min(480px, calc(100dvh - 240px));
+  max-height: min(
+    480px,
+    calc(calc(var(--app-viewport-block-unit, 1dvh) * 100) - 240px)
+  );
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0;

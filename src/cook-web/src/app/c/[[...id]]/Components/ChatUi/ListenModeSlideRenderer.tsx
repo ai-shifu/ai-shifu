@@ -34,6 +34,7 @@ import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
+import { DEFAULT_LISTEN_MOBILE_VIEW_MODE } from './listenModeTypes';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -88,8 +89,6 @@ interface ListenSlideAskPlayerActionProps {
   disabled?: boolean;
   renderButton?: boolean;
 }
-
-const DEFAULT_MOBILE_VIEW_MODE: MobileViewMode = 'nonFullscreen';
 
 const ListenSlideAskPlayerAction = memo(
   ({
@@ -407,7 +406,7 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
-    DEFAULT_MOBILE_VIEW_MODE,
+    DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   );
   const [fullscreenPortalContainer, setFullscreenPortalContainer] =
     useState<HTMLElement | null>(null);
@@ -1167,9 +1166,14 @@ const ListenModeSlideRenderer = ({
 
     return (
       <div className='flex min-w-0 items-center gap-3 text-white'>
-        {courseAvatar ?<Avatar className='h-8 w-8 shrink-0'>
-           <AvatarImage src={courseAvatar} alt='' /> 
-        </Avatar>: null}
+        {courseAvatar ? (
+          <Avatar className='h-8 w-8 shrink-0'>
+            <AvatarImage
+              src={courseAvatar}
+              alt=''
+            />
+          </Avatar>
+        ) : null}
         <div className='flex min-w-0 flex-col justify-center'>
           {courseName ? (
             <span className='truncate text-base font-bold leading-5 text-white'>
@@ -1192,13 +1196,14 @@ const ListenModeSlideRenderer = ({
     }),
     [fullscreenHeaderContent, t],
   );
-  const handleMobileViewModeChange = useCallback(
-    (viewMode: MobileViewMode) => {
-      setMobileViewMode(viewMode);
-      onMobileViewModeChange?.(viewMode);
-    },
-    [onMobileViewModeChange],
-  );
+  const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
+    setMobileViewMode(viewMode);
+  }, []);
+
+  useEffect(() => {
+    onMobileViewModeChange?.(mobileViewMode);
+  }, [mobileViewMode, onMobileViewModeChange]);
+
   useEffect(() => {
     if (!isMobileFullscreen) {
       setFullscreenPortalContainer(null);

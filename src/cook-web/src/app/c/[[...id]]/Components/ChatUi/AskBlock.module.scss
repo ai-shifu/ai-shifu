@@ -147,7 +147,7 @@
 }
 
 .mobilePanelLandscape {
-  max-height: min(80dvh, 560px);
+  max-height: min(calc(var(--app-viewport-block-unit, 1dvh) * 80), 560px);
 }
 
 .mobilePanelFullscreen {
@@ -289,7 +289,10 @@
   display: flex;
   min-height: 0;
   flex-direction: column;
-  height: min(480px, calc(100dvh - 240px));
+  height: min(
+    480px,
+    calc(calc(var(--app-viewport-block-unit, 1dvh) * 100) - 240px)
+  );
   max-height: 100%;
   background: #fff !important;
   border-radius: 24px;
