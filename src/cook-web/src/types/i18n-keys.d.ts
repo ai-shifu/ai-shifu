@@ -585,6 +585,7 @@ export type I18nKey =
   | 'module.billing.package.free.creditSummary'
   | 'module.billing.package.free.description'
   | 'module.billing.package.free.priceNote'
+  | 'module.billing.package.free.priceNoteGranted'
   | 'module.billing.package.free.priceValue'
   | 'module.billing.package.free.title'
   | 'module.billing.package.intervalTabs.monthly'

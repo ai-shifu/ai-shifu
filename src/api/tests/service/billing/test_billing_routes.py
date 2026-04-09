@@ -663,6 +663,15 @@ class TestBillingRoutes:
         assert overview_payload["data"]["billing_alerts"][0]["code"] == (
             "subscription_cancel_scheduled"
         )
+        assert overview_payload["data"]["trial_offer"] == {
+            "enabled": False,
+            "status": "disabled",
+            "credit_amount": 100,
+            "valid_days": 15,
+            "starts_on_first_grant": True,
+            "granted_at": None,
+            "expires_at": None,
+        }
 
         assert bucket_payload["code"] == 0
         assert [

@@ -361,6 +361,7 @@ export function BillingOverviewTab({
     [catalog?.plans],
   );
   const topups = useMemo(() => catalog?.topups || [], [catalog?.topups]);
+  const trialOffer = overview?.trial_offer;
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
     !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
@@ -586,8 +587,46 @@ export function BillingOverviewTab({
     : '';
 
   const loadError = overviewError || catalogError;
-
-  const renderFreeCard = showcaseTab === 'monthly';
+  const renderFreeCard =
+    showcaseTab === 'monthly' &&
+    Boolean(
+      trialOffer && (trialOffer.enabled || trialOffer.status === 'granted'),
+    );
+  const freeCreditSummary = useMemo(
+    () =>
+      t('module.billing.package.free.creditSummary', {
+        credits: formatBillingCredits(
+          trialOffer?.credit_amount || 0,
+          i18n.language,
+        ),
+      }),
+    [i18n.language, t, trialOffer?.credit_amount],
+  );
+  const freePriceMetaLabel = useMemo(() => {
+    if (!trialOffer) {
+      return '';
+    }
+    if (
+      trialOffer.status === 'granted' &&
+      trialOffer.granted_at &&
+      trialOffer.expires_at
+    ) {
+      return t('module.billing.package.free.priceNoteGranted', {
+        grantedAt: formatBillingDate(trialOffer.granted_at, i18n.language),
+        expiresAt: formatBillingDate(trialOffer.expires_at, i18n.language),
+      });
+    }
+    return t('module.billing.package.free.priceNote', {
+      days: trialOffer.valid_days,
+    });
+  }, [
+    i18n.language,
+    t,
+    trialOffer?.expires_at,
+    trialOffer?.granted_at,
+    trialOffer?.status,
+    trialOffer?.valid_days,
+  ]);
 
   return (
     <section
@@ -784,17 +823,17 @@ export function BillingOverviewTab({
           {renderFreeCard ? (
             <PlanShowcaseCard
               actionLabel={t(
-                hasActiveSubscription
-                  ? 'module.billing.package.actions.freeTrial'
-                  : 'module.billing.package.actions.currentUsing',
+                trialOffer?.status === 'granted'
+                  ? 'module.billing.package.actions.currentUsing'
+                  : 'module.billing.package.actions.freeTrial',
               )}
               compact={false}
-              creditSummary={t('module.billing.package.free.creditSummary')}
+              creditSummary={freeCreditSummary}
               description={t('module.billing.package.free.description')}
               disabled
               footer={<PlanFeatureList items={getFreeFeatureKeys()} />}
               priceLabel={t('module.billing.package.free.priceValue')}
-              priceMetaLabel={t('module.billing.package.free.priceNote')}
+              priceMetaLabel={freePriceMetaLabel}
               testId='billing-plan-card-free'
               title={t('module.billing.package.free.title')}
             />

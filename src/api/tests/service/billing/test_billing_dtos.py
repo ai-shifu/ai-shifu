@@ -9,6 +9,7 @@ from flaskr.service.billing.dtos import (
     BillingMetricBreakdownDTO,
     BillingOverviewDTO,
     BillingSubscriptionDTO,
+    BillingTrialOfferDTO,
     BillingWalletBucketListDTO,
     BillingWalletBucketDTO,
     BillingWalletSnapshotDTO,
@@ -55,6 +56,15 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
                 action_payload={"target": "topup"},
             )
         ],
+        trial_offer=BillingTrialOfferDTO(
+            enabled=True,
+            status="granted",
+            credit_amount=100,
+            valid_days=15,
+            starts_on_first_grant=True,
+            granted_at="2026-04-09T00:00:00+00:00",
+            expires_at="2026-04-24T00:00:00+00:00",
+        ),
     )
 
     payload = dto.__json__()
@@ -62,6 +72,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
     assert payload["wallet"]["available_credits"] == 12.5
     assert payload["subscription"]["status"] == "active"
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
+    assert payload["trial_offer"]["status"] == "granted"
 
 
 def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> None:

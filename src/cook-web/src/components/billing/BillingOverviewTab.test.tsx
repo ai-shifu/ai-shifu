@@ -115,6 +115,15 @@ const mockToast = toast as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockUseSWR = useSWR as jest.Mock;
 const mockMutateOverview = jest.fn();
+const DEFAULT_TRIAL_OFFER = {
+  enabled: true,
+  status: 'ineligible' as const,
+  credit_amount: 100,
+  valid_days: 15,
+  starts_on_first_grant: true,
+  granted_at: null,
+  expires_at: null,
+};
 
 const CATALOG_RESPONSE = {
   plans: [
@@ -308,6 +317,7 @@ describe('BillingOverviewTab', () => {
           last_failed_at: null,
         },
         billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
       },
       error: undefined,
       isLoading: false,
@@ -393,6 +403,36 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
   });
 
+  test('hides the free card when the trial offer is disabled and not granted', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: {
+          ...DEFAULT_TRIAL_OFFER,
+          enabled: false,
+          status: 'disabled',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
+  });
+
   test('cancels a subscription from the current subscription summary', async () => {
     const user = userEvent.setup();
     mockCancelBillingSubscription.mockResolvedValue({
@@ -460,6 +500,7 @@ describe('BillingOverviewTab', () => {
           last_failed_at: null,
         },
         billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
       },
       error: undefined,
       isLoading: false,
@@ -517,6 +558,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: null,
         billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
       },
       error: undefined,
       isLoading: false,
@@ -594,6 +636,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: null,
         billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
       },
       error: undefined,
       isLoading: false,

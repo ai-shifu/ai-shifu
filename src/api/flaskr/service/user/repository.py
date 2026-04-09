@@ -740,6 +740,22 @@ def list_credentials(
     return query.all()
 
 
+def get_first_verified_credential_created_at(*, user_bid: str) -> Optional[datetime]:
+    row = (
+        AuthCredential.query.filter(
+            AuthCredential.deleted == 0,
+            AuthCredential.user_bid == user_bid,
+            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+        )
+        .order_by(AuthCredential.created_at.asc(), AuthCredential.id.asc())
+        .with_entities(AuthCredential.created_at)
+        .first()
+    )
+    if row is None:
+        return None
+    return row[0]
+
+
 def upsert_wechat_credentials(
     app: Flask,
     *,

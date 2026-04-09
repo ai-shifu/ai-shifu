@@ -5,8 +5,10 @@ from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
     BILLING_CONFIG_KEY_ENABLED,
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+    BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
     BILLING_CONFIG_KEY_RATE_VERSION,
     BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+    BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_PRODUCT_SEEDS,
@@ -114,14 +116,24 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILLING_SYS_CONFIG_SEEDS) == 4
+    assert len(BILLING_SYS_CONFIG_SEEDS) == 5
     assert {row["key"] for row in BILLING_SYS_CONFIG_SEEDS} == {
         BILLING_CONFIG_KEY_ENABLED,
         BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILLING_CONFIG_KEY_RATE_VERSION,
+        BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
     }
     assert all(row["is_encrypted"] == 0 for row in BILLING_SYS_CONFIG_SEEDS)
+    trial_config_seed = next(
+        row
+        for row in BILLING_SYS_CONFIG_SEEDS
+        if row["key"] == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
+    )
+    assert (
+        BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT.items()
+        <= {**billing_consts.json.loads(trial_config_seed["value"])}.items()
+    )
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

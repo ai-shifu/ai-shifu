@@ -106,11 +106,23 @@ class BillingAlertDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class BillingTrialOfferDTO(BillingBaseDTO):
+    enabled: bool
+    status: str
+    credit_amount: int | float
+    valid_days: int
+    starts_on_first_grant: bool
+    granted_at: str | None = None
+    expires_at: str | None = None
+
+
+@register_schema_to_swagger
 class BillingOverviewDTO(BillingBaseDTO):
     creator_bid: str
     wallet: BillingWalletSnapshotDTO
     subscription: BillingSubscriptionDTO | None = None
     billing_alerts: list[BillingAlertDTO]
+    trial_offer: BillingTrialOfferDTO
 
 
 @register_schema_to_swagger

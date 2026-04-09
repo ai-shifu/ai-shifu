@@ -223,6 +223,12 @@ export type BillingAlert = {
   action_payload?: Record<string, string | number>;
 };
 
+export type BillingTrialOfferStatus =
+  | 'disabled'
+  | 'ineligible'
+  | 'eligible'
+  | 'granted';
+
 export type BillingWalletSnapshot = {
   available_credits: number;
   reserved_credits: number;
@@ -230,11 +236,22 @@ export type BillingWalletSnapshot = {
   lifetime_consumed_credits: number;
 };
 
+export type BillingTrialOffer = {
+  enabled: boolean;
+  status: BillingTrialOfferStatus;
+  credit_amount: number;
+  valid_days: number;
+  starts_on_first_grant: boolean;
+  granted_at: string | null;
+  expires_at: string | null;
+};
+
 export type CreatorBillingOverview = {
   creator_bid: string;
   wallet: BillingWalletSnapshot;
   subscription: BillingSubscription | null;
   billing_alerts: BillingAlert[];
+  trial_offer: BillingTrialOffer;
 };
 
 export type BillingOrderSummary = {

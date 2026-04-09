@@ -491,6 +491,16 @@ BILLING_CONFIG_KEY_ENABLED = "BILLING_ENABLED"
 BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILLING_LOW_BALANCE_THRESHOLD"
 BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILLING_RENEWAL_TASK_CONFIG"
 BILLING_CONFIG_KEY_RATE_VERSION = "BILLING_RATE_VERSION"
+BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG = "BILLING_NEW_CREATOR_TRIAL_CONFIG"
+
+BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT = {
+    "enabled": 0,
+    "program_code": "new_creator_v1",
+    "credit_amount": "100.0000000000",
+    "valid_days": 15,
+    "eligible_registered_after": "",
+    "grant_trigger": "billing_overview",
+}
 
 
 def _build_credit_usage_rate_seeds() -> tuple[dict[str, object], ...]:
@@ -588,6 +598,19 @@ BILLING_SYS_CONFIG_SEEDS = (
         "value": "bootstrap-v1",
         "is_encrypted": 0,
         "remark": "Billing rate version bootstrap marker",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "billing-config-new-creator-trial-config",
+        "key": BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
+        "value": json.dumps(
+            BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        "is_encrypted": 0,
+        "remark": "New creator trial credit bootstrap config",
         "deleted": 0,
         "updated_by": "system",
     },

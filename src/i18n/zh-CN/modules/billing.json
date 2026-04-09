@@ -599,9 +599,10 @@
     },
     "featuresTitle": "享有权益内容：",
     "free": {
-      "creditSummary": "赠送积分数 100",
+      "creditSummary": "赠送积分数 {credits}",
       "description": "适合体验创作者工作台与基础发布能力。",
-      "priceNote": "/ 新注册 15 日内有效",
+      "priceNote": "/ 首次进入创作者工作台后开始计算 {days} 天有效期",
+      "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
       "title": "非会员"
     },
