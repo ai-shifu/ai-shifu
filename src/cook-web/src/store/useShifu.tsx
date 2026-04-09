@@ -21,6 +21,7 @@ import {
   MdflowHistoryListResult,
   MdflowHistoryVersionDetail,
   MdflowHistoryRestoreResult,
+  LoadMdflowOptions,
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
@@ -518,13 +519,17 @@ export const ShifuProvider = ({
     return null;
   };
 
-  const loadMdflow = async (outlineId: string, shifuId: string) => {
+  const loadMdflow = async (
+    outlineId: string,
+    shifuId: string,
+    options?: LoadMdflowOptions,
+  ) => {
     if (
       outlineId === '' ||
       outlineId === 'new_lesson' ||
       outlineId === 'new_chapter'
     ) {
-      return;
+      return false;
     }
     const requestId = mdflowRequestRef.current.id + 1;
     mdflowRequestRef.current = { id: requestId, outlineId };
@@ -541,22 +546,27 @@ export const ShifuProvider = ({
       });
       mdflowCacheRef.current[outlineId] = mdflow || '';
       if (!isLatest()) {
-        return;
+        return false;
       }
-      // Only apply to state if this outline is still the current one
-      if (currentOutlineRef.current === outlineId) {
-        setMdflow(mdflow);
-        setCurrentMdflow(mdflow);
+      if (currentOutlineRef.current !== outlineId) {
+        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+        return false;
       }
+      if (!options?.canApply?.()) {
+        lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+        return false;
+      }
+      setMdflow(mdflow);
+      setCurrentMdflow(mdflow);
       lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-      if (currentOutlineRef.current === outlineId) {
-        await parseMdflow(mdflow, shifuId, outlineId);
-      }
+      await parseMdflow(mdflow, shifuId, outlineId);
+      return true;
     } catch (error) {
       if (isLatest()) {
         console.error(error);
         setError('Failed to load chapters');
       }
+      return false;
     } finally {
       if (isLatest()) {
         setIsLoading(false);
