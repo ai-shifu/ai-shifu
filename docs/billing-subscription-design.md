@@ -714,23 +714,27 @@ v1 的改造要求：
 - billing 侧新增独立 `service/billing/` 代码层：
   - `models.py`
   - `consts.py`
-  - `funcs.py`
-  - `catalog.py`
-  - `subscription.py`
+  - `capabilities.py`
+  - `primitives.py`
+  - `queries.py`
+  - `serializers.py`
+  - `read_models.py`
+  - `checkout.py`
+  - `subscriptions.py`
+  - `provider_state.py`
+  - `webhooks.py`
+  - `trials.py`
   - `settlement.py`
   - `admission.py`
   - `routes.py`
   - `tasks.py`
-  - `reconcile.py`
   - `renewal.py`
+  - `funcs.py`（仅兼容导出层）
 
 当前批次最小实现要求：
 
-- 先落 `models.py`、`consts.py`、`funcs.py`、`routes.py` 和迁移脚本，支撑 creator billing 的查询、checkout、sync、webhook 和 paid success 入账
-- 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/4fd52d0d9a01_add_billing_core_tables.py` 落地
-- 当前实现中，`credit_usage_rates`、`billing_renewal_events` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py` 落地
-- 当前实现中，核心表 business id 唯一约束和 bootstrap `credit_usage_rates` seed 已由 `src/api/migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py` 落地
-- 当前实现中，billing feature flag、低余额阈值、续费任务配置和 rate version 的 `sys_configs` seed 已由 `src/api/migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py` 落地
+- 先落 `models.py`、`consts.py`、`routes.py` 和迁移脚本，再把 creator billing 的查询、checkout、sync、webhook 和 paid success 入账拆到各自模块
+- 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders`、`credit_usage_rates`、`billing_renewal_events`、核心唯一约束、bootstrap `credit_usage_rates` seed、billing `sys_configs` seed 以及 provider raw table 的 billing bridge columns，已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
 - 当前实现中，`src/api/flaskr/common/celery_app.py` 已提供共享 Celery app factory，`src/api/celery_app.py` 作为 worker / beat 入口统一复用 `app.py:create_app()`
 - 当前实现中，`src/api/flaskr/common/config.py` 已注册 `CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`、`CELERY_TASK_ALWAYS_EAGER`，并同步刷新 `docker/.env.example.full`
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
@@ -738,18 +742,18 @@ v1 的改造要求：
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
-- 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/c1d2e3f4a5b6_add_billing_entitlement_and_domain_tables.py` 落地，先提供 schema 和常量基础，不让 v1 主链路依赖这两张表
+- 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 和 new creator trial config seed，已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
 - 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
 - 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
 - 当前实现中，`billing.verify_domain_binding` task 已复用 `src/api/flaskr/service/billing/domains.py` 的既有 verify flow：可按 `domain_binding_bid` 或 `host` 加载 binding，并在未显式传 `verification_token` 时回退到绑定上已有 token 做后台刷新
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
-- 当前实现中，`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/d4e5f6a7b8c9_add_billing_daily_aggregate_tables.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `billing_daily_ledger_summary` 本身不含 `shifu_bid` 维度
+- 当前实现中，`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `billing_daily_ledger_summary` 本身不含 `shifu_bid` 维度
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
-- 当前实现中，billing checkout / webhook / sync 编排统一落在 `src/api/flaskr/service/billing/funcs.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx
-- 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/funcs.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
+- 当前实现中，billing checkout / webhook / sync 编排已分别落在 `src/api/flaskr/service/billing/checkout.py`、`src/api/flaskr/service/billing/webhooks.py`、`src/api/flaskr/service/billing/provider_state.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx；`src/api/flaskr/service/billing/funcs.py` 仅保留兼容导出层
+- 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，当前批次先补齐默认异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
 - 当前实现中，usage settlement 已固定按 `free > subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后

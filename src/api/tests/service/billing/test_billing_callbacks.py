@@ -16,7 +16,6 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_SEEDS,
 )
-from flaskr.service.billing.funcs import handle_billing_pingxx_webhook
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
@@ -24,6 +23,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order, PingxxOrder
 

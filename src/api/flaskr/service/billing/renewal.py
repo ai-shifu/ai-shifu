@@ -41,6 +41,7 @@ from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .models import BillingOrder, BillingRenewalEvent
+from .primitives import normalize_bid as _normalize_bid
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -747,7 +748,3 @@ def _result_without_event(
         subscription_bid=_normalize_bid(subscription_bid) or None,
         creator_bid=_normalize_bid(creator_bid) or None,
     )
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()

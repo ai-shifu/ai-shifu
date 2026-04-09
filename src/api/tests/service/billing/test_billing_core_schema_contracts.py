@@ -35,7 +35,7 @@ def test_billing_core_models_define_catalog_subscription_order_tables() -> None:
 
 def test_billing_core_migration_creates_catalog_subscription_order_tables() -> None:
     source = (
-        _API_ROOT / "migrations/versions/4fd52d0d9a01_add_billing_core_tables.py"
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
 
     assert 'op.create_table(\n        "billing_products",' in source
@@ -44,4 +44,4 @@ def test_billing_core_migration_creates_catalog_subscription_order_tables() -> N
     assert "ix_billing_products_product_type_status" in source
     assert "ix_billing_subscriptions_creator_status" in source
     assert "ix_billing_orders_creator_status" in source
-    assert "op.bulk_insert(product_table, list(_PRODUCT_SEEDS))" in source
+    assert "op.bulk_insert(_PRODUCT_TABLE, list(_PRODUCT_SEEDS))" in source

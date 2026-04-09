@@ -10,8 +10,10 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
-import { useBillingWalletBuckets } from '@/hooks/useBillingWalletBuckets';
+import {
+  useBillingOverview,
+  useBillingWalletBuckets,
+} from '@/hooks/useBillingData';
 import type {
   BillingBucketCategory,
   BillingWalletBucket,

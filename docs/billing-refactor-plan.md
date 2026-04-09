@@ -29,23 +29,24 @@
 ### Phase 2: Backend File Split
 
 - [x] 抽出 `charges.py` 并让 aggregate/settlement 复用公开函数。
-- [ ] 拆出 `queries.py`，承载 loader、pagination、filter normalizer。
-- [ ] 拆出 `serializers.py`，承载 creator/admin DTO 序列化与状态映射。
-- [ ] 拆出 `read_models.py`，承载 overview、wallet、ledger、orders、reports、admin list builders。
-- [ ] 拆出 `trials.py`，承载 new creator trial 逻辑。
-- [ ] 拆出 `checkout.py`，承载 checkout / refund / sync / reconcile。
-- [ ] 拆出 `subscriptions.py`，承载 subscription lifecycle、renewal event、grant/apply。
-- [ ] 拆出 `webhooks.py`，承载 Stripe/Pingxx billing webhook 处理。
-- [ ] 改写 `routes.py`、`tasks.py`、`cli.py`、`renewal.py`、`callback.py`、`order/funs.py` 的 import，去掉对 `_private` helper 的跨模块依赖。
-- [ ] 将 `funcs.py` 压缩为兼容导出层，并控制在 1200 行以内。
+- [x] 拆出 `queries.py`，承载 loader、pagination、filter normalizer。
+- [x] 拆出 `serializers.py`，承载 creator/admin DTO 序列化与状态映射。
+- [x] 拆出 `read_models.py`，承载 overview、wallet、ledger、orders、reports、admin list builders。
+- [x] 拆出 `trials.py`，承载 new creator trial 逻辑。
+- [x] 拆出 `checkout.py`，承载 checkout / refund / sync / reconcile。
+- [x] 拆出 `subscriptions.py`，承载 subscription lifecycle、renewal event、grant/apply。
+- [x] 拆出 `webhooks.py`，承载 Stripe/Pingxx billing webhook 处理。
+- [x] 改写 `routes.py`、`tasks.py`、`cli.py`、`renewal.py`、`callback.py`、`order/funs.py` 的 import，去掉对 `_private` helper 的跨模块依赖。
+- [x] 将 `funcs.py` 压缩为兼容导出层，并控制在 1200 行以内。
+- [x] 将 shared scalar/date/json helper 收敛到 `primitives.py`，并移除 duplicated loader/value wrapper。
 
 ### Phase 3: Frontend/Test Cleanup
 
-- [ ] 拆分 `BillingOverviewTab.tsx` 为容器和展示组件。
+- [x] 拆分 `BillingOverviewTab.tsx` 为容器和展示组件。
 - [x] 删除未使用的 `BillingPlaceholderSection`。
-- [ ] 清理 billing 前端无意义 re-export 和多余 memoization。
-- [ ] 将源码文本断言测试替换为 route/url_map/行为测试。
-- [ ] 合并 billing 相关 migration 为 core/extension 两阶段。
+- [x] 清理 billing 前端无意义 re-export 和多余 memoization。
+- [x] 将源码文本断言测试替换为 route/url_map/行为测试。
+- [x] 合并 billing 相关 migration 为 core/extension 两阶段。
 
 ## 非目标
 

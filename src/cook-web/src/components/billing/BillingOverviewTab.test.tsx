@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import useSWR from 'swr';
 import {
@@ -48,7 +48,7 @@ jest.mock('swr', () => ({
   default: jest.fn(),
 }));
 
-jest.mock('@/hooks/useBillingOverview', () => ({
+jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
 }));

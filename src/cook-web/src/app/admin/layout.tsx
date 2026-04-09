@@ -15,7 +15,7 @@ import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { environment } from '@/config/environment';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import { useUserStore } from '@/store';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';

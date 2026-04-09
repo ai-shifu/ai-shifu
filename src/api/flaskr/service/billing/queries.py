@@ -11,6 +11,7 @@ from sqlalchemy import case
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 
+from .primitives import coerce_datetime, normalize_bid
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
     BILLING_INTERVAL_MONTH,
@@ -40,9 +41,7 @@ from .models import (
     BillingSubscription,
     CreditWallet,
 )
-from .serializers import coerce_datetime as _coerce_datetime
-from .serializers import normalize_bid as _normalize_bid
-from .value_objects import PageWindow, ProductCodeIndex, RenewalEventIndex, WalletIndex
+from .value_objects import PageWindow
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
@@ -93,8 +92,8 @@ def normalize_pagination(page_index: int, page_size: int) -> tuple[int, int]:
     return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
 
 
-def _normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
-    normalized_value = _normalize_bid(value)
+def normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
+    normalized_value = normalize_bid(value)
     if not normalized_value:
         return ""
     try:
@@ -104,7 +103,7 @@ def _normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
     return normalized_value
 
 
-def _normalize_payment_provider_hint(value: Any) -> str:
+def normalize_payment_provider_hint(value: Any) -> str:
     provider = str(value or "").strip().lower()
     if not provider:
         return ""
@@ -113,8 +112,8 @@ def _normalize_payment_provider_hint(value: Any) -> str:
     return provider
 
 
-def _load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | None:
-    normalized_subscription_bid = _normalize_bid(subscription_bid)
+def load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | None:
+    normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
     return (
@@ -127,10 +126,10 @@ def _load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | No
     )
 
 
-def _load_latest_billing_order_by_subscription(
+def load_latest_billing_order_by_subscription(
     subscription_bid: str,
 ) -> BillingOrder | None:
-    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
     return (
@@ -143,12 +142,12 @@ def _load_latest_billing_order_by_subscription(
     )
 
 
-def _load_latest_subscription_renewal_order(
+def load_latest_subscription_renewal_order(
     subscription_bid: str,
     *,
     statuses: tuple[int, ...] | None = None,
 ) -> BillingOrder | None:
-    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
     query = BillingOrder.query.filter(
@@ -163,40 +162,40 @@ def _load_latest_subscription_renewal_order(
     ).first()
 
 
-def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
     if not isinstance(metadata, dict):
         return None
-    return _coerce_datetime(metadata.get(key))
+    return coerce_datetime(metadata.get(key))
 
 
-def _serialize_order_metadata_datetime(value: datetime | None) -> str | None:
+def serialize_order_metadata_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
 
 
-def _extract_resolved_order_cycle_start_at(metadata: Any) -> datetime | None:
-    return _extract_order_metadata_datetime(
+def extract_resolved_order_cycle_start_at(metadata: Any) -> datetime | None:
+    return extract_order_metadata_datetime(
         metadata,
         "applied_cycle_start_at",
-    ) or _extract_order_metadata_datetime(metadata, "renewal_cycle_start_at")
+    ) or extract_order_metadata_datetime(metadata, "renewal_cycle_start_at")
 
 
-def _extract_resolved_order_cycle_end_at(metadata: Any) -> datetime | None:
-    return _extract_order_metadata_datetime(
+def extract_resolved_order_cycle_end_at(metadata: Any) -> datetime | None:
+    return extract_order_metadata_datetime(
         metadata,
         "applied_cycle_end_at",
-    ) or _extract_order_metadata_datetime(metadata, "renewal_cycle_end_at")
+    ) or extract_order_metadata_datetime(metadata, "renewal_cycle_end_at")
 
 
-def _load_subscription_renewal_order_by_cycle(
+def load_subscription_renewal_order_by_cycle(
     subscription_bid: str,
     *,
     cycle_start_at: datetime | None = None,
     cycle_end_at: datetime | None = None,
     statuses: tuple[int, ...] | None = None,
 ) -> BillingOrder | None:
-    normalized_subscription_bid = _normalize_bid(subscription_bid)
+    normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
     query = BillingOrder.query.filter(
@@ -209,12 +208,10 @@ def _load_subscription_renewal_order_by_cycle(
     rows = query.order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc()).all()
     for row in rows:
         metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
-        expected_start = _extract_order_metadata_datetime(
+        expected_start = extract_order_metadata_datetime(
             metadata, "renewal_cycle_start_at"
         )
-        expected_end = _extract_order_metadata_datetime(
-            metadata, "renewal_cycle_end_at"
-        )
+        expected_end = extract_order_metadata_datetime(metadata, "renewal_cycle_end_at")
         if cycle_start_at is not None and expected_start != cycle_start_at:
             continue
         if cycle_end_at is not None and expected_end != cycle_end_at:
@@ -223,7 +220,7 @@ def _load_subscription_renewal_order_by_cycle(
     return None
 
 
-def _calculate_billing_cycle_end(
+def calculate_billing_cycle_end(
     product: BillingProduct,
     *,
     cycle_start_at: datetime,
@@ -233,13 +230,13 @@ def _calculate_billing_cycle_end(
     if interval_count <= 0:
         return None
     if interval == BILLING_INTERVAL_MONTH:
-        return _add_months(cycle_start_at, interval_count)
+        return add_months(cycle_start_at, interval_count)
     if interval == BILLING_INTERVAL_YEAR:
-        return _add_years(cycle_start_at, interval_count)
+        return add_years(cycle_start_at, interval_count)
     return None
 
 
-def _add_months(value: datetime, months: int) -> datetime:
+def add_months(value: datetime, months: int) -> datetime:
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
@@ -247,13 +244,13 @@ def _add_months(value: datetime, months: int) -> datetime:
     return value.replace(year=year, month=month, day=day)
 
 
-def _add_years(value: datetime, years: int) -> datetime:
+def add_years(value: datetime, years: int) -> datetime:
     year = value.year + years
     day = min(value.day, calendar.monthrange(year, value.month)[1])
     return value.replace(year=year, day=day)
 
 
-def _load_current_subscription(creator_bid: str) -> BillingSubscription | None:
+def load_current_subscription(creator_bid: str) -> BillingSubscription | None:
     prioritized = (
         BillingSubscription.query.filter(
             BillingSubscription.deleted == 0,
@@ -286,10 +283,10 @@ def _load_current_subscription(creator_bid: str) -> BillingSubscription | None:
     )
 
 
-def _load_product_code_map(product_bids: list[str]) -> ProductCodeIndex:
+def load_product_code_map(product_bids: list[str]) -> dict[str, str]:
     normalized_bids = [bid for bid in product_bids if bid]
     if not normalized_bids:
-        return ProductCodeIndex()
+        return {}
     rows = (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
@@ -298,15 +295,13 @@ def _load_product_code_map(product_bids: list[str]) -> ProductCodeIndex:
         .order_by(BillingProduct.id.desc())
         .all()
     )
-    return ProductCodeIndex(
-        values={row.product_bid: row.product_code for row in rows},
-    )
+    return {row.product_bid: row.product_code for row in rows}
 
 
-def _load_wallet_map(creator_bids: list[str]) -> WalletIndex:
-    normalized_creator_bids = [_normalize_bid(bid) for bid in creator_bids if bid]
+def load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
+    normalized_creator_bids = [normalize_bid(bid) for bid in creator_bids if bid]
     if not normalized_creator_bids:
-        return WalletIndex()
+        return {}
     rows = (
         CreditWallet.query.filter(
             CreditWallet.deleted == 0,
@@ -318,17 +313,17 @@ def _load_wallet_map(creator_bids: list[str]) -> WalletIndex:
     payload: dict[str, CreditWallet] = {}
     for row in rows:
         payload.setdefault(row.creator_bid, row)
-    return WalletIndex(values=payload)
+    return payload
 
 
-def _load_latest_renewal_event_map(
+def load_latest_renewal_event_map(
     subscription_bids: list[str],
-) -> RenewalEventIndex:
+) -> dict[str, BillingRenewalEvent]:
     normalized_subscription_bids = [
-        _normalize_bid(bid) for bid in subscription_bids if bid
+        normalize_bid(bid) for bid in subscription_bids if bid
     ]
     if not normalized_subscription_bids:
-        return RenewalEventIndex()
+        return {}
     rows = (
         BillingRenewalEvent.query.filter(
             BillingRenewalEvent.deleted == 0,
@@ -344,11 +339,11 @@ def _load_latest_renewal_event_map(
     payload: dict[str, BillingRenewalEvent] = {}
     for row in rows:
         payload.setdefault(row.subscription_bid, row)
-    return RenewalEventIndex(values=payload)
+    return payload
 
 
-def _load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
-    normalized_creator_bid = _normalize_bid(creator_bid)
+def load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
+    normalized_creator_bid = normalize_bid(creator_bid)
     if normalized_creator_bid:
         return [normalized_creator_bid]
 
@@ -371,13 +366,13 @@ def _load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
         )
         creator_bids.update(
             normalized
-            for normalized in (_normalize_bid(row[0]) for row in rows)
+            for normalized in (normalize_bid(row[0]) for row in rows)
             if normalized
         )
     return sorted(creator_bids)
 
 
-def _subscription_has_attention(
+def subscription_has_attention(
     row: BillingSubscription,
     *,
     renewal_event: BillingRenewalEvent | None,
@@ -399,8 +394,8 @@ def _subscription_has_attention(
     return bool(str(renewal_event.last_error or "").strip())
 
 
-def _resolve_subscription_status_filter(value: str) -> int | None:
-    normalized_value = _normalize_bid(value)
+def resolve_subscription_status_filter(value: str) -> int | None:
+    normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
     if normalized_value not in _SUBSCRIPTION_STATUS_CODES_BY_LABEL:
@@ -408,8 +403,8 @@ def _resolve_subscription_status_filter(value: str) -> int | None:
     return _SUBSCRIPTION_STATUS_CODES_BY_LABEL[normalized_value]
 
 
-def _resolve_order_status_filter(value: str) -> int | None:
-    normalized_value = _normalize_bid(value)
+def resolve_order_status_filter(value: str) -> int | None:
+    normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
     if normalized_value not in _ORDER_STATUS_CODES_BY_LABEL:
@@ -417,8 +412,8 @@ def _resolve_order_status_filter(value: str) -> int | None:
     return _ORDER_STATUS_CODES_BY_LABEL[normalized_value]
 
 
-def _resolve_domain_binding_status_filter(value: str) -> int | None:
-    normalized_value = _normalize_bid(value)
+def resolve_domain_binding_status_filter(value: str) -> int | None:
+    normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
     if normalized_value not in _DOMAIN_BINDING_STATUS_CODES_BY_LABEL:
@@ -426,7 +421,7 @@ def _resolve_domain_binding_status_filter(value: str) -> int | None:
     return _DOMAIN_BINDING_STATUS_CODES_BY_LABEL[normalized_value]
 
 
-def _build_page_payload(
+def build_page_payload(
     query, *, page_index: int, page_size: int, serializer
 ) -> PageWindow[Any]:
     total = query.order_by(None).count()
@@ -452,7 +447,7 @@ def _build_page_payload(
     )
 
 
-def _build_list_page_payload(
+def build_list_page_payload(
     items: list[Any],
     *,
     page_index: int,
@@ -478,29 +473,3 @@ def _build_list_page_payload(
         page_size=page_size,
         total=total,
     )
-
-
-normalize_stat_date_filter = _normalize_stat_date_filter
-normalize_payment_provider_hint = _normalize_payment_provider_hint
-load_subscription_by_bid = _load_subscription_by_bid
-load_latest_billing_order_by_subscription = _load_latest_billing_order_by_subscription
-load_latest_subscription_renewal_order = _load_latest_subscription_renewal_order
-extract_order_metadata_datetime = _extract_order_metadata_datetime
-serialize_order_metadata_datetime = _serialize_order_metadata_datetime
-extract_resolved_order_cycle_start_at = _extract_resolved_order_cycle_start_at
-extract_resolved_order_cycle_end_at = _extract_resolved_order_cycle_end_at
-load_subscription_renewal_order_by_cycle = _load_subscription_renewal_order_by_cycle
-calculate_billing_cycle_end = _calculate_billing_cycle_end
-add_months = _add_months
-add_years = _add_years
-load_current_subscription = _load_current_subscription
-load_product_code_map = _load_product_code_map
-load_wallet_map = _load_wallet_map
-load_latest_renewal_event_map = _load_latest_renewal_event_map
-load_admin_creator_bids = _load_admin_creator_bids
-subscription_has_attention = _subscription_has_attention
-resolve_subscription_status_filter = _resolve_subscription_status_filter
-resolve_order_status_filter = _resolve_order_status_filter
-resolve_domain_binding_status_filter = _resolve_domain_binding_status_filter
-build_page_payload = _build_page_payload
-build_list_page_payload = _build_list_page_payload

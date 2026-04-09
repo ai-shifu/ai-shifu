@@ -25,6 +25,7 @@ from .consts import (
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
+from .primitives import to_decimal as _to_decimal
 
 _ZERO_CREDITS = Decimal("0")
 _RUNTIME_CONCURRENCY_KEY_SUFFIX = ":billing:runtime:concurrency:"
@@ -212,12 +213,6 @@ def _resolve_creator_bid(app: Flask, *, creator_bid: str, shifu_bid: str) -> str
     if normalized_creator_bid:
         return normalized_creator_bid
     return str(resolve_shifu_creator_bid(app, shifu_bid) or "").strip()
-
-
-def _to_decimal(value: Any) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    return Decimal(str(value or 0))
 
 
 def _resolve_required_bid(value: Any) -> str:

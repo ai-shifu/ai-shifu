@@ -23,6 +23,7 @@ from .consts import (
 )
 from .dtos import BillingEntitlementsDTO
 from .models import BillingEntitlement, BillingProduct, BillingSubscription
+from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
@@ -331,10 +332,6 @@ def _coalesce_datetime(
     fallback: datetime,
 ) -> datetime:
     return value or fallback
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()
 
 
 def _to_bool(value: Any, *, default: bool = False) -> bool:

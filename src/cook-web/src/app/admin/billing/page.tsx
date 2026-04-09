@@ -2,13 +2,11 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  BillingCreditDetailsPanel,
-  BillingOverviewTab,
-  BillingPageHeader,
-  BillingRecentActivitySection,
-} from '@/components/billing';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
+import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
+import { BillingPageHeader } from '@/components/billing/BillingPageHeader';
+import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 
 export default function AdminBillingPage() {
   const { t } = useTranslation();

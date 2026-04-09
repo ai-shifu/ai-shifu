@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
-import { useBillingBootstrap } from '@/hooks/useBillingBootstrap';
+import { useBillingBootstrap } from '@/hooks/useBillingData';
 import type {
   BillingCapability,
   BillingCapabilityStatus,
@@ -61,39 +61,19 @@ export function BillingCapabilitySummary({
 }: BillingCapabilitySummaryProps) {
   const { t } = useTranslation();
   const { data } = useBillingBootstrap();
-
-  const capabilities = React.useMemo(
-    () => data?.capabilities || [],
-    [data?.capabilities],
+  const capabilities = data?.capabilities ?? [];
+  const visibleCapabilities = capabilities.filter(
+    capability => capability.user_visible && capability.audience === audience,
   );
-  const visibleCapabilities = React.useMemo(
-    () =>
-      capabilities.filter(
-        capability =>
-          capability.user_visible && capability.audience === audience,
-      ),
-    [audience, capabilities],
-  );
-
-  const activeCount = React.useMemo(
-    () =>
-      visibleCapabilities.filter(capability => capability.status === 'active')
-        .length,
-    [visibleCapabilities],
-  );
-  const defaultDisabledCount = React.useMemo(
-    () =>
-      capabilities.filter(
-        capability => capability.status === 'default_disabled',
-      ).length,
-    [capabilities],
-  );
-  const internalOnlyCount = React.useMemo(
-    () =>
-      capabilities.filter(capability => capability.status === 'internal_only')
-        .length,
-    [capabilities],
-  );
+  const activeCount = visibleCapabilities.filter(
+    capability => capability.status === 'active',
+  ).length;
+  const defaultDisabledCount = capabilities.filter(
+    capability => capability.status === 'default_disabled',
+  ).length;
+  const internalOnlyCount = capabilities.filter(
+    capability => capability.status === 'internal_only',
+  ).length;
 
   if (!data || visibleCapabilities.length === 0) {
     return null;

@@ -7,7 +7,7 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import type {
   BillingAlert,
   BillingCheckoutResult,

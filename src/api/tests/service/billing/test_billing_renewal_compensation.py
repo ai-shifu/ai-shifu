@@ -13,10 +13,7 @@ from flaskr.service.billing.consts import (
     BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
-from flaskr.service.billing.funcs import (
-    apply_billing_stripe_notification,
-    sync_billing_order,
-)
+from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
@@ -25,6 +22,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 
 _MONTHLY_PLAN_CREDITS = next(

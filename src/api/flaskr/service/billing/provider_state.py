@@ -28,8 +28,10 @@ from .queries import (
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
 )
-from .serializers import normalize_json_object as _normalize_json_object
-from .serializers import normalize_json_value as _normalize_json_value
+from .primitives import coerce_datetime as _coerce_datetime
+from .primitives import normalize_bid as _normalize_bid
+from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import normalize_json_value as _normalize_json_value
 from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
@@ -491,26 +493,6 @@ def _extract_provider_event_time(payload: Any) -> datetime | None:
     return None
 
 
-def _coerce_datetime(value: Any) -> datetime | None:
-    if value in (None, ""):
-        return None
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, (int, float)):
-        if value <= 0:
-            return None
-        return datetime.fromtimestamp(value)
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.isdigit():
-        return datetime.fromtimestamp(int(text))
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
-    except ValueError:
-        return None
-
-
 def _is_stripe_checkout_paid(
     session: dict[str, Any],
     intent: dict[str, Any] | None,
@@ -522,10 +504,6 @@ def _is_stripe_checkout_paid(
     if intent and intent.get("status") == "succeeded":
         return True
     return False
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()
 
 
 apply_billing_order_provider_update = _apply_billing_order_provider_update

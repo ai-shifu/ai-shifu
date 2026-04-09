@@ -1,15 +1,11 @@
-"""Serialization helpers and shared billing value normalization."""
+"""Serialization helpers for billing DTO payloads."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case
 
-from flaskr.dao import db
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -17,7 +13,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
-from flaskr.util.timezone import serialize_with_app_timezone
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_FAILED,
@@ -40,11 +35,7 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_TYPE_LABELS,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
@@ -57,7 +48,6 @@ from .models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingDomainBinding,
-    BillingEntitlement,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -85,12 +75,13 @@ from .dtos import (
     BillingWalletBucketDTO,
     BillingWalletSnapshotDTO,
 )
-from .value_objects import (
-    JsonObjectMap,
-    ProductCodeIndex,
-    RenewalEventIndex,
-    WalletIndex,
+from .primitives import (
+    decimal_to_number,
+    normalize_bid,
+    normalize_json_object,
+    serialize_dt,
 )
+from .queries import load_product_code_map
 
 _USAGE_SCENE_LABELS = {
     BILL_USAGE_SCENE_DEBUG: "debug",
@@ -103,171 +94,8 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_TTS: "tts",
 }
 
-_ACTIVE_SUBSCRIPTION_STATUSES = (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-)
 
-_SUBSCRIPTION_STATUS_SORT = {
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE: 1,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE: 2,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED: 3,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED: 4,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT: 5,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED: 6,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED: 7,
-}
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def _to_decimal(value: Any) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    if value in (None, ""):
-        return Decimal("0")
-    return Decimal(str(value))
-
-
-def _decimal_to_number(value: Any) -> int | float:
-    if value is None:
-        return 0
-    if isinstance(value, Decimal):
-        if value == value.to_integral():
-            return int(value)
-        return float(value)
-    if isinstance(value, (int, float)):
-        return value
-    try:
-        normalized = Decimal(str(value))
-    except Exception:
-        return 0
-    if normalized == normalized.to_integral():
-        return int(normalized)
-    return float(normalized)
-
-
-def _normalize_json_value(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return _decimal_to_number(value)
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, list):
-        return [_normalize_json_value(item) for item in value]
-    if isinstance(value, JsonObjectMap):
-        payload = JsonObjectMap(
-            values={
-                str(key): _normalize_json_value(item) for key, item in value.items()
-            }
-        )
-        usage_scene = payload.get("usage_scene")
-        if isinstance(usage_scene, (int, str)):
-            payload["usage_scene"] = _USAGE_SCENE_LABELS.get(
-                _safe_int(usage_scene),
-                str(usage_scene),
-            )
-        return payload
-    if isinstance(value, dict):
-        payload = JsonObjectMap(
-            values={
-                str(key): _normalize_json_value(item) for key, item in value.items()
-            }
-        )
-        usage_scene = payload.get("usage_scene")
-        if isinstance(usage_scene, (int, str)):
-            payload["usage_scene"] = _USAGE_SCENE_LABELS.get(
-                _safe_int(usage_scene),
-                str(usage_scene),
-            )
-        return payload
-    return value
-
-
-def _normalize_json_object(value: Any) -> JsonObjectMap:
-    normalized = _normalize_json_value(value)
-    if isinstance(normalized, JsonObjectMap):
-        return normalized
-    return JsonObjectMap()
-
-
-def _safe_int(value: Any) -> int | None:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_bool(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    normalized = str(value or "").strip().lower()
-    return normalized in {"1", "true", "yes", "on"}
-
-
-def _safe_to_decimal(value: Any, *, default: Any) -> Decimal:
-    try:
-        return _to_decimal(value)
-    except Exception:
-        return _to_decimal(default)
-
-
-def _safe_to_positive_int(value: Any, *, default: int) -> int:
-    candidate = _safe_int(value)
-    if candidate is None or candidate <= 0:
-        return default
-    return candidate
-
-
-def _parse_config_datetime(value: Any) -> datetime | None:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return None
-    try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-    return parsed
-
-
-def _coerce_datetime(value: Any) -> datetime | None:
-    if value in (None, ""):
-        return None
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, (int, float)):
-        if value <= 0:
-            return None
-        return datetime.fromtimestamp(value)
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.isdigit():
-        return datetime.fromtimestamp(int(text))
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
-    except ValueError:
-        return None
-
-
-def _serialize_dt(
-    app: Flask,
-    value: datetime | None,
-    *,
-    timezone_name: str | None = None,
-) -> str | None:
-    return serialize_with_app_timezone(app, value, timezone_name)
-
-
-def _serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProductDTO:
+def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProductDTO:
     metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
     badge = metadata.get("badge")
     highlights = metadata.get("highlights")
@@ -279,7 +107,7 @@ def _serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProd
         "description": row.description_i18n_key,
         "currency": row.currency,
         "price_amount": int(row.price_amount or 0),
-        "credit_amount": _decimal_to_number(row.credit_amount),
+        "credit_amount": decimal_to_number(row.credit_amount),
     }
     if isinstance(highlights, list) and highlights:
         payload["highlights"] = [
@@ -305,7 +133,7 @@ def _serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProd
     return BillingTopupProductDTO(**payload)
 
 
-def _serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
+def serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
     if wallet is None:
         return BillingWalletSnapshotDTO(
             available_credits=0,
@@ -314,138 +142,14 @@ def _serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
             lifetime_consumed_credits=0,
         )
     return BillingWalletSnapshotDTO(
-        available_credits=_decimal_to_number(wallet.available_credits),
-        reserved_credits=_decimal_to_number(wallet.reserved_credits),
-        lifetime_granted_credits=_decimal_to_number(wallet.lifetime_granted_credits),
-        lifetime_consumed_credits=_decimal_to_number(wallet.lifetime_consumed_credits),
+        available_credits=decimal_to_number(wallet.available_credits),
+        reserved_credits=decimal_to_number(wallet.reserved_credits),
+        lifetime_granted_credits=decimal_to_number(wallet.lifetime_granted_credits),
+        lifetime_consumed_credits=decimal_to_number(wallet.lifetime_consumed_credits),
     )
 
 
-def _load_current_subscription(creator_bid: str) -> BillingSubscription | None:
-    prioritized = (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
-            BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
-        )
-        .order_by(
-            case(
-                *[
-                    (BillingSubscription.status == status, rank)
-                    for status, rank in _SUBSCRIPTION_STATUS_SORT.items()
-                ],
-                else_=99,
-            ),
-            BillingSubscription.current_period_end_at.desc(),
-            BillingSubscription.created_at.desc(),
-            BillingSubscription.id.desc(),
-        )
-        .first()
-    )
-    if prioritized is not None:
-        return prioritized
-    return (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
-        )
-        .order_by(BillingSubscription.created_at.desc(), BillingSubscription.id.desc())
-        .first()
-    )
-
-
-def _load_product_code_map(product_bids: list[str]) -> ProductCodeIndex:
-    normalized_bids = [bid for bid in product_bids if bid]
-    if not normalized_bids:
-        return ProductCodeIndex()
-    rows = (
-        BillingProduct.query.filter(
-            BillingProduct.deleted == 0,
-            BillingProduct.product_bid.in_(normalized_bids),
-        )
-        .order_by(BillingProduct.id.desc())
-        .all()
-    )
-    return ProductCodeIndex(
-        values={row.product_bid: row.product_code for row in rows},
-    )
-
-
-def _load_wallet_map(creator_bids: list[str]) -> WalletIndex:
-    normalized_creator_bids = [_normalize_bid(bid) for bid in creator_bids if bid]
-    if not normalized_creator_bids:
-        return WalletIndex()
-    rows = (
-        CreditWallet.query.filter(
-            CreditWallet.deleted == 0,
-            CreditWallet.creator_bid.in_(normalized_creator_bids),
-        )
-        .order_by(CreditWallet.creator_bid.asc(), CreditWallet.id.desc())
-        .all()
-    )
-    payload: dict[str, CreditWallet] = {}
-    for row in rows:
-        payload.setdefault(row.creator_bid, row)
-    return WalletIndex(values=payload)
-
-
-def _load_latest_renewal_event_map(
-    subscription_bids: list[str],
-) -> RenewalEventIndex:
-    normalized_subscription_bids = [
-        _normalize_bid(bid) for bid in subscription_bids if bid
-    ]
-    if not normalized_subscription_bids:
-        return RenewalEventIndex()
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid.in_(normalized_subscription_bids),
-        )
-        .order_by(
-            BillingRenewalEvent.subscription_bid.asc(),
-            BillingRenewalEvent.scheduled_at.desc(),
-            BillingRenewalEvent.id.desc(),
-        )
-        .all()
-    )
-    payload: dict[str, BillingRenewalEvent] = {}
-    for row in rows:
-        payload.setdefault(row.subscription_bid, row)
-    return RenewalEventIndex(values=payload)
-
-
-def _load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    if normalized_creator_bid:
-        return [normalized_creator_bid]
-
-    creator_bids: set[str] = set()
-    creator_columns = (
-        (BillingEntitlement, BillingEntitlement.creator_bid),
-        (BillingSubscription, BillingSubscription.creator_bid),
-        (BillingOrder, BillingOrder.creator_bid),
-        (BillingDomainBinding, BillingDomainBinding.creator_bid),
-        (CreditWallet, CreditWallet.creator_bid),
-        (BillingDailyUsageMetric, BillingDailyUsageMetric.creator_bid),
-        (BillingDailyLedgerSummary, BillingDailyLedgerSummary.creator_bid),
-    )
-    for model, column in creator_columns:
-        rows = (
-            db.session.query(column)
-            .filter(model.deleted == 0, column != "")
-            .distinct()
-            .all()
-        )
-        creator_bids.update(
-            normalized
-            for normalized in (_normalize_bid(row[0]) for row in rows)
-            if normalized
-        )
-    return sorted(creator_bids)
-
-
-def _serialize_subscription(
+def serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
     *,
@@ -453,37 +157,37 @@ def _serialize_subscription(
 ) -> BillingSubscriptionDTO | None:
     if row is None:
         return None
-    product_codes = _load_product_code_map([row.product_bid])
-    next_product_bid = _normalize_bid(row.next_product_bid)
+    product_codes = load_product_code_map([row.product_bid])
+    next_product_bid = normalize_bid(row.next_product_bid)
     return BillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=_serialize_dt(
+        current_period_start_at=serialize_dt(
             app,
             row.current_period_start_at,
             timezone_name=timezone_name,
         ),
-        current_period_end_at=_serialize_dt(
+        current_period_end_at=serialize_dt(
             app,
             row.current_period_end_at,
             timezone_name=timezone_name,
         ),
-        grace_period_end_at=_serialize_dt(
+        grace_period_end_at=serialize_dt(
             app,
             row.grace_period_end_at,
             timezone_name=timezone_name,
         ),
         cancel_at_period_end=bool(row.cancel_at_period_end),
         next_product_bid=next_product_bid or None,
-        last_renewed_at=_serialize_dt(
+        last_renewed_at=serialize_dt(
             app,
             row.last_renewed_at,
             timezone_name=timezone_name,
         ),
-        last_failed_at=_serialize_dt(
+        last_failed_at=serialize_dt(
             app,
             row.last_failed_at,
             timezone_name=timezone_name,
@@ -491,16 +195,16 @@ def _serialize_subscription(
     )
 
 
-def _serialize_admin_subscription(
+def serialize_admin_subscription(
     app: Flask,
     row: BillingSubscription,
     *,
-    product_codes: ProductCodeIndex,
+    product_codes: dict[str, str],
     wallet: CreditWallet | None,
     renewal_event: BillingRenewalEvent | None,
     timezone_name: str | None = None,
 ) -> AdminBillingSubscriptionDTO:
-    next_product_bid = _normalize_bid(row.next_product_bid)
+    next_product_bid = normalize_bid(row.next_product_bid)
     return AdminBillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         creator_bid=row.creator_bid,
@@ -508,17 +212,17 @@ def _serialize_admin_subscription(
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=_serialize_dt(
+        current_period_start_at=serialize_dt(
             app,
             row.current_period_start_at,
             timezone_name=timezone_name,
         ),
-        current_period_end_at=_serialize_dt(
+        current_period_end_at=serialize_dt(
             app,
             row.current_period_end_at,
             timezone_name=timezone_name,
         ),
-        grace_period_end_at=_serialize_dt(
+        grace_period_end_at=serialize_dt(
             app,
             row.grace_period_end_at,
             timezone_name=timezone_name,
@@ -528,18 +232,18 @@ def _serialize_admin_subscription(
         next_product_code=product_codes.get(next_product_bid, "")
         if next_product_bid
         else "",
-        last_renewed_at=_serialize_dt(
+        last_renewed_at=serialize_dt(
             app,
             row.last_renewed_at,
             timezone_name=timezone_name,
         ),
-        last_failed_at=_serialize_dt(
+        last_failed_at=serialize_dt(
             app,
             row.last_failed_at,
             timezone_name=timezone_name,
         ),
-        wallet=_serialize_wallet(wallet),
-        latest_renewal_event=_serialize_renewal_event(
+        wallet=serialize_wallet(wallet),
+        latest_renewal_event=serialize_renewal_event(
             app,
             renewal_event,
             timezone_name=timezone_name,
@@ -551,7 +255,7 @@ def _serialize_admin_subscription(
     )
 
 
-def _serialize_renewal_event(
+def serialize_renewal_event(
     app: Flask,
     row: BillingRenewalEvent | None,
     *,
@@ -566,23 +270,23 @@ def _serialize_renewal_event(
             "renewal",
         ),
         status=BILLING_RENEWAL_EVENT_STATUS_LABELS.get(row.status, "pending"),
-        scheduled_at=_serialize_dt(
+        scheduled_at=serialize_dt(
             app,
             row.scheduled_at,
             timezone_name=timezone_name,
         ),
-        processed_at=_serialize_dt(
+        processed_at=serialize_dt(
             app,
             row.processed_at,
             timezone_name=timezone_name,
         ),
         attempt_count=int(row.attempt_count or 0),
         last_error=str(row.last_error or ""),
-        payload=_normalize_json_object(row.payload_json).to_metadata_json(),
+        payload=normalize_json_object(row.payload_json).to_metadata_json(),
     )
 
 
-def _build_billing_alerts(
+def build_billing_alerts(
     wallet_payload: BillingWalletSnapshotDTO,
     subscription: BillingSubscription | None,
 ) -> list[BillingAlertDTO]:
@@ -635,7 +339,7 @@ def _build_billing_alerts(
     return alerts
 
 
-def _serialize_wallet_bucket(
+def serialize_wallet_bucket(
     app: Flask,
     row: CreditWalletBucket,
     *,
@@ -646,14 +350,14 @@ def _serialize_wallet_bucket(
         category=CREDIT_BUCKET_CATEGORY_LABELS.get(row.bucket_category, "free"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
-        available_credits=_decimal_to_number(row.available_credits),
-        effective_from=_serialize_dt(
+        available_credits=decimal_to_number(row.available_credits),
+        effective_from=serialize_dt(
             app,
             row.effective_from,
             timezone_name=timezone_name,
         )
         or "",
-        effective_to=_serialize_dt(
+        effective_to=serialize_dt(
             app,
             row.effective_to,
             timezone_name=timezone_name,
@@ -663,7 +367,7 @@ def _serialize_wallet_bucket(
     )
 
 
-def _serialize_ledger_entry(
+def serialize_ledger_entry(
     app: Flask,
     row: CreditLedgerEntry,
     *,
@@ -676,21 +380,20 @@ def _serialize_ledger_entry(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         idempotency_key=row.idempotency_key,
-        amount=_decimal_to_number(row.amount),
-        balance_after=_decimal_to_number(row.balance_after),
-        expires_at=_serialize_dt(app, row.expires_at, timezone_name=timezone_name),
-        consumable_from=_serialize_dt(
+        amount=decimal_to_number(row.amount),
+        balance_after=decimal_to_number(row.balance_after),
+        expires_at=serialize_dt(app, row.expires_at, timezone_name=timezone_name),
+        consumable_from=serialize_dt(
             app,
             row.consumable_from,
             timezone_name=timezone_name,
         ),
-        metadata=_normalize_json_object(row.metadata_json).to_metadata_json(),
-        created_at=_serialize_dt(app, row.created_at, timezone_name=timezone_name)
-        or "",
+        metadata=normalize_json_object(row.metadata_json).to_metadata_json(),
+        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
     )
 
 
-def _serialize_daily_usage_metric(
+def serialize_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
     *,
@@ -710,14 +413,14 @@ def _serialize_daily_usage_metric(
         ),
         raw_amount=int(row.raw_amount or 0),
         record_count=int(row.record_count or 0),
-        consumed_credits=_decimal_to_number(row.consumed_credits),
-        window_started_at=_serialize_dt(
+        consumed_credits=decimal_to_number(row.consumed_credits),
+        window_started_at=serialize_dt(
             app,
             row.window_started_at,
             timezone_name=timezone_name,
         )
         or "",
-        window_ended_at=_serialize_dt(
+        window_ended_at=serialize_dt(
             app,
             row.window_ended_at,
             timezone_name=timezone_name,
@@ -726,7 +429,7 @@ def _serialize_daily_usage_metric(
     )
 
 
-def _serialize_daily_ledger_summary(
+def serialize_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
     *,
@@ -737,15 +440,15 @@ def _serialize_daily_ledger_summary(
         stat_date=row.stat_date,
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
-        amount=_decimal_to_number(row.amount),
+        amount=decimal_to_number(row.amount),
         entry_count=int(row.entry_count or 0),
-        window_started_at=_serialize_dt(
+        window_started_at=serialize_dt(
             app,
             row.window_started_at,
             timezone_name=timezone_name,
         )
         or "",
-        window_ended_at=_serialize_dt(
+        window_ended_at=serialize_dt(
             app,
             row.window_ended_at,
             timezone_name=timezone_name,
@@ -754,30 +457,30 @@ def _serialize_daily_ledger_summary(
     )
 
 
-def _serialize_admin_entitlement_state(
+def serialize_admin_entitlement_state(
     app: Flask,
     state,
     *,
     timezone_name: str | None = None,
 ) -> AdminBillingEntitlementDTO:
     return AdminBillingEntitlementDTO(
-        creator_bid=_normalize_bid(state.creator_bid),
+        creator_bid=normalize_bid(state.creator_bid),
         source_kind=str(state.source_kind or "default"),
         source_type=str(state.source_type or ""),
-        source_bid=_normalize_bid(state.source_bid) or None,
-        product_bid=_normalize_bid(state.product_bid),
+        source_bid=normalize_bid(state.source_bid) or None,
+        product_bid=normalize_bid(state.product_bid),
         branding_enabled=bool(state.branding_enabled),
         custom_domain_enabled=bool(state.custom_domain_enabled),
         priority_class=str(state.priority_class or "standard"),
         max_concurrency=max(int(state.max_concurrency or 1), 1),
         analytics_tier=str(state.analytics_tier or "basic"),
         support_tier=str(state.support_tier or "self_serve"),
-        effective_from=_serialize_dt(
+        effective_from=serialize_dt(
             app,
             state.effective_from,
             timezone_name=timezone_name,
         ),
-        effective_to=_serialize_dt(
+        effective_to=serialize_dt(
             app,
             state.effective_to,
             timezone_name=timezone_name,
@@ -786,14 +489,14 @@ def _serialize_admin_entitlement_state(
     )
 
 
-def _serialize_admin_domain_binding(
+def serialize_admin_domain_binding(
     app: Flask,
     row: BillingDomainBinding,
     *,
     custom_domain_enabled: bool = False,
     timezone_name: str | None = None,
 ) -> AdminBillingDomainBindingDTO:
-    metadata = _normalize_json_object(row.metadata_json)
+    metadata = normalize_json_object(row.metadata_json)
     verification_record_name = str(
         metadata.get("verification_record_name") or f"_ai-shifu.{row.host}"
     )
@@ -815,7 +518,7 @@ def _serialize_admin_domain_binding(
         verification_token=row.verification_token,
         verification_record_name=verification_record_name,
         verification_record_value=verification_record_value,
-        last_verified_at=_serialize_dt(
+        last_verified_at=serialize_dt(
             app,
             row.last_verified_at,
             timezone_name=timezone_name,
@@ -841,13 +544,13 @@ def _serialize_admin_domain_binding(
     )
 
 
-def _serialize_admin_daily_usage_metric(
+def serialize_admin_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
     *,
     timezone_name: str | None = None,
 ) -> AdminBillingDailyUsageMetricDTO:
-    payload = _serialize_daily_usage_metric(
+    payload = serialize_daily_usage_metric(
         app,
         row,
         timezone_name=timezone_name,
@@ -857,13 +560,13 @@ def _serialize_admin_daily_usage_metric(
     )
 
 
-def _serialize_admin_daily_ledger_summary(
+def serialize_admin_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
     *,
     timezone_name: str | None = None,
 ) -> AdminBillingDailyLedgerSummaryDTO:
-    payload = _serialize_daily_ledger_summary(
+    payload = serialize_daily_ledger_summary(
         app,
         row,
         timezone_name=timezone_name,
@@ -874,13 +577,13 @@ def _serialize_admin_daily_ledger_summary(
     )
 
 
-def _serialize_order_summary(
+def serialize_order_summary(
     app: Flask,
     row: BillingOrder,
     *,
     timezone_name: str | None = None,
 ) -> BillingOrderSummaryDTO:
-    subscription_bid = _normalize_bid(row.subscription_bid)
+    subscription_bid = normalize_bid(row.subscription_bid)
     payment_mode = _resolve_billing_order_payment_mode(row)
 
     return BillingOrderSummaryDTO(
@@ -897,28 +600,27 @@ def _serialize_order_summary(
         currency=row.currency,
         provider_reference_id=str(row.provider_reference_id or ""),
         failure_message=str(row.failure_message or ""),
-        created_at=_serialize_dt(app, row.created_at, timezone_name=timezone_name)
-        or "",
-        paid_at=_serialize_dt(app, row.paid_at, timezone_name=timezone_name),
+        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
+        paid_at=serialize_dt(app, row.paid_at, timezone_name=timezone_name),
     )
 
 
-def _serialize_admin_order_summary(
+def serialize_admin_order_summary(
     app: Flask,
     row: BillingOrder,
     *,
     timezone_name: str | None = None,
 ) -> AdminBillingOrderDTO:
-    payload = _serialize_order_summary(app, row, timezone_name=timezone_name)
+    payload = serialize_order_summary(app, row, timezone_name=timezone_name)
     return AdminBillingOrderDTO(
         **payload.__json__(),
         failure_code=str(row.failure_code or ""),
-        failed_at=_serialize_dt(
+        failed_at=serialize_dt(
             app,
             row.failed_at,
             timezone_name=timezone_name,
         ),
-        refunded_at=_serialize_dt(
+        refunded_at=serialize_dt(
             app,
             row.refunded_at,
             timezone_name=timezone_name,
@@ -959,38 +661,3 @@ def _subscription_has_attention(
     }:
         return True
     return bool(str(renewal_event.last_error or "").strip())
-
-
-normalize_bid = _normalize_bid
-to_decimal = _to_decimal
-decimal_to_number = _decimal_to_number
-normalize_json_value = _normalize_json_value
-normalize_json_object = _normalize_json_object
-safe_int = _safe_int
-coerce_bool = _coerce_bool
-safe_to_decimal = _safe_to_decimal
-safe_to_positive_int = _safe_to_positive_int
-parse_config_datetime = _parse_config_datetime
-coerce_datetime = _coerce_datetime
-serialize_dt = _serialize_dt
-serialize_product = _serialize_product
-serialize_wallet = _serialize_wallet
-load_current_subscription = _load_current_subscription
-load_product_code_map = _load_product_code_map
-load_wallet_map = _load_wallet_map
-load_latest_renewal_event_map = _load_latest_renewal_event_map
-serialize_subscription = _serialize_subscription
-serialize_admin_subscription = _serialize_admin_subscription
-serialize_renewal_event = _serialize_renewal_event
-build_billing_alerts = _build_billing_alerts
-serialize_wallet_bucket = _serialize_wallet_bucket
-serialize_ledger_entry = _serialize_ledger_entry
-serialize_daily_usage_metric = _serialize_daily_usage_metric
-serialize_daily_ledger_summary = _serialize_daily_ledger_summary
-serialize_admin_entitlement_state = _serialize_admin_entitlement_state
-serialize_admin_domain_binding = _serialize_admin_domain_binding
-serialize_admin_daily_usage_metric = _serialize_admin_daily_usage_metric
-serialize_admin_daily_ledger_summary = _serialize_admin_daily_ledger_summary
-serialize_order_summary = _serialize_order_summary
-serialize_admin_order_summary = _serialize_admin_order_summary
-subscription_has_attention = _subscription_has_attention

@@ -27,11 +27,10 @@ def test_billing_v11_models_define_daily_aggregate_tables() -> None:
 
 def test_billing_v11_migration_creates_daily_aggregate_tables() -> None:
     source = (
-        _API_ROOT
-        / "migrations/versions/d4e5f6a7b8c9_add_billing_daily_aggregate_tables.py"
+        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "c1d2e3f4a5b6"' in source
+    assert 'down_revision = "b114d7f5e2c1"' in source
     assert 'op.create_table(\n        "billing_daily_usage_metrics",' in source
     assert 'op.create_table(\n        "billing_daily_ledger_summary",' in source
     assert "uq_billing_daily_usage_metrics_lookup" in source

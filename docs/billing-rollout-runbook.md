@@ -18,10 +18,8 @@
 
 - 最新代码已包含 billing models、migrations、CLI、Celery tasks 和前端 `/admin/billing`
 - `flask db upgrade` 将会应用 billing 相关 revision：
-  - `4fd52d0d9a01_add_billing_core_tables.py`
-  - `8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py`
-  - `9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py`
-  - `ab12cd34ef56_seed_billing_sys_configs.py`
+  - `b114d7f5e2c1_add_billing_core_phase.py`
+  - `c225e8a6f3d2_add_billing_extension_phase.py`
 - Redis、`celery-worker`、`celery-beat` 已部署且与 API 使用同一套配置
 - Stripe webhook 继续走旧入口 `/api/order/stripe/webhook`
 - Pingxx callback 继续走旧入口 `/api/callback/pingxx-callback`
@@ -47,7 +45,7 @@
    - `credit_usage_rates`
    - `billing_renewal_events`
 4. 校验 seed：
-   - `billing_products` 中存在 2 个 plan + 2 个 topup SKU
+   - `billing_products` 中存在扩展后的 plan / topup SKU 集合
    - `credit_usage_rates` 已覆盖 `production / preview / debug`
    - `sys_configs` 已写入 billing feature flag 和 rate version
 5. 启动或滚动更新 `celery-worker` 与 `celery-beat`

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+import json
 import sys
 import threading
 import time
@@ -823,6 +824,58 @@ def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
         {"code": "low_balance", "severity": "warning"}
     ]
     assert payload["task_name"] == "billing.send_low_balance_alert"
+
+
+def test_billing_task_entrypoints_return_json_serializable_payloads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = Flask(__name__)
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: fake_app),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.settle_bill_usage",
+        lambda app, *, usage_bid="": {
+            "status": "settled",
+            "usage_bid": usage_bid,
+            "creator_bid": "creator-json-1",
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
+        lambda app, *, creator_bid="", expire_before=None: {
+            "status": "expired",
+            "creator_bid": creator_bid,
+            "expire_before": expire_before.isoformat() if expire_before else None,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._run_reconcile_provider_reference",
+        lambda app, **kwargs: {
+            "status": "paid",
+            "billing_order_bid": kwargs.get("billing_order_bid"),
+        },
+    )
+
+    payloads = [
+        settle_usage_task(creator_bid="creator-json-1", usage_bid="usage-json-1"),
+        expire_wallet_buckets_task(
+            creator_bid="creator-json-1",
+            expire_before="2026-04-08T12:34:56",
+        ),
+        reconcile_provider_reference_task(
+            creator_bid="creator-json-1",
+            payment_provider="stripe",
+            provider_reference_id="cs_json_1",
+            billing_order_bid="billing-order-json-1",
+            session_id="cs_json_1",
+        ),
+    ]
+
+    for payload in payloads:
+        json.dumps(payload)
 
 
 def test_run_renewal_event_task_delegates_to_renewal_runner(

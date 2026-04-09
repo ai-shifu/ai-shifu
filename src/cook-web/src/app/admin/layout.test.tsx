@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
@@ -100,7 +100,7 @@ jest.mock('@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal', () => ({
   default: () => null,
 }));
 
-jest.mock('@/hooks/useBillingOverview', () => ({
+jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
 }));

@@ -49,11 +49,10 @@ def test_credit_schema_models_define_wallet_ledger_rate_and_renewal_tables() -> 
 
 def test_billing_rate_and_renewal_migration_creates_missing_schema_tables() -> None:
     source = (
-        _API_ROOT
-        / "migrations/versions/8f1d2c3b4a5e_add_billing_rate_and_renewal_tables.py"
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "4fd52d0d9a01"' in source
+    assert 'revision = "b114d7f5e2c1"' in source
     assert 'op.create_table(\n        "credit_usage_rates",' in source
     assert 'op.create_table(\n        "billing_renewal_events",' in source
     assert "sa.Numeric(precision=20, scale=10)" in source

@@ -41,7 +41,7 @@ from flaskr.service.billing.dtos import (
     AdminBillingDailyUsageMetricsPageDTO,
     AdminBillingOrdersPageDTO,
 )
-from flaskr.service.billing.funcs import (
+from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_billing_daily_ledger_summary_page,
     build_admin_billing_daily_usage_metrics_page,

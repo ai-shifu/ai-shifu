@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
 import os
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from .checkout import reconcile_billing_provider_reference
@@ -15,6 +14,9 @@ from .daily_aggregates import (
 )
 from .domains import verify_domain_binding
 from .models import BillingSubscription, CreditWallet
+from .primitives import coerce_bool as _coerce_bool
+from .primitives import coerce_datetime as _coerce_datetime
+from .primitives import normalize_bid as _normalize_bid
 from .read_models import build_billing_overview
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
@@ -36,36 +38,6 @@ def _create_task_app():
     from app import create_app
 
     return create_app()
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def _coerce_datetime(value: Any) -> datetime | None:
-    if value in (None, ""):
-        return None
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value)
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return None
-        return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
-    raise ValueError(f"Unsupported datetime value: {value!r}")
-
-
-def _coerce_bool(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    normalized = str(value or "").strip().lower()
-    if normalized in {"1", "true", "yes", "y", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "n", "off", ""}:
-        return False
-    raise ValueError(f"Unsupported bool value: {value!r}")
 
 
 @dataclass(slots=True, frozen=True)

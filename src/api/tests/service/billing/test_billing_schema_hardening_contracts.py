@@ -9,11 +9,9 @@ def test_billing_schema_hardening_migration_adds_unique_constraints_and_rate_see
     None
 ):
     source = (
-        _API_ROOT
-        / "migrations/versions/9c1d2e3f4a5b_harden_billing_schema_and_seed_rates.py"
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "8f1d2c3b4a5e"' in source
     assert "uq_billing_products_product_bid" in source
     assert "uq_billing_subscriptions_subscription_bid" in source
     assert "uq_billing_orders_billing_order_bid" in source

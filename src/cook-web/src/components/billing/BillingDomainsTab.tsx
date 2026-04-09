@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { toast } from '@/hooks/useToast';
-import { useBillingEntitlements } from '@/hooks/useBillingEntitlements';
+import { useBillingEntitlements } from '@/hooks/useBillingData';
 import {
   formatBillingDateTime,
   registerBillingTranslationUsage,

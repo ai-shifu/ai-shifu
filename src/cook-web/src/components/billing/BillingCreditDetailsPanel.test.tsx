@@ -1,8 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
-import { useBillingWalletBuckets } from '@/hooks/useBillingWalletBuckets';
+import {
+  useBillingOverview,
+  useBillingWalletBuckets,
+} from '@/hooks/useBillingData';
 import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
 jest.mock('react-i18next', () => ({
@@ -14,13 +16,9 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useBillingOverview', () => ({
+jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
-}));
-
-jest.mock('@/hooks/useBillingWalletBuckets', () => ({
-  __esModule: true,
   useBillingWalletBuckets: jest.fn(),
 }));
 

@@ -41,7 +41,7 @@ from .provider_state import (
 from .queries import (
     load_latest_billing_order_by_subscription as _load_latest_billing_order_by_subscription,
 )
-from .serializers import normalize_bid as _normalize_bid
+from .primitives import normalize_bid as _normalize_bid
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {

@@ -1,20 +1,46 @@
-"""add billing entitlement and domain tables
+"""add billing extension phase
 
-Revision ID: c1d2e3f4a5b6
-Revises: ab12cd34ef56
-Create Date: 2026-04-08 21:00:00.000000
+Revision ID: c225e8a6f3d2
+Revises: b114d7f5e2c1
+Create Date: 2026-04-09 20:30:00.000000
 
 """
+
+from __future__ import annotations
+
+import json
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 
-revision = "c1d2e3f4a5b6"
-down_revision = "ab12cd34ef56"
+revision = "c225e8a6f3d2"
+down_revision = "b114d7f5e2c1"
 branch_labels = None
 depends_on = None
+
+
+_NEW_CREATOR_TRIAL_CONFIG = {
+    "config_bid": "billing-config-new-creator-trial-config",
+    "key": "BILLING_NEW_CREATOR_TRIAL_CONFIG",
+    "value": json.dumps(
+        {
+            "credit_amount": "100.0000000000",
+            "eligible_registered_after": "",
+            "enabled": 0,
+            "grant_trigger": "billing_overview",
+            "program_code": "new_creator_v1",
+            "valid_days": 15,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ),
+    "is_encrypted": 0,
+    "remark": "New creator trial credit bootstrap config",
+    "deleted": 0,
+    "updated_by": "system",
+}
 
 
 def upgrade():
@@ -305,8 +331,161 @@ def upgrade():
             unique=False,
         )
 
+    op.create_table(
+        "billing_daily_usage_metrics",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column("daily_usage_metric_bid", sa.String(length=36), nullable=False),
+        sa.Column("stat_date", sa.String(length=10), nullable=False),
+        sa.Column("creator_bid", sa.String(length=36), nullable=False),
+        sa.Column("shifu_bid", sa.String(length=36), nullable=False),
+        sa.Column("usage_scene", sa.SmallInteger(), nullable=False),
+        sa.Column("usage_type", sa.SmallInteger(), nullable=False),
+        sa.Column("provider", sa.String(length=32), nullable=False),
+        sa.Column("model", sa.String(length=100), nullable=False),
+        sa.Column("billing_metric", sa.SmallInteger(), nullable=False),
+        sa.Column("raw_amount", mysql.BIGINT(), nullable=False),
+        sa.Column("record_count", mysql.BIGINT(), nullable=False),
+        sa.Column(
+            "consumed_credits",
+            sa.Numeric(precision=20, scale=10),
+            nullable=False,
+        ),
+        sa.Column("window_started_at", sa.DateTime(), nullable=False),
+        sa.Column("window_ended_at", sa.DateTime(), nullable=False),
+        sa.Column("deleted", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "daily_usage_metric_bid",
+            name="uq_billing_daily_usage_metrics_daily_usage_metric_bid",
+        ),
+        sa.UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "shifu_bid",
+            "usage_scene",
+            "usage_type",
+            "provider",
+            "model",
+            "billing_metric",
+            name="uq_billing_daily_usage_metrics_lookup",
+        ),
+        comment="Billing daily usage metrics",
+    )
+    with op.batch_alter_table("billing_daily_usage_metrics", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_billing_daily_usage_metrics_stat_creator",
+            ["stat_date", "creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_billing_daily_usage_metrics_billing_metric",
+            ["billing_metric"],
+            unique=False,
+        )
+
+    op.create_table(
+        "billing_daily_ledger_summary",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column("daily_ledger_summary_bid", sa.String(length=36), nullable=False),
+        sa.Column("stat_date", sa.String(length=10), nullable=False),
+        sa.Column("creator_bid", sa.String(length=36), nullable=False),
+        sa.Column("entry_type", sa.SmallInteger(), nullable=False),
+        sa.Column("source_type", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "amount",
+            sa.Numeric(precision=20, scale=10),
+            nullable=False,
+        ),
+        sa.Column("entry_count", mysql.BIGINT(), nullable=False),
+        sa.Column("window_started_at", sa.DateTime(), nullable=False),
+        sa.Column("window_ended_at", sa.DateTime(), nullable=False),
+        sa.Column("deleted", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "daily_ledger_summary_bid",
+            name="uq_billing_daily_ledger_summary_daily_ledger_summary_bid",
+        ),
+        sa.UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "entry_type",
+            "source_type",
+            name="uq_billing_daily_ledger_summary_lookup",
+        ),
+        comment="Billing daily ledger summary",
+    )
+    with op.batch_alter_table("billing_daily_ledger_summary", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_billing_daily_ledger_summary_stat_creator",
+            ["stat_date", "creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_billing_daily_ledger_summary_source_type",
+            ["source_type"],
+            unique=False,
+        )
+
+    config_table = sa.table(
+        "sys_configs",
+        sa.column("config_bid", sa.String(length=36)),
+        sa.column("key", sa.String(length=255)),
+        sa.column("value", sa.Text()),
+        sa.column("is_encrypted", sa.SmallInteger()),
+        sa.column("remark", sa.Text()),
+        sa.column("deleted", sa.SmallInteger()),
+        sa.column("updated_by", sa.String(length=36)),
+    )
+    op.bulk_insert(config_table, [_NEW_CREATOR_TRIAL_CONFIG])
+
 
 def downgrade():
+    config_table = sa.table("sys_configs", sa.column("key", sa.String(length=255)))
+    op.execute(
+        config_table.delete().where(
+            config_table.c.key == _NEW_CREATOR_TRIAL_CONFIG["key"]
+        )
+    )
+
+    op.drop_table("billing_daily_ledger_summary")
+    op.drop_table("billing_daily_usage_metrics")
+
     with op.batch_alter_table("billing_domain_bindings", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_billing_domain_bindings_status"))
         batch_op.drop_index(batch_op.f("ix_billing_domain_bindings_host"))

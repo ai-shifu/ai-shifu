@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Any, Generic, TypeVar
-
-from .models import BillingRenewalEvent, CreditWallet
 
 T = TypeVar("T")
 
@@ -67,35 +64,3 @@ class JsonObjectMap(MutableMapping[str, Any]):
         return {
             str(key): _serialize_json_value(value) for key, value in self.values.items()
         }
-
-
-@dataclass(slots=True, frozen=True)
-class ProductCodeIndex:
-    values: dict[str, str] = field(default_factory=dict)
-
-    def get(self, product_bid: str, default: str = "") -> str:
-        return self.values.get(product_bid, default)
-
-
-@dataclass(slots=True, frozen=True)
-class WalletIndex:
-    values: dict[str, CreditWallet] = field(default_factory=dict)
-
-    def get(self, creator_bid: str) -> CreditWallet | None:
-        return self.values.get(creator_bid)
-
-
-@dataclass(slots=True, frozen=True)
-class RenewalEventIndex:
-    values: dict[str, BillingRenewalEvent] = field(default_factory=dict)
-
-    def get(self, subscription_bid: str) -> BillingRenewalEvent | None:
-        return self.values.get(subscription_bid)
-
-
-@dataclass(slots=True, frozen=True)
-class UsageConsumedCreditIndex:
-    values: dict[tuple[str, int], Decimal] = field(default_factory=dict)
-
-    def get(self, usage_bid: str, metric_code: int, default: Decimal) -> Decimal:
-        return self.values.get((usage_bid, metric_code), default)

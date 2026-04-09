@@ -25,11 +25,10 @@ def test_billing_v11_models_define_entitlement_and_domain_tables() -> None:
 
 def test_billing_v11_migration_creates_entitlement_and_domain_tables() -> None:
     source = (
-        _API_ROOT
-        / "migrations/versions/c1d2e3f4a5b6_add_billing_entitlement_and_domain_tables.py"
+        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "ab12cd34ef56"' in source
+    assert 'down_revision = "b114d7f5e2c1"' in source
     assert 'op.create_table(\n        "billing_entitlements",' in source
     assert 'op.create_table(\n        "billing_domain_bindings",' in source
     assert "ix_billing_entitlements_creator_effective_to" in source

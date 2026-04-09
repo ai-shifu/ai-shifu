@@ -40,11 +40,6 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
 )
-from flaskr.service.billing.funcs import (
-    _apply_billing_subscription_provider_update,
-    _grant_paid_order_credits,
-    _sync_subscription_lifecycle_events,
-)
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
@@ -53,6 +48,13 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
+)
+from flaskr.service.billing.provider_state import (
+    apply_billing_subscription_provider_update,
+)
+from flaskr.service.billing.subscriptions import (
+    grant_paid_order_credits,
+    sync_subscription_lifecycle_events,
 )
 from flaskr.service.common.models import AppException
 from flaskr.service.order.models import PingxxOrder, StripeOrder
@@ -820,10 +822,10 @@ class TestBillingWriteRoutes:
             )
             dao.db.session.add(subscription)
             dao.db.session.flush()
-            _sync_subscription_lifecycle_events(app, subscription)
+            sync_subscription_lifecycle_events(app, subscription)
             dao.db.session.commit()
 
-            applied = _apply_billing_subscription_provider_update(
+            applied = apply_billing_subscription_provider_update(
                 app,
                 subscription,
                 provider="stripe",
@@ -879,7 +881,7 @@ class TestBillingWriteRoutes:
             )
             dao.db.session.add(subscription)
             dao.db.session.flush()
-            _sync_subscription_lifecycle_events(app, subscription)
+            sync_subscription_lifecycle_events(app, subscription)
             dao.db.session.commit()
 
             downgrade_event = BillingRenewalEvent.query.filter_by(
@@ -931,7 +933,7 @@ class TestBillingWriteRoutes:
             dao.db.session.add(order)
             dao.db.session.flush()
 
-            granted = _grant_paid_order_credits(app, order)
+            granted = grant_paid_order_credits(app, order)
             dao.db.session.commit()
 
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
@@ -989,7 +991,7 @@ class TestBillingWriteRoutes:
             dao.db.session.add(order)
             dao.db.session.flush()
 
-            granted = _grant_paid_order_credits(app, order)
+            granted = grant_paid_order_credits(app, order)
             dao.db.session.commit()
 
             renewal_event = BillingRenewalEvent.query.filter_by(
@@ -1051,7 +1053,7 @@ class TestBillingWriteRoutes:
             dao.db.session.add(order)
             dao.db.session.flush()
 
-            granted = _grant_paid_order_credits(app, order)
+            granted = grant_paid_order_credits(app, order)
             dao.db.session.commit()
 
             bucket = CreditWalletBucket.query.filter_by(
@@ -1118,7 +1120,7 @@ class TestBillingWriteRoutes:
             dao.db.session.add(order)
             dao.db.session.flush()
 
-            granted = _grant_paid_order_credits(app, order)
+            granted = grant_paid_order_credits(app, order)
             dao.db.session.commit()
 
             bucket = CreditWalletBucket.query.filter_by(

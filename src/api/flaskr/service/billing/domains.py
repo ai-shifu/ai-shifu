@@ -35,6 +35,7 @@ from .dtos import (
 )
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingDomainBinding
+from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
 
 _DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
@@ -571,10 +572,6 @@ def _is_invalid_host(host: str) -> bool:
     if any(not label or len(label) > 63 for label in labels):
         return True
     return any(_DOMAIN_LABEL_RE.fullmatch(label) is None for label in labels)
-
-
-def _normalize_bid(value: Any) -> str:
-    return str(value or "").strip()
 
 
 def _as_dict(value: Any) -> JsonObjectMap:

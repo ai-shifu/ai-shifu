@@ -58,31 +58,23 @@ def billing_v11_upgrade_app() -> Flask:
 
 
 def test_billing_v11_upgrade_migration_chain_extends_v1_schema() -> None:
-    entitlement_domain_source = (
-        _API_ROOT
-        / "migrations/versions/c1d2e3f4a5b6_add_billing_entitlement_and_domain_tables.py"
+    core_source = (
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
-    daily_aggregate_source = (
-        _API_ROOT
-        / "migrations/versions/d4e5f6a7b8c9_add_billing_daily_aggregate_tables.py"
+    extension_source = (
+        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "ab12cd34ef56"' in entitlement_domain_source
+    assert 'revision = "b114d7f5e2c1"' in core_source
+    assert 'revision = "c225e8a6f3d2"' in extension_source
+    assert 'down_revision = "b114d7f5e2c1"' in extension_source
+    assert 'op.create_table(\n        "billing_entitlements",' in extension_source
+    assert 'op.create_table(\n        "billing_domain_bindings",' in extension_source
     assert (
-        'op.create_table(\n        "billing_entitlements",' in entitlement_domain_source
+        'op.create_table(\n        "billing_daily_usage_metrics",' in extension_source
     )
     assert (
-        'op.create_table(\n        "billing_domain_bindings",'
-        in entitlement_domain_source
-    )
-    assert 'down_revision = "c1d2e3f4a5b6"' in daily_aggregate_source
-    assert (
-        'op.create_table(\n        "billing_daily_usage_metrics",'
-        in daily_aggregate_source
-    )
-    assert (
-        'op.create_table(\n        "billing_daily_ledger_summary",'
-        in daily_aggregate_source
+        'op.create_table(\n        "billing_daily_ledger_summary",' in extension_source
     )
 
 

@@ -26,6 +26,8 @@ from .consts import (
 )
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
+from .primitives import decimal_to_number as _decimal_to_number
+from .primitives import to_decimal as _to_decimal
 from .wallets import (
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
@@ -550,16 +552,3 @@ def _load_consumable_buckets(
         )
     )
     return eligible
-
-
-def _to_decimal(value: Any) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    return Decimal(str(value or 0))
-
-
-def _decimal_to_number(value: Decimal | Any) -> int | float:
-    decimal_value = _to_decimal(value)
-    if decimal_value == decimal_value.to_integral_value():
-        return int(decimal_value)
-    return float(decimal_value)

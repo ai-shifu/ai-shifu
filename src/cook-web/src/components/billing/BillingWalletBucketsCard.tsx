@@ -29,7 +29,7 @@ import {
   resolveBillingBucketStatusLabel,
   resolveBillingEmptyLabel,
 } from '@/lib/billing';
-import { useBillingWalletBuckets } from '@/hooks/useBillingWalletBuckets';
+import { useBillingWalletBuckets } from '@/hooks/useBillingData';
 import { BillingMetricCard } from './BillingMetricCard';
 
 function resolveBucketStatusClasses(

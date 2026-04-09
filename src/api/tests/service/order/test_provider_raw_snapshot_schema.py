@@ -29,8 +29,7 @@ def test_provider_raw_models_define_billing_isolation_columns() -> None:
 
 def test_provider_raw_migration_adds_billing_isolation_columns() -> None:
     source = (
-        _API_ROOT
-        / "migrations/versions/f6a7b8c9d0e1_add_biz_domain_to_order_provider_raw_tables.py"
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
 
     assert '"biz_domain"' in source

@@ -66,11 +66,11 @@ from .queries import (
     load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
     serialize_order_metadata_datetime as _serialize_order_metadata_datetime,
 )
-from .serializers import normalize_bid as _normalize_bid
-from .serializers import normalize_json_object as _normalize_json_object
-from .serializers import normalize_json_value as _normalize_json_value
+from .primitives import normalize_bid as _normalize_bid
+from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import normalize_json_value as _normalize_json_value
+from .primitives import to_decimal as _to_decimal
 from .serializers import serialize_subscription as _serialize_subscription
-from .serializers import to_decimal as _to_decimal
 from .wallets import (
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,

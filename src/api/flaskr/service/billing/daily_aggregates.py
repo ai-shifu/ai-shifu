@@ -22,7 +22,7 @@ from .models import (
 )
 from .charges import build_usage_metric_charges
 from .ownership import resolve_usage_creator_bid
-from .value_objects import UsageConsumedCreditIndex
+from .primitives import to_decimal as _to_decimal
 
 _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
@@ -217,8 +217,7 @@ def aggregate_daily_usage_metrics(
                 row_payload["raw_amount"] += int(charge.raw_amount)
                 row_payload["record_count"] += 1
                 row_payload["consumed_credits"] += consumed_credit_map.get(
-                    str(usage.usage_bid or "").strip(),
-                    metric_code,
+                    (str(usage.usage_bid or "").strip(), metric_code),
                     _ZERO,
                 )
                 metric_count += 1
@@ -534,7 +533,7 @@ def _load_usage_consumed_credit_map(
     window_started_at: datetime,
     window_ended_at: datetime,
     creator_bid: str = "",
-) -> UsageConsumedCreditIndex:
+) -> dict[tuple[str, int], Decimal]:
     query = CreditLedgerEntry.query.filter(
         CreditLedgerEntry.deleted == 0,
         CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -568,7 +567,7 @@ def _load_usage_consumed_credit_map(
             else:
                 consumed_value = _quantize_decimal(consumed_credits)
             consumed_map[(usage_bid, metric_code)] += consumed_value
-    return UsageConsumedCreditIndex(values=dict(consumed_map))
+    return dict(consumed_map)
 
 
 def _resolve_stat_window(
@@ -606,12 +605,6 @@ def _resolve_stat_date_range(
     if end_date < start_date:
         raise ValueError("date_to must be greater than or equal to date_from")
     return start_date, end_date
-
-
-def _to_decimal(value: Any) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    return Decimal(str(value or 0))
 
 
 def _quantize_decimal(value: Any) -> Decimal:

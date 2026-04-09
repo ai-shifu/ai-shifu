@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useBillingEntitlements } from '@/hooks/useBillingEntitlements';
+import { useBillingEntitlements } from '@/hooks/useBillingData';
 import { registerBillingTranslationUsage } from '@/lib/billing';
 import type { BillingEntitlements } from '@/types/billing';
 

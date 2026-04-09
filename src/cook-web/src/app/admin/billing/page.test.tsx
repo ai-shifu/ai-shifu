@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
-import { useBillingOverview } from '@/hooks/useBillingOverview';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import AdminBillingPage from './page';
 
 const mockEnvState = {
@@ -37,8 +37,8 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/hooks/useBillingOverview', () => ({
-  __esModule: true,
+jest.mock('@/hooks/useBillingData', () => ({
+  ...jest.requireActual('@/hooks/useBillingData'),
   useBillingOverview: jest.fn(),
 }));
 
@@ -111,7 +111,7 @@ describe('AdminBillingPage', () => {
     mockGetBillingWalletBuckets.mockReset();
     mockUseBillingOverview.mockReset();
 
-    mockGetBillingBootstrap.mockResolvedValue({
+    const bootstrapPayload = {
       service: 'billing',
       status: 'bootstrap',
       path_prefix: '/api/billing',
@@ -147,7 +147,7 @@ describe('AdminBillingPage', () => {
         },
       ],
       notes: [],
-    });
+    };
 
     mockGetBillingCatalog.mockResolvedValue({
       plans: [
@@ -192,6 +192,7 @@ describe('AdminBillingPage', () => {
         },
       ],
     });
+    mockGetBillingBootstrap.mockResolvedValue(bootstrapPayload);
     mockGetBillingWalletBuckets.mockResolvedValue({
       items: [
         {

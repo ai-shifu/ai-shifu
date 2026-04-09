@@ -7,10 +7,9 @@ _API_ROOT = Path(__file__).resolve().parents[3]
 
 def test_billing_sys_config_migration_seeds_required_keys() -> None:
     source = (
-        _API_ROOT / "migrations/versions/ab12cd34ef56_seed_billing_sys_configs.py"
+        _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "9c1d2e3f4a5b"' in source
     assert '"key": "BILLING_ENABLED"' in source
     assert '"key": "BILLING_LOW_BALANCE_THRESHOLD"' in source
     assert '"key": "BILLING_RENEWAL_TASK_CONFIG"' in source

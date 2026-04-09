@@ -55,7 +55,8 @@ from flaskr.service.billing.dtos import (
     BillingRouteBootstrapDTO,
     BillingWalletBucketListDTO,
 )
-from flaskr.service.billing.funcs import (
+from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_billing_daily_ledger_summary_page,
     build_billing_daily_usage_metrics_page,
@@ -64,7 +65,6 @@ from flaskr.service.billing.funcs import (
     build_billing_order_detail,
     build_billing_orders_page,
     build_billing_overview,
-    build_billing_route_bootstrap,
     build_billing_wallet_buckets,
 )
 from flaskr.service.common.models import AppException
