@@ -126,7 +126,7 @@ export function BillingRecentActivitySection() {
           <CardHeader className='space-y-3 pb-4'>
             <div className='flex items-center justify-between gap-3'>
               <div className='space-y-1'>
-                <CardTitle className='text-xl text-slate-950'>
+                <CardTitle className='text-lg text-slate-950'>
                   {t('module.billing.ledger.title')}
                 </CardTitle>
                 <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
@@ -185,7 +185,7 @@ export function BillingRecentActivitySection() {
                     </div>
                     <div className='flex flex-col items-end gap-3'>
                       <div className='text-right'>
-                        <div className='text-lg font-semibold text-slate-950'>
+                        <div className='text-base font-semibold text-slate-950 md:text-lg'>
                           {formatSignedCredits(item.amount, i18n.language)}
                         </div>
                         <div className='flex items-center justify-end gap-1 text-xs text-slate-500'>
@@ -224,7 +224,7 @@ export function BillingRecentActivitySection() {
           <CardHeader className='space-y-3 pb-4'>
             <div className='flex items-center justify-between gap-3'>
               <div className='space-y-1'>
-                <CardTitle className='text-xl text-slate-950'>
+                <CardTitle className='text-lg text-slate-950'>
                   {t('module.billing.orders.title')}
                 </CardTitle>
                 <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
@@ -267,7 +267,7 @@ export function BillingRecentActivitySection() {
                         <Button
                           variant='link'
                           size='sm'
-                          className='h-auto p-0 text-left text-base font-semibold text-slate-950 no-underline hover:text-slate-950 hover:no-underline'
+                          className='h-auto p-0 text-left text-sm font-semibold text-slate-950 no-underline hover:text-slate-950 hover:no-underline md:text-base'
                           onClick={() => {
                             setSelectedOrderBid(item.billing_order_bid);
                             setOrderDetailOpen(true);
@@ -291,7 +291,7 @@ export function BillingRecentActivitySection() {
                     </div>
                     <div className='flex flex-col items-end gap-3'>
                       <div className='text-right'>
-                        <div className='text-lg font-semibold text-slate-950'>
+                        <div className='text-base font-semibold text-slate-950 md:text-lg'>
                           {formatBillingPrice(
                             item.paid_amount || item.payable_amount,
                             item.currency,

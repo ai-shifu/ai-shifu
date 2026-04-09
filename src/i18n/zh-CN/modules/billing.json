@@ -25,7 +25,7 @@
       "quickAction": "调整该创作者积分",
       "submit": "确认调整",
       "submitting": "调整中...",
-      "success": "已更新 {{creatorBid}} 的账本，当前可用积分 {{availableCredits}}。",
+      "success": "已更新 {creatorBid} 的账本，当前可用积分 {availableCredits}。",
       "title": "人工积分调整"
     },
     "attention": "需关注",
@@ -103,7 +103,7 @@
       "title": "订单列表"
     },
     "pagination": {
-      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条记录"
+      "page": "第 {page} / {pageCount} 页，共 {total} 条记录"
     },
     "reports": {
       "description": "在运营后台直接查看跨创作者的 usage 与账本日报表。",
@@ -174,7 +174,7 @@
       "recommended": "推荐"
     },
     "labels": {
-      "creditsOneTime": "一次到账 {{credits}} 积分",
+      "creditsOneTime": "一次到账 {credits} 积分",
       "perMonth": "/ 月",
       "perYear": "/ 年",
       "providerPingxx": "Pingxx / 支付宝二维码",
@@ -307,12 +307,12 @@
       },
       "neverVerified": "尚未校验",
       "title": "绑定记录",
-      "verificationError": "校验失败：{{code}}"
+      "verificationError": "校验失败：{code}"
     },
     "settings": {
       "description": "在账务中心直接完成域名绑定、校验和停用，不再跳到其它配置页。",
       "disabled": "自定义域名未开启",
-      "effectiveDomain": "当前生效域名：{{host}}",
+      "effectiveDomain": "当前生效域名：{host}",
       "enabled": "自定义域名已开启",
       "noEffectiveDomain": "当前还没有已生效的校验域名。",
       "title": "域名设置"
@@ -419,7 +419,7 @@
     "loadError": "积分来源读取失败，请刷新后重试。",
     "neverExpires": "永不过期",
     "pagination": {
-      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条账本"
+      "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
     },
     "source": {
       "gift": "赠送积分",
@@ -493,7 +493,7 @@
     "empty": "当前还没有 billing 订单，后续购买和续费会展示在这里。",
     "loadError": "订单列表读取失败，请刷新后重试。",
     "pagination": {
-      "page": "第 {{page}} / {{pageCount}} 页，共 {{total}} 条订单"
+      "page": "第 {page} / {pageCount} 页，共 {total} 条订单"
     },
     "paymentMode": {
       "oneTime": "一次性支付",
@@ -508,7 +508,7 @@
       "refunded": "已退款",
       "timeout": "已超时"
     },
-    "syncSuccess": "订单状态已刷新：{{status}}",
+    "syncSuccess": "订单状态已刷新：{status}",
     "table": {
       "actions": "操作",
       "amount": "金额",
@@ -546,9 +546,9 @@
     "loadError": "账务数据加载失败，请刷新后重试。",
     "subscriptionEmptyDescription": "选择一个套餐后，这个创作者空间会开始按周期获得积分。",
     "subscriptionEmptyTitle": "当前还没有有效订阅",
-    "subscriptionEndsOn": "{{date}} 到期",
+    "subscriptionEndsOn": "{date} 到期",
     "subscriptionProviderLabel": "支付通道",
-    "subscriptionRenewsOn": "{{date}} 自动续费",
+    "subscriptionRenewsOn": "{date} 自动续费",
     "subscriptionTimingLabel": "续费安排",
     "subscriptionTitle": "当前订阅",
     "walletTitle": "积分总览"
@@ -563,8 +563,8 @@
       "upgradeNow": "立即升级"
     },
     "creditSummary": {
-      "monthly": "月积分数 {{credits}}",
-      "yearly": "年积分数 {{credits}}"
+      "monthly": "月积分数 {credits}",
+      "yearly": "年积分数 {credits}"
     },
     "features": {
       "free": {
@@ -612,7 +612,7 @@
     "subtitle": "根据你的课程规模、招生节奏和运营阶段，选择最适合当前创作者空间的积分方案。",
     "title": "积分套餐",
     "topup": {
-      "creditLabel": "{{credits}} 积分"
+      "creditLabel": "{credits} 积分"
     }
   },
   "page": {

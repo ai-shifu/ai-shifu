@@ -67,13 +67,13 @@ export default function AdminBillingPage() {
       >
         <TabsList className='h-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm'>
           <TabsTrigger
-            className='rounded-lg px-5 py-2 text-base font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
+            className='rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
             value='packages'
           >
             {t('module.billing.page.tabs.plans')}
           </TabsTrigger>
           <TabsTrigger
-            className='rounded-lg px-5 py-2 text-base font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
+            className='rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
             value='details'
           >
             {t('module.billing.page.tabs.ledger')}

@@ -25,7 +25,7 @@
       "quickAction": "Adjust this creator",
       "submit": "Apply adjustment",
       "submitting": "Applying...",
-      "success": "Ledger updated for {{creatorBid}}. Available credits: {{availableCredits}}.",
+      "success": "Ledger updated for {creatorBid}. Available credits: {availableCredits}.",
       "title": "Manual credit adjustment"
     },
     "attention": "Needs attention",
@@ -103,7 +103,7 @@
       "title": "Orders"
     },
     "pagination": {
-      "page": "Page {{page}} / {{pageCount}} · {{total}} records"
+      "page": "Page {page} / {pageCount} · {total} records"
     },
     "reports": {
       "description": "Inspect cross-creator usage and ledger rollups without leaving the operations console.",
@@ -174,7 +174,7 @@
       "recommended": "Recommended"
     },
     "labels": {
-      "creditsOneTime": "{{credits}} credits one time",
+      "creditsOneTime": "{credits} credits one time",
       "perMonth": "/ month",
       "perYear": "/ year",
       "providerPingxx": "Pingxx / Alipay QR",
@@ -307,12 +307,12 @@
       },
       "neverVerified": "Not verified yet",
       "title": "Binding Records",
-      "verificationError": "Verification failed: {{code}}"
+      "verificationError": "Verification failed: {code}"
     },
     "settings": {
       "description": "Bind a domain, verify it, and disable stale hosts without leaving the billing center.",
       "disabled": "Custom domain locked",
-      "effectiveDomain": "Current effective domain: {{host}}",
+      "effectiveDomain": "Current effective domain: {host}",
       "enabled": "Custom domain enabled",
       "noEffectiveDomain": "No verified host is active yet.",
       "title": "Domain Settings"
@@ -419,7 +419,7 @@
     "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
     "neverExpires": "Never expires",
     "pagination": {
-      "page": "Page {{page}} / {{pageCount}} · {{total}} entries"
+      "page": "Page {page} / {pageCount} · {total} entries"
     },
     "source": {
       "gift": "Gift credits",
@@ -493,7 +493,7 @@
     "empty": "No billing orders yet. Purchases and renewals will appear here.",
     "loadError": "Billing orders could not be loaded. Refresh and try again.",
     "pagination": {
-      "page": "Page {{page}} / {{pageCount}} · {{total}} orders"
+      "page": "Page {page} / {pageCount} · {total} orders"
     },
     "paymentMode": {
       "oneTime": "One-time payment",
@@ -508,7 +508,7 @@
       "refunded": "Refunded",
       "timeout": "Timed out"
     },
-    "syncSuccess": "Order status refreshed: {{status}}",
+    "syncSuccess": "Order status refreshed: {status}",
     "table": {
       "actions": "Actions",
       "amount": "Amount",
@@ -546,9 +546,9 @@
     "loadError": "Billing data could not be loaded. Refresh and try again.",
     "subscriptionEmptyDescription": "Choose a plan to unlock recurring credits for this creator workspace.",
     "subscriptionEmptyTitle": "No active subscription",
-    "subscriptionEndsOn": "Ends on {{date}}",
+    "subscriptionEndsOn": "Ends on {date}",
     "subscriptionProviderLabel": "Provider",
-    "subscriptionRenewsOn": "Renews on {{date}}",
+    "subscriptionRenewsOn": "Renews on {date}",
     "subscriptionTimingLabel": "Renewal",
     "subscriptionTitle": "Current subscription",
     "walletTitle": "Credits Overview"
@@ -563,8 +563,8 @@
       "upgradeNow": "Upgrade now"
     },
     "creditSummary": {
-      "monthly": "Monthly credits {{credits}}",
-      "yearly": "Yearly credits {{credits}}"
+      "monthly": "Monthly credits {credits}",
+      "yearly": "Yearly credits {credits}"
     },
     "features": {
       "free": {
@@ -612,7 +612,7 @@
     "subtitle": "Choose a credit package that fits the size of your course catalog, admissions rhythm, and creator operations stage.",
     "title": "Credit Plans",
     "topup": {
-      "creditLabel": "{{credits}} credits"
+      "creditLabel": "{credits} credits"
     }
   },
   "page": {

@@ -103,7 +103,7 @@ export function BillingSubscriptionCard({
             <CardDescription className='text-sm font-medium uppercase tracking-[0.12em] text-slate-400'>
               {t('module.billing.overview.subscriptionTitle')}
             </CardDescription>
-            <CardTitle className='mt-3 text-2xl leading-tight text-slate-950'>
+            <CardTitle className='mt-3 text-xl leading-tight text-slate-950 md:text-2xl'>
               {subscription && currentPlan
                 ? resolveBillingProductTitle(t, currentPlan)
                 : t('module.billing.overview.subscriptionEmptyTitle')}

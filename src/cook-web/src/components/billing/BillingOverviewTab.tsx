@@ -94,21 +94,21 @@ function getFreeFeatureKeys(): string[] {
 function PlanFeatureList({ items }: { items: string[] }) {
   const { t } = useTranslation();
   return (
-    <div className='space-y-4'>
-      <p className='text-lg font-semibold text-slate-950'>
+    <div className='space-y-3'>
+      <p className='text-base font-semibold text-slate-950'>
         {t('module.billing.package.featuresTitle')}
       </p>
       <ul className='space-y-3'>
         {items.map(item => (
           <li
             key={item}
-            className='flex items-center justify-between gap-4 text-base text-slate-600'
+            className='flex items-center justify-between gap-4 text-sm text-slate-600'
           >
             <div className='flex items-center gap-3'>
-              <CheckIcon className='h-6 w-6 text-slate-950' />
+              <CheckIcon className='h-5 w-5 text-slate-950' />
               <span>{t(item)}</span>
             </div>
-            <InformationCircleIcon className='h-5 w-5 shrink-0 text-slate-300' />
+            <InformationCircleIcon className='h-4 w-4 shrink-0 text-slate-300' />
           </li>
         ))}
       </ul>
@@ -159,26 +159,26 @@ function PlanShowcaseCard({
       <div className='space-y-4'>
         <h3
           className={cn(
-            'text-[2rem] font-semibold leading-tight tracking-tight',
+            'text-2xl font-semibold leading-tight tracking-tight',
             featured ? 'text-[#1d5bd8]' : 'text-slate-950',
           )}
         >
           {title}
         </h3>
-        <p className='min-h-[72px] text-[1.1rem] leading-9 text-slate-500'>
+        <p className='min-h-[56px] text-base leading-7 text-slate-500'>
           {description}
         </p>
       </div>
 
       <div className='mt-8 flex items-end gap-2'>
-        <div className='text-[4rem] font-semibold leading-none tracking-tight text-slate-950'>
+        <div className='text-4xl font-semibold leading-none tracking-tight text-slate-950 md:text-5xl'>
           {priceLabel}
         </div>
       </div>
 
       <Button
         className={cn(
-          'mt-10 h-14 rounded-2xl text-xl font-semibold',
+          'mt-8 h-12 rounded-2xl text-sm font-semibold md:text-base',
           featured
             ? 'bg-[#1d5bd8] text-white hover:bg-[#194fbc]'
             : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
@@ -193,7 +193,7 @@ function PlanShowcaseCard({
       </Button>
 
       <div className='mt-8 rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm'>
-        <div className='text-[2rem] font-semibold leading-tight text-slate-950'>
+        <div className='text-xl font-semibold leading-tight text-slate-950 md:text-2xl'>
           {creditSummary}
         </div>
       </div>
@@ -238,24 +238,26 @@ function TopupCard({
     >
       <div className='space-y-3'>
         <div className='flex items-center gap-4'>
-          <div className='flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef5ff] text-[#1d5bd8]'>
-            <InformationCircleIcon className='h-7 w-7' />
+          <div className='flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef5ff] text-[#1d5bd8]'>
+            <InformationCircleIcon className='h-6 w-6' />
           </div>
           <div>
-            <div className='text-[2rem] font-semibold leading-tight text-slate-950'>
+            <div className='text-2xl font-semibold leading-tight text-slate-950'>
               {creditsLabel}
             </div>
-            <div className='text-base text-slate-500'>{description}</div>
+            <div className='text-sm leading-6 text-slate-500'>
+              {description}
+            </div>
           </div>
         </div>
       </div>
 
       <div className='mt-8 flex items-end justify-between gap-4'>
-        <div className='text-[3rem] font-semibold leading-none tracking-tight text-slate-950'>
+        <div className='text-3xl font-semibold leading-none tracking-tight text-slate-950'>
           {priceLabel}
         </div>
         <Button
-          className='h-14 rounded-2xl px-8 text-lg font-semibold'
+          className='h-11 rounded-2xl px-6 text-sm font-semibold'
           data-testid={`${testId}-action`}
           disabled={disabled || actionLoading}
           onClick={onAction}
@@ -587,10 +589,10 @@ export function BillingOverviewTab({
     >
       <div className='space-y-4 text-center'>
         <div className='space-y-2'>
-          <h1 className='text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl'>
+          <h1 className='text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl'>
             {t('module.billing.package.title')}
           </h1>
-          <p className='mx-auto max-w-4xl text-base leading-8 text-slate-500 md:text-lg'>
+          <p className='mx-auto max-w-4xl text-sm leading-7 text-slate-500 md:text-base'>
             {t('module.billing.package.subtitle')}
           </p>
         </div>
@@ -603,7 +605,7 @@ export function BillingOverviewTab({
                   {t('module.billing.overview.subscriptionTitle')}
                 </div>
                 <div className='flex flex-wrap items-center gap-3'>
-                  <div className='text-2xl font-semibold text-slate-950'>
+                  <div className='text-xl font-semibold text-slate-950 md:text-2xl'>
                     {currentPlan
                       ? resolveBillingProductTitle(t, currentPlan)
                       : t('module.billing.overview.subscriptionEmptyTitle')}
@@ -694,19 +696,19 @@ export function BillingOverviewTab({
         >
           <TabsList className='mx-auto h-auto rounded-[24px] bg-slate-100 p-1.5 shadow-sm'>
             <TabsTrigger
-              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              className='rounded-[18px] px-6 py-2.5 text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-base'
               value='monthly'
             >
               {t('module.billing.package.intervalTabs.monthly')}
             </TabsTrigger>
             <TabsTrigger
-              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              className='rounded-[18px] px-6 py-2.5 text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-base'
               value='yearly'
             >
               {t('module.billing.package.intervalTabs.yearly')}
             </TabsTrigger>
             <TabsTrigger
-              className='rounded-[18px] px-8 py-3 text-xl font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950'
+              className='rounded-[18px] px-6 py-2.5 text-sm font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-base'
               value='topup'
             >
               {t('module.billing.package.intervalTabs.topup')}
