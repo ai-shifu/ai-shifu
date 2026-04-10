@@ -1,16 +1,13 @@
 .planShowcaseCard {
   border-radius: var(--border-radius-rounded-xl, 14px);
-  border: var(--border-width-border, 1px) solid
-    var(--base-border, #e5e5e5);
+  border: var(--border-width-border, 1px) solid var(--base-border, #e5e5e5);
   background: var(--base-card, #fff);
   box-shadow:
     var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
-      var(--shadow-sm-1-blur-radius, 3px)
-      var(--shadow-sm-1-spread-radius, 0)
+      var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
       var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
     var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
-      var(--shadow-sm-2-blur-radius, 2px)
-      var(--shadow-sm-2-spread-radius, -1px)
+      var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px)
       var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
   transition:
     border-color 0.2s ease,
@@ -46,11 +43,9 @@
     border-radius: var(--border-radius-rounded-md, 8px);
     background: var(--base-secondary, #f5f5f5);
     color: var(--base-foreground, #0a0a0a);
-    box-shadow:
-      var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
-        var(--shadow-xs-blur-radius, 2px)
-        var(--shadow-xs-spread-radius, 0)
-        var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
   }
 
   .planShowcaseCardCreditBox {
@@ -60,8 +55,7 @@
     margin-top: 32px;
     padding: var(--spacing-3, 12px);
     border-radius: var(--border-radius-rounded-lg, 10px);
-    border: var(--border-width-border, 1px) solid
-      var(--base-border, #e5e5e5);
+    border: var(--border-width-border, 1px) solid var(--base-border, #e5e5e5);
     background: var(--base-muted, #f5f5f5);
   }
 
@@ -94,8 +88,7 @@
     );
     box-shadow:
       var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
-        var(--shadow-sm-1-blur-radius, 3px)
-        var(--shadow-sm-1-spread-radius, 0)
+        var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
         var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
       var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
         var(--shadow-sm-2-blur-radius, 2px)
@@ -133,12 +126,10 @@
   );
   box-shadow:
     var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
-      var(--shadow-sm-1-blur-radius, 3px)
-      var(--shadow-sm-1-spread-radius, 0)
+      var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
       var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
     var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
-      var(--shadow-sm-2-blur-radius, 2px)
-      var(--shadow-sm-2-spread-radius, -1px)
+      var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px)
       var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
 
   .planShowcaseCardTitle {

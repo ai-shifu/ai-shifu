@@ -366,7 +366,9 @@ describe('BillingOverviewTab', () => {
       );
     });
 
-    expect(screen.getByTestId('billing-plan-grid')).toHaveClass('xl:grid-cols-3');
+    expect(screen.getByTestId('billing-plan-grid')).toHaveClass(
+      'xl:grid-cols-3',
+    );
     expect(
       screen.getByTestId('billing-plan-card-billing-product-plan-yearly-lite'),
     ).toBeInTheDocument();
@@ -435,9 +437,7 @@ describe('BillingOverviewTab', () => {
 
     renderOverviewTab();
 
-    expect(
-      screen.getByTestId('billing-plan-card-free'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
   });
 
   test('marks the non-member card as current when there is no active subscription', () => {

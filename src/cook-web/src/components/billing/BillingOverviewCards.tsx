@@ -108,9 +108,7 @@ export function PlanShowcaseCard({
     >
       <div className={styles.planShowcaseCardHeader}>
         <h3 className={styles.planShowcaseCardTitle}>{title}</h3>
-        <p className={styles.planShowcaseCardDescription}>
-          {description}
-        </p>
+        <p className={styles.planShowcaseCardDescription}>{description}</p>
       </div>
 
       <div className={styles.planShowcaseCardPriceRow}>
@@ -123,7 +121,10 @@ export function PlanShowcaseCard({
       </div>
 
       <Button
-        className={cn('mt-6 text-sm font-semibold', styles.planShowcaseCardAction)}
+        className={cn(
+          'mt-6 text-sm font-semibold',
+          styles.planShowcaseCardAction,
+        )}
         data-testid={`${testId}-action`}
         disabled={disabled || actionLoading}
         onClick={onAction}

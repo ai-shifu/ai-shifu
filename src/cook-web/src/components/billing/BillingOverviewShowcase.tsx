@@ -249,7 +249,7 @@ export function BillingOverviewShowcase({
                   disabled={!provider || isCurrentPlan}
                   featured={isFeatured}
                   footer={<PlanFeatureList items={getPlanFeatureKeys(plan)} />}
-              onAction={() =>
+                  onAction={() =>
                     provider && onSelectPlanCheckout(plan, provider)
                   }
                   priceLabel={formatBillingPrice(

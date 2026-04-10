@@ -387,8 +387,7 @@ export function BillingOverviewTab({
       : t('module.billing.catalog.labels.providerPingxx')
     : '';
   const loadError = overviewError || catalogError;
-  const renderFreeCard =
-    showcaseTab === 'monthly';
+  const renderFreeCard = showcaseTab === 'monthly';
 
   return (
     <section
