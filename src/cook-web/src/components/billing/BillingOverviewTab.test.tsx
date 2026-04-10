@@ -410,6 +410,9 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-topup-card-billing-product-topup-xlarge'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('billing-topup-grid')).toHaveClass(
+      '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
+    );
   });
 
   test('keeps the non-member card visible when the trial offer is disabled', () => {

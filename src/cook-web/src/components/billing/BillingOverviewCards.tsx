@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CheckIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { BillingPlan } from '@/types/billing';
@@ -173,43 +174,32 @@ export function TopupCard({
 }: TopupCardProps) {
   return (
     <div
-      className={cn(
-        'flex min-h-[250px] flex-col justify-between rounded-[30px] border bg-white p-8 shadow-[0_18px_48px_rgba(15,23,42,0.08)]',
-        featured
-          ? 'border-[#1d5bd8] shadow-[0_24px_60px_rgba(29,91,216,0.16)]'
-          : 'border-slate-200',
-      )}
+      className={cn(styles.topupCard, featured && styles.topupCardFeatured)}
       data-testid={testId}
     >
-      <div className='space-y-3'>
-        <div className='flex items-center gap-4'>
-          <div className='flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef5ff] text-[#1d5bd8]'>
-            <InformationCircleIcon className='h-6 w-6' />
+      <div className={styles.topupCardBody}>
+        <div className={styles.topupCardHeader}>
+          <div className={styles.topupCardHeading}>
+            <Sparkles className={styles.topupCardIcon} />
+            <div className={styles.topupCardTitle}>{creditsLabel}</div>
           </div>
-          <div>
-            <div className='text-xl font-semibold leading-tight text-slate-950 md:text-2xl'>
-              {creditsLabel}
-            </div>
-            <div className='text-sm leading-6 text-slate-500'>
-              {description}
-            </div>
-          </div>
+          <div className={styles.topupCardDescription}>{description}</div>
         </div>
-      </div>
 
-      <div className='mt-8 flex items-end justify-between gap-4'>
-        <div className='text-2xl font-semibold leading-none tracking-tight text-slate-950 md:text-3xl'>
-          {priceLabel}
+        <div className={styles.topupCardFooter}>
+          <div className={styles.topupCardPrice}>
+            {priceLabel}
+          </div>
+          <Button
+            className={styles.topupCardAction}
+            data-testid={`${testId}-action`}
+            disabled={disabled || actionLoading}
+            onClick={onAction}
+            type='button'
+          >
+            {actionLoading ? '...' : actionLabel}
+          </Button>
         </div>
-        <Button
-          className='h-11 rounded-2xl px-6 text-sm font-semibold'
-          data-testid={`${testId}-action`}
-          disabled={disabled || actionLoading}
-          onClick={onAction}
-          type='button'
-        >
-          {actionLoading ? '...' : actionLabel}
-        </Button>
       </div>
     </div>
   );

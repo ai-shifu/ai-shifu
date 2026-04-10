@@ -142,7 +142,10 @@ export function BillingOverviewShowcase({
           <Skeleton className='h-[620px] rounded-[34px]' />
         </div>
       ) : showcaseTab === 'topup' ? (
-        <div className='grid gap-6 xl:grid-cols-2'>
+        <div
+          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+          data-testid='billing-topup-grid'
+        >
           {topups.map(product => {
             const provider = resolveCheckoutProvider(
               stripeAvailable,
