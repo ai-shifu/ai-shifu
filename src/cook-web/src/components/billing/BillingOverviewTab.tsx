@@ -388,10 +388,7 @@ export function BillingOverviewTab({
     : '';
   const loadError = overviewError || catalogError;
   const renderFreeCard =
-    showcaseTab === 'monthly' &&
-    Boolean(
-      trialOffer && (trialOffer.enabled || trialOffer.status === 'granted'),
-    );
+    showcaseTab === 'monthly';
 
   return (
     <section

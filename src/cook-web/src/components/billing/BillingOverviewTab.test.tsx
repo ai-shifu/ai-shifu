@@ -350,6 +350,9 @@ describe('BillingOverviewTab', () => {
     expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+    ).toHaveAttribute('data-featured', 'true');
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-plan-card-billing-product-plan-monthly-pro'),
@@ -363,6 +366,7 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    expect(screen.getByTestId('billing-plan-grid')).toHaveClass('xl:grid-cols-3');
     expect(
       screen.getByTestId('billing-plan-card-billing-product-plan-yearly-lite'),
     ).toBeInTheDocument();
@@ -406,7 +410,7 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
   });
 
-  test('hides the free card when the trial offer is disabled and not granted', () => {
+  test('keeps the non-member card visible when the trial offer is disabled', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -432,8 +436,51 @@ describe('BillingOverviewTab', () => {
     renderOverviewTab();
 
     expect(
-      screen.queryByTestId('billing-plan-card-free'),
-    ).not.toBeInTheDocument();
+      screen.getByTestId('billing-plan-card-free'),
+    ).toBeInTheDocument();
+  });
+
+  test('marks the non-member card as current when there is no active subscription', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: {
+          ...DEFAULT_TRIAL_OFFER,
+          enabled: false,
+          status: 'disabled',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId('billing-plan-card-free-action'),
+    ).toHaveTextContent('module.billing.package.actions.currentUsing');
+    expect(
+      screen.getByText('module.billing.package.validity.free'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('billing-plan-card-free')).toHaveAttribute(
+      'data-featured',
+      'true',
+    );
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+    ).toHaveAttribute('data-featured', 'false');
+    expect(
+      screen.getAllByText('module.billing.package.validity.monthly').length,
+    ).toBeGreaterThan(0);
   });
 
   test('cancels a subscription from the current subscription summary', async () => {

@@ -281,8 +281,8 @@
     },
     "labels": {
       "creditsOneTime": "{credits} credits one time",
-      "perMonth": "/ month",
-      "perYear": "/ year",
+      "perMonth": "/ monthly",
+      "perYear": "/ yearly",
       "providerPingxx": "Pingxx / Alipay QR",
       "providerStripe": "Stripe"
     },
@@ -705,7 +705,7 @@
     "free": {
       "creditSummary": "{credits} bonus credits",
       "description": "Best for exploring the creator workspace and basic publishing capabilities.",
-      "priceNote": "/ starts a {days}-day validity window on your first creator workspace visit",
+      "priceNote": "/ valid within 15 days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
       "priceValue": "¥0",
       "title": "Free"
@@ -719,6 +719,11 @@
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits"
+    },
+    "validity": {
+      "free": "Validity: valid within 15 days from registration",
+      "monthly": "Validity: counted from the purchase month, valid every month",
+      "yearly": "Validity: counted from the purchase month, valid every year"
     }
   },
   "page": {

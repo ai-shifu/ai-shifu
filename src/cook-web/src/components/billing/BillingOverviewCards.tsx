@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { BillingPlan } from '@/types/billing';
 import { cn } from '@/lib/utils';
+import styles from './BillingOverviewCards.module.scss';
 
 export type ShowcaseTab = 'monthly' | 'yearly' | 'topup';
 
@@ -39,21 +40,21 @@ export function PlanFeatureList({ items }: { items: string[] }) {
   const { t } = useTranslation();
 
   return (
-    <div className='space-y-3'>
-      <p className='text-sm font-semibold text-slate-950'>
+    <div>
+      <p className={styles.planFeatureListTitle}>
         {t('module.billing.package.featuresTitle')}
       </p>
-      <ul className='space-y-3'>
+      <ul className={styles.planFeatureList}>
         {items.map(item => (
           <li
             key={item}
-            className='flex items-center justify-between gap-4 text-sm text-slate-600'
+            className={styles.planFeatureListItem}
           >
-            <div className='flex items-center gap-3'>
-              <CheckIcon className='h-5 w-5 text-slate-950' />
-              <span>{t(item)}</span>
+            <div className={styles.planFeatureListItemContent}>
+              <CheckIcon className={styles.planFeatureListCheckIcon} />
+              <span className={styles.planFeatureListItemText}>{t(item)}</span>
             </div>
-            <InformationCircleIcon className='h-4 w-4 shrink-0 text-slate-300' />
+            <InformationCircleIcon className={styles.planFeatureListInfoIcon} />
           </li>
         ))}
       </ul>
@@ -66,6 +67,7 @@ type PlanShowcaseCardProps = {
   actionLoading?: boolean;
   compact?: boolean;
   creditSummary: string;
+  creditValidityLabel: string;
   description: string;
   disabled?: boolean;
   featured?: boolean;
@@ -82,6 +84,7 @@ export function PlanShowcaseCard({
   actionLoading = false,
   compact = false,
   creditSummary,
+  creditValidityLabel,
   description,
   disabled = false,
   featured = false,
@@ -95,58 +98,47 @@ export function PlanShowcaseCard({
   return (
     <div
       className={cn(
-        'flex h-full flex-col rounded-[34px] border bg-white p-7 shadow-[0_20px_56px_rgba(15,23,42,0.08)] transition-all',
-        compact ? 'min-h-[260px]' : 'min-h-[620px]',
-        featured
-          ? 'border-[#1d5bd8] bg-[radial-gradient(circle_at_top,#eef5ff_0%,#ffffff_72%)] shadow-[0_24px_64px_rgba(29,91,216,0.18)]'
-          : 'border-slate-200',
+        'flex h-full flex-col p-8 transition-all',
+        compact ? 'min-h-[260px]' : '',
+        styles.planShowcaseCard,
+        featured && styles.planShowcaseCardActive,
       )}
+      data-featured={featured ? 'true' : 'false'}
       data-testid={testId}
     >
-      <div className='space-y-4'>
-        <h3
-          className={cn(
-            'text-xl font-semibold leading-tight tracking-tight md:text-2xl',
-            featured ? 'text-[#1d5bd8]' : 'text-slate-950',
-          )}
-        >
-          {title}
-        </h3>
-        <p className='min-h-[52px] text-sm leading-6 text-slate-500 md:text-base'>
+      <div className={styles.planShowcaseCardHeader}>
+        <h3 className={styles.planShowcaseCardTitle}>{title}</h3>
+        <p className={styles.planShowcaseCardDescription}>
           {description}
         </p>
       </div>
 
-      <div className='mt-8 flex flex-wrap items-end gap-x-2 gap-y-1'>
-        <div className='text-3xl font-semibold leading-none tracking-tight text-slate-950 md:text-4xl'>
-          {priceLabel}
-        </div>
+      <div className={styles.planShowcaseCardPriceRow}>
+        <div className={styles.planShowcaseCardPriceValue}>{priceLabel}</div>
         {priceMetaLabel ? (
-          <div className='text-sm font-medium leading-6 text-slate-500 md:text-base'>
+          <div className={styles.planShowcaseCardPriceMeta}>
             {priceMetaLabel}
           </div>
         ) : null}
       </div>
 
       <Button
-        className={cn(
-          'mt-8 h-12 rounded-2xl text-sm font-semibold md:text-base',
-          featured
-            ? 'bg-[#1d5bd8] text-white hover:bg-[#194fbc]'
-            : 'bg-slate-100 text-slate-900 hover:bg-slate-200',
-        )}
+        className={cn('mt-6 text-sm font-semibold', styles.planShowcaseCardAction)}
         data-testid={`${testId}-action`}
         disabled={disabled || actionLoading}
         onClick={onAction}
         type='button'
-        variant={featured ? 'default' : 'secondary'}
+        variant='secondary'
       >
         {actionLoading ? '...' : actionLabel}
       </Button>
 
-      <div className='mt-8 rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm'>
-        <div className='text-lg font-semibold leading-tight text-slate-950 md:text-xl'>
+      <div className={styles.planShowcaseCardCreditBox}>
+        <div className={styles.planShowcaseCardCreditTitle}>
           {creditSummary}
+        </div>
+        <div className={styles.planShowcaseCardCreditValidity}>
+          {creditValidityLabel}
         </div>
       </div>
 

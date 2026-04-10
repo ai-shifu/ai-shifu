@@ -84,6 +84,7 @@ export function BillingOverviewShowcase({
       i18n.language,
     ),
   });
+  const freeCreditValidityLabel = t('module.billing.package.validity.free');
 
   let freePriceMetaLabel = '';
   if (trialOffer) {
@@ -182,19 +183,26 @@ export function BillingOverviewShowcase({
         <div
           className={cn(
             'grid gap-6',
-            renderFreeCard ? 'xl:grid-cols-3' : 'xl:grid-cols-2',
+            showcaseTab === 'yearly'
+              ? 'xl:grid-cols-3'
+              : renderFreeCard
+                ? 'xl:grid-cols-3'
+                : 'xl:grid-cols-2',
           )}
+          data-testid='billing-plan-grid'
         >
           {renderFreeCard ? (
             <PlanShowcaseCard
               actionLabel={t(
-                trialOffer?.status === 'granted'
+                !hasActiveSubscription || trialOffer?.status === 'granted'
                   ? 'module.billing.package.actions.currentUsing'
                   : 'module.billing.package.actions.freeTrial',
               )}
               creditSummary={freeCreditSummary}
+              creditValidityLabel={freeCreditValidityLabel}
               description={t('module.billing.package.free.description')}
               disabled
+              featured={!hasActiveSubscription}
               footer={<PlanFeatureList items={getFreeFeatureKeys()} />}
               priceLabel={t('module.billing.package.free.priceValue')}
               priceMetaLabel={freePriceMetaLabel}
@@ -204,17 +212,14 @@ export function BillingOverviewShowcase({
           ) : null}
 
           {(showcaseTab === 'monthly' ? monthlyPlans : yearlyPlans).map(
-            (plan, index) => {
+            plan => {
               const provider = resolveCheckoutProvider(
                 stripeAvailable,
                 pingxxAvailable,
               );
               const isCurrentPlan =
                 currentPlan?.product_bid === plan.product_bid;
-              const isFeatured =
-                isCurrentPlan ||
-                (!hasActiveSubscription && index === 0) ||
-                Boolean(plan.status_badge_key);
+              const isFeatured = isCurrentPlan;
               const checkoutKey = provider
                 ? `plan:${provider}:${plan.product_bid}`
                 : '';
@@ -235,18 +240,24 @@ export function BillingOverviewShowcase({
                     plan,
                     i18n.language,
                   )}
+                  creditValidityLabel={t(
+                    plan.billing_interval === 'year'
+                      ? 'module.billing.package.validity.yearly'
+                      : 'module.billing.package.validity.monthly',
+                  )}
                   description={resolveBillingProductDescription(t, plan)}
                   disabled={!provider || isCurrentPlan}
                   featured={isFeatured}
                   footer={<PlanFeatureList items={getPlanFeatureKeys(plan)} />}
-                  onAction={() =>
+              onAction={() =>
                     provider && onSelectPlanCheckout(plan, provider)
                   }
-                  priceLabel={`${formatBillingPrice(
+                  priceLabel={formatBillingPrice(
                     plan.price_amount,
                     plan.currency,
                     i18n.language,
-                  )} ${formatBillingPlanInterval(t, plan)}`}
+                  )}
+                  priceMetaLabel={formatBillingPlanInterval(t, plan)}
                   testId={`billing-plan-card-${plan.product_bid}`}
                   title={resolveBillingProductTitle(t, plan)}
                 />

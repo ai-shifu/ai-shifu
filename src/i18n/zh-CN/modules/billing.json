@@ -281,8 +281,8 @@
     },
     "labels": {
       "creditsOneTime": "一次到账 {credits} 积分",
-      "perMonth": "/ 月",
-      "perYear": "/ 年",
+      "perMonth": "/ 每月",
+      "perYear": "/ 每年",
       "providerPingxx": "Pingxx / 支付宝二维码",
       "providerStripe": "Stripe"
     },
@@ -705,7 +705,7 @@
     "free": {
       "creditSummary": "赠送积分数 {credits}",
       "description": "适合体验创作者工作台与基础发布能力。",
-      "priceNote": "/ 首次进入创作者工作台后开始计算 {days} 天有效期",
+      "priceNote": "/ 新注册15日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
       "title": "非会员"
@@ -719,6 +719,11 @@
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分"
+    },
+    "validity": {
+      "free": "有效期：注册日起 15 内有效",
+      "monthly": "有效期：当月购买起计算日起，每月有效",
+      "yearly": "有效期：当月购买起计算日起，每年有效"
     }
   },
   "page": {
