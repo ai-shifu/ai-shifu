@@ -144,6 +144,33 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
 
     await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.ledger.table.detail',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.billing.ledger.detail.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.ledger.detail.usageBid'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('-2.5000000')).toBeInTheDocument();
+    expect(screen.getAllByText('97.5000000').length).toBeGreaterThan(0);
+    expect(screen.getByText('1.2500000')).toBeInTheDocument();
+    expect(screen.getByText('2.5000000')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.orders.table.order',
+        }),
+      );
+    });
+
+    await act(async () => {
       await user.click(screen.getByRole('link', { name: '2' }));
     });
 

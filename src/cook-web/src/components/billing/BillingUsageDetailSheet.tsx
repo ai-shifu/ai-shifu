@@ -107,7 +107,10 @@ export function BillingUsageDetailSheet({
                       />
                       <DetailRow
                         label={t('module.billing.ledger.detail.creditsPerUnit')}
-                        value={String(breakdownItem.credits_per_unit)}
+                        value={formatBillingCredits(
+                          breakdownItem.credits_per_unit,
+                          i18n.language,
+                        )}
                       />
                       <DetailRow
                         label={t('module.billing.ledger.detail.roundingMode')}

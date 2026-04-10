@@ -1,4 +1,7 @@
-import { resolveBillingPlanCreditsLabel } from '@/lib/billing';
+import {
+  formatBillingCredits,
+  resolveBillingPlanCreditsLabel,
+} from '@/lib/billing';
 import type { BillingPlan } from '@/types/billing';
 
 const monthlyPlan: BillingPlan = {
@@ -25,13 +28,19 @@ const yearlyPlan: BillingPlan = {
 };
 
 describe('resolveBillingPlanCreditsLabel', () => {
+  test('formats credits with fixed seven-decimal precision', () => {
+    expect(formatBillingCredits(5, 'en-US')).toBe('5.0000000');
+    expect(formatBillingCredits(1.25, 'en-US')).toBe('1.2500000');
+    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.0000000');
+  });
+
   test('uses monthly credits copy for monthly plans', () => {
     const t = jest.fn((key: string, options?: Record<string, unknown>) => {
       return `${key}:${String(options?.credits || '')}`;
     });
 
     expect(resolveBillingPlanCreditsLabel(t, monthlyPlan, 'zh-CN')).toBe(
-      'module.billing.package.creditSummary.monthly:5',
+      'module.billing.package.creditSummary.monthly:5.0000000',
     );
   });
 
@@ -41,7 +50,7 @@ describe('resolveBillingPlanCreditsLabel', () => {
     });
 
     expect(resolveBillingPlanCreditsLabel(t, yearlyPlan, 'en-US')).toBe(
-      'module.billing.package.creditSummary.yearly:10,000',
+      'module.billing.package.creditSummary.yearly:10,000.0000000',
     );
   });
 });
