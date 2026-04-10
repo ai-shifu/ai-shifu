@@ -808,11 +808,15 @@
   "sidebar": {
     "cta": "Open billing center",
     "description": "Review your plan, credits, and upcoming billing actions.",
+    "monthlyTitle": "Monthly plan",
+    "nonMemberTitle": "Non-member",
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",
-    "title": "My Membership",
-    "totalCreditsLabel": "Total credits"
+    "totalCreditsLabel": "Credits",
+    "upgradeCta": "Upgrade",
+    "usageCta": "View usage",
+    "yearlyTitle": "Yearly plan"
   },
   "status": {
     "active": "Active",

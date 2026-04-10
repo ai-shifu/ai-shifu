@@ -233,7 +233,9 @@ export const SidebarContent = ({
   );
 
   return (
-    <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
+    <div
+      className={cn('relative flex h-full min-h-0 flex-col', styles.adminLayout)}
+    >
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
         <Image
           className='dark:invert'
@@ -248,7 +250,7 @@ export const SidebarContent = ({
           priority
         />
       </h1>
-      <div className='p-2 flex-1'>
+      <div className='flex min-h-0 flex-1 flex-col p-2'>
         {loading ? (
           <div
             className='space-y-3 px-2 pt-2 animate-pulse'
@@ -261,11 +263,19 @@ export const SidebarContent = ({
           </div>
         ) : (
           <>
-            <nav className='space-y-1'>{renderMenuItems(menuItems)}</nav>
-            <BillingSidebarCard
-              overview={billingOverview}
-              isLoading={billingOverviewLoading}
-            />
+            {/* Keep the menu list flexible so the billing card stays pinned to the bottom. */}
+            <nav
+              className='min-h-0 flex-1 space-y-1 overflow-y-auto'
+              data-testid='admin-sidebar-nav'
+            >
+              {renderMenuItems(menuItems)}
+            </nav>
+            {!userMenuOpen ? (
+              <BillingSidebarCard
+                overview={billingOverview}
+                isLoading={billingOverviewLoading}
+              />
+            ) : null}
           </>
         )}
       </div>

@@ -808,11 +808,15 @@
   "sidebar": {
     "cta": "前往会员中心",
     "description": "查看会员状态、积分余额与后续账务动作。",
+    "monthlyTitle": "月订阅",
+    "nonMemberTitle": "非会员",
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
-    "title": "我的会员",
-    "totalCreditsLabel": "总积分"
+    "totalCreditsLabel": "积分",
+    "upgradeCta": "升级",
+    "usageCta": "查看使用情况",
+    "yearlyTitle": "年订阅"
   },
   "status": {
     "active": "生效中",

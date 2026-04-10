@@ -176,10 +176,97 @@ describe('SidebarContent', () => {
     expect(operationsButton).toHaveAttribute('aria-expanded', 'false');
     expect(findOperationsCourseLink()).toBeNull();
   });
+
+  test('hides the billing card while the user menu popup is open', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        userMenuOpen
+        billingOverview={{
+          creator_bid: 'creator-1',
+          wallet: {
+            available_credits: 12500,
+            reserved_credits: 0,
+            lifetime_granted_credits: 20000,
+            lifetime_consumed_credits: 7500,
+          },
+          subscription: null,
+          billing_alerts: [],
+          trial_offer: {
+            enabled: true,
+            status: 'ineligible',
+            credit_amount: 100,
+            valid_days: 15,
+            starts_on_first_grant: true,
+            granted_at: null,
+            expires_at: null,
+          },
+        }}
+        menuItems={buildAdminMenuItems({ t, isOperator: true })}
+        activePath='/admin'
+      />,
+    );
+
+    expect(
+      screen.queryByTestId('admin-billing-sidebar-card'),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('AdminLayout', () => {
   const childText = 'content';
+  const buildBillingOverview = ({
+    availableCredits = 12500,
+    subscription = {
+      subscription_bid: 'sub-1',
+      product_bid: 'plan-1',
+      product_code: 'creator-plan-monthly',
+      status: 'active' as const,
+      billing_provider: 'stripe' as const,
+      current_period_start_at: '2026-04-01T00:00:00Z',
+      current_period_end_at: '2026-05-01T00:00:00Z',
+      grace_period_end_at: null,
+      cancel_at_period_end: false,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    },
+  }: {
+    availableCredits?: number;
+    subscription?: {
+      subscription_bid: string;
+      product_bid: string;
+      product_code: string;
+      status: 'active';
+      billing_provider: 'stripe';
+      current_period_start_at: string | null;
+      current_period_end_at: string | null;
+      grace_period_end_at: string | null;
+      cancel_at_period_end: boolean;
+      next_product_bid: string | null;
+      last_renewed_at: string | null;
+      last_failed_at: string | null;
+    } | null;
+  }) => ({
+    creator_bid: 'creator-1',
+    wallet: {
+      available_credits: availableCredits,
+      reserved_credits: 0,
+      lifetime_granted_credits: 20000,
+      lifetime_consumed_credits: 7500,
+    },
+    subscription,
+    billing_alerts: [],
+    trial_offer: {
+      enabled: true,
+      status: 'ineligible',
+      credit_amount: 100,
+      valid_days: 15,
+      starts_on_first_grant: true,
+      granted_at: null,
+      expires_at: null,
+    },
+  });
 
   beforeEach(() => {
     mockUserStoreState.isInitialized = true;
@@ -188,39 +275,7 @@ describe('AdminLayout', () => {
       is_operator: false,
     };
     mockUseBillingOverview.mockReturnValue({
-      data: {
-        creator_bid: 'creator-1',
-        wallet: {
-          available_credits: 12500,
-          reserved_credits: 0,
-          lifetime_granted_credits: 20000,
-          lifetime_consumed_credits: 7500,
-        },
-        subscription: {
-          subscription_bid: 'sub-1',
-          product_bid: 'plan-1',
-          product_code: 'creator-plan-monthly',
-          status: 'active',
-          billing_provider: 'stripe',
-          current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-05-01T00:00:00Z',
-          grace_period_end_at: null,
-          cancel_at_period_end: false,
-          next_product_bid: null,
-          last_renewed_at: null,
-          last_failed_at: null,
-        },
-        billing_alerts: [],
-        trial_offer: {
-          enabled: true,
-          status: 'ineligible',
-          credit_amount: 100,
-          valid_days: 15,
-          starts_on_first_grant: true,
-          granted_at: null,
-          expires_at: null,
-        },
-      },
+      data: buildBillingOverview({}),
       error: undefined,
       isLoading: false,
     });
@@ -284,7 +339,53 @@ describe('AdminLayout', () => {
     ).toBeInTheDocument();
   });
 
-  test('renders the billing navigation entry and membership card', () => {
+  test('renders the billing navigation entry and membership card with credits', () => {
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(screen.getByTestId('admin-sidebar-nav')).toHaveClass('flex-1');
+    expect(
+      screen.getByTestId('admin-billing-sidebar-card'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.sidebar.monthlyTitle'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.sidebar.totalCreditsLabel'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('12,500')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'module.billing.sidebar.usageCta',
+      }),
+    ).toHaveAttribute('href', '/admin/billing?tab=details');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.billing.sidebar.upgradeCta',
+      }),
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+    expect(
+      screen.queryByText('module.billing.sidebar.subscriptionStatusLabel'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.sidebar.cta'),
+    ).not.toBeInTheDocument();
+
+    const billingNavLink = screen.getByTestId('admin-nav-billing');
+    expect(billingNavLink).toHaveAttribute('href', '/admin/billing');
+    expect(billingNavLink).toHaveTextContent('module.billing.navTitle');
+  });
+
+  test('hides the credits section when available credits are zero', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: buildBillingOverview({ availableCredits: 0, subscription: null }),
+      error: undefined,
+      isLoading: false,
+    });
+
     render(
       <AdminLayout>
         <div data-testid='child-content' />
@@ -292,30 +393,53 @@ describe('AdminLayout', () => {
     );
 
     expect(
-      screen.getByTestId('admin-billing-sidebar-card'),
+      screen.getByText('module.billing.sidebar.nonMemberTitle'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.totalCreditsLabel'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('12,500')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.subscriptionStatusLabel'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.status.active'),
-    ).toBeInTheDocument();
-
-    const billingNavLink = screen.getByTestId('admin-nav-billing');
-    expect(billingNavLink).toHaveAttribute('href', '/admin/billing');
-    expect(billingNavLink).toHaveTextContent('module.billing.navTitle');
-
     expect(
       screen.getByRole('link', {
-        name: 'module.billing.sidebar.cta',
+        name: 'module.billing.sidebar.upgradeCta',
       }),
-    ).toHaveAttribute('href', '/admin/billing');
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+    expect(
+      screen.queryByText('module.billing.sidebar.totalCreditsLabel'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', {
+        name: 'module.billing.sidebar.usageCta',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('renders yearly membership title for yearly subscription plans', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: buildBillingOverview({
+        subscription: {
+          subscription_bid: 'sub-yearly',
+          product_bid: 'plan-yearly',
+          product_code: 'creator-plan-yearly',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-01-01T00:00:00Z',
+          current_period_end_at: '2027-01-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+      }),
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.getByText('module.billing.sidebar.yearlyTitle'),
+    ).toBeInTheDocument();
   });
 });

@@ -1,72 +1,94 @@
 import React from 'react';
 import Link from 'next/link';
-import { CreditCardIcon } from '@heroicons/react/24/outline';
+import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { CreatorBillingOverview } from '@/types/billing';
-import {
-  formatBillingCredits,
-  resolveBillingSubscriptionStatusLabel,
-} from '@/lib/billing';
+import { formatBillingCredits } from '@/lib/billing';
 
 type BillingSidebarCardProps = {
   overview?: CreatorBillingOverview;
   isLoading?: boolean;
 };
 
+const resolveMembershipTitleKey = (overview?: CreatorBillingOverview) => {
+  const productCode = overview?.subscription?.product_code?.toLowerCase() || '';
+
+  if (!productCode) {
+    return 'module.billing.sidebar.nonMemberTitle' as const;
+  }
+
+  if (productCode.includes('year')) {
+    return 'module.billing.sidebar.yearlyTitle' as const;
+  }
+
+  if (productCode.includes('month')) {
+    return 'module.billing.sidebar.monthlyTitle' as const;
+  }
+
+  return 'module.billing.sidebar.nonMemberTitle' as const;
+};
+
+const BILLING_CENTER_HREF = '/admin/billing';
+const BILLING_PACKAGES_HREF = `${BILLING_CENTER_HREF}?tab=packages`;
+const BILLING_DETAILS_HREF = `${BILLING_CENTER_HREF}?tab=details`;
+
 export function BillingSidebarCard({
   overview,
   isLoading = false,
 }: BillingSidebarCardProps) {
   const { t, i18n } = useTranslation();
+  const availableCredits = overview?.wallet.available_credits ?? 0;
+  const shouldShowCredits = !isLoading && availableCredits > 0;
+  const membershipTitleKey = resolveMembershipTitleKey(overview);
 
   const creditsValue =
     overview && !isLoading
-      ? formatBillingCredits(overview.wallet.available_credits, i18n.language)
+      ? formatBillingCredits(availableCredits, i18n.language)
       : t('module.billing.sidebar.placeholderValue');
-  const statusValue =
-    overview && !isLoading
-      ? resolveBillingSubscriptionStatusLabel(t, overview.subscription?.status)
-      : t('module.billing.sidebar.subscriptionPending');
 
   return (
     <div
-      className='mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
+      className='mt-4 rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-4 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
       data-testid='admin-billing-sidebar-card'
     >
-      <div className='flex items-start justify-between gap-3'>
-        <div className='min-w-0'>
-          <p className='text-sm font-semibold text-slate-900'>
-            {t('module.billing.sidebar.title')}
+      <div className='flex items-center justify-between gap-3'>
+        <div className='flex min-w-0 items-center gap-3'>
+          <div className='flex shrink-0 items-center justify-center text-slate-950'>
+            <Crown className='h-4 w-4' />
+          </div>
+          <p className='mr-2 truncate text-sm font-extrabold leading-5 text-slate-950'>
+            {t(membershipTitleKey)}
           </p>
-          <p className='mt-1 text-xs leading-5 text-slate-500'>
-            {t('module.billing.sidebar.description')}
-          </p>
         </div>
-        <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600'>
-          <CreditCardIcon className='h-5 w-5' />
-        </div>
+        <Button
+          asChild
+          className='h-6 min-h-6 rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white hover:bg-slate-800'
+        >
+          <Link href={BILLING_PACKAGES_HREF}>
+            {t('module.billing.sidebar.upgradeCta')}
+          </Link>
+        </Button>
       </div>
-      <div className='mt-4 grid gap-2 rounded-xl bg-slate-50 p-3'>
-        <div className='flex items-center justify-between gap-3 text-sm'>
-          <span className='text-slate-500'>
-            {t('module.billing.sidebar.totalCreditsLabel')}
-          </span>
-          <span className='font-semibold text-slate-900'>{creditsValue}</span>
+      {shouldShowCredits ? (
+        <div className='mt-3 border-t border-slate-200 pt-3'>
+          <div className='flex items-center justify-between gap-3'>
+            <span className='text-sm font-medium leading-5 text-slate-900'>
+              {t('module.billing.sidebar.totalCreditsLabel')}
+            </span>
+            <span className='text-sm font-medium leading-5 text-slate-950'>
+              {creditsValue}
+            </span>
+          </div>
+          <Link
+            href={BILLING_DETAILS_HREF}
+            className='mt-[10px] inline-flex items-center gap-1 text-sm font-normal leading-5 text-[rgba(10,10,10,0.45)] transition-colors hover:text-[rgba(10,10,10,0.6)]'
+          >
+            <span>{t('module.billing.sidebar.usageCta')}</span>
+            <ChevronRight className='h-5 w-5 text-[rgba(10,10,10,0.45)]' />
+          </Link>
         </div>
-        <div className='flex items-center justify-between gap-3 text-sm'>
-          <span className='text-slate-500'>
-            {t('module.billing.sidebar.subscriptionStatusLabel')}
-          </span>
-          <span className='font-semibold text-slate-900'>{statusValue}</span>
-        </div>
-      </div>
-      <Button
-        asChild
-        className='mt-4 w-full justify-between rounded-xl'
-      >
-        <Link href='/admin/billing'>{t('module.billing.sidebar.cta')}</Link>
-      </Button>
+      ) : null}
     </div>
   );
 }

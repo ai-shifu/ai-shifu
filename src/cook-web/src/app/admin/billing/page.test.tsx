@@ -6,6 +6,17 @@ import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import AdminBillingPage from './page';
 
+let mockSearchParamsValue = '';
+const mockReplace = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/admin/billing',
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
+}));
+
 const mockEnvState = {
   paymentChannels: ['stripe', 'pingxx'],
   runtimeConfigLoaded: true,
@@ -95,6 +106,8 @@ function renderPage() {
 
 describe('AdminBillingPage', () => {
   beforeEach(() => {
+    mockSearchParamsValue = '';
+    mockReplace.mockReset();
     mockEnvState.paymentChannels = ['stripe', 'pingxx'];
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
@@ -346,6 +359,10 @@ describe('AdminBillingPage', () => {
       );
     });
 
+    expect(mockReplace).toHaveBeenCalledWith('/admin/billing?tab=details', {
+      scroll: false,
+    });
+
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
@@ -432,5 +449,18 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByRole('tab', { name: 'module.billing.page.tabs.ledger' }),
     ).toHaveAttribute('data-state', 'active');
+  });
+
+  test('opens the details tab when the url tab query targets details', async () => {
+    mockSearchParamsValue = 'tab=details';
+
+    renderPage();
+
+    expect(
+      screen.getByRole('tab', { name: 'module.billing.page.tabs.ledger' }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(
+      await screen.findByText('module.billing.details.title'),
+    ).toBeInTheDocument();
   });
 });

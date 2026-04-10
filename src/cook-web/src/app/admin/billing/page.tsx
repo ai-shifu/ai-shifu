@@ -1,6 +1,11 @@
 'use client';
 
 import React from 'react';
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
@@ -8,18 +13,42 @@ import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingPageHeader } from '@/components/billing/BillingPageHeader';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 
+type BillingTab = 'packages' | 'details';
+
+const resolveBillingTab = (tab?: string | null): BillingTab =>
+  tab === 'details' ? 'details' : 'packages';
+
 export default function AdminBillingPage() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = React.useState<'packages' | 'details'>(
-    'packages',
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTabFromUrl = React.useMemo(
+    () => resolveBillingTab(searchParams.get('tab')),
+    [searchParams],
   );
+  const [activeTab, setActiveTab] = React.useState<BillingTab>(activeTabFromUrl);
   const [scrollToOrdersRequested, setScrollToOrdersRequested] =
     React.useState(false);
 
+  React.useEffect(() => {
+    setActiveTab(activeTabFromUrl);
+  }, [activeTabFromUrl]);
+
+  const updateTab = React.useCallback(
+    (nextTab: BillingTab) => {
+      setActiveTab(nextTab);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('tab', nextTab);
+      router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const handleOpenOrdersSection = React.useCallback(() => {
-    setActiveTab('details');
+    updateTab('details');
     setScrollToOrdersRequested(true);
-  }, []);
+  }, [updateTab]);
 
   React.useEffect(() => {
     if (!scrollToOrdersRequested || activeTab !== 'details') {
@@ -63,7 +92,7 @@ export default function AdminBillingPage() {
 
       <Tabs
         className='space-y-6'
-        onValueChange={value => setActiveTab(value as 'packages' | 'details')}
+        onValueChange={value => updateTab(value as BillingTab)}
         value={activeTab}
       >
         <TabsList className='h-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm'>
@@ -93,7 +122,7 @@ export default function AdminBillingPage() {
           value='details'
         >
           <BillingCreditDetailsPanel
-            onUpgrade={() => setActiveTab('packages')}
+            onUpgrade={() => updateTab('packages')}
           />
           <BillingRecentActivitySection />
         </TabsContent>
