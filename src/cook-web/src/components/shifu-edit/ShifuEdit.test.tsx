@@ -50,37 +50,59 @@ jest.mock('./DraftConflictDialog', () => ({
     onRefresh?: () => void;
   }) =>
     open ? (
-        <div data-testid='draft-conflict-dialog'>
-          <span data-testid='draft-conflict-mode'>{mode}</span>
-          <span data-testid='draft-conflict-phone'>{phone || ''}</span>
-          <button onClick={onRefresh}>{refreshLabel}</button>
-        </div>
-      ) : null,
+      <div data-testid='draft-conflict-dialog'>
+        <span data-testid='draft-conflict-mode'>{mode}</span>
+        <span data-testid='draft-conflict-phone'>{phone || ''}</span>
+        <button onClick={onRefresh}>{refreshLabel}</button>
+      </div>
+    ) : null,
 }));
 jest.mock('@/components/ui/MarkdownFlowLink', () => () => null);
 jest.mock('@/components/ui/Sheet', () => ({
   Sheet: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 jest.mock('@/components/ui/Dialog', () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Dialog: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 jest.mock('@/components/ui/Tabs', () => ({
   Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  TabsList: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  TabsTrigger: ({ children }: { children: React.ReactNode }) => (
+    <button>{children}</button>
+  ),
 }));
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('@/hooks/useToast', () => ({ toast: jest.fn() }));
-jest.mock('@/c-store', () => ({ useEnvStore: jest.fn(() => 'https://example.com') }));
+jest.mock('@/c-store', () => ({
+  useEnvStore: jest.fn(() => 'https://example.com'),
+}));
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
@@ -289,9 +311,10 @@ describe('ShifuEdit draft conflict checks', () => {
         expect.any(Object),
       );
     });
-    expect(screen.queryByTestId('draft-conflict-dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('draft-conflict-dialog'),
+    ).not.toBeInTheDocument();
     expect(baseActions.setBaseRevision).toHaveBeenCalledWith(2);
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(false);
   });
-
 });
