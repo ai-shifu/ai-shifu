@@ -1,11 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
@@ -27,7 +23,8 @@ export default function AdminBillingPage() {
     () => resolveBillingTab(searchParams.get('tab')),
     [searchParams],
   );
-  const [activeTab, setActiveTab] = React.useState<BillingTab>(activeTabFromUrl);
+  const [activeTab, setActiveTab] =
+    React.useState<BillingTab>(activeTabFromUrl);
   const [scrollToOrdersRequested, setScrollToOrdersRequested] =
     React.useState(false);
 
@@ -121,9 +118,7 @@ export default function AdminBillingPage() {
           className='mt-0 space-y-8'
           value='details'
         >
-          <BillingCreditDetailsPanel
-            onUpgrade={() => updateTab('packages')}
-          />
+          <BillingCreditDetailsPanel onUpgrade={() => updateTab('packages')} />
           <BillingRecentActivitySection />
         </TabsContent>
       </Tabs>

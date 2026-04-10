@@ -234,7 +234,10 @@ export const SidebarContent = ({
 
   return (
     <div
-      className={cn('relative flex h-full min-h-0 flex-col', styles.adminLayout)}
+      className={cn(
+        'relative flex h-full min-h-0 flex-col',
+        styles.adminLayout,
+      )}
     >
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
         <Image
