@@ -305,19 +305,71 @@ const renderPagination = (
 };
 
 const renderTooltipText = (text?: string, className?: string) => {
+  return (
+    <OverflowTooltipText
+      text={text}
+      className={className}
+    />
+  );
+};
+
+const OverflowTooltipText = ({
+  text,
+  className,
+}: {
+  text?: string;
+  className?: string;
+}) => {
   const value = text && text.trim().length > 0 ? text : '--';
+  const textRef = useRef<HTMLSpanElement | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateOverflowState = () => {
+      setIsOverflowing(
+        element.scrollWidth > element.clientWidth ||
+          element.scrollHeight > element.clientHeight,
+      );
+    };
+
+    updateOverflowState();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => {
+        updateOverflowState();
+      });
+      observer.observe(element);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateOverflowState);
+    return () => window.removeEventListener('resize', updateOverflowState);
+  }, [value]);
+
+  const content = (
+    <span
+      ref={textRef}
+      className={cn(
+        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
+        className,
+      )}
+    >
+      {value}
+    </span>
+  );
+
+  if (!isOverflowing) {
+    return content;
+  }
+
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
-            className,
-          )}
-        >
-          {value}
-        </span>
-      </TooltipTrigger>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
       <TooltipContent side='top'>{value}</TooltipContent>
     </Tooltip>
   );
