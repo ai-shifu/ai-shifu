@@ -265,8 +265,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     currentShifuBidRef.current = currentShifu?.bid ?? null;
   }, [currentShifu?.bid]);
 
+  const isLessonNode = (currentNode?.depth ?? 0) > 0;
   const shouldSkipConflictCheck =
-    !currentShifu?.bid || Boolean(currentShifu?.readonly);
+    !currentShifu?.bid || Boolean(currentShifu?.readonly) || !isLessonNode;
 
   const resolveDraftConflictMode = useCallback(
     (meta?: DraftMeta | null): DraftConflictMode => {
@@ -639,8 +640,8 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   );
 
   useEffect(() => {
-    currentNodeBidRef.current = currentNode?.bid ?? null;
-  }, [currentNode?.bid]);
+    currentNodeBidRef.current = isLessonNode ? currentNode?.bid ?? null : null;
+  }, [currentNode?.bid, isLessonNode]);
 
   useEffect(() => {
     if (!currentNode?.bid || (currentNode.depth ?? 0) <= 0) {
