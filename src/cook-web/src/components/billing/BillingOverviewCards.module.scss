@@ -254,17 +254,14 @@
   min-height: 152px;
   padding: 24px 24px 20px 24px;
   border-radius: var(--border-radius-rounded-xl, 14px);
-  border: var(--border-width-border, 1px) solid
-    var(--base-border, #e5e5e5);
+  border: var(--border-width-border, 1px) solid var(--base-border, #e5e5e5);
   background: var(--base-card, #fff);
   box-shadow:
     var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
-      var(--shadow-sm-1-blur-radius, 3px)
-      var(--shadow-sm-1-spread-radius, 0)
+      var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
       var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
     var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
-      var(--shadow-sm-2-blur-radius, 2px)
-      var(--shadow-sm-2-spread-radius, -1px)
+      var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px)
       var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
   transition:
     background 0.2s ease,
@@ -353,11 +350,9 @@
   font-style: normal;
   font-weight: var(--font-weight-medium, 500);
   line-height: var(--text-sm-line-height, 20px);
-  box-shadow:
-    var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
-      var(--shadow-xs-blur-radius, 2px)
-      var(--shadow-xs-spread-radius, 0)
-      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+  box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+    var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+    var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
 
   &:hover:not(:disabled) {
     background: #0052d9;

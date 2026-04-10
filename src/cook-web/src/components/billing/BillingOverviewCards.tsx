@@ -187,9 +187,7 @@ export function TopupCard({
         </div>
 
         <div className={styles.topupCardFooter}>
-          <div className={styles.topupCardPrice}>
-            {priceLabel}
-          </div>
+          <div className={styles.topupCardPrice}>{priceLabel}</div>
           <Button
             className={styles.topupCardAction}
             data-testid={`${testId}-action`}
