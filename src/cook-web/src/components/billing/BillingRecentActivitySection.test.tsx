@@ -116,20 +116,22 @@ describe('BillingRecentActivitySection', () => {
     });
 
     expect(
-      await screen.findByText('module.billing.details.usageTable.columns.scene'),
+      await screen.findByText(
+        'module.billing.details.usageTable.columns.scene',
+      ),
     ).toBeInTheDocument();
     expect(
       await screen.findByText('module.billing.ledger.usageScene.production'),
     ).toBeInTheDocument();
+    expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
+    expect(await screen.findByText('-2.5')).toBeInTheDocument();
     expect(
-      await screen.findByText(/Apr 6, 2026,/),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText('-2.5'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('module.billing.orders.title')).not.toBeInTheDocument();
+      screen.queryByText('module.billing.orders.title'),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('usage-1')).not.toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'pagination' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: 'pagination' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
   });
 
@@ -142,9 +144,7 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      await user.click(
-        screen.getByRole('link', { name: '2' }),
-      );
+      await user.click(screen.getByRole('link', { name: '2' }));
     });
 
     await waitFor(() => {

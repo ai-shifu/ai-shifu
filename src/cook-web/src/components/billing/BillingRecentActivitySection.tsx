@@ -12,10 +12,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
-import type {
-  BillingLedgerItem,
-  BillingPagedResponse,
-} from '@/types/billing';
+import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import {
   formatBillingCredits,
   formatBillingDateTime,
