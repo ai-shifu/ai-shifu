@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
@@ -329,14 +329,19 @@ describe('AdminBillingPage', () => {
     });
   });
 
-  test('renders package and details tabs while lazily loading details data', async () => {
-    const user = userEvent.setup();
+  test('renders package breadcrumb while lazily loading details data', async () => {
     renderPage();
+    const breadcrumb = screen.getByTestId('admin-billing-breadcrumb');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(
-      screen.getByRole('tab', { name: 'module.billing.page.tabs.plans' }),
-    ).toHaveAttribute('data-state', 'active');
+      within(breadcrumb).getByRole('link', {
+        name: 'module.billing.page.breadcrumbs.home',
+      }),
+    ).toHaveAttribute('href', '/admin');
+    expect(
+      within(breadcrumb).getByText('module.billing.page.breadcrumbs.membership'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.title'),
     ).toBeInTheDocument();
@@ -352,26 +357,6 @@ describe('AdminBillingPage', () => {
     expect(mockGetAdminBillingDomainBindings).not.toHaveBeenCalled();
     expect(mockGetBillingDailyUsageMetrics).not.toHaveBeenCalled();
     expect(mockGetBillingDailyLedgerSummary).not.toHaveBeenCalled();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', { name: 'module.billing.page.tabs.ledger' }),
-      );
-    });
-
-    expect(mockReplace).toHaveBeenCalledWith('/admin/billing?tab=details', {
-      scroll: false,
-    });
-
-    expect(
-      await screen.findByText('module.billing.details.title'),
-    ).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(mockGetBillingWalletBuckets).toHaveBeenCalledTimes(1);
-      expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
-      expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
-    });
   });
 
   test('switches to details and scrolls when an open-orders alert is triggered', async () => {
@@ -447,18 +432,26 @@ describe('AdminBillingPage', () => {
     });
 
     expect(
-      screen.getByRole('tab', { name: 'module.billing.page.tabs.ledger' }),
-    ).toHaveAttribute('data-state', 'active');
+      within(screen.getByTestId('admin-billing-breadcrumb')).getByText(
+        'module.billing.page.tabs.ledger',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('opens the details tab when the url tab query targets details', async () => {
     mockSearchParamsValue = 'tab=details';
 
     renderPage();
+    const breadcrumb = screen.getByTestId('admin-billing-breadcrumb');
 
     expect(
-      screen.getByRole('tab', { name: 'module.billing.page.tabs.ledger' }),
-    ).toHaveAttribute('data-state', 'active');
+      within(breadcrumb).getByRole('link', {
+        name: 'module.billing.page.breadcrumbs.membership',
+      }),
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+    expect(
+      within(breadcrumb).getByText('module.billing.page.tabs.ledger'),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();

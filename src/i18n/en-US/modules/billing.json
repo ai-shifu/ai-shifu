@@ -158,6 +158,8 @@
     },
     "cancelScheduled": "This subscription is set to end at the current period boundary. Resume it to keep recurring credits active.",
     "lowBalance": "Your creator wallet is out of credits. Start a top-up before the next settlement runs.",
+    "lowBalanceDescription": "Your credits are gone, so AI-generated content is unavailable right now.",
+    "lowBalanceTitle": "Your credits are exhausted. The AI is taking a break.",
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
   },
   "capabilities": {
@@ -729,6 +731,10 @@
   "page": {
     "adminLink": "Open billing ops",
     "badge": "Preview",
+    "breadcrumbs": {
+      "home": "Creator Home",
+      "membership": "Membership"
+    },
     "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {
       "ledger": "Credit Details",

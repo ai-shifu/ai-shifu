@@ -4,6 +4,7 @@ import {
   InformationCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { BillingAlert } from '@/types/billing';
@@ -58,6 +59,13 @@ function resolveAlertActionLabel(
   return '';
 }
 
+function isLowBalanceAlert(alert: BillingAlert) {
+  return (
+    alert.code === 'low_balance' ||
+    alert.message_key === 'module.billing.alerts.lowBalance'
+  );
+}
+
 export function BillingAlertsBanner({
   alerts,
   actionLoading = '',
@@ -74,6 +82,26 @@ export function BillingAlertsBanner({
   return (
     <div className='space-y-3'>
       {alerts.map(alert => {
+        if (isLowBalanceAlert(alert)) {
+          return (
+            <div
+              key={alert.code}
+              className='flex items-start gap-3 rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-[var(--spacing-4,16px)] py-[var(--spacing-3,12px)]'
+              data-testid='billing-alert-low-balance'
+            >
+              <Info className='mt-0.5 h-5 w-5 shrink-0 text-[var(--base-foreground,#0A0A0A)]' />
+              <div className='space-y-1'>
+                <p className='text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                  {t('module.billing.alerts.lowBalanceTitle')}
+                </p>
+                <p className='text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
+                  {t('module.billing.alerts.lowBalanceDescription')}
+                </p>
+              </div>
+            </div>
+          );
+        }
+
         const tone = resolveAlertTone(alert.severity);
         const actionLabel = resolveAlertActionLabel(t, alert.action_type);
         const disabled = isActionDisabled?.(alert) || false;

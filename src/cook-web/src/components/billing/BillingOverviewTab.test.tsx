@@ -486,6 +486,62 @@ describe('BillingOverviewTab', () => {
     ).toBeGreaterThan(0);
   });
 
+  test('renders the redesigned low balance alert card', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 0,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 500,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'billing-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [
+          {
+            code: 'low_balance',
+            severity: 'warning',
+            message_key: 'module.billing.alerts.lowBalance',
+            action_type: 'checkout_topup',
+          },
+        ],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(screen.getByTestId('billing-alert-low-balance')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.alerts.lowBalanceTitle'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.alerts.lowBalanceDescription'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('low_balance')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.billing.alerts.actions.checkoutTopup',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   test('cancels a subscription from the current subscription summary', async () => {
     const user = userEvent.setup();
     mockCancelBillingSubscription.mockResolvedValue({

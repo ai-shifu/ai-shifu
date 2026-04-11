@@ -1,21 +1,86 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/Breadcrumb';
+import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingPageHeader } from '@/components/billing/BillingPageHeader';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 
 type BillingTab = 'packages' | 'details';
+const ADMIN_HOME_HREF = '/admin';
+const BILLING_PACKAGES_HREF = '/admin/billing?tab=packages';
 
 const resolveBillingTab = (tab?: string | null): BillingTab =>
   tab === 'details' ? 'details' : 'packages';
 
-export default function AdminBillingPage() {
+function AdminBillingBreadcrumb({
+  activeTab,
+}: {
+  activeTab: BillingTab;
+}) {
   const { t } = useTranslation();
+
+  return (
+    <Breadcrumb
+      className='px-1'
+      data-testid='admin-billing-breadcrumb'
+    >
+      <BreadcrumbList className='gap-2 text-sm text-muted-foreground'>
+        <BreadcrumbItem>
+          <BreadcrumbLink
+            asChild
+            className='font-normal text-muted-foreground hover:text-foreground'
+          >
+            <Link href={ADMIN_HOME_HREF}>
+              {t('module.billing.page.breadcrumbs.home')}
+            </Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator className='text-muted-foreground' />
+        <BreadcrumbItem>
+          {activeTab === 'packages' ? (
+            <BreadcrumbPage className='font-normal text-foreground'>
+              {t('module.billing.page.breadcrumbs.membership')}
+            </BreadcrumbPage>
+          ) : (
+            <BreadcrumbLink
+              asChild
+              className='font-normal text-muted-foreground hover:text-foreground'
+            >
+              <Link href={BILLING_PACKAGES_HREF}>
+                {t('module.billing.page.breadcrumbs.membership')}
+              </Link>
+            </BreadcrumbLink>
+          )}
+        </BreadcrumbItem>
+        {activeTab === 'details' ? (
+          <>
+            <BreadcrumbSeparator className='text-muted-foreground' />
+            <BreadcrumbItem>
+              <BreadcrumbPage className='font-normal text-foreground'>
+                {t('module.billing.page.tabs.ledger')}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </>
+        ) : null}
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+export default function AdminBillingPage() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,27 +151,12 @@ export default function AdminBillingPage() {
       data-testid='admin-billing-page'
     >
       <BillingPageHeader />
+      <AdminBillingBreadcrumb activeTab={activeTab} />
 
       <Tabs
         className='space-y-6'
-        onValueChange={value => updateTab(value as BillingTab)}
         value={activeTab}
       >
-        <TabsList className='h-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm'>
-          <TabsTrigger
-            className='rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
-            value='packages'
-          >
-            {t('module.billing.page.tabs.plans')}
-          </TabsTrigger>
-          <TabsTrigger
-            className='rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 data-[state=active]:bg-slate-950 data-[state=active]:text-white'
-            value='details'
-          >
-            {t('module.billing.page.tabs.ledger')}
-          </TabsTrigger>
-        </TabsList>
-
         <TabsContent
           className='mt-0'
           value='packages'

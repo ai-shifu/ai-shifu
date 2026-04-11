@@ -106,27 +106,27 @@ export function BillingOverviewShowcase({
 
   return (
     <>
-      <div className='flex justify-center'>
+      <div className='mb-8 flex justify-center'>
         <Tabs
-          className='w-full'
+          className='flex justify-center'
           onValueChange={value => onShowcaseTabChange(value as ShowcaseTab)}
           value={showcaseTab}
         >
-          <TabsList className='mx-auto h-auto rounded-[24px] bg-slate-100 p-1.5 shadow-sm'>
+          <TabsList className='h-[var(--height-h-9,36px)] rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]'>
             <TabsTrigger
-              className='rounded-[18px] px-5 py-2 text-xs font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-sm'
+              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
               value='monthly'
             >
               {t('module.billing.package.intervalTabs.monthly')}
             </TabsTrigger>
             <TabsTrigger
-              className='rounded-[18px] px-5 py-2 text-xs font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-sm'
+              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
               value='yearly'
             >
               {t('module.billing.package.intervalTabs.yearly')}
             </TabsTrigger>
             <TabsTrigger
-              className='rounded-[18px] px-5 py-2 text-xs font-semibold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-950 md:text-sm'
+              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
               value='topup'
             >
               {t('module.billing.package.intervalTabs.topup')}

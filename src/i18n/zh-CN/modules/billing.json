@@ -158,6 +158,8 @@
     },
     "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
     "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
+    "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
   },
   "capabilities": {
@@ -729,6 +731,10 @@
   "page": {
     "adminLink": "打开后台账务视图",
     "badge": "预览版",
+    "breadcrumbs": {
+      "home": "师傅首页",
+      "membership": "会员"
+    },
     "subtitle": "在一个页面里管理套餐、积分与付款记录。",
     "tabs": {
       "ledger": "积分详情",
