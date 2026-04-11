@@ -100,8 +100,6 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-const mockCancelBillingSubscription =
-  api.cancelBillingSubscription as jest.Mock;
 const mockCheckoutBillingOrder = api.checkoutBillingOrder as jest.Mock;
 const mockCheckoutBillingSubscription =
   api.checkoutBillingSubscription as jest.Mock;
@@ -282,7 +280,6 @@ describe('BillingOverviewTab', () => {
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 
-    mockCancelBillingSubscription.mockReset();
     mockCheckoutBillingOrder.mockReset();
     mockCheckoutBillingSubscription.mockReset();
     mockCheckoutBillingTopup.mockReset();
@@ -542,48 +539,7 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('cancels a subscription from the current subscription summary', async () => {
-    const user = userEvent.setup();
-    mockCancelBillingSubscription.mockResolvedValue({
-      subscription_bid: 'sub-1',
-      product_bid: 'billing-product-plan-monthly',
-      product_code: 'creator-plan-monthly',
-      status: 'cancel_scheduled',
-      billing_provider: 'stripe',
-      current_period_start_at: '2026-04-01T00:00:00Z',
-      current_period_end_at: '2026-05-01T00:00:00Z',
-      grace_period_end_at: null,
-      cancel_at_period_end: true,
-      next_product_bid: null,
-      last_renewed_at: null,
-      last_failed_at: null,
-    });
-
-    renderOverviewTab();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.overview.actions.cancelSubscription',
-        }),
-      );
-    });
-
-    await waitFor(() => {
-      expect(mockCancelBillingSubscription).toHaveBeenCalledWith({
-        subscription_bid: 'sub-1',
-      });
-    });
-
-    expect(mockMutateOverview).toHaveBeenCalled();
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'module.billing.overview.feedback.cancelSuccess',
-      }),
-    );
-  });
-
-  test('resumes a cancel-scheduled subscription from the current subscription summary', async () => {
+  test('resumes a cancel-scheduled subscription from the billing alert', async () => {
     const user = userEvent.setup();
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -608,7 +564,14 @@ describe('BillingOverviewTab', () => {
           last_renewed_at: null,
           last_failed_at: null,
         },
-        billing_alerts: [],
+        billing_alerts: [
+          {
+            code: 'cancel_scheduled',
+            severity: 'info',
+            message_key: 'module.billing.alerts.cancelScheduled',
+            action_type: 'resume_subscription',
+          },
+        ],
         trial_offer: { ...DEFAULT_TRIAL_OFFER },
       },
       error: undefined,
@@ -635,7 +598,7 @@ describe('BillingOverviewTab', () => {
     await act(async () => {
       await user.click(
         screen.getByRole('button', {
-          name: 'module.billing.overview.actions.resumeSubscription',
+          name: 'module.billing.alerts.actions.resumeSubscription',
         }),
       );
     });

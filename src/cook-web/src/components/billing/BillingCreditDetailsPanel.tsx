@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import {
@@ -115,42 +115,34 @@ export function BillingCreditDetailsPanel({
       className='space-y-6'
       data-testid='billing-credit-details-panel'
     >
-      <div className='space-y-3'>
-        <div className='inline-flex rounded-xl border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-500 shadow-sm'>
-          {t('module.billing.page.tabs.ledger')}
-        </div>
-        <div className='space-y-2'>
-          <h1 className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
-            {t('module.billing.details.title')}
-          </h1>
-          <p className='max-w-3xl text-sm leading-7 text-slate-500 md:text-base'>
-            {t('module.billing.details.subtitle')}
-          </p>
-        </div>
+      <div>
+        <h1 className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
+          {t('module.billing.details.title')}
+        </h1>
       </div>
 
-      <Card className='overflow-hidden rounded-[32px] border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_100%)] shadow-[0_22px_60px_rgba(15,23,42,0.08)]'>
-        <CardHeader className='gap-6 border-b border-slate-100 pb-8 md:flex-row md:items-start md:justify-between'>
-          <div className='space-y-4'>
+      <Card className='gap-[var(--spacing-6,24px)] overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[#F6FAFF] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'>
+        <CardHeader className='gap-6 px-6 pb-0 pt-6 md:flex-row md:items-start md:justify-between'>
+          <div className='space-y-1.5'>
             <div className='flex flex-wrap items-end gap-4'>
-              <CardTitle className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
+              <CardTitle className='text-[length:var(--text-2xl-font-size,24px)] font-[var(--font-weight-semibold,600)] leading-[var(--text-2xl-line-height,32px)] tracking-[var(--typography-components-h3-letter-spacing,-0.4px)] text-[var(--base-card-foreground,#0A0A0A)]'>
                 {t('module.billing.details.totalCreditsLabel')}
               </CardTitle>
               {overviewLoading ? (
                 <Skeleton className='h-12 w-36 rounded-xl' />
               ) : (
-                <div className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
+                <div className='text-[length:var(--text-2xl-font-size,24px)] font-[var(--font-weight-semibold,600)] leading-[var(--text-2xl-line-height,32px)] tracking-[var(--typography-components-h3-letter-spacing,-0.4px)] text-[var(--base-card-foreground,#0A0A0A)]'>
                   {totalCreditsLabel}
                 </div>
               )}
             </div>
-            <CardDescription className='max-w-3xl text-sm leading-7 text-slate-500 md:text-base'>
+            <CardDescription className='max-w-3xl text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
               {t('module.billing.details.totalCreditsDescription')}
             </CardDescription>
           </div>
 
           <Button
-            className='h-11 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 md:text-base'
+            className='h-[var(--height-h-9,36px)] gap-[var(--spacing-2,8px)] rounded-[var(--border-radius-rounded-md,8px)] bg-[var(--base-primary,#171717)] px-[var(--spacing-4,16px)] py-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-primary-foreground,#FAFAFA)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))] hover:bg-[var(--base-primary,#171717)]'
             onClick={onUpgrade}
             type='button'
           >
@@ -158,29 +150,29 @@ export function BillingCreditDetailsPanel({
           </Button>
         </CardHeader>
 
-        <CardContent className='pt-8'>
+        <CardContent className='px-6 pb-0 pt-5'>
           {loadError ? (
             <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
               {t('module.billing.ledger.loadError')}
             </div>
           ) : null}
 
-          <div className='overflow-hidden rounded-[28px] border border-slate-200 bg-white'>
-            <div className='grid grid-cols-[1.4fr_0.7fr_0.9fr] gap-4 border-b border-slate-200 px-6 py-5 text-sm font-medium text-slate-500'>
-              <div className='flex items-center gap-2'>
+          <div className='mt-0'>
+            <div className='grid grid-cols-[1.4fr_0.7fr_0.9fr] border-b border-[var(--base-border,#E5E5E5)]'>
+              <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-2 px-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 <span>{t('module.billing.details.table.creditType')}</span>
-                <QuestionMarkCircleIcon className='h-5 w-5 text-slate-300' />
+                <CircleHelp className='h-4 w-4 text-[rgba(10,10,10,0.25)]' />
               </div>
-              <div className='text-right'>
+              <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[var(--spacing-2,8px)] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 {t('module.billing.details.table.balance')}
               </div>
-              <div className='text-right'>
+              <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[var(--spacing-2,8px)] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 {t('module.billing.details.table.validUntil')}
               </div>
             </div>
 
             {bucketsLoading ? (
-              <div className='space-y-4 px-6 py-6'>
+              <div className='space-y-4 px-2 py-4'>
                 <Skeleton className='h-12 rounded-2xl' />
                 <Skeleton className='h-12 rounded-2xl' />
                 <Skeleton className='h-12 rounded-2xl' />
@@ -190,18 +182,18 @@ export function BillingCreditDetailsPanel({
                 {summaryRows.map(row => (
                   <div
                     key={row.category}
-                    className='grid grid-cols-[1.4fr_0.7fr_0.9fr] gap-4 border-b border-slate-100 px-6 py-5 text-sm text-slate-700 last:border-b-0'
+                    className='grid grid-cols-[1.4fr_0.7fr_0.9fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
                   >
-                    <div className='font-semibold text-slate-950'>
+                    <div className='px-[var(--spacing-2,8px)] py-4 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       {resolveBillingBucketCategoryLabel(t, row.category)}
                     </div>
-                    <div className='text-right font-medium text-slate-950'>
+                    <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       {formatBillingCredits(
                         row.availableCredits,
                         i18n.language,
                       )}
                     </div>
-                    <div className='text-right text-slate-600'>
+                    <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       {row.effectiveTo
                         ? formatDetailWindow(row.effectiveTo)
                         : neverExpiresLabel}

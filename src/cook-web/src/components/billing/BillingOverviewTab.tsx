@@ -21,7 +21,6 @@ import {
   buildBillingStripeResultUrls,
   extractBillingPingxxQrCode,
   formatBillingCredits,
-  formatBillingDate,
   formatBillingPrice,
   openBillingCheckoutUrl,
   registerBillingTranslationUsage,
@@ -146,23 +145,6 @@ export function BillingOverviewTab({
       );
     }
   }, [currentPlan?.billing_interval]);
-
-  let renewalMessage = t(
-    'module.billing.overview.subscriptionEmptyDescription',
-  );
-  if (overview?.subscription?.current_period_end_at) {
-    const cycleDate = formatBillingDate(
-      overview.subscription.current_period_end_at,
-      i18n.language,
-    );
-    renewalMessage = overview.subscription.cancel_at_period_end
-      ? t('module.billing.overview.subscriptionEndsOn', {
-          date: cycleDate,
-        })
-      : t('module.billing.overview.subscriptionRenewsOn', {
-          date: cycleDate,
-        });
-  }
 
   async function handleCheckout() {
     if (!checkoutTarget) {
@@ -394,15 +376,7 @@ export function BillingOverviewTab({
       className='space-y-8'
       data-testid='billing-overview-tab'
     >
-      <BillingOverviewHero
-        currentPlan={currentPlan}
-        renewalMessage={renewalMessage}
-        subscription={overview?.subscription}
-        subscriptionActionLoading={subscriptionActionLoading}
-        onSubscriptionAction={(action, subscription) =>
-          void handleSubscriptionMutation(action, subscription)
-        }
-      />
+      <BillingOverviewHero />
 
       {loadError ? (
         <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
