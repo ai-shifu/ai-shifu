@@ -15,7 +15,6 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
-import { BillingPageHeader } from '@/components/billing/BillingPageHeader';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 
 type BillingTab = 'packages' | 'details';
@@ -146,7 +145,6 @@ export default function AdminBillingPage() {
       className='flex h-full flex-col gap-6 overflow-auto px-1 pb-6'
       data-testid='admin-billing-page'
     >
-      <BillingPageHeader />
       <AdminBillingBreadcrumb activeTab={activeTab} />
 
       <Tabs
