@@ -346,6 +346,7 @@ export type I18nKey =
   | 'module.billing.details.title'
   | 'module.billing.details.totalCreditsDescription'
   | 'module.billing.details.totalCreditsLabel'
+  | 'module.billing.details.usageTable.columns.scene'
   | 'module.billing.domains.actions.bind'
   | 'module.billing.domains.actions.binding'
   | 'module.billing.domains.actions.disable'

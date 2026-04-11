@@ -18,32 +18,10 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getBillingLedger: jest.fn(),
-    getBillingOrderDetail: jest.fn(),
-    getBillingOrders: jest.fn(),
   },
 }));
 
-jest.mock('@/components/ui/Sheet', () => ({
-  __esModule: true,
-  Sheet: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
-    open ? <div>{children}</div> : null,
-  SheetContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetDescription: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
-const mockGetBillingOrderDetail = api.getBillingOrderDetail as jest.Mock;
-const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 
 function renderSection() {
   return render(
@@ -60,152 +38,125 @@ function renderSection() {
 describe('BillingRecentActivitySection', () => {
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
-    mockGetBillingOrderDetail.mockReset();
-    mockGetBillingOrders.mockReset();
 
-    mockGetBillingLedger.mockResolvedValue({
-      items: [
-        {
-          ledger_bid: 'ledger-1',
-          wallet_bucket_bid: 'bucket-free',
-          entry_type: 'consume',
-          source_type: 'usage',
-          source_bid: 'usage-1',
-          idempotency_key: 'usage-1-bucket-free',
-          amount: -2.5,
-          balance_after: 97.5,
-          expires_at: null,
-          consumable_from: null,
-          metadata: {
-            usage_bid: 'usage-1',
-            usage_scene: 'production',
-            metric_breakdown: [
-              {
-                billing_metric: 'llm_output_tokens',
-                raw_amount: 1234,
-                unit_size: 1000,
-                credits_per_unit: 1.25,
-                rounding_mode: 'ceil',
-                consumed_credits: 2.5,
+    mockGetBillingLedger.mockImplementation(({ page_index, page_size }) => {
+      if (page_index === 2) {
+        return Promise.resolve({
+          items: [
+            {
+              ledger_bid: 'ledger-11',
+              wallet_bucket_bid: 'bucket-free',
+              entry_type: 'grant',
+              source_type: 'gift',
+              source_bid: 'gift-11',
+              idempotency_key: 'gift-11-bucket-free',
+              amount: 5,
+              balance_after: 102.5,
+              expires_at: null,
+              consumable_from: null,
+              metadata: {
+                usage_scene: 'debug',
               },
-            ],
+              created_at: '2026-04-07T10:00:00Z',
+            },
+          ],
+          page: 2,
+          page_count: 2,
+          page_size,
+          total: 11,
+        });
+      }
+
+      return Promise.resolve({
+        items: [
+          {
+            ledger_bid: 'ledger-1',
+            wallet_bucket_bid: 'bucket-free',
+            entry_type: 'consume',
+            source_type: 'usage',
+            source_bid: 'usage-1',
+            idempotency_key: 'usage-1-bucket-free',
+            amount: -2.5,
+            balance_after: 97.5,
+            expires_at: null,
+            consumable_from: null,
+            metadata: {
+              usage_bid: 'usage-1',
+              usage_scene: 'production',
+              metric_breakdown: [
+                {
+                  billing_metric: 'llm_output_tokens',
+                  raw_amount: 1234,
+                  unit_size: 1000,
+                  credits_per_unit: 1.25,
+                  rounding_mode: 'ceil',
+                  consumed_credits: 2.5,
+                },
+              ],
+            },
+            created_at: '2026-04-06T10:00:00Z',
           },
-          created_at: '2026-04-06T10:00:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 4,
-      total: 1,
-    });
-    mockGetBillingOrders.mockResolvedValue({
-      items: [
-        {
-          billing_order_bid: 'order-1',
-          creator_bid: 'creator-1',
-          product_bid: 'billing-product-plan-monthly',
-          subscription_bid: 'sub-1',
-          order_type: 'subscription_start',
-          status: 'paid',
-          payment_provider: 'stripe',
-          payment_mode: 'subscription',
-          payable_amount: 9900,
-          paid_amount: 9900,
-          currency: 'CNY',
-          provider_reference_id: 'cs_test_1',
-          failure_message: '',
-          created_at: '2026-04-05T12:00:00Z',
-          paid_at: '2026-04-05T12:05:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 4,
-      total: 1,
-    });
-    mockGetBillingOrderDetail.mockResolvedValue({
-      billing_order_bid: 'order-1',
-      creator_bid: 'creator-1',
-      product_bid: 'billing-product-plan-monthly',
-      subscription_bid: 'sub-1',
-      order_type: 'subscription_start',
-      status: 'paid',
-      payment_provider: 'stripe',
-      payment_mode: 'subscription',
-      payable_amount: 9900,
-      paid_amount: 9900,
-      currency: 'CNY',
-      provider_reference_id: 'cs_test_1',
-      failure_message: '',
-      created_at: '2026-04-05T12:00:00Z',
-      paid_at: '2026-04-05T12:05:00Z',
-      failed_at: null,
-      refunded_at: null,
-      failure_code: '',
-      metadata: {},
+        ],
+        page: 1,
+        page_count: 2,
+        page_size,
+        total: 11,
+      });
     });
   });
 
-  test('loads recent ledger and orders summaries with compact page sizes', async () => {
+  test('renders the credit usage details table from recent ledger entries', async () => {
     renderSection();
 
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 1,
-        page_size: 4,
-      });
-      expect(mockGetBillingOrders).toHaveBeenCalledWith({
-        page_index: 1,
-        page_size: 4,
+        page_size: 10,
       });
     });
 
-    expect(await screen.findByText('usage-1')).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.orders.type.subscriptionStart'),
+      await screen.findByText('module.billing.details.usageTable.columns.scene'),
     ).toBeInTheDocument();
+    expect(
+      await screen.findByText('module.billing.ledger.usageScene.production'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Apr 6, 2026,/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('-2.5'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('module.billing.orders.title')).not.toBeInTheDocument();
+    expect(screen.queryByText('usage-1')).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'pagination' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
   });
 
-  test('opens usage and order detail sheets from the recent activity cards', async () => {
+  test('requests the next ledger page when pagination is used', async () => {
     const user = userEvent.setup();
     renderSection();
 
-    expect(await screen.findByText('usage-1')).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.orders.type.subscriptionStart'),
+      await screen.findByText('module.billing.ledger.usageScene.production'),
     ).toBeInTheDocument();
 
     await act(async () => {
       await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.ledger.table.detail',
-        }),
-      );
-    });
-
-    expect(
-      screen.getByText('module.billing.ledger.detail.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.ledger.detail.usageBid'),
-    ).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.orders.table.order',
-        }),
+        screen.getByRole('link', { name: '2' }),
       );
     });
 
     await waitFor(() => {
-      expect(mockGetBillingOrderDetail).toHaveBeenCalledWith({
-        billing_order_bid: 'order-1',
+      expect(mockGetBillingLedger).toHaveBeenCalledWith({
+        page_index: 2,
+        page_size: 10,
       });
     });
 
     expect(
-      screen.getByText('module.billing.orders.detail.title'),
+      await screen.findByText('module.billing.ledger.usageScene.debug'),
     ).toBeInTheDocument();
+    expect(await screen.findByText('+5')).toBeInTheDocument();
   });
 });

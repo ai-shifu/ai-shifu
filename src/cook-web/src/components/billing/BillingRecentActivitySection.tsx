@@ -1,38 +1,30 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/Card';
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type {
   BillingLedgerItem,
-  BillingOrderStatus,
-  BillingOrderSummary,
   BillingPagedResponse,
 } from '@/types/billing';
 import {
   formatBillingCredits,
   formatBillingDateTime,
-  formatBillingPrice,
   registerBillingTranslationUsage,
-  resolveBillingBucketSourceLabel,
-  resolveBillingLedgerEntryLabel,
-  resolveBillingOrderStatusLabel,
-  resolveBillingOrderTypeLabel,
-  resolveBillingProviderLabel,
+  resolveBillingEmptyLabel,
+  resolveBillingUsageSceneLabel,
 } from '@/lib/billing';
-import { BillingOrderDetailSheet } from './BillingOrderDetailSheet';
-import { BillingUsageDetailSheet } from './BillingUsageDetailSheet';
 
-const RECENT_ITEMS_LIMIT = 4;
+const RECENT_ITEMS_LIMIT = 10;
 
 function formatSignedCredits(value: number, locale: string): string {
   const normalizedValue = Number(value || 0);
@@ -46,25 +38,12 @@ function formatSignedCredits(value: number, locale: string): string {
   return formatted;
 }
 
-function resolveOrderStatusClassName(status: BillingOrderStatus): string {
-  if (status === 'paid') {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-  }
-  if (status === 'pending' || status === 'init') {
-    return 'border-amber-200 bg-amber-50 text-amber-700';
-  }
-  if (status === 'failed' || status === 'canceled' || status === 'timeout') {
-    return 'border-rose-200 bg-rose-50 text-rose-700';
-  }
-  return 'border-slate-200 bg-slate-100 text-slate-700';
-}
-
-function ActivitySkeleton() {
+function UsageTableSkeleton() {
   return (
-    <div className='space-y-3'>
-      <Skeleton className='h-24 rounded-[22px]' />
-      <Skeleton className='h-24 rounded-[22px]' />
-      <Skeleton className='h-24 rounded-[22px]' />
+    <div className='space-y-3 px-2 py-4'>
+      <Skeleton className='h-10 rounded-xl' />
+      <Skeleton className='h-10 rounded-xl' />
+      <Skeleton className='h-10 rounded-xl' />
     </div>
   );
 }
@@ -72,20 +51,17 @@ function ActivitySkeleton() {
 export function BillingRecentActivitySection() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const [selectedLedgerItem, setSelectedLedgerItem] =
-    useState<BillingLedgerItem | null>(null);
-  const [selectedOrderBid, setSelectedOrderBid] = useState('');
-  const [orderDetailOpen, setOrderDetailOpen] = useState(false);
+  const [pageIndex, setPageIndex] = React.useState(1);
 
   const {
     data: ledgerData,
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<BillingLedgerItem>>(
-    ['billing-ledger-recent', RECENT_ITEMS_LIMIT],
+    ['billing-ledger-recent', pageIndex, RECENT_ITEMS_LIMIT],
     async () =>
       (await api.getBillingLedger({
-        page_index: 1,
+        page_index: pageIndex,
         page_size: RECENT_ITEMS_LIMIT,
       })) as BillingPagedResponse<BillingLedgerItem>,
     {
@@ -93,257 +69,131 @@ export function BillingRecentActivitySection() {
     },
   );
 
-  const {
-    data: ordersData,
-    error: ordersError,
-    isLoading: ordersLoading,
-  } = useSWR<BillingPagedResponse<BillingOrderSummary>>(
-    ['billing-orders-recent', RECENT_ITEMS_LIMIT],
-    async () =>
-      (await api.getBillingOrders({
-        page_index: 1,
-        page_size: RECENT_ITEMS_LIMIT,
-      })) as BillingPagedResponse<BillingOrderSummary>,
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
   const ledgerItems = ledgerData?.items || [];
-  const orderItems = ordersData?.items || [];
-  const selectedHasBreakdown = useMemo(
-    () => Boolean(selectedLedgerItem?.metadata.metric_breakdown?.length),
-    [selectedLedgerItem],
-  );
+  const pageCount = Number(ledgerData?.page_count || 1);
+  const total = Number(ledgerData?.total || 0);
+  const currentPage = Number(ledgerData?.page || pageIndex);
+  const canGoPrev = currentPage > 1;
+  const canGoNext = currentPage < pageCount;
+
+  const paginationItems = Array.from({ length: pageCount }, (_, index) => {
+    const page = index + 1;
+
+    return (
+      <PaginationItem key={page}>
+        <PaginationLink
+          href='#'
+          isActive={page === currentPage}
+          onClick={event => {
+            event.preventDefault();
+            setPageIndex(page);
+          }}
+          size='icon'
+        >
+          {page}
+        </PaginationLink>
+      </PaginationItem>
+    );
+  });
 
   return (
-    <>
-      <section className='grid gap-5 xl:grid-cols-2'>
-        <Card
-          id='billing-recent-ledger'
-          className='rounded-[28px] border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]'
-        >
-          <CardHeader className='space-y-3 pb-4'>
-            <div className='flex items-center justify-between gap-3'>
-              <div className='space-y-1'>
-                <CardTitle className='text-base text-slate-950 md:text-lg'>
-                  {t('module.billing.ledger.title')}
-                </CardTitle>
-                <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
-                  {t('module.billing.ledger.entriesDescription')}
-                </CardDescription>
-              </div>
-              <Badge
-                variant='outline'
-                className='rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600'
-              >
-                {ledgerData?.total || 0}
-              </Badge>
+    <section
+      id='billing-recent-orders'
+      className='space-y-4'
+      data-testid='billing-usage-table-section'
+    >
+      <Card className='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'>
+        <CardContent className='p-0'>
+          {ledgerError ? (
+            <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+              {t('module.billing.ledger.loadError')}
             </div>
-          </CardHeader>
-          <CardContent className='space-y-3'>
-            {ledgerError ? (
-              <div className='rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
-                {t('module.billing.ledger.loadError')}
+          ) : null}
+
+          {!ledgerError ? (
+            <div>
+              <div className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] bg-[var(--base-muted,#F5F5F5)]'>
+                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-[10px] px-[32px] pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                  {t('module.billing.details.usageTable.columns.scene')}
+                </div>
+                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                  {t('module.billing.ledger.table.createdAt')}
+                </div>
+                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                  {t('module.billing.ledger.table.amount')}
+                </div>
               </div>
-            ) : null}
 
-            {ledgerLoading ? <ActivitySkeleton /> : null}
+              {ledgerLoading ? <UsageTableSkeleton /> : null}
 
-            {!ledgerLoading && !ledgerError && !ledgerItems.length ? (
-              <div className='rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500'>
-                {t('module.billing.ledger.empty')}
-              </div>
-            ) : null}
+              {!ledgerLoading && !ledgerItems.length ? (
+                <div className='px-4 py-8 text-sm text-slate-500'>
+                  {t('module.billing.ledger.empty')}
+                </div>
+              ) : null}
 
-            {!ledgerLoading &&
-              !ledgerError &&
-              ledgerItems.map(item => (
-                <div
-                  key={item.ledger_bid}
-                  className='rounded-[24px] border border-slate-200 bg-slate-50/70 p-4'
-                >
-                  <div className='flex items-start justify-between gap-4'>
-                    <div className='space-y-2'>
-                      <div className='flex flex-wrap items-center gap-2'>
-                        <Badge
-                          variant='outline'
-                          className='border-slate-200 bg-white text-slate-700'
-                        >
-                          {resolveBillingLedgerEntryLabel(t, item.entry_type)}
-                        </Badge>
-                        <span className='text-xs text-slate-500 md:text-sm'>
-                          {resolveBillingBucketSourceLabel(t, item.source_type)}
-                        </span>
-                      </div>
-                      <div className='text-xs text-slate-500 md:text-sm'>
-                        {item.source_bid}
-                      </div>
-                      <div className='text-xs text-slate-400'>
-                        {formatBillingDateTime(item.created_at, i18n.language)}
-                      </div>
+              {!ledgerLoading &&
+                ledgerItems.map(item => (
+                  <div
+                    key={item.ledger_bid}
+                    className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
+                  >
+                    <div className='overflow-hidden px-[32px] py-4 pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                      {resolveBillingUsageSceneLabel(
+                        t,
+                        item.metadata.usage_scene,
+                      ) || resolveBillingEmptyLabel(t)}
                     </div>
-                    <div className='flex flex-col items-end gap-3'>
-                      <div className='text-right'>
-                        <div className='text-sm font-semibold text-slate-950 md:text-base'>
-                          {formatSignedCredits(item.amount, i18n.language)}
-                        </div>
-                        <div className='flex items-center justify-end gap-1 text-xs text-slate-500'>
-                          <span>
-                            {t('module.billing.ledger.table.balanceAfter')}
-                          </span>
-                          <span>
-                            {formatBillingCredits(
-                              item.balance_after,
-                              i18n.language,
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      {item.metadata.metric_breakdown?.length ? (
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='rounded-full'
-                          onClick={() => setSelectedLedgerItem(item)}
-                        >
-                          {t('module.billing.ledger.table.detail')}
-                        </Button>
-                      ) : null}
+                    <div className='overflow-hidden px-[32px] py-4 pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                      {formatBillingDateTime(item.created_at, i18n.language)}
+                    </div>
+                    <div className='overflow-hidden px-[32px] py-4 pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                      {formatSignedCredits(item.amount, i18n.language)}
                     </div>
                   </div>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-
-        <Card
-          id='billing-recent-orders'
-          className='rounded-[28px] border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]'
-        >
-          <CardHeader className='space-y-3 pb-4'>
-            <div className='flex items-center justify-between gap-3'>
-              <div className='space-y-1'>
-                <CardTitle className='text-base text-slate-950 md:text-lg'>
-                  {t('module.billing.orders.title')}
-                </CardTitle>
-                <CardDescription className='max-w-xl text-sm leading-6 text-slate-500'>
-                  {t('module.billing.orders.description')}
-                </CardDescription>
-              </div>
-              <Badge
-                variant='outline'
-                className='rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-slate-600'
-              >
-                {ordersData?.total || 0}
-              </Badge>
+                ))}
             </div>
-          </CardHeader>
-          <CardContent className='space-y-3'>
-            {ordersError ? (
-              <div className='rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
-                {t('module.billing.orders.loadError')}
-              </div>
-            ) : null}
+          ) : null}
+        </CardContent>
+      </Card>
 
-            {ordersLoading ? <ActivitySkeleton /> : null}
-
-            {!ordersLoading && !ordersError && !orderItems.length ? (
-              <div className='rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500'>
-                {t('module.billing.orders.empty')}
-              </div>
-            ) : null}
-
-            {!ordersLoading &&
-              !ordersError &&
-              orderItems.map(item => (
-                <div
-                  key={item.billing_order_bid}
-                  className='rounded-[24px] border border-slate-200 bg-slate-50/70 p-4'
-                >
-                  <div className='flex items-start justify-between gap-4'>
-                    <div className='space-y-2'>
-                      <div className='flex flex-wrap items-center gap-2'>
-                        <Button
-                          variant='link'
-                          size='sm'
-                          className='h-auto p-0 text-left text-sm font-semibold text-slate-950 no-underline hover:text-slate-950 hover:no-underline md:text-base'
-                          onClick={() => {
-                            setSelectedOrderBid(item.billing_order_bid);
-                            setOrderDetailOpen(true);
-                          }}
-                        >
-                          {resolveBillingOrderTypeLabel(t, item.order_type)}
-                        </Button>
-                        <Badge
-                          variant='outline'
-                          className={resolveOrderStatusClassName(item.status)}
-                        >
-                          {resolveBillingOrderStatusLabel(t, item.status)}
-                        </Badge>
-                      </div>
-                      <div className='text-xs text-slate-500 md:text-sm'>
-                        {resolveBillingProviderLabel(t, item.payment_provider)}
-                      </div>
-                      <div className='text-xs text-slate-400'>
-                        {item.failure_message || item.provider_reference_id}
-                      </div>
-                    </div>
-                    <div className='flex flex-col items-end gap-3'>
-                      <div className='text-right'>
-                        <div className='text-sm font-semibold text-slate-950 md:text-base'>
-                          {formatBillingPrice(
-                            item.paid_amount || item.payable_amount,
-                            item.currency,
-                            i18n.language,
-                          )}
-                        </div>
-                        <div className='text-xs text-slate-500'>
-                          {formatBillingDateTime(
-                            item.created_at,
-                            i18n.language,
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        className='rounded-full'
-                        onClick={() => {
-                          setSelectedOrderBid(item.billing_order_bid);
-                          setOrderDetailOpen(true);
-                        }}
-                      >
-                        {t('module.billing.orders.table.order')}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-      </section>
-
-      <BillingUsageDetailSheet
-        item={selectedHasBreakdown ? selectedLedgerItem : null}
-        open={Boolean(selectedLedgerItem && selectedHasBreakdown)}
-        onOpenChange={open => {
-          if (!open) {
-            setSelectedLedgerItem(null);
-          }
-        }}
-      />
-
-      <BillingOrderDetailSheet
-        open={orderDetailOpen}
-        orderBid={selectedOrderBid || undefined}
-        onOpenChange={open => {
-          setOrderDetailOpen(open);
-          if (!open) {
-            setSelectedOrderBid('');
-          }
-        }}
-      />
-    </>
+      {pageCount > 1 ? (
+        <Pagination className='mx-0 w-full justify-end'>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href='#'
+                aria-disabled={!canGoPrev}
+                className={!canGoPrev ? 'pointer-events-none opacity-50' : ''}
+                onClick={event => {
+                  event.preventDefault();
+                  if (canGoPrev) {
+                    setPageIndex(current => Math.max(1, current - 1));
+                  }
+                }}
+              >
+                {t('module.order.paginationPrev')}
+              </PaginationPrevious>
+            </PaginationItem>
+            {paginationItems}
+            <PaginationItem>
+              <PaginationNext
+                href='#'
+                aria-disabled={!canGoNext}
+                className={!canGoNext ? 'pointer-events-none opacity-50' : ''}
+                onClick={event => {
+                  event.preventDefault();
+                  if (canGoNext) {
+                    setPageIndex(current => Math.min(pageCount, current + 1));
+                  }
+                }}
+              >
+                {t('module.order.paginationNext')}
+              </PaginationNext>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      ) : null}
+    </section>
   );
 }

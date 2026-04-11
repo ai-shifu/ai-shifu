@@ -430,7 +430,7 @@ describe('AdminBillingPage', () => {
 
     await waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalled();
-      expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
+      expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
     });
 
     expect(

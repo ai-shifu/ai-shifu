@@ -361,7 +361,12 @@
     },
     "title": "Credit Details",
     "totalCreditsDescription": "Credits are consumed in the order of free, subscription, and top-up buckets. Within the same category, the earliest-expiring balance is consumed first.",
-    "totalCreditsLabel": "Total credits"
+    "totalCreditsLabel": "Total credits",
+    "usageTable": {
+      "columns": {
+        "scene": "Credit Usage Details"
+      }
+    }
   },
   "domains": {
     "actions": {
@@ -545,7 +550,7 @@
       "amount": "Amount",
       "availableCredits": "Available credits",
       "balanceAfter": "Balance after",
-      "createdAt": "Created at",
+      "createdAt": "Date",
       "detail": "Details",
       "effectiveWindow": "Effective window",
       "entryType": "Entry type",

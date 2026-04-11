@@ -361,7 +361,12 @@
     },
     "title": "积分详情",
     "totalCreditsDescription": "积分会按免费积分、套餐积分、充值积分的顺序优先扣减；同类积分则优先扣减更早到期的部分。",
-    "totalCreditsLabel": "总积分"
+    "totalCreditsLabel": "总积分",
+    "usageTable": {
+      "columns": {
+        "scene": "积分使用详情"
+      }
+    }
   },
   "domains": {
     "actions": {
@@ -545,7 +550,7 @@
       "amount": "积分变化",
       "availableCredits": "可用积分",
       "balanceAfter": "变化后余额",
-      "createdAt": "发生时间",
+      "createdAt": "日期",
       "detail": "查看明细",
       "effectiveWindow": "生效时间",
       "entryType": "账本类型",
