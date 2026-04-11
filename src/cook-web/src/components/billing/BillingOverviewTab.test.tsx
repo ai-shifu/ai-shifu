@@ -511,7 +511,9 @@ describe('BillingOverviewTab', () => {
     renderOverviewTab();
 
     await act(async () => {
-      await user.hover(screen.getByTestId('billing-plan-card-free-action-trigger'));
+      await user.hover(
+        screen.getByTestId('billing-plan-card-free-action-trigger'),
+      );
     });
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent(

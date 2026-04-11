@@ -138,7 +138,10 @@ export function PlanShowcaseCard({
                 data-testid={`${testId}-action-trigger`}
               >
                 <Button
-                  className={cn('w-full text-sm font-semibold', styles.planShowcaseCardAction)}
+                  className={cn(
+                    'w-full text-sm font-semibold',
+                    styles.planShowcaseCardAction,
+                  )}
                   data-testid={`${testId}-action`}
                   disabled={disabled || actionLoading}
                   onClick={onAction}
@@ -149,9 +152,7 @@ export function PlanShowcaseCard({
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent>
-              {actionTooltip}
-            </TooltipContent>
+            <TooltipContent>{actionTooltip}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : (
