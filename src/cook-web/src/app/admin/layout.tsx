@@ -93,8 +93,11 @@ const MainInterface = ({
           billingOverviewLoading={billingOverviewLoading}
         />
       </div>
-      <div className='flex-1 overflow-hidden bg-background p-5'>
-        <div className='mx-auto h-full max-w-6xl overflow-hidden'>
+      <div
+        className='flex-1 overflow-y-auto overflow-x-hidden bg-background'
+        data-testid='admin-layout-content'
+      >
+        <div className='mx-auto flex h-full max-w-6xl flex-col px-5 py-5'>
           {children}
         </div>
       </div>

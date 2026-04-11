@@ -6,6 +6,7 @@ import {
   PresentationChartLineIcon,
   ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
+import { Crown } from 'lucide-react';
 
 export type AdminMenuItem = {
   type?: string;
@@ -46,7 +47,7 @@ export const buildAdminMenuItems = ({
     },
     {
       id: 'billing',
-      icon: <BanknotesIcon className='w-4 h-4' />,
+      icon: <Crown className='w-4 h-4' />,
       label: t('module.billing.navTitle'),
       href: '/admin/billing',
     },

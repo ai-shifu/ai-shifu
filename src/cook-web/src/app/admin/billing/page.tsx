@@ -142,7 +142,7 @@ export default function AdminBillingPage() {
 
   return (
     <div
-      className='flex h-full flex-col gap-6 overflow-auto px-1 pb-6'
+      className='flex h-full flex-col gap-6 px-1 pb-6'
       data-testid='admin-billing-page'
     >
       <AdminBillingBreadcrumb activeTab={activeTab} />

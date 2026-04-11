@@ -30,7 +30,7 @@ export default function AdminBillingConsolePage() {
   return (
     <>
       <div
-        className='flex h-full flex-col gap-6 overflow-auto pb-4'
+        className='flex h-full flex-col gap-6 pb-4'
         data-testid='admin-billing-console-page'
       >
         <div className='flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>

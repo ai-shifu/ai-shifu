@@ -346,6 +346,9 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(screen.getByTestId('admin-layout-content')).toHaveClass(
+      'overflow-y-auto',
+    );
     expect(screen.getByTestId('admin-sidebar-nav')).toHaveClass('flex-1');
     expect(
       screen.getByTestId('admin-billing-sidebar-card'),
