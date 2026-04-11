@@ -201,6 +201,11 @@ export function BillingOverviewShowcase({
                   ? 'module.billing.package.actions.currentUsing'
                   : 'module.billing.package.actions.freeTrial',
               )}
+              actionTooltip={
+                !hasActiveSubscription
+                  ? t('module.billing.package.actions.nonMemberTooltip')
+                  : undefined
+              }
               creditSummary={freeCreditSummary}
               creditValidityLabel={freeCreditValidityLabel}
               description={t('module.billing.package.free.description')}

@@ -483,6 +483,42 @@ describe('BillingOverviewTab', () => {
     ).toBeGreaterThan(0);
   });
 
+  test('shows a tooltip when hovering the current non-member action', async () => {
+    const user = userEvent.setup();
+
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: {
+          ...DEFAULT_TRIAL_OFFER,
+          enabled: false,
+          status: 'disabled',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.hover(screen.getByTestId('billing-plan-card-free-action-trigger'));
+    });
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'module.billing.package.actions.nonMemberTooltip',
+    );
+  });
+
   test('renders the redesigned low balance alert card', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {

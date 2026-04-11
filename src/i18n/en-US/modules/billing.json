@@ -669,6 +669,7 @@
       "buyNow": "Buy now",
       "currentSubscription": "Current subscription",
       "currentUsing": "Current plan",
+      "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
       "freeTrial": "Current account is expired/used",
       "subscribeNow": "Subscribe now",
       "upgradeNow": "Upgrade now"

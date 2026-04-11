@@ -669,6 +669,7 @@
       "buyNow": "立即购买",
       "currentSubscription": "当前订阅",
       "currentUsing": "当前使用",
+      "nonMemberTooltip": "当前为非会员状态，无需操作",
       "freeTrial": "此账号有效期已过/已使用",
       "subscribeNow": "立即订阅",
       "upgradeNow": "立即升级"

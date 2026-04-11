@@ -3,6 +3,12 @@ import { CheckIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { BillingPlan } from '@/types/billing';
 import { cn } from '@/lib/utils';
 import styles from './BillingOverviewCards.module.scss';
@@ -66,6 +72,7 @@ export function PlanFeatureList({ items }: { items: string[] }) {
 type PlanShowcaseCardProps = {
   actionLabel: string;
   actionLoading?: boolean;
+  actionTooltip?: string;
   compact?: boolean;
   creditSummary: string;
   creditValidityLabel: string;
@@ -83,6 +90,7 @@ type PlanShowcaseCardProps = {
 export function PlanShowcaseCard({
   actionLabel,
   actionLoading = false,
+  actionTooltip,
   compact = false,
   creditSummary,
   creditValidityLabel,
@@ -121,19 +129,46 @@ export function PlanShowcaseCard({
         ) : null}
       </div>
 
-      <Button
-        className={cn(
-          'mt-6 text-sm font-semibold',
-          styles.planShowcaseCardAction,
-        )}
-        data-testid={`${testId}-action`}
-        disabled={disabled || actionLoading}
-        onClick={onAction}
-        type='button'
-        variant='secondary'
-      >
-        {actionLoading ? '...' : actionLabel}
-      </Button>
+      {actionTooltip ? (
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className='mt-6 block w-full'
+                data-testid={`${testId}-action-trigger`}
+              >
+                <Button
+                  className={cn('w-full text-sm font-semibold', styles.planShowcaseCardAction)}
+                  data-testid={`${testId}-action`}
+                  disabled={disabled || actionLoading}
+                  onClick={onAction}
+                  type='button'
+                  variant='secondary'
+                >
+                  {actionLoading ? '...' : actionLabel}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {actionTooltip}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <Button
+          className={cn(
+            'mt-6 text-sm font-semibold',
+            styles.planShowcaseCardAction,
+          )}
+          data-testid={`${testId}-action`}
+          disabled={disabled || actionLoading}
+          onClick={onAction}
+          type='button'
+          variant='secondary'
+        >
+          {actionLoading ? '...' : actionLabel}
+        </Button>
+      )}
 
       <div className={styles.planShowcaseCardCreditBox}>
         <div className={styles.planShowcaseCardCreditTitle}>
