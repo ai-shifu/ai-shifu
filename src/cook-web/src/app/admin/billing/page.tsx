@@ -25,11 +25,7 @@ const BILLING_PACKAGES_HREF = '/admin/billing?tab=packages';
 const resolveBillingTab = (tab?: string | null): BillingTab =>
   tab === 'details' ? 'details' : 'packages';
 
-function AdminBillingBreadcrumb({
-  activeTab,
-}: {
-  activeTab: BillingTab;
-}) {
+function AdminBillingBreadcrumb({ activeTab }: { activeTab: BillingTab }) {
   const { t } = useTranslation();
 
   return (

@@ -340,7 +340,9 @@ describe('AdminBillingPage', () => {
       }),
     ).toHaveAttribute('href', '/admin');
     expect(
-      within(breadcrumb).getByText('module.billing.page.breadcrumbs.membership'),
+      within(breadcrumb).getByText(
+        'module.billing.page.breadcrumbs.membership',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.title'),
