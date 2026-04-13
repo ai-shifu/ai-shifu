@@ -188,6 +188,14 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat();
+  const editorScopeKey = useMemo(
+    () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
+    [currentNode?.bid, currentShifu?.bid],
+  );
+  const [editorContent, setEditorContent] = useState(mdflow);
+  const editorContentScopeRef = useRef(editorScopeKey);
+  const lastLocalEditorContentRef = useRef(mdflow);
+  const skipNextEditorContentSyncRef = useRef(false);
   const editModeOptions = useMemo(
     () => [
       {
@@ -265,6 +273,41 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   useEffect(() => {
     currentShifuBidRef.current = currentShifu?.bid ?? null;
   }, [currentShifu?.bid]);
+
+  useEffect(() => {
+    const scopeChanged = editorContentScopeRef.current !== editorScopeKey;
+    editorContentScopeRef.current = editorScopeKey;
+    const shouldSkipLocalEcho =
+      !scopeChanged &&
+      skipNextEditorContentSyncRef.current &&
+      mdflow === lastLocalEditorContentRef.current;
+    skipNextEditorContentSyncRef.current = false;
+    if (shouldSkipLocalEcho) {
+      return;
+    }
+    lastLocalEditorContentRef.current = mdflow;
+    setEditorContent(mdflow);
+  }, [editorScopeKey, mdflow]);
+
+  const commitMdflowChange = useCallback(
+    (value: string, options?: { syncEditorContent?: boolean }) => {
+      const shouldSyncEditorContent = options?.syncEditorContent ?? false;
+      lastLocalEditorContentRef.current = value;
+      skipNextEditorContentSyncRef.current = !shouldSyncEditorContent;
+      if (shouldSyncEditorContent) {
+        setEditorContent(value);
+      }
+      setRemoteSyncNotice(null);
+      actions.setCurrentMdflow(value);
+      // Pass snapshot so autosave persists pre-switch content + chapter id
+      actions.autoSaveBlocks({
+        shifu_bid: currentShifu?.bid || '',
+        outline_bid: currentNode?.bid || '',
+        data: value,
+      });
+    },
+    [actions, currentNode?.bid, currentShifu?.bid],
+  );
 
   const isLessonNode = (currentNode?.depth ?? 0) > 0;
   const shouldSkipConflictCheck =
@@ -1050,14 +1093,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       : !hasHiddenVariables;
 
   const onChangeMdflow = (value: string) => {
-    setRemoteSyncNotice(null);
-    actions.setCurrentMdflow(value);
-    // Pass snapshot so autosave persists pre-switch content + chapter id
-    actions.autoSaveBlocks({
-      shifu_bid: currentShifu?.bid || '',
-      outline_bid: currentNode?.bid || '',
-      data: value,
-    });
+    commitMdflowChange(value);
   };
 
   const uploadProps: UploadProps = useMemo(() => {
@@ -1074,14 +1110,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   // Handle applying MDF converted content to editor
   const handleApplyMdfContent = useCallback(
     (contentPrompt: string) => {
-      actions.setCurrentMdflow(contentPrompt);
-      actions.autoSaveBlocks({
-        shifu_bid: currentShifu?.bid || '',
-        outline_bid: currentNode?.bid || '',
-        data: contentPrompt,
-      });
+      commitMdflowChange(contentPrompt, { syncEditorContent: true });
     },
-    [actions, currentShifu?.bid, currentNode?.bid],
+    [commitMdflowChange],
   );
 
   // Toolbar actions for MDF conversion
@@ -1374,13 +1405,14 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                     </div>
                   ) : (
                     <MarkdownFlowEditor
+                      key={editorScopeKey}
                       locale={
                         normalizeLanguage(
                           (i18n.resolvedLanguage ?? i18n.language) as string,
                         ) as 'en-US' | 'zh-CN'
                       }
                       disabled={currentShifu?.readonly}
-                      content={mdflow}
+                      content={editorContent}
                       variables={variablesList}
                       systemVariables={systemVariablesList as any[]}
                       onChange={onChangeMdflow}
