@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -26,8 +27,10 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   formatBillingDateTime,
   registerBillingTranslationUsage,
+  withBillingTimezone,
 } from '@/lib/billing';
 
 const ADMIN_BILLING_DOMAIN_AUDITS_PAGE_SIZE = 10;
@@ -35,15 +38,21 @@ const ADMIN_BILLING_DOMAIN_AUDITS_PAGE_SIZE = 10;
 export function AdminBillingDomainsTable() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = useState(1);
   const { data, error, isLoading } = useSWR<
     BillingPagedResponse<AdminBillingDomainBindingItem>
   >(
-    ['admin-billing-domain-audits', pageIndex],
+    buildBillingSwrKey('admin-billing-domain-audits', timezone, pageIndex),
     async () =>
       (await api.getAdminBillingDomainAudits({
-        page_index: pageIndex,
-        page_size: ADMIN_BILLING_DOMAIN_AUDITS_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: pageIndex,
+            page_size: ADMIN_BILLING_DOMAIN_AUDITS_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingDomainBindingItem>,
     {
       revalidateOnFocus: false,

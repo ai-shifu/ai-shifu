@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Button } from '@/components/ui/Button';
 import {
   Sheet,
@@ -13,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { BillingOrderDetail } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   formatBillingDateTime,
   formatBillingPrice,
   registerBillingTranslationUsage,
@@ -20,6 +22,7 @@ import {
   resolveBillingOrderTypeLabel,
   resolveBillingPaymentModeLabel,
   resolveBillingProviderLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 
 type BillingOrderDetailSheetProps = {
@@ -69,6 +72,7 @@ export function BillingOrderDetailSheet({
 }: BillingOrderDetailSheetProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const emptyValue = t('module.billing.sidebar.placeholderValue');
 
   const {
@@ -77,10 +81,17 @@ export function BillingOrderDetailSheet({
     isLoading,
     mutate,
   } = useSWR<BillingOrderDetail>(
-    open && orderBid ? ['billing-order-detail', orderBid] : null,
+    open && orderBid
+      ? buildBillingSwrKey('billing-order-detail', timezone, orderBid)
+      : null,
     async () =>
       (await api.getBillingOrderDetail({
-        billing_order_bid: orderBid,
+        ...withBillingTimezone(
+          {
+            billing_order_bid: orderBid,
+          },
+          timezone,
+        ),
       })) as BillingOrderDetail,
     {
       revalidateOnFocus: false,

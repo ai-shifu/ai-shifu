@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
+from flaskr.util.timezone import get_app_timezone
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -93,6 +94,25 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_LLM: "llm",
     BILL_USAGE_TYPE_TTS: "tts",
 }
+
+_LEDGER_SOURCE_TIMEZONE = "Asia/Shanghai"
+
+
+def _serialize_ledger_dt(
+    app: Flask,
+    value,
+    *,
+    timezone_name: str | None = None,
+) -> str | None:
+    if value is None:
+        return None
+
+    if getattr(value, "tzinfo", None) is not None:
+        return serialize_dt(app, value, timezone_name=timezone_name)
+
+    source_tz = get_app_timezone(app, _LEDGER_SOURCE_TIMEZONE)
+    target_tz = get_app_timezone(app, timezone_name)
+    return value.replace(tzinfo=source_tz).astimezone(target_tz).isoformat()
 
 
 def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProductDTO:
@@ -383,8 +403,12 @@ def serialize_ledger_entry(
         idempotency_key=row.idempotency_key,
         amount=decimal_to_number(row.amount),
         balance_after=decimal_to_number(row.balance_after),
-        expires_at=serialize_dt(app, row.expires_at, timezone_name=timezone_name),
-        consumable_from=serialize_dt(
+        expires_at=_serialize_ledger_dt(
+            app,
+            row.expires_at,
+            timezone_name=timezone_name,
+        ),
+        consumable_from=_serialize_ledger_dt(
             app,
             row.consumable_from,
             timezone_name=timezone_name,
@@ -392,7 +416,12 @@ def serialize_ledger_entry(
         metadata=normalize_json_object(
             row.metadata_json if metadata is None else metadata
         ).to_metadata_json(),
-        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
+        created_at=_serialize_ledger_dt(
+            app,
+            row.created_at,
+            timezone_name=timezone_name,
+        )
+        or "",
     )
 
 

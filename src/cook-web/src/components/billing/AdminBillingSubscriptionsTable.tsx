@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -26,6 +27,7 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   buildBillingRenewalContextLabel,
   formatBillingCredits,
   formatBillingDateTime,
@@ -35,6 +37,7 @@ import {
   resolveBillingRenewalEventTypeLabel,
   resolveBillingProviderLabel,
   resolveBillingSubscriptionStatusLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 
 const ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE = 10;
@@ -42,15 +45,21 @@ const ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE = 10;
 export function AdminBillingSubscriptionsTable() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = useState(1);
   const { data, error, isLoading } = useSWR<
     BillingPagedResponse<AdminBillingSubscriptionItem>
   >(
-    ['admin-billing-subscriptions', pageIndex],
+    buildBillingSwrKey('admin-billing-subscriptions', timezone, pageIndex),
     async () =>
       (await api.getAdminBillingSubscriptions({
-        page_index: pageIndex,
-        page_size: ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: pageIndex,
+            page_size: ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingSubscriptionItem>,
     {
       revalidateOnFocus: false,

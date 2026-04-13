@@ -15,6 +15,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -108,6 +113,14 @@ describe('BillingLedgerTab', () => {
 
     expect(mockGetBillingWalletBuckets).toHaveBeenCalledTimes(1);
     expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
+    expect(mockGetBillingWalletBuckets).toHaveBeenCalledWith({
+      timezone: 'Asia/Shanghai',
+    });
+    expect(mockGetBillingLedger).toHaveBeenCalledWith({
+      page_index: 1,
+      page_size: 10,
+      timezone: 'Asia/Shanghai',
+    });
     expect(
       screen.getAllByText('module.billing.ledger.entriesTitle').length,
     ).toBeGreaterThan(0);

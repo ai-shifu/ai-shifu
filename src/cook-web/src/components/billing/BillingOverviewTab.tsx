@@ -7,6 +7,7 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import type {
@@ -19,12 +20,14 @@ import type {
   BillingTopupProduct,
 } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   buildBillingStripeResultUrls,
   extractBillingPingxxQrCode,
   formatBillingCredits,
   formatBillingPrice,
   openBillingCheckoutUrl,
   registerBillingTranslationUsage,
+  withBillingTimezone,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
@@ -70,6 +73,7 @@ export function BillingOverviewTab({
 }: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
 
   const {
     data: overview,
@@ -82,8 +86,11 @@ export function BillingOverviewTab({
     error: catalogError,
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
-    ['billing-catalog'],
-    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
+    buildBillingSwrKey('billing-catalog', timezone),
+    async () =>
+      (await api.getBillingCatalog(
+        withBillingTimezone({}, timezone),
+      )) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },

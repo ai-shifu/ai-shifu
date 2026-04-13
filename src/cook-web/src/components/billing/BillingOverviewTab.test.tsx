@@ -32,6 +32,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -346,6 +351,14 @@ describe('BillingOverviewTab', () => {
   test('renders the prototype-oriented package layout and switches sub-tabs', async () => {
     const user = userEvent.setup();
     renderOverviewTab();
+
+    expect(mockUseSWR).toHaveBeenCalledWith(
+      ['billing-catalog', 'Asia/Shanghai'],
+      expect.any(Function),
+      {
+        revalidateOnFocus: false,
+      },
+    );
 
     expect(
       screen.getByText('module.billing.package.title'),

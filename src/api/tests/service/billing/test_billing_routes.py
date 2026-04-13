@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import types
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, jsonify, request
 import pytest
@@ -147,6 +148,7 @@ def billing_test_client():
             "ai_shifu_admin": "sqlite:///:memory:",
         },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        REDIS_KEY_PREFIX="billing-routes-test:",
         TZ="UTC",
     )
 
@@ -730,6 +732,53 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][0]["category"] == "free"
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
+    def test_overview_and_wallet_buckets_respect_request_timezone_and_fallback(
+        self, billing_test_client
+    ) -> None:
+        try:
+            target_tz = ZoneInfo("Asia/Shanghai")
+        except ZoneInfoNotFoundError:
+            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+        app_tz = ZoneInfo(billing_test_client.application.config.get("TZ", "UTC"))
+
+        overview_response = billing_test_client.get(
+            "/api/billing/overview?timezone=Asia/Shanghai"
+        )
+        timezone_bucket_response = billing_test_client.get(
+            "/api/billing/wallet-buckets?timezone=Asia/Shanghai"
+        )
+        default_bucket_response = billing_test_client.get("/api/billing/wallet-buckets")
+
+        overview_payload = overview_response.get_json(force=True)
+        timezone_bucket_payload = timezone_bucket_response.get_json(force=True)
+        default_bucket_payload = default_bucket_response.get_json(force=True)
+
+        expected_period_end = datetime(2026, 5, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
+            target_tz
+        )
+        expected_bucket_start = datetime(2026, 4, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
+            target_tz
+        )
+
+        assert overview_payload["code"] == 0
+        assert (
+            overview_payload["data"]["subscription"]["current_period_end_at"]
+            == expected_period_end.isoformat()
+        )
+
+        assert timezone_bucket_payload["code"] == 0
+        assert (
+            timezone_bucket_payload["data"]["items"][0]["effective_from"]
+            == expected_bucket_start.isoformat()
+        )
+
+        assert default_bucket_payload["code"] == 0
+        assert (
+            default_bucket_payload["data"]["items"][0]["effective_from"]
+            == "2026-04-01T00:00:00+00:00"
+        )
+
     def test_billing_public_builders_return_dto_instances(
         self,
         billing_test_client,
@@ -999,6 +1048,87 @@ class TestBillingRoutes:
         assert orders_payload["data"]["items"][0]["billing_order_bid"] == "order-2"
         assert orders_payload["data"]["items"][0]["payment_mode"] == "one_time"
         assert orders_payload["data"]["items"][0]["status"] == "paid"
+
+    def test_ledger_orders_and_daily_reports_use_requested_timezone(
+        self, billing_test_client
+    ) -> None:
+        try:
+            target_tz = ZoneInfo("Asia/Shanghai")
+            ledger_source_tz = ZoneInfo("Asia/Shanghai")
+        except ZoneInfoNotFoundError:
+            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+        app_tz = ZoneInfo(billing_test_client.application.config.get("TZ", "UTC"))
+
+        ledger_response = billing_test_client.get(
+            "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
+        )
+        orders_response = billing_test_client.get(
+            "/api/billing/orders?page_index=1&page_size=1&timezone=Asia/Shanghai"
+        )
+        report_response = billing_test_client.get(
+            "/api/billing/reports/ledger-daily?page_index=1&page_size=10"
+            "&date_from=2026-04-06&timezone=Asia/Shanghai"
+        )
+
+        ledger_payload = ledger_response.get_json(force=True)
+        orders_payload = orders_response.get_json(force=True)
+        report_payload = report_response.get_json(force=True)
+
+        expected_ledger_created_at = datetime(
+            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
+        ).astimezone(target_tz)
+        expected_order_created_at = datetime(
+            2026, 4, 6, 11, 0, 0, tzinfo=app_tz
+        ).astimezone(target_tz)
+        expected_window_started_at = datetime(
+            2026, 4, 6, 0, 0, 0, tzinfo=app_tz
+        ).astimezone(target_tz)
+
+        assert ledger_payload["code"] == 0
+        assert (
+            ledger_payload["data"]["items"][0]["created_at"]
+            == expected_ledger_created_at.isoformat()
+        )
+
+        assert orders_payload["code"] == 0
+        assert (
+            orders_payload["data"]["items"][0]["created_at"]
+            == expected_order_created_at.isoformat()
+        )
+
+        assert report_payload["code"] == 0
+        assert report_payload["data"]["items"][0]["stat_date"] == "2026-04-06"
+        assert (
+            report_payload["data"]["items"][0]["window_started_at"]
+            == expected_window_started_at.isoformat()
+        )
+
+    def test_build_billing_ledger_page_uses_requested_timezone_for_created_at(
+        self, billing_test_client
+    ) -> None:
+        try:
+            target_tz = ZoneInfo("Asia/Shanghai")
+            ledger_source_tz = ZoneInfo("Asia/Shanghai")
+        except ZoneInfoNotFoundError:
+            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+        app = billing_test_client.application
+
+        ledger_page = build_billing_ledger_page(
+            app,
+            "creator-1",
+            page_size=1,
+            timezone_name="Asia/Shanghai",
+        )
+        default_ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
+
+        expected_created_at = datetime(
+            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
+        ).astimezone(target_tz)
+
+        assert ledger_page.items[0].created_at == expected_created_at.isoformat()
+        assert default_ledger_page.items[0].created_at == "2026-04-06T02:00:00+00:00"
 
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
         self, billing_test_client

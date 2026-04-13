@@ -2,6 +2,7 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -18,6 +19,7 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   buildBillingRenewalContextLabel,
   formatBillingDateTime,
   formatBillingPrice,
@@ -28,6 +30,7 @@ import {
   resolveBillingRenewalEventStatusLabel,
   resolveBillingRenewalEventTypeLabel,
   resolveBillingSubscriptionStatusLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 
 const EXCEPTION_PAGE_SIZE = 6;
@@ -50,16 +53,22 @@ export function AdminBillingExceptionsPanel({
 }: AdminBillingExceptionsPanelProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const {
     data: subscriptions,
     error: subscriptionsError,
     isLoading: subscriptionsLoading,
   } = useSWR<BillingPagedResponse<AdminBillingSubscriptionItem>>(
-    ['admin-billing-subscriptions-exceptions'],
+    buildBillingSwrKey('admin-billing-subscriptions-exceptions', timezone),
     async () =>
       (await api.getAdminBillingSubscriptions({
-        page_index: 1,
-        page_size: EXCEPTION_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: EXCEPTION_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingSubscriptionItem>,
     {
       revalidateOnFocus: false,
@@ -70,11 +79,16 @@ export function AdminBillingExceptionsPanel({
     error: ordersError,
     isLoading: ordersLoading,
   } = useSWR<BillingPagedResponse<AdminBillingOrderItem>>(
-    ['admin-billing-orders-exceptions'],
+    buildBillingSwrKey('admin-billing-orders-exceptions', timezone),
     async () =>
       (await api.getAdminBillingOrders({
-        page_index: 1,
-        page_size: EXCEPTION_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: EXCEPTION_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingOrderItem>,
     {
       revalidateOnFocus: false,

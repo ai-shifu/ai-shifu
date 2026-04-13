@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -30,6 +31,7 @@ import type {
   BillingPagedResponse,
 } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   extractBillingPingxxQrCode,
   formatBillingDateTime,
   formatBillingPrice,
@@ -38,6 +40,7 @@ import {
   resolveBillingOrderStatusLabel,
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import { BillingOrderDetailSheet } from './BillingOrderDetailSheet';
@@ -70,6 +73,7 @@ function resolveOrderStatusClassName(status: BillingOrderStatus): string {
 export function BillingOrdersTable() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = useState(1);
   const [syncLoadingBid, setSyncLoadingBid] = useState('');
   const [checkoutLoadingBid, setCheckoutLoadingBid] = useState('');
@@ -84,11 +88,21 @@ export function BillingOrdersTable() {
   const { data, error, isLoading, mutate } = useSWR<
     BillingPagedResponse<BillingOrderSummary>
   >(
-    ['billing-orders', pageIndex, BILLING_ORDERS_PAGE_SIZE],
+    buildBillingSwrKey(
+      'billing-orders',
+      timezone,
+      pageIndex,
+      BILLING_ORDERS_PAGE_SIZE,
+    ),
     async () =>
       (await api.getBillingOrders({
-        page_index: pageIndex,
-        page_size: BILLING_ORDERS_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: pageIndex,
+            page_size: BILLING_ORDERS_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<BillingOrderSummary>,
     {
       revalidateOnFocus: false,
@@ -105,7 +119,13 @@ export function BillingOrdersTable() {
     onResolved: async result => {
       await mutate();
       if (detailOrderBid === result.billing_order_bid) {
-        await mutateCache(['billing-order-detail', result.billing_order_bid]);
+        await mutateCache(
+          buildBillingSwrKey(
+            'billing-order-detail',
+            timezone,
+            result.billing_order_bid,
+          ),
+        );
       }
       if (result.status !== 'pending') {
         setPingxxCheckoutOrder(null);
@@ -122,7 +142,13 @@ export function BillingOrdersTable() {
       })) as { billing_order_bid: string; status: BillingOrderStatus };
       await mutate();
       if (detailOrderBid === order.billing_order_bid) {
-        await mutateCache(['billing-order-detail', order.billing_order_bid]);
+        await mutateCache(
+          buildBillingSwrKey(
+            'billing-order-detail',
+            timezone,
+            order.billing_order_bid,
+          ),
+        );
       }
       toast({
         title: t('module.billing.orders.syncSuccess', {

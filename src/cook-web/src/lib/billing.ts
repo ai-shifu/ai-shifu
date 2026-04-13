@@ -218,6 +218,10 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
   canceled: 'module.billing.renewal.status.canceled',
 };
 
+const BILLING_OFFSETLESS_DATETIME_RE =
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
+const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
+
 export function formatBillingCredits(value: number, locale: string): string {
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 7,
@@ -323,15 +327,61 @@ export function resolveBillingNextActionLabel(
   return t('module.billing.overview.actions.managePlan');
 }
 
+export function buildBillingSwrKey(
+  baseKey: string,
+  timezone: string,
+  ...parts: unknown[]
+) {
+  return [baseKey, ...parts, timezone || ''] as const;
+}
+
+export function withBillingTimezone<T extends Record<string, unknown>>(
+  params: T,
+  timezone: string,
+): T & { timezone?: string } {
+  if (!timezone) {
+    return params;
+  }
+
+  return {
+    ...params,
+    timezone,
+  };
+}
+
+export function parseBillingDateValue(
+  value: string | null | undefined,
+): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = String(value).trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const legacyOffsetlessMatch = normalizedValue.match(
+    BILLING_OFFSETLESS_DATETIME_RE,
+  );
+  const candidateValue = legacyOffsetlessMatch
+    ? `${legacyOffsetlessMatch[1]}T${legacyOffsetlessMatch[2]}${BILLING_LEGACY_SOURCE_OFFSET}`
+    : normalizedValue;
+
+  const date = new Date(candidateValue);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
 export function formatBillingDate(
   value: string | null | undefined,
   locale: string,
 ): string {
-  if (!value) {
-    return '';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseBillingDateValue(value);
+  if (!date) {
     return '';
   }
   return new Intl.DateTimeFormat(locale, {
@@ -345,11 +395,8 @@ export function formatBillingDateTime(
   value: string | null | undefined,
   locale: string,
 ): string {
-  if (!value) {
-    return '';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseBillingDateValue(value);
+  if (!date) {
     return '';
   }
   return new Intl.DateTimeFormat(locale, {

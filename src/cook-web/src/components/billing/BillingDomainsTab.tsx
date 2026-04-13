@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { Badge } from '@/components/ui/Badge';
@@ -19,8 +20,10 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { toast } from '@/hooks/useToast';
 import { useBillingEntitlements } from '@/hooks/useBillingData';
 import {
+  buildBillingSwrKey,
   formatBillingDateTime,
   registerBillingTranslationUsage,
+  withBillingTimezone,
 } from '@/lib/billing';
 import type {
   BillingDomainBinding,
@@ -78,6 +81,7 @@ function resolveDomainSslClass(
 export function BillingDomainsTab() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const {
     data: entitlements,
     error: entitlementError,
@@ -89,10 +93,10 @@ export function BillingDomainsTab() {
     isLoading: domainLoading,
     mutate: mutateDomainBindings,
   } = useSWR<BillingDomainBindingsResponse>(
-    ['admin-billing-domain-bindings'],
+    buildBillingSwrKey('admin-billing-domain-bindings', timezone),
     async () =>
       (await api.getAdminBillingDomainBindings(
-        {},
+        withBillingTimezone({}, timezone),
       )) as BillingDomainBindingsResponse,
     {
       revalidateOnFocus: false,

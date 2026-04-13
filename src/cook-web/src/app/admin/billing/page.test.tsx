@@ -32,6 +32,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -434,6 +439,11 @@ describe('AdminBillingPage', () => {
       expect(scrollIntoView).toHaveBeenCalled();
       expect(mockGetBillingLedger).toHaveBeenCalledTimes(1);
     });
+    expect(mockGetBillingLedger).toHaveBeenCalledWith({
+      page_index: 1,
+      page_size: 10,
+      timezone: 'Asia/Shanghai',
+    });
 
     expect(
       screen.getByRole('tab', {
@@ -461,6 +471,9 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
+    expect(mockGetBillingCatalog).toHaveBeenCalledWith({
+      timezone: 'Asia/Shanghai',
+    });
   });
 
   test('respects the server-provided initial details tab before search params hydrate', async () => {

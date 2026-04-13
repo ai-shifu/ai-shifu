@@ -22,6 +22,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -141,7 +146,11 @@ describe('BillingOrdersTable', () => {
     );
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
-    expect(mockGetBillingOrders).toHaveBeenCalledTimes(1);
+    expect(mockGetBillingOrders).toHaveBeenCalledWith({
+      page_index: 1,
+      page_size: 10,
+      timezone: 'Asia/Shanghai',
+    });
 
     await act(async () => {
       await user.click(
@@ -175,6 +184,7 @@ describe('BillingOrdersTable', () => {
     await waitFor(() => {
       expect(mockGetBillingOrderDetail).toHaveBeenCalledWith({
         billing_order_bid: 'order-1',
+        timezone: 'Asia/Shanghai',
       });
     });
 

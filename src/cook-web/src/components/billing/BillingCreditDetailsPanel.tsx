@@ -20,6 +20,7 @@ import type {
 } from '@/types/billing';
 import {
   formatBillingCredits,
+  parseBillingDateValue,
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
 } from '@/lib/billing';
@@ -41,11 +42,8 @@ const CATEGORY_ORDER: BillingBucketCategory[] = [
 ];
 
 function formatDetailWindow(value: string | null): string {
-  if (!value) {
-    return '';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseBillingDateValue(value);
+  if (!date) {
     return '';
   }
   const year = date.getFullYear();

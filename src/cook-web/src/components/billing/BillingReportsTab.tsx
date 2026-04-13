@@ -2,6 +2,7 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import {
   Card,
@@ -21,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
+  buildBillingSwrKey,
   formatBillingCredits,
   formatBillingDate,
   formatBillingDateTime,
@@ -28,6 +30,7 @@ import {
   resolveBillingBucketSourceLabel,
   resolveBillingLedgerEntryLabel,
   resolveBillingUsageSceneLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 import type {
   BillingDailyLedgerSummaryItem,
@@ -132,16 +135,22 @@ function ReportSection({
 export function BillingReportsTab() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const {
     data: usageReports,
     error: usageError,
     isLoading: usageLoading,
   } = useSWR<BillingPagedResponse<BillingDailyUsageMetricItem>>(
-    ['billing-daily-usage-metrics'],
+    buildBillingSwrKey('billing-daily-usage-metrics', timezone),
     async () =>
       (await api.getBillingDailyUsageMetrics({
-        page_index: 1,
-        page_size: REPORT_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: REPORT_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<BillingDailyUsageMetricItem>,
     {
       revalidateOnFocus: false,
@@ -152,11 +161,16 @@ export function BillingReportsTab() {
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<BillingDailyLedgerSummaryItem>>(
-    ['billing-daily-ledger-summary'],
+    buildBillingSwrKey('billing-daily-ledger-summary', timezone),
     async () =>
       (await api.getBillingDailyLedgerSummary({
-        page_index: 1,
-        page_size: REPORT_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: REPORT_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<BillingDailyLedgerSummaryItem>,
     {
       revalidateOnFocus: false,

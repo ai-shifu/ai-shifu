@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { BillingReportsTab } from './BillingReportsTab';
@@ -12,6 +12,11 @@ jest.mock('react-i18next', () => ({
       language: 'en-US',
     },
   }),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
 }));
 
 jest.mock('@/api', () => ({
@@ -88,6 +93,19 @@ describe('BillingReportsTab', () => {
 
   test('renders daily usage and ledger report rows', async () => {
     renderComponent();
+
+    await waitFor(() => {
+      expect(mockGetBillingDailyUsageMetrics).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 8,
+        timezone: 'Asia/Shanghai',
+      });
+      expect(mockGetBillingDailyLedgerSummary).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 8,
+        timezone: 'Asia/Shanghai',
+      });
+    });
 
     expect(
       screen.getByText('module.billing.reports.title'),

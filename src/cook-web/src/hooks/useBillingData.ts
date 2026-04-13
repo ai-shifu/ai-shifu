@@ -1,5 +1,7 @@
 import useSWR from 'swr';
 import api from '@/api';
+import { buildBillingSwrKey, withBillingTimezone } from '@/lib/billing';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import type {
   BillingBootstrap,
   BillingEntitlements,
@@ -12,13 +14,9 @@ const BILLING_SWR_OPTIONS = {
 } as const;
 
 export const BILLING_BOOTSTRAP_SWR_KEY = ['creator-billing-bootstrap'] as const;
-export const BILLING_OVERVIEW_SWR_KEY = ['creator-billing-overview'] as const;
-export const BILLING_ENTITLEMENTS_SWR_KEY = [
-  'creator-billing-entitlements',
-] as const;
-export const BILLING_WALLET_BUCKETS_SWR_KEY = [
-  'billing-wallet-buckets',
-] as const;
+export const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
+export const BILLING_ENTITLEMENTS_SWR_KEY = 'creator-billing-entitlements';
+export const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
 
 export function useBillingBootstrap() {
   return useSWR<BillingBootstrap>(
@@ -29,26 +27,40 @@ export function useBillingBootstrap() {
 }
 
 export function useBillingOverview() {
+  const timezone = getBrowserTimeZone();
+
   return useSWR<CreatorBillingOverview>(
-    BILLING_OVERVIEW_SWR_KEY,
-    async () => (await api.getBillingOverview({})) as CreatorBillingOverview,
+    buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, timezone),
+    async () =>
+      (await api.getBillingOverview(
+        withBillingTimezone({}, timezone),
+      )) as CreatorBillingOverview,
     BILLING_SWR_OPTIONS,
   );
 }
 
 export function useBillingEntitlements() {
+  const timezone = getBrowserTimeZone();
+
   return useSWR<BillingEntitlements>(
-    BILLING_ENTITLEMENTS_SWR_KEY,
-    async () => (await api.getBillingEntitlements({})) as BillingEntitlements,
+    buildBillingSwrKey(BILLING_ENTITLEMENTS_SWR_KEY, timezone),
+    async () =>
+      (await api.getBillingEntitlements(
+        withBillingTimezone({}, timezone),
+      )) as BillingEntitlements,
     BILLING_SWR_OPTIONS,
   );
 }
 
 export function useBillingWalletBuckets() {
+  const timezone = getBrowserTimeZone();
+
   return useSWR<BillingWalletBucketList>(
-    BILLING_WALLET_BUCKETS_SWR_KEY,
+    buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
     async () =>
-      (await api.getBillingWalletBuckets({})) as BillingWalletBucketList,
+      (await api.getBillingWalletBuckets(
+        withBillingTimezone({}, timezone),
+      )) as BillingWalletBucketList,
     BILLING_SWR_OPTIONS,
   );
 }

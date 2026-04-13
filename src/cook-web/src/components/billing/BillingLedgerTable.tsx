@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Button } from '@/components/ui/Button';
 import {
   Card,
@@ -23,12 +24,14 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import {
+  buildBillingSwrKey,
   formatBillingCredits,
   formatBillingDateTime,
   registerBillingTranslationUsage,
   resolveBillingBucketSourceLabel,
   resolveBillingLedgerEntryLabel,
   resolveBillingLedgerReasonLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 import { BillingUsageDetailSheet } from './BillingUsageDetailSheet';
 
@@ -49,6 +52,7 @@ function formatSignedCredits(value: number, locale: string): string {
 export function BillingLedgerTable() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = useState(1);
   const [selectedItem, setSelectedItem] = useState<BillingLedgerItem | null>(
     null,
@@ -56,11 +60,21 @@ export function BillingLedgerTable() {
   const { data, error, isLoading } = useSWR<
     BillingPagedResponse<BillingLedgerItem>
   >(
-    ['billing-ledger', pageIndex, BILLING_LEDGER_PAGE_SIZE],
+    buildBillingSwrKey(
+      'billing-ledger',
+      timezone,
+      pageIndex,
+      BILLING_LEDGER_PAGE_SIZE,
+    ),
     async () =>
       (await api.getBillingLedger({
-        page_index: pageIndex,
-        page_size: BILLING_LEDGER_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: pageIndex,
+            page_size: BILLING_LEDGER_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<BillingLedgerItem>,
     {
       revalidateOnFocus: false,

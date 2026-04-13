@@ -15,6 +15,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -296,6 +301,11 @@ describe('AdminBillingConsolePage', () => {
         name: 'module.billing.admin.tabs.subscriptions',
       }),
     ).toHaveAttribute('data-state', 'active');
+    expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith({
+      page_index: 1,
+      page_size: 10,
+      timezone: 'Asia/Shanghai',
+    });
     expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.renewal.eventType.retry'),
@@ -368,6 +378,11 @@ describe('AdminBillingConsolePage', () => {
     expect(
       await screen.findByText('module.billing.admin.reports.title'),
     ).toBeInTheDocument();
+    expect(mockGetAdminBillingDailyUsageMetrics).toHaveBeenCalledWith({
+      page_index: 1,
+      page_size: 6,
+      timezone: 'Asia/Shanghai',
+    });
     expect(
       screen.getByText('module.billing.admin.reports.sections.usage.title'),
     ).toBeInTheDocument();

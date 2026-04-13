@@ -15,6 +15,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -121,6 +126,13 @@ describe('BillingDomainsTab', () => {
 
   test('renders branding snapshot and existing domain bindings', async () => {
     renderComponent();
+
+    expect(mockGetBillingEntitlements).toHaveBeenCalledWith({
+      timezone: 'Asia/Shanghai',
+    });
+    expect(mockGetAdminBillingDomainBindings).toHaveBeenCalledWith({
+      timezone: 'Asia/Shanghai',
+    });
 
     expect(
       screen.getByText('module.billing.domains.branding.title'),

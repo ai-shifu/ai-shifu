@@ -2,6 +2,7 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import {
   Card,
@@ -21,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
+  buildBillingSwrKey,
   formatBillingCredits,
   formatBillingDate,
   formatBillingDateTime,
@@ -30,6 +32,7 @@ import {
   resolveBillingMetricLabel,
   resolveBillingUsageSceneLabel,
   resolveBillingUsageTypeLabel,
+  withBillingTimezone,
 } from '@/lib/billing';
 import type {
   AdminBillingDailyLedgerSummaryItem,
@@ -100,16 +103,22 @@ function ReportSection({
 export function AdminBillingReportsPanel() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const timezone = getBrowserTimeZone();
   const {
     data: usageReports,
     error: usageError,
     isLoading: usageLoading,
   } = useSWR<BillingPagedResponse<AdminBillingDailyUsageMetricItem>>(
-    ['admin-billing-daily-usage-metrics'],
+    buildBillingSwrKey('admin-billing-daily-usage-metrics', timezone),
     async () =>
       (await api.getAdminBillingDailyUsageMetrics({
-        page_index: 1,
-        page_size: ADMIN_REPORT_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: ADMIN_REPORT_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingDailyUsageMetricItem>,
     {
       revalidateOnFocus: false,
@@ -120,11 +129,16 @@ export function AdminBillingReportsPanel() {
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<AdminBillingDailyLedgerSummaryItem>>(
-    ['admin-billing-daily-ledger-summary'],
+    buildBillingSwrKey('admin-billing-daily-ledger-summary', timezone),
     async () =>
       (await api.getAdminBillingDailyLedgerSummary({
-        page_index: 1,
-        page_size: ADMIN_REPORT_PAGE_SIZE,
+        ...withBillingTimezone(
+          {
+            page_index: 1,
+            page_size: ADMIN_REPORT_PAGE_SIZE,
+          },
+          timezone,
+        ),
       })) as BillingPagedResponse<AdminBillingDailyLedgerSummaryItem>,
     {
       revalidateOnFocus: false,

@@ -1,5 +1,6 @@
 import {
   formatBillingCredits,
+  parseBillingDateValue,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
 } from '@/lib/billing';
@@ -98,5 +99,19 @@ describe('resolveBillingLedgerReasonLabel', () => {
     ).toBe(
       'module.billing.ledger.usageScene.production - production course - learner@example.com',
     );
+  });
+});
+
+describe('parseBillingDateValue', () => {
+  test('treats offsetless legacy billing instants as app-local +08:00 values', () => {
+    expect(parseBillingDateValue('2026-04-14T07:32:00')?.toISOString()).toBe(
+      '2026-04-13T23:32:00.000Z',
+    );
+  });
+
+  test('keeps offset-aware billing instants unchanged', () => {
+    expect(
+      parseBillingDateValue('2026-04-14T07:32:00+08:00')?.toISOString(),
+    ).toBe('2026-04-13T23:32:00.000Z');
   });
 });
