@@ -79,6 +79,7 @@ class UserAggregate:
     updated_at: datetime
     credentials: List[CredentialSummary] = field(default_factory=list)
     is_creator: bool = False
+    is_operator: bool = False
 
     def _preferred_identifier(
         self, provider: str, *, prefer_verified: bool = True
@@ -189,6 +190,7 @@ class UserAggregate:
             language=self.user_language,
             user_avatar=self.avatar,
             is_creator=self.is_creator,
+            is_operator=self.is_operator,
         )
 
 
@@ -239,6 +241,7 @@ def _build_user_aggregate(
         updated_at=entity.updated_at,
         credentials=summaries,
         is_creator=bool(entity.is_creator),
+        is_operator=bool(entity.is_operator),
     )
     return aggregate
 
@@ -437,14 +440,18 @@ def mark_user_roles(
     user_bid: str,
     *,
     is_creator: Optional[bool] = None,
+    is_operator: Optional[bool] = None,
 ) -> None:
-    """Persist creator role flag on the canonical entity."""
+    """Persist role flags on the canonical entity."""
 
-    if is_creator is None:
+    if is_creator is None and is_operator is None:
         return
 
     entity = _ensure_user_entity(user_bid)
-    entity.is_creator = 1 if is_creator else 0
+    if is_creator is not None:
+        entity.is_creator = 1 if is_creator else 0
+    if is_operator is not None:
+        entity.is_operator = 1 if is_operator else 0
     db.session.flush()
 
 
@@ -600,6 +607,7 @@ def build_user_profile_snapshot_from_aggregate(
         "language": aggregate.user_language,
         "avatar": aggregate.avatar,
         "is_creator": aggregate.is_creator,
+        "is_operator": aggregate.is_operator,
     }
 
     credentials_payload = [

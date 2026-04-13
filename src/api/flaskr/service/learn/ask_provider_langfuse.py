@@ -2,6 +2,14 @@
 
 from typing import Any, Generator, Iterable
 
+from flask import Flask
+
+from flaskr.api.langfuse import (
+    build_langfuse_observation_link,
+    get_request_id,
+    resolve_langfuse_trace_id,
+)
+
 
 SENSITIVE_PROVIDER_CONFIG_KEYS = {
     "ak",
@@ -76,6 +84,7 @@ def stream_provider_with_langfuse(
     *,
     provider_stream: Iterable[Any],
     span: Any,
+    app: Flask | None,
     provider_name: str,
     generation_name: str,
     user_query: str,
@@ -88,11 +97,29 @@ def stream_provider_with_langfuse(
         provider_config=provider_config,
     )
     generation = None
+    request_id = get_request_id()
+    generation_link = (
+        build_langfuse_observation_link(span)
+        if span is not None
+        else {
+            "trace_id": resolve_langfuse_trace_id(None),
+        }
+    )
     if span is not None:
         generation = span.generation(
             model=provider_name,
             input=generation_input,
             name=generation_name,
+            **generation_link,
+        )
+    if app is not None:
+        app.logger.info(
+            "langfuse ask provider generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | provider=%s",
+            request_id or "",
+            generation_link.get("trace_id", ""),
+            generation_link.get("parent_observation_id", ""),
+            generation_name,
+            provider_name,
         )
 
     response_text = ""
@@ -108,12 +135,23 @@ def stream_provider_with_langfuse(
         raise
     finally:
         if generation is not None:
+            metadata = _build_provider_generation_metadata(
+                provider_name=provider_name,
+                provider_config=provider_config,
+                error=error,
+            )
             generation.end(
                 input=generation_input,
                 output=response_text,
-                metadata=_build_provider_generation_metadata(
-                    provider_name=provider_name,
-                    provider_config=provider_config,
-                    error=error,
-                ),
+                metadata=metadata,
             )
+            if app is not None:
+                app.logger.info(
+                    "langfuse ask provider generation finalized | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | provider=%s | status=%s",
+                    request_id or "",
+                    generation_link.get("trace_id", ""),
+                    generation_link.get("parent_observation_id", ""),
+                    generation_name,
+                    provider_name,
+                    metadata.get("status", ""),
+                )

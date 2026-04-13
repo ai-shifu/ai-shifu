@@ -1,4 +1,6 @@
+# ruff: noqa: E402
 import asyncio
+import sys
 import time
 import types
 import unittest
@@ -6,6 +8,83 @@ from unittest.mock import patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+
+
+def _install_litellm_stub() -> None:
+    if "litellm" in sys.modules:
+        return
+
+    litellm_stub = types.ModuleType("litellm")
+    litellm_stub.get_max_tokens = lambda _model: 4096
+    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    sys.modules["litellm"] = litellm_stub
+
+
+def _install_openai_responses_stub() -> None:
+    if "openai.types.responses" in sys.modules:
+        return
+
+    responses_pkg = types.ModuleType("openai.types.responses")
+    responses_pkg.__path__ = []
+    response_mod = types.ModuleType("openai.types.responses.response")
+    response_create_mod = types.ModuleType(
+        "openai.types.responses.response_create_params"
+    )
+    response_function_mod = types.ModuleType(
+        "openai.types.responses.response_function_tool_call"
+    )
+    response_text_mod = types.ModuleType(
+        "openai.types.responses.response_text_config_param"
+    )
+
+    for name in [
+        "IncompleteDetails",
+        "Response",
+        "ResponseOutputItem",
+        "Tool",
+        "ToolChoice",
+    ]:
+        setattr(response_mod, name, type(name, (), {}))
+
+    for name in [
+        "Reasoning",
+        "ResponseIncludable",
+        "ResponseInputParam",
+        "ToolChoice",
+        "ToolParam",
+        "Text",
+    ]:
+        setattr(response_create_mod, name, type(name, (), {}))
+
+    response_function_tool_call = type("ResponseFunctionToolCall", (), {})
+    response_text_config = type("ResponseTextConfigParam", (), {})
+    setattr(
+        response_function_mod,
+        "ResponseFunctionToolCall",
+        response_function_tool_call,
+    )
+    setattr(
+        response_text_mod,
+        "ResponseTextConfigParam",
+        response_text_config,
+    )
+    setattr(
+        responses_pkg,
+        "ResponseFunctionToolCall",
+        response_function_tool_call,
+    )
+
+    sys.modules["openai.types.responses"] = responses_pkg
+    sys.modules["openai.types.responses.response"] = response_mod
+    sys.modules["openai.types.responses.response_create_params"] = response_create_mod
+    sys.modules["openai.types.responses.response_function_tool_call"] = (
+        response_function_mod
+    )
+    sys.modules["openai.types.responses.response_text_config_param"] = response_text_mod
+
+
+_install_litellm_stub()
+_install_openai_responses_stub()
 
 # Ensure minimal SQLAlchemy bindings exist so model classes can be defined.
 import flaskr.dao as dao
@@ -26,6 +105,7 @@ if not hasattr(dao, "redis_client"):
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
+    PaidException,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -58,6 +138,26 @@ from flaskr.util import generate_id
 def _make_context() -> RunScriptContextV2:
     # Bypass __init__ since we only need helper methods for these tests.
     return RunScriptContextV2.__new__(RunScriptContextV2)
+
+
+class _FakeLangfuseSpan:
+    def __init__(self):
+        self.updated = {}
+        self.end_kwargs = {}
+
+    def update(self, **kwargs):
+        self.updated = kwargs
+
+    def end(self, **kwargs):
+        self.end_kwargs = kwargs
+
+
+class _FakeLangfuseTrace:
+    def __init__(self):
+        self.updated = {}
+
+    def update(self, **kwargs):
+        self.updated = kwargs
 
 
 _HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
@@ -859,10 +959,12 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 class PreviewRunLlmLoggingTests(unittest.TestCase):
     def test_complete_logs_full_preview_output(self):
         app = Flask("preview-run-llm-logging")
+        parent_observation = object()
         provider = RUNLLMProvider(
             app=app,
             llm_settings=types.SimpleNamespace(model="gpt-test", temperature=0.6),
             trace=object(),
+            parent_observation=parent_observation,
             trace_args={
                 "user_id": "user-1",
                 "metadata": {
@@ -875,22 +977,27 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
             usage_context=types.SimpleNamespace(),
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
+        captured = {}
 
         with (
             patch.object(app.logger, "info") as mock_info,
             patch(
                 "flaskr.service.learn.context_v2.chat_llm",
-                return_value=iter(
-                    [
-                        types.SimpleNamespace(result="First line\n"),
-                        types.SimpleNamespace(result="Second line"),
-                    ]
-                ),
+                side_effect=lambda *_args, **_kwargs: (
+                    captured.setdefault("parent_observation", _args[2]),
+                    iter(
+                        [
+                            types.SimpleNamespace(result="First line\n"),
+                            types.SimpleNamespace(result="Second line"),
+                        ]
+                    ),
+                )[1],
             ),
         ):
             output = provider.complete(messages=[{"role": "user", "content": "hello"}])
 
         self.assertEqual(output, "First line\nSecond line")
+        self.assertIs(captured["parent_observation"], parent_observation)
         mock_info.assert_any_call(
             "preview llm output | shifu_bid=%s | outline_bid=%s | session_id=%s | scene=%s | model=%s | temperature=%s | output=%s",
             "shifu-1",
@@ -900,6 +1007,259 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
             "gpt-test",
             0.6,
             "First line\nSecond line",
+        )
+
+
+class LangfuseTraceFinalizationTests(unittest.TestCase):
+    def test_runtime_context_uses_current_langfuse_client(self):
+        app = Flask("runtime-langfuse-client")
+        sentinel_client = object()
+        captured = {}
+        struct = HistoryItem(
+            bid="shifu-1",
+            id=1,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid="outline-1",
+                    id=2,
+                    type="outline",
+                    children=[],
+                    child_count=0,
+                )
+            ],
+        )
+
+        def _fake_create_trace_with_root_span(
+            *, client, trace_payload, root_span_payload
+        ):
+            captured["client"] = client
+            captured["trace_payload"] = trace_payload
+            captured["root_span_payload"] = root_span_payload
+            return _FakeLangfuseTrace(), _FakeLangfuseSpan()
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_langfuse_client",
+                return_value=sentinel_client,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_request_trace_id",
+                return_value="req-trace-1",
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span",
+                side_effect=_fake_create_trace_with_root_span,
+            ),
+        ):
+            RunScriptContextV2(
+                app=app,
+                shifu_info=types.SimpleNamespace(),
+                struct=struct,
+                outline_item_info=types.SimpleNamespace(
+                    bid="outline-1",
+                    shifu_bid="shifu-1",
+                    title="Lesson",
+                ),
+                user_info=types.SimpleNamespace(user_id="user-1"),
+                is_paid=True,
+                preview_mode=False,
+            )
+
+        self.assertIs(captured["client"], sentinel_client)
+        self.assertEqual(captured["trace_payload"]["id"], "req-trace-1")
+
+    def test_set_input_normalizes_structured_value_for_trace(self):
+        ctx = _make_context()
+        ctx._trace_args = {}
+
+        ctx.set_input({"lang": ["Python", "Go"], "level": ["Beginner"]}, "select")
+
+        self.assertEqual(ctx._trace_args["input"], "Python, Go, Beginner")
+        self.assertEqual(ctx._trace_args["input_type"], "select")
+
+    def test_set_input_normalizes_python_literal_string_for_trace(self):
+        ctx = _make_context()
+        ctx._trace_args = {}
+
+        ctx.set_input("{'lang': ['Python', 'Go']}", "select")
+
+        self.assertEqual(ctx._trace_args["input"], "Python, Go")
+
+    def test_runtime_finalize_skips_empty_output_overwrite(self):
+        ctx = _make_context()
+        ctx._trace = _FakeLangfuseTrace()
+        ctx._trace_root_span = _FakeLangfuseSpan()
+        ctx._trace_args = {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "name": "lesson_runtime/trace/Outline",
+        }
+        ctx._langfuse_output_chunks = []
+
+        ctx._finalize_langfuse_trace()
+
+        self.assertEqual(
+            ctx._trace.updated,
+            {
+                "user_id": "user-1",
+                "session_id": "session-1",
+                "name": "lesson_runtime/trace/Outline",
+            },
+        )
+        self.assertEqual(ctx._trace_root_span.end_kwargs, {})
+
+    def test_runtime_finalize_uses_accumulated_output(self):
+        ctx = _make_context()
+        ctx._trace = _FakeLangfuseTrace()
+        ctx._trace_root_span = _FakeLangfuseSpan()
+        ctx._trace_args = {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "input": "student input",
+            "name": "lesson_runtime/trace/Outline",
+        }
+        ctx._langfuse_output_chunks = ["chunk-1", "chunk-2"]
+
+        ctx._finalize_langfuse_trace()
+
+        self.assertEqual(ctx._trace.updated["output"], "chunk-1chunk-2")
+        self.assertEqual(
+            ctx._trace_root_span.end_kwargs,
+            {"input": "student input", "output": "chunk-1chunk-2"},
+        )
+
+    def test_append_langfuse_output_normalizes_python_literal_string(self):
+        ctx = _make_context()
+        ctx._langfuse_output_chunks = []
+
+        ctx.append_langfuse_output("['part-1', 'part-2']")
+
+        self.assertEqual(ctx._langfuse_output_chunks, ['["part-1", "part-2"]'])
+
+
+class PreviewLangfuseTraceTests(unittest.TestCase):
+    def test_stream_preview_sets_session_id_and_finalizes_root_span(self):
+        app = Flask("preview-langfuse-trace")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(block_index=0)
+        captured = {}
+
+        class _FakePreviewContextStore:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def get_context(self, *_args, **_kwargs):
+                return []
+
+            def replace_context(self, *_args, **_kwargs):
+                return None
+
+        class _FakePreviewMdflowContext:
+            def __init__(self, *args, **kwargs):
+                _ = args, kwargs
+
+            @staticmethod
+            def normalize_context_messages(_value):
+                return None
+
+            def get_block(self, _block_index):
+                return types.SimpleNamespace(
+                    block_type=PreviewBlockType.CONTENT, content="Prompt block"
+                )
+
+            def process(self, **_kwargs):
+                return (
+                    item
+                    for item in [
+                        types.SimpleNamespace(
+                            content="Hello preview",
+                            type="text",
+                            number=0,
+                        )
+                    ]
+                )
+
+        class _FakePreviewAdapter:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def process(self, events):
+                return events
+
+        def _fake_create_trace_with_root_span(
+            *, client, trace_payload, root_span_payload
+        ):
+            _ = client, root_span_payload
+            captured["trace_payload"] = trace_payload
+            trace = _FakeLangfuseTrace()
+            root_span = _FakeLangfuseSpan()
+            captured["trace"] = trace
+            captured["root_span"] = root_span
+            return trace, root_span
+
+        with (
+            patch.object(
+                preview_ctx,
+                "_get_outline_record",
+                return_value=types.SimpleNamespace(content="Doc", title="Outline"),
+            ),
+            patch.object(
+                preview_ctx,
+                "_get_shifu_record",
+                return_value=types.SimpleNamespace(
+                    llm=None,
+                    llm_temperature=None,
+                    use_learner_language=0,
+                ),
+            ),
+            patch.object(
+                preview_ctx, "_resolve_document_prompt", return_value="PROMPT"
+            ),
+            patch.object(
+                preview_ctx, "_resolve_llm_settings", return_value=("gpt-test", 0.2)
+            ),
+            patch.object(preview_ctx, "_resolve_preview_variables", return_value={}),
+            patch.object(preview_ctx, "_update_preview_context", return_value=None),
+            patch(
+                "flaskr.service.learn.context_v2._PreviewContextStore",
+                _FakePreviewContextStore,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.MdflowContextV2",
+                _FakePreviewMdflowContext,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.PreviewElementRunAdapter",
+                _FakePreviewAdapter,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span",
+                side_effect=_fake_create_trace_with_root_span,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_request_trace_id",
+                return_value="preview-req-trace-1",
+            ),
+        ):
+            messages = list(
+                preview_ctx.stream_preview(
+                    preview_request=preview_request,
+                    shifu_bid="shifu-1",
+                    outline_bid="outline-1",
+                    user_bid="user-1",
+                    session_id="preview-session-1",
+                )
+            )
+
+        self.assertTrue(messages)
+        self.assertEqual(captured["trace_payload"]["id"], "preview-req-trace-1")
+        self.assertEqual(captured["trace_payload"]["session_id"], "preview-session-1")
+        self.assertEqual(captured["trace"].updated["input"], "Prompt block")
+        self.assertEqual(captured["trace"].updated["output"], "Hello preview")
+        self.assertEqual(
+            captured["root_span"].end_kwargs,
+            {"input": "Prompt block", "output": "Hello preview"},
         )
 
 
@@ -957,6 +1317,7 @@ class PreviewElementizationTests(unittest.TestCase):
                     current_block=types.SimpleNamespace(block_type="content"),
                     is_user_input_validation=False,
                     content_chunks=content_chunks,
+                    langfuse_output_chunks=[],
                 )
             )
         )
@@ -1006,6 +1367,7 @@ class PreviewElementizationTests(unittest.TestCase):
                     current_block=types.SimpleNamespace(block_type="content"),
                     is_user_input_validation=False,
                     content_chunks=content_chunks,
+                    langfuse_output_chunks=[],
                 )
             )
         )
@@ -1057,6 +1419,7 @@ class PreviewElementizationTests(unittest.TestCase):
                     ),
                     is_user_input_validation=True,
                     content_chunks=content_chunks,
+                    langfuse_output_chunks=[],
                 )
             )
         )
@@ -1084,6 +1447,7 @@ class PreviewElementizationTests(unittest.TestCase):
             run_session_bid="preview-session-2",
         )
         content_chunks: list[str] = []
+        langfuse_output_chunks: list[str] = []
 
         messages = list(
             adapter.process(
@@ -1097,6 +1461,7 @@ class PreviewElementizationTests(unittest.TestCase):
                     ),
                     is_user_input_validation=False,
                     content_chunks=content_chunks,
+                    langfuse_output_chunks=langfuse_output_chunks,
                 )
             )
         )
@@ -1108,6 +1473,7 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertEqual(interaction.role, "ui")
         self.assertEqual(interaction.content_text, "Please choose one")
         self.assertEqual(content_chunks, [])
+        self.assertEqual(langfuse_output_chunks, ["Please choose one"])
         done_messages = [
             item for item in messages if item.type == GeneratedType.DONE.value
         ]
@@ -1115,6 +1481,24 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertFalse(done_messages[0].is_terminal)
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
+
+
+class RuntimeExceptionLangfuseTests(unittest.TestCase):
+    def test_run_emits_gate_interaction_after_paid_exception(self):
+        app = Flask("runtime-langfuse-paid")
+        ctx = _make_context()
+
+        def _raise_paid(_app):
+            raise PaidException()
+
+        ctx.run_inner = _raise_paid
+        ctx._emit_feedback_before_exception_gate = lambda: iter(["feedback"])
+        ctx._emit_current_progress_gate_interaction = lambda content: iter([content])
+
+        with patch("flaskr.service.learn.context_v2._", lambda key: key):
+            outputs = list(ctx.run(app))
+
+        self.assertEqual(outputs, ["feedback", "?[server.order.checkout//_sys_pay]"])
 
 
 if __name__ == "__main__":

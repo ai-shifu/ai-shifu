@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, Loader2, X } from 'lucide-react';
+import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -25,6 +26,7 @@ import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
+import type { AskMessage } from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -45,6 +47,127 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { buildAskListByAnchorElementBid } from './askState';
+import { useAskStateStore } from './useAskStateStore';
+import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+
+interface NewChatComponentsProps {
+  className?: string;
+  lessonUpdate: (val: any) => void;
+  onGoChapter: (id: any) => Promise<void>;
+  chapterId: string;
+  lessonId?: string;
+  lessonTitle?: string;
+  lessonStatus?: string;
+  onPurchased: () => void;
+  chapterUpdate: any;
+  updateSelectedLesson: any;
+  getNextLessonId: any;
+  previewMode?: boolean;
+  isNavOpen?: boolean;
+  onListenPlayerVisibilityChange?: (visible: boolean) => void;
+  onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
+  showGenerateBtn?: boolean;
+}
+
+const buildReadModeItemsWithAskState = ({
+  items,
+  askListByAnchorElementBid,
+  mobileStyle,
+}: {
+  items: ChatContentItem[];
+  askListByAnchorElementBid: Record<string, AskMessage[]>;
+  mobileStyle: boolean;
+}) => {
+  const existingAskAnchorSet = new Set<string>();
+  const likeStatusAnchorSet = new Set<string>();
+
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.ASK && item.parent_element_bid) {
+      existingAskAnchorSet.add(item.parent_element_bid);
+    }
+
+    if (
+      item.type === ChatContentItemType.LIKE_STATUS &&
+      item.parent_element_bid
+    ) {
+      likeStatusAnchorSet.add(item.parent_element_bid);
+    }
+  });
+
+  const insertedAskAnchorSet = new Set<string>();
+  const nextItems: ChatContentItem[] = [];
+
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.ASK) {
+      const anchorElementBid = item.parent_element_bid || '';
+      const storedAskList = anchorElementBid
+        ? askListByAnchorElementBid[anchorElementBid]
+        : undefined;
+
+      nextItems.push(
+        storedAskList
+          ? ({
+              ...item,
+              ask_list: storedAskList as ChatContentItem[],
+            } satisfies ChatContentItem)
+          : item,
+      );
+
+      if (anchorElementBid) {
+        insertedAskAnchorSet.add(anchorElementBid);
+      }
+
+      return;
+    }
+
+    nextItems.push(item);
+
+    const anchorElementBid =
+      item.type === ChatContentItemType.LIKE_STATUS
+        ? item.parent_element_bid || ''
+        : item.element_bid || '';
+
+    if (
+      !anchorElementBid ||
+      existingAskAnchorSet.has(anchorElementBid) ||
+      insertedAskAnchorSet.has(anchorElementBid)
+    ) {
+      return;
+    }
+
+    const storedAskList = askListByAnchorElementBid[anchorElementBid];
+
+    if (!storedAskList?.length) {
+      return;
+    }
+
+    const shouldInsertAfterCurrent =
+      item.type === ChatContentItemType.LIKE_STATUS ||
+      (!likeStatusAnchorSet.has(anchorElementBid) &&
+        (item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION));
+
+    if (!shouldInsertAfterCurrent) {
+      return;
+    }
+
+    nextItems.push({
+      element_bid: '',
+      parent_element_bid: anchorElementBid,
+      type: ChatContentItemType.ASK,
+      content: '',
+      isAskExpanded: !mobileStyle,
+      ask_list: storedAskList as ChatContentItem[],
+      readonly: false,
+      customRenderBar: () => null,
+      user_input: '',
+    });
+    insertedAskAnchorSet.add(anchorElementBid);
+  });
+
+  return nextItems;
+};
 
 export const NewChatComponents = ({
   className,
@@ -61,8 +184,9 @@ export const NewChatComponents = ({
   previewMode = false,
   isNavOpen = false,
   onListenPlayerVisibilityChange,
+  onListenMobileViewModeChange,
   showGenerateBtn = false,
-}) => {
+}: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -81,6 +205,12 @@ export const NewChatComponents = ({
       refreshUserInfo: state.refreshUserInfo,
     })),
   );
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
+    })),
+  );
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -93,6 +223,8 @@ export const NewChatComponents = ({
   });
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [listenFullscreenPortalTarget, setListenFullscreenPortalTarget] =
+    useState<HTMLElement | null>(null);
   // const { scrollToBottom } = useAutoScroll(chatRef as any, {
   //   threshold: 120,
   // });
@@ -172,11 +304,23 @@ export const NewChatComponents = ({
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = isListenMode && isListenModeAvailable;
+  // Normalize lesson scope for downstream APIs and stores that require a string key.
+  const resolvedLessonId = lessonId || '';
+  const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
+  const [settledPromptContextKey, setSettledPromptContextKey] =
+    useState(promptContextKey);
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isListenPlaybackBusy =
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
+  const isPromptContextSettled = settledPromptContextKey === promptContextKey;
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -252,8 +396,9 @@ export const NewChatComponents = ({
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
-    outlineBid: lessonId,
-    lessonId,
+    outlineBid: resolvedLessonId,
+    lessonId: resolvedLessonId,
+    lessonStatus,
     chapterId,
     previewMode,
     isListenMode: isListenModeActive,
@@ -266,11 +411,41 @@ export const NewChatComponents = ({
     getNextLessonId,
     scrollToLesson,
     shouldPromptLessonFeedback:
-      isAtBottom && (!isListenModeActive || isListenFeedbackReady),
+      isPromptContextSettled &&
+      (isListenModeActive ? isListenFeedbackReady : isAtBottom),
     // scrollToBottom,
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const baseAskListByAnchorElementBid = useMemo(
+    () => buildAskListByAnchorElementBid(items),
+    [items],
+  );
+  const scopedAskListByAnchorElementBid = useMemo(
+    () =>
+      lessonScopeKey === resolvedLessonId
+        ? storedAskListByAnchorElementBid
+        : {},
+    [resolvedLessonId, lessonScopeKey, storedAskListByAnchorElementBid],
+  );
+  const readModeItems = useMemo(
+    () =>
+      buildReadModeItemsWithAskState({
+        items,
+        askListByAnchorElementBid: scopedAskListByAnchorElementBid,
+        mobileStyle,
+      }),
+    [items, mobileStyle, scopedAskListByAnchorElementBid],
+  );
+
+  useEffect(() => {
+    ensureLessonScope(resolvedLessonId);
+  }, [ensureLessonScope, resolvedLessonId]);
+
+  useEffect(() => {
+    hydrateAskListMap(baseAskListByAnchorElementBid);
+  }, [baseAskListByAnchorElementBid, hydrateAskListMap]);
 
   useEffect(() => {
     if (isListenModeActive && !isLoading) {
@@ -281,7 +456,13 @@ export const NewChatComponents = ({
 
   useEffect(() => {
     setIsAtBottom(false);
-  }, [lessonId]);
+    setShowScrollDown(false);
+  }, [isListenModeActive, lessonId]);
+
+  useEffect(() => {
+    setIsListenFeedbackReady(false);
+    setSettledPromptContextKey(promptContextKey);
+  }, [promptContextKey]);
 
   useEffect(() => {
     if (listenFeedbackReadyTimerRef.current !== null) {
@@ -602,7 +783,7 @@ export const NewChatComponents = ({
       });
       resizeObserver.disconnect();
     };
-  }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
+  }, [checkScroll, isListenModeActive, items, mobileStyle]);
 
   useEffect(() => {
     if (mobileStyle) {
@@ -611,6 +792,45 @@ export const NewChatComponents = ({
       setPortalTarget(null);
     }
   }, [mobileStyle]);
+
+  const syncListenFullscreenPortalTarget = useCallback(() => {
+    const chatElement = chatRef.current;
+    if (!isListenModeActive || !chatElement) {
+      setListenFullscreenPortalTarget(null);
+      return;
+    }
+
+    const nextContainer =
+      chatElement.querySelector<HTMLElement>(
+        '.listen-slide-root .slide__viewport',
+      ) ?? null;
+    const fullscreenElement = getDocumentFullscreenElement();
+    const isCurrentSlideInBrowserFullscreen = Boolean(
+      fullscreenElement && chatElement.contains(fullscreenElement),
+    );
+
+    setListenFullscreenPortalTarget(
+      isCurrentSlideInBrowserFullscreen ? nextContainer : null,
+    );
+  }, [isListenModeActive]);
+
+  useEffect(() => {
+    const syncContainer = () => {
+      window.requestAnimationFrame(() => {
+        syncListenFullscreenPortalTarget();
+      });
+    };
+
+    syncContainer();
+
+    document.addEventListener('fullscreenchange', syncContainer);
+    document.addEventListener('webkitfullscreenchange', syncContainer);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncContainer);
+      document.removeEventListener('webkitfullscreenchange', syncContainer);
+    };
+  }, [lessonId, syncListenFullscreenPortalTarget]);
 
   const containerClassName = cn(
     styles.chatComponents,
@@ -631,9 +851,45 @@ export const NewChatComponents = ({
     </button>
   );
 
-  // useEffect(() => {
-  //   console.log('isLoading', isLoading);
-  // }, [isLoading]);
+  const lessonFeedbackPopupContent =
+    lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
+      <div
+        className={cn(
+          'pointer-events-none z-20',
+          mobileStyle
+            ? isListenModeActive
+              ? 'fixed left-3 right-3 bottom-[88px]'
+              : 'fixed left-3 right-3 bottom-[56px]'
+            : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
+        )}
+      >
+        <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
+          <div className='mb-2 flex items-center justify-between gap-2'>
+            <p className='text-[14px] leading-5 text-[var(--foreground)]'>
+              {t('module.chat.lessonFeedbackPrompt')}
+            </p>
+            <button
+              type='button'
+              aria-label={t('common.core.cancel')}
+              onClick={lessonFeedbackPopup.onClose}
+              className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
+            >
+              <X className='h-4 w-4' />
+            </button>
+          </div>
+          <LessonFeedbackInteraction
+            defaultScoreText={lessonFeedbackPopup.defaultScoreText}
+            defaultCommentText={lessonFeedbackPopup.defaultCommentText}
+            placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+            submitLabel={confirmButtonText}
+            clearLabel={t('module.chat.lessonFeedbackClearInput')}
+            readonly={lessonFeedbackPopup.readonly}
+            onSubmit={lessonFeedbackPopup.onSubmit}
+          />
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div
       className={containerClassName}
@@ -641,24 +897,23 @@ export const NewChatComponents = ({
     >
       {isListenMode ? (
         isListenModeAvailable ? (
-          isLoading ? (
-            <div className='w-full h-full flex items-center justify-center'>
-              <Loader2 className='animate-spin size-6 text-primary' />
-            </div>
-          ) : (
-            <ListenModeSlideRenderer
-              items={listenModeItems}
-              mobileStyle={mobileStyle}
-              chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              isLoading={isLoading}
-              sectionTitle={lessonTitle}
-              lessonId={lessonId}
-              lessonStatus={lessonStatus}
-              onSend={memoizedOnSend}
-              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-              onPlaybackStateChange={setListenPlaybackState}
-            />
-          )
+          <ListenModeSlideRenderer
+            items={listenModeItems}
+            mobileStyle={mobileStyle}
+            chatRef={chatRef as React.RefObject<HTMLDivElement>}
+            isLoading={isLoading}
+            courseAvatar={courseAvatar}
+            courseName={courseName}
+            sectionTitle={lessonTitle}
+            lessonId={lessonId}
+            shifuBid={shifuBid}
+            previewMode={previewMode}
+            lessonStatus={lessonStatus}
+            onMobileViewModeChange={onListenMobileViewModeChange}
+            onSend={memoizedOnSend}
+            onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+            onPlaybackStateChange={setListenPlaybackState}
+          />
         ) : (
           <div
             className={cn(
@@ -690,7 +945,7 @@ export const NewChatComponents = ({
             ) : isLoading ? (
               <></>
             ) : (
-              items.map((item, idx) => {
+              readModeItems.map((item, idx) => {
                 const isLongPressed = longPressedBlockBid === item.element_bid;
                 const baseKey = item.element_bid || `${item.type}-${idx}`;
                 const parentKey = item.parent_element_bid || baseKey;
@@ -708,7 +963,7 @@ export const NewChatComponents = ({
                       <AskBlock
                         isExpanded={item.isAskExpanded}
                         shifu_bid={shifuBid}
-                        outline_bid={lessonId}
+                        outline_bid={resolvedLessonId}
                         preview_mode={previewMode}
                         element_bid={item.parent_element_bid || ''}
                         onToggleAskExpanded={toggleAskExpanded}
@@ -763,6 +1018,7 @@ export const NewChatComponents = ({
                             : undefined
                         }
                         readonly={item.readonly}
+                        disableAskButton={isInteractionFollowUp}
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}
                         askButtonVariant={
@@ -879,43 +1135,14 @@ export const NewChatComponents = ({
           showGenerateBtn={showGenerateBtn}
         />
       )}
-      {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
-        <div
-          className={cn(
-            'pointer-events-none z-20',
-            mobileStyle
-              ? isListenModeActive
-                ? 'fixed left-3 right-3 bottom-[88px]'
-                : 'fixed left-3 right-3 bottom-[56px]'
-              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
-          )}
-        >
-          <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
-            <div className='mb-2 flex items-center justify-between gap-2'>
-              <p className='text-[14px] leading-5 text-[var(--foreground)]'>
-                {t('module.chat.lessonFeedbackPrompt')}
-              </p>
-              <button
-                type='button'
-                aria-label={t('common.core.cancel')}
-                onClick={lessonFeedbackPopup.onClose}
-                className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
-              >
-                <X className='h-4 w-4' />
-              </button>
-            </div>
-            <LessonFeedbackInteraction
-              defaultScoreText={lessonFeedbackPopup.defaultScoreText}
-              defaultCommentText={lessonFeedbackPopup.defaultCommentText}
-              placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
-              submitLabel={confirmButtonText}
-              clearLabel={t('module.chat.lessonFeedbackClearInput')}
-              readonly={lessonFeedbackPopup.readonly}
-              onSubmit={lessonFeedbackPopup.onSubmit}
-            />
-          </div>
-        </div>
-      ) : null}
+      {lessonFeedbackPopupContent
+        ? listenFullscreenPortalTarget
+          ? createPortal(
+              lessonFeedbackPopupContent,
+              listenFullscreenPortalTarget,
+            )
+          : lessonFeedbackPopupContent
+        : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

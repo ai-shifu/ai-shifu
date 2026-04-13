@@ -17,10 +17,31 @@ export const FRAME_LAYOUT_PC_WIDTH = 1080;
 export const FRAME_LAYOUT_PAD_INTENSIVE_WIDTH = 800;
 export const FRAME_LAYOUT_MOBILE_WIDTH = 480;
 
+const MOBILE_USER_AGENT_PATTERN =
+  /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+const TABLET_USER_AGENT_PATTERN = /iPad|Tablet/i;
+
+const isMobileUserAgent = () => {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent ?? '';
+
+  return (
+    MOBILE_USER_AGENT_PATTERN.test(userAgent) ||
+    TABLET_USER_AGENT_PATTERN.test(userAgent)
+  );
+};
+
 export const calcFrameLayout = selector => {
   const elem = document.querySelector(selector);
   if (!elem) {
     return FRAME_LAYOUT_PC;
+  }
+
+  if (isMobileUserAgent()) {
+    return FRAME_LAYOUT_MOBILE;
   }
 
   const w = elem.clientWidth;
@@ -29,10 +50,8 @@ export const calcFrameLayout = selector => {
     return FRAME_LAYOUT_PC;
   } else if (w > FRAME_LAYOUT_PAD_INTENSIVE_WIDTH) {
     return FRAME_LAYOUT_PAD;
-  } else if (w > FRAME_LAYOUT_MOBILE_WIDTH) {
-    return FRAME_LAYOUT_PAD_INTENSIVE;
   } else {
-    return FRAME_LAYOUT_MOBILE;
+    return FRAME_LAYOUT_PAD_INTENSIVE;
   }
 };
 

@@ -16,6 +16,9 @@
     "shifuNotFound": "Course not found",
     "shifuPriceTooLow": "Course price is too low (min {min_shifu_price})",
     "shifuStructNotFound": "Course structure not found",
+    "transferCreatorDemoNotAllowed": "Builtin demo courses cannot change creator",
+    "transferCreatorSameUser": "The target user is already the creator",
+    "transferCreatorTargetNotFound": "Transfer target user not found",
     "ttsNotEnabled": "Text-to-Speech is not enabled",
     "unitNameTooLong": "Unit name is too long",
     "unitNotFound": "Unit not found"

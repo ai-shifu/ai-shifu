@@ -71,6 +71,8 @@ import {
 
 interface LessonFeedbackPopupState {
   open: boolean;
+  outlineBid: string;
+  modeKey: 'listen' | 'read' | '';
   elementBid: string;
   defaultScoreText: string;
   defaultCommentText: string;
@@ -131,6 +133,7 @@ export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
   lessonId: string;
+  lessonStatus?: string;
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
@@ -156,6 +159,13 @@ export interface UseChatSessionResult {
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
   toggleAskExpanded: (parentElementBid: string) => void;
+  syncAskListByParentElement: (
+    parentElementBid: string,
+    askList: ChatContentItem[],
+    options?: {
+      expand?: boolean;
+    },
+  ) => void;
   requestAudioForBlock: (
     elementBid: string,
   ) => Promise<AudioCompleteData | null>;
@@ -183,6 +193,7 @@ function useChatLogicHook({
   onGoChapter,
   outlineBid,
   lessonId,
+  lessonStatus = '',
   chapterId,
   previewMode,
   isListenMode = false,
@@ -201,6 +212,7 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
+  const isCompletedLesson = lessonStatus === LESSON_STATUS_VALUE.COMPLETED;
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -246,6 +258,8 @@ function useChatLogicHook({
   const [lessonFeedbackPopupState, setLessonFeedbackPopupState] =
     useState<LessonFeedbackPopupState>({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -823,6 +837,8 @@ function useChatLogicHook({
   const resetLessonFeedbackPopup = useCallback(() => {
     setLessonFeedbackPopupState({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -830,10 +846,28 @@ function useChatLogicHook({
     });
   }, []);
 
+  useEffect(() => {
+    resetLessonFeedbackPopup();
+  }, [outlineBid, resetLessonFeedbackPopup]);
+
+  useEffect(() => {
+    setLessonFeedbackPopupState(prev => {
+      if (!prev.open || prev.outlineBid !== outlineBid) {
+        return prev;
+      }
+      return {
+        ...prev,
+        open: false,
+      };
+    });
+  }, [isListenMode, outlineBid]);
+
   const dismissLessonFeedbackPopup = useCallback(() => {
     markLessonFeedbackPopupDismissed(outlineBid);
     setLessonFeedbackPopupState({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -847,6 +881,7 @@ function useChatLogicHook({
       defaultScoreText?: string;
       defaultCommentText?: string;
       readonly?: boolean;
+      deferOpen?: boolean;
     }) => {
       if (!interaction.elementBid) {
         return;
@@ -858,18 +893,25 @@ function useChatLogicHook({
         return;
       }
       setLessonFeedbackPopupState({
-        open: shouldPromptLessonFeedback,
+        open: !interaction.deferOpen && shouldPromptLessonFeedback,
+        outlineBid,
+        modeKey: isListenMode ? 'listen' : 'read',
         elementBid: interaction.elementBid,
         defaultScoreText: interaction.defaultScoreText || '',
         defaultCommentText: interaction.defaultCommentText || '',
         readonly: Boolean(interaction.readonly),
       });
     },
-    [outlineBid, parseLessonFeedbackScore, shouldPromptLessonFeedback],
+    [
+      isListenMode,
+      outlineBid,
+      parseLessonFeedbackScore,
+      shouldPromptLessonFeedback,
+    ],
   );
 
   useEffect(() => {
-    if (!shouldPromptLessonFeedback) {
+    if (isLoading || !shouldPromptLessonFeedback) {
       return;
     }
     setLessonFeedbackPopupState(prev => {
@@ -882,9 +924,10 @@ function useChatLogicHook({
       return {
         ...prev,
         open: true,
+        modeKey: isListenMode ? 'listen' : 'read',
       };
     });
-  }, [outlineBid, shouldPromptLessonFeedback]);
+  }, [isLoading, isListenMode, outlineBid, shouldPromptLessonFeedback]);
 
   const getLessonFeedbackDefaults = useCallback(
     (raw?: string | null) => {
@@ -1410,6 +1453,9 @@ function useChatLogicHook({
               } else {
                 // only update current lesson
                 if (outline_bid && outline_bid === lessonId) {
+                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                    isEnd = true;
+                  }
                   lessonUpdateResp(response, isEnd);
                 }
               }
@@ -1433,6 +1479,7 @@ function useChatLogicHook({
                   .reverse()
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
                 if (
+                  !isEnd &&
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
@@ -1752,6 +1799,7 @@ function useChatLogicHook({
             defaultScoreText: feedbackDefaults.scoreText,
             defaultCommentText: feedbackDefaults.commentText,
             readonly: latestFeedbackInteraction.readonly,
+            deferOpen: true,
           });
         }
         // setIsTypeFinished(true);
@@ -1760,8 +1808,9 @@ function useChatLogicHook({
           setLoadedChapterId(chapterId);
         }
         if (
+          !isCompletedLesson &&
           recordResp.elements[recordResp.elements.length - 1].element_type !==
-          ELEMENT_TYPE.INTERACTION
+            ELEMENT_TYPE.INTERACTION
           //   ||
           // recordResp.elements[recordResp.elements.length - 1].element_type ===
           //   BLOCK_TYPE.ERROR
@@ -1772,11 +1821,13 @@ function useChatLogicHook({
           });
         }
       } else {
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
-        if (!effectivePreviewMode) {
+        if (!isCompletedLesson) {
+          runRef.current?.({
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          });
+        }
+        if (!effectivePreviewMode && !isCompletedLesson) {
           trackEvent('learner_lesson_start', {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
@@ -1787,7 +1838,6 @@ function useChatLogicHook({
       console.warn('refreshData error:', error);
     } finally {
       setIsLoading(false);
-      // console.log('listen-refresh-end', { lessonId, outlineBid });
     }
   }, [
     chapterId,
@@ -1800,6 +1850,7 @@ function useChatLogicHook({
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
+    isCompletedLesson,
     // lessonId,
     effectivePreviewMode,
     trackEvent,
@@ -2355,6 +2406,107 @@ function useChatLogicHook({
     [setTrackedContentList],
   );
 
+  const syncAskListByParentElement = useCallback(
+    (
+      parentElementBid: string,
+      askList: ChatContentItem[],
+      options?: {
+        expand?: boolean;
+      },
+    ) => {
+      if (!parentElementBid) {
+        return;
+      }
+
+      setTrackedContentList(prev => {
+        const shouldAutoExpandAskBlock = !mobileStyle;
+        const normalizedAskList = askList.map((message, index) => {
+          const fallbackElementBid = `${message.type}-${parentElementBid}-${index}`;
+          const resolvedElementBid =
+            message.element_bid ||
+            message.generated_block_bid ||
+            fallbackElementBid;
+
+          return {
+            ...message,
+            element_bid: resolvedElementBid,
+            generated_block_bid:
+              message.generated_block_bid || resolvedElementBid,
+            parent_element_bid: parentElementBid,
+            content: message.content || '',
+            readonly: message.readonly ?? true,
+            user_input: message.user_input || '',
+          };
+        });
+        const askEntries = prev
+          .map((item, index) => ({ item, index }))
+          .filter(
+            ({ item }) =>
+              item.parent_element_bid === parentElementBid &&
+              item.type === ChatContentItemType.ASK,
+          );
+
+        if (askEntries.length > 0) {
+          const primaryAskEntry = askEntries[askEntries.length - 1];
+          const primaryAskIndex = primaryAskEntry.index;
+          const primaryAskItem = primaryAskEntry.item;
+
+          return prev
+            .filter(
+              (item, index) =>
+                !(
+                  index !== primaryAskIndex &&
+                  item.parent_element_bid === parentElementBid &&
+                  item.type === ChatContentItemType.ASK
+                ),
+            )
+            .map(item =>
+              item === primaryAskItem
+                ? {
+                    ...item,
+                    ask_list: normalizedAskList,
+                    isAskExpanded:
+                      options?.expand ??
+                      item.isAskExpanded ??
+                      shouldAutoExpandAskBlock,
+                  }
+                : item,
+            );
+        }
+
+        const nextAskBlock: ChatContentItem = {
+          element_bid: '',
+          parent_element_bid: parentElementBid,
+          type: ChatContentItemType.ASK,
+          content: '',
+          isAskExpanded: options?.expand ?? shouldAutoExpandAskBlock,
+          ask_list: normalizedAskList,
+          readonly: false,
+          customRenderBar: () => null,
+          user_input: '',
+        };
+        const likeStatusIndex = prev.findIndex(
+          item =>
+            item.parent_element_bid === parentElementBid &&
+            item.type === ChatContentItemType.LIKE_STATUS,
+        );
+        const parentContentIndex =
+          likeStatusIndex >= 0
+            ? likeStatusIndex
+            : prev.findIndex(item => item.element_bid === parentElementBid);
+
+        if (parentContentIndex < 0) {
+          return [...prev, nextAskBlock];
+        }
+
+        const nextList = [...prev];
+        nextList.splice(parentContentIndex + 1, 0, nextAskBlock);
+        return nextList;
+      });
+    },
+    [mobileStyle, setTrackedContentList],
+  );
+
   // Create a stable null render bar function
   const nullRenderBar = useCallback(() => null, []);
 
@@ -2537,6 +2689,7 @@ function useChatLogicHook({
     onSend,
     onRefresh,
     toggleAskExpanded,
+    syncAskListByParentElement,
     requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
@@ -2545,6 +2698,10 @@ function useChatLogicHook({
     },
     lessonFeedbackPopup: {
       open:
+        shouldPromptLessonFeedback &&
+        lessonFeedbackPopupState.outlineBid === outlineBid &&
+        lessonFeedbackPopupState.modeKey ===
+          (isListenMode ? 'listen' : 'read') &&
         lessonFeedbackPopupState.open &&
         Boolean(lessonFeedbackPopupState.elementBid),
       elementBid: lessonFeedbackPopupState.elementBid,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy import or_
+
 from flaskr.service.learn.learn_dtos import ElementType
 from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
@@ -13,7 +15,10 @@ def _load_latest_active_element_row(
     return (
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.event_type == "element",
-            LearnGeneratedElement.element_bid == element_bid,
+            or_(
+                LearnGeneratedElement.element_bid == element_bid,
+                LearnGeneratedElement.target_element_bid == element_bid,
+            ),
             LearnGeneratedElement.deleted == 0,
             LearnGeneratedElement.status == 1,
         )

@@ -1,0 +1,127 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "transferCreator": "Transfer creator"
+  },
+  "detail": {
+    "back": "Back to list",
+    "basicInfo": "Basic Info",
+    "chapterType": {
+      "chapter": "Ch.",
+      "lesson": "Sec."
+    },
+    "chapters": "Chapters",
+    "chaptersTable": {
+      "chapterId": "Chapter ID",
+      "contentDetail": "Detail",
+      "contentStatus": "Content",
+      "detailAction": "Detail",
+      "empty": "No chapter data",
+      "followUpCount": "Ask",
+      "learningPermission": "Access",
+      "modifier": "Modifier",
+      "name": "Chapter",
+      "position": "Position",
+      "ratingCount": "Ratings",
+      "type": "Type",
+      "updatedAt": "Updated",
+      "visibility": "Visibility"
+    },
+    "contentDetailDialog": {
+      "copy": "Copy",
+      "copyFailed": "Copy failed",
+      "copySuccess": "Copied content detail",
+      "empty": "No content",
+      "sections": {
+        "content": "Course Content",
+        "systemPrompt": "System Prompt"
+      },
+      "sources": {
+        "chapter": "Source: chapter prompt",
+        "course": "Source: course prompt",
+        "lesson": "Source: lesson prompt"
+      },
+      "title": "Content Detail"
+    },
+    "contentStatus": {
+      "empty": "Empty",
+      "has": "Has",
+      "unknown": "Unknown"
+    },
+    "fields": {
+      "courseId": "Course ID",
+      "courseName": "Course Name",
+      "createdAt": "Created At",
+      "creator": "Creator",
+      "status": "Status",
+      "updatedAt": "Updated At"
+    },
+    "learningPermission": {
+      "free": "Free",
+      "guest": "No Login",
+      "paid": "Paid",
+      "unknown": "Unknown"
+    },
+    "metrics": "Metrics",
+    "metricsLabels": {
+      "followUpCount": "Ask",
+      "learnerCount": "Learners",
+      "orderAmount": "Gross Revenue",
+      "orderCount": "Orders",
+      "ratingScore": "Rating"
+    },
+    "title": "Course Detail",
+    "visibility": {
+      "hidden": "Hidden",
+      "visible": "Visible"
+    }
+  },
+  "emptyList": "No courses",
+  "filters": {
+    "courseId": "Course ID",
+    "courseName": "Course Name",
+    "createdAt": "Created At",
+    "creator": "Creator",
+    "creatorEmailOrUserBid": "Email or user ID",
+    "creatorMobileOrUserBid": "Mobile or user ID",
+    "endTime": "End Date",
+    "startTime": "Start Date",
+    "status": "Status"
+  },
+  "statusLabels": {
+    "published": "Published",
+    "unknown": "Unknown",
+    "unpublished": "Unpublished"
+  },
+  "table": {
+    "action": "Action",
+    "courseId": "Course ID",
+    "courseName": "Course Name",
+    "createdAt": "Created At",
+    "creator": "Creator",
+    "modifier": "Modifier",
+    "price": "Price",
+    "status": "Status",
+    "updatedAt": "Updated At"
+  },
+  "title": "Course Management",
+  "transferCreatorDialog": {
+    "confirm": "Transfer",
+    "confirmDescriptionCourseSuffix": " from",
+    "confirmDescriptionPrefix": "Transfer the creator of",
+    "confirmDescriptionTargetPrefix": "to",
+    "confirmTitle": "Confirm Creator Transfer",
+    "contactPlaceholderEmail": "Enter target creator email",
+    "contactPlaceholderPhone": "Enter target creator mobile",
+    "contactType": "Contact Type",
+    "contactTypeEmail": "Email",
+    "contactTypePhone": "Mobile",
+    "currentCreator": "Current Creator",
+    "description": "Only the course creator changes. Course content, configuration, and shared permissions stay unchanged.",
+    "identifier": "Target Creator",
+    "identifierRequired": "Please enter a valid target creator contact",
+    "sameCreator": "The target contact already belongs to the current creator",
+    "submitSuccess": "Creator transferred",
+    "title": "Transfer Creator"
+  }
+}

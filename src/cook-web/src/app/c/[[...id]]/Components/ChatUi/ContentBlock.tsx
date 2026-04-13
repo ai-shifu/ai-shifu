@@ -11,6 +11,7 @@ import {
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -80,6 +81,12 @@ const ContentBlock = memo(
     const isLessonFeedbackInteraction =
       item.type === ChatContentItemType.INTERACTION &&
       isLessonFeedbackInteractionContent(item.content);
+    const isPayInteraction =
+      item.type === ChatContentItemType.INTERACTION &&
+      isPaySystemInteractionContent(item.content);
+    // Keep the pay CTA re-clickable even when upstream history marks it as submitted.
+    const resolvedReadonly = isPayInteraction ? false : item.readonly;
+    const resolvedUserInput = isPayInteraction ? '' : item.user_input;
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -87,7 +94,11 @@ const ContentBlock = memo(
 
     return (
       <div
-        className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
+        className={cn(
+          'content-render-theme',
+          mobileStyle ? 'mobile' : '',
+          isPayInteraction && 'pay-system-interaction',
+        )}
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
@@ -95,11 +106,11 @@ const ContentBlock = memo(
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
-          userInput={item.user_input}
+          userInput={resolvedUserInput}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
-          readonly={item.readonly}
+          readonly={resolvedReadonly}
           confirmButtonText={confirmButtonText}
           copyButtonText={copyButtonText}
           copiedButtonText={copiedButtonText}

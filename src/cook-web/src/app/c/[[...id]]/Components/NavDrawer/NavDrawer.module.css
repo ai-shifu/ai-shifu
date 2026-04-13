@@ -48,15 +48,15 @@
 }
 .navDrawerWrapper.mobile {
   position: fixed;
-  top: 0;
+  top: 58px;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: calc(var(--app-viewport-block-unit, 1dvh) * 100 - 58px);
   display: block;
-  z-index: 2;
+  z-index: 20;
 }
 .navDrawerWrapper.mobile .navHeader {
-  visibility: hidden;
+  display: none;
 }
 .navDrawerWrapper.mobile .navDrawer {
   height: 100%;

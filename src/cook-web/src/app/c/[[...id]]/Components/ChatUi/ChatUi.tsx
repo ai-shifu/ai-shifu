@@ -13,6 +13,27 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+
+interface ChatUiProps {
+  chapterId: string;
+  lessonId?: string;
+  lessonUpdate: (val: any) => void;
+  onGoChapter: (id: any) => Promise<void>;
+  onPurchased: () => void;
+  lessonTitle?: string;
+  lessonStatus?: string;
+  showUserSettings?: boolean;
+  userSettingBasicInfo?: boolean;
+  onUserSettingsClose?: () => void;
+  onMobileSettingClick?: () => void;
+  chapterUpdate: any;
+  updateSelectedLesson: any;
+  getNextLessonId: any;
+  isNavOpen?: boolean;
+  onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
+  showGenerateBtn?: boolean;
+}
 
 /**
  * Overall canvas for the chat area
@@ -33,8 +54,9 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
   isNavOpen = false,
+  onListenMobileViewModeChange,
   showGenerateBtn = false,
-}) => {
+}: ChatUiProps) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
   const {
@@ -138,6 +160,7 @@ export const ChatUi = ({
           updateSelectedLesson={updateSelectedLesson}
           getNextLessonId={getNextLessonId}
           isNavOpen={isNavOpen}
+          onListenMobileViewModeChange={onListenMobileViewModeChange}
           onListenPlayerVisibilityChange={setIsListenPlayerVisible}
           showGenerateBtn={showGenerateBtn}
         />
