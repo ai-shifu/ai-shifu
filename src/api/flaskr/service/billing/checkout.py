@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask
 
+from flaskr.i18n import _ as translate
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
@@ -702,7 +703,8 @@ def _create_provider_checkout(
     cancel_url: str,
 ) -> BillingCheckoutResultDTO:
     provider = get_payment_provider(payment_provider)
-    subject = product.product_code or product.product_bid
+    product_name = _resolve_checkout_product_name(product)
+    subject = product_name
     metadata = {
         "billing_order_bid": order.billing_order_bid,
         "creator_bid": creator_bid,
@@ -730,6 +732,7 @@ def _create_provider_checkout(
         provider_options["line_items"] = [
             _build_stripe_line_item(
                 product,
+                product_name=product_name,
                 payment_mode=payment_mode,
             ).to_provider_payload()
         ]
@@ -780,7 +783,12 @@ def _create_provider_checkout(
         }
     ).to_metadata_json()
     db.session.add(order)
-    _persist_billing_raw_snapshot_from_checkout(order, result)
+    _persist_billing_raw_snapshot_from_checkout(
+        order,
+        result,
+        subject=subject,
+        body=subject,
+    )
 
     response: dict[str, Any] = {
         "billing_order_bid": order.billing_order_bid,
@@ -835,6 +843,9 @@ def _build_pingxx_provider_options(
 def _persist_billing_raw_snapshot_from_checkout(
     order: BillingOrder,
     result: PaymentCreationResult,
+    *,
+    subject: str = "",
+    body: str = "",
 ) -> None:
     if order.payment_provider == "stripe":
         _persist_billing_stripe_raw_snapshot(
@@ -865,8 +876,8 @@ def _persist_billing_raw_snapshot_from_checkout(
                 else str(charge.get("app") or "")
             ),
             channel=str(charge.get("channel") or order.channel or ""),
-            subject=str(charge.get("subject") or ""),
-            body=str(charge.get("body") or ""),
+            subject=str(charge.get("subject") or subject or ""),
+            body=str(charge.get("body") or body or ""),
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
@@ -970,6 +981,7 @@ def _resolve_billing_order_payment_mode(order: BillingOrder) -> str:
 def _build_stripe_line_item(
     product: BillingProduct,
     *,
+    product_name: str,
     payment_mode: str,
 ) -> StripeLineItemPayload:
     interval: str | None = None
@@ -980,11 +992,20 @@ def _build_stripe_line_item(
     return StripeLineItemPayload(
         currency=str(product.currency or "CNY").lower(),
         unit_amount=int(product.price_amount or 0),
-        product_name=product.product_code or product.product_bid,
+        product_name=product_name,
         interval=interval,
         interval_count=interval_count,
         quantity=1,
     )
+
+
+def _resolve_checkout_product_name(product: BillingProduct) -> str:
+    display_name_key = _normalize_bid(product.display_name_i18n_key)
+    if display_name_key:
+        translated = str(translate(display_name_key) or "").strip()
+        if translated and translated != display_name_key:
+            return translated
+    return str(product.product_code or product.product_bid or "").strip()
 
 
 def _inject_billing_query(url: str, billing_order_bid: str) -> str:

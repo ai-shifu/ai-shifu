@@ -12,6 +12,7 @@ from flask import Flask, jsonify, request
 import pytest
 
 import flaskr.dao as dao
+from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -125,6 +126,7 @@ def billing_write_client(monkeypatch):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TZ="UTC",
     )
+    load_translations(app)
 
     dao.db.init_app(app)
 
@@ -138,6 +140,8 @@ def billing_write_client(monkeypatch):
                 {
                     "order_bid": request.order_bid,
                     "channel": request.channel,
+                    "subject": request.subject,
+                    "body": request.body,
                     "extra": request.extra,
                 }
             )
@@ -227,6 +231,8 @@ def billing_write_client(monkeypatch):
                 {
                     "order_bid": request.order_bid,
                     "channel": request.channel,
+                    "subject": request.subject,
+                    "body": request.body,
                     "extra": request.extra,
                 }
             )
@@ -271,9 +277,10 @@ def billing_write_client(monkeypatch):
     def _inject_request_user() -> None:
         request.user = SimpleNamespace(
             user_id=request.headers.get("X-User-Id", "creator-1"),
-            language="en-US",
+            language=request.headers.get("X-Language", "en-US"),
             is_creator=request.headers.get("X-Creator", "1") == "1",
         )
+        set_language(request.user.language)
 
     register_billing_routes(app=app)
 
@@ -339,6 +346,7 @@ class TestBillingWriteRoutes:
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
+            headers={"X-Language": "zh-CN"},
         )
         payload = response.get_json(force=True)
 
@@ -358,6 +366,14 @@ class TestBillingWriteRoutes:
             assert order.subscription_bid == subscription.subscription_bid
 
         stripe_request = billing_write_client["stripe_requests"][0]
+        assert stripe_request["subject"] == "月套餐·轻量版"
+        assert stripe_request["body"] == "月套餐·轻量版"
+        assert (
+            stripe_request["extra"]["line_items"][0]["price_data"]["product_data"][
+                "name"
+            ]
+            == "月套餐·轻量版"
+        )
         assert stripe_request["extra"]["session_params"]["mode"] == "subscription"
         assert (
             stripe_request["extra"]["line_items"][0]["price_data"]["recurring"][
@@ -406,7 +422,10 @@ class TestBillingWriteRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 7107
-        assert payload["message"] == "server.billing.subscriptionUpgradeOnly"
+        assert (
+            payload["message"]
+            == "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+        )
 
         with app.app_context():
             assert (
@@ -516,7 +535,10 @@ class TestBillingWriteRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 7107
-        assert payload["message"] == "server.billing.subscriptionUpgradeOnly"
+        assert (
+            payload["message"]
+            == "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+        )
 
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
@@ -530,6 +552,7 @@ class TestBillingWriteRoutes:
                 "product_bid": "billing-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
+            headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
         billing_order_bid = checkout["data"]["billing_order_bid"]
 
@@ -540,6 +563,8 @@ class TestBillingWriteRoutes:
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
             "https://pingxx.test/qr"
         )
+        assert billing_write_client["pingxx_requests"][0]["subject"] == "月套餐·轻量版"
+        assert billing_write_client["pingxx_requests"][0]["body"] == "月套餐·轻量版"
 
         with app.app_context():
             order = BillingOrder.query.filter_by(
@@ -621,11 +646,13 @@ class TestBillingWriteRoutes:
                 "product_bid": "billing-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
+            headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
         billing_order_bid = checkout["data"]["billing_order_bid"]
 
         refreshed = client.post(
             f"/api/billing/orders/{billing_order_bid}/checkout",
+            headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
 
         assert refreshed["code"] == 0
@@ -639,6 +666,8 @@ class TestBillingWriteRoutes:
         assert (
             billing_write_client["pingxx_requests"][1]["order_bid"] == billing_order_bid
         )
+        assert billing_write_client["pingxx_requests"][1]["subject"] == "月套餐·轻量版"
+        assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
 
     def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
         self, billing_write_client, monkeypatch
@@ -685,6 +714,7 @@ class TestBillingWriteRoutes:
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
+            headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
         billing_order_bid = checkout["data"]["billing_order_bid"]
 
@@ -692,6 +722,8 @@ class TestBillingWriteRoutes:
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
             "https://pingxx.test/qr"
         )
+        assert billing_write_client["pingxx_requests"][0]["subject"] == "20 积分包"
+        assert billing_write_client["pingxx_requests"][0]["body"] == "20 积分包"
 
         sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
             force=True
