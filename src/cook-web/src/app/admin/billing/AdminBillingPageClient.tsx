@@ -7,11 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
-
-export type BillingTab = 'packages' | 'details';
-
-export const resolveBillingTab = (tab?: string | null): BillingTab =>
-  tab === 'details' ? 'details' : 'packages';
+import { resolveBillingTab, type BillingTab } from './billingTabs';
 
 type AdminBillingPageClientProps = {
   initialTab?: BillingTab;

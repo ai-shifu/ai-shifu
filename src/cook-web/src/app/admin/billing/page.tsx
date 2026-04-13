@@ -1,7 +1,5 @@
-import {
-  AdminBillingPageClient,
-  resolveBillingTab,
-} from './AdminBillingPageClient';
+import { AdminBillingPageClient } from './AdminBillingPageClient';
+import { resolveBillingTab, type BillingTab } from './billingTabs';
 
 type AdminBillingPageProps = {
   searchParams: Promise<{
@@ -9,9 +7,7 @@ type AdminBillingPageProps = {
   }>;
 };
 
-function resolveInitialTab(
-  tab: string | string[] | undefined,
-): ReturnType<typeof resolveBillingTab> {
+function resolveInitialTab(tab: string | string[] | undefined): BillingTab {
   return resolveBillingTab(Array.isArray(tab) ? tab[0] : tab);
 }
 
