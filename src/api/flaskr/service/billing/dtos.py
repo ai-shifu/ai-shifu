@@ -195,6 +195,8 @@ class BillingMetricBreakdownDTO(BillingBaseDTO):
 class BillingLedgerMetadataDTO(BillingBaseDTO):
     usage_bid: str | None = None
     usage_scene: str | None = None
+    course_name: str | None = None
+    user_identify: str | None = None
     provider: str | None = None
     model: str | None = None
     metric_breakdown: list[BillingMetricBreakdownDTO] = Field(default_factory=list)

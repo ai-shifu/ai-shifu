@@ -371,6 +371,7 @@ def serialize_ledger_entry(
     app: Flask,
     row: CreditLedgerEntry,
     *,
+    metadata: Any | None = None,
     timezone_name: str | None = None,
 ) -> BillingLedgerItemDTO:
     return BillingLedgerItemDTO(
@@ -388,7 +389,9 @@ def serialize_ledger_entry(
             row.consumable_from,
             timezone_name=timezone_name,
         ),
-        metadata=normalize_json_object(row.metadata_json).to_metadata_json(),
+        metadata=normalize_json_object(
+            row.metadata_json if metadata is None else metadata
+        ).to_metadata_json(),
         created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
     )
 

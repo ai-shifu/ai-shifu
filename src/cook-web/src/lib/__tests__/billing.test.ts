@@ -1,8 +1,9 @@
 import {
   formatBillingCredits,
+  resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
 } from '@/lib/billing';
-import type { BillingPlan } from '@/types/billing';
+import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 
 const monthlyPlan: BillingPlan = {
   product_bid: 'billing-product-plan-monthly',
@@ -51,6 +52,51 @@ describe('resolveBillingPlanCreditsLabel', () => {
 
     expect(resolveBillingPlanCreditsLabel(t, yearlyPlan, 'en-US')).toBe(
       'module.billing.package.creditSummary.yearly:10,000.0000000',
+    );
+  });
+});
+
+describe('resolveBillingLedgerReasonLabel', () => {
+  const t = jest.fn((key: string) => key);
+
+  function buildUsageItem(
+    usageScene: BillingLedgerItem['metadata']['usage_scene'],
+  ): BillingLedgerItem {
+    return {
+      ledger_bid: `ledger-${usageScene}`,
+      wallet_bucket_bid: 'bucket-free',
+      entry_type: 'consume',
+      source_type: 'usage',
+      source_bid: `usage-${usageScene}`,
+      idempotency_key: `usage-${usageScene}-bucket-free`,
+      amount: -1,
+      balance_after: 99,
+      expires_at: null,
+      consumable_from: null,
+      metadata: {
+        usage_bid: `usage-${usageScene}`,
+        usage_scene: usageScene,
+        course_name: `${usageScene} course`,
+        user_identify: 'learner@example.com',
+      },
+      created_at: '2026-04-06T10:00:00Z',
+    };
+  }
+
+  test('shows course name for debug and preview usage', () => {
+    expect(resolveBillingLedgerReasonLabel(t, buildUsageItem('debug'))).toBe(
+      'module.billing.ledger.usageScene.debug - debug course',
+    );
+    expect(resolveBillingLedgerReasonLabel(t, buildUsageItem('preview'))).toBe(
+      'module.billing.ledger.usageScene.preview - preview course',
+    );
+  });
+
+  test('shows course name and learner identifier for production usage', () => {
+    expect(
+      resolveBillingLedgerReasonLabel(t, buildUsageItem('production')),
+    ).toBe(
+      'module.billing.ledger.usageScene.production - production course - learner@example.com',
     );
   });
 });

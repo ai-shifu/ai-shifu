@@ -233,6 +233,8 @@ export type BillingMetricBreakdownItem = {
 export type BillingLedgerMetadata = {
   usage_bid?: string;
   usage_scene?: BillingUsageScene;
+  course_name?: string;
+  user_identify?: string;
   provider?: string;
   model?: string;
   metric_breakdown?: BillingMetricBreakdownItem[];

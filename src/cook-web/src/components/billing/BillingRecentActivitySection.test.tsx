@@ -81,6 +81,8 @@ describe('BillingRecentActivitySection', () => {
             metadata: {
               usage_bid: 'usage-1',
               usage_scene: 'production',
+              course_name: 'Published Course 1',
+              user_identify: 'learner@example.com',
               metric_breakdown: [
                 {
                   billing_metric: 'llm_output_tokens',
@@ -119,7 +121,9 @@ describe('BillingRecentActivitySection', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.ledger.usageScene.production'),
+      await screen.findByText(
+        'module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+      ),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
     expect(await screen.findByText('-2.5000000')).toBeInTheDocument();
@@ -138,7 +142,9 @@ describe('BillingRecentActivitySection', () => {
     renderSection();
 
     expect(
-      await screen.findByText('module.billing.ledger.usageScene.production'),
+      await screen.findByText(
+        'module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+      ),
     ).toBeInTheDocument();
 
     await act(async () => {

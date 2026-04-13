@@ -68,7 +68,15 @@ from flaskr.service.billing.read_models import (
     build_billing_wallet_buckets,
 )
 from flaskr.service.common.models import AppException
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+)
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.user.models import UserInfo as UserEntity
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 _ROUTE_DIR = _API_ROOT / "flaskr" / "route"
@@ -164,6 +172,29 @@ def billing_test_client():
         dao.db.create_all()
 
         dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid="shifu-1",
+                    title="Draft Course 1",
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                ),
+                PublishedShifu(
+                    shifu_bid="shifu-1",
+                    title="Published Course 1",
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                ),
+                UserEntity(
+                    user_bid="learner-1",
+                    user_identify="learner@example.com",
+                    nickname="Learner 1",
+                    is_creator=0,
+                    is_operator=0,
+                ),
+            ]
+        )
 
         wallet = CreditWallet(
             wallet_bid="wallet-1",
@@ -373,6 +404,20 @@ def billing_test_client():
                     },
                     created_at=datetime(2026, 4, 6, 10, 0, 0),
                     updated_at=datetime(2026, 4, 6, 10, 0, 0),
+                ),
+                BillUsageRecord(
+                    usage_bid="usage-1",
+                    user_bid="learner-1",
+                    shifu_bid="shifu-1",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                    provider="openai",
+                    model="gpt-4o-mini",
+                    input=0,
+                    input_cache=0,
+                    output=1234,
+                    total=1234,
+                    created_at=datetime(2026, 4, 6, 10, 0, 0),
                 ),
                 CreditLedgerEntry(
                     ledger_bid="ledger-other",
@@ -935,6 +980,14 @@ class TestBillingRoutes:
             == "production"
         )
         assert (
+            ledger_payload["data"]["items"][0]["metadata"]["course_name"]
+            == "Published Course 1"
+        )
+        assert (
+            ledger_payload["data"]["items"][0]["metadata"]["user_identify"]
+            == "learner@example.com"
+        )
+        assert (
             ledger_payload["data"]["items"][0]["metadata"]["metric_breakdown"][0][
                 "consumed_credits"
             ]
@@ -946,6 +999,98 @@ class TestBillingRoutes:
         assert orders_payload["data"]["items"][0]["billing_order_bid"] == "order-2"
         assert orders_payload["data"]["items"][0]["payment_mode"] == "one_time"
         assert orders_payload["data"]["items"][0]["status"] == "paid"
+
+    def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+
+        with app.app_context():
+            dao.db.session.add_all(
+                [
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-preview",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-subscription",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="usage-preview",
+                        idempotency_key="usage-preview-bucket-subscription",
+                        amount=Decimal("-1.0000000000"),
+                        balance_after=Decimal("97.0000000000"),
+                        expires_at=None,
+                        consumable_from=None,
+                        metadata_json={
+                            "usage_bid": "usage-preview",
+                            "usage_scene": BILL_USAGE_SCENE_PREVIEW,
+                        },
+                        created_at=datetime(2026, 4, 6, 9, 0, 0),
+                        updated_at=datetime(2026, 4, 6, 9, 0, 0),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-debug",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-subscription",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="usage-debug",
+                        idempotency_key="usage-debug-bucket-subscription",
+                        amount=Decimal("-0.5000000000"),
+                        balance_after=Decimal("96.5000000000"),
+                        expires_at=None,
+                        consumable_from=None,
+                        metadata_json={
+                            "usage_bid": "usage-debug",
+                            "usage_scene": BILL_USAGE_SCENE_DEBUG,
+                        },
+                        created_at=datetime(2026, 4, 6, 8, 0, 0),
+                        updated_at=datetime(2026, 4, 6, 8, 0, 0),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="usage-preview",
+                        user_bid="learner-1",
+                        shifu_bid="shifu-1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                        provider="openai",
+                        model="gpt-4o-mini",
+                        input=0,
+                        input_cache=0,
+                        output=456,
+                        total=456,
+                        created_at=datetime(2026, 4, 6, 9, 0, 0),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="usage-debug",
+                        user_bid="learner-1",
+                        shifu_bid="shifu-1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        usage_scene=BILL_USAGE_SCENE_DEBUG,
+                        provider="openai",
+                        model="gpt-4o-mini",
+                        input=0,
+                        input_cache=0,
+                        output=123,
+                        total=123,
+                        created_at=datetime(2026, 4, 6, 8, 0, 0),
+                    ),
+                ]
+            )
+            dao.db.session.commit()
+
+        ledger_page = build_billing_ledger_page(app, "creator-1", page_size=10)
+        items_by_bid = {item.ledger_bid: item for item in ledger_page.items}
+
+        assert items_by_bid["ledger-preview"].metadata["usage_scene"] == "preview"
+        assert items_by_bid["ledger-preview"].metadata["course_name"] == (
+            "Draft Course 1"
+        )
+        assert items_by_bid["ledger-debug"].metadata["usage_scene"] == "debug"
+        assert items_by_bid["ledger-debug"].metadata["course_name"] == (
+            "Draft Course 1"
+        )
 
     def test_billing_order_detail_requires_current_creator(
         self, billing_test_client

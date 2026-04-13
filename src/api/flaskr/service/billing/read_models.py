@@ -8,6 +8,10 @@ from flask import Flask
 from sqlalchemy import case
 
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.user.models import UserInfo as UserEntity
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
@@ -24,6 +28,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    CREDIT_SOURCE_TYPE_USAGE,
 )
 from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
@@ -103,6 +108,133 @@ from .wallets import adjust_credit_wallet_balance
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
+
+
+def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
+    normalized_usage_bids = [_normalize_bid(bid) for bid in usage_bids if bid]
+    if not normalized_usage_bids:
+        return {}
+
+    rows = (
+        BillUsageRecord.query.filter(
+            BillUsageRecord.usage_bid.in_(normalized_usage_bids)
+        )
+        .order_by(BillUsageRecord.usage_bid.asc(), BillUsageRecord.id.desc())
+        .all()
+    )
+    payload: dict[str, BillUsageRecord] = {}
+    for row in rows:
+        payload.setdefault(str(row.usage_bid or "").strip(), row)
+    return payload
+
+
+def _load_shifu_title_maps(
+    shifu_bids: list[str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    normalized_shifu_bids = [_normalize_bid(bid) for bid in shifu_bids if bid]
+    if not normalized_shifu_bids:
+        return {}, {}
+
+    published_titles: dict[str, str] = {}
+    published_rows = (
+        PublishedShifu.query.filter(
+            PublishedShifu.deleted == 0,
+            PublishedShifu.shifu_bid.in_(normalized_shifu_bids),
+        )
+        .order_by(PublishedShifu.shifu_bid.asc(), PublishedShifu.id.desc())
+        .all()
+    )
+    for row in published_rows:
+        published_titles.setdefault(
+            str(row.shifu_bid or "").strip(), str(row.title or "")
+        )
+
+    draft_titles: dict[str, str] = {}
+    draft_rows = (
+        DraftShifu.query.filter(
+            DraftShifu.deleted == 0,
+            DraftShifu.shifu_bid.in_(normalized_shifu_bids),
+        )
+        .order_by(DraftShifu.shifu_bid.asc(), DraftShifu.id.desc())
+        .all()
+    )
+    for row in draft_rows:
+        draft_titles.setdefault(str(row.shifu_bid or "").strip(), str(row.title or ""))
+
+    return published_titles, draft_titles
+
+
+def _load_user_identify_map(user_bids: list[str]) -> dict[str, str]:
+    normalized_user_bids = [_normalize_bid(bid) for bid in user_bids if bid]
+    if not normalized_user_bids:
+        return {}
+
+    rows = UserEntity.query.filter(
+        UserEntity.deleted == 0,
+        UserEntity.user_bid.in_(normalized_user_bids),
+    ).all()
+    return {
+        str(row.user_bid or "").strip(): str(row.user_identify or "") for row in rows
+    }
+
+
+def _resolve_usage_course_name(
+    usage: BillUsageRecord,
+    *,
+    published_titles: dict[str, str],
+    draft_titles: dict[str, str],
+) -> str:
+    shifu_bid = str(usage.shifu_bid or "").strip()
+    if not shifu_bid:
+        return ""
+
+    published_title = str(published_titles.get(shifu_bid) or "").strip()
+    draft_title = str(draft_titles.get(shifu_bid) or "").strip()
+    if int(usage.usage_scene or 0) == BILL_USAGE_SCENE_PROD:
+        return published_title or draft_title
+    return draft_title or published_title
+
+
+def _build_usage_metadata_map(
+    rows: list[CreditLedgerEntry],
+) -> dict[str, dict[str, Any]]:
+    usage_bids: list[str] = []
+    for row in rows:
+        if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_USAGE:
+            continue
+        metadata = _normalize_json_object(row.metadata_json)
+        usage_bid = _normalize_bid(metadata.get("usage_bid")) or _normalize_bid(
+            row.source_bid
+        )
+        if usage_bid:
+            usage_bids.append(usage_bid)
+
+    usage_map = _load_usage_record_map(usage_bids)
+    published_titles, draft_titles = _load_shifu_title_maps(
+        [str(item.shifu_bid or "").strip() for item in usage_map.values()]
+    )
+    user_identify_map = _load_user_identify_map(
+        [str(item.user_bid or "").strip() for item in usage_map.values()]
+    )
+
+    payload: dict[str, dict[str, Any]] = {}
+    for usage_bid, usage in usage_map.items():
+        course_name = _resolve_usage_course_name(
+            usage,
+            published_titles=published_titles,
+            draft_titles=draft_titles,
+        )
+        user_identify = user_identify_map.get(str(usage.user_bid or "").strip(), "")
+
+        metadata: dict[str, Any] = {}
+        if course_name:
+            metadata["course_name"] = course_name
+        if user_identify:
+            metadata["user_identify"] = user_identify
+        if metadata:
+            payload[usage_bid] = metadata
+
+    return payload
 
 
 def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
@@ -341,17 +473,56 @@ def build_billing_ledger_page(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == normalized_creator_bid,
         ).order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
+        total = query.order_by(None).count()
+        if total == 0:
+            return BillingLedgerPageDTO(
+                items=[],
+                page=safe_page_index,
+                page_count=0,
+                page_size=safe_page_size,
+                total=0,
+            )
+
+        page_count = (total + safe_page_size - 1) // safe_page_size
+        resolved_page = min(safe_page_index, max(page_count, 1))
+        offset = (resolved_page - 1) * safe_page_size
+        rows = query.offset(offset).limit(safe_page_size).all()
+        usage_metadata_map = _build_usage_metadata_map(rows)
+
+        items = []
+        for row in rows:
+            metadata = _normalize_json_object(row.metadata_json).to_metadata_json()
+            if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE:
+                usage_bid = _normalize_bid(metadata.get("usage_bid")) or _normalize_bid(
+                    row.source_bid
+                )
+                usage_metadata = usage_metadata_map.get(usage_bid, {})
+                if usage_metadata:
+                    metadata = {
+                        **metadata,
+                        **{
+                            key: value
+                            for key, value in usage_metadata.items()
+                            if value not in (None, "")
+                        },
+                    }
+
+            items.append(
+                _serialize_ledger_entry(
+                    app,
+                    row,
+                    metadata=metadata,
+                    timezone_name=timezone_name,
+                )
+            )
+
+        return BillingLedgerPageDTO(
+            items=items,
+            page=resolved_page,
+            page_count=page_count,
             page_size=safe_page_size,
-            serializer=lambda row: _serialize_ledger_entry(
-                app,
-                row,
-                timezone_name=timezone_name,
-            ),
+            total=total,
         )
-        return BillingLedgerPageDTO(**payload.to_dto_kwargs())
 
 
 def build_billing_orders_page(

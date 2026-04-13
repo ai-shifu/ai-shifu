@@ -432,7 +432,17 @@ export function resolveBillingLedgerReasonLabel(
       item.metadata?.usage_scene,
     );
     if (usageSceneLabel) {
-      return usageSceneLabel;
+      const reasonParts = [usageSceneLabel];
+      const courseName = String(item.metadata?.course_name || '').trim();
+      const userIdentify = String(item.metadata?.user_identify || '').trim();
+
+      if (courseName) {
+        reasonParts.push(courseName);
+      }
+      if (item.metadata?.usage_scene === 'production' && userIdentify) {
+        reasonParts.push(userIdentify);
+      }
+      return reasonParts.join(' - ');
     }
   }
 

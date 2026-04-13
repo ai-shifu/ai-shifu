@@ -70,6 +70,8 @@ describe('BillingLedgerTab', () => {
           metadata: {
             usage_bid: 'usage-1',
             usage_scene: 'production',
+            course_name: 'Published Course 1',
+            user_identify: 'learner@example.com',
             metric_breakdown: [
               {
                 billing_metric: 'llm_output_tokens',
@@ -115,7 +117,9 @@ describe('BillingLedgerTab', () => {
       screen.getByText('module.billing.ledger.source.gift'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.ledger.usageScene.production'),
+      screen.getByText(
+        'module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.ledger.neverExpires'),
