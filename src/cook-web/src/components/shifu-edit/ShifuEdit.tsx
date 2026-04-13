@@ -154,6 +154,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const currentLessonBidRef = useRef<string | null>(null);
   const {
     mdflow,
     chapters,
@@ -348,7 +349,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
           meta;
         if (
           currentShifuBidRef.current !== shifuBid ||
-          currentNodeBidRef.current !== outlineBid
+          currentLessonBidRef.current !== outlineBid
         ) {
           return;
         }
@@ -474,7 +475,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       if (
         !isActive ||
         currentShifuBidRef.current !== shifuBid ||
-        currentNodeBidRef.current !== outlineBid
+        currentLessonBidRef.current !== outlineBid
       ) {
         return;
       }
@@ -498,7 +499,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
   const detectDraftConflict = useCallback(async () => {
     const shifuId = currentShifuBidRef.current;
-    const outlineBid = currentNodeBidRef.current;
+    const outlineBid = currentLessonBidRef.current;
     if (!shifuId || !outlineBid || shouldSkipConflictCheck) {
       return;
     }
@@ -518,7 +519,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     const meta = await actionsRef.current.loadDraftMeta(shifuId, outlineBid);
     if (
       currentShifuBidRef.current !== shifuId ||
-      currentNodeBidRef.current !== outlineBid
+      currentLessonBidRef.current !== outlineBid
     ) {
       return;
     }
@@ -595,7 +596,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
   const handleDraftConflictRefresh = useCallback(() => {
     const shifuBid = currentShifuBidRef.current;
-    const outlineBid = currentNodeBidRef.current;
+    const outlineBid = currentLessonBidRef.current;
     if (!shifuBid || !outlineBid) {
       return;
     }
@@ -640,9 +641,8 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   );
 
   useEffect(() => {
-    currentNodeBidRef.current = isLessonNode
-      ? (currentNode?.bid ?? null)
-      : null;
+    currentNodeBidRef.current = currentNode?.bid ?? null;
+    currentLessonBidRef.current = isLessonNode ? currentNode?.bid ?? null : null;
   }, [currentNode?.bid, isLessonNode]);
 
   useEffect(() => {

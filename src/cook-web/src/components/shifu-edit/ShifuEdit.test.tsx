@@ -317,4 +317,44 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.setBaseRevision).toHaveBeenCalledWith(2);
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(false);
   });
+
+
+  test('opens conflict dialog when remote draft is newer and local edits exist', async () => {
+    setLessonNode();
+    mockShifuState.baseRevision = 1;
+    mockLoadDraftMeta.mockResolvedValue({ revision: 1, updated_user: null });
+    baseActions.loadMdflow.mockResolvedValue(true);
+    baseActions.setBaseRevision.mockClear();
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(baseActions.setBaseRevision).toHaveBeenCalledWith(1);
+      expect(baseActions.loadMdflow).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    mockLoadDraftMeta.mockReset();
+    baseActions.loadMdflow.mockClear();
+    baseActions.setDraftConflict.mockClear();
+    baseActions.setAutosavePaused.mockClear();
+    baseActions.hasUnsavedMdflow.mockReturnValue(true);
+    mockLoadDraftMeta.mockResolvedValue({
+      revision: 2,
+      updated_user: { user_bid: 'other-user', phone: '13900139000' },
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(baseActions.setDraftConflict).toHaveBeenCalledWith(true);
+    });
+    expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
+  });
+
 });
