@@ -58,6 +58,7 @@
   "server.billing.customDomainDisabled": 7104,
   "server.billing.domainHostConflict": 7105,
   "server.billing.domainBindingNotFound": 7106,
+  "server.billing.subscriptionUpgradeOnly": 7107,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

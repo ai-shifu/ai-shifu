@@ -366,6 +366,98 @@ class TestBillingWriteRoutes:
             == "month"
         )
 
+    def test_subscription_checkout_rejects_lower_tier_plan_while_active(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-monthly-pro",
+                    creator_bid="creator-1",
+                    product_bid="billing-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="stripe",
+                    provider_subscription_id="sub_provider_monthly_pro",
+                    provider_customer_id="cus_provider_monthly_pro",
+                    current_period_start_at=now - timedelta(days=5),
+                    current_period_end_at=now + timedelta(days=25),
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=now - timedelta(days=5),
+                    updated_at=now - timedelta(days=5),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 7107
+        assert payload["message"] == "server.billing.subscriptionUpgradeOnly"
+
+        with app.app_context():
+            assert (
+                BillingSubscription.query.filter_by(creator_bid="creator-1").count()
+                == 1
+            )
+            assert BillingOrder.query.filter_by(creator_bid="creator-1").count() == 0
+
+    def test_subscription_checkout_allows_higher_tier_plan_while_active(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-monthly",
+                    creator_bid="creator-1",
+                    product_bid="billing-product-plan-monthly",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="stripe",
+                    provider_subscription_id="sub_provider_monthly",
+                    provider_customer_id="cus_provider_monthly",
+                    current_period_start_at=now - timedelta(days=5),
+                    current_period_end_at=now + timedelta(days=25),
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=now - timedelta(days=5),
+                    updated_at=now - timedelta(days=5),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly-pro",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["provider"] == "stripe"
+        assert payload["data"]["status"] == "pending"
+
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
     ) -> None:

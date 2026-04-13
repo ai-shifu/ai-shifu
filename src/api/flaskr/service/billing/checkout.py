@@ -45,6 +45,10 @@ from .consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
@@ -61,6 +65,9 @@ from .provider_state import (
     is_stripe_checkout_paid as _is_stripe_checkout_paid,
     merge_provider_metadata as _merge_provider_metadata,
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
+)
+from .queries import (
+    load_current_subscription as _load_current_subscription,
 )
 from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
 from .primitives import normalize_bid as _normalize_bid
@@ -166,6 +173,10 @@ def create_billing_subscription_checkout(
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
+        _validate_plan_checkout_upgrade_only(
+            creator_bid=normalized_creator_bid,
+            target_product=product,
+        )
         if payment_provider == "stripe":
             channel = "checkout_session"
 
@@ -600,6 +611,40 @@ def _resolve_billing_payment_channel(
         stored_channel=None,
         default_pingxx_channel=default_pingxx_channel,
     )
+
+
+def _validate_plan_checkout_upgrade_only(
+    *,
+    creator_bid: str,
+    target_product: BillingProduct,
+) -> None:
+    current_subscription = _load_current_subscription(creator_bid)
+    if current_subscription is None:
+        return
+    if current_subscription.status not in {
+        BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+        BILLING_SUBSCRIPTION_STATUS_PAUSED,
+        BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    }:
+        return
+    if (
+        current_subscription.current_period_end_at is not None
+        and current_subscription.current_period_end_at <= datetime.now()
+    ):
+        return
+
+    current_product = _load_billing_product_by_bid(current_subscription.product_bid)
+    if (
+        current_product is None
+        or current_product.product_type != BILLING_PRODUCT_TYPE_PLAN
+    ):
+        return
+
+    current_sort_order = int(current_product.sort_order or 0)
+    target_sort_order = int(target_product.sort_order or 0)
+    if target_sort_order <= current_sort_order:
+        raise_error("server.billing.subscriptionUpgradeOnly")
 
 
 def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduct:
