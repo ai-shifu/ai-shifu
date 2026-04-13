@@ -260,6 +260,7 @@ describe('useChatLogicHook stream cleanup', () => {
     });
 
     await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
     await waitFor(() =>
       expect(
         result.current.items.some(
@@ -269,8 +270,14 @@ describe('useChatLogicHook stream cleanup', () => {
     );
 
     act(() => {
+      if (!activeRun) {
+        throw new Error('Expected active run source');
+      }
+      activeRun.source.readyState = 1;
       activeRun?.source.emit('readystatechange');
     });
+
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
 
     await act(async () => {
       await activeRun?.onMessage({
@@ -302,6 +309,7 @@ describe('useChatLogicHook stream cleanup', () => {
         ),
       ).toBe(false),
     );
+    expect(result.current.isOutputInProgress).toBe(false);
   });
 
   it('keeps lesson feedback popup pending until prompting is allowed', async () => {
@@ -777,6 +785,14 @@ describe('useChatLogicHook stream cleanup', () => {
           content: 'Hello',
           like_status: 'none',
         },
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
       });
     });
 
