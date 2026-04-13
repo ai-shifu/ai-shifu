@@ -532,6 +532,66 @@ describe('BillingOverviewTab', () => {
     );
   });
 
+  test('disables lower-tier monthly plans while a higher-tier monthly subscription is active', async () => {
+    const user = userEvent.setup();
+
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'billing-product-plan-monthly-pro',
+          product_code: 'creator-plan-monthly-pro',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-billing-product-plan-monthly-action',
+      ),
+    ).toBeDisabled();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-billing-product-plan-monthly-action',
+      ),
+    ).toHaveTextContent('module.billing.package.actions.downgradeDisabled');
+
+    await act(async () => {
+      await user.hover(
+        screen.getByTestId(
+          'billing-plan-card-billing-product-plan-monthly-action-trigger',
+        ),
+      );
+    });
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'module.billing.package.actions.upgradeOnlyTooltip',
+    );
+  });
+
   test('renders the redesigned low balance alert card', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {

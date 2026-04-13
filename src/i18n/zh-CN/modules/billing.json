@@ -669,10 +669,12 @@
       "buyNow": "立即购买",
       "currentSubscription": "当前订阅",
       "currentUsing": "当前使用",
+      "downgradeDisabled": "不支持降级",
       "freeTrial": "此账号有效期已过/已使用",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
       "subscribeNow": "立即订阅",
-      "upgradeNow": "立即升级"
+      "upgradeNow": "立即升级",
+      "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
     },
     "creditSummary": {
       "monthly": "月积分数 {credits}",

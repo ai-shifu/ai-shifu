@@ -669,10 +669,12 @@
       "buyNow": "Buy now",
       "currentSubscription": "Current subscription",
       "currentUsing": "Current plan",
+      "downgradeDisabled": "Downgrade unavailable",
       "freeTrial": "Current account is expired/used",
       "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
       "subscribeNow": "Subscribe now",
-      "upgradeNow": "Upgrade now"
+      "upgradeNow": "Upgrade now",
+      "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
     },
     "creditSummary": {
       "monthly": "Monthly credits {credits}",

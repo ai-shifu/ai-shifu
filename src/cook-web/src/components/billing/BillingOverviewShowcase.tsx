@@ -60,6 +60,16 @@ function resolveCheckoutProvider(
   return null;
 }
 
+function resolvePlanRank(
+  plans: BillingPlan[],
+  productBid: string | null,
+): number {
+  if (!productBid) {
+    return -1;
+  }
+  return plans.findIndex(plan => plan.product_bid === productBid);
+}
+
 export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
@@ -78,6 +88,11 @@ export function BillingOverviewShowcase({
   onShowcaseTabChange,
 }: BillingOverviewShowcaseProps) {
   const { t, i18n } = useTranslation();
+  const orderedPlans = [...monthlyPlans, ...yearlyPlans];
+  const currentPlanRank = resolvePlanRank(
+    orderedPlans,
+    currentPlan?.product_bid || null,
+  );
   const freeCreditSummary = t('module.billing.package.free.creditSummary', {
     credits: formatBillingCredits(
       trialOffer?.credit_amount || 0,
@@ -227,6 +242,13 @@ export function BillingOverviewShowcase({
               );
               const isCurrentPlan =
                 currentPlan?.product_bid === plan.product_bid;
+              const planRank = resolvePlanRank(orderedPlans, plan.product_bid);
+              const isDowngradeLocked =
+                hasActiveSubscription &&
+                !isCurrentPlan &&
+                currentPlanRank >= 0 &&
+                planRank >= 0 &&
+                planRank < currentPlanRank;
               const isFeatured = isCurrentPlan;
               const checkoutKey = provider
                 ? `plan:${provider}:${plan.product_bid}`
@@ -238,11 +260,18 @@ export function BillingOverviewShowcase({
                   actionLabel={
                     isCurrentPlan
                       ? t('module.billing.package.actions.currentSubscription')
-                      : hasActiveSubscription
-                        ? t('module.billing.package.actions.upgradeNow')
-                        : t('module.billing.package.actions.subscribeNow')
+                      : isDowngradeLocked
+                        ? t('module.billing.package.actions.downgradeDisabled')
+                        : hasActiveSubscription
+                          ? t('module.billing.package.actions.upgradeNow')
+                          : t('module.billing.package.actions.subscribeNow')
                   }
                   actionLoading={checkoutLoadingKey === checkoutKey}
+                  actionTooltip={
+                    isDowngradeLocked
+                      ? t('module.billing.package.actions.upgradeOnlyTooltip')
+                      : undefined
+                  }
                   creditSummary={resolveBillingPlanCreditsLabel(
                     t,
                     plan,
@@ -254,7 +283,7 @@ export function BillingOverviewShowcase({
                       : 'module.billing.package.validity.monthly',
                   )}
                   description={resolveBillingProductDescription(t, plan)}
-                  disabled={!provider || isCurrentPlan}
+                  disabled={!provider || isCurrentPlan || isDowngradeLocked}
                   featured={isFeatured}
                   footer={<PlanFeatureList items={getPlanFeatureKeys(plan)} />}
                   onAction={() =>

@@ -66,9 +66,6 @@ from .provider_state import (
     merge_provider_metadata as _merge_provider_metadata,
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
-from .queries import (
-    load_current_subscription as _load_current_subscription,
-)
 from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
@@ -618,15 +615,27 @@ def _validate_plan_checkout_upgrade_only(
     creator_bid: str,
     target_product: BillingProduct,
 ) -> None:
-    current_subscription = _load_current_subscription(creator_bid)
+    current_subscription = (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.status.in_(
+                (
+                    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+                    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+                    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+                )
+            ),
+        )
+        .order_by(
+            BillingSubscription.current_period_end_at.desc(),
+            BillingSubscription.created_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        .first()
+    )
     if current_subscription is None:
-        return
-    if current_subscription.status not in {
-        BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-        BILLING_SUBSCRIPTION_STATUS_PAUSED,
-        BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    }:
         return
     if (
         current_subscription.current_period_end_at is not None
