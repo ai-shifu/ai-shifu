@@ -146,6 +146,10 @@
   overflow: hidden;
 }
 
+.mobilePanelLandscape {
+  max-height: min(calc(var(--app-viewport-block-unit, 1dvh) * 80), 560px);
+}
+
 .mobilePanelFullscreen {
   top: 0;
   bottom: 0;
@@ -277,11 +281,19 @@
   }
 }
 
+.mobilePanelLandscape .mobileInput {
+  padding-bottom: 20px;
+}
+
 .desktopSlidePanel {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  height: min(480px, calc(100dvh - 240px));
+  height: min(
+    480px,
+    calc(calc(var(--app-viewport-block-unit, 1dvh) * 100) - 240px)
+  );
+  max-height: 100%;
   background: #fff !important;
   border-radius: 24px;
   padding: 0 !important;
@@ -344,6 +356,7 @@
 }
 
 .desktopSlideInput {
+  flex-shrink: 0;
   border: none;
   box-shadow: none;
   padding: 20px;
@@ -384,6 +397,10 @@
     padding: 0 !important;
     background: #fff !important;
     border-radius: 24px;
+
+    &.desktopSlidePanelEmpty {
+      border-radius: 24px 24px 0 0;
+    }
 
     &:not(.mobile) {
       .messageWrapper {
