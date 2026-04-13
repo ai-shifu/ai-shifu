@@ -329,20 +329,20 @@ describe('AdminBillingPage', () => {
     });
   });
 
-  test('renders package breadcrumb while lazily loading details data', async () => {
+  test('renders tab triggers and defaults to packages tab', async () => {
     renderPage();
-    const breadcrumb = screen.getByTestId('admin-billing-breadcrumb');
+    const tabs = screen.getByTestId('admin-billing-tabs');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(
-      within(breadcrumb).getByRole('link', {
-        name: 'module.billing.page.breadcrumbs.home',
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.plans',
       }),
-    ).toHaveAttribute('href', '/admin');
+    ).toBeInTheDocument();
     expect(
-      within(breadcrumb).getByText(
-        'module.billing.page.breadcrumbs.membership',
-      ),
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.ledger',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.title'),
@@ -434,9 +434,9 @@ describe('AdminBillingPage', () => {
     });
 
     expect(
-      within(screen.getByTestId('admin-billing-breadcrumb')).getByText(
-        'module.billing.page.tabs.ledger',
-      ),
+      screen.getByRole('tab', {
+        name: 'module.billing.page.tabs.ledger',
+      }),
     ).toBeInTheDocument();
   });
 
@@ -444,15 +444,17 @@ describe('AdminBillingPage', () => {
     mockSearchParamsValue = 'tab=details';
 
     renderPage();
-    const breadcrumb = screen.getByTestId('admin-billing-breadcrumb');
+    const tabs = screen.getByTestId('admin-billing-tabs');
 
     expect(
-      within(breadcrumb).getByRole('link', {
-        name: 'module.billing.page.breadcrumbs.membership',
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.plans',
       }),
-    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+    ).toBeInTheDocument();
     expect(
-      within(breadcrumb).getByText('module.billing.page.tabs.ledger'),
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.ledger',
+      }),
     ).toBeInTheDocument();
     expect(
       await screen.findByText('module.billing.details.title'),

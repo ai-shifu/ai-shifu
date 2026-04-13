@@ -1,81 +1,20 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/Breadcrumb';
-import { Tabs, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 
 type BillingTab = 'packages' | 'details';
-const ADMIN_HOME_HREF = '/admin';
-const BILLING_PACKAGES_HREF = '/admin/billing?tab=packages';
 
 const resolveBillingTab = (tab?: string | null): BillingTab =>
   tab === 'details' ? 'details' : 'packages';
 
-function AdminBillingBreadcrumb({ activeTab }: { activeTab: BillingTab }) {
-  const { t } = useTranslation();
-
-  return (
-    <Breadcrumb
-      className='px-1'
-      data-testid='admin-billing-breadcrumb'
-    >
-      <BreadcrumbList className='gap-2 text-sm text-muted-foreground'>
-        <BreadcrumbItem>
-          <BreadcrumbLink
-            asChild
-            className='font-normal text-muted-foreground hover:text-foreground'
-          >
-            <Link href={ADMIN_HOME_HREF}>
-              {t('module.billing.page.breadcrumbs.home')}
-            </Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator className='text-muted-foreground' />
-        <BreadcrumbItem>
-          {activeTab === 'packages' ? (
-            <BreadcrumbPage className='font-normal text-foreground'>
-              {t('module.billing.page.breadcrumbs.membership')}
-            </BreadcrumbPage>
-          ) : (
-            <BreadcrumbLink
-              asChild
-              className='font-normal text-muted-foreground hover:text-foreground'
-            >
-              <Link href={BILLING_PACKAGES_HREF}>
-                {t('module.billing.page.breadcrumbs.membership')}
-              </Link>
-            </BreadcrumbLink>
-          )}
-        </BreadcrumbItem>
-        {activeTab === 'details' ? (
-          <>
-            <BreadcrumbSeparator className='text-muted-foreground' />
-            <BreadcrumbItem>
-              <BreadcrumbPage className='font-normal text-foreground'>
-                {t('module.billing.page.tabs.ledger')}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </>
-        ) : null}
-      </BreadcrumbList>
-    </Breadcrumb>
-  );
-}
-
 export default function AdminBillingPage() {
+  const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,12 +84,20 @@ export default function AdminBillingPage() {
       className='flex h-full flex-col gap-6 px-1 pb-6'
       data-testid='admin-billing-page'
     >
-      <AdminBillingBreadcrumb activeTab={activeTab} />
-
       <Tabs
         className='space-y-6'
         value={activeTab}
+        onValueChange={(v) => updateTab(v as BillingTab)}
       >
+        <TabsList data-testid='admin-billing-tabs'>
+          <TabsTrigger value='packages'>
+            {t('module.billing.page.tabs.plans')}
+          </TabsTrigger>
+          <TabsTrigger value='details'>
+            {t('module.billing.page.tabs.ledger')}
+          </TabsTrigger>
+        </TabsList>
+
         <TabsContent
           className='mt-0'
           value='packages'
