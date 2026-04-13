@@ -3,9 +3,13 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import ScriptEditor from './ShifuEdit';
 
 const refreshLabel = 'refresh';
+const mockMarkdownFlowEditor = jest.fn();
 
 jest.mock('next/dynamic', () => () => {
-  const MockMarkdownFlowEditor = () => <div data-testid='markdown-editor' />;
+  const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
+    mockMarkdownFlowEditor(props);
+    return <div data-testid='markdown-editor' />;
+  };
   MockMarkdownFlowEditor.displayName = 'MockMarkdownFlowEditor';
   return MockMarkdownFlowEditor;
 });
@@ -170,6 +174,7 @@ const baseActions = {
   parseMdflow: jest.fn(),
   refreshVariableUsage: jest.fn(),
   setCurrentMdflow: jest.fn(),
+  autoSaveBlocks: jest.fn(),
   getCurrentMdflow: jest.fn(() => ''),
   hasUnsavedMdflow: jest.fn(() => false),
   flushAutoSaveBlocks: jest.fn(),
@@ -234,6 +239,7 @@ describe('ShifuEdit draft conflict checks', () => {
   };
 
   beforeEach(() => {
+    mockMarkdownFlowEditor.mockReset();
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
@@ -245,6 +251,9 @@ describe('ShifuEdit draft conflict checks', () => {
     });
     baseActions.getCurrentMdflow.mockReturnValue('');
     baseActions.hasUnsavedMdflow.mockReturnValue(false);
+    baseActions.setCurrentMdflow.mockImplementation(value => {
+      mockShifuState.mdflow = value;
+    });
     mockShifuState.currentShifu = {
       bid: 'shifu-1',
       readonly: false,
@@ -261,6 +270,7 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.latestDraftMeta = null;
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
+    mockShifuState.mdflow = '';
   });
 
   afterEach(() => {
@@ -354,5 +364,38 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(baseActions.setDraftConflict).toHaveBeenCalledWith(true);
     });
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
+  });
+
+  test('keeps local editor typing from being echoed back as controlled content', async () => {
+    setLessonNode();
+    mockShifuState.mdflow = 'initial content';
+    const { rerender } = render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+    });
+
+    const getLatestEditorProps = () =>
+      mockMarkdownFlowEditor.mock.calls.at(-1)?.[0] as {
+        content?: string;
+        onChange?: (value: string) => void;
+      };
+
+    expect(getLatestEditorProps().content).toBe('initial content');
+
+    act(() => {
+      getLatestEditorProps().onChange?.('initial content {{123}}');
+    });
+
+    rerender(<ScriptEditor id='shifu-1' />);
+
+    expect(getLatestEditorProps().content).toBe('initial content');
+
+    mockShifuState.mdflow = 'remote synced content';
+    rerender(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(getLatestEditorProps().content).toBe('remote synced content');
+    });
   });
 });
