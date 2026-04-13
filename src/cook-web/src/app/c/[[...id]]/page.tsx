@@ -29,6 +29,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
+import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
@@ -552,6 +553,10 @@ export default function ChatPage() {
     const resetChapterEventHandler = async e => {
       const targetLessonId = e.detail.lesson_id;
       await reloadTree(e.detail.chapter_id, targetLessonId);
+      updateLesson(targetLessonId, {
+        status: LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        status_value: LESSON_STATUS_VALUE.PREPARE_LEARNING,
+      });
       updateSelectedLesson(targetLessonId, true);
       onGoChapter(targetLessonId);
       if (mobileStyle) {

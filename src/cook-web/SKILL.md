@@ -29,6 +29,7 @@
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
+- `skills/lesson-reset-run-gating/SKILL.md`
 
 ## Usage Rules
 

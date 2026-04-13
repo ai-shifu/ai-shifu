@@ -49,18 +49,24 @@ declare global {
   var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
 }
 
+const mockCourseStoreState = {
+  resetedLessonId: null as string | null,
+  updateResetedChapterId: undefined as jest.Mock | undefined,
+  updateResetedLessonId: undefined as jest.Mock | undefined,
+};
+
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (() => {
     globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
     globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
-    const state = {
-      resetedLessonId: null as string | null,
-      updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
-      updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
-    };
+    mockCourseStoreState.resetedLessonId = null;
+    mockCourseStoreState.updateResetedChapterId =
+      globalThis.__chatHookMockUpdateResetedChapterId__;
+    mockCourseStoreState.updateResetedLessonId =
+      globalThis.__chatHookMockUpdateResetedLessonId__;
     return Object.assign(
-      (selector?: (store: typeof state) => unknown) =>
-        selector ? selector(state) : state,
+      (selector?: (store: typeof mockCourseStoreState) => unknown) =>
+        selector ? selector(mockCourseStoreState) : mockCourseStoreState,
       {
         subscribe: jest.fn(() => jest.fn()),
       },
@@ -189,6 +195,7 @@ describe('useChatLogicHook stream cleanup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     activeRun = undefined;
+    mockCourseStoreState.resetedLessonId = null;
 
     mockGetLessonStudyRecord.mockResolvedValue({
       mdflow: '',
@@ -976,6 +983,48 @@ describe('useChatLogicHook stream cleanup', () => {
       status_value: 'completed',
     });
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+  });
+
+  it('waits for reset status to leave completed before rerunning reset lesson', async () => {
+    const { result, rerender } = renderHook(
+      ({ lessonStatus }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          lessonStatus,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          lessonStatus: 'completed',
+        },
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+
+    mockCourseStoreState.resetedLessonId = 'lesson-1';
+    rerender({ lessonStatus: 'completed' });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+
+    rerender({ lessonStatus: 'not_started' });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledWith(
+        'shifu-1',
+        'lesson-1',
+        false,
+        expect.objectContaining({
+          input: '',
+          input_type: SSE_INPUT_TYPE.NORMAL,
+          listen: false,
+        }),
+        expect.any(Function),
+      ),
+    );
+    expect(globalThis.__chatHookMockUpdateResetedLessonId__).toHaveBeenCalled();
   });
 
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {

@@ -11,3 +11,4 @@
 - `module-augmentation-guardrails`
 - `hook-contract-refactor-safety`
 - `chat-system-interaction-button-overrides`
+- `lesson-reset-run-gating`

@@ -212,7 +212,6 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
-  const isCompletedLesson = lessonStatus === LESSON_STATUS_VALUE.COMPLETED;
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -228,6 +227,7 @@ function useChatLogicHook({
         updateResetedLessonId: state.updateResetedLessonId,
       })),
     );
+  const isCompletedLesson = lessonStatus === LESSON_STATUS_VALUE.COMPLETED;
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
   const [currentStreamingElementBid, setCurrentStreamingElementBid] =
@@ -1867,36 +1867,6 @@ function useChatLogicHook({
   }, [chapterId, loadedChapterId]);
 
   useEffect(() => {
-    const unsubscribe = useCourseStore.subscribe(
-      state => state.resetedLessonId,
-      async curr => {
-        if (!curr) {
-          return;
-        }
-        setIsLoading(true);
-        if (curr === lessonId) {
-          sseRef.current?.close();
-          await refreshData();
-          // updateResetedChapterId(null);
-          // @ts-expect-error resetedLessonId can be null per store design
-          updateResetedLessonId(null);
-        }
-        setIsLoading(false);
-      },
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [
-    loadedChapterId,
-    refreshData,
-    updateResetedLessonId,
-    resetedLessonId,
-    lessonId,
-  ]);
-
-  useEffect(() => {
     const unsubscribe = useUserStore.subscribe(
       state => state.isLoggedIn,
       isLoggedIn => {
@@ -1914,13 +1884,30 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    sseRef.current?.close();
-    if (!lessonId || resetedLessonId === lessonId) {
+    if (!lessonId) {
       return;
     }
-    refreshData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId, resetedLessonId]);
+
+    if (resetedLessonId === lessonId) {
+      if (isCompletedLesson) {
+        return;
+      }
+
+      sseRef.current?.close();
+      void refreshData().finally(() => {
+        // @ts-expect-error resetedLessonId can be null per store design
+        updateResetedLessonId(null);
+      });
+      return;
+    }
+
+    sseRef.current?.close();
+    void refreshData();
+  }, [
+    isCompletedLesson,
+    lessonId,
+    resetedLessonId,
+  ]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
