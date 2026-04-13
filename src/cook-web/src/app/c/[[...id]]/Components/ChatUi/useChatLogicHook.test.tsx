@@ -805,6 +805,86 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(askIndex).toBe(likeStatusIndex + 1);
   });
 
+  it('continues the lesson stream after a non-terminal done event', async () => {
+    renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+  });
+
+  it('stops auto-continuation after the current lesson reports completed', async () => {
+    const params = buildBaseParams();
+    renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+        content: {
+          outline_bid: 'lesson-1',
+          title: 'Lesson 1',
+          status: 'completed',
+          has_children: false,
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: true,
+      });
+    });
+
+    expect(params.lessonUpdate).toHaveBeenCalledWith({
+      id: 'lesson-1',
+      name: 'Lesson 1',
+      status: 'completed',
+      status_value: 'completed',
+    });
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+  });
+
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

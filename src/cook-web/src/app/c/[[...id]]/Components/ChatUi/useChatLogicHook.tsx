@@ -1450,6 +1450,9 @@ function useChatLogicHook({
               } else {
                 // only update current lesson
                 if (outline_bid && outline_bid === lessonId) {
+                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                    isEnd = true;
+                  }
                   lessonUpdateResp(response, isEnd);
                 }
               }
@@ -1473,6 +1476,7 @@ function useChatLogicHook({
                   .reverse()
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
                 if (
+                  !isEnd &&
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
