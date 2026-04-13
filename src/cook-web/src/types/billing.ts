@@ -328,6 +328,11 @@ export type BillingCheckoutResult = {
   payment_payload?: Record<string, unknown>;
 };
 
+export type BillingSyncResult = {
+  billing_order_bid: string;
+  status: BillingOrderStatus;
+};
+
 export type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;

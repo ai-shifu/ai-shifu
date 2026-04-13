@@ -39,15 +39,11 @@ import {
   resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
 } from '@/lib/billing';
+import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import { BillingOrderDetailSheet } from './BillingOrderDetailSheet';
 import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
 
 const BILLING_ORDERS_PAGE_SIZE = 10;
-
-type BillingSyncResponse = {
-  billing_order_bid: string;
-  status: BillingOrderStatus;
-};
 
 function canContinueBillingOrderCheckout(order: BillingOrderSummary): boolean {
   return (
@@ -103,12 +99,27 @@ export function BillingOrdersTable() {
   const canGoPrev = pageIndex > 1;
   const canGoNext = pageIndex < Number(data?.page_count || 1);
 
+  useBillingPingxxPolling({
+    open: Boolean(pingxxCheckoutOrder),
+    billingOrderBid: pingxxCheckoutOrder?.billing_order_bid || '',
+    onResolved: async result => {
+      await mutate();
+      if (detailOrderBid === result.billing_order_bid) {
+        await mutateCache(['billing-order-detail', result.billing_order_bid]);
+      }
+      if (result.status !== 'pending') {
+        setPingxxCheckoutOrder(null);
+        setPingxxQrUrl('');
+      }
+    },
+  });
+
   const handleSync = async (order: BillingOrderSummary) => {
     setSyncLoadingBid(order.billing_order_bid);
     try {
       const result = (await api.syncBillingOrder({
         billing_order_bid: order.billing_order_bid,
-      })) as BillingSyncResponse;
+      })) as { billing_order_bid: string; status: BillingOrderStatus };
       await mutate();
       if (detailOrderBid === order.billing_order_bid) {
         await mutateCache(['billing-order-detail', order.billing_order_bid]);

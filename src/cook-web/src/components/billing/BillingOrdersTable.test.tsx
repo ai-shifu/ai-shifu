@@ -123,6 +123,10 @@ describe('BillingOrdersTable', () => {
     mockToast.mockReset();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('renders creator billing orders, opens detail sheet, and supports manual sync', async () => {
     const user = userEvent.setup();
 
@@ -269,5 +273,109 @@ describe('BillingOrdersTable', () => {
         channel: 'alipay_qr',
       });
     });
+  });
+
+  test('polls an open Pingxx QR dialog and refreshes the table after payment', async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+    mockGetBillingOrders.mockReset();
+    mockGetBillingOrders
+      .mockResolvedValueOnce({
+        items: [
+          {
+            billing_order_bid: 'order-2',
+            creator_bid: 'creator-1',
+            product_bid: 'billing-product-plan-monthly',
+            subscription_bid: 'sub-2',
+            order_type: 'subscription_renewal',
+            status: 'pending',
+            payment_provider: 'pingxx',
+            payment_mode: 'subscription',
+            payable_amount: 9900,
+            paid_amount: 0,
+            currency: 'CNY',
+            provider_reference_id: '',
+            failure_message: '',
+            created_at: '2026-04-06T12:00:00Z',
+            paid_at: null,
+          },
+        ],
+        page: 1,
+        page_count: 1,
+        page_size: 10,
+        total: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            billing_order_bid: 'order-2',
+            creator_bid: 'creator-1',
+            product_bid: 'billing-product-plan-monthly',
+            subscription_bid: 'sub-2',
+            order_type: 'subscription_renewal',
+            status: 'paid',
+            payment_provider: 'pingxx',
+            payment_mode: 'subscription',
+            payable_amount: 9900,
+            paid_amount: 9900,
+            currency: 'CNY',
+            provider_reference_id: 'ch_test_2',
+            failure_message: '',
+            created_at: '2026-04-06T12:00:00Z',
+            paid_at: '2026-04-06T12:02:00Z',
+          },
+        ],
+        page: 1,
+        page_count: 1,
+        page_size: 10,
+        total: 1,
+      });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      billing_order_bid: 'order-2',
+      status: 'paid',
+    });
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <BillingOrdersTable />
+      </SWRConfig>,
+    );
+
+    expect(await screen.findByText('order-2')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.orders.actions.continuePayment',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        billing_order_bid: 'order-2',
+      });
+    });
+    await waitFor(() => {
+      expect(mockGetBillingOrders).toHaveBeenCalledTimes(2);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('module.billing.orders.status.paid'),
+    ).toBeInTheDocument();
   });
 });

@@ -41,6 +41,7 @@ jest.mock('@/api', () => ({
     checkoutBillingTopup: jest.fn(),
     getBillingCatalog: jest.fn(),
     resumeBillingSubscription: jest.fn(),
+    syncBillingOrder: jest.fn(),
   },
 }));
 
@@ -107,6 +108,7 @@ const mockCheckoutBillingTopup = api.checkoutBillingTopup as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockResumeBillingSubscription =
   api.resumeBillingSubscription as jest.Mock;
+const mockSyncBillingOrder = api.syncBillingOrder as jest.Mock;
 const mockRememberStripeCheckoutSession =
   rememberStripeCheckoutSession as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
@@ -285,6 +287,7 @@ describe('BillingOverviewTab', () => {
     mockCheckoutBillingTopup.mockReset();
     mockGetBillingCatalog.mockReset();
     mockResumeBillingSubscription.mockReset();
+    mockSyncBillingOrder.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
     mockOpenBillingPaymentWindow.mockReset();
@@ -330,6 +333,14 @@ describe('BillingOverviewTab', () => {
       error: undefined,
       isLoading: false,
     });
+    mockSyncBillingOrder.mockResolvedValue({
+      billing_order_bid: 'order-plan-pingxx-1',
+      status: 'pending',
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   test('renders the prototype-oriented package layout and switches sub-tabs', async () => {
@@ -880,5 +891,73 @@ describe('BillingOverviewTab', () => {
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
     expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
+  });
+
+  test('polls pending Pingxx checkout and closes the QR dialog after payment', async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      billing_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+        },
+      },
+    });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      billing_order_bid: 'order-plan-pingxx-1',
+      status: 'paid',
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.yearly',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-billing-product-plan-yearly-action',
+        ),
+      );
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        billing_order_bid: 'order-plan-pingxx-1',
+      });
+    });
+    await waitFor(() => {
+      expect(mockMutateOverview).toHaveBeenCalled();
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
   });
 });

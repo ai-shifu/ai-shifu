@@ -6,6 +6,7 @@ import api from '@/api';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
+import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import type {
@@ -105,6 +106,17 @@ export function BillingOverviewTab({
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
     'cancel' | 'resume' | ''
   >('');
+
+  useBillingPingxxPolling({
+    open: Boolean(pingxxCheckout),
+    billingOrderBid: pingxxCheckout?.billingOrderBid || '',
+    onResolved: async result => {
+      await mutateOverview();
+      if (result.status !== 'pending') {
+        setPingxxCheckout(null);
+      }
+    },
+  });
 
   const normalizedPaymentChannels = (paymentChannels || []).map(channel =>
     channel.trim().toLowerCase(),
