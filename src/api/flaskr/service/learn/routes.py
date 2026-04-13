@@ -904,13 +904,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = preview_mode.lower() == "true"
         listen = request.args.get("listen", "False")
         listen = listen.lower() == "true"
-        admission_payload = _admit_creator_usage_for_shifu(
+        # TTS is gated by billing admission, but it should not consume a second
+        # creator runtime slot alongside the active learn stream.
+        _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
-        )
-        runtime_lease = reserve_creator_runtime_slot(
-            app,
-            admission_payload=admission_payload,
         )
 
         return _stream_sse_response(
@@ -925,7 +923,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed tts stream early",
             error_log="synthesize generated block audio failed",
-            runtime_lease=runtime_lease,
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/tts/preview", methods=["POST"])
@@ -968,13 +965,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         text = payload.get("text") or ""
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
-        admission_payload = _admit_creator_usage_for_shifu(
+        # Preview TTS reuses the same creator admission gate without claiming an
+        # extra runtime slot, so authors can preview audio during an active run.
+        _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
-        )
-        runtime_lease = reserve_creator_runtime_slot(
-            app,
-            admission_payload=admission_payload,
         )
 
         return _stream_sse_response(
@@ -988,7 +983,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed preview tts stream early",
             error_log="preview tts stream failed",
-            runtime_lease=runtime_lease,
         )
 
     return app
