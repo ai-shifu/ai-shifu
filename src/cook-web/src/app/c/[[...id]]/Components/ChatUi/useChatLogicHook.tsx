@@ -1903,11 +1903,7 @@ function useChatLogicHook({
 
     sseRef.current?.close();
     void refreshData();
-  }, [
-    isCompletedLesson,
-    lessonId,
-    resetedLessonId,
-  ]);
+  }, [isCompletedLesson, lessonId, resetedLessonId]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
