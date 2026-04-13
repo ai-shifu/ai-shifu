@@ -32,7 +32,6 @@ from .models import CreditLedgerEntry, CreditWalletBucket
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import decimal_to_number as _decimal_to_number
 from .primitives import normalize_json_object as _normalize_json_object
-from .primitives import parse_config_datetime as _parse_config_datetime
 from .primitives import safe_to_decimal as _safe_to_decimal
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .primitives import serialize_dt as _serialize_dt
@@ -125,21 +124,6 @@ def _resolve_new_creator_trial_offer(
             timezone_name=timezone_name,
         )
 
-    eligible_registered_after = _parse_config_datetime(config.eligible_registered_after)
-    if eligible_registered_after is None:
-        app.logger.warning(
-            "New creator trial config enabled without eligible_registered_after"
-        )
-        return _serialize_trial_offer(
-            app,
-            _build_trial_offer_state(
-                enabled=True,
-                status="ineligible",
-                config=config,
-            ),
-            timezone_name=timezone_name,
-        )
-
     creator = get_user_entity_by_bid(creator_bid)
     if creator is None or not bool(creator.is_creator):
         return _serialize_trial_offer(
@@ -152,34 +136,14 @@ def _resolve_new_creator_trial_offer(
             timezone_name=timezone_name,
         )
 
-    registered_at = get_first_verified_credential_created_at(user_bid=creator_bid)
-    if registered_at is None or registered_at < eligible_registered_after:
-        return _serialize_trial_offer(
-            app,
-            _build_trial_offer_state(
-                enabled=True,
-                status="ineligible",
-                config=config,
-            ),
-            timezone_name=timezone_name,
-        )
-
-    if str(config.grant_trigger) != trigger:
-        return _serialize_trial_offer(
-            app,
-            _build_trial_offer_state(
-                enabled=True,
-                status="eligible",
-                config=config,
-            ),
-            timezone_name=timezone_name,
-        )
-
     grant_result = _grant_new_creator_trial_credits(
         app,
         creator_bid=creator_bid,
         config=config,
-        registered_at=registered_at,
+        registered_at=_resolve_trial_registered_at(
+            creator_bid,
+            fallback=creator.created_at,
+        ),
         trigger=trigger,
     )
     return _serialize_trial_offer(
@@ -194,7 +158,7 @@ def _grant_new_creator_trial_credits(
     *,
     creator_bid: str,
     config: NewCreatorTrialConfig,
-    registered_at: datetime,
+    registered_at: datetime | None,
     trigger: str,
 ) -> TrialOfferState:
     amount = _to_decimal(config.credit_amount)
@@ -306,6 +270,19 @@ def _grant_new_creator_trial_credits(
                 config=config,
             )
         raise
+
+
+def _resolve_trial_registered_at(
+    creator_bid: str,
+    *,
+    fallback: datetime | None = None,
+) -> datetime | None:
+    registered_at = get_first_verified_credential_created_at(user_bid=creator_bid)
+    if registered_at is not None:
+        return registered_at
+    if fallback is not None:
+        return fallback
+    return datetime.now()
 
 
 def _load_new_creator_trial_entry(
