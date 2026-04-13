@@ -11,6 +11,7 @@ from flask import Flask
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.config import get_config
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.service.order.payment_providers import (
@@ -25,6 +26,7 @@ from flaskr.service.order.raw_snapshots import (
     upsert_billing_pingxx_snapshot,
     upsert_billing_stripe_snapshot,
 )
+from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -678,7 +680,13 @@ def _create_provider_checkout(
             ).to_provider_payload()
         ]
     else:
-        provider_options["charge_extra"] = {}
+        provider_options.update(
+            _build_pingxx_provider_options(
+                creator_bid=creator_bid,
+                product=product,
+                channel=channel,
+            )
+        )
 
     payment_request = PaymentRequest(
         order_bid=order.billing_order_bid,
@@ -741,6 +749,33 @@ def _create_provider_checkout(
             }
         ).to_metadata_json()
     return BillingCheckoutResultDTO(**response)
+
+
+def _build_pingxx_provider_options(
+    *,
+    creator_bid: str,
+    product: BillingProduct,
+    channel: str,
+) -> dict[str, Any]:
+    normalized_channel = _normalize_bid(channel)
+    charge_extra: dict[str, Any]
+
+    if normalized_channel == "wx_pub_qr":
+        charge_extra = {"product_id": product.product_bid}
+    elif normalized_channel == "alipay_qr":
+        charge_extra = {}
+    elif normalized_channel == "wx_pub":
+        user = load_user_aggregate(creator_bid)
+        charge_extra = {"open_id": user.wechat_open_id} if user else {}
+    elif normalized_channel == "wx_wap":
+        charge_extra = {}
+    else:
+        raise_error("server.pay.payChannelNotSupport")
+
+    return {
+        "app_id": str(get_config("PINGXX_APP_ID", "") or "").strip(),
+        "charge_extra": charge_extra,
+    }
 
 
 def _persist_billing_raw_snapshot_from_checkout(

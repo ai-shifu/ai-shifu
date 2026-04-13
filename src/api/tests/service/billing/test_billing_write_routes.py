@@ -488,6 +488,38 @@ class TestBillingWriteRoutes:
             billing_write_client["pingxx_requests"][1]["order_bid"] == billing_order_bid
         )
 
+    def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
+        self, billing_write_client, monkeypatch
+    ) -> None:
+        client = billing_write_client["client"]
+
+        def fake_get_config(key, default=None):
+            if key == "PINGXX_APP_ID":
+                return "app_billing_test"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.billing.checkout.get_config",
+            fake_get_config,
+        )
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "channel": "wx_pub_qr",
+            },
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        request = billing_write_client["pingxx_requests"][0]
+        assert request["channel"] == "wx_pub_qr"
+        assert request["extra"]["app_id"] == "app_billing_test"
+        assert request["extra"]["charge_extra"] == {
+            "product_id": "billing-product-plan-monthly"
+        }
+
     def test_topup_checkout_and_sync_mark_order_paid(
         self, billing_write_client
     ) -> None:
