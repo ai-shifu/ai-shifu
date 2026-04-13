@@ -424,7 +424,9 @@ export const NewChatComponents = ({
   );
   const scopedAskListByAnchorElementBid = useMemo(
     () =>
-      lessonScopeKey === resolvedLessonId ? storedAskListByAnchorElementBid : {},
+      lessonScopeKey === resolvedLessonId
+        ? storedAskListByAnchorElementBid
+        : {},
     [resolvedLessonId, lessonScopeKey, storedAskListByAnchorElementBid],
   );
   const readModeItems = useMemo(

@@ -75,7 +75,9 @@ describe('Dialog fullscreen portal', () => {
     });
 
     await waitFor(() => {
-      expect(fullscreenRoot).toContainElement(screen.getByText('Portal content'));
+      expect(fullscreenRoot).toContainElement(
+        screen.getByText('Portal content'),
+      );
     });
   });
 });

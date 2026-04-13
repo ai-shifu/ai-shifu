@@ -16,8 +16,9 @@ const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
 
-type DialogPortalContainer =
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>['container'];
+type DialogPortalContainer = React.ComponentPropsWithoutRef<
+  typeof DialogPrimitive.Portal
+>['container'];
 
 const getFullscreenDialogContainer = (): DialogPortalContainer => {
   return getDocumentFullscreenElement() ?? undefined;
@@ -46,8 +47,8 @@ const DialogContent = React.forwardRef<
   }
 >(({ className, children, container, showClose = true, ...props }, ref) => {
   const [resolvedContainer, setResolvedContainer] =
-    React.useState<DialogPortalContainer>(() =>
-      container ?? getFullscreenDialogContainer(),
+    React.useState<DialogPortalContainer>(
+      () => container ?? getFullscreenDialogContainer(),
     );
 
   React.useEffect(() => {
@@ -70,10 +71,7 @@ const DialogContent = React.forwardRef<
     );
 
     return () => {
-      document.removeEventListener(
-        'fullscreenchange',
-        syncFullscreenContainer,
-      );
+      document.removeEventListener('fullscreenchange', syncFullscreenContainer);
       document.removeEventListener(
         'webkitfullscreenchange',
         syncFullscreenContainer,

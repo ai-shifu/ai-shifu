@@ -77,7 +77,9 @@ const ListenPlayer = ({
     interaction?.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
   );
   const effectiveInteraction = isLessonFeedbackInteraction ? null : interaction;
-  const resolvedInteractionReadonly = isPayInteraction ? false : resolvedReadonly;
+  const resolvedInteractionReadonly = isPayInteraction
+    ? false
+    : resolvedReadonly;
   const resolvedInteractionUserInput = isPayInteraction
     ? ''
     : effectiveInteraction?.user_input;
