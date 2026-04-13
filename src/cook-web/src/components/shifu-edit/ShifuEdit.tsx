@@ -642,7 +642,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
 
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
-    currentLessonBidRef.current = isLessonNode ? currentNode?.bid ?? null : null;
+    currentLessonBidRef.current = isLessonNode
+      ? (currentNode?.bid ?? null)
+      : null;
   }, [currentNode?.bid, isLessonNode]);
 
   useEffect(() => {

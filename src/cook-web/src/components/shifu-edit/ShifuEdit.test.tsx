@@ -318,7 +318,6 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(false);
   });
 
-
   test('opens conflict dialog when remote draft is newer and local edits exist', async () => {
     setLessonNode();
     mockShifuState.baseRevision = 1;
@@ -356,5 +355,4 @@ describe('ShifuEdit draft conflict checks', () => {
     });
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
   });
-
 });
