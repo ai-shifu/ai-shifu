@@ -115,6 +115,9 @@ describe('BillingLedgerTab', () => {
       screen.getByText('module.billing.ledger.source.gift'),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('module.billing.ledger.usageScene.production'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('module.billing.ledger.neverExpires'),
     ).toBeInTheDocument();
     expect(

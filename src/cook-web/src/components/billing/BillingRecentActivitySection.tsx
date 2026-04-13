@@ -17,8 +17,7 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   registerBillingTranslationUsage,
-  resolveBillingEmptyLabel,
-  resolveBillingUsageSceneLabel,
+  resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
 
 const RECENT_ITEMS_LIMIT = 10;
@@ -136,10 +135,7 @@ export function BillingRecentActivitySection() {
                     className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
                   >
                     <div className='overflow-hidden px-[32px] py-4 pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                      {resolveBillingUsageSceneLabel(
-                        t,
-                        item.metadata.usage_scene,
-                      ) || resolveBillingEmptyLabel(t)}
+                      {resolveBillingLedgerReasonLabel(t, item)}
                     </div>
                     <div className='overflow-hidden px-[32px] py-4 pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
                       {formatBillingDateTime(item.created_at, i18n.language)}

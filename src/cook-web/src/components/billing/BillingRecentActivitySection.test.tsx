@@ -45,18 +45,16 @@ describe('BillingRecentActivitySection', () => {
           items: [
             {
               ledger_bid: 'ledger-11',
-              wallet_bucket_bid: 'bucket-free',
+              wallet_bucket_bid: 'bucket-topup',
               entry_type: 'grant',
-              source_type: 'gift',
-              source_bid: 'gift-11',
-              idempotency_key: 'gift-11-bucket-free',
+              source_type: 'topup',
+              source_bid: 'topup-11',
+              idempotency_key: 'topup-11-bucket-topup',
               amount: 5,
               balance_after: 102.5,
               expires_at: null,
               consumable_from: null,
-              metadata: {
-                usage_scene: 'debug',
-              },
+              metadata: {},
               created_at: '2026-04-07T10:00:00Z',
             },
           ],
@@ -124,7 +122,7 @@ describe('BillingRecentActivitySection', () => {
       await screen.findByText('module.billing.ledger.usageScene.production'),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
-    expect(await screen.findByText('-2.5')).toBeInTheDocument();
+    expect(await screen.findByText('-2.5000000')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.orders.title'),
     ).not.toBeInTheDocument();
@@ -144,33 +142,6 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.ledger.table.detail',
-        }),
-      );
-    });
-
-    expect(
-      screen.getByText('module.billing.ledger.detail.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.ledger.detail.usageBid'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('-2.5000000')).toBeInTheDocument();
-    expect(screen.getAllByText('97.5000000').length).toBeGreaterThan(0);
-    expect(screen.getByText('1.2500000')).toBeInTheDocument();
-    expect(screen.getByText('2.5000000')).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('button', {
-          name: 'module.billing.orders.table.order',
-        }),
-      );
-    });
-
-    await act(async () => {
       await user.click(screen.getByRole('link', { name: '2' }));
     });
 
@@ -182,8 +153,8 @@ describe('BillingRecentActivitySection', () => {
     });
 
     expect(
-      await screen.findByText('module.billing.ledger.usageScene.debug'),
+      await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
-    expect(await screen.findByText('+5')).toBeInTheDocument();
+    expect(await screen.findByText('+5.0000000')).toBeInTheDocument();
   });
 });

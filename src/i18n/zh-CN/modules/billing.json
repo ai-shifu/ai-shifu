@@ -364,7 +364,7 @@
     "totalCreditsLabel": "总积分",
     "usageTable": {
       "columns": {
-        "scene": "积分使用详情"
+        "scene": "积分变动原因"
       }
     }
   },
@@ -509,7 +509,7 @@
       "emptyBreakdown": "当前账本项没有附带计费拆解。",
       "rawAmount": "原始用量",
       "roundingMode": "取整方式",
-      "scene": "使用场景",
+      "scene": "变动原因",
       "sourceBid": "来源引用",
       "title": "用量明细",
       "unitSize": "计费单位",

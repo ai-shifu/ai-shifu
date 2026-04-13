@@ -364,7 +364,7 @@
     "totalCreditsLabel": "Total credits",
     "usageTable": {
       "columns": {
-        "scene": "Credit Usage Details"
+        "scene": "Activity reason"
       }
     }
   },
@@ -509,7 +509,7 @@
       "emptyBreakdown": "No metric breakdown is attached to this ledger entry.",
       "rawAmount": "Raw amount",
       "roundingMode": "Rounding mode",
-      "scene": "Usage scene",
+      "scene": "Reason",
       "sourceBid": "Source reference",
       "title": "Usage details",
       "unitSize": "Unit size",

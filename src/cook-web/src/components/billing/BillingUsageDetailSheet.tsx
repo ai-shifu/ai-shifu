@@ -12,8 +12,8 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   resolveBillingEmptyLabel,
+  resolveBillingLedgerReasonLabel,
   resolveBillingLedgerEntryLabel,
-  resolveBillingUsageSceneLabel,
 } from '@/lib/billing';
 
 type BillingUsageDetailSheetProps = {
@@ -63,10 +63,8 @@ export function BillingUsageDetailSheet({
                 <DetailRow
                   label={t('module.billing.ledger.detail.scene')}
                   value={
-                    resolveBillingUsageSceneLabel(
-                      t,
-                      item.metadata.usage_scene,
-                    ) || resolveBillingEmptyLabel(t)
+                    resolveBillingLedgerReasonLabel(t, item) ||
+                    resolveBillingEmptyLabel(t)
                   }
                 />
                 <DetailRow

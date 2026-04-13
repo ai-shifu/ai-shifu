@@ -6,6 +6,7 @@ import type {
   BillingBucketStatus,
   BillingCheckoutResult,
   BillingLedgerEntryType,
+  BillingLedgerItem,
   BillingMetricName,
   BillingPaymentMode,
   BillingOrderStatus,
@@ -413,6 +414,36 @@ export function resolveBillingLedgerEntryLabel(
   return t(BILLING_LEDGER_ENTRY_KEYS[entryType]);
 }
 
+export function resolveBillingLedgerReasonLabel(
+  t: BillingTranslator,
+  item: Pick<BillingLedgerItem, 'entry_type' | 'source_type' | 'metadata'>,
+): string {
+  if (item.entry_type === 'expire') {
+    return resolveBillingLedgerEntryLabel(t, item.entry_type);
+  }
+
+  if (item.entry_type === 'hold' || item.entry_type === 'release') {
+    return resolveBillingLedgerEntryLabel(t, item.entry_type);
+  }
+
+  if (item.source_type === 'usage') {
+    const usageSceneLabel = resolveBillingUsageSceneLabel(
+      t,
+      item.metadata?.usage_scene,
+    );
+    if (usageSceneLabel) {
+      return usageSceneLabel;
+    }
+  }
+
+  const sourceLabel = resolveBillingBucketSourceLabel(t, item.source_type);
+  if (sourceLabel) {
+    return sourceLabel;
+  }
+
+  return resolveBillingLedgerEntryLabel(t, item.entry_type);
+}
+
 export function resolveBillingUsageSceneLabel(
   t: BillingTranslator,
   scene?: BillingUsageScene | null,
@@ -655,6 +686,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.topups.creatorSmall.title'),
     t('module.billing.catalog.topups.creatorXLarge.description'),
     t('module.billing.catalog.topups.creatorXLarge.title'),
+    t('module.billing.details.subtitle'),
     t('module.billing.overview.availableCreditsLabel'),
     t('module.billing.overview.walletTitle'),
     t('module.billing.package.actions.currentUsing'),
@@ -669,6 +701,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.free.title'),
     t('module.billing.package.features.free.preview'),
     t('module.billing.package.features.free.publish'),
+    t('module.billing.package.validity.monthly'),
+    t('module.billing.package.validity.yearly'),
     t('module.billing.package.features.monthly.preview'),
     t('module.billing.package.features.monthly.publish'),
     t('module.billing.package.features.monthly.support'),
@@ -828,6 +862,14 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.usageScene.debug'),
     t('module.billing.ledger.usageScene.preview'),
     t('module.billing.ledger.usageScene.production'),
+    t('module.billing.page.tabs.plans'),
+    t('module.billing.sidebar.cta'),
+    t('module.billing.sidebar.description'),
+    t('module.billing.sidebar.monthlyTitle'),
+    t('module.billing.sidebar.nonMemberTitle'),
+    t('module.billing.sidebar.subscriptionPending'),
+    t('module.billing.sidebar.subscriptionStatusLabel'),
+    t('module.billing.sidebar.yearlyTitle'),
     t('module.billing.orders.actions.sync'),
     t('module.billing.orders.empty'),
     t('module.billing.orders.loadError'),

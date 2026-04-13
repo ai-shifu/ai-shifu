@@ -28,6 +28,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingBucketSourceLabel,
   resolveBillingLedgerEntryLabel,
+  resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
 import { BillingUsageDetailSheet } from './BillingUsageDetailSheet';
 
@@ -130,57 +131,73 @@ export function BillingLedgerTable() {
                       {t('module.billing.ledger.empty')}
                     </TableEmpty>
                   ) : (
-                    items.map(item => (
-                      <TableRow key={item.ledger_bid}>
-                        <TableCell className='min-w-[180px]'>
-                          <Badge
-                            variant='outline'
-                            className='border-slate-200 bg-white text-slate-700'
-                          >
-                            {resolveBillingLedgerEntryLabel(t, item.entry_type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className='min-w-[220px]'>
-                          <div className='space-y-1'>
-                            <div className='font-medium text-slate-900'>
-                              {resolveBillingBucketSourceLabel(
-                                t,
-                                item.source_type,
-                              )}
-                            </div>
-                            <div className='text-xs text-slate-500'>
-                              {item.source_bid}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className='font-medium text-slate-900'>
-                          {formatSignedCredits(item.amount, i18n.language)}
-                        </TableCell>
-                        <TableCell>
-                          {formatBillingCredits(
-                            item.balance_after,
-                            i18n.language,
-                          )}
-                        </TableCell>
-                        <TableCell className='min-w-[180px] text-slate-600'>
-                          {formatBillingDateTime(
-                            item.created_at,
-                            i18n.language,
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {item.metadata.metric_breakdown?.length ? (
-                            <Button
+                    items.map(item => {
+                      const sourceLabel = resolveBillingBucketSourceLabel(
+                        t,
+                        item.source_type,
+                      );
+                      const reasonLabel = resolveBillingLedgerReasonLabel(
+                        t,
+                        item,
+                      );
+
+                      return (
+                        <TableRow key={item.ledger_bid}>
+                          <TableCell className='min-w-[180px]'>
+                            <Badge
                               variant='outline'
-                              size='sm'
-                              onClick={() => setSelectedItem(item)}
+                              className='border-slate-200 bg-white text-slate-700'
                             >
-                              {t('module.billing.ledger.table.detail')}
-                            </Button>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                              {resolveBillingLedgerEntryLabel(
+                                t,
+                                item.entry_type,
+                              )}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className='min-w-[220px]'>
+                            <div className='space-y-1'>
+                              <div className='font-medium text-slate-900'>
+                                {sourceLabel}
+                              </div>
+                              {reasonLabel !== sourceLabel ? (
+                                <div className='text-xs text-slate-600'>
+                                  {reasonLabel}
+                                </div>
+                              ) : null}
+                              <div className='text-xs text-slate-500'>
+                                {item.source_bid}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className='font-medium text-slate-900'>
+                            {formatSignedCredits(item.amount, i18n.language)}
+                          </TableCell>
+                          <TableCell>
+                            {formatBillingCredits(
+                              item.balance_after,
+                              i18n.language,
+                            )}
+                          </TableCell>
+                          <TableCell className='min-w-[180px] text-slate-600'>
+                            {formatBillingDateTime(
+                              item.created_at,
+                              i18n.language,
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.metadata.metric_breakdown?.length ? (
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                onClick={() => setSelectedItem(item)}
+                              >
+                                {t('module.billing.ledger.table.detail')}
+                              </Button>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
