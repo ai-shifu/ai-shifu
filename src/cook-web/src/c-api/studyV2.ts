@@ -1,5 +1,5 @@
 import { SSE } from 'sse.js';
-import request from '@/lib/request';
+import request, { attachSseBusinessResponseFallback } from '@/lib/request';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
@@ -229,6 +229,19 @@ const getListenFlagFromPageUrl = (): boolean => {
   );
 };
 
+const dispatchSseBusinessError = (
+  source: { dispatchEvent: (event: Event) => void },
+  error: { message: string; code?: number },
+) => {
+  const event = new CustomEvent('error');
+  Object.assign(event, {
+    detail: error,
+    data: error.message,
+    responseCode: error.code,
+  });
+  source.dispatchEvent(event);
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -286,11 +299,25 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
+    if ((e as { detail?: unknown }).detail) {
+      if (onError) {
+        onError(e);
+      }
+      return;
+    }
+
     if (onError) {
       onError(e);
       return;
     }
     console.error('[SSE error]', e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
   });
 
   source.stream();
@@ -333,6 +360,13 @@ const createSseSource = (
     onError?.(e);
   });
 
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
+  });
+
   source.stream();
 
   return source;
@@ -368,7 +402,7 @@ export const getLessonStudyRecord = async ({
     .get(
       `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
     )
-    .catch(error => {
+    .catch(() => {
       // when error, return empty records, go run api
       return {
         elements: [],
