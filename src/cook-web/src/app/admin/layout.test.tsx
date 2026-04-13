@@ -366,10 +366,8 @@ describe('AdminLayout', () => {
       }),
     ).toHaveAttribute('href', '/admin/billing?tab=details');
     expect(
-      screen.getByRole('link', {
-        name: 'module.billing.sidebar.upgradeCta',
-      }),
-    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+      screen.getByTestId('admin-billing-sidebar-card'),
+    ).toHaveAttribute('data-href', '/admin/billing?tab=packages');
     expect(
       screen.queryByText('module.billing.sidebar.subscriptionStatusLabel'),
     ).not.toBeInTheDocument();
@@ -399,10 +397,8 @@ describe('AdminLayout', () => {
       screen.getByText('module.billing.sidebar.nonMemberTitle'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', {
-        name: 'module.billing.sidebar.upgradeCta',
-      }),
-    ).toHaveAttribute('href', '/admin/billing?tab=packages');
+      screen.getByTestId('admin-billing-sidebar-card'),
+    ).toHaveAttribute('data-href', '/admin/billing?tab=packages');
     expect(
       screen.queryByText('module.billing.sidebar.totalCreditsLabel'),
     ).not.toBeInTheDocument();

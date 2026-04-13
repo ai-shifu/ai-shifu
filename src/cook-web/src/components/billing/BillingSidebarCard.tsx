@@ -1,8 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/Button';
 import type { CreatorBillingOverview } from '@/types/billing';
 import { formatBillingCredits } from '@/lib/billing';
 
@@ -38,6 +38,7 @@ export function BillingSidebarCard({
   isLoading = false,
 }: BillingSidebarCardProps) {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const availableCredits = overview?.wallet.available_credits ?? 0;
   const shouldShowCredits = !isLoading && availableCredits > 0;
   const membershipTitleKey = resolveMembershipTitleKey(overview);
@@ -47,9 +48,28 @@ export function BillingSidebarCard({
       ? formatBillingCredits(availableCredits, i18n.language)
       : t('module.billing.sidebar.placeholderValue');
 
+  const handleCardClick = React.useCallback(() => {
+    router.push(BILLING_PACKAGES_HREF);
+  }, [router]);
+
+  const handleCardKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        router.push(BILLING_PACKAGES_HREF);
+      }
+    },
+    [router],
+  );
+
   return (
     <div
-      className='mt-4 rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-4 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
+      role='link'
+      tabIndex={0}
+      data-href={BILLING_PACKAGES_HREF}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-4 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
       data-testid='admin-billing-sidebar-card'
     >
       <div className='flex items-center justify-between gap-3'>
@@ -59,36 +79,27 @@ export function BillingSidebarCard({
           </div>
           <p className='mr-2 truncate text-sm font-extrabold leading-5 text-slate-950'>
             {t(membershipTitleKey)}
+            {shouldShowCredits && (
+              <span className='ml-2 font-medium text-slate-500'>
+                {creditsValue}
+              </span>
+            )}
           </p>
         </div>
-        <Button
-          asChild
-          className='h-6 min-h-6 rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white hover:bg-slate-800'
-        >
-          <Link href={BILLING_PACKAGES_HREF}>
-            {t('module.billing.sidebar.upgradeCta')}
-          </Link>
-        </Button>
+        <span className='inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white'>
+          {t('module.billing.sidebar.upgradeCta')}
+        </span>
       </div>
-      {shouldShowCredits ? (
-        <div className='mt-3 border-t border-slate-200 pt-3'>
-          <div className='flex items-center justify-between gap-3'>
-            <span className='text-sm font-medium leading-5 text-slate-900'>
-              {t('module.billing.sidebar.totalCreditsLabel')}
-            </span>
-            <span className='text-sm font-medium leading-5 text-slate-950'>
-              {creditsValue}
-            </span>
-          </div>
-          <Link
-            href={BILLING_DETAILS_HREF}
-            className='mt-[10px] inline-flex items-center gap-1 text-sm font-normal leading-5 text-[rgba(10,10,10,0.45)] transition-colors hover:text-[rgba(10,10,10,0.6)]'
-          >
-            <span>{t('module.billing.sidebar.usageCta')}</span>
-            <ChevronRight className='h-5 w-5 text-[rgba(10,10,10,0.45)]' />
-          </Link>
-        </div>
-      ) : null}
+      <div className='mt-3 border-t border-slate-200 pt-3'>
+        <Link
+          href={BILLING_DETAILS_HREF}
+          onClick={event => event.stopPropagation()}
+          className='inline-flex items-center gap-1 text-sm font-normal leading-5 text-[rgba(10,10,10,0.45)] transition-colors hover:text-[rgba(10,10,10,0.6)]'
+        >
+          <span>{t('module.billing.sidebar.usageCta')}</span>
+          <ChevronRight className='h-5 w-5 text-[rgba(10,10,10,0.45)]' />
+        </Link>
+      </div>
     </div>
   );
 }
