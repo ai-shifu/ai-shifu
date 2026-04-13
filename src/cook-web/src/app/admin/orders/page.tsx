@@ -22,7 +22,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/Popover';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Calendar } from '@/components/ui/Calendar';
 import {
   Select,
   SelectContent,
@@ -59,11 +58,12 @@ import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { CalendarIcon, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -145,109 +145,6 @@ const loadStoredColumnWidths = (): ColumnWidthState => {
   } catch {
     return createColumnWidthState();
   }
-};
-
-const formatDateValue = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const parseDateValue = (value: string) => {
-  if (!value) {
-    return undefined;
-  }
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-  return parsed;
-};
-
-type DateRangeFilterProps = {
-  startValue: string;
-  endValue: string;
-  placeholder: string;
-  resetLabel: string;
-  onChange: (range: { start: string; end: string }) => void;
-};
-
-const DateRangeFilter = ({
-  startValue,
-  endValue,
-  placeholder,
-  resetLabel,
-  onChange,
-}: DateRangeFilterProps) => {
-  const selectedRange = React.useMemo(
-    () => ({
-      from: parseDateValue(startValue),
-      to: parseDateValue(endValue),
-    }),
-    [startValue, endValue],
-  );
-  const label = React.useMemo(() => {
-    if (selectedRange.from && selectedRange.to) {
-      return `${formatDateValue(selectedRange.from)} ~ ${formatDateValue(
-        selectedRange.to,
-      )}`;
-    }
-    if (selectedRange.from) {
-      return formatDateValue(selectedRange.from);
-    }
-    return placeholder;
-  }, [placeholder, selectedRange]);
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          size='sm'
-          variant='outline'
-          type='button'
-          className='h-9 w-full justify-between font-normal'
-        >
-          <span
-            className={cn(
-              'flex-1 truncate text-left',
-              startValue ? 'text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            {label}
-          </span>
-          <CalendarIcon className='h-4 w-4 text-muted-foreground' />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align='start'
-        className='w-auto max-w-[90vw] p-0'
-      >
-        <Calendar
-          mode='range'
-          numberOfMonths={2}
-          selected={selectedRange}
-          onSelect={range =>
-            onChange({
-              start: range?.from ? formatDateValue(range.from) : '',
-              end: range?.to ? formatDateValue(range.to) : '',
-            })
-          }
-          className='p-3 md:p-4 [--cell-size:2.4rem]'
-        />
-        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
-          <Button
-            size='sm'
-            variant='ghost'
-            type='button'
-            onClick={() => onChange({ start: '', end: '' })}
-          >
-            {resetLabel}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
 };
 
 const createDefaultFilters = (): OrderFilters => ({
@@ -731,7 +628,14 @@ const OrdersPage = () => {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn('truncate', className)}>{value}</span>
+          <span
+            className={cn(
+              'inline-block max-w-full truncate align-bottom',
+              className,
+            )}
+          >
+            {value}
+          </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{value}</TooltipContent>
       </Tooltip>
@@ -1187,7 +1091,7 @@ const OrdersPage = () => {
       key: 'date_range',
       label: t('module.order.table.createdAt'),
       component: (
-        <DateRangeFilter
+        <AdminDateRangeFilter
           startValue={filters.start_time}
           endValue={filters.end_time}
           onChange={range => {
@@ -1198,6 +1102,7 @@ const OrdersPage = () => {
             'module.order.filters.endTime',
           )}`}
           resetLabel={t('module.order.filters.reset')}
+          clearLabel={t('module.chat.lessonFeedbackClearInput')}
         />
       ),
     },
