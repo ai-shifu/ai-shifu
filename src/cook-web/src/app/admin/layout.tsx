@@ -35,6 +35,17 @@ const MainInterface = ({
   const menuReady = isInitialized && !isGuest;
 
   useEffect(() => {
+    if (!isInitialized || !isGuest || typeof window === 'undefined') {
+      return;
+    }
+
+    const currentPath = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.href = `/login?redirect=${currentPath}`;
+  }, [isGuest, isInitialized]);
+
+  useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
 

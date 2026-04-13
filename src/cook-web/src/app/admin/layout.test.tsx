@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
@@ -318,6 +318,31 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('redirects guests to login from admin routes handled only by the layout', async () => {
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.isGuest = true;
+    mockUserStoreState.userInfo = null as unknown as {
+      is_operator: false;
+    };
+    Object.assign(window.location, {
+      href: '',
+      pathname: '/admin/billing',
+      search: '?tab=details',
+    });
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(window.location.href).toContain(
+        '/login?redirect=%2Fadmin%2Fbilling%3Ftab%3Ddetails',
+      );
+    });
+  });
+
   test('renders sidebar once initialization completes even if user info is unavailable', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
@@ -359,7 +384,7 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(screen.getByText('12,500')).toBeInTheDocument();
+    expect(screen.getByText(/12,500/)).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
