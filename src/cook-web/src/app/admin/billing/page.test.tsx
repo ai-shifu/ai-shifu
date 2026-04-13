@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
-import AdminBillingPage from './page';
+import { AdminBillingPageClient } from './AdminBillingPageClient';
 
 let mockSearchParamsValue = '';
 const mockReplace = jest.fn();
@@ -92,14 +92,16 @@ const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
-function renderPage() {
+function renderPage(
+  props: React.ComponentProps<typeof AdminBillingPageClient> = {},
+) {
   return render(
     <SWRConfig
       value={{
         provider: () => new Map(),
       }}
     >
-      <AdminBillingPage />
+      <AdminBillingPageClient {...props} />
     </SWRConfig>,
   );
 }
@@ -444,6 +446,25 @@ describe('AdminBillingPage', () => {
     mockSearchParamsValue = 'tab=details';
 
     renderPage();
+    const tabs = screen.getByTestId('admin-billing-tabs');
+
+    expect(
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.plans',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(tabs).getByRole('tab', {
+        name: 'module.billing.page.tabs.ledger',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('module.billing.details.title'),
+    ).toBeInTheDocument();
+  });
+
+  test('respects the server-provided initial details tab before search params hydrate', async () => {
+    renderPage({ initialTab: 'details' });
     const tabs = screen.getByTestId('admin-billing-tabs');
 
     expect(
