@@ -36,6 +36,18 @@ def _collect_called_names(node: ast.AST) -> set[str]:
     return names
 
 
+def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
+    for child in ast.walk(node):
+        if not isinstance(child, ast.Call):
+            continue
+        func = child.func
+        if isinstance(func, ast.Name) and func.id == name:
+            return child
+        if isinstance(func, ast.Attribute) and func.attr == name:
+            return child
+    raise AssertionError(f"{name} call not found")
+
+
 def test_generated_block_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     route_fn = _find_nested_route("synthesize_generated_block_audio_api")
     called_names = _collect_called_names(route_fn)
@@ -56,11 +68,18 @@ def test_preview_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     assert "stream_preview_tts_audio" in called_names
 
 
-def test_run_route_still_reserves_runtime_slot() -> None:
+def test_run_route_passes_admission_payload_to_run_script() -> None:
     route_fn = _find_nested_route("run_outline_item_api")
     called_names = _collect_called_names(route_fn)
+    run_script_call = _find_call_by_name(route_fn, "run_script")
 
     assert "_admit_creator_usage_for_shifu" in called_names
-    assert "reserve_creator_runtime_slot" in called_names
+    assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_passthrough_response" in called_names
     assert "run_script" in called_names
+    assert any(
+        keyword.arg == "runtime_admission_payload"
+        and isinstance(keyword.value, ast.Name)
+        and keyword.value.id == "admission_payload"
+        for keyword in run_script_call.keywords
+    )

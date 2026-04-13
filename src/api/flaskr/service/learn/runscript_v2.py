@@ -11,6 +11,11 @@ from flask import Flask
 from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.i18n import _
+from flaskr.service.billing.admission import (
+    CreatorRuntimeAdmissionLease,
+    CreatorUsageAdmission,
+    reserve_creator_runtime_slot,
+)
 
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -317,6 +322,7 @@ def run_script(
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
+    runtime_admission_payload: CreatorUsageAdmission | None = None,
 ) -> Generator[str, None, None]:
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
@@ -353,6 +359,7 @@ def run_script(
             time.sleep(lock_retry_sleep_seconds)
 
     if acquired:
+        runtime_lease: CreatorRuntimeAdmissionLease | None = None
         stop_event = threading.Event()
         # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
         output_queue: queue.SimpleQueue = queue.SimpleQueue()
@@ -364,6 +371,7 @@ def run_script(
         parent_language = get_current_language()
         # Capture shifu context so background thread can reuse it (may be provided by caller)
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
+        producer_thread: threading.Thread | None = None
 
         def producer():
             # Propagate logging thread-local context into this background thread
@@ -417,44 +425,51 @@ def run_script(
                         res.close()
                     output_queue.put(("done", None))
 
-        producer_thread = threading.Thread(
-            target=producer, name="run_script_stream_producer", daemon=True
-        )
-        producer_thread.start()
-
-        run_started_at = int(time.time())
-        status_last_refreshed_at = 0.0
-
-        def _refresh_run_script_status(force: bool = False) -> None:
-            nonlocal status_last_refreshed_at
-            now = time.time()
-            if (
-                not force
-                and now - status_last_refreshed_at < RUN_SCRIPT_STATUS_REFRESH_SECONDS
-            ):
-                return
-            _set_run_script_status(app, user_bid, outline_bid, run_started_at)
-            status_last_refreshed_at = now
-
-        _refresh_run_script_status(force=True)
-
-        stream_error: Exception | None = None
-        client_disconnected = False
-        done_received = False
-        last_stream_type: str | None = None
-        last_stream_done_is_terminal: bool | None = None
-
-        def _should_suppress_live_payload(payload_obj: object) -> bool:
-            payload_type = getattr(payload_obj, "type", None)
-            if hasattr(payload_type, "value"):
-                payload_type = payload_type.value
-            return bool(
-                use_element_protocol
-                and payload_type == GeneratedType.DONE.value
-                and not bool(getattr(payload_obj, "is_terminal", False))
-            )
-
         try:
+            if runtime_admission_payload is not None:
+                runtime_lease = reserve_creator_runtime_slot(
+                    app,
+                    admission_payload=runtime_admission_payload,
+                )
+
+            producer_thread = threading.Thread(
+                target=producer, name="run_script_stream_producer", daemon=True
+            )
+            producer_thread.start()
+
+            run_started_at = int(time.time())
+            status_last_refreshed_at = 0.0
+
+            def _refresh_run_script_status(force: bool = False) -> None:
+                nonlocal status_last_refreshed_at
+                now = time.time()
+                if (
+                    not force
+                    and now - status_last_refreshed_at
+                    < RUN_SCRIPT_STATUS_REFRESH_SECONDS
+                ):
+                    return
+                _set_run_script_status(app, user_bid, outline_bid, run_started_at)
+                status_last_refreshed_at = now
+
+            _refresh_run_script_status(force=True)
+
+            stream_error: Exception | None = None
+            client_disconnected = False
+            done_received = False
+            last_stream_type: str | None = None
+            last_stream_done_is_terminal: bool | None = None
+
+            def _should_suppress_live_payload(payload_obj: object) -> bool:
+                payload_type = getattr(payload_obj, "type", None)
+                if hasattr(payload_type, "value"):
+                    payload_type = payload_type.value
+                return bool(
+                    use_element_protocol
+                    and payload_type == GeneratedType.DONE.value
+                    and not bool(getattr(payload_obj, "is_terminal", False))
+                )
+
             while True:
                 kind: str
                 payload: object
@@ -545,82 +560,86 @@ def run_script(
                 elif kind == "done":
                     done_received = True
                     break
-        finally:
-            stop_event.set()
-            producer_thread.join(timeout=0.1)
-            if producer_thread.is_alive():
-                app.logger.warning("run_script producer thread did not stop in time")
 
-            with contextlib.suppress(Exception):
-                lock.release()
-            _clear_run_script_status(app, user_bid, outline_bid)
-
-        if stream_error and not client_disconnected:
-            if isinstance(stream_error, Exception):
-                app.logger.error("run_script error")
-                app.logger.error(stream_error)
-                error_traceback = "".join(
-                    traceback.format_exception(
-                        type(stream_error),
-                        stream_error,
-                        stream_error.__traceback__,
+            if stream_error and not client_disconnected:
+                if isinstance(stream_error, Exception):
+                    app.logger.error("run_script error")
+                    app.logger.error(stream_error)
+                    error_traceback = "".join(
+                        traceback.format_exception(
+                            type(stream_error),
+                            stream_error,
+                            stream_error.__traceback__,
+                        )
                     )
-                )
-                error_info = {
-                    "name": type(stream_error).__name__,
-                    "description": str(stream_error),
-                    "traceback": error_traceback,
-                }
+                    error_info = {
+                        "name": type(stream_error).__name__,
+                        "description": str(stream_error),
+                        "traceback": error_traceback,
+                    }
 
-                if isinstance(stream_error, AppException):
-                    app.logger.info(error_info)
-                    error_content = str(stream_error)
-                else:
-                    app.logger.error(error_info)
-                    error_content = str(_("server.common.unknownError"))
+                    if isinstance(stream_error, AppException):
+                        app.logger.info(error_info)
+                        error_content = str(stream_error)
+                    else:
+                        app.logger.error(error_info)
+                        error_content = str(_("server.common.unknownError"))
+                    yield _to_sse_chunk(
+                        _make_terminal_event(
+                            outline_bid=outline_bid,
+                            event_type="error",
+                            content=error_content,
+                            element_adapter=stream_element_adapter,
+                        )
+                    )
+                    last_stream_type = "error"
+                    block_end_event = _make_terminal_event(
+                        outline_bid=outline_bid,
+                        event_type=GeneratedType.BREAK.value,
+                        content="",
+                        element_adapter=stream_element_adapter,
+                        is_terminal=False if listen else None,
+                    )
+                    if not _should_suppress_live_payload(block_end_event):
+                        yield _to_sse_chunk(block_end_event)
+                        last_stream_type = (
+                            GeneratedType.DONE.value
+                            if use_element_protocol
+                            else GeneratedType.BREAK.value
+                        )
+                        last_stream_done_is_terminal = (
+                            False if use_element_protocol else None
+                        )
+
+            if not (
+                use_element_protocol
+                and last_stream_type == GeneratedType.DONE.value
+                and last_stream_done_is_terminal is True
+            ):
                 yield _to_sse_chunk(
                     _make_terminal_event(
                         outline_bid=outline_bid,
-                        event_type="error",
-                        content=error_content,
+                        event_type=GeneratedType.DONE.value,
+                        content="",
                         element_adapter=stream_element_adapter,
+                        is_terminal=True if use_element_protocol else None,
                     )
                 )
-                last_stream_type = "error"
-                block_end_event = _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=GeneratedType.BREAK.value,
-                    content="",
-                    element_adapter=stream_element_adapter,
-                    is_terminal=False if listen else None,
-                )
-                if not _should_suppress_live_payload(block_end_event):
-                    yield _to_sse_chunk(block_end_event)
-                    last_stream_type = (
-                        GeneratedType.DONE.value
-                        if use_element_protocol
-                        else GeneratedType.BREAK.value
-                    )
-                    last_stream_done_is_terminal = (
-                        False if use_element_protocol else None
-                    )
+                last_stream_type = GeneratedType.DONE.value
+                last_stream_done_is_terminal = True if use_element_protocol else None
+        finally:
+            stop_event.set()
+            if producer_thread is not None:
+                producer_thread.join(timeout=0.1)
+            if producer_thread is not None and producer_thread.is_alive():
+                app.logger.warning("run_script producer thread did not stop in time")
 
-        if not (
-            use_element_protocol
-            and last_stream_type == GeneratedType.DONE.value
-            and last_stream_done_is_terminal is True
-        ):
-            yield _to_sse_chunk(
-                _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=GeneratedType.DONE.value,
-                    content="",
-                    element_adapter=stream_element_adapter,
-                    is_terminal=True if use_element_protocol else None,
-                )
-            )
-            last_stream_type = GeneratedType.DONE.value
-            last_stream_done_is_terminal = True if use_element_protocol else None
+            with contextlib.suppress(Exception):
+                if runtime_lease is not None:
+                    runtime_lease.release()
+            with contextlib.suppress(Exception):
+                lock.release()
+            _clear_run_script_status(app, user_bid, outline_bid)
     else:
         app.logger.warning(
             "run_script lock acquisition failed: user_bid=%s outline_bid=%s",

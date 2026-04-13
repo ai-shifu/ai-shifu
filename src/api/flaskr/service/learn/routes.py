@@ -335,10 +335,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         )
-        runtime_lease = reserve_creator_runtime_slot(
-            app,
-            admission_payload=admission_payload,
-        )
         shifu_context_snapshot = get_shifu_context_snapshot()
         return _stream_passthrough_response(
             app,
@@ -354,10 +350,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 listen=listen,
                 preview_mode=preview_mode,
                 shifu_context_snapshot=shifu_context_snapshot,
+                runtime_admission_payload=admission_payload,
             ),
             close_log="client closed learn runtime stream early",
             error_log="run outline item failed",
-            runtime_lease=runtime_lease,
         )
 
     @app.route(
