@@ -45,6 +45,16 @@ from flaskr.i18n import set_language
 thread_local = threading.local()
 
 
+def _bootstrap_creator_trial_credits(app: Flask, user_id: str | None) -> None:
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        return
+
+    from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
+
+    bootstrap_new_creator_trial_credits(app, normalized_user_id)
+
+
 def optional_token_validation(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -138,6 +148,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             "admin",
         )
         db.session.commit()
+        _bootstrap_creator_trial_credits(app, request.user.user_id)
         return make_common_response({"granted": True})
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
@@ -377,6 +388,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 login_context,
             )
             db.session.commit()
+            _bootstrap_creator_trial_credits(app, ret.userInfo.user_id)
             resp = make_response(make_common_response(ret))
             return resp
 
@@ -653,6 +665,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         except Exception:
             db.session.rollback()
             raise
+        _bootstrap_creator_trial_credits(app, auth_result.user.user_id)
         return make_common_response(auth_result.token)
 
     # -------- Password login routes --------
@@ -686,6 +699,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
         db.session.commit()
+        _bootstrap_creator_trial_credits(app, auth_result.user.user_id)
         return make_common_response(auth_result.token)
 
     @app.route(path_prefix + "/set_password", methods=["POST"])

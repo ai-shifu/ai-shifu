@@ -448,4 +448,29 @@ def _serialize_trial_offer(
     return state.to_dto(app, timezone_name=timezone_name)
 
 
+def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
+    """Best-effort trial bootstrap for auth and role-grant entrypoints."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    if not normalized_creator_bid:
+        return
+
+    try:
+        config = _load_new_creator_trial_config(app)
+        trigger = str(config.grant_trigger).strip() or str(
+            BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["grant_trigger"]
+        )
+        _resolve_new_creator_trial_offer(
+            app,
+            normalized_creator_bid,
+            trigger=trigger,
+        )
+    except Exception:
+        app.logger.exception(
+            "Failed to bootstrap new creator trial credits for creator_bid=%s",
+            normalized_creator_bid,
+        )
+
+
 resolve_new_creator_trial_offer = _resolve_new_creator_trial_offer
+bootstrap_new_creator_trial_credits = _bootstrap_new_creator_trial_credits
