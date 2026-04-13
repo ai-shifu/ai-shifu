@@ -138,6 +138,9 @@
   max-height: 85vh;
   overflow: hidden;
 }
+.mobilePanelLandscape {
+  max-height: min(80dvh, 560px);
+}
 .mobilePanelFullscreen {
   top: 0;
   bottom: 0;
@@ -250,11 +253,15 @@
   width: 18px !important;
   height: 18px !important;
 }
+.mobilePanelLandscape .mobileInput {
+  padding-bottom: 20px;
+}
 .desktopSlidePanel {
   display: flex;
   min-height: 0;
   flex-direction: column;
   height: min(480px, 100dvh - 240px);
+  max-height: 100%;
   background: #fff !important;
   border-radius: 24px;
   padding: 0 !important;
@@ -308,6 +315,7 @@
   margin: 0 !important;
 }
 .desktopSlideInput {
+  flex-shrink: 0;
   border: none;
   box-shadow: none;
   padding: 20px;
@@ -341,6 +349,9 @@
   padding: 0 !important;
   background: #fff !important;
   border-radius: 24px;
+}
+.askBlock:global(.listen-slide-ask-block).desktopSlidePanelEmpty {
+  border-radius: 24px 24px 0 0;
 }
 .askBlock:global(.listen-slide-ask-block):not(.mobile) .messageWrapper {
   width: 100%;
