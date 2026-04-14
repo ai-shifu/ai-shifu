@@ -46,7 +46,10 @@ jest.mock('next/link', () => ({
     children,
     ...props
   }: React.PropsWithChildren<{ href: string }>) => (
-    <a href={href} {...props}>
+    <a
+      href={href}
+      {...props}
+    >
       {children}
     </a>
   ),
@@ -160,15 +163,15 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       screen.getByText('module.operationsUser.roleLabels.operator'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Learned Course' })).toHaveAttribute(
-      'href',
-      '/admin/operations/course-1',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Learned Course' }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.operationsUser.registrationSourceLabels.google')
-        .length,
+      screen.getAllByText(
+        'module.operationsUser.registrationSourceLabels.google',
+      ).length,
     ).toBeGreaterThan(0);
   });
 

@@ -13,12 +13,7 @@ export type AdminOperationUserItem = {
   mobile: string;
   email: string;
   nickname: string;
-  user_status:
-    | 'unregistered'
-    | 'registered'
-    | 'paid'
-    | 'unknown'
-    | LooseString;
+  user_status: 'unregistered' | 'registered' | 'paid' | 'unknown' | LooseString;
   user_role:
     | 'regular'
     | 'creator'

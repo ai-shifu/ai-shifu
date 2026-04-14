@@ -44,7 +44,10 @@ jest.mock('next/link', () => ({
     children,
     ...props
   }: React.PropsWithChildren<{ href: string }>) => (
-    <a href={href} {...props}>
+    <a
+      href={href}
+      {...props}
+    >
       {children}
     </a>
   ),
@@ -97,13 +100,14 @@ jest.mock('@/components/ErrorDisplay', () => ({
 
 jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
-  Dialog: ({
-    open,
-    children,
-  }: React.PropsWithChildren<{ open: boolean }>) =>
+  Dialog: ({ open, children }: React.PropsWithChildren<{ open: boolean }>) =>
     open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  DialogHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DialogDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -282,16 +286,11 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByText('module.operationsUser.registrationSourceLabels.google'),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: '1' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: '2' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'user-1@example.com' })).toHaveAttribute(
-      'href',
-      '/admin/operations/users/user-1',
-    );
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('href', '/admin/operations/users/user-1');
   });
 
   test('submits search filters', async () => {
@@ -303,9 +302,7 @@ describe('AdminOperationUsersPage', () => {
 
     const userIdInput = screen.getAllByRole('textbox')[0];
     fireEvent.change(userIdInput, { target: { value: 'user-22' } });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'common.core.expand' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -349,22 +346,21 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: '2' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
 
     expect(
-      screen.getByText('module.operationsUser.courseSummary.dialog.createdTitle'),
+      screen.getByText(
+        'module.operationsUser.courseSummary.dialog.createdTitle',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Created Course')).toBeInTheDocument();
     expect(screen.getByText('course-2')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsCourse.statusLabels.unpublished'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Created Course' })).toHaveAttribute(
-      'href',
-      '/admin/operations/course-2',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Created Course' }),
+    ).toHaveAttribute('href', '/admin/operations/course-2');
   });
 
   test('uses default user name when nickname is empty', async () => {

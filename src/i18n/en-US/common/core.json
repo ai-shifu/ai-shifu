@@ -29,7 +29,6 @@
   "noShifus": "No Courses available",
   "ok": "OK",
   "operations": "Operations",
-  "userManagement": "User Management",
   "retry": "Retry",
   "selectModel": "Model",
   "settings": "Settings",
@@ -52,5 +51,6 @@
   "unknownError": "Unknown error",
   "unsupportedBrowserDescription": "Your current iOS version is not supported. Please upgrade to iOS 16.4 or later and try again.",
   "unsupportedBrowserTitle": "Your iOS Version Is Not Supported",
+  "userManagement": "User Management",
   "waitingForCompletion": "Coming Soon"
 }

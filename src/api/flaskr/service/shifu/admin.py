@@ -224,7 +224,9 @@ def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
 def _resolve_operator_user_status(raw_state: object) -> str:
     return USER_STATE_TO_OPERATOR_STATUS.get(
         raw_state,
-        USER_STATE_TO_OPERATOR_STATUS.get(str(raw_state).strip(), OPERATOR_USER_STATUS_UNKNOWN),
+        USER_STATE_TO_OPERATOR_STATUS.get(
+            str(raw_state).strip(), OPERATOR_USER_STATUS_UNKNOWN
+        ),
     )
 
 
@@ -351,13 +353,9 @@ def _load_operator_user_registration_source_map(
             continue
         identify = str(user.user_identify or "").strip()
         if identify.isdigit():
-            registration_source_map[user_bid] = (
-                OPERATOR_USER_REGISTRATION_SOURCE_PHONE
-            )
+            registration_source_map[user_bid] = OPERATOR_USER_REGISTRATION_SOURCE_PHONE
         elif "@" in identify:
-            registration_source_map[user_bid] = (
-                OPERATOR_USER_REGISTRATION_SOURCE_EMAIL
-            )
+            registration_source_map[user_bid] = OPERATOR_USER_REGISTRATION_SOURCE_EMAIL
         else:
             registration_source_map[user_bid] = (
                 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN
@@ -1086,8 +1084,7 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
         shifu_bid: sorted(
             outline_item_bid
             for outline_item_bid in visible_bids
-            if outline_item_bid
-            not in parent_bids_by_shifu.get(shifu_bid, set())
+            if outline_item_bid not in parent_bids_by_shifu.get(shifu_bid, set())
         )
         for shifu_bid, visible_bids in visible_bids_by_shifu.items()
     }
@@ -1096,11 +1093,11 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
 def _is_completed_leaf_progress_statuses(record_statuses: Sequence[int]) -> bool:
     normalized_statuses = [int(status or 0) for status in record_statuses]
     has_completed_record = any(
-        record_status == LEARN_STATUS_COMPLETED
-        for record_status in normalized_statuses
+        record_status == LEARN_STATUS_COMPLETED for record_status in normalized_statuses
     )
     has_reset_with_follow_up_record = any(
-        record_status == LEARN_STATUS_RESET for record_status in normalized_statuses[:-1]
+        record_status == LEARN_STATUS_RESET
+        for record_status in normalized_statuses[:-1]
     )
     return has_completed_record or has_reset_with_follow_up_record
 
@@ -1183,9 +1180,11 @@ def _load_learning_progress_counts_by_user_and_course(
         ).append(int(status or 0))
 
     completed_counts_by_user_course: Dict[tuple[str, str], int] = {}
-    for (user_bid, shifu_bid, _outline_item_bid), record_statuses in (
-        statuses_by_user_course_outline.items()
-    ):
+    for (
+        user_bid,
+        shifu_bid,
+        _outline_item_bid,
+    ), record_statuses in statuses_by_user_course_outline.items():
         if not _is_completed_leaf_progress_statuses(record_statuses):
             continue
         completed_counts_by_user_course[(user_bid, shifu_bid)] = (
@@ -1766,16 +1765,14 @@ def list_operator_users(
             query = query.filter(
                 UserEntity.is_operator == 0,
                 UserEntity.is_creator == 0,
-                UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid))
+                UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
             )
         elif user_role == OPERATOR_USER_ROLE_REGULAR:
             learner_subquery = _build_learner_user_bid_subquery()
             query = query.filter(
                 UserEntity.is_operator == 0,
                 UserEntity.is_creator == 0,
-                ~UserEntity.user_bid.in_(
-                    db.session.query(learner_subquery.c.user_bid)
-                ),
+                ~UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
             )
         if start_time:
             query = query.filter(UserEntity.created_at >= start_time)
@@ -1803,9 +1800,7 @@ def list_operator_users(
             user_bids
         )
         learner_user_bids = _load_learner_user_bids(user_bids)
-        registration_source_map = _load_operator_user_registration_source_map(
-            user_bids
-        )
+        registration_source_map = _load_operator_user_registration_source_map(user_bids)
         last_login_map = _load_operator_user_last_login_map(user_bids)
         total_paid_amount_map = _load_operator_user_total_paid_amount_map(user_bids)
         last_learning_map = _load_operator_user_last_learning_map(user_bids)
@@ -1858,9 +1853,7 @@ def get_operator_user_detail(
         total_paid_amount_map = _load_operator_user_total_paid_amount_map(
             [normalized_user_bid]
         )
-        last_learning_map = _load_operator_user_last_learning_map(
-            [normalized_user_bid]
-        )
+        last_learning_map = _load_operator_user_last_learning_map([normalized_user_bid])
         return _build_operator_user_summary(
             user,
             contact_map,

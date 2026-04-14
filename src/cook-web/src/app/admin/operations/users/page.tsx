@@ -914,25 +914,24 @@ export default function AdminOperationUsersPage() {
                   : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]',
               )}
             >
-              {(expanded
-                ? expandedPrimaryFilterItems
-                : primaryFilterItems
-              ).map(item => (
-                <div
-                  key={item.key}
-                  className='flex items-center'
-                >
-                  <span
-                    className={cn(
-                      "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                      'w-20',
-                    )}
+              {(expanded ? expandedPrimaryFilterItems : primaryFilterItems).map(
+                item => (
+                  <div
+                    key={item.key}
+                    className='flex items-center'
                   >
-                    {item.label}
-                  </span>
-                  <div className='flex-1 min-w-0'>{item.component}</div>
-                </div>
-              ))}
+                    <span
+                      className={cn(
+                        "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
+                        'w-20',
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                    <div className='flex-1 min-w-0'>{item.component}</div>
+                  </div>
+                ),
+              )}
 
               {!expanded ? (
                 <div className='flex items-center justify-end gap-2'>
@@ -1373,7 +1372,9 @@ export default function AdminOperationUsersPage() {
                   <TableBody>
                     {courseDialog?.courses?.length ? (
                       courseDialog.courses.map(course => (
-                        <TableRow key={`${courseDialog.type}-${course.shifu_bid}`}>
+                        <TableRow
+                          key={`${courseDialog.type}-${course.shifu_bid}`}
+                        >
                           <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
                             <Link
                               href={`/admin/operations/${course.shifu_bid}`}
@@ -1387,7 +1388,9 @@ export default function AdminOperationUsersPage() {
                           </TableCell>
                           <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
                             <OverflowTooltipText
-                              text={resolveCourseStatusLabel(course.course_status)}
+                              text={resolveCourseStatusLabel(
+                                course.course_status,
+                              )}
                             />
                           </TableCell>
                         </TableRow>

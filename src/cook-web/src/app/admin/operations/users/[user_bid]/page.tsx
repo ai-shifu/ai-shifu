@@ -9,12 +9,7 @@ import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import {
   Table,
   TableBody,
@@ -72,13 +67,7 @@ const DEFAULT_VISIBLE_COURSE_COUNT = 10;
  * t('module.user.defaultUserName')
  */
 
-const InfoItem = ({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) => (
+const InfoItem = ({ label, value }: { label: string; value?: string }) => (
   <div className='space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3'>
     <div className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
       {label}
@@ -249,9 +238,8 @@ export default function AdminOperationUserDetailPage() {
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
-  const [detail, setDetail] = useState<AdminOperationUserDetailResponse>(
-    EMPTY_DETAIL,
-  );
+  const [detail, setDetail] =
+    useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
 
   const userBid = useMemo(
     () => decodeURIComponent(String(params?.user_bid || '').trim()),
@@ -389,7 +377,10 @@ export default function AdminOperationUserDetailPage() {
                 label={tOperationsUsers('table.userId')}
                 value={detail.user_bid}
               />
-              <InfoItem label={contactLabel} value={contactValue} />
+              <InfoItem
+                label={contactLabel}
+                value={contactValue}
+              />
               <InfoItem
                 label={tOperationsUsers('table.nickname')}
                 value={detail.nickname || defaultUserName}
@@ -408,7 +399,9 @@ export default function AdminOperationUserDetailPage() {
               />
               <InfoItem
                 label={tOperationsUsers('table.registrationSource')}
-                value={resolveRegistrationSourceLabel(detail.registration_source)}
+                value={resolveRegistrationSourceLabel(
+                  detail.registration_source,
+                )}
               />
               <InfoItem
                 label={tOperationsUsers('table.lastLoginAt')}
@@ -459,7 +452,9 @@ export default function AdminOperationUserDetailPage() {
             title={tOperationsUsers('detail.learningCourses')}
             courses={detail.learning_courses || []}
             emptyText={tOperationsUsers('detail.emptyCourses')}
-            courseNameLabel={tOperationsUsers('courseSummary.dialog.courseName')}
+            courseNameLabel={tOperationsUsers(
+              'courseSummary.dialog.courseName',
+            )}
             courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
             valueLabel={tOperationsUsers('detail.learningProgress')}
             renderValue={formatLearningProgress}
@@ -469,10 +464,14 @@ export default function AdminOperationUserDetailPage() {
             title={tOperationsUsers('detail.createdCourses')}
             courses={detail.created_courses || []}
             emptyText={tOperationsUsers('detail.emptyCourses')}
-            courseNameLabel={tOperationsUsers('courseSummary.dialog.courseName')}
+            courseNameLabel={tOperationsUsers(
+              'courseSummary.dialog.courseName',
+            )}
             courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
             valueLabel={tOperationsUsers('courseSummary.dialog.status')}
-            renderValue={course => resolveCourseStatusLabel(course.course_status)}
+            renderValue={course =>
+              resolveCourseStatusLabel(course.course_status)
+            }
             courseNameAlign='left'
           />
         </div>
