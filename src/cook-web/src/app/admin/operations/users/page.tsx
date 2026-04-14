@@ -47,6 +47,7 @@ import type { EnvStoreState } from '@/c-types/store';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
+import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
@@ -354,12 +355,14 @@ type CourseDialogState = {
 type CourseListPreviewProps = {
   courses: AdminOperationUserCourseItem[];
   emptyLabel: string;
+  ariaLabel: string;
   onView: () => void;
 };
 
 const CourseListPreview = ({
   courses,
   emptyLabel,
+  ariaLabel,
   onView,
 }: CourseListPreviewProps) => {
   if (!courses.length) {
@@ -373,6 +376,7 @@ const CourseListPreview = ({
   return (
     <button
       type='button'
+      aria-label={ariaLabel}
       className='py-1 text-center text-sm font-semibold text-primary transition-colors hover:text-primary/80'
       onClick={onView}
     >
@@ -627,10 +631,14 @@ export default function AdminOperationUsersPage() {
     if (typeof window === 'undefined') {
       return;
     }
-    window.localStorage.setItem(
-      COLUMN_WIDTH_STORAGE_KEY,
-      JSON.stringify(columnWidths),
-    );
+    try {
+      window.localStorage.setItem(
+        COLUMN_WIDTH_STORAGE_KEY,
+        JSON.stringify(columnWidths),
+      );
+    } catch {
+      // Ignore persistence failures so table interactions do not crash the page.
+    }
   }, [columnWidths]);
 
   const startColumnResize = useCallback(
@@ -1209,6 +1217,7 @@ export default function AdminOperationUsersPage() {
                         <CourseListPreview
                           courses={user.learning_courses || []}
                           emptyLabel={tOperationsUsers('courseSummary.empty')}
+                          ariaLabel={`${tOperationsUsers('table.learningCourses')} (${(user.learning_courses || []).length})`}
                           onView={() =>
                             setCourseDialog({
                               user,
@@ -1225,6 +1234,7 @@ export default function AdminOperationUsersPage() {
                         <CourseListPreview
                           courses={user.created_courses || []}
                           emptyLabel={tOperationsUsers('courseSummary.empty')}
+                          ariaLabel={`${tOperationsUsers('table.createdCourses')} (${(user.created_courses || []).length})`}
                           onView={() =>
                             setCourseDialog({
                               user,
@@ -1371,30 +1381,35 @@ export default function AdminOperationUsersPage() {
                   </TableHeader>
                   <TableBody>
                     {courseDialog?.courses?.length ? (
-                      courseDialog.courses.map(course => (
-                        <TableRow
-                          key={`${courseDialog.type}-${course.shifu_bid}`}
-                        >
-                          <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                            <Link
-                              href={`/admin/operations/${course.shifu_bid}`}
-                              className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                            >
-                              <OverflowTooltipText text={course.course_name} />
-                            </Link>
-                          </TableCell>
-                          <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                            <OverflowTooltipText text={course.shifu_bid} />
-                          </TableCell>
-                          <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
-                            <OverflowTooltipText
-                              text={resolveCourseStatusLabel(
-                                course.course_status,
+                      courseDialog.courses.map(course => {
+                        const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
+                          course.shifu_bid,
+                        );
+                        return (
+                          <TableRow key={`${courseDialog.type}-${course.shifu_bid}`}>
+                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                              {courseDetailUrl ? (
+                                <Link
+                                  href={courseDetailUrl}
+                                  className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                                >
+                                  <OverflowTooltipText text={course.course_name} />
+                                </Link>
+                              ) : (
+                                <OverflowTooltipText text={course.course_name} />
                               )}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))
+                            </TableCell>
+                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                              <OverflowTooltipText text={course.shifu_bid} />
+                            </TableCell>
+                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
+                              <OverflowTooltipText
+                                text={resolveCourseStatusLabel(course.course_status)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableEmpty colSpan={3}>
                         {tOperationsUsers('courseSummary.empty')}

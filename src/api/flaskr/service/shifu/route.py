@@ -578,7 +578,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: user_role
               type: string
               required: false
-              description: regular, creator, or operator
+              description: regular, creator, learner, or operator
             - name: start_time
               type: string
               required: false

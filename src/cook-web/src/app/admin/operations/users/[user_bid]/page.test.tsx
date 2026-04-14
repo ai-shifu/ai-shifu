@@ -333,4 +333,15 @@ describe('AdminOperationUserDetailPage', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  test('shows an error when the route param cannot be decoded', async () => {
+    currentUserBid = '%E0%A4%A';
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByText('server.common.paramsError'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationUserDetail).not.toHaveBeenCalled();
+  });
 });

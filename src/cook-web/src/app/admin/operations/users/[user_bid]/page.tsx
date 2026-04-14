@@ -241,10 +241,28 @@ export default function AdminOperationUserDetailPage() {
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
 
-  const userBid = useMemo(
-    () => decodeURIComponent(String(params?.user_bid || '').trim()),
-    [params],
-  );
+  const userBidState = useMemo(() => {
+    const rawUserBid = String(params?.user_bid || '').trim();
+    if (!rawUserBid) {
+      return {
+        userBid: '',
+        errorMessage: t('server.common.paramsError'),
+      };
+    }
+
+    try {
+      return {
+        userBid: decodeURIComponent(rawUserBid),
+        errorMessage: '',
+      };
+    } catch {
+      return {
+        userBid: '',
+        errorMessage: t('server.common.paramsError'),
+      };
+    }
+  }, [params, t]);
+  const userBid = userBidState.userBid;
   const contactType = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -265,7 +283,13 @@ export default function AdminOperationUserDetailPage() {
   );
 
   useEffect(() => {
-    if (!isReady || !userBid) {
+    if (!isReady) {
+      return;
+    }
+
+    if (userBidState.errorMessage) {
+      setError({ message: userBidState.errorMessage });
+      setLoading(false);
       return;
     }
 
@@ -303,7 +327,7 @@ export default function AdminOperationUserDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [isReady, t, userBid]);
+  }, [isReady, t, userBid, userBidState.errorMessage]);
 
   const resolveStatusLabel = (status: string) =>
     tOperationsUsers(

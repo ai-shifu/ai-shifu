@@ -11,7 +11,7 @@ Operators already have a course management surface under `Admin -> Operations`. 
 - Expose a backend operator-only list API for user records.
 - Support the following search filters:
   - user ID
-  - mobile
+  - identifier (mobile, email, or user ID keyword depending on site mode)
   - nickname
   - user status
   - user role
@@ -23,7 +23,6 @@ Operators already have a course management surface under `Admin -> Operations`. 
   - user status
   - user role
   - login methods
-  - language
   - learning courses
   - created courses
   - created time
@@ -62,10 +61,10 @@ Primary source tables:
   - sort by `created_at desc`, then `id desc`
 - Filter behavior:
   - `user_bid`: exact match
-  - `mobile`: partial match against resolved mobile identifier
+  - `identifier`: partial match against resolved phone/email/user ID fields
   - `nickname`: partial match
   - `user_status`: exact match on canonical state value
-  - `user_role`: one of `regular`, `creator`, `operator`
+  - `user_role`: one of `regular`, `creator`, `learner`, `operator`
   - `start_time` / `end_time`: created time range
 - Response item should contain raw, UI-friendly values rather than already translated labels so the frontend can own display copy.
 
@@ -90,6 +89,7 @@ To keep the page simple and the column singular, display one resolved role label
 
 - `operator` when `is_operator = 1`
 - else `creator` when `is_creator = 1`
+- else `learner` when the user has learning, purchase, or permission records
 - else `regular`
 
 Filter semantics follow the same resolved role rules.

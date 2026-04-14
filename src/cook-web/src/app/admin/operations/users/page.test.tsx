@@ -286,11 +286,20 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByText('module.operationsUser.registrationSourceLabels.google'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'user-1@example.com' }),
-    ).toHaveAttribute('href', '/admin/operations/users/user-1');
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'user-1@example.com' })).toHaveAttribute(
+      'href',
+      '/admin/operations/users/user-1',
+    );
   });
 
   test('submits search filters', async () => {
@@ -346,7 +355,11 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
 
     expect(
       screen.getByText(
