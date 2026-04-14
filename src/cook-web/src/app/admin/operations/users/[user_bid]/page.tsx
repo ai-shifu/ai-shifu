@@ -238,6 +238,7 @@ export default function AdminOperationUserDetailPage() {
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
 
@@ -327,12 +328,10 @@ export default function AdminOperationUserDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [isReady, t, userBid, userBidState.errorMessage]);
+  }, [isReady, retryNonce, t, userBid, userBidState.errorMessage]);
 
   const resolveStatusLabel = (status: string) =>
-    tOperationsUsers(
-      `statusLabels.${status === 'trial' ? 'registered' : status || 'unknown'}`,
-    );
+    tOperationsUsers(`statusLabels.${status || 'unknown'}`);
   const resolveRoleLabel = (role: string) =>
     tOperationsUsers(`roleLabels.${role || 'unknown'}`);
   const resolveRegistrationSourceLabel = (source: string) =>
@@ -365,7 +364,7 @@ export default function AdminOperationUserDetailPage() {
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
-          onRetry={() => router.refresh()}
+          onRetry={() => setRetryNonce(value => value + 1)}
         />
       </div>
     );

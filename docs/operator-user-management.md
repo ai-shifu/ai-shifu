@@ -9,6 +9,7 @@ Operators already have a course management surface under `Admin -> Operations`. 
 - Add `User Management` under the existing `Operations` submenu.
 - Keep the page layout and interaction style aligned with the existing operator course management page.
 - Expose a backend operator-only list API for user records.
+- Expose a backend operator-only detail API for a single user record.
 - Support the following search filters:
   - user ID
   - identifier (mobile, email, or user ID keyword depending on site mode)
@@ -23,10 +24,19 @@ Operators already have a course management surface under `Admin -> Operations`. 
   - user status
   - user role
   - login methods
+  - registration source
+  - total paid amount
+  - last login time
+  - last learning time
   - learning courses
   - created courses
   - created time
   - updated time
+- Provide a separate user detail page with:
+  - basic info
+  - overview metrics
+  - learning course list
+  - created course list
 
 ## Data Model Notes
 
@@ -54,6 +64,8 @@ Primary source tables:
 - Keep operator admin endpoints grouped under the existing `/api/shifu/admin/operations/...` namespace for consistency with course management.
 - Add a new list endpoint:
   - `GET /api/shifu/admin/operations/users`
+- Add a new detail endpoint:
+  - `GET /api/shifu/admin/operations/users/{user_bid}/detail`
 - Implement the query in `src/api/flaskr/service/shifu/admin.py` to reuse the existing operator permission guard style.
 - Default behavior:
   - only include `deleted = 0` users
@@ -71,6 +83,7 @@ Primary source tables:
 ## Frontend Plan
 
 - Add a new route: `src/cook-web/src/app/admin/operations/users/page.tsx`
+- Add a user detail route: `src/cook-web/src/app/admin/operations/users/[user_bid]/page.tsx`
 - Add a small adjacent type file for payload shapes.
 - Reuse the same page composition patterns as the operator course page:
   - search card
@@ -108,8 +121,10 @@ Filter semantics follow the same resolved role rules.
   - focused pytest for operator user listing query and route permission/filter behavior
 - Frontend:
   - focused page test for list rendering, filters, and operator redirect
+  - focused detail page test for user detail rendering and course list interactions
   - existing admin menu/layout test update for the new submenu entry
 - Broad checks after implementation:
+  - `cd src/api && pytest -q`
   - `cd src/api && pytest tests/service/shifu/test_admin_users.py -q`
   - `cd src/cook-web && npm run test -- src/app/admin/operations/users/page.test.tsx src/app/admin/layout.test.tsx`
   - `cd src/cook-web && npm run type-check && npm run lint`

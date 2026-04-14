@@ -19,6 +19,7 @@ from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin import get_operator_user_detail, list_operator_users
 from flaskr.service.shifu.admin_dtos import AdminOperationUserSummaryDTO
 from flaskr.service.shifu.models import (
+    AiCourseAuth,
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
@@ -54,6 +55,7 @@ def _mock_bcrypt_module(monkeypatch):
 def _isolate_tables(app):
     with app.app_context():
         db.session.query(LearnProgressRecord).delete()
+        db.session.query(AiCourseAuth).delete()
         db.session.query(PublishedOutlineItem).delete()
         db.session.query(UserToken).delete()
         db.session.query(Order).delete()
@@ -66,6 +68,7 @@ def _isolate_tables(app):
     yield
     with app.app_context():
         db.session.query(LearnProgressRecord).delete()
+        db.session.query(AiCourseAuth).delete()
         db.session.query(PublishedOutlineItem).delete()
         db.session.query(UserToken).delete()
         db.session.query(Order).delete()
@@ -226,6 +229,28 @@ def _seed_learn_progress(
     db.session.commit()
     db.session.remove()
     return progress_record
+
+
+def _seed_course_auth(
+    *,
+    course_id: str,
+    user_id: str,
+    created_at: datetime,
+    status: int = 1,
+):
+    course_auth = AiCourseAuth(
+        course_auth_id=f"course-auth-{user_id}-{course_id}",
+        course_id=course_id,
+        user_id=user_id,
+        auth_type="[1]",
+        status=status,
+    )
+    course_auth.created_at = created_at
+    course_auth.updated_at = created_at
+    db.session.add(course_auth)
+    db.session.commit()
+    db.session.remove()
+    return course_auth
 
 
 def _seed_user_token(*, user_bid: str, token: str, created_at: datetime):
@@ -645,6 +670,176 @@ def test_get_operator_user_detail_returns_learning_progress_for_learning_courses
     assert item.learning_courses[0].course_name == "Learning Progress Course"
     assert item.learning_courses[0].completed_lesson_count == 1
     assert item.learning_courses[0].total_lesson_count == 2
+
+
+def test_get_operator_user_detail_uses_latest_progress_state_for_completion(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="learner-latest-status-user",
+            identify="13800004444",
+            nickname="Learner Latest Status",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("phone", "13800004444")],
+        )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="latest-status-course",
+            title="Latest Status Course",
+            creator_user_bid="creator-user",
+            created_at=datetime(2026, 4, 9, 11, 0, 0),
+            updated_at=datetime(2026, 4, 9, 11, 30, 0),
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-status-course",
+            outline_item_bid="latest-status-chapter",
+            title="Chapter",
+            parent_bid="",
+            position="1",
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-status-course",
+            outline_item_bid="latest-status-lesson",
+            title="Lesson",
+            parent_bid="latest-status-chapter",
+            position="1.1",
+        )
+        _seed_success_order(
+            order_bid="order-latest-status",
+            shifu_bid="latest-status-course",
+            user_bid="learner-latest-status-user",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="latest-status-course",
+            outline_item_bid="latest-status-lesson",
+            user_bid="learner-latest-status-user",
+            status=LEARN_STATUS_COMPLETED,
+            created_at=datetime(2026, 4, 10, 9, 30, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="latest-status-course",
+            outline_item_bid="latest-status-lesson",
+            user_bid="learner-latest-status-user",
+            status=0,
+            created_at=datetime(2026, 4, 10, 10, 0, 0),
+        )
+
+        item = get_operator_user_detail(app, "learner-latest-status-user")
+
+    assert item.learning_courses[0].completed_lesson_count == 0
+    assert item.learning_courses[0].total_lesson_count == 1
+
+
+def test_get_operator_user_detail_uses_latest_outline_snapshot_for_total_lessons(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="learner-latest-outline-user",
+            identify="13800005555",
+            nickname="Learner Latest Outline",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("phone", "13800005555")],
+        )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="latest-outline-course",
+            title="Latest Outline Course",
+            creator_user_bid="creator-user",
+            created_at=datetime(2026, 4, 9, 11, 0, 0),
+            updated_at=datetime(2026, 4, 9, 11, 30, 0),
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-outline-course",
+            outline_item_bid="latest-outline-chapter",
+            title="Chapter",
+            parent_bid="",
+            position="1",
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-outline-course",
+            outline_item_bid="latest-outline-lesson",
+            title="Lesson",
+            parent_bid="latest-outline-chapter",
+            position="1.1",
+            hidden=0,
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-outline-course",
+            outline_item_bid="latest-outline-lesson",
+            title="Lesson",
+            parent_bid="latest-outline-chapter",
+            position="1.1",
+            hidden=1,
+        )
+        _seed_published_outline_item(
+            shifu_bid="latest-outline-course",
+            outline_item_bid="latest-outline-lesson-2",
+            title="Lesson 2",
+            parent_bid="latest-outline-chapter",
+            position="1.2",
+            hidden=0,
+        )
+        _seed_success_order(
+            order_bid="order-latest-outline",
+            shifu_bid="latest-outline-course",
+            user_bid="learner-latest-outline-user",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+        )
+
+        item = get_operator_user_detail(app, "learner-latest-outline-user")
+
+    assert item.learning_courses[0].total_lesson_count == 1
+
+
+def test_list_operator_users_includes_shared_course_learners_in_learning_courses(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="shared-learner-user",
+            identify="shared@example.com",
+            nickname="Shared Learner",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 12, 9, 0, 0),
+            updated_at=datetime(2026, 4, 12, 10, 0, 0),
+            providers=[("email", "shared@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="shared-creator-user",
+            identify="creator@example.com",
+            nickname="Shared Creator",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            created_at=datetime(2026, 4, 11, 9, 0, 0),
+            updated_at=datetime(2026, 4, 11, 10, 0, 0),
+            providers=[("email", "creator@example.com")],
+        )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="shared-course",
+            title="Shared Course",
+            creator_user_bid="shared-creator-user",
+            created_at=datetime(2026, 4, 11, 11, 0, 0),
+            updated_at=datetime(2026, 4, 11, 11, 30, 0),
+        )
+        _seed_course_auth(
+            course_id="shared-course",
+            user_id="shared-learner-user",
+            created_at=datetime(2026, 4, 12, 11, 0, 0),
+        )
+
+        result = list_operator_users(app, 1, 20, {"user_role": "learner"})
+
+    assert [item.user_bid for item in result.data] == ["shared-learner-user"]
+    assert result.data[0].user_role == "learner"
+    assert [course.course_name for course in result.data[0].learning_courses] == [
+        "Shared Course"
+    ]
 
 
 def test_admin_operation_users_route_requires_operator(test_client, monkeypatch):

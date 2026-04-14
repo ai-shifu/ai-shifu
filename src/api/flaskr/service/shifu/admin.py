@@ -92,16 +92,12 @@ OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
 USER_STATE_TO_OPERATOR_STATUS = {
     USER_STATE_UNREGISTERED: OPERATOR_USER_STATUS_UNREGISTERED,
     USER_STATE_REGISTERED: OPERATOR_USER_STATUS_REGISTERED,
-    USER_STATE_TRAIL: OPERATOR_USER_STATUS_TRIAL,
+    USER_STATE_TRAIL: OPERATOR_USER_STATUS_REGISTERED,
     USER_STATE_PAID: OPERATOR_USER_STATUS_PAID,
-    1101: OPERATOR_USER_STATUS_UNREGISTERED,
-    1102: OPERATOR_USER_STATUS_REGISTERED,
-    1103: OPERATOR_USER_STATUS_TRIAL,
-    1104: OPERATOR_USER_STATUS_PAID,
-    "1101": OPERATOR_USER_STATUS_UNREGISTERED,
-    "1102": OPERATOR_USER_STATUS_REGISTERED,
-    "1103": OPERATOR_USER_STATUS_TRIAL,
-    "1104": OPERATOR_USER_STATUS_PAID,
+    str(USER_STATE_UNREGISTERED): OPERATOR_USER_STATUS_UNREGISTERED,
+    str(USER_STATE_REGISTERED): OPERATOR_USER_STATUS_REGISTERED,
+    str(USER_STATE_TRAIL): OPERATOR_USER_STATUS_REGISTERED,
+    str(USER_STATE_PAID): OPERATOR_USER_STATUS_PAID,
 }
 
 
@@ -1050,6 +1046,15 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
     if not normalized_shifu_bids:
         return {}
 
+    latest_outline_subquery = (
+        db.session.query(db.func.max(PublishedOutlineItem.id).label("max_id"))
+        .filter(PublishedOutlineItem.shifu_bid.in_(normalized_shifu_bids))
+        .group_by(
+            PublishedOutlineItem.shifu_bid,
+            PublishedOutlineItem.outline_item_bid,
+        )
+        .subquery()
+    )
     outline_rows = (
         db.session.query(
             PublishedOutlineItem.shifu_bid,
@@ -1057,7 +1062,9 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
             PublishedOutlineItem.parent_bid,
         )
         .filter(
-            PublishedOutlineItem.shifu_bid.in_(normalized_shifu_bids),
+            PublishedOutlineItem.id.in_(
+                db.session.query(latest_outline_subquery.c.max_id)
+            ),
             PublishedOutlineItem.deleted == 0,
             PublishedOutlineItem.hidden == 0,
         )
@@ -1091,15 +1098,9 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
 
 
 def _is_completed_leaf_progress_statuses(record_statuses: Sequence[int]) -> bool:
-    normalized_statuses = [int(status or 0) for status in record_statuses]
-    has_completed_record = any(
-        record_status == LEARN_STATUS_COMPLETED for record_status in normalized_statuses
-    )
-    has_reset_with_follow_up_record = any(
-        record_status == LEARN_STATUS_RESET
-        for record_status in normalized_statuses[:-1]
-    )
-    return has_completed_record or has_reset_with_follow_up_record
+    if not record_statuses:
+        return False
+    return int(record_statuses[-1] or 0) == LEARN_STATUS_COMPLETED
 
 
 def _load_learning_progress_counts_by_user_and_course(
@@ -1256,18 +1257,56 @@ def _load_operator_user_course_maps(
             _build_operator_user_course_summary(course, created_published_bids)
         )
 
-    learned_rows = (
+    learned_activity_subquery = (
         db.session.query(
             Order.user_bid.label("user_bid"),
             Order.shifu_bid.label("shifu_bid"),
-            db.func.max(Order.created_at).label("last_order_at"),
+            Order.created_at.label("activity_at"),
         )
         .filter(
             Order.deleted == 0,
             Order.status == ORDER_STATUS_SUCCESS,
             Order.user_bid.in_(normalized_user_bids),
+            Order.shifu_bid != "",
         )
-        .group_by(Order.user_bid, Order.shifu_bid)
+        .union_all(
+            db.session.query(
+                LearnProgressRecord.user_bid.label("user_bid"),
+                LearnProgressRecord.shifu_bid.label("shifu_bid"),
+                LearnProgressRecord.updated_at.label("activity_at"),
+            ).filter(
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.user_bid.in_(normalized_user_bids),
+                LearnProgressRecord.shifu_bid != "",
+            ),
+            db.session.query(
+                AiCourseAuth.user_id.label("user_bid"),
+                AiCourseAuth.course_id.label("shifu_bid"),
+                db.func.coalesce(
+                    AiCourseAuth.updated_at,
+                    AiCourseAuth.created_at,
+                ).label("activity_at"),
+            ).filter(
+                AiCourseAuth.status == 1,
+                AiCourseAuth.user_id.in_(normalized_user_bids),
+                AiCourseAuth.course_id != "",
+            ),
+        )
+        .subquery()
+    )
+    learned_rows = (
+        db.session.query(
+            learned_activity_subquery.c.user_bid.label("user_bid"),
+            learned_activity_subquery.c.shifu_bid.label("shifu_bid"),
+            db.func.max(learned_activity_subquery.c.activity_at).label(
+                "last_activity_at"
+            ),
+        )
+        .group_by(
+            learned_activity_subquery.c.user_bid,
+            learned_activity_subquery.c.shifu_bid,
+        )
         .all()
     )
     learned_shifu_bids = sorted(
@@ -1296,7 +1335,7 @@ def _load_operator_user_course_maps(
     sorted_learned_rows = sorted(
         learned_rows,
         key=lambda row: (
-            row.last_order_at or datetime.min,
+            row.last_activity_at or datetime.min,
             str(row.shifu_bid or "").strip(),
         ),
         reverse=True,
@@ -1746,7 +1785,9 @@ def list_operator_users(
             if user_status == OPERATOR_USER_STATUS_UNREGISTERED:
                 query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
             elif user_status == OPERATOR_USER_STATUS_REGISTERED:
-                query = query.filter(UserEntity.state == USER_STATE_REGISTERED)
+                query = query.filter(
+                    UserEntity.state.in_([USER_STATE_REGISTERED, USER_STATE_TRAIL])
+                )
             elif user_status == OPERATOR_USER_STATUS_TRIAL:
                 query = query.filter(UserEntity.state == USER_STATE_TRAIL)
             elif user_status == OPERATOR_USER_STATUS_PAID:

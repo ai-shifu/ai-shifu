@@ -175,6 +175,22 @@ describe('SidebarContent', () => {
     expect(operationsButton).toHaveAttribute('aria-expanded', 'false');
     expect(findOperationsCourseLink()).toBeNull();
   });
+
+  test('does not render operations submenu items for non-operators', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        menuItems={buildAdminMenuItems({ t, isOperator: false })}
+        activePath='/admin'
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'common.core.operations' }),
+    ).toBeNull();
+    expect(findOperationsCourseLink()).toBeNull();
+    expect(findOperationsUserLink()).toBeNull();
+  });
 });
 
 describe('AdminLayout', () => {
