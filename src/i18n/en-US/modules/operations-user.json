@@ -1,0 +1,80 @@
+{
+  "__namespace__": "module.operationsUser",
+  "title": "User Management",
+  "emptyList": "No users",
+  "filters": {
+    "userId": "User ID",
+    "mobile": "Mobile",
+    "email": "Email",
+    "nickname": "Nickname",
+    "status": "Status",
+    "role": "Role",
+    "createdAt": "Created At"
+  },
+  "table": {
+    "userId": "User ID",
+    "mobile": "Mobile",
+    "email": "Email",
+    "nickname": "Nickname",
+    "status": "Status",
+    "role": "Role",
+    "loginMethods": "Login Methods",
+    "registrationSource": "Registration Source",
+    "learningCourses": "Learning Courses",
+    "createdCourses": "Created Courses",
+    "totalPaidAmount": "Total Paid",
+    "lastLoginAt": "Last Login",
+    "lastLearningAt": "Last Learning",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At"
+  },
+  "courseSummary": {
+    "empty": "--",
+    "dialog": {
+      "learningTitle": "Learning Courses",
+      "createdTitle": "Created Courses",
+      "description": "User: {user}",
+      "courseName": "Course Name",
+      "courseId": "Course ID",
+      "status": "Status"
+    }
+  },
+  "detail": {
+    "title": "User Detail",
+    "back": "Back",
+    "basicInfo": "Basic Information",
+    "overview": "Overview",
+    "learningCourses": "Learning Courses",
+    "learningProgress": "Progress",
+    "createdCourses": "Created Courses",
+    "emptyCourses": "No courses"
+  },
+  "statusLabels": {
+    "unregistered": "Unregistered",
+    "registered": "Registered",
+    "paid": "Paid",
+    "unknown": "Unknown"
+  },
+  "roleLabels": {
+    "regular": "Regular",
+    "creator": "Creator",
+    "operator": "Operator",
+    "learner": "Learner",
+    "unknown": "Unknown"
+  },
+  "loginMethodLabels": {
+    "phone": "Mobile",
+    "email": "Email",
+    "google": "Google",
+    "wechat": "WeChat",
+    "unknown": "Unknown"
+  },
+  "registrationSourceLabels": {
+    "phone": "Mobile",
+    "email": "Email",
+    "google": "Google",
+    "wechat": "WeChat",
+    "imported": "Imported",
+    "unknown": "Unknown"
+  }
+}

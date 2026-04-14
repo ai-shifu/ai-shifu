@@ -1,0 +1,80 @@
+{
+  "__namespace__": "module.operationsUser",
+  "title": "用户管理",
+  "emptyList": "暂无用户",
+  "filters": {
+    "userId": "用户ID",
+    "mobile": "手机号",
+    "email": "邮箱",
+    "nickname": "昵称",
+    "status": "用户状态",
+    "role": "用户身份",
+    "createdAt": "创建时间"
+  },
+  "table": {
+    "userId": "用户ID",
+    "mobile": "手机号",
+    "email": "邮箱",
+    "nickname": "昵称",
+    "status": "用户状态",
+    "role": "用户身份",
+    "loginMethods": "登录方式",
+    "registrationSource": "注册来源",
+    "learningCourses": "学习课程",
+    "createdCourses": "创作课程",
+    "totalPaidAmount": "累计付费金额",
+    "lastLoginAt": "最近登录时间",
+    "lastLearningAt": "最近学习时间",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间"
+  },
+  "courseSummary": {
+    "empty": "--",
+    "dialog": {
+      "learningTitle": "学习课程列表",
+      "createdTitle": "创作课程列表",
+      "description": "用户：{user}",
+      "courseName": "课程名",
+      "courseId": "课程ID",
+      "status": "状态"
+    }
+  },
+  "detail": {
+    "title": "用户详情",
+    "back": "返回",
+    "basicInfo": "基础信息",
+    "overview": "数据概览",
+    "learningCourses": "学习课程",
+    "learningProgress": "学习进度",
+    "createdCourses": "创作课程",
+    "emptyCourses": "暂无课程"
+  },
+  "statusLabels": {
+    "unregistered": "未注册",
+    "registered": "已注册",
+    "paid": "付费",
+    "unknown": "未知"
+  },
+  "roleLabels": {
+    "regular": "普通用户",
+    "creator": "创作者",
+    "operator": "运营",
+    "learner": "学员",
+    "unknown": "未知"
+  },
+  "loginMethodLabels": {
+    "phone": "手机号",
+    "email": "邮箱",
+    "google": "Google",
+    "wechat": "微信",
+    "unknown": "未知"
+  },
+  "registrationSourceLabels": {
+    "phone": "手机号",
+    "email": "邮箱",
+    "google": "Google",
+    "wechat": "微信",
+    "imported": "导入创建",
+    "unknown": "未知"
+  }
+}
