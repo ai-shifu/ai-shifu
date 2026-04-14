@@ -85,4 +85,46 @@ describe('courseVisitTracking', () => {
 
     expect(trackEvent).not.toHaveBeenCalled();
   });
+
+  test('does not mark the session when tracking fails', async () => {
+    const trackEvent = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('track failed'))
+      .mockResolvedValueOnce(undefined);
+    const storage = (() => {
+      const map = new Map<string, string>();
+      return {
+        getItem: (key: string) => map.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          map.set(key, value);
+        },
+      };
+    })();
+
+    await expect(
+      trackCourseVisitIfNeeded({
+        initialized: true,
+        isLoggedIn: true,
+        previewMode: false,
+        shifuBid: 'course-1',
+        entryType: 'catalog',
+        storage,
+        trackEvent,
+      }),
+    ).resolves.toBe(false);
+
+    await expect(
+      trackCourseVisitIfNeeded({
+        initialized: true,
+        isLoggedIn: true,
+        previewMode: false,
+        shifuBid: 'course-1',
+        entryType: 'catalog',
+        storage,
+        trackEvent,
+      }),
+    ).resolves.toBe(true);
+
+    expect(trackEvent).toHaveBeenCalledTimes(2);
+  });
 });

@@ -14,11 +14,17 @@ UMAMI_ACCESS_TOKEN_CACHE_SUFFIX = "analytics:umami:access-token"
 UMAMI_COURSE_VISIT_CACHE_PREFIX = "analytics:umami:course-visits:30d"
 UMAMI_METRICS_PAGE_SIZE = 500
 COURSE_VISIT_EVENT_PREFIX = "course_visit_"
+UMAMI_FAILURE_CACHE_TTL_SECONDS = 60
 
 
 def build_course_visit_event_name(shifu_bid: str) -> str:
     normalized = "".join(
-        ch if ch.isalnum() or ch in ("_", "-") else "_"
+        ch
+        if ("0" <= ch <= "9")
+        or ("A" <= ch <= "Z")
+        or ("a" <= ch <= "z")
+        or ch in ("_", "-")
+        else "_"
         for ch in str(shifu_bid or "").strip()
     )
     if not normalized:
@@ -96,7 +102,7 @@ def _login_for_access_token(base_url: str, timeout_seconds: int) -> str:
         return cached
 
     lock = cache.lock(f"{cache_key}:lock", timeout=10, blocking_timeout=2)
-    if lock.acquire():
+    if lock.acquire(blocking=True, blocking_timeout=2):
         try:
             cached = _decode_cache_bytes(cache.get(cache_key))
             if cached:
@@ -206,7 +212,7 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
             cache.delete(cache_key)
 
     lock = cache.lock(f"{cache_key}:lock", timeout=10, blocking_timeout=2)
-    if lock.acquire():
+    if lock.acquire(blocking=True, blocking_timeout=2):
         try:
             cached = _decode_cache_bytes(cache.get(cache_key))
             if cached:
@@ -229,6 +235,7 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
                 normalized_shifu_bid,
                 exc,
             )
+            cache.setex(cache_key, UMAMI_FAILURE_CACHE_TTL_SECONDS, 0)
             return 0
         finally:
             lock.release()

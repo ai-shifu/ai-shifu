@@ -53,9 +53,6 @@ export const trackCourseVisitIfNeeded = async ({
   if (storage) {
     try {
       shouldTrack = !storage.getItem(sessionKey);
-      if (shouldTrack) {
-        storage.setItem(sessionKey, '1');
-      }
     } catch {
       shouldTrack = true;
     }
@@ -65,10 +62,23 @@ export const trackCourseVisitIfNeeded = async ({
     return false;
   }
 
-  await trackEvent(buildCourseVisitEventName(normalizedShifuBid), {
-    shifu_bid: normalizedShifuBid,
-    entry_type: entryType,
-    preview_mode: false,
-  });
+  try {
+    await trackEvent(buildCourseVisitEventName(normalizedShifuBid), {
+      shifu_bid: normalizedShifuBid,
+      entry_type: entryType,
+      preview_mode: false,
+    });
+  } catch {
+    return false;
+  }
+
+  if (storage) {
+    try {
+      storage.setItem(sessionKey, '1');
+    } catch {
+      // Ignore storage write failures after a successful emit.
+    }
+  }
+
   return true;
 };

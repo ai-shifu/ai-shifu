@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import requests
+
 from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.common import umami_client
 
@@ -110,3 +112,39 @@ def test_get_course_visit_count_30d_returns_zero_without_required_config(
 
     with app.app_context():
         assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
+
+
+def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend():
+    assert (
+        umami_client.build_course_visit_event_name("课程-1")
+        == "course_visit___-1"
+    )
+
+
+def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_SITE_ID": "site-1",
+            "ANALYTICS_UMAMI_API_KEY": "api-key",
+            "ANALYTICS_UMAMI_API_URL": "",
+            "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": 900,
+            "ANALYTICS_UMAMI_TIMEOUT_SECONDS": 10,
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+    monkeypatch.setattr(umami_client, "cache", InMemoryCacheProvider())
+
+    request_count = {"value": 0}
+
+    def _fake_get(url, params=None, headers=None, timeout=None):
+        request_count["value"] += 1
+        raise requests.RequestException("umami unavailable")
+
+    monkeypatch.setattr(umami_client.requests, "get", _fake_get)
+
+    with app.app_context():
+        assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
+        assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
+
+    assert request_count["value"] == 1
