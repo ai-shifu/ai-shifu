@@ -161,7 +161,9 @@ def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
     )
     cache_provider = InMemoryCacheProvider()
     monkeypatch.setattr(umami_client, "cache", cache_provider)
-    cache_provider.setex("test:analytics:umami:course-visits:30d:course_visit___-1", 60, 9)
+    cache_provider.setex(
+        "test:analytics:umami:course-visits:30d:course_visit___-1", 60, 9
+    )
 
     with app.app_context():
         assert umami_client.get_course_visit_count_30d(app, "课程-1") == 9

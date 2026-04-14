@@ -179,11 +179,13 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    const visitorsMetricCard = screen
-      .getByText('module.operationsCourse.detail.metricsLabels.visitCount30d')
-      .parentElement;
+    const visitorsMetricCard = screen.getByText(
+      'module.operationsCourse.detail.metricsLabels.visitCount30d',
+    ).parentElement;
     expect(visitorsMetricCard).not.toBeNull();
-    expect(within(visitorsMetricCard as HTMLElement).getByText('34')).toBeInTheDocument();
+    expect(
+      within(visitorsMetricCard as HTMLElement).getByText('34'),
+    ).toBeInTheDocument();
     expect(screen.getByText('¥88')).toBeInTheDocument();
     expect(screen.getByText('4.2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
