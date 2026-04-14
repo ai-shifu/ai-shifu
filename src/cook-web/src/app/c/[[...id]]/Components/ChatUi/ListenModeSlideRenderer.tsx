@@ -22,6 +22,7 @@ import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
+  resolveListenSlideSubtitleCues,
 } from './listenModeUtils';
 import {
   buildListenMarkerSequenceKey,
@@ -33,6 +34,7 @@ import {
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import type { SubtitleCueData } from '@/c-api/studyV2';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -45,6 +47,7 @@ type ListenSlideElement = SlideElement & {
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
+  subtitle_cues?: SubtitleCueData[];
 };
 
 interface ListenModeSlideRendererProps {
@@ -282,6 +285,7 @@ const buildSlideElementList = ({
       const { audioSegments, audioUrl, isAudioStreaming } =
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
+      const subtitleCues = resolveListenSlideSubtitleCues(item);
       const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
@@ -307,6 +311,7 @@ const buildSlideElementList = ({
         is_audio_streaming: isAudioStreaming,
         isAudioStreaming,
         audio_segments: audioSegments,
+        subtitle_cues: subtitleCues,
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -1283,7 +1288,7 @@ const ListenModeSlideRenderer = ({
     </button>
   ) : null;
 
-  // console.log('elementlist', elementList);
+  console.log('elementlist', elementList);
 
   const desktopAskOverlay =
     playerCustomActionState.isActive &&
