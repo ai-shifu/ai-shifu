@@ -148,3 +148,61 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
         assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
 
     assert request_count["value"] == 1
+
+
+def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_SITE_ID": "site-1",
+            "ANALYTICS_UMAMI_API_KEY": "api-key",
+            "ANALYTICS_UMAMI_API_URL": "",
+            "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": 900,
+            "ANALYTICS_UMAMI_TIMEOUT_SECONDS": 10,
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+    cache_provider = InMemoryCacheProvider()
+    monkeypatch.setattr(umami_client, "cache", cache_provider)
+    cache_provider.setex("test:analytics:umami:course-visits:30d:course_visit___-1", 60, 9)
+
+    with app.app_context():
+        assert umami_client.get_course_visit_count_30d(app, "课程-1") == 9
+
+
+def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_API_USERNAME": "user",
+            "ANALYTICS_UMAMI_API_PASSWORD": "pass",
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+
+    class BusyLock:
+        def acquire(self, blocking=True, blocking_timeout=None):
+            return False
+
+        def release(self):
+            return None
+
+    cache_provider = InMemoryCacheProvider()
+    cache_provider.setex("test:analytics:umami:access-token", 60, "fresh-token")
+
+    class CacheWrapper:
+        def get(self, key):
+            return cache_provider.get(key)
+
+        def setex(self, key, ttl, value):
+            return cache_provider.setex(key, ttl, value)
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return BusyLock()
+
+    monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+
+    assert (
+        umami_client._login_for_access_token("https://api.umami.is/v1", 10)
+        == "fresh-token"
+    )

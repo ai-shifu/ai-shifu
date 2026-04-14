@@ -90,6 +90,17 @@ def _get_access_token_cache_key() -> str:
     return f"{_get_cache_prefix()}{UMAMI_ACCESS_TOKEN_CACHE_SUFFIX}"
 
 
+def _read_cached_int(cache_key: str) -> int | None:
+    cached = _decode_cache_bytes(cache.get(cache_key))
+    if not cached:
+        return None
+    try:
+        return max(0, int(cached))
+    except ValueError:
+        cache.delete(cache_key)
+        return None
+
+
 def _login_for_access_token(base_url: str, timeout_seconds: int) -> str:
     username = str(get_config("ANALYTICS_UMAMI_API_USERNAME") or "").strip()
     password = str(get_config("ANALYTICS_UMAMI_API_PASSWORD") or "").strip()
@@ -127,7 +138,7 @@ def _login_for_access_token(base_url: str, timeout_seconds: int) -> str:
         finally:
             lock.release()
 
-    return ""
+    return _decode_cache_bytes(cache.get(cache_key))
 
 
 def _build_umami_headers(base_url: str, timeout_seconds: int) -> dict[str, str]:
@@ -201,30 +212,23 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
     if not website_id or not base_url:
         return 0
 
-    cache_key = (
-        f"{_get_cache_prefix()}{UMAMI_COURSE_VISIT_CACHE_PREFIX}:{normalized_shifu_bid}"
-    )
-    cached = _decode_cache_bytes(cache.get(cache_key))
-    if cached:
-        try:
-            return max(0, int(cached))
-        except ValueError:
-            cache.delete(cache_key)
+    event_name = build_course_visit_event_name(normalized_shifu_bid)
+    cache_key = f"{_get_cache_prefix()}{UMAMI_COURSE_VISIT_CACHE_PREFIX}:{event_name}"
+    cached_value = _read_cached_int(cache_key)
+    if cached_value is not None:
+        return cached_value
 
     lock = cache.lock(f"{cache_key}:lock", timeout=10, blocking_timeout=2)
     if lock.acquire(blocking=True, blocking_timeout=2):
         try:
-            cached = _decode_cache_bytes(cache.get(cache_key))
-            if cached:
-                try:
-                    return max(0, int(cached))
-                except ValueError:
-                    cache.delete(cache_key)
+            cached_value = _read_cached_int(cache_key)
+            if cached_value is not None:
+                return cached_value
 
             visit_count = _fetch_distinct_ids_for_event(
                 base_url=base_url,
                 website_id=website_id,
-                event_name=build_course_visit_event_name(normalized_shifu_bid),
+                event_name=event_name,
                 timeout_seconds=_get_request_timeout_seconds(),
             )
             cache.setex(cache_key, _get_course_visit_cache_ttl_seconds(), visit_count)
@@ -240,10 +244,7 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
         finally:
             lock.release()
 
-    cached = _decode_cache_bytes(cache.get(cache_key))
-    if cached:
-        try:
-            return max(0, int(cached))
-        except ValueError:
-            cache.delete(cache_key)
+    cached_value = _read_cached_int(cache_key)
+    if cached_value is not None:
+        return cached_value
     return 0

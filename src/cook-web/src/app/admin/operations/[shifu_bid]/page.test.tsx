@@ -1,6 +1,12 @@
 import React from 'react';
 import { within } from '@testing-library/dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import AdminOperationCourseDetailPage from './page';
 
 const mockReplace = jest.fn();
@@ -173,7 +179,11 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    expect(screen.getByText('34')).toBeInTheDocument();
+    const visitorsMetricCard = screen
+      .getByText('module.operationsCourse.detail.metricsLabels.visitCount30d')
+      .parentElement;
+    expect(visitorsMetricCard).not.toBeNull();
+    expect(within(visitorsMetricCard as HTMLElement).getByText('34')).toBeInTheDocument();
     expect(screen.getByText('¥88')).toBeInTheDocument();
     expect(screen.getByText('4.2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
