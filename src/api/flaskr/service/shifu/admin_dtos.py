@@ -112,7 +112,9 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
     """Operator-facing course metrics summary."""
 
     visit_count_30d: int = Field(
-        ..., description="Distinct logged-in course visitors in the last 30 days", required=False
+        ...,
+        description="Distinct logged-in course visitors in the last 30 days",
+        required=False,
     )
     learner_count: int = Field(
         ..., description="Distinct learner count", required=False
