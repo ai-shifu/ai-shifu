@@ -10,18 +10,29 @@ import { Button } from '@/components/ui/Button';
 
 interface DraftConflictDialogProps {
   open: boolean;
+  mode?: 'other-user' | 'same-user';
   phone?: string;
   onRefresh: () => void;
 }
 
 const DraftConflictDialog = ({
   open,
+  mode = 'other-user',
   phone,
   onRefresh,
 }: DraftConflictDialogProps) => {
   const { t } = useTranslation();
   const displayPhone =
     phone || t('module.shifuSetting.draftConflictUnknownUser');
+  const isOtherUserMode = mode === 'other-user';
+  const title = isOtherUserMode
+    ? t('module.shifuSetting.draftConflictTitle')
+    : t('module.shifuSetting.draftSelfUpdateTitle');
+  const description = isOtherUserMode
+    ? t('module.shifuSetting.draftConflictDescription', {
+        phone: displayPhone,
+      })
+    : t('module.shifuSetting.draftSelfUpdateDescription');
 
   return (
     <Dialog open={open}>
@@ -32,15 +43,9 @@ const DraftConflictDialog = ({
         onInteractOutside={event => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>
-            {t('module.shifuSetting.draftConflictTitle')}
-          </DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className='text-sm text-gray-600'>
-          {t('module.shifuSetting.draftConflictDescription', {
-            phone: displayPhone,
-          })}
-        </div>
+        <div className='text-sm text-gray-600'>{description}</div>
         <DialogFooter>
           <Button
             type='button'

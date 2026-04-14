@@ -95,8 +95,21 @@ export const LESSON_FEEDBACK_VARIABLE_NAME =
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
+export interface SubtitleCueData {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  segment_index?: number;
+  position?: number;
+}
+
+export interface StudyRecordAudioPayload {
+  subtitle_cues?: SubtitleCueData[];
+  [key: string]: unknown;
+}
+
 export interface StudyRecordPayload {
-  audio?: unknown;
+  audio?: StudyRecordAudioPayload;
   previous_visuals?: unknown[];
   user_input?: string;
   [key: string]: unknown;

@@ -1,4 +1,5 @@
 import 'markdown-flow-ui/renderer';
+import 'markdown-flow-ui/slide';
 import type { InteractionDefaultValueOptions } from 'markdown-flow-ui/renderer';
 
 export {};
@@ -15,7 +16,7 @@ declare module 'markdown-flow-ui/renderer' {
 }
 
 declare module 'markdown-flow-ui/slide' {
-  interface SlideProps {
-    interactionDefaultValueOptions?: InteractionDefaultValueOptions;
+  interface Element {
+    ask_list?: unknown[];
   }
 }

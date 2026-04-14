@@ -11,7 +11,6 @@ from flask import Flask
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
     DashboardCourseDetailDTO,
@@ -29,22 +28,13 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
+from flaskr.service.shifu.demo_courses import is_builtin_demo_course
 from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
 )
 from flaskr.util.timezone import format_with_app_timezone, serialize_with_app_timezone
-
-# Built-in demo course IDs observed in legacy environments.
-_LEGACY_DEMO_SHIFU_BIDS: Set[str] = {
-    "e867343eaab44488ad792ec54d8b82b5",  # AI 师傅教学引导
-    "b5d7844387e940ed9480a6f945a6db6a",  # AI-Shifu Creation Guide
-}
-_BUILTIN_DEMO_TITLES: Set[str] = {
-    "AI 师傅教学引导",
-    "AI-Shifu Creation Guide",
-}
 
 
 @dataclass(frozen=True)
@@ -80,15 +70,6 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
-def _load_demo_shifu_bids() -> Set[str]:
-    demo_bids: Set[str] = set(_LEGACY_DEMO_SHIFU_BIDS)
-    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
-        bid = str(get_dynamic_config(key, "") or "").strip()
-        if bid:
-            demo_bids.add(bid)
-    return demo_bids
-
-
 def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseMeta]:
     owned_rows = (
         db.session.query(PublishedShifu.shifu_bid)
@@ -100,7 +81,15 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
         .all()
     )
     owned_bids = {str(row[0]).strip() for row in owned_rows if str(row[0]).strip()}
-    all_bids = owned_bids.difference(_load_demo_shifu_bids())
+    all_bids = {
+        bid
+        for bid in owned_bids
+        if not is_builtin_demo_course(
+            shifu_bid=bid,
+            title="",
+            created_user_bid="",
+        )
+    }
     if not all_bids:
         return {}
 
@@ -118,7 +107,6 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
         .filter(PublishedShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
         .all()
     )
-    demo_bids = _load_demo_shifu_bids()
     course_map: Dict[str, _DashboardCourseMeta] = {}
     for row in published_rows:
         shifu_bid = str(row.shifu_bid or "").strip()
@@ -126,10 +114,11 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
             continue
         title = str(row.title or "").strip()
         created_user_bid = str(row.created_user_bid or "").strip()
-        is_builtin_demo = shifu_bid in demo_bids or (
-            created_user_bid == "system" and title in _BUILTIN_DEMO_TITLES
-        )
-        if is_builtin_demo:
+        if is_builtin_demo_course(
+            shifu_bid=shifu_bid,
+            title=title,
+            created_user_bid=created_user_bid,
+        ):
             continue
         course_map[shifu_bid] = _DashboardCourseMeta(
             shifu_bid=shifu_bid,

@@ -1,4 +1,5 @@
 import type { ChatContentItem } from './useChatLogicHook';
+import type { SubtitleCueData } from '@/c-api/studyV2';
 import {
   getAudioSegmentDataListFromTracks,
   hasAudioContentInTrack,
@@ -20,6 +21,76 @@ export const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
   [...segments].sort(
     (a, b) => Number(a.segmentIndex ?? 0) - Number(b.segmentIndex ?? 0),
   );
+
+const normalizeSubtitleCueNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return null;
+};
+
+const sortSubtitleCues = (cues: SubtitleCueData[]) =>
+  [...cues].sort(
+    (prevCue, nextCue) =>
+      Number(prevCue.position ?? 0) - Number(nextCue.position ?? 0) ||
+      Number(prevCue.start_ms ?? 0) - Number(nextCue.start_ms ?? 0) ||
+      Number(prevCue.end_ms ?? 0) - Number(nextCue.end_ms ?? 0) ||
+      Number(prevCue.segment_index ?? 0) - Number(nextCue.segment_index ?? 0),
+  );
+
+export const resolveListenSlideSubtitleCues = (
+  item: Pick<ChatContentItem, 'payload'>,
+): SubtitleCueData[] | undefined => {
+  const rawSubtitleCues = item.payload?.audio?.subtitle_cues as unknown;
+
+  if (!Array.isArray(rawSubtitleCues)) {
+    return undefined;
+  }
+
+  const normalizedSubtitleCues = rawSubtitleCues.reduce<SubtitleCueData[]>(
+    (result, cue) => {
+      if (!cue || typeof cue !== 'object') {
+        return result;
+      }
+
+      const rawCue = cue as Record<string, unknown>;
+      const text =
+        typeof rawCue.text === 'string' ? rawCue.text : undefined;
+      const startMs = normalizeSubtitleCueNumber(rawCue.start_ms);
+      const endMs = normalizeSubtitleCueNumber(rawCue.end_ms);
+
+      if (!text || startMs === null || endMs === null) {
+        return result;
+      }
+
+      const segmentIndex = normalizeSubtitleCueNumber(rawCue.segment_index);
+      const position = normalizeSubtitleCueNumber(rawCue.position);
+
+      result.push({
+        text,
+        start_ms: startMs,
+        end_ms: endMs,
+        ...(segmentIndex === null ? {} : { segment_index: segmentIndex }),
+        ...(position === null ? {} : { position }),
+      });
+
+      return result;
+    },
+    [],
+  );
+
+  return normalizedSubtitleCues.length > 0
+    ? sortSubtitleCues(normalizedSubtitleCues)
+    : undefined;
+};
 
 export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   const trackByPosition = new Map<number, AudioTrack>();

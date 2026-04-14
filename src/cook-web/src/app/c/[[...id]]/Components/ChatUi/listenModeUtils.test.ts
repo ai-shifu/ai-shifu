@@ -1,10 +1,16 @@
-import type { ChatContentItem } from './useChatLogicHook';
 import {
   canRequestListenModeTtsForItem,
-  resolveListenSlideElementType,
-  resolveListenSlideAudioSource,
+  resolveListenSlideSubtitleCues,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
+
+type ChatContentItem = NonNullable<
+  Parameters<typeof canRequestListenModeTtsForItem>[0]
+>;
+
+const ChatContentItemType = {
+  LIKE_STATUS: 'likeStatus',
+} as const;
 
 const createContentItem = (
   overrides: Partial<ChatContentItem> = {},
@@ -21,7 +27,7 @@ const createLikeStatusItem = (
 ): ChatContentItem => ({
   element_bid: '',
   parent_element_bid: parentElementBid,
-  type: 'likeStatus',
+  type: ChatContentItemType.LIKE_STATUS as ChatContentItem['type'],
   ...overrides,
 });
 
@@ -79,82 +85,52 @@ describe('listenModeUtils', () => {
     expect(ready.has('visual-only-block')).toBe(false);
   });
 
-  it('prefers track-backed audio source when tracks and legacy fields coexist', () => {
-    const resolved = resolveListenSlideAudioSource(
+  it('maps payload subtitle cues into normalized slide metadata', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({
-        element_bid: 'track-priority-block',
-        audio_url: 'https://legacy.example.com/audio.mp3',
-        audio_segments: [
-          {
-            segment_index: 0,
-            audio_data: 'legacy-segment',
-            duration_ms: 1000,
-            is_final: true,
-            position: 0,
-          },
-        ],
-        audioTracks: [
-          {
-            position: 0,
-            audioUrl: 'https://track.example.com/audio.mp3',
-            isAudioStreaming: false,
-            audioSegments: [
+        payload: {
+          audio: {
+            subtitle_cues: [
               {
-                segmentIndex: 0,
-                audioData: 'track-segment',
-                durationMs: 1000,
-                isFinal: true,
+                text: '第二句',
+                start_ms: 1200,
+                end_ms: 1800,
+                segment_index: 1,
                 position: 0,
+              },
+              {
+                text: '第一句',
+                start_ms: 0,
+                end_ms: 1200,
+                segment_index: 0,
+                position: 0,
+              },
+              {
+                text: '',
+                start_ms: 1800,
+                end_ms: 2400,
               },
             ],
           },
-        ],
+        },
       }),
     );
 
-    expect(resolved.audioUrl).toBe('https://track.example.com/audio.mp3');
-    expect(resolved.audioSegments?.length).toBe(1);
-    expect(resolved.audioSegments?.[0]?.audio_data).toBe('track-segment');
-  });
-
-  it('falls back to legacy audio source when tracks have no playable payload', () => {
-    const resolved = resolveListenSlideAudioSource(
-      createContentItem({
-        element_bid: 'legacy-fallback-block',
-        audio_url: 'https://legacy.example.com/audio.mp3',
-        audio_segments: [
-          {
-            segment_index: 0,
-            audio_data: 'legacy-segment',
-            duration_ms: 800,
-            is_final: true,
-            position: 0,
-          },
-        ],
-        audioTracks: [
-          {
-            position: 0,
-            isAudioStreaming: false,
-            audioSegments: [],
-          },
-        ],
-      }),
-    );
-
-    expect(resolved.audioUrl).toBe('https://legacy.example.com/audio.mp3');
-    expect(resolved.audioSegments?.length).toBe(1);
-    expect(resolved.audioSegments?.[0]?.audio_data).toBe('legacy-segment');
-  });
-
-  it('maps markdown video iframe content to video slide type', () => {
-    expect(
-      resolveListenSlideElementType(
-        createContentItem({
-          element_type: 'html',
-          content:
-            '<iframe data-tag="video" data-title="哔哩哔哩视频" data-url="春节的由来_哔哩哔哩_bilibili" class="w-full aspect-video rounded-lg border-0" src="https://player.bilibili.com/player.html?bvid=BV1x84y187yS&amp;autoplay=0" allowfullscreen="" allow="autoplay; encrypted-media"></iframe>',
-        }),
-      ),
-    ).toBe('video');
+    expect(subtitleCues).toEqual([
+      {
+        text: '第一句',
+        start_ms: 0,
+        end_ms: 1200,
+        segment_index: 0,
+        position: 0,
+      },
+      {
+        text: '第二句',
+        start_ms: 1200,
+        end_ms: 1800,
+        segment_index: 1,
+        position: 0,
+      },
+    ]);
   });
 });

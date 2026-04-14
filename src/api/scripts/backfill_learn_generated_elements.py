@@ -19,7 +19,7 @@ from app import create_app  # noqa: E402
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Backfill learn_generated_elements from learn_generated_blocks and learn_generated_audios",
+        description="Backfill learn_generated_elements from markdown-flow generated blocks only",
     )
     parser.add_argument(
         "--progress-record-bid",

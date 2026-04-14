@@ -32,7 +32,7 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import (
     generate_token,
     ensure_admin_creator_and_demo_permissions,
@@ -230,6 +230,7 @@ class GoogleAuthProvider(AuthProvider):
             raise RuntimeError("Google profile missing required identifiers")
 
         email = email.lower()
+        email_verified = bool(profile.get("email_verified", False))
         credential = find_credential(provider_name=self.provider_name, identifier=email)
 
         origin_user_id = getattr(request, "current_user_id", None)
@@ -258,10 +259,12 @@ class GoogleAuthProvider(AuthProvider):
                     aggregate.user_bid, include_deleted=True
                 )
                 if entity:
-                    updates: Dict[str, Any] = {
-                        "identify": email,
-                        "state": USER_STATE_REGISTERED,
-                    }
+                    updates: Dict[str, Any] = {"identify": email}
+                    if email_verified and aggregate.state in (
+                        USER_STATE_UNREGISTERED,
+                        0,
+                    ):
+                        updates["state"] = USER_STATE_REGISTERED
                     display_name = profile.get("name")
                     if display_name:
                         updates["nickname"] = display_name
@@ -289,7 +292,11 @@ class GoogleAuthProvider(AuthProvider):
                     "nickname": profile.get("name") or "",
                     "avatar": profile.get("picture"),
                     "language": language,
-                    "state": USER_STATE_REGISTERED,
+                    "state": (
+                        USER_STATE_REGISTERED
+                        if email_verified
+                        else USER_STATE_UNREGISTERED
+                    ),
                 }
                 aggregate, created_user = ensure_user_for_identifier(
                     app,
@@ -308,6 +315,13 @@ class GoogleAuthProvider(AuthProvider):
                 metadata=profile,
                 verified=profile.get("email_verified", False),
             )
+
+            # Reuse the first-account bootstrap logic across login methods so
+            # Google can also initialize a fresh self-hosted deployment.
+            if email_verified:
+                from flaskr.service.user.phone_flow import init_first_course
+
+                init_first_course(app, aggregate.user_bid)
 
             # Optionally grant creator and demo-course permissions for admin logins
             ensure_admin_creator_and_demo_permissions(

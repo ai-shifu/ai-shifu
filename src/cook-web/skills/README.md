@@ -6,6 +6,8 @@
 - `chat-element-streaming`
 - `chat-actionbar-ask-placement`
 - `listen-mode-audio-streaming`
+- `markdownflow-controlled-sync`
 - `next-build-node-runtime`
 - `module-augmentation-guardrails`
 - `hook-contract-refactor-safety`
+- `chat-system-interaction-button-overrides`

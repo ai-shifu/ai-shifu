@@ -1,6 +1,6 @@
 .newChatPage {
   width: 100%;
-  min-height: 100dvh;
+  min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   display: flex;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-4-1);
@@ -9,7 +9,7 @@
   .chatMobileHeader {
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 20;
     flex: 0 0 76px;
     flex-shrink: 0;
     min-height: 76px;
@@ -17,17 +17,17 @@
   }
 
   &.listenMode {
-    height: 100dvh;
-    min-height: 100dvh;
+    height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
     overflow: hidden;
 
     .chatMobileHeader {
       position: static;
       top: auto;
-      flex: 0 0 76px;
+      flex: 0 0 58px;
       flex-shrink: 0;
-      min-height: 76px;
-      max-height: 76px;
+      min-height: 58px;
+      max-height: 58px;
     }
   }
 }

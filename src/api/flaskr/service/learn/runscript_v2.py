@@ -139,7 +139,15 @@ def run_script_inner(
     Core function for running course scripts
     """
 
+    def _finalize_langfuse_if_available(
+        context: RunScriptContextV2 | None,
+    ) -> None:
+        finalize_trace = getattr(context, "_finalize_langfuse_trace", None)
+        if callable(finalize_trace):
+            finalize_trace()
+
     def _run() -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
+        run_script_context: RunScriptContextV2 | None = None
         try:
             user_info = load_user_aggregate(user_bid)
             if not user_info:
@@ -192,7 +200,7 @@ def run_script_inner(
             else:
                 is_paid = True
 
-            run_script_context: RunScriptContextV2 = RunScriptContextV2(
+            run_script_context = RunScriptContextV2(
                 app=app,
                 shifu_info=shifu_info,
                 struct=struct_info,
@@ -234,14 +242,17 @@ def run_script_inner(
                     return
                 app.logger.info("run_script_context.run")
                 yield from _iter_run_events(run_script_context.run(app))
+            _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
         except BreakException:
+            _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
             app.logger.info("BreakException")
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")
         except Exception:
+            _finalize_langfuse_if_available(run_script_context)
             db.session.rollback()
             raise
 

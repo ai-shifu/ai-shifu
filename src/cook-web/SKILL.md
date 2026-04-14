@@ -1,18 +1,20 @@
 # cook-web Skills
 
-## 分层规范
+## Layering Rules
 
-- 放到 `SKILL.md`：跨页面、跨模块长期生效的基础约束与技能索引。
-- 放到 `skills/xxx/SKILL.md`：面向具体场景的触发条件、落地步骤、验收要点。
-- `SKILL.md` 不承载冗长排障步骤；步骤化内容必须下沉到专题 skill。
+- Keep `SKILL.md` for long-lived cross-page or cross-module constraints and the skill index.
+- Keep `skills/xxx/SKILL.md` for scenario-specific triggers, execution steps, and acceptance checks.
+- `SKILL.md` must not carry long troubleshooting playbooks; workflow-heavy content belongs in focused skills.
+- Stable structural rules should go to the local `AGENTS.md / CLAUDE.md` first. Only workflow-oriented guidance should live in a skill.
 
-## 项目级通用约束
+## Project-Wide Constraints
 
-- URL 参数以单一真值为准：课节定位使用 `lessonid`，听课开关使用查询参数 `listen`。
-- 流式聊天以 `element_bid` 作为渲染稳定键，兼容字段在统一数据归一化入口回填。
-- 同一逻辑被两个以上文件复用时，优先抽离到共享 `utils/constants/hooks`。
+- Treat URL parameters as a single source of truth: use `lessonid` for lesson targeting and the `listen` query parameter for listen mode.
+- Streaming chat must use `element_bid` as the stable render key, with compatibility fields backfilled in the shared normalization entry point.
+- When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
+- For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 
-## Skills 索引
+## Skills Index
 
 - `skills/chat-layout-width-detection/SKILL.md`
 - `skills/interaction-user-input-defaults/SKILL.md`
@@ -20,9 +22,15 @@
 - `skills/chat-element-streaming/SKILL.md`
 - `skills/chat-actionbar-ask-placement/SKILL.md`
 - `skills/listen-mode-audio-streaming/SKILL.md`
+- `skills/listen-mode-slide-mobile-integration/SKILL.md`
+- `skills/fullscreen-dialog-portal/SKILL.md`
+- `skills/markdownflow-controlled-sync/SKILL.md`
 - `skills/next-build-node-runtime/SKILL.md`
-- `skills/lesson-feedback-popup-timing/SKILL.md`
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`
-- `skills/audio-debug-log-cleanup/SKILL.md`
-- `skills/docker-npm-registry-fallback/SKILL.md`
+- `skills/chat-system-interaction-button-overrides/SKILL.md`
+
+## Usage Rules
+
+- Module-level `AGENTS.md` files may reference skills from here, but they must not copy skill content back into directory rules.
+- If the same frontend troubleshooting workflow repeats across tasks, add a focused skill instead of expanding `AGENTS.md`.

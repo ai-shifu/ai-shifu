@@ -15,6 +15,9 @@ from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.listen_element_history import (
     get_listen_element_record as _get_listen_element_record,
 )
+from flaskr.service.learn.listen_element_mdflow_backfill import (
+    backfill_learn_generated_elements_batch,
+)
 from flaskr.service.learn.listen_element_legacy import (
     build_listen_elements_from_legacy_record,
 )
@@ -35,6 +38,12 @@ from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
 )
+
+__all__ = [
+    "ListenElementRunAdapter",
+    "backfill_learn_generated_elements_batch",
+    "get_listen_element_record",
+]
 
 
 class ListenElementRunAdapter(
