@@ -1,4 +1,4 @@
-"""New creator trial helpers for billing overview and first grant."""
+"""New creator trial helpers for billing overview state and first grant."""
 
 from __future__ import annotations
 
@@ -136,19 +136,13 @@ def _resolve_new_creator_trial_offer(
             timezone_name=timezone_name,
         )
 
-    grant_result = _grant_new_creator_trial_credits(
-        app,
-        creator_bid=creator_bid,
-        config=config,
-        registered_at=_resolve_trial_registered_at(
-            creator_bid,
-            fallback=creator.created_at,
-        ),
-        trigger=trigger,
-    )
     return _serialize_trial_offer(
         app,
-        grant_result,
+        _build_trial_offer_state(
+            enabled=True,
+            status="eligible",
+            config=config,
+        ),
         timezone_name=timezone_name,
     )
 
@@ -434,12 +428,31 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
 
     try:
         config = _load_new_creator_trial_config(app)
+        if not config.enabled:
+            return
+
+        existing_entry = _load_new_creator_trial_entry(
+            normalized_creator_bid,
+            program_code=config.program_code,
+        )
+        if existing_entry is not None:
+            return
+
+        creator = get_user_entity_by_bid(normalized_creator_bid)
+        if creator is None or not bool(creator.is_creator):
+            return
+
         trigger = str(config.grant_trigger).strip() or str(
             BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["grant_trigger"]
         )
-        _resolve_new_creator_trial_offer(
+        _grant_new_creator_trial_credits(
             app,
-            normalized_creator_bid,
+            creator_bid=normalized_creator_bid,
+            config=config,
+            registered_at=_resolve_trial_registered_at(
+                normalized_creator_bid,
+                fallback=creator.created_at,
+            ),
             trigger=trigger,
         )
     except Exception:

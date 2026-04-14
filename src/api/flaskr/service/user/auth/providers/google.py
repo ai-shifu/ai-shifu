@@ -344,6 +344,8 @@ class GoogleAuthProvider(AuthProvider):
             credential=credential_record,
             is_new_user=created_user,
             metadata={
+                "language": language,
+                "login_context": login_context,
                 "token_response": token,
                 "profile": profile,
                 "snapshot": snapshot.to_dict(),

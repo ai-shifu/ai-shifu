@@ -565,7 +565,6 @@
       "production": "学员学习"
     }
   },
-  "navTitle": "会员与积分",
   "orders": {
     "actions": {
       "continuePayment": "继续支付",
@@ -739,10 +738,6 @@
   "page": {
     "adminLink": "打开后台账务视图",
     "badge": "预览版",
-    "breadcrumbs": {
-      "home": "师傅首页",
-      "membership": "会员"
-    },
     "subtitle": "在一个页面里管理套餐、积分与付款记录。",
     "tabs": {
       "ledger": "积分详情",
@@ -832,7 +827,6 @@
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
-    "totalCreditsLabel": "积分",
     "upgradeCta": "升级",
     "usageCta": "查看使用情况",
     "yearlyTitle": "年订阅"

@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_GIFT,
 )
+from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWallet,
@@ -161,7 +162,7 @@ def trial_billing_client():
     return app.test_client()
 
 
-def test_billing_overview_grants_new_creator_trial_once(
+def test_billing_overview_returns_eligible_trial_without_granting(
     trial_billing_client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -195,33 +196,26 @@ def test_billing_overview_grants_new_creator_trial_once(
     )
 
     assert first_payload["code"] == 0
-    assert first_payload["data"]["wallet"]["available_credits"] == 100
-    assert first_payload["data"]["trial_offer"]["status"] == "granted"
-    assert first_payload["data"]["trial_offer"]["granted_at"] is not None
-    assert first_payload["data"]["trial_offer"]["expires_at"] is not None
+    assert first_payload["data"]["wallet"]["available_credits"] == 0
+    assert first_payload["data"]["trial_offer"]["status"] == "eligible"
+    assert first_payload["data"]["trial_offer"]["granted_at"] is None
+    assert first_payload["data"]["trial_offer"]["expires_at"] is None
 
     assert second_payload["code"] == 0
-    assert second_payload["data"]["wallet"]["available_credits"] == 100
-    assert second_payload["data"]["trial_offer"]["status"] == "granted"
+    assert second_payload["data"]["wallet"]["available_credits"] == 0
+    assert second_payload["data"]["trial_offer"]["status"] == "eligible"
 
     with app.app_context():
-        wallet = CreditWallet.query.filter_by(creator_bid="creator-trial").one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-trial").first()
         buckets = CreditWalletBucket.query.filter_by(creator_bid="creator-trial").all()
         ledgers = CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").all()
 
-        assert wallet.available_credits == 100
-        assert wallet.lifetime_granted_credits == 100
-        assert len(buckets) == 1
-        assert buckets[0].bucket_category == CREDIT_BUCKET_CATEGORY_FREE
-        assert buckets[0].source_type == CREDIT_SOURCE_TYPE_GIFT
-        assert buckets[0].source_bid == "new_creator_v1"
-        assert len(ledgers) == 1
-        assert ledgers[0].entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
-        assert ledgers[0].source_type == CREDIT_SOURCE_TYPE_GIFT
-        assert ledgers[0].idempotency_key == "trial:new_creator_v1:creator-trial"
+        assert wallet is None
+        assert buckets == []
+        assert ledgers == []
 
 
-def test_billing_overview_grants_when_cutoff_missing(
+def test_billing_overview_returns_eligible_when_cutoff_missing(
     trial_billing_client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -250,21 +244,21 @@ def test_billing_overview_grants_when_cutoff_missing(
     payload = trial_billing_client.get("/api/billing/overview").get_json(force=True)
 
     assert payload["code"] == 0
-    assert payload["data"]["wallet"]["available_credits"] == 100
+    assert payload["data"]["wallet"]["available_credits"] == 0
     assert payload["data"]["trial_offer"]["enabled"] is True
-    assert payload["data"]["trial_offer"]["status"] == "granted"
-    assert payload["data"]["trial_offer"]["granted_at"] is not None
+    assert payload["data"]["trial_offer"]["status"] == "eligible"
+    assert payload["data"]["trial_offer"]["granted_at"] is None
 
     with app.app_context():
         assert (
-            CreditWalletBucket.query.filter_by(creator_bid="creator-trial").count() == 1
+            CreditWalletBucket.query.filter_by(creator_bid="creator-trial").count() == 0
         )
         assert (
-            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 1
+            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 0
         )
 
 
-def test_billing_overview_grants_even_when_earliest_verified_credential_is_old(
+def test_billing_overview_returns_eligible_even_when_earliest_verified_credential_is_old(
     trial_billing_client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -298,16 +292,16 @@ def test_billing_overview_grants_even_when_earliest_verified_credential_is_old(
     payload = trial_billing_client.get("/api/billing/overview").get_json(force=True)
 
     assert payload["code"] == 0
-    assert payload["data"]["wallet"]["available_credits"] == 100
-    assert payload["data"]["trial_offer"]["status"] == "granted"
+    assert payload["data"]["wallet"]["available_credits"] == 0
+    assert payload["data"]["trial_offer"]["status"] == "eligible"
 
     with app.app_context():
         assert (
-            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 1
+            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 0
         )
 
 
-def test_billing_overview_grants_without_verified_credentials(
+def test_billing_overview_returns_eligible_without_verified_credentials(
     trial_billing_client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -330,10 +324,54 @@ def test_billing_overview_grants_without_verified_credentials(
     payload = trial_billing_client.get("/api/billing/overview").get_json(force=True)
 
     assert payload["code"] == 0
-    assert payload["data"]["wallet"]["available_credits"] == 100
-    assert payload["data"]["trial_offer"]["status"] == "granted"
+    assert payload["data"]["wallet"]["available_credits"] == 0
+    assert payload["data"]["trial_offer"]["status"] == "eligible"
 
     with app.app_context():
         assert (
-            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 1
+            CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").count() == 0
         )
+
+
+def test_trial_bootstrap_grants_once_for_eligible_creator(
+    trial_billing_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = trial_billing_client.application
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials.get_config",
+        lambda key, default=None: (
+            _build_trial_config()
+            if key == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
+            else default
+        ),
+    )
+
+    with app.app_context():
+        _seed_creator(
+            user_bid="creator-trial",
+            credential_specs=[
+                {
+                    "provider_name": "email",
+                    "identifier": "creator@example.com",
+                    "created_at": datetime(2026, 4, 8, 12, 0, 0),
+                }
+            ],
+        )
+        bootstrap_new_creator_trial_credits(app, "creator-trial")
+        bootstrap_new_creator_trial_credits(app, "creator-trial")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-trial").one()
+        buckets = CreditWalletBucket.query.filter_by(creator_bid="creator-trial").all()
+        ledgers = CreditLedgerEntry.query.filter_by(creator_bid="creator-trial").all()
+
+        assert wallet.available_credits == 100
+        assert wallet.lifetime_granted_credits == 100
+        assert len(buckets) == 1
+        assert buckets[0].bucket_category == CREDIT_BUCKET_CATEGORY_FREE
+        assert buckets[0].source_type == CREDIT_SOURCE_TYPE_GIFT
+        assert buckets[0].source_bid == "new_creator_v1"
+        assert len(ledgers) == 1
+        assert ledgers[0].entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+        assert ledgers[0].source_type == CREDIT_SOURCE_TYPE_GIFT
+        assert ledgers[0].idempotency_key == "trial:new_creator_v1:creator-trial"

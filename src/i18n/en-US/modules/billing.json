@@ -565,7 +565,6 @@
       "production": "Learner study"
     }
   },
-  "navTitle": "Membership & Credits",
   "orders": {
     "actions": {
       "continuePayment": "Continue payment",
@@ -739,10 +738,6 @@
   "page": {
     "adminLink": "Open billing ops",
     "badge": "Preview",
-    "breadcrumbs": {
-      "home": "Creator Home",
-      "membership": "Membership"
-    },
     "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {
       "ledger": "Credit Details",
@@ -832,7 +827,6 @@
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",
-    "totalCreditsLabel": "Credits",
     "upgradeCta": "Upgrade",
     "usageCta": "View usage",
     "yearlyTitle": "Yearly plan"

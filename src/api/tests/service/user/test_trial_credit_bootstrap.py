@@ -12,6 +12,7 @@ from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 from flaskr.service.billing.consts import (
     BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -111,6 +112,7 @@ def _configure_trial(monkeypatch) -> None:
 
 @pytest.fixture
 def user_trial_client(monkeypatch, tmp_path):
+    import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
     from flaskr.service.user.auth.providers import password as _password_provider  # noqa: F401
     from flaskr.service.user.auth.providers import phone as _phone_provider  # noqa: F401
     import flaskr.service.user.email_flow as email_flow
@@ -318,6 +320,117 @@ def test_password_login_bootstraps_trial_credits_for_existing_creator(
         "/api/user/login_password",
         {"identifier": email, "password": password},
     )
+
+    assert response.status_code == 200
+    assert response.get_json(force=True)["code"] == 0
+
+    with app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).one()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid=user_bid,
+            deleted=0,
+            source_bid="new_creator_v1",
+        ).all()
+
+        assert wallet.available_credits == Decimal("100.0000000000")
+        assert len(ledgers) == 1
+
+
+def test_password_login_non_creator_does_not_grant_trial_credits(
+    user_trial_client, monkeypatch
+):
+    app = user_trial_client.application
+    _configure_trial(monkeypatch)
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+    password = "Abcd1234"
+
+    with app.app_context():
+        user_bid = _seed_registered_user(
+            app,
+            identifier=email,
+            provider_name="email",
+            subject_format="email",
+            is_creator=False,
+        )
+        password_credential = upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="password",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=True,
+        )
+        set_password_hash(password_credential, hash_password(password))
+        dao.db.session.commit()
+
+    response = _post_json(
+        user_trial_client,
+        "/api/user/login_password",
+        {"identifier": email, "password": password},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json(force=True)["code"] == 0
+
+    with app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).first()
+        ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid=user_bid,
+            deleted=0,
+            source_bid="new_creator_v1",
+        ).all()
+
+        assert wallet is None
+        assert ledgers == []
+
+
+def test_post_auth_extension_failures_do_not_block_login(
+    user_trial_client, monkeypatch
+):
+    app = user_trial_client.application
+    _configure_trial(monkeypatch)
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+    password = "Abcd1234"
+
+    with app.app_context():
+        user_bid = _seed_registered_user(
+            app,
+            identifier=email,
+            provider_name="email",
+            subject_format="email",
+            is_creator=True,
+        )
+        password_credential = upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="password",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=True,
+        )
+        set_password_hash(password_credential, hash_password(password))
+        dao.db.session.commit()
+
+    def _failing_post_auth_handler(_context, *, app):
+        raise RuntimeError("boom")
+
+    handlers = plugin_manager_module.plugin_manager.extension_functions.setdefault(
+        "run_post_auth_extensions",
+        [],
+    )
+    handlers.insert(0, _failing_post_auth_handler)
+    try:
+        response = _post_json(
+            user_trial_client,
+            "/api/user/login_password",
+            {"identifier": email, "password": password},
+        )
+    finally:
+        handlers.remove(_failing_post_auth_handler)
 
     assert response.status_code == 200
     assert response.get_json(force=True)["code"] == 0

@@ -88,7 +88,7 @@ export function AdminBillingPageClient({
       <Tabs
         className='space-y-6'
         value={activeTab}
-        onValueChange={(v) => updateTab(v as BillingTab)}
+        onValueChange={v => updateTab(v as BillingTab)}
       >
         <TabsList data-testid='admin-billing-tabs'>
           <TabsTrigger value='packages'>
