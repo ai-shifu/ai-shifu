@@ -296,10 +296,9 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.table.createdCourses (2)',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'user-1@example.com' })).toHaveAttribute(
-      'href',
-      '/admin/operations/users/user-1',
-    );
+    expect(
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('href', '/admin/operations/users/user-1');
   });
 
   test('submits search filters', async () => {

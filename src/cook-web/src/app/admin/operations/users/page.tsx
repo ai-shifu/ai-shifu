@@ -1382,21 +1382,26 @@ export default function AdminOperationUsersPage() {
                   <TableBody>
                     {courseDialog?.courses?.length ? (
                       courseDialog.courses.map(course => {
-                        const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
-                          course.shifu_bid,
-                        );
+                        const courseDetailUrl =
+                          buildAdminOperationsCourseDetailUrl(course.shifu_bid);
                         return (
-                          <TableRow key={`${courseDialog.type}-${course.shifu_bid}`}>
+                          <TableRow
+                            key={`${courseDialog.type}-${course.shifu_bid}`}
+                          >
                             <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
                               {courseDetailUrl ? (
                                 <Link
                                   href={courseDetailUrl}
                                   className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                                 >
-                                  <OverflowTooltipText text={course.course_name} />
+                                  <OverflowTooltipText
+                                    text={course.course_name}
+                                  />
                                 </Link>
                               ) : (
-                                <OverflowTooltipText text={course.course_name} />
+                                <OverflowTooltipText
+                                  text={course.course_name}
+                                />
                               )}
                             </TableCell>
                             <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
@@ -1404,7 +1409,9 @@ export default function AdminOperationUsersPage() {
                             </TableCell>
                             <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
                               <OverflowTooltipText
-                                text={resolveCourseStatusLabel(course.course_status)}
+                                text={resolveCourseStatusLabel(
+                                  course.course_status,
+                                )}
                               />
                             </TableCell>
                           </TableRow>
