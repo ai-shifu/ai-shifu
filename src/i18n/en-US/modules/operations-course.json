@@ -68,7 +68,8 @@
       "learnerCount": "Learners",
       "orderAmount": "Gross Revenue",
       "orderCount": "Orders",
-      "ratingScore": "Rating"
+      "ratingScore": "Rating",
+      "visitCount30d": "Visitors (30d)"
     },
     "title": "Course Detail",
     "visibility": {

@@ -168,6 +168,7 @@ const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
     updated_at: '',
   },
   metrics: {
+    visit_count_30d: 0,
     learner_count: 0,
     order_count: 0,
     order_amount: '0',
@@ -508,6 +509,10 @@ export default function AdminOperationCourseDetailPage() {
 
   const metricCards = useMemo(
     () => [
+      {
+        label: tOperations('detail.metricsLabels.visitCount30d'),
+        value: formatCount(detail.metrics.visit_count_30d),
+      },
       {
         label: tOperations('detail.metricsLabels.learnerCount'),
         value: formatCount(detail.metrics.learner_count),
@@ -1016,7 +1021,7 @@ export default function AdminOperationCourseDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
+            <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'>
               {metricCards.map(card => (
                 <div
                   key={card.label}

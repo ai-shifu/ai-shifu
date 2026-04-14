@@ -26,6 +26,7 @@ import {
 } from '@/c-store';
 import { useUserStore } from '@/store';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
@@ -49,6 +50,7 @@ import {
 import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
+import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -73,6 +75,7 @@ const getIsLandscapeViewport = () => {
 
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
+  const { trackEvent } = useTracking();
 
   /**
    * User info and init part
@@ -319,6 +322,30 @@ export default function ChatPage() {
     }
     document.title = courseName;
   }, [courseName, previewMode, t]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !courseName) {
+      return;
+    }
+
+    void trackCourseVisitIfNeeded({
+      initialized,
+      isLoggedIn,
+      previewMode,
+      shifuBid: courseId,
+      entryType: urlLessonId ? 'deep_link' : 'catalog',
+      storage: window.sessionStorage,
+      trackEvent,
+    });
+  }, [
+    courseId,
+    courseName,
+    initialized,
+    isLoggedIn,
+    previewMode,
+    trackEvent,
+    urlLessonId,
+  ]);
 
   useEffect(() => {
     if (selectedLessonId) {

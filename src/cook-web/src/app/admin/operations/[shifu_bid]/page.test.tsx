@@ -111,6 +111,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08 11:00:00',
       },
       metrics: {
+        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -172,6 +173,7 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
+    expect(screen.getByText('34')).toBeInTheDocument();
     expect(screen.getByText('¥88')).toBeInTheDocument();
     expect(screen.getByText('4.2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
@@ -224,6 +226,7 @@ describe('AdminOperationCourseDetailPage', () => {
       shifu_bid: 'course-1',
       outline_item_bid: 'lesson-1',
     });
+    expect(await screen.findByText('lesson content')).toBeInTheDocument();
 
     const copyButton = screen.getByRole('button', {
       name: 'module.operationsCourse.detail.contentDetailDialog.copy',
@@ -277,6 +280,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08 11:00:00',
       },
       metrics: {
+        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
