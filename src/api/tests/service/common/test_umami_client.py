@@ -115,10 +115,7 @@ def test_get_course_visit_count_30d_returns_zero_without_required_config(
 
 
 def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend():
-    assert (
-        umami_client.build_course_visit_event_name("课程-1")
-        == "course_visit___-1"
-    )
+    assert umami_client.build_course_visit_event_name("课程-1") == "course_visit___-1"
 
 
 def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
