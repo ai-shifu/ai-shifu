@@ -262,6 +262,7 @@ function OverflowTooltipText({
  * t('module.operationsCourse.detail.fields.creator')
  * t('module.operationsCourse.detail.fields.createdAt')
  * t('module.operationsCourse.detail.fields.updatedAt')
+ * t('module.operationsCourse.detail.metricsLabels.visitCount30d')
  * t('module.operationsCourse.detail.metricsLabels.learnerCount')
  * t('module.operationsCourse.detail.metricsLabels.orderCount')
  * t('module.operationsCourse.detail.metricsLabels.orderAmount')
