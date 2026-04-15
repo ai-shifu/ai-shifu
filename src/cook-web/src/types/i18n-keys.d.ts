@@ -224,6 +224,8 @@ export type I18nKey =
   | 'module.chat.listenPlayerPortraitLabel'
   | 'module.chat.listenPlayerScreenLabel'
   | 'module.chat.listenPlayerSettingsTitle'
+  | 'module.chat.listenPlayerSubtitleLabel'
+  | 'module.chat.listenPlayerSubtitleToggle'
   | 'module.chat.listenModeTtsDisabled'
   | 'module.chat.markdownFlow'
   | 'module.chat.noMoreLessons'

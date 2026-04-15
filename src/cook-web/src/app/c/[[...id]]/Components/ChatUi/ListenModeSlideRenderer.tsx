@@ -1162,6 +1162,8 @@ const ListenModeSlideRenderer = ({
   const playerTexts = useMemo(
     () => ({
       settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
+      subtitleLabel: t('module.chat.listenPlayerSubtitleLabel'),
+      subtitleToggleAriaLabel: t('module.chat.listenPlayerSubtitleToggle'),
       screenLabel: t('module.chat.listenPlayerScreenLabel'),
       nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
       fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
