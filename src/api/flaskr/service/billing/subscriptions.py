@@ -492,6 +492,12 @@ def _activate_subscription_for_paid_order(
         subscription.current_period_start_at = effective_from
         subscription.current_period_end_at = effective_to
         subscription.last_renewed_at = effective_from
+        if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE:
+            _realign_active_subscription_bucket_effective_to(
+                creator_bid=order.creator_bid,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
     else:
         subscription.current_period_start_at = (
             subscription.current_period_start_at or effective_from
@@ -504,6 +510,56 @@ def _activate_subscription_for_paid_order(
     _sync_subscription_lifecycle_events(app, subscription)
     db.session.add(subscription)
     return True
+
+
+def _realign_active_subscription_bucket_effective_to(
+    *,
+    creator_bid: str,
+    effective_from: datetime,
+    effective_to: datetime | None,
+) -> None:
+    if effective_to is None:
+        return
+
+    now = datetime.now()
+    buckets = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == creator_bid,
+            CreditWalletBucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        .order_by(CreditWalletBucket.id.asc())
+        .all()
+    )
+    for bucket in buckets:
+        available = _to_decimal(bucket.available_credits)
+        if available <= 0:
+            continue
+        if bucket.effective_from is not None and bucket.effective_from > effective_from:
+            continue
+        if bucket.effective_to is not None and bucket.effective_to <= effective_from:
+            continue
+        if bucket.effective_to == effective_to:
+            continue
+
+        bucket.effective_to = effective_to
+        bucket.updated_at = now
+        db.session.add(bucket)
+
+        grant_entries = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        for entry in grant_entries:
+            entry.expires_at = effective_to
+            entry.updated_at = now
+            db.session.add(entry)
 
 
 def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:

@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_GIFT,
     CREDIT_SOURCE_TYPE_REFUND,
@@ -1111,8 +1112,24 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
+        current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
+        current_cycle_end = datetime(2026, 5, 1, 0, 0, 0)
+        upgrade_paid_at = datetime(2026, 4, 8, 13, 0, 0)
+        upgraded_cycle_end = datetime(2027, 4, 8, 13, 0, 0)
 
         with app.app_context():
+            wallet = CreditWallet(
+                wallet_bid="wallet-upgrade",
+                creator_bid="creator-1",
+                available_credits=Decimal("3.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("5.0000000000"),
+                lifetime_consumed_credits=Decimal("2.0000000000"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
             subscription = BillingSubscription(
                 subscription_bid="sub-upgrade",
                 creator_bid="creator-1",
@@ -1121,13 +1138,60 @@ class TestBillingWriteRoutes:
                 billing_provider="stripe",
                 provider_subscription_id="sub_provider_upgrade",
                 provider_customer_id="cus_provider_upgrade",
-                current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
-                current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+                current_period_start_at=current_cycle_start,
+                current_period_end_at=current_cycle_end,
                 cancel_at_period_end=0,
                 next_product_bid="billing-product-plan-monthly",
                 metadata_json={},
-                created_at=datetime(2026, 4, 1, 0, 0, 0),
-                updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
+            existing_bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-upgrade-existing",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="billing-start-1",
+                priority=20,
+                original_credits=Decimal("5.0000000000"),
+                available_credits=Decimal("3.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("2.0000000000"),
+                expired_credits=Decimal("0"),
+                effective_from=current_cycle_start,
+                effective_to=current_cycle_end,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "billing_order_bid": "billing-start-1",
+                    "product_bid": "billing-product-plan-monthly",
+                    "payment_provider": "stripe",
+                },
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
+            existing_ledger = CreditLedgerEntry(
+                ledger_bid="ledger-upgrade-existing",
+                creator_bid="creator-1",
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=existing_bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="billing-start-1",
+                idempotency_key="grant:billing-start-1",
+                amount=Decimal("5.0000000000"),
+                balance_after=Decimal("5.0000000000"),
+                expires_at=current_cycle_end,
+                consumable_from=current_cycle_start,
+                metadata_json={
+                    "billing_order_bid": "billing-start-1",
+                    "subscription_bid": "sub-upgrade",
+                    "product_bid": "billing-product-plan-monthly",
+                    "payment_provider": "stripe",
+                    "grant_reason": "subscription",
+                },
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
             )
             order = BillingOrder(
                 billing_order_bid="billing-upgrade-1",
@@ -1142,10 +1206,13 @@ class TestBillingWriteRoutes:
                 channel="checkout_session",
                 provider_reference_id="cs_upgrade_1",
                 status=BILLING_ORDER_STATUS_PAID,
-                paid_at=datetime(2026, 4, 8, 13, 0, 0),
+                paid_at=upgrade_paid_at,
                 metadata_json={},
             )
+            dao.db.session.add(wallet)
             dao.db.session.add(subscription)
+            dao.db.session.add(existing_bucket)
+            dao.db.session.add(existing_ledger)
             dao.db.session.add(order)
             dao.db.session.flush()
 
@@ -1153,6 +1220,16 @@ class TestBillingWriteRoutes:
             dao.db.session.commit()
 
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            existing_bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-upgrade-existing"
+            ).one()
+            existing_ledger = CreditLedgerEntry.query.filter_by(
+                ledger_bid="ledger-upgrade-existing"
+            ).one()
+            upgrade_bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-upgrade-1",
+            ).one()
             upgrade_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid="sub-upgrade",
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -1162,7 +1239,12 @@ class TestBillingWriteRoutes:
             assert subscription.next_product_bid == ""
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.cancel_at_period_end == 0
-            assert wallet.available_credits == 10000
+            assert subscription.current_period_start_at == upgrade_paid_at
+            assert subscription.current_period_end_at == upgraded_cycle_end
+            assert wallet.available_credits == 10003
+            assert existing_bucket.effective_to == upgraded_cycle_end
+            assert existing_ledger.expires_at == upgraded_cycle_end
+            assert upgrade_bucket.effective_to == upgraded_cycle_end
             assert upgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
 
     def test_paid_renewal_order_applies_scheduled_next_product(
