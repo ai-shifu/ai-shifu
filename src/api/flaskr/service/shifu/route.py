@@ -106,6 +106,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 from flaskr.service.shifu.admin import (
     get_operator_course_chapter_detail,
     get_operator_course_detail,
+    get_operator_course_users,
     list_operator_courses,
     transfer_operator_course_creator,
 )
@@ -620,6 +621,74 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_item_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/users", methods=["GET"]
+    )
+    def admin_operation_course_users(shifu_bid: str):
+        """
+        Get operator course users
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: user_role
+              in: query
+              type: string
+              required: false
+              description: User role filter
+            - name: learning_status
+              in: query
+              type: string
+              required: false
+              description: Learning status filter
+            - name: payment_status
+              in: query
+              type: string
+              required: false
+              description: Payment status filter
+        responses:
+            200:
+                description: Operator course user list
+        """
+        _require_operator()
+        page_index = int(request.args.get("page", 1))
+        page_size = int(request.args.get("page_size", 20))
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "user_role": request.args.get("user_role", ""),
+            "learning_status": request.args.get("learning_status", ""),
+            "payment_status": request.args.get("payment_status", ""),
+        }
+        return make_common_response(
+            get_operator_course_users(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
             )
         )
 
