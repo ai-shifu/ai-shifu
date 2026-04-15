@@ -17,6 +17,7 @@ import { EnvStoreState } from '@/c-types/store';
 import { environment } from '@/config/environment';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { useUserStore } from '@/store';
+import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 
@@ -78,6 +79,8 @@ const MainInterface = ({
   const resolvedLogo = logoSrc || defaultLogo;
 
   return (
+    <>
+    <WelcomeTrialDialog billingOverview={billingOverview} menuReady={menuReady} />
     <div className='flex h-screen bg-stone-50'>
       <div className='w-[280px]'>
         <SidebarContent
@@ -102,6 +105,7 @@ const MainInterface = ({
         </div>
       </div>
     </div>
+    </>
   );
 };
 
