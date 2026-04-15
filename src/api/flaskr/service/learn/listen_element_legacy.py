@@ -88,6 +88,8 @@ def _build_legacy_record_for_progress(
 def build_listen_elements_from_legacy_record(
     app: Flask,
     legacy_record: LegacyLearnRecord,
+    *,
+    prefer_persisted_final_elements: bool = True,
 ) -> LearnElementRecordDTO:
     elements: list[ElementDTO] = []
     max_index = -1
@@ -117,7 +119,7 @@ def build_listen_elements_from_legacy_record(
             audio_by_position[int(getattr(audio, "position", 0) or 0)] = audio_payload
 
         persisted_final_elements: list[ElementDTO] = []
-        if record.generated_block_bid:
+        if prefer_persisted_final_elements and record.generated_block_bid:
             with app.app_context():
                 persisted_final_elements = get_final_elements_for_generated_block(
                     generated_block_bid=record.generated_block_bid,
@@ -260,8 +262,21 @@ def backfill_learn_generated_elements_for_progress(
         )
         return stats
 
+    if stats.existing_active_rows:
+        stats.overwritten_rows = existing_rows_query.update(
+            {
+                "status": 0,
+            },
+            synchronize_session=False,
+        )
+        db.session.flush()
+
     legacy_record = _build_legacy_record_for_progress(progress_record, stats)
-    built_record = build_listen_elements_from_legacy_record(app, legacy_record)
+    built_record = build_listen_elements_from_legacy_record(
+        app,
+        legacy_record,
+        prefer_persisted_final_elements=False,
+    )
     stats.elements_built = len(built_record.elements)
     stats.inserted_rows = stats.elements_built
     stats.run_session_bid = (
@@ -274,14 +289,6 @@ def backfill_learn_generated_elements_for_progress(
             stats.as_dict(),
         )
         return stats
-
-    if stats.existing_active_rows:
-        stats.overwritten_rows = existing_rows_query.update(
-            {
-                "status": 0,
-            },
-            synchronize_session=False,
-        )
 
     for run_event_seq, element in enumerate(built_record.elements, start=1):
         element.sequence_number = run_event_seq

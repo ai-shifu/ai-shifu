@@ -60,6 +60,12 @@ from flaskr.service.learn.type_state_machine import TypeInput
 
 
 class ListenElementRunStreamMixin:
+    def _state_has_av_text_segments(self, state: BlockState) -> bool:
+        av_contract = state.latest_av_contract
+        if not isinstance(av_contract, dict):
+            return False
+        return bool(av_contract.get("speakable_segments") or [])
+
     def _make_retire_element_message(
         self,
         *,
@@ -162,12 +168,15 @@ class ListenElementRunStreamMixin:
         *,
         audio: ElementAudioDTO | None = None,
         is_final: bool | None = None,
+        force_is_new: bool | None = None,
     ) -> ElementDTO | None:
         snapshot = self._load_latest_element_snapshot(element_bid)
         if snapshot is None:
             return None
         element_is_final = snapshot.is_final if is_final is None else bool(is_final)
-        fixed_is_new = bool(snapshot.is_new)
+        fixed_is_new = (
+            bool(snapshot.is_new) if force_is_new is None else bool(force_is_new)
+        )
         payload = (
             snapshot.payload.model_copy(deep=True)
             if snapshot.payload is not None
@@ -210,15 +219,33 @@ class ListenElementRunStreamMixin:
         audio_segments: list[dict[str, Any]] | None = None,
         *,
         audio: ElementAudioDTO | None = None,
+        force_is_new: bool | None = None,
     ) -> RunElementSSEMessageDTO | None:
         patch_element = self._build_audio_patch_element(
             element_bid,
             audio_segments=audio_segments,
             audio=audio,
+            force_is_new=force_is_new,
         )
         if patch_element is None:
             return None
         return self._element_message(patch_element)
+
+    def _should_emit_targeted_text_audio_patch(
+        self, state: BlockState, element_bid: str | None
+    ) -> bool:
+        if not element_bid or element_bid == state.fallback_element_bid:
+            return False
+        snapshot = self._load_latest_element_snapshot(element_bid)
+        if snapshot is None:
+            return False
+        if snapshot.element_type != ElementType.TEXT:
+            return False
+        payload = snapshot.payload or ElementPayloadDTO()
+        has_bound_audio = bool(
+            snapshot.audio_url or snapshot.audio_segments or payload.audio is not None
+        )
+        return (not snapshot.is_new) or not has_bound_audio
 
     def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
         LearnGeneratedElement.query.filter(
@@ -417,6 +444,11 @@ class ListenElementRunStreamMixin:
                 state,
                 stream_state.element_bid,
             )
+            latest_snapshot = self._load_latest_element_snapshot(
+                stream_state.element_bid
+            )
+            if latest_snapshot is not None and latest_snapshot.is_final:
+                continue
             element = self._build_stream_element(
                 state=state,
                 role=meta.role,
@@ -500,13 +532,29 @@ class ListenElementRunStreamMixin:
             target_element_bid = _resolve_audio_target_element_bid(state, position)
         if target_element_bid:
             state.audio_target_element_bid_by_position[position] = target_element_bid
+        should_defer_final_patch = bool(
+            target_element_bid
+            and self._state_has_av_text_segments(state)
+            and state.fallback_element_bid
+            and target_element_bid == state.fallback_element_bid
+        )
         if target_element_bid and content.audio_url:
+            if should_defer_final_patch:
+                if not self._state_machine.is_terminated:
+                    self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
+                return
+
             self._backfill_audio_url(target_element_bid, content.audio_url)
             audio_payload = _make_audio_payload(content)
+            force_is_new = not self._should_emit_targeted_text_audio_patch(
+                state,
+                target_element_bid,
+            )
             patch_element = self._build_audio_patch_element(
                 target_element_bid,
                 audio_segments=finalized_audio_segments,
                 is_final=True,
+                force_is_new=force_is_new,
             )
             if patch_element is not None:
                 patch_element.audio_url = content.audio_url
@@ -581,10 +629,15 @@ class ListenElementRunStreamMixin:
                 state.audio_target_element_bid_by_position[position] = (
                     target_element_bid
                 )
+                force_is_new = not self._should_emit_targeted_text_audio_patch(
+                    state,
+                    target_element_bid,
+                )
                 patch_message = self._build_audio_segment_patch_message(
                     target_element_bid,
                     audio_segments=[segment_data],
                     audio=state.audio_by_position.get(position),
+                    force_is_new=force_is_new,
                 )
                 if patch_message is not None:
                     yield patch_message
@@ -653,7 +706,7 @@ class ListenElementRunStreamMixin:
             if visual_segments:
                 yield from self._retire_fallback_element(
                     state,
-                    emit_notification=True,
+                    emit_notification=not self._state_has_av_text_segments(state),
                 )
                 final_elements = _build_final_elements_for_av_contract(
                     app=self.app,

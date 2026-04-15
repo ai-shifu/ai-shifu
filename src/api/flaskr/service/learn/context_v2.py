@@ -1337,6 +1337,67 @@ class RunScriptContextV2:
             return
         self._langfuse_output_chunks.append(text)
 
+    def _ensure_runtime_trace(self) -> None:
+        if not hasattr(self, "_trace_args") or self._trace_args is None:
+            self._trace_args = {}
+
+        metadata = self._trace_args.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            self._trace_args["metadata"] = metadata
+
+        chapter_title = str(
+            getattr(self._outline_item_info, "title", "")
+            or metadata.get("chapter_title", "")
+            or getattr(self._outline_item_info, "bid", "")
+        )
+        trace_scene = (
+            "lesson_preview_runtime"
+            if getattr(self, "_preview_mode", False)
+            else "lesson_runtime"
+        )
+        self._trace_args.setdefault(
+            "user_id",
+            getattr(getattr(self, "_user_info", None), "user_id", ""),
+        )
+        self._trace_args.setdefault(
+            "name",
+            build_langfuse_trace_name(chapter_title, trace_scene),
+        )
+        metadata.setdefault("scene", trace_scene)
+        metadata.setdefault("chapter_title", chapter_title)
+        metadata.setdefault(
+            "outline_item_bid",
+            getattr(self._outline_item_info, "bid", ""),
+        )
+        metadata.setdefault(
+            "shifu_bid",
+            getattr(self._outline_item_info, "shifu_bid", ""),
+        )
+        metadata.setdefault(
+            "preview_mode",
+            int(bool(getattr(self, "_preview_mode", False))),
+        )
+
+        if not getattr(self, "_trace_id", ""):
+            self._trace_id = get_request_trace_id()
+
+        if not hasattr(self, "_trace") or not hasattr(self, "_trace_root_span"):
+            self._trace, self._trace_root_span = create_trace_with_root_span(
+                client=get_langfuse_client(),
+                trace_payload={"id": self._trace_id, **self._trace_args},
+                root_span_payload={
+                    "name": build_langfuse_span_name(
+                        chapter_title,
+                        trace_scene,
+                        "root",
+                    ),
+                },
+            )
+
+        if not hasattr(self, "_langfuse_output_chunks"):
+            self._langfuse_output_chunks = []
+
     def _finalize_langfuse_trace(self) -> None:
         output_chunks = getattr(self, "_langfuse_output_chunks", [])
         finalize_langfuse_trace(
@@ -2235,6 +2296,7 @@ class RunScriptContextV2:
         )
 
     def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        self._ensure_runtime_trace()
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
@@ -3178,11 +3240,9 @@ class RunScriptContextV2:
                                 stream_element_type,
                                 normalized_number,
                             ) in _iter_llm_result_content_parts(payload):
-                                if not stream_element_type or normalized_number is None:
-                                    continue
                                 yield from _process_stream_chunk(
                                     chunk_content,
-                                    stream_element_type=stream_element_type,
+                                    stream_element_type=stream_element_type or None,
                                     stream_element_number=normalized_number,
                                 )
                     else:

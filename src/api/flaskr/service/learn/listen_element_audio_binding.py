@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
@@ -7,16 +8,29 @@ from flaskr.service.learn.listen_element_payloads import (
     _pick_default_audio_position,
 )
 
+_PURE_MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*]\([^)]*\)")
 
-def _stream_element_accepts_audio_target(element_type: ElementType) -> bool:
-    return element_type == ElementType.TEXT
+
+def _img_stream_has_inline_caption(content_text: str) -> bool:
+    stripped = str(content_text or "").strip()
+    if not stripped:
+        return False
+    return _PURE_MARKDOWN_IMAGE_RE.fullmatch(stripped) is None
+
+
+def _stream_state_accepts_audio_target(stream_state: Any) -> bool:
+    if stream_state.element_type == ElementType.TEXT:
+        return True
+    if stream_state.element_type == ElementType.IMG:
+        return _img_stream_has_inline_caption(stream_state.content_text or "")
+    return False
 
 
 def _ordered_stream_audio_targets(state: Any) -> list[Any]:
     return [
         stream_state
         for stream_state in state.stream_elements.values()
-        if _stream_element_accepts_audio_target(stream_state.element_type)
+        if _stream_state_accepts_audio_target(stream_state)
         and (stream_state.content_text or "").strip()
     ]
 
@@ -25,7 +39,7 @@ def _resolve_pending_audio_for_stream_element(
     state: Any,
     stream_state: Any,
 ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]] | None]:
-    if not _stream_element_accepts_audio_target(stream_state.element_type):
+    if not _stream_state_accepts_audio_target(stream_state):
         return None, None
     default_audio_position = _pick_default_audio_position(
         state.audio_by_position,
@@ -85,7 +99,7 @@ def _resolve_stream_audio_for_element_bid(
     lone_stream_state = next(iter(state.stream_elements.values()))
     if (
         lone_stream_state.element_bid != element_bid
-        or not _stream_element_accepts_audio_target(lone_stream_state.element_type)
+        or not _stream_state_accepts_audio_target(lone_stream_state)
     ):
         return None, []
 
@@ -117,7 +131,7 @@ def _resolve_audio_target_element_bid_for_stream_number(
         active_state = state.stream_elements.get(active_key)
         if (
             active_state is not None
-            and _stream_element_accepts_audio_target(active_state.element_type)
+            and _stream_state_accepts_audio_target(active_state)
             and (
                 not normalized_type
                 or active_state.stream_type == normalized_type
@@ -129,7 +143,7 @@ def _resolve_audio_target_element_bid_for_stream_number(
     for stream_state in state.stream_elements.values():
         if stream_state.number != normalized_number:
             continue
-        if not _stream_element_accepts_audio_target(stream_state.element_type):
+        if not _stream_state_accepts_audio_target(stream_state):
             continue
         if normalized_type and stream_state.stream_type not in (
             normalized_type,

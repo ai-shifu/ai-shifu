@@ -10,7 +10,7 @@ from flask import Flask
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.consts import LEARN_STATUS_RESET
@@ -205,6 +205,9 @@ def init_first_course(app: Flask, user_id: str) -> None:
     # Ensure pending state changes are visible to subsequent queries
     db.session.flush()
 
+    def _is_unowned(model) -> Any:
+        return or_(model.created_user_bid.is_(None), model.created_user_bid == "")
+
     # Count only verified users for the bootstrap check.
     # Support both legacy verified states (1..3) and canonical verified states
     # (1102..1104), while intentionally excluding unregistered states.
@@ -236,17 +239,27 @@ def init_first_course(app: Flask, user_id: str) -> None:
         mark_user_roles(user_id, is_creator=True, is_operator=True)
 
         ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
-        # Assign demo shifu only when there is exactly one published course
-        course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+        # Assign the lone unowned demo course when the deployment still has
+        # exactly one unclaimed published course pair.
+        course_count = PublishedShifu.query.filter(
+            PublishedShifu.deleted == 0,
+            _is_unowned(PublishedShifu),
+        ).count()
         if course_count == 0:
-            course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
             ShifuModel = DraftShifu
+            course_count = DraftShifu.query.filter(
+                DraftShifu.deleted == 0,
+                _is_unowned(DraftShifu),
+            ).count()
         if course_count != 1:
             db.session.flush()
             return
 
         course = (
-            ShifuModel.query.filter(ShifuModel.deleted == 0)
+            ShifuModel.query.filter(
+                ShifuModel.deleted == 0,
+                _is_unowned(ShifuModel),
+            )
             .order_by(ShifuModel.id.asc())
             .first()
         )

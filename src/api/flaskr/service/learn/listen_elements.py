@@ -11,6 +11,7 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
+from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.listen_element_history import (
     get_listen_element_record as _get_listen_element_record,
@@ -41,6 +42,7 @@ from flaskr.service.learn.type_state_machine import (
 
 __all__ = [
     "ListenElementRunAdapter",
+    "build_legacy_record_for_progress",
     "backfill_learn_generated_elements_batch",
     "get_listen_element_record",
 ]
@@ -180,4 +182,5 @@ def get_listen_element_record(
             user_bid=user_bid,
             preview_mode=preview_mode,
         ),
+        load_progress_legacy_record=build_legacy_record_for_progress,
     )
