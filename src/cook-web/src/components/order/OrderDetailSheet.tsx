@@ -88,6 +88,8 @@ const OrderDetailSheet = ({
     () => ({
       pingxx: t('module.order.paymentChannel.pingxx'),
       stripe: t('module.order.paymentChannel.stripe'),
+      manual: t('module.order.paymentChannel.manual'),
+      open_api: t('module.order.paymentChannel.open_api'),
       unknown: t('module.order.paymentChannel.unknown'),
     }),
     [t],

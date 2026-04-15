@@ -22,6 +22,7 @@ from flaskr.service.learn.listen_element_payloads import (
     _sanitize_audio_segments_for_storage,
     _serialize_payload,
 )
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.learn.listen_element_types import (
     ELEMENT_TYPE_CODES,
     LEGACY_ELEMENT_TYPE_MAP,
@@ -211,6 +212,7 @@ def _deserialize_event_content(
                 else None
             ),
             av_contract=payload.get("av_contract"),
+            subtitle_cues=normalize_subtitle_cues(payload.get("subtitle_cues")),
         )
 
     if row.event_type == GeneratedType.AUDIO_COMPLETE.value:
@@ -232,6 +234,7 @@ def _deserialize_event_content(
                 else None
             ),
             av_contract=payload.get("av_contract"),
+            subtitle_cues=normalize_subtitle_cues(payload.get("subtitle_cues")),
         )
 
     return raw_text

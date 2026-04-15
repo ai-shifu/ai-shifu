@@ -6,6 +6,7 @@ from typing import Any, Callable
 from sqlalchemy import and_, or_
 
 from flaskr.service.learn.learn_dtos import (
+    ElementAudioDTO,
     ElementDTO,
     ElementPayloadDTO,
     ElementType,
@@ -28,6 +29,8 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -136,10 +139,114 @@ def _build_final_elements_from_rows(
             if row.event_type != GeneratedType.AUDIO_COMPLETE.value
         ]
 
+    final_elements = _enrich_elements_with_persisted_audio(
+        [_normalize_record_element(element) for element in latest_by_bid.values()]
+    )
     return (
-        [_normalize_record_element(element) for element in latest_by_bid.values()],
+        final_elements,
         events,
     )
+
+
+def _load_latest_audio_by_block_position(
+    generated_block_bids: list[str],
+) -> dict[tuple[str, int], LearnGeneratedAudio]:
+    normalized_block_bids = [str(block_bid or "") for block_bid in generated_block_bids]
+    normalized_block_bids = [
+        block_bid for block_bid in normalized_block_bids if block_bid
+    ]
+    if not normalized_block_bids:
+        return {}
+
+    audio_records = (
+        LearnGeneratedAudio.query.filter(
+            LearnGeneratedAudio.generated_block_bid.in_(normalized_block_bids),
+            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+            LearnGeneratedAudio.deleted == 0,
+        )
+        .order_by(
+            LearnGeneratedAudio.generated_block_bid.asc(),
+            LearnGeneratedAudio.position.asc(),
+            LearnGeneratedAudio.id.desc(),
+        )
+        .all()
+    )
+    latest_by_block_position: dict[tuple[str, int], LearnGeneratedAudio] = {}
+    for audio_record in audio_records:
+        block_bid = str(audio_record.generated_block_bid or "")
+        position = int(getattr(audio_record, "position", 0) or 0)
+        key = (block_bid, position)
+        if key in latest_by_block_position:
+            continue
+        if not audio_record.oss_url:
+            continue
+        latest_by_block_position[key] = audio_record
+    return latest_by_block_position
+
+
+def _enrich_elements_with_persisted_audio(
+    elements: list[ElementDTO],
+) -> list[ElementDTO]:
+    generated_block_bids = {
+        str(element.generated_block_bid or "")
+        for element in elements
+        if element.generated_block_bid
+    }
+    latest_audio_by_key = _load_latest_audio_by_block_position(
+        list(generated_block_bids)
+    )
+    if not latest_audio_by_key:
+        return elements
+
+    available_positions_by_block: dict[str, list[int]] = {}
+    for block_bid, position in latest_audio_by_key.keys():
+        available_positions_by_block.setdefault(block_bid, []).append(position)
+
+    for element in elements:
+        block_bid = str(element.generated_block_bid or "")
+        if not block_bid:
+            continue
+
+        payload = element.payload or ElementPayloadDTO()
+        payload_audio = payload.audio
+        should_enrich = bool(
+            payload_audio is not None or element.is_speakable or element.audio_url
+        )
+        if not should_enrich:
+            continue
+
+        resolved_position: int | None = None
+        if payload_audio is not None:
+            resolved_position = int(getattr(payload_audio, "position", 0) or 0)
+        else:
+            available_positions = available_positions_by_block.get(block_bid, [])
+            if len(available_positions) == 1:
+                resolved_position = int(available_positions[0])
+            elif 0 in available_positions and (
+                element.audio_url or element.is_speakable
+            ):
+                resolved_position = 0
+
+        if resolved_position is None:
+            continue
+
+        audio_record = latest_audio_by_key.get((block_bid, resolved_position))
+        if audio_record is None:
+            continue
+
+        payload.audio = ElementAudioDTO(
+            audio_url=audio_record.oss_url or "",
+            audio_bid=audio_record.audio_bid or "",
+            duration_ms=int(audio_record.duration_ms or 0),
+            position=resolved_position,
+            subtitle_cues=normalize_subtitle_cues(
+                getattr(audio_record, "subtitle_cues", None)
+            ),
+        )
+        element.payload = payload
+        element.audio_url = audio_record.oss_url or element.audio_url
+
+    return elements
 
 
 def _query_element_rows(
