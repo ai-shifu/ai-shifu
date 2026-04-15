@@ -101,6 +101,7 @@
   "paginationPrev": "Previous",
   "paymentChannel": {
     "manual": "Manual",
+    "open_api": "Open API",
     "pingxx": "Ping++",
     "stripe": "Stripe",
     "unknown": "Unknown"

@@ -101,6 +101,7 @@
   "paginationPrev": "上一页",
   "paymentChannel": {
     "manual": "人工",
+    "open_api": "Open API",
     "pingxx": "Ping++",
     "stripe": "Stripe",
     "unknown": "未知"

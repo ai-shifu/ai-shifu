@@ -101,6 +101,7 @@ PAYMENT_CHANNEL_KEY_MAP = {
     "pingxx": "module.order.paymentChannel.pingxx",
     "stripe": "module.order.paymentChannel.stripe",
     "manual": "module.order.paymentChannel.manual",
+    "open_api": "module.order.paymentChannel.open_api",
 }
 
 MOBILE_PATTERN = re.compile(r"^\d{11}$")
