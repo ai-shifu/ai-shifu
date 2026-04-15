@@ -418,6 +418,7 @@ export type I18nKey =
   | 'module.order.paginationNext'
   | 'module.order.paginationPrev'
   | 'module.order.paymentChannel.manual'
+  | 'module.order.paymentChannel.open_api'
   | 'module.order.paymentChannel.pingxx'
   | 'module.order.paymentChannel.stripe'
   | 'module.order.paymentChannel.unknown'
