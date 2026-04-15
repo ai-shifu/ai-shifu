@@ -469,7 +469,6 @@ def import_activation_order(
         defaults = {
             "identify": normalized_identifier,
             "nickname": nickname_value,
-            "language": "en-US",
             "state": USER_STATE_REGISTERED,
         }
         existing_aggregate = load_user_aggregate_by_identifier(
