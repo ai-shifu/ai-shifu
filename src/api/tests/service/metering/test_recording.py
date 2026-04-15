@@ -11,7 +11,10 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.demo_courses import LEGACY_DEMO_SHIFU_BIDS
 from flaskr.util.uuid import generate_id
+
+_BUILTIN_DEMO_SHIFU_BID = sorted(LEGACY_DEMO_SHIFU_BIDS)[0]
 
 
 @pytest.fixture
@@ -250,4 +253,73 @@ def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
             total=12,
         )
 
+    assert captured == []
+
+
+def test_record_llm_usage_marks_builtin_demo_course_non_billable(
+    metering_app,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.append(usage_bid),
+    )
+
+    with metering_app.app_context():
+        usage_bid = record_llm_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-demo-llm-1",
+                shifu_bid=_BUILTIN_DEMO_SHIFU_BID,
+                usage_scene=BILL_USAGE_SCENE_PROD,
+            ),
+            provider="openai",
+            model="gpt-test",
+            is_stream=False,
+            input=8,
+            output=13,
+            total=21,
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.billable == 0
+    assert captured == []
+
+
+def test_record_tts_usage_marks_builtin_demo_course_non_billable(
+    metering_app,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: captured.append(usage_bid),
+    )
+
+    with metering_app.app_context():
+        usage_bid = record_tts_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-demo-tts-1",
+                shifu_bid=_BUILTIN_DEMO_SHIFU_BID,
+                usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                audio_bid="audio-demo-1",
+            ),
+            provider="minimax",
+            model="speech-01",
+            is_stream=True,
+            input=18,
+            output=18,
+            total=18,
+            word_count=18,
+            duration_ms=1200,
+            record_level=0,
+            segment_count=1,
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.billable == 0
     assert captured == []

@@ -11,6 +11,7 @@ from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.admission import (
     CreatorRuntimeAdmissionLease,
+    CreatorUsageAdmission,
     reserve_creator_runtime_slot,
 )
 from flaskr.service.common.models import raise_param_error
@@ -32,6 +33,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
+from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
@@ -178,7 +180,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         if not in_published:
             raise_error("server.shifu.lessonNotFoundInCourse")
 
-    def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int):
+    def _admit_creator_usage_for_shifu(
+        shifu_bid: str, usage_scene: int
+    ) -> CreatorUsageAdmission | None:
+        if is_builtin_demo_shifu(app, shifu_bid):
+            return None
         return admit_creator_usage(
             app,
             shifu_bid=shifu_bid,
@@ -483,10 +489,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW,
         )
-        runtime_lease = reserve_creator_runtime_slot(
-            app,
-            admission_payload=admission_payload,
-        )
+        runtime_lease = None
+        if admission_payload is not None:
+            runtime_lease = reserve_creator_runtime_slot(
+                app,
+                admission_payload=admission_payload,
+            )
 
         return _stream_sse_response(
             app,

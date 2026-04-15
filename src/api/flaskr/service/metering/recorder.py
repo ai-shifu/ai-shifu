@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -41,9 +42,11 @@ class UsageContext:
     billable: Optional[int] = None
 
 
-def _resolve_billable(usage_scene: int, billable: Optional[int]) -> int:
-    if billable is not None:
-        return int(billable)
+def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) -> int:
+    if context.billable is not None:
+        return int(context.billable)
+    if context.shifu_bid and is_builtin_demo_shifu(app, context.shifu_bid):
+        return 0
     normalize_usage_scene(usage_scene)
     return 1
 
@@ -128,7 +131,11 @@ def record_llm_usage(
 ) -> str:
     usage_bid = generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
-    resolved_billable = _resolve_billable(normalized_usage_scene, context.billable)
+    resolved_billable = _resolve_billable(
+        app,
+        context=context,
+        usage_scene=normalized_usage_scene,
+    )
     record = BillUsageRecord(
         usage_bid=usage_bid,
         parent_usage_bid="",
@@ -222,7 +229,12 @@ def record_tts_usage(
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)
-    resolved_billable = _resolve_billable(context.usage_scene, context.billable)
+    normalized_usage_scene = normalize_usage_scene(context.usage_scene)
+    resolved_billable = _resolve_billable(
+        app,
+        context=context,
+        usage_scene=normalized_usage_scene,
+    )
     record = BillUsageRecord(
         usage_bid=resolved_usage_bid,
         parent_usage_bid=parent_usage_bid or "",
@@ -236,7 +248,7 @@ def record_tts_usage(
         trace_id=context.trace_id or "",
         usage_type=BILL_USAGE_TYPE_TTS,
         record_level=int(record_level or 0),
-        usage_scene=normalize_usage_scene(context.usage_scene),
+        usage_scene=normalized_usage_scene,
         provider=provider or "",
         model=model or "",
         is_stream=1 if is_stream else 0,
