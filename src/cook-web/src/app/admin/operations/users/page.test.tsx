@@ -501,7 +501,9 @@ describe('AdminOperationUsersPage', () => {
     render(<AdminOperationUsersPage />);
 
     expect(
-      await screen.findByText('module.operationsUser.loginMethodLabels.unknown'),
+      await screen.findByText(
+        'module.operationsUser.loginMethodLabels.unknown',
+      ),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -511,7 +513,9 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(
-      screen.getByText('module.operationsCourse.statusLabels.unknown (archived)'),
+      screen.getByText(
+        'module.operationsCourse.statusLabels.unknown (archived)',
+      ),
     ).toBeInTheDocument();
   });
 

@@ -257,10 +257,14 @@ describe('AdminOperationUserDetailPage', () => {
     render(<AdminOperationUserDetailPage />);
 
     expect(
-      await screen.findByText('module.operationsUser.loginMethodLabels.unknown'),
+      await screen.findByText(
+        'module.operationsUser.loginMethodLabels.unknown',
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.operationsCourse.statusLabels.unknown (archived)'),
+      screen.getByText(
+        'module.operationsCourse.statusLabels.unknown (archived)',
+      ),
     ).toBeInTheDocument();
   });
 
