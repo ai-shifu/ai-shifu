@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
+import type { MobileViewMode } from 'markdown-flow-ui/slide';
 
 import { useParams, useSearchParams } from 'next/navigation';
 
@@ -40,6 +41,10 @@ import NavDrawer from './Components/NavDrawer/NavDrawer';
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
 import TrackingVisit from '@/c-components/TrackingVisit';
 import ChatUi from './Components/ChatUi/ChatUi';
+import {
+  DEFAULT_LISTEN_MOBILE_VIEW_MODE,
+  LISTEN_MODE_VH_FALLBACK_CLASSNAME,
+} from './Components/ChatUi/listenModeTypes';
 
 import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
@@ -55,6 +60,17 @@ const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
 // import LoginModal from './Components/Login/LoginModal';
 
 // the main page of course learning
+const getIsLandscapeViewport = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return (
+    window.matchMedia('(orientation: landscape)').matches ||
+    window.innerWidth > window.innerHeight
+  );
+};
+
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
 
@@ -110,6 +126,14 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
+  const [listenMobileViewMode, setListenMobileViewMode] =
+    useState<MobileViewMode>(DEFAULT_LISTEN_MOBILE_VIEW_MODE);
+  const [isLandscapeViewport, setIsLandscapeViewport] = useState(false);
+  const shouldUseVhViewportUnit =
+    isListenMode &&
+    mobileStyle &&
+    isLandscapeViewport &&
+    listenMobileViewMode === 'fullscreen';
 
   useEffect(() => {
     const root = document.getElementById('root');
@@ -124,6 +148,78 @@ export default function ChatPage() {
       root?.classList.remove('listen-mode');
     };
   }, [isListenMode]);
+
+  useEffect(() => {
+    if (mobileStyle) {
+      setIsLandscapeViewport(getIsLandscapeViewport());
+      return;
+    }
+
+    setIsLandscapeViewport(false);
+  }, [mobileStyle]);
+
+  useEffect(() => {
+    if (!isListenMode || !mobileStyle) {
+      setListenMobileViewMode(DEFAULT_LISTEN_MOBILE_VIEW_MODE);
+    }
+  }, [isListenMode, mobileStyle]);
+
+  useEffect(() => {
+    const handleViewportChange = () => {
+      setIsLandscapeViewport(getIsLandscapeViewport());
+    };
+    const mediaQueryList = window.matchMedia(
+      '(orientation: landscape)',
+    ) as MediaQueryList & {
+      addListener?: (listener: () => void) => void;
+      removeListener?: (listener: () => void) => void;
+    };
+    const visualViewport = window.visualViewport;
+
+    handleViewportChange();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleViewportChange);
+    visualViewport?.addEventListener('resize', handleViewportChange);
+
+    if (typeof mediaQueryList.addEventListener === 'function') {
+      mediaQueryList.addEventListener('change', handleViewportChange);
+    } else {
+      mediaQueryList.addListener?.(handleViewportChange);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('orientationchange', handleViewportChange);
+      visualViewport?.removeEventListener('resize', handleViewportChange);
+
+      if (typeof mediaQueryList.removeEventListener === 'function') {
+        mediaQueryList.removeEventListener('change', handleViewportChange);
+      } else {
+        mediaQueryList.removeListener?.(handleViewportChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const html = document.documentElement;
+    const classTargets = [html, document.body, root].filter(
+      (target): target is HTMLElement => Boolean(target),
+    );
+
+    classTargets.forEach(target => {
+      target.classList.toggle(
+        LISTEN_MODE_VH_FALLBACK_CLASSNAME,
+        shouldUseVhViewportUnit,
+      );
+    });
+
+    return () => {
+      classTargets.forEach(target => {
+        target.classList.remove(LISTEN_MODE_VH_FALLBACK_CLASSNAME);
+      });
+    };
+  }, [shouldUseVhViewportUnit]);
 
   // check the frame layout
   useEffect(() => {
@@ -567,6 +663,7 @@ export default function ChatPage() {
             updateSelectedLesson={updateSelectedLesson}
             getNextLessonId={getNextLessonId}
             isNavOpen={navOpen}
+            onListenMobileViewModeChange={setListenMobileViewMode}
             showGenerateBtn={false}
           />
         ) : null}

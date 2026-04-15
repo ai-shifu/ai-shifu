@@ -12,6 +12,8 @@
 - Treat URL parameters as a single source of truth: use `lessonid` for lesson targeting and the `listen` query parameter for listen mode.
 - Streaming chat must use `element_bid` as the stable render key, with compatibility fields backfilled in the shared normalization entry point.
 - When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
+- For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
+- When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
 - 后台侧边栏这类上下分区布局优先使用 `flex flex-col`，让菜单容器承担 `flex-1 min-h-0`，把会员卡、账户卡这类摘要信息固定在底部，避免它们随着菜单高度漂移。
 - 侧边栏摘要卡片遇到“0 值”和“有值”两种状态时，优先做条件化布局而不是只替换数字；零值状态保持简洁头部，有值状态再展开明细和跳转入口。
 - 当卡片或快捷入口跳转到带页签的页面时，优先使用显式的查询参数或可还原状态直达目标页签，避免用户落到默认页签后再二次操作。
@@ -44,9 +46,13 @@
 - `skills/chat-element-streaming/SKILL.md`
 - `skills/chat-actionbar-ask-placement/SKILL.md`
 - `skills/listen-mode-audio-streaming/SKILL.md`
+- `skills/listen-mode-slide-mobile-integration/SKILL.md`
+- `skills/fullscreen-dialog-portal/SKILL.md`
+- `skills/markdownflow-controlled-sync/SKILL.md`
 - `skills/next-build-node-runtime/SKILL.md`
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`
+- `skills/chat-system-interaction-button-overrides/SKILL.md`
 
 ## Usage Rules
 

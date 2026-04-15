@@ -151,8 +151,8 @@
 .ChatUi.mobile.listenMode {
   display: flex;
   flex: 1 1 0;
-  height: calc(100dvh - 76px - 40px);
-  max-height: calc(100dvh - 76px - 40px);
+  height: calc(100dvh - 58px - 40px);
+  max-height: calc(100dvh - 58px - 40px);
   min-height: 0;
   flex-direction: column;
   overflow: visible;
@@ -168,14 +168,14 @@
   :global(
     .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
   ) {
-  min-height: calc(100% - 80px);
+  min-height: 100%;
 }
 .ChatUi.mobile.listenMode.listenModeWithPlayer
   .chatComponents
   :global(
     .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
   ) {
-  padding-bottom: 80px;
+  padding-bottom: 0;
 }
 .ChatUi .chatComponents {
   width: 100%;

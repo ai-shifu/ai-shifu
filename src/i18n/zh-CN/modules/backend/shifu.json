@@ -16,6 +16,9 @@
     "shifuNotFound": "课程不存在",
     "shifuPriceTooLow": "课程价格不能低于{min_shifu_price}元",
     "shifuStructNotFound": "课程结构不存在",
+    "transferCreatorDemoNotAllowed": "内置引导课程不支持转移创作者",
+    "transferCreatorSameUser": "目标用户已经是当前创作者",
+    "transferCreatorTargetNotFound": "未找到目标创作者用户",
     "ttsNotEnabled": "语音合成未开启",
     "unitNameTooLong": "单元名称过长",
     "unitNotFound": "单元不存在"

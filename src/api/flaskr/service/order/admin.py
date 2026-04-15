@@ -105,6 +105,7 @@ PAYMENT_CHANNEL_KEY_MAP = {
     "pingxx": "module.order.paymentChannel.pingxx",
     "stripe": "module.order.paymentChannel.stripe",
     "manual": "module.order.paymentChannel.manual",
+    "open_api": "module.order.paymentChannel.open_api",
 }
 
 MOBILE_PATTERN = re.compile(r"^\d{11}$")
@@ -455,6 +456,7 @@ def import_activation_order(
     user_nick_name: Optional[str] = None,
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
+    payment_channel: str = "manual",
 ) -> Dict[str, str]:
     """Create activation order for a user identified by phone or email."""
     with app.app_context():
@@ -473,7 +475,6 @@ def import_activation_order(
         defaults = {
             "identify": normalized_identifier,
             "nickname": nickname_value,
-            "language": "en-US",
             "state": USER_STATE_REGISTERED,
         }
         existing_aggregate = load_user_aggregate_by_identifier(
@@ -544,7 +545,7 @@ def import_activation_order(
 
         order.payable_price = Decimal("0")
         order.paid_price = Decimal("0")
-        order.payment_channel = "manual"
+        order.payment_channel = payment_channel
         db.session.commit()
 
         success_buy_record(app, order.order_bid)

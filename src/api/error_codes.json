@@ -51,6 +51,8 @@
   "server.shifu.shifuPriceTooLow": 4005,
   "server.shifu.ttsNotEnabled": 4006,
   "server.shifu.draftConflict": 4007,
+  "server.shifu.shifuNotFound": 4008,
+  "server.shifu.outlineItemNotFound": 4009,
   "server.pay.payChannelNotSupport": 5001,
   "server.billing.creditInsufficient": 7101,
   "server.billing.subscriptionInactive": 7102,

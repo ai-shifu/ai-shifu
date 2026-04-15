@@ -4,21 +4,31 @@ import { inWechat } from '@/c-constants/uiConstants';
 const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
 
 const copyTextOld = async text => {
-  return new Promise(() => {
-    const textArea = document.createElement('textArea');
-    // @ts-expect-error EXPECT
-    textArea.value = text;
-    // @ts-expect-error EXPECT
-    textArea.style.width = 0;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-999px';
-    textArea.style.top = '10px';
-    textArea.setAttribute('readonly', 'readonly');
-    document.body.appendChild(textArea);
-    // @ts-expect-error EXPECT
-    textArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textArea);
+  return new Promise<void>((resolve, reject) => {
+    const textArea = document.createElement('textarea');
+    try {
+      textArea.value = text;
+      textArea.style.width = '0';
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999px';
+      textArea.style.top = '10px';
+      textArea.setAttribute('readonly', 'readonly');
+      document.body.appendChild(textArea);
+      textArea.select();
+
+      if (document.execCommand('copy')) {
+        resolve();
+        return;
+      }
+
+      reject(new Error('copy command failed'));
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error('copy command failed'));
+    } finally {
+      if (textArea.parentNode) {
+        textArea.parentNode.removeChild(textArea);
+      }
+    }
   });
 };
 

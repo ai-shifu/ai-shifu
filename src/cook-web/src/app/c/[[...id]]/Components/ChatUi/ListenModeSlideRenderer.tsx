@@ -1,21 +1,29 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
+import { createPortal } from 'react-dom';
+import { Loader2 } from 'lucide-react';
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 import { SYS_INTERACTION_TYPE } from '@/c-api/studyV2';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
   type Element as SlideElement,
+  type ElementSubtitleCue,
+  type MobileViewMode,
   type SlidePlayerCustomActionContext,
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
+  resolveListenSlideSubtitleCues,
 } from './listenModeUtils';
 import {
   buildListenMarkerSequenceKey,
@@ -31,6 +39,7 @@ import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
+import { DEFAULT_LISTEN_MOBILE_VIEW_MODE } from './listenModeTypes';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -38,6 +47,7 @@ type ListenSlideElement = SlideElement & {
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
+  subtitle_cues?: ElementSubtitleCue[];
 };
 
 interface ListenModeSlideRendererProps {
@@ -46,6 +56,8 @@ interface ListenModeSlideRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   isLoading?: boolean;
   sectionTitle?: string;
+  courseName?: string;
+  courseAvatar?: string;
   lessonId?: string;
   shifuBid?: string;
   previewMode?: boolean;
@@ -57,6 +69,7 @@ interface ListenModeSlideRendererProps {
     isAudioPlaying: boolean;
     isAudioSequenceActive: boolean;
   }) => void;
+  onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
 
 type ResolveRenderSequence = (params: {
@@ -273,6 +286,7 @@ const buildSlideElementList = ({
       const { audioSegments, audioUrl, isAudioStreaming } =
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
+      const subtitleCues = resolveListenSlideSubtitleCues(item);
       const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
@@ -298,6 +312,7 @@ const buildSlideElementList = ({
         is_audio_streaming: isAudioStreaming,
         isAudioStreaming,
         audio_segments: audioSegments,
+        subtitle_cues: subtitleCues,
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -318,6 +333,7 @@ const buildSlideElementList = ({
     // Prefer in-memory interaction state, then fall back to persisted user_input.
     const currentUserInput =
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
+    const isPayInteraction = isPaySystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -336,12 +352,13 @@ const buildSlideElementList = ({
       is_new: item.is_new ?? true,
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
-      user_input: currentUserInput,
+      user_input: isPayInteraction ? '' : currentUserInput,
       ask_list: askList,
       readonly:
-        Boolean(item.readonly) ||
-        Boolean(currentUserInput) ||
-        !isLatestEditable,
+        !isPayInteraction &&
+        (Boolean(item.readonly) ||
+          Boolean(currentUserInput) ||
+          !isLatestEditable),
     });
   });
 
@@ -367,6 +384,8 @@ const ListenModeSlideRenderer = ({
   chatRef,
   isLoading = false,
   sectionTitle,
+  courseName = '',
+  courseAvatar = '',
   lessonId = '',
   shifuBid = '',
   previewMode = false,
@@ -374,6 +393,7 @@ const ListenModeSlideRenderer = ({
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
+  onMobileViewModeChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -397,6 +417,11 @@ const ListenModeSlideRenderer = ({
   });
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
+  const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
+    DEFAULT_LISTEN_MOBILE_VIEW_MODE,
+  );
+  const [fullscreenPortalContainer, setFullscreenPortalContainer] =
+    useState<HTMLElement | null>(null);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
@@ -1135,8 +1160,171 @@ const ListenModeSlideRenderer = ({
   );
 
   const shouldRenderMobileAskEntry = mobileStyle && !shouldRenderEmptyPpt;
+  const isMobileFullscreen = mobileViewMode === 'fullscreen';
+  const playerTexts = useMemo(
+    () => ({
+      settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
+      subtitleLabel: t('module.chat.listenPlayerSubtitleLabel'),
+      subtitleToggleAriaLabel: t('module.chat.listenPlayerSubtitleToggle'),
+      screenLabel: t('module.chat.listenPlayerScreenLabel'),
+      nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
+      fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
+      fullscreenHintText: t('module.chat.listenPlayerFullscreenHint'),
+    }),
+    [t],
+  );
+  const fullscreenHeaderContent = useMemo(() => {
+    if (!courseName && !sectionTitle) {
+      return null;
+    }
+
+    return (
+      <div className='flex min-w-0 items-center gap-3 text-white'>
+        {courseAvatar ? (
+          <Avatar className='h-8 w-8 shrink-0'>
+            <AvatarImage
+              src={courseAvatar}
+              alt=''
+            />
+          </Avatar>
+        ) : null}
+        <div className='flex min-w-0 flex-col justify-center'>
+          {courseName ? (
+            <span className='truncate text-base font-bold leading-5 text-white'>
+              {courseName}
+            </span>
+          ) : null}
+          {sectionTitle ? (
+            <span className='truncate text-xs leading-4 text-white/80'>
+              {sectionTitle}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }, [courseAvatar, courseName, sectionTitle]);
+  const fullscreenHeader = useMemo(
+    () => ({
+      content: fullscreenHeaderContent,
+      backAriaLabel: t('module.chat.listenPlayerBack'),
+    }),
+    [fullscreenHeaderContent, t],
+  );
+  const handleMobileViewModeChange = useCallback((viewMode: MobileViewMode) => {
+    setMobileViewMode(viewMode);
+  }, []);
+
+  useEffect(() => {
+    onMobileViewModeChange?.(mobileViewMode);
+  }, [mobileViewMode, onMobileViewModeChange]);
+
+  const syncFullscreenPortalContainer = useCallback(() => {
+    const slideShellElement = slideShellRef.current;
+    if (!slideShellElement) {
+      setFullscreenPortalContainer(null);
+      return;
+    }
+
+    const nextContainer =
+      slideShellElement.querySelector<HTMLElement>(
+        '.listen-slide-root .slide__viewport',
+      ) ?? null;
+
+    if (!nextContainer) {
+      setFullscreenPortalContainer(null);
+      return;
+    }
+
+    if (isMobileFullscreen) {
+      setFullscreenPortalContainer(nextContainer);
+      return;
+    }
+
+    const fullscreenElement = getDocumentFullscreenElement();
+    const isCurrentSlideInBrowserFullscreen = Boolean(
+      fullscreenElement && slideShellElement.contains(fullscreenElement),
+    );
+
+    setFullscreenPortalContainer(
+      isCurrentSlideInBrowserFullscreen ? nextContainer : null,
+    );
+  }, [isMobileFullscreen]);
+
+  useEffect(() => {
+    const syncContainer = () => {
+      window.requestAnimationFrame(() => {
+        syncFullscreenPortalContainer();
+      });
+    };
+
+    syncContainer();
+
+    document.addEventListener('fullscreenchange', syncContainer);
+    document.addEventListener('webkitfullscreenchange', syncContainer);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncContainer);
+      document.removeEventListener('webkitfullscreenchange', syncContainer);
+    };
+  }, [syncFullscreenPortalContainer]);
+
+  const mobileAskEntryButton = shouldRenderMobileAskEntry ? (
+    <button
+      type='button'
+      className={cn(
+        'listen-slide-mobile-ask-entry listen-slide-mobile-ask-button',
+        isMobileFullscreen && 'listen-slide-mobile-ask-entry--landscape',
+        isAskActionDisabled && 'listen-slide-mobile-ask-button--disabled',
+      )}
+      aria-pressed={isMobileAskOpen}
+      aria-disabled={isAskActionDisabled}
+      disabled={isAskActionDisabled}
+      onClick={handleMobileAskToggle}
+      ref={mobileAskActionRef}
+    >
+      <Image
+        src={AskIcon.src}
+        alt='ask'
+        width={14}
+        height={14}
+      />
+      <span>{t('module.chat.ask')}</span>
+    </button>
+  ) : null;
 
   // console.log('elementlist', elementList);
+
+  const desktopAskOverlay =
+    playerCustomActionState.isActive &&
+    !mobileStyle &&
+    !shouldRenderEmptyPpt ? (
+      <div
+        className={cn(
+          'slide-ask-overlay',
+          isPlayerVisible
+            ? 'slide-ask-overlay--with-player'
+            : 'slide-ask-overlay--standalone',
+        )}
+        ref={customAskOverlayRef}
+      >
+        <div className='slide-player__ask-card'>
+          <div className='slide-player__ask-body'>
+            <AskBlock
+              askList={playerCustomAskList}
+              className='listen-slide-ask-block'
+              element_bid={playerCustomAskElementBid}
+              isExpanded={true}
+              isOutputInProgress={isOutputInProgress}
+              onToggleAskExpanded={handlePlayerCustomActionClose}
+              outline_bid={lessonId}
+              preview_mode={previewMode}
+              shifu_bid={shifuBid}
+            />
+          </div>
+        </div>
+        <div className='slide-player__ask-arrow' />
+      </div>
+    ) : null;
 
   return (
     <div
@@ -1150,81 +1338,66 @@ const ListenModeSlideRenderer = ({
         className='listen-slide-shell'
         ref={slideShellRef}
       >
-        {shouldRenderMobileAskEntry ? (
-          <button
-            type='button'
-            className={cn(
-              'listen-slide-mobile-ask-entry listen-slide-mobile-ask-button',
-              isAskActionDisabled && 'listen-slide-mobile-ask-button--disabled',
-            )}
-            aria-pressed={isMobileAskOpen}
-            aria-disabled={isAskActionDisabled}
-            disabled={isAskActionDisabled}
-            onClick={handleMobileAskToggle}
-            ref={mobileAskActionRef}
-          >
-            <Image
-              src={AskIcon.src}
-              alt='ask'
-              width={14}
-              height={14}
-            />
-            <span>{t('module.chat.ask')}</span>
-          </button>
-        ) : null}
+        {isMobileFullscreen && mobileAskEntryButton
+          ? fullscreenPortalContainer
+            ? createPortal(mobileAskEntryButton, fullscreenPortalContainer)
+            : mobileAskEntryButton
+          : null}
+        {!isMobileFullscreen ? mobileAskEntryButton : null}
         {isMobileAskOpen && !shouldRenderEmptyPpt ? (
           mobileStyle ? (
-            <div
-              className='listen-slide-mobile-ask-panel'
-              ref={customAskOverlayRef}
-            >
-              <AskBlock
-                askList={currentAskList}
-                className='listen-slide-ask-block'
-                element_bid={resolvedAskElementBid}
-                isExpanded={true}
-                isOutputInProgress={isOutputInProgress}
-                onToggleAskExpanded={handleMobileAskClose}
-                outline_bid={lessonId}
-                preview_mode={previewMode}
-                shifu_bid={shifuBid}
-              />
-            </div>
-          ) : null
-        ) : null}
-        {playerCustomActionState.isActive &&
-        !mobileStyle &&
-        !shouldRenderEmptyPpt ? (
-          <div
-            className={cn(
-              'slide-ask-overlay',
-              isPlayerVisible
-                ? 'slide-ask-overlay--with-player'
-                : 'slide-ask-overlay--standalone',
-            )}
-            ref={customAskOverlayRef}
-          >
-            <div className='slide-player__ask-card'>
-              <div className='slide-player__ask-body'>
+            isMobileFullscreen && fullscreenPortalContainer ? (
+              createPortal(
+                <div
+                  className='listen-slide-mobile-ask-panel listen-slide-mobile-ask-panel--landscape'
+                  ref={customAskOverlayRef}
+                >
+                  <AskBlock
+                    askList={currentAskList}
+                    className='listen-slide-ask-block'
+                    element_bid={resolvedAskElementBid}
+                    forceDesktopSlidePanel={true}
+                    isExpanded={true}
+                    isOutputInProgress={isOutputInProgress}
+                    onToggleAskExpanded={handleMobileAskClose}
+                    outline_bid={lessonId}
+                    preview_mode={previewMode}
+                    shifu_bid={shifuBid}
+                  />
+                </div>,
+                fullscreenPortalContainer,
+              )
+            ) : (
+              <div
+                className='listen-slide-mobile-ask-panel'
+                ref={customAskOverlayRef}
+              >
                 <AskBlock
-                  askList={playerCustomAskList}
+                  askList={currentAskList}
                   className='listen-slide-ask-block'
-                  element_bid={playerCustomAskElementBid}
+                  element_bid={resolvedAskElementBid}
                   isExpanded={true}
                   isOutputInProgress={isOutputInProgress}
-                  onToggleAskExpanded={handlePlayerCustomActionClose}
+                  onToggleAskExpanded={handleMobileAskClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}
                   shifu_bid={shifuBid}
                 />
               </div>
-            </div>
-            <div className='slide-player__ask-arrow' />
-          </div>
+            )
+          ) : null
         ) : null}
+        {desktopAskOverlay
+          ? fullscreenPortalContainer
+            ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
+            : desktopAskOverlay
+          : null}
         <Slide
           // playerAlwaysVisible={true}
-          className='h-full w-full listen-slide-root'
+          className={cn(
+            'h-full w-full listen-slide-root',
+            isMobileFullscreen && 'listen-slide-root--landscape',
+          )}
           elementList={elementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
@@ -1238,12 +1411,27 @@ const ListenModeSlideRenderer = ({
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
+          fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
+          onMobileViewModeChange={handleMobileViewModeChange}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
           playerCustomActionPauseOnActive={true}
           playerCustomActions={playerCustomActions}
+          playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
+        {isLoading ? (
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-0 z-[91] flex items-center justify-center backdrop-blur-sm',
+              mobileStyle
+                ? 'bg-white/75'
+                : 'bg-[var(--color-slide-desktop-bg)]/70',
+            )}
+          >
+            <Loader2 className='size-6 animate-spin text-primary' />
+          </div>
+        ) : null}
       </div>
     </div>
   );

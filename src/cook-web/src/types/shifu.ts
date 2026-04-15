@@ -188,6 +188,10 @@ export interface SaveMdflowPayload {
   base_revision?: number;
 }
 
+export interface LoadMdflowOptions {
+  canApply?: () => boolean;
+}
+
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
   addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
@@ -256,7 +260,11 @@ export interface ShifuActions {
   clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
-  loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
+  loadMdflow: (
+    outlineId: string,
+    shifuId: string,
+    options?: LoadMdflowOptions,
+  ) => Promise<boolean>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   loadDraftMeta: (
     shifuId: string,

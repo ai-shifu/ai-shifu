@@ -10,6 +10,10 @@ html {
   -moz-osx-font-smoothing: auto;
 }
 
+:root {
+  --app-viewport-block-unit: 1dvh;
+}
+
 /* Listen mode layout bounds live in global CSS to avoid CSS Modules purity errors */
 html.listen-mode,
 body.listen-mode {
@@ -18,8 +22,14 @@ body.listen-mode {
 }
 
 body.listen-mode #root {
-  height: 100dvh;
+  height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   min-height: auto;
+}
+
+html.listen-mode-vh-fallback,
+body.listen-mode-vh-fallback,
+body.listen-mode-vh-fallback #root {
+  --app-viewport-block-unit: 1vh;
 }
 
 @layer base {
@@ -140,6 +150,24 @@ body.listen-mode #root {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     background-color: rgba(26, 104, 235, var(--tw-bg-opacity, 1));
     color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
+  }
+}
+
+.content-render-theme.pay-system-interaction {
+  .content-render .single-select-container button,
+  .content-render .single-select-container .select,
+  .content-render .single-select-container button:disabled,
+  .content-render .single-select-container button:hover,
+  .content-render .single-select-container button:active,
+  .content-render .single-select-container button:focus-visible {
+    border-color: var(--base-border, #e5e5e5);
+    background: var(--base-background, #fff);
+    color: var(--base-foreground, #0a0a0a);
+    opacity: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
   }
 }
 

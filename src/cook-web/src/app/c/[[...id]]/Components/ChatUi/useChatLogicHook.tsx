@@ -23,6 +23,7 @@ import {
   type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
+  type StudyRecordPayload,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -120,6 +121,7 @@ export interface ChatContentItem {
   is_speakable?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  payload?: StudyRecordPayload;
 }
 
 interface SSEParams {
@@ -1456,6 +1458,9 @@ function useChatLogicHook({
               } else {
                 // only update current lesson
                 if (outline_bid && outline_bid === lessonId) {
+                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                    isEnd = true;
+                  }
                   lessonUpdateResp(response, isEnd);
                 }
               }
@@ -1479,6 +1484,7 @@ function useChatLogicHook({
                   .reverse()
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
                 if (
+                  !isEnd &&
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {

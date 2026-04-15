@@ -9,8 +9,10 @@ from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementPayloadDTO,
     ElementType,
+    SubtitleCueDTO,
     ElementVisualDTO,
 )
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.learn.listen_element_types import _visual_type_for_element
 
 
@@ -45,11 +47,16 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     audio_dict = payload_dict.get("audio")
     audio = None
     if isinstance(audio_dict, dict):
+        subtitle_cues = [
+            SubtitleCueDTO(**cue)
+            for cue in normalize_subtitle_cues(audio_dict.get("subtitle_cues"))
+        ]
         audio = ElementAudioDTO(
             audio_url=str(audio_dict.get("audio_url", "") or ""),
             audio_bid=str(audio_dict.get("audio_bid", "") or ""),
             duration_ms=int(audio_dict.get("duration_ms", 0) or 0),
             position=int(audio_dict.get("position", 0) or 0),
+            subtitle_cues=subtitle_cues,
         )
     visuals = []
     for item in payload_dict.get("previous_visuals") or []:
@@ -88,13 +95,19 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
 
 
 def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
-    return {
+    payload = {
         "position": int(getattr(audio_segment, "position", 0) or 0),
         "segment_index": int(audio_segment.segment_index or 0),
         "audio_data": str(audio_segment.audio_data or ""),
         "duration_ms": int(audio_segment.duration_ms or 0),
         "is_final": bool(getattr(audio_segment, "is_final", False)),
     }
+    subtitle_cues = normalize_subtitle_cues(
+        getattr(audio_segment, "subtitle_cues", None)
+    )
+    if subtitle_cues:
+        payload["subtitle_cues"] = subtitle_cues
+    return payload
 
 
 def _upsert_audio_segment_payload(
@@ -110,6 +123,9 @@ def _upsert_audio_segment_payload(
     incoming_audio_data = str(incoming_segment.get("audio_data", "") or "")
     incoming_duration_ms = int(incoming_segment.get("duration_ms", 0) or 0)
     incoming_is_final = bool(incoming_segment.get("is_final", False))
+    incoming_subtitle_cues = normalize_subtitle_cues(
+        incoming_segment.get("subtitle_cues")
+    )
 
     for idx, existing in enumerate(normalized):
         existing_position = int(existing.get("position", 0) or 0)
@@ -127,18 +143,21 @@ def _upsert_audio_segment_payload(
             incoming_duration_ms or existing.get("duration_ms", 0) or 0
         )
         merged["is_final"] = bool(existing.get("is_final", False) or incoming_is_final)
+        if incoming_subtitle_cues:
+            merged["subtitle_cues"] = incoming_subtitle_cues
         normalized[idx] = merged
         return normalized
 
-    normalized.append(
-        {
-            "position": incoming_position,
-            "segment_index": incoming_index,
-            "audio_data": incoming_audio_data,
-            "duration_ms": incoming_duration_ms,
-            "is_final": incoming_is_final,
-        }
-    )
+    next_segment = {
+        "position": incoming_position,
+        "segment_index": incoming_index,
+        "audio_data": incoming_audio_data,
+        "duration_ms": incoming_duration_ms,
+        "is_final": incoming_is_final,
+    }
+    if incoming_subtitle_cues:
+        next_segment["subtitle_cues"] = incoming_subtitle_cues
+    normalized.append(next_segment)
     normalized.sort(
         key=lambda item: (
             int(item.get("position", 0) or 0),
@@ -157,6 +176,11 @@ def _clone_audio_segments(
             continue
         segment = dict(item)
         segment["is_final"] = bool(segment.get("is_final", False))
+        subtitle_cues = normalize_subtitle_cues(segment.get("subtitle_cues"))
+        if subtitle_cues:
+            segment["subtitle_cues"] = subtitle_cues
+        else:
+            segment.pop("subtitle_cues", None)
         cloned.append(segment)
     return cloned
 
@@ -243,4 +267,5 @@ def _make_audio_payload(audio: AudioCompleteDTO) -> ElementAudioDTO:
         audio_bid=audio.audio_bid or "",
         duration_ms=int(audio.duration_ms or 0),
         position=int(getattr(audio, "position", 0) or 0),
+        subtitle_cues=list(getattr(audio, "subtitle_cues", []) or []),
     )

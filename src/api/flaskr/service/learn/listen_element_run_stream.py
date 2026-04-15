@@ -160,6 +160,7 @@ class ListenElementRunStreamMixin:
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
         *,
+        audio: ElementAudioDTO | None = None,
         is_final: bool | None = None,
     ) -> ElementDTO | None:
         snapshot = self._load_latest_element_snapshot(element_bid)
@@ -167,6 +168,13 @@ class ListenElementRunStreamMixin:
             return None
         element_is_final = snapshot.is_final if is_final is None else bool(is_final)
         fixed_is_new = bool(snapshot.is_new)
+        payload = (
+            snapshot.payload.model_copy(deep=True)
+            if snapshot.payload is not None
+            else ElementPayloadDTO()
+        )
+        if audio is not None:
+            payload.audio = audio
         return ElementDTO(
             event_type="element",
             element_bid=element_bid,
@@ -193,17 +201,20 @@ class ListenElementRunStreamMixin:
             is_navigable=snapshot.is_navigable,
             is_final=element_is_final,
             content_text=snapshot.content_text,
-            payload=snapshot.payload,
+            payload=payload,
         )
 
     def _build_audio_segment_patch_message(
         self,
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
+        *,
+        audio: ElementAudioDTO | None = None,
     ) -> RunElementSSEMessageDTO | None:
         patch_element = self._build_audio_patch_element(
             element_bid,
             audio_segments=audio_segments,
+            audio=audio,
         )
         if patch_element is None:
             return None
@@ -516,13 +527,31 @@ class ListenElementRunStreamMixin:
             if isinstance(content.av_contract, dict):
                 state.latest_av_contract = content.av_contract
             position = int(getattr(content, "position", 0) or 0)
-            if position not in state.audio_by_position:
-                state.audio_by_position[position] = ElementAudioDTO(
-                    audio_url="",
-                    audio_bid="",
-                    duration_ms=int(getattr(content, "duration_ms", 0) or 0),
-                    position=position,
+            current_audio = state.audio_by_position.get(position)
+            progressive_subtitle_cues = list(
+                getattr(content, "subtitle_cues", []) or []
+            )
+            progressive_duration_ms = int(getattr(content, "duration_ms", 0) or 0)
+            if progressive_subtitle_cues:
+                progressive_duration_ms = int(
+                    getattr(progressive_subtitle_cues[-1], "end_ms", 0)
+                    or progressive_duration_ms
                 )
+            elif current_audio is not None:
+                progressive_duration_ms = int(
+                    getattr(current_audio, "duration_ms", 0) or progressive_duration_ms
+                )
+            state.audio_by_position[position] = ElementAudioDTO(
+                audio_url=current_audio.audio_url if current_audio is not None else "",
+                audio_bid=current_audio.audio_bid if current_audio is not None else "",
+                duration_ms=progressive_duration_ms,
+                position=position,
+                subtitle_cues=(
+                    progressive_subtitle_cues
+                    if progressive_subtitle_cues
+                    else list(getattr(current_audio, "subtitle_cues", []) or [])
+                ),
+            )
             segment_data = _audio_segment_payload(content)
             state.audio_segments_by_position[position] = _upsert_audio_segment_payload(
                 state.audio_segments_by_position.get(position, []),
@@ -555,6 +584,7 @@ class ListenElementRunStreamMixin:
                 patch_message = self._build_audio_segment_patch_message(
                     target_element_bid,
                     audio_segments=[segment_data],
+                    audio=state.audio_by_position.get(position),
                 )
                 if patch_message is not None:
                     yield patch_message
