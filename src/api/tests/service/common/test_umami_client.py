@@ -169,6 +169,96 @@ def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
         assert umami_client.get_course_visit_count_30d(app, "课程-1") == 9
 
 
+def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails(
+    app, monkeypatch
+):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_SITE_ID": "site-1",
+            "ANALYTICS_UMAMI_API_KEY": "api-key",
+            "ANALYTICS_UMAMI_API_URL": "",
+            "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": 900,
+            "ANALYTICS_UMAMI_TIMEOUT_SECONDS": 10,
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+
+    class CacheWrapper:
+        def __init__(self):
+            self._cache = InMemoryCacheProvider()
+
+        def get(self, key):
+            return self._cache.get(key)
+
+        def delete(self, *keys):
+            return self._cache.delete(*keys)
+
+        def setex(self, key, ttl, value):
+            raise RuntimeError("cache unavailable")
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return self._cache.lock(
+                key, timeout=timeout, blocking_timeout=blocking_timeout
+            )
+
+    monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+    monkeypatch.setattr(
+        umami_client,
+        "_fetch_distinct_ids_for_event",
+        lambda **kwargs: 7,
+    )
+
+    with app.app_context():
+        assert umami_client.get_course_visit_count_30d(app, "course-1") == 7
+
+
+def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
+    app, monkeypatch
+):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_SITE_ID": "site-1",
+            "ANALYTICS_UMAMI_API_KEY": "api-key",
+            "ANALYTICS_UMAMI_API_URL": "",
+            "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": 900,
+            "ANALYTICS_UMAMI_TIMEOUT_SECONDS": 10,
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+
+    class CacheWrapper:
+        def __init__(self):
+            self._cache = InMemoryCacheProvider()
+
+        def get(self, key):
+            return self._cache.get(key)
+
+        def delete(self, *keys):
+            return self._cache.delete(*keys)
+
+        def setex(self, key, ttl, value):
+            raise RuntimeError("cache unavailable")
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return self._cache.lock(
+                key, timeout=timeout, blocking_timeout=blocking_timeout
+            )
+
+    monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+    monkeypatch.setattr(
+        umami_client,
+        "_fetch_distinct_ids_for_event",
+        lambda **kwargs: (_ for _ in ()).throw(
+            requests.RequestException("umami unavailable")
+        ),
+    )
+
+    with app.app_context():
+        assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
+
+
 def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
     _mock_config(
         monkeypatch,
@@ -200,6 +290,48 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
             return BusyLock()
 
     monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+
+    assert (
+        umami_client._login_for_access_token("https://api.umami.is/v1", 10)
+        == "fresh-token"
+    )
+
+
+def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_API_USERNAME": "user",
+            "ANALYTICS_UMAMI_API_PASSWORD": "pass",
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+
+    class CacheWrapper:
+        def __init__(self):
+            self._cache = InMemoryCacheProvider()
+
+        def get(self, key):
+            return self._cache.get(key)
+
+        def setex(self, key, ttl, value):
+            raise RuntimeError("cache unavailable")
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return self._cache.lock(
+                key, timeout=timeout, blocking_timeout=blocking_timeout
+            )
+
+    monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+    monkeypatch.setattr(
+        umami_client.requests,
+        "post",
+        lambda *args, **kwargs: SimpleNamespace(
+            status_code=200,
+            raise_for_status=lambda: None,
+            json=lambda: {"token": "fresh-token"},
+        ),
+    )
 
     assert (
         umami_client._login_for_access_token("https://api.umami.is/v1", 10)

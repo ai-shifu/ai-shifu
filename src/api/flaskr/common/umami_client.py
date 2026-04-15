@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
@@ -15,6 +16,7 @@ UMAMI_COURSE_VISIT_CACHE_PREFIX = "analytics:umami:course-visits:30d"
 UMAMI_METRICS_PAGE_SIZE = 500
 COURSE_VISIT_EVENT_PREFIX = "course_visit_"
 UMAMI_FAILURE_CACHE_TTL_SECONDS = 60
+logger = logging.getLogger(__name__)
 
 
 def build_course_visit_event_name(shifu_bid: str) -> str:
@@ -90,6 +92,24 @@ def _get_access_token_cache_key() -> str:
     return f"{_get_cache_prefix()}{UMAMI_ACCESS_TOKEN_CACHE_SUFFIX}"
 
 
+def _cache_setex_best_effort(
+    cache_key: str,
+    ttl_seconds: int,
+    value: Any,
+    *,
+    operation: str,
+) -> None:
+    try:
+        cache.setex(cache_key, ttl_seconds, value)
+    except Exception as exc:
+        logger.warning(
+            "Failed to cache Umami %s for %s: %s",
+            operation,
+            cache_key,
+            exc,
+        )
+
+
 def _read_cached_int(cache_key: str) -> int | None:
     cached = _decode_cache_bytes(cache.get(cache_key))
     if not cached:
@@ -133,7 +153,12 @@ def _login_for_access_token(base_url: str, timeout_seconds: int) -> str:
                 or ""
             ).strip()
             if token:
-                cache.setex(cache_key, 3600, token)
+                _cache_setex_best_effort(
+                    cache_key,
+                    3600,
+                    token,
+                    operation="access token",
+                )
             return token
         finally:
             lock.release()
@@ -231,7 +256,12 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
                 event_name=event_name,
                 timeout_seconds=_get_request_timeout_seconds(),
             )
-            cache.setex(cache_key, _get_course_visit_cache_ttl_seconds(), visit_count)
+            _cache_setex_best_effort(
+                cache_key,
+                _get_course_visit_cache_ttl_seconds(),
+                visit_count,
+                operation="course visit count",
+            )
             return max(0, int(visit_count))
         except Exception as exc:
             app.logger.warning(
@@ -239,7 +269,12 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
                 normalized_shifu_bid,
                 exc,
             )
-            cache.setex(cache_key, UMAMI_FAILURE_CACHE_TTL_SECONDS, 0)
+            _cache_setex_best_effort(
+                cache_key,
+                UMAMI_FAILURE_CACHE_TTL_SECONDS,
+                0,
+                operation="failure marker",
+            )
             return 0
         finally:
             lock.release()
