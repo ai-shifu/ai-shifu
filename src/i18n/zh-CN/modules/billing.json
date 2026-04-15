@@ -291,23 +291,23 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合首次体验，快速跑通建课与交付",
+        "description": "适合低成本试教，验证课程与学员反馈",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
-        "description": "适合低成本试教，验证课程与学员反馈",
+        "description": "适合稳定开课，持续服务小班学员",
         "title": "基础版"
       },
       "creatorYearly": {
-        "description": "适合稳定开课，持续服务小班学员",
+        "description": "适合年度稳定运营，覆盖常规课程交付",
         "title": "高阶版"
       },
       "creatorYearlyLite": {
-        "description": "适合年度稳定运营，覆盖常规课程交付",
+        "description": "适合品牌化交付，支持品牌标识与独立域名",
         "title": "进阶版"
       },
       "creatorYearlyPremium": {
-        "description": "适合品牌化交付，支持品牌标识与独立域名",
+        "description": "适合大规模运营，支持高并发课程交付",
         "title": "旗舰版"
       }
     },
@@ -361,11 +361,11 @@
       "validUntil": "有效期"
     },
     "title": "积分详情",
-    "totalCreditsDescription": "积分会按套餐积分、充值积分的顺序优先扣减；同类积分则优先扣减更早到期的部分。",
+    "totalCreditsDescription": "积分会按套餐积分、充值积分的顺序优先扣减。",
     "totalCreditsLabel": "总积分",
     "usageTable": {
       "columns": {
-        "scene": "积分变动原因"
+        "scene": "积分变化"
       }
     }
   },
@@ -547,7 +547,7 @@
     },
     "table": {
       "action": "操作",
-      "amount": "积分变化",
+      "amount": "数量",
       "availableCredits": "可用积分",
       "balanceAfter": "变化后余额",
       "createdAt": "日期",
@@ -767,7 +767,7 @@
       "topup": "积分充值",
       "yearly": "年度套餐"
     },
-    "subtitle": "根据你的课程规模、招生节奏和运营阶段，选择最适合当前创作者空间的积分方案。",
+    "subtitle": "请选择合适的积分套餐",
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分"

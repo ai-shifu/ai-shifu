@@ -291,23 +291,23 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for light creation, trial lessons, and learner interaction.",
+        "description": "Best for low-cost trial teaching and validating your course with learner feedback.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
-        "description": "Best for steady course delivery and serving a small learner base.",
+        "description": "Best for steady course delivery and ongoing support for small cohorts.",
         "title": "Basic"
       },
       "creatorYearly": {
-        "description": "Best for refined operations and evenly paced credit delivery.",
+        "description": "Best for stable annual operations and standard course delivery.",
         "title": "Pro"
       },
       "creatorYearlyLite": {
-        "description": "Best for focused enablement and intensive project delivery.",
+        "description": "Best for branded delivery with support for custom branding and a custom domain.",
         "title": "Advanced"
       },
       "creatorYearlyPremium": {
-        "description": "Best for large-scale learner delivery with full brand experience.",
+        "description": "Best for large-scale operations with support for high-concurrency course delivery.",
         "title": "Premium"
       }
     },
@@ -361,11 +361,11 @@
       "validUntil": "Valid until"
     },
     "title": "Credit Details",
-    "totalCreditsDescription": "Credits are consumed in the order of subscription and top-up buckets. Within the same category, the earliest-expiring balance is consumed first.",
+    "totalCreditsDescription": "Credits are consumed in the order of subscription and top-up buckets.",
     "totalCreditsLabel": "Total credits",
     "usageTable": {
       "columns": {
-        "scene": "Activity reason"
+        "scene": "Credit change"
       }
     }
   },
@@ -547,7 +547,7 @@
     },
     "table": {
       "action": "Action",
-      "amount": "Amount",
+      "amount": "Quantity",
       "availableCredits": "Available credits",
       "balanceAfter": "Balance after",
       "createdAt": "Date",
@@ -767,7 +767,7 @@
       "topup": "Credit Top-ups",
       "yearly": "Yearly Plans"
     },
-    "subtitle": "Choose a credit package that fits the size of your course catalog, admissions rhythm, and creator operations stage.",
+    "subtitle": "Choose the right credit plan.",
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits"
