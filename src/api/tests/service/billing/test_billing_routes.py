@@ -729,6 +729,7 @@ class TestBillingRoutes:
             "starts_on_first_grant": True,
             "granted_at": None,
             "expires_at": None,
+            "welcome_dialog_acknowledged_at": None,
         }
 
         assert bucket_payload["code"] == 0

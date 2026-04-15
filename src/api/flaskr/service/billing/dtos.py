@@ -149,6 +149,13 @@ class BillingTrialOfferDTO(BillingBaseDTO):
     starts_on_first_grant: bool
     granted_at: str | None = None
     expires_at: str | None = None
+    welcome_dialog_acknowledged_at: str | None = None
+
+
+@register_schema_to_swagger
+class BillingTrialWelcomeAckDTO(BillingBaseDTO):
+    acknowledged: bool
+    acknowledged_at: str | None = None
 
 
 @register_schema_to_swagger

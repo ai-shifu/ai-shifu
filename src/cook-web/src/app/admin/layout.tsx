@@ -79,8 +79,11 @@ const MainInterface = ({
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl || defaultLogo,
   );
-  const { data: billingOverview, isLoading: billingOverviewLoading } =
-    useBillingOverview();
+  const {
+    data: billingOverview,
+    isLoading: billingOverviewLoading,
+    mutate: mutateBillingOverview,
+  } = useBillingOverview();
   const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
 
   useEffect(() => {
@@ -94,6 +97,7 @@ const MainInterface = ({
       <WelcomeTrialDialog
         billingOverview={billingOverview}
         menuReady={menuReady}
+        mutateBillingOverview={mutateBillingOverview}
       />
       <div className='flex h-screen bg-stone-50'>
         <div className='w-[280px]'>

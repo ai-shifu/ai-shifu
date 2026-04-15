@@ -5,6 +5,9 @@ describe('billing api definitions', () => {
     expect(api.getBillingBootstrap).toBe('GET /billing');
     expect(api.getBillingCatalog).toBe('GET /billing/catalog');
     expect(api.getBillingOverview).toBe('GET /billing/overview');
+    expect(api.acknowledgeBillingTrialWelcome).toBe(
+      'POST /billing/trial-offer/welcome/ack',
+    );
     expect(api.getBillingEntitlements).toBe('GET /billing/entitlements');
     expect(api.getBillingDailyUsageMetrics).toBe(
       'GET /billing/reports/usage-daily',

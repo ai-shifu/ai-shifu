@@ -38,6 +38,7 @@ from flaskr.service.billing.subscriptions import (
     cancel_billing_subscription,
     resume_billing_subscription,
 )
+from flaskr.service.billing.trials import acknowledge_trial_welcome_dialog
 from flaskr.service.common.models import raise_error, raise_param_error
 
 
@@ -93,6 +94,17 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         _require_creator()
         return make_common_response(
             build_billing_overview(
+                app,
+                _get_creator_bid(),
+                timezone_name=_get_timezone_name(),
+            )
+        )
+
+    @app.route(path_prefix + "/trial-offer/welcome/ack", methods=["POST"])
+    def billing_trial_offer_welcome_ack_api():
+        _require_creator()
+        return make_common_response(
+            acknowledge_trial_welcome_dialog(
                 app,
                 _get_creator_bid(),
                 timezone_name=_get_timezone_name(),

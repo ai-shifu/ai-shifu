@@ -312,6 +312,12 @@ export type BillingTrialOffer = {
   starts_on_first_grant: boolean;
   granted_at: string | null;
   expires_at: string | null;
+  welcome_dialog_acknowledged_at?: string | null;
+};
+
+export type BillingTrialWelcomeAckResult = {
+  acknowledged: boolean;
+  acknowledged_at: string | null;
 };
 
 export type BillingSubscriptionProduct = BillingPlan | BillingTrialOffer;

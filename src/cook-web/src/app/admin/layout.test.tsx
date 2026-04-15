@@ -111,7 +111,13 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
+jest.mock('@/components/billing/WelcomeTrialDialog', () => ({
+  __esModule: true,
+  WelcomeTrialDialog: () => null,
+}));
+
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
+const mockMutateBillingOverview = jest.fn();
 
 describe('SidebarContent', () => {
   const t = (key: string) => key;
@@ -291,6 +297,7 @@ describe('AdminLayout', () => {
       starts_on_first_grant: true,
       granted_at: null,
       expires_at: null,
+      welcome_dialog_acknowledged_at: null,
     },
   });
 
@@ -300,10 +307,12 @@ describe('AdminLayout', () => {
     mockUserStoreState.userInfo = {
       is_operator: false,
     };
+    mockMutateBillingOverview.mockReset();
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({}),
       error: undefined,
       isLoading: false,
+      mutate: mockMutateBillingOverview,
     });
   });
 
@@ -430,6 +439,7 @@ describe('AdminLayout', () => {
       data: buildBillingOverview({ availableCredits: 0, subscription: null }),
       error: undefined,
       isLoading: false,
+      mutate: mockMutateBillingOverview,
     });
 
     render(
@@ -473,6 +483,7 @@ describe('AdminLayout', () => {
       }),
       error: undefined,
       isLoading: false,
+      mutate: mockMutateBillingOverview,
     });
 
     render(

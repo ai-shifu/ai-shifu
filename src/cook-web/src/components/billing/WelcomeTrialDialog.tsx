@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KeyedMutator } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { Gift } from 'lucide-react';
+import api from '@/api';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -13,62 +15,106 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import type {
-  BillingTrialOffer,
+  BillingTrialWelcomeAckResult,
   CreatorBillingOverview,
 } from '@/types/billing';
-
-const DISMISSED_KEY = 'ai-shifu:welcome-trial-dismissed';
-
-// TODO: remove after backend returns trial_offer with status 'eligible'
-const FALLBACK_TRIAL_OFFER: BillingTrialOffer = {
-  enabled: true,
-  status: 'eligible',
-  credit_amount: 100,
-  valid_days: 15,
-  starts_on_first_grant: true,
-  granted_at: null,
-  expires_at: null,
-};
 
 const APP_NAME_BY_LANG: Record<string, string> = {
   'zh-CN': 'AI 师傅',
   zh: 'AI 师傅',
 };
 const APP_NAME_DEFAULT = 'AI Shifu';
+const shownTrialGrantFingerprints = new Set<string>();
 
 interface WelcomeTrialDialogProps {
   billingOverview: CreatorBillingOverview | undefined;
   menuReady: boolean;
+  mutateBillingOverview: KeyedMutator<CreatorBillingOverview>;
 }
 
 export function WelcomeTrialDialog({
   billingOverview,
   menuReady,
+  mutateBillingOverview,
 }: WelcomeTrialDialogProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
-
-  // TODO: remove FALLBACK_TRIAL_OFFER after backend returns trial_offer with status 'eligible'
-  const serverTrialOffer = billingOverview?.trial_offer;
-  const trialOffer =
-    serverTrialOffer?.status === 'eligible'
-      ? serverTrialOffer
-      : FALLBACK_TRIAL_OFFER;
+  const dismissingRef = useRef(false);
+  const trialOffer = billingOverview?.trial_offer;
+  const creatorBid = billingOverview?.creator_bid || '';
+  const grantFingerprint =
+    creatorBid && trialOffer?.product_code && trialOffer.granted_at
+      ? `${creatorBid}:${trialOffer.product_code}:${trialOffer.granted_at}`
+      : '';
 
   useEffect(() => {
     if (
-      menuReady &&
-      trialOffer.status === 'eligible' &&
-      !localStorage.getItem(DISMISSED_KEY)
+      !menuReady ||
+      !trialOffer ||
+      trialOffer.status !== 'granted' ||
+      !trialOffer.granted_at ||
+      trialOffer.welcome_dialog_acknowledged_at ||
+      !grantFingerprint ||
+      shownTrialGrantFingerprints.has(grantFingerprint)
     ) {
-      setOpen(true);
+      return;
     }
-  }, [menuReady, trialOffer.status]);
+    shownTrialGrantFingerprints.add(grantFingerprint);
+    setOpen(true);
+  }, [grantFingerprint, menuReady, trialOffer]);
 
   const handleDismiss = useCallback(() => {
-    localStorage.setItem(DISMISSED_KEY, '1');
+    if (dismissingRef.current) {
+      return;
+    }
+    dismissingRef.current = true;
     setOpen(false);
-  }, []);
+    if (
+      !creatorBid ||
+      !trialOffer ||
+      trialOffer.status !== 'granted' ||
+      trialOffer.welcome_dialog_acknowledged_at
+    ) {
+      dismissingRef.current = false;
+      return;
+    }
+    void (async () => {
+      try {
+        const result = (await api.acknowledgeBillingTrialWelcome(
+          {},
+        )) as BillingTrialWelcomeAckResult;
+        if (result.acknowledged) {
+          const acknowledgedAt =
+            result.acknowledged_at || new Date().toISOString();
+          await mutateBillingOverview(
+            currentOverview => {
+              if (
+                !currentOverview ||
+                currentOverview.creator_bid !== creatorBid
+              ) {
+                return currentOverview;
+              }
+              return {
+                ...currentOverview,
+                trial_offer: {
+                  ...currentOverview.trial_offer,
+                  welcome_dialog_acknowledged_at: acknowledgedAt,
+                },
+              };
+            },
+            {
+              revalidate: false,
+            },
+          );
+        }
+      } catch {
+        // Ignore ack failures. The dialog is already closed and the next
+        // admin mount can retry if the ack did not persist.
+      } finally {
+        dismissingRef.current = false;
+      }
+    })();
+  }, [creatorBid, mutateBillingOverview, trialOffer]);
 
   const appName =
     APP_NAME_BY_LANG[i18n.language] ??
@@ -83,6 +129,7 @@ export function WelcomeTrialDialog({
       <DialogContent
         className='max-w-md'
         showClose
+        data-testid='welcome-trial-dialog'
       >
         <DialogHeader className='items-center text-center'>
           <div className='mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10'>
@@ -93,8 +140,8 @@ export function WelcomeTrialDialog({
           </DialogTitle>
           <DialogDescription className='mt-2 text-sm leading-relaxed'>
             {t('module.billing.welcomeTrial.description', {
-              credits: trialOffer.credit_amount,
-              days: trialOffer.valid_days,
+              credits: trialOffer?.credit_amount || 0,
+              days: trialOffer?.valid_days || 0,
             })}
           </DialogDescription>
         </DialogHeader>

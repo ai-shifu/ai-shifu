@@ -123,6 +123,7 @@ const api = {
   getBillingBootstrap: 'GET /billing',
   getBillingCatalog: 'GET /billing/catalog',
   getBillingOverview: 'GET /billing/overview',
+  acknowledgeBillingTrialWelcome: 'POST /billing/trial-offer/welcome/ack',
   getBillingEntitlements: 'GET /billing/entitlements',
   getBillingDailyUsageMetrics: 'GET /billing/reports/usage-daily',
   getBillingDailyLedgerSummary: 'GET /billing/reports/ledger-daily',

@@ -176,6 +176,7 @@ def test_billing_overview_returns_product_backed_eligible_trial_without_mutation
             "starts_on_first_grant": True,
             "granted_at": None,
             "expires_at": None,
+            "welcome_dialog_acknowledged_at": None,
         }
 
     with app.app_context():
@@ -261,6 +262,7 @@ def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
     assert payload["data"]["trial_offer"]["product_code"] == BILLING_TRIAL_PRODUCT_CODE
     assert payload["data"]["trial_offer"]["granted_at"] is not None
     assert payload["data"]["trial_offer"]["expires_at"] is not None
+    assert payload["data"]["trial_offer"]["welcome_dialog_acknowledged_at"] is None
 
 
 def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
@@ -318,6 +320,7 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
     assert payload["data"]["trial_offer"]["status"] == "granted"
     assert payload["data"]["trial_offer"]["granted_at"] is not None
     assert payload["data"]["trial_offer"]["expires_at"] is not None
+    assert payload["data"]["trial_offer"]["welcome_dialog_acknowledged_at"] is None
 
     with app.app_context():
         assert BillingOrder.query.filter_by(creator_bid="creator-trial").count() == 0
@@ -325,3 +328,167 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
             BillingSubscription.query.filter_by(creator_bid="creator-trial").count()
             == 0
         )
+
+
+def test_trial_welcome_ack_route_writes_subscription_metadata_and_is_idempotent(
+    trial_billing_client,
+) -> None:
+    app = trial_billing_client.application
+    with app.app_context():
+        _seed_creator(user_bid="creator-trial")
+        bootstrap_new_creator_trial_credits(app, "creator-trial")
+
+    first_payload = trial_billing_client.post(
+        "/api/billing/trial-offer/welcome/ack"
+    ).get_json(force=True)
+    second_payload = trial_billing_client.post(
+        "/api/billing/trial-offer/welcome/ack"
+    ).get_json(force=True)
+    overview_payload = trial_billing_client.get("/api/billing/overview").get_json(
+        force=True
+    )
+
+    assert first_payload["code"] == 0
+    assert first_payload["data"]["acknowledged"] is True
+    assert first_payload["data"]["acknowledged_at"] is not None
+    assert second_payload["code"] == 0
+    assert second_payload["data"]["acknowledged"] is True
+    assert (
+        second_payload["data"]["acknowledged_at"]
+        == first_payload["data"]["acknowledged_at"]
+    )
+    assert (
+        overview_payload["data"]["trial_offer"]["welcome_dialog_acknowledged_at"]
+        == first_payload["data"]["acknowledged_at"]
+    )
+
+    with app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-trial"
+        ).one()
+        assert (
+            subscription.metadata_json["welcome_trial_dialog_acknowledged_at"]
+            is not None
+        )
+
+
+def test_trial_welcome_ack_route_falls_back_to_order_metadata(
+    trial_billing_client,
+) -> None:
+    app = trial_billing_client.application
+    with app.app_context():
+        _seed_creator(user_bid="creator-trial")
+        paid_at = datetime(2026, 4, 9, 12, 0, 0)
+        dao.db.session.add(
+            BillingOrder(
+                billing_order_bid="billing-trial-order-only",
+                creator_bid="creator-trial",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                subscription_bid="",
+                currency="CNY",
+                payable_amount=0,
+                paid_amount=0,
+                payment_provider="manual",
+                channel="manual",
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=paid_at,
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    payload = trial_billing_client.post(
+        "/api/billing/trial-offer/welcome/ack"
+    ).get_json(force=True)
+
+    assert payload["code"] == 0
+    assert payload["data"]["acknowledged"] is True
+    assert payload["data"]["acknowledged_at"] is not None
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            creator_bid="creator-trial",
+            billing_order_bid="billing-trial-order-only",
+        ).one()
+        assert order.metadata_json["welcome_trial_dialog_acknowledged_at"] is not None
+
+
+def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
+    trial_billing_client,
+) -> None:
+    app = trial_billing_client.application
+    granted_at = datetime(2026, 4, 9, 12, 0, 0)
+    expires_at = granted_at + timedelta(days=15)
+
+    with app.app_context():
+        _seed_creator(user_bid="creator-trial")
+        wallet = CreditWallet(
+            wallet_bid="wallet-legacy-ack",
+            creator_bid="creator-trial",
+            available_credits=Decimal("100.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("100.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        dao.db.session.flush()
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-legacy-ack",
+                creator_bid="creator-trial",
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid="",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_GIFT,
+                source_bid=BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
+                idempotency_key=(
+                    "trial:"
+                    f"{BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE}:creator-trial"
+                ),
+                amount=Decimal("100.0000000000"),
+                balance_after=Decimal("100.0000000000"),
+                expires_at=expires_at,
+                consumable_from=granted_at,
+                metadata_json={},
+                created_at=granted_at,
+                updated_at=granted_at,
+            )
+        )
+        dao.db.session.commit()
+
+    payload = trial_billing_client.post(
+        "/api/billing/trial-offer/welcome/ack"
+    ).get_json(force=True)
+
+    assert payload["code"] == 0
+    assert payload["data"]["acknowledged"] is True
+    assert payload["data"]["acknowledged_at"] is not None
+
+    with app.app_context():
+        ledger = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-trial",
+            ledger_bid="ledger-legacy-ack",
+        ).one()
+        assert ledger.metadata_json["welcome_trial_dialog_acknowledged_at"] is not None
+
+
+def test_trial_welcome_ack_route_returns_false_without_granted_trial(
+    trial_billing_client,
+) -> None:
+    app = trial_billing_client.application
+    with app.app_context():
+        _seed_creator(user_bid="creator-trial")
+
+    payload = trial_billing_client.post(
+        "/api/billing/trial-offer/welcome/ack"
+    ).get_json(force=True)
+
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "acknowledged": False,
+        "acknowledged_at": None,
+    }
