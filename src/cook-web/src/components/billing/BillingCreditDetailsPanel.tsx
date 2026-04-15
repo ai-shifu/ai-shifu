@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import {
@@ -155,7 +154,6 @@ export function BillingCreditDetailsPanel({
             <div className='grid grid-cols-[1.4fr_0.7fr_0.9fr] border-b border-[var(--base-border,#E5E5E5)]'>
               <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-2 px-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 <span>{t('module.billing.details.table.creditType')}</span>
-                <CircleHelp className='h-4 w-4 text-[rgba(10,10,10,0.25)]' />
               </div>
               <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[var(--spacing-2,8px)] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'>
                 {t('module.billing.details.table.balance')}

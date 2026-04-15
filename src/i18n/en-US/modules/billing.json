@@ -361,7 +361,7 @@
       "validUntil": "Valid until"
     },
     "title": "Credit Details",
-    "totalCreditsDescription": "Credits are consumed in the order of subscription and top-up buckets.",
+    "totalCreditsDescription": "Credits are consumed in the order of plan credits and credit packs.",
     "totalCreditsLabel": "Total credits",
     "usageTable": {
       "columns": {
@@ -498,8 +498,8 @@
       "expired": "Expired"
     },
     "category": {
-      "subscription": "Subscription",
-      "topup": "Top-up"
+      "subscription": "Plan credits",
+      "topup": "Credit pack"
     },
     "detail": {
       "balanceAfter": "Balance after",
@@ -528,7 +528,7 @@
       "release": "Release"
     },
     "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
-    "neverExpires": "Never expires",
+    "neverExpires": "Follows plan credits expiry",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} entries"
     },
@@ -670,7 +670,7 @@
       "currentSubscription": "Current subscription",
       "currentUsing": "Current plan",
       "downgradeDisabled": "Downgrade unavailable",
-      "freeTrial": "Current account is expired/used",
+      "freeTrial": "Inactive",
       "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
       "subscribeNow": "Subscribe now",
       "upgradeNow": "Upgrade now",

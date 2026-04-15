@@ -361,7 +361,7 @@
       "validUntil": "有效期"
     },
     "title": "积分详情",
-    "totalCreditsDescription": "积分会按套餐积分、充值积分的顺序优先扣减。",
+    "totalCreditsDescription": "积分会按套餐积分、积分包的顺序优先扣减。",
     "totalCreditsLabel": "总积分",
     "usageTable": {
       "columns": {
@@ -498,8 +498,8 @@
       "expired": "已过期"
     },
     "category": {
-      "subscription": "订阅积分",
-      "topup": "充值积分"
+      "subscription": "套餐积分",
+      "topup": "积分包"
     },
     "detail": {
       "balanceAfter": "扣减后余额",
@@ -528,7 +528,7 @@
       "release": "释放"
     },
     "loadError": "积分来源读取失败，请刷新后重试。",
-    "neverExpires": "永不过期",
+    "neverExpires": "跟随订阅积分的有效期",
     "pagination": {
       "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
     },
@@ -670,7 +670,7 @@
       "currentSubscription": "当前订阅",
       "currentUsing": "当前使用",
       "downgradeDisabled": "不支持降级",
-      "freeTrial": "此账号有效期已过/已使用",
+      "freeTrial": "已失效",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
       "subscribeNow": "立即订阅",
       "upgradeNow": "立即升级",
