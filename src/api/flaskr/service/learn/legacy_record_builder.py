@@ -14,6 +14,7 @@ from flaskr.service.learn.learn_dtos import (
     LikeStatus,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 
 
@@ -161,6 +162,9 @@ def build_legacy_record_for_progress(
                     audio_bid=audio_record.audio_bid or "",
                     duration_ms=int(audio_record.duration_ms or 0),
                     position=int(getattr(audio_record, "position", 0) or 0),
+                    subtitle_cues=normalize_subtitle_cues(
+                        getattr(audio_record, "subtitle_cues", None)
+                    ),
                 )
             )
     elif generated_block_bids:
@@ -185,6 +189,9 @@ def build_legacy_record_for_progress(
                     audio_bid=audio.audio_bid or "",
                     duration_ms=int(audio.duration_ms or 0),
                     position=position,
+                    subtitle_cues=normalize_subtitle_cues(
+                        getattr(audio, "subtitle_cues", None)
+                    ),
                 )
             )
 

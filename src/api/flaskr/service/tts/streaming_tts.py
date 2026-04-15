@@ -38,6 +38,10 @@ from flaskr.service.tts.audio_record_utils import (
     build_completed_audio_record,
     save_audio_record,
 )
+from flaskr.service.tts.subtitle_utils import (
+    append_subtitle_cue,
+    normalize_subtitle_cues,
+)
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.util.uuid import generate_id
@@ -191,8 +195,8 @@ class StreamingTTSProcessor:
         self._next_yield_index = 0
         self._lock = threading.Lock()
 
-        # Storage for all yielded audio data (for final concatenation)
-        # List of (index, audio_data, duration_ms)
+        # Storage for all yielded audio data and text (for final concatenation/subtitles)
+        # List of (index, audio_data, duration_ms, text)
         self._all_audio_data: List[tuple] = []
 
         # Check if TTS is configured for the specified provider
@@ -449,7 +453,12 @@ class StreamingTTSProcessor:
                 # Store audio data for final concatenation (before popping)
                 if segment.audio_data and not segment.error:
                     self._all_audio_data.append(
-                        (segment.index, segment.audio_data, segment.duration_ms)
+                        (
+                            segment.index,
+                            segment.audio_data,
+                            segment.duration_ms,
+                            segment.text,
+                        )
                     )
                     logger.debug(
                         f"TTS stored segment {segment.index} for concatenation, "
@@ -457,6 +466,21 @@ class StreamingTTSProcessor:
                     )
 
             if segment.audio_data and not segment.error:
+                subtitle_cues: list[dict[str, Any]] = []
+                with self._lock:
+                    for (
+                        saved_segment_index,
+                        _saved_audio_data,
+                        saved_duration_ms,
+                        saved_segment_text,
+                    ) in self._all_audio_data:
+                        append_subtitle_cue(
+                            subtitle_cues,
+                            text=str(saved_segment_text or ""),
+                            duration_ms=int(saved_duration_ms or 0),
+                            segment_index=int(saved_segment_index or 0),
+                            position=self.position,
+                        )
                 # Encode to base64
                 base64_audio = base64.b64encode(segment.audio_data).decode("utf-8")
 
@@ -473,6 +497,7 @@ class StreamingTTSProcessor:
                         stream_element_number=self.stream_element_number,
                         stream_element_type=self.stream_element_type,
                         av_contract=self.av_contract,
+                        subtitle_cues=normalize_subtitle_cues(subtitle_cues),
                     ),
                 )
 
@@ -548,6 +573,15 @@ class StreamingTTSProcessor:
         all_segments.sort(key=lambda x: x[0])
         audio_data_list = [s[1] for s in all_segments]
         total_duration_ms = sum(s[2] for s in all_segments)
+        subtitle_cues: list[dict[str, Any]] = []
+        for segment_index, _audio_data, duration_ms, segment_text in all_segments:
+            append_subtitle_cue(
+                subtitle_cues,
+                text=str(segment_text or ""),
+                duration_ms=int(duration_ms or 0),
+                segment_index=int(segment_index or 0),
+                position=self.position,
+            )
 
         logger.debug(
             f"Concatenating {len(audio_data_list)} audio segments, "
@@ -595,6 +629,7 @@ class StreamingTTSProcessor:
                 tts_model=self.tts_model or "",
                 text_length=cleaned_text_length,
                 segment_count=len(audio_data_list),
+                subtitle_cues=subtitle_cues,
             )
             save_audio_record(audio_record, commit=commit)
             if commit:
@@ -636,6 +671,7 @@ class StreamingTTSProcessor:
                     stream_element_number=self.stream_element_number,
                     stream_element_type=self.stream_element_type,
                     av_contract=self.av_contract,
+                    subtitle_cues=normalize_subtitle_cues(subtitle_cues),
                 ),
             )
 

@@ -13,6 +13,7 @@
 - Streaming chat must use `element_bid` as the stable render key, with compatibility fields backfilled in the shared normalization entry point.
 - When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
+- When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
 
 ## Skills Index
 
