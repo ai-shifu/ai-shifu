@@ -56,6 +56,9 @@ format credits with the same rule as backend settlement and serialization.
 ### Settlement Rule
 
 - usage metric `consumed_credits` must be quantized before writing ledger rows
+- when a billable usage quantizes to `0`, settlement must still persist a
+  usage consume ledger row with `amount=0` so audit and daily usage reporting
+  remain complete
 - bucket-level consumed amounts written into usage metadata must use the same
   quantized value
 - aggregated daily usage metrics derived from settled usage must reuse the same

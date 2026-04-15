@@ -241,14 +241,6 @@ def settle_bill_usage(
                 (_to_decimal(bucket.available_credits) for bucket in buckets),
                 start=_ZERO,
             )
-            if total_required <= _ZERO:
-                return SettlementResult(
-                    status="noop",
-                    usage_bid=usage.usage_bid,
-                    creator_bid=creator_bid,
-                    entry_count=0,
-                    consumed_credits=0,
-                )
             if total_available < total_required:
                 return SettlementResult(
                     status="insufficient",

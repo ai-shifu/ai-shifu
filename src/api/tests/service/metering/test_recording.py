@@ -11,10 +11,9 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.demo_courses import LEGACY_DEMO_SHIFU_BIDS
 from flaskr.util.uuid import generate_id
 
-_BUILTIN_DEMO_SHIFU_BID = sorted(LEGACY_DEMO_SHIFU_BIDS)[0]
+_BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
 
 
 @pytest.fixture
@@ -265,6 +264,12 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
         lambda _app, *, usage_bid: captured.append(usage_bid),
     )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": (
+            _BUILTIN_DEMO_SHIFU_BID if key == "DEMO_SHIFU_BID" else default
+        ),
+    )
 
     with metering_app.app_context():
         usage_bid = record_llm_usage(
@@ -296,6 +301,12 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
         lambda _app, *, usage_bid: captured.append(usage_bid),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": (
+            _BUILTIN_DEMO_SHIFU_BID if key == "DEMO_SHIFU_BID" else default
+        ),
     )
 
     with metering_app.app_context():

@@ -448,6 +448,55 @@ def test_aggregate_daily_usage_metrics_quantizes_consumed_credits_with_configure
         assert str(row.consumed_credits) == "1.2400000000"
 
 
+def test_aggregate_daily_usage_metrics_keeps_zero_amount_usage_ledgers(
+    billing_daily_usage_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
+        lambda app, usage: "creator-agg-zero-ledger",
+    )
+
+    with billing_daily_usage_app.app_context():
+        _add_llm_rates()
+        _add_usage(
+            usage_bid="usage-agg-zero-ledger",
+            shifu_bid="shifu-agg-1",
+            created_at=datetime(2026, 4, 8, 9, 0, 0),
+            input_tokens=100,
+            output_tokens=0,
+        )
+        _add_usage_ledger(
+            creator_bid="creator-agg-zero-ledger",
+            usage_bid="usage-agg-zero-ledger",
+            metric_code=BILLING_METRIC_LLM_INPUT_TOKENS,
+            amount=Decimal("0"),
+            created_at=datetime(2026, 4, 8, 9, 1, 0),
+        )
+        dao.db.session.commit()
+
+        payload = aggregate_daily_usage_metrics(
+            billing_daily_usage_app,
+            stat_date="2026-04-08",
+            creator_bid="creator-agg-zero-ledger",
+            now=datetime(2026, 4, 8, 23, 0, 0),
+        )
+
+        rows = BillingDailyUsageMetric.query.filter(
+            BillingDailyUsageMetric.stat_date == "2026-04-08",
+            BillingDailyUsageMetric.creator_bid == "creator-agg-zero-ledger",
+        ).all()
+
+        assert payload["status"] == "aggregated"
+        assert payload["usage_count"] == 1
+        assert payload["metric_count"] == 1
+        assert len(rows) == 1
+        assert rows[0].billing_metric == BILLING_METRIC_LLM_INPUT_TOKENS
+        assert int(rows[0].raw_amount or 0) == 100
+        assert int(rows[0].record_count or 0) == 1
+        assert rows[0].consumed_credits == Decimal("0")
+
+
 def _add_llm_rates() -> None:
     for metric_code in (
         BILLING_METRIC_LLM_INPUT_TOKENS,

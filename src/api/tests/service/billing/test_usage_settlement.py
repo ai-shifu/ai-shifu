@@ -371,6 +371,76 @@ def test_settle_usage_rounds_consumption_before_persisting(
         assert entry.metadata_json["bucket_breakdown"][0]["consumed_credits"] == 0.13
 
 
+def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-zero-bill",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_config",
+        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-zero-bill", "1.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-zero-bill",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-zero-bill",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                priority=30,
+                available_credits="1.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-zero-bill",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="0.0000001000",
+                unit_size=1,
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-zero-bill",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1,
+                input_cache=0,
+                output=0,
+                total=1,
+            )
+        )
+        dao.db.session.commit()
+
+        usage = BillUsageRecord.query.filter_by(usage_bid="usage-zero-bill").one()
+
+        first = settle_bill_usage(billing_settlement_app, usage_bid="usage-zero-bill")
+        second = settle_bill_usage(billing_settlement_app, usage_bid="usage-zero-bill")
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-zero-bill").one()
+        entries = CreditLedgerEntry.query.filter_by(source_bid="usage-zero-bill").all()
+
+        assert first["status"] == "settled"
+        assert first["entry_count"] == 1
+        assert first["consumed_credits"] == 0
+        assert second["status"] == "already_settled"
+        assert len(entries) == 1
+        assert entries[0].amount == Decimal("0")
+        assert entries[0].balance_after == Decimal("1.0000000000")
+        assert entries[0].metadata_json["metric_breakdown"][0]["consumed_credits"] == 0
+        assert entries[0].metadata_json["bucket_breakdown"] == []
+        assert wallet.available_credits == Decimal("1.0000000000")
+        assert wallet.lifetime_consumed_credits == Decimal("0")
+        assert wallet.last_settled_usage_id == int(usage.id or 0)
+
+
 def test_settle_tts_usage_is_idempotent(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
