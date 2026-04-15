@@ -1,4 +1,5 @@
 import type { ChatContentItem } from './useChatLogicHook';
+import type { StudyRecordPayload } from '@/c-api/studyV2';
 import type { ElementSubtitleCue } from 'markdown-flow-ui/slide';
 import {
   getAudioSegmentDataListFromTracks,
@@ -46,8 +47,12 @@ const sortSubtitleCues = (cues: ElementSubtitleCue[]) =>
       Number(prevCue.segment_index ?? 0) - Number(nextCue.segment_index ?? 0),
   );
 
+interface ListenSlideSubtitleCueSource {
+  payload?: StudyRecordPayload;
+}
+
 export const resolveListenSlideSubtitleCues = (
-  item: Pick<ChatContentItem, 'payload'>,
+  item: ListenSlideSubtitleCueSource,
 ): ElementSubtitleCue[] | undefined => {
   const rawSubtitleCues = item.payload?.audio?.subtitle_cues as unknown;
 
