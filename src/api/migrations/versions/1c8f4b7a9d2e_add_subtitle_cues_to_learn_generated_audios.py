@@ -1,7 +1,7 @@
 """add subtitle cues to learn_generated_audios
 
 Revision ID: 1c8f4b7a9d2e
-Revises: 7b3c5d9e1a2f
+Revises: 2b7c9d1e4f6a
 Create Date: 2026-03-31 15:30:00.000000
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "1c8f4b7a9d2e"
-down_revision = "7b3c5d9e1a2f"
+down_revision = "2b7c9d1e4f6a"
 branch_labels = None
 depends_on = None
 
