@@ -96,7 +96,15 @@ class AICourseBuyRecordDTO:
     price_item: List[PayItemDto]
 
     def __init__(
-        self, record_id, user_id, course_id, price, status, discount, price_item
+        self,
+        record_id,
+        user_id,
+        course_id,
+        price,
+        status,
+        discount,
+        price_item,
+        payment_channel="",
     ):
         self.order_id = record_id
         self.user_id = user_id
@@ -106,6 +114,7 @@ class AICourseBuyRecordDTO:
         self.discount = discount
         self.value_to_pay = str(decimal.Decimal(price) - decimal.Decimal(discount))
         self.price_item = price_item
+        self.payment_channel = payment_channel
 
     def __json__(self):
         def format_decimal(value):
@@ -147,12 +156,22 @@ def send_order_feishu(app: Flask, record_id: str):
     if not shifu_info:
         return
 
+    _CHANNEL_LABEL = {
+        "pingxx": "用户购买 (Pingxx)",
+        "stripe": "用户购买 (Stripe)",
+        "manual": "手动导入",
+        "open_api": "Open API",
+    }
     title = "购买课程通知"
     msgs = []
     msgs.append("手机号：{}".format(aggregate.mobile))
     msgs.append("昵称：{}".format(aggregate.name))
     msgs.append("课程名称：{}".format(shifu_info.title))
     msgs.append("实付金额：{}".format(order_info.price))
+    source_label = _CHANNEL_LABEL.get(
+        order_info.payment_channel, order_info.payment_channel or "未知"
+    )
+    msgs.append("订单来源：{}".format(source_label))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
@@ -175,6 +194,22 @@ def send_order_feishu(app: Flask, record_id: str):
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
     msgs.append("总访客数：{}".format(user_total_count))
     send_notify(app, title, msgs)
+
+
+def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
+    with app.app_context():
+        order: Order = Order.query.filter(Order.order_bid == order_bid).first()
+        if not order:
+            return
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
+        title = "取消课程授权通知"
+        msgs = [
+            "用户标识：{}".format(user_identify),
+            "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
+            "订单号：{}".format(order_bid),
+            "来源：Open API",
+        ]
+        send_notify(app, title, msgs)
 
 
 def is_order_has_timeout(app: Flask, origin_record: Order):
@@ -1439,6 +1474,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 decimal.Decimal(buy_record.payable_price)
                 - decimal.Decimal(buy_record.paid_price),
                 item,
+                payment_channel=buy_record.payment_channel or "",
             )
 
         raise_error("server.order.orderNotFound")

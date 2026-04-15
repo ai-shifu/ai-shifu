@@ -451,6 +451,7 @@ def import_activation_order(
     user_nick_name: Optional[str] = None,
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
+    payment_channel: str = "manual",
 ) -> Dict[str, str]:
     """Create activation order for a user identified by phone or email."""
     with app.app_context():
@@ -539,7 +540,7 @@ def import_activation_order(
 
         order.payable_price = Decimal("0")
         order.paid_price = Decimal("0")
-        order.payment_channel = "manual"
+        order.payment_channel = payment_channel
         db.session.commit()
 
         success_buy_record(app, order.order_bid)
