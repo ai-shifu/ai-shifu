@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -93,14 +94,6 @@ const DEFAULT_COLUMN_WIDTHS = {
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-const SUPPORTED_LOGIN_METHODS = new Set([
-  'phone',
-  'email',
-  'google',
-  'wechat',
-  'unknown',
-]);
-
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
 
@@ -140,14 +133,6 @@ const loadStoredColumnWidthOverrides = (): Partial<ColumnWidthState> => {
   } catch {
     return {};
   }
-};
-
-const normalizeLoginMethodLabelKey = (method: string): string => {
-  const normalized = method.trim().toLowerCase();
-  if (!normalized) {
-    return 'unknown';
-  }
-  return SUPPORTED_LOGIN_METHODS.has(normalized) ? normalized : 'unknown';
 };
 
 const createDefaultFilters = (): UserFilters => ({

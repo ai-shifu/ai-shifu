@@ -24,6 +24,7 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
+import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserDetailResponse,
@@ -54,21 +55,6 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
 
 const EMPTY_VALUE = '--';
 const DEFAULT_VISIBLE_COURSE_COUNT = 10;
-const SUPPORTED_LOGIN_METHODS = new Set([
-  'phone',
-  'email',
-  'google',
-  'wechat',
-  'unknown',
-]);
-
-const normalizeLoginMethodLabelKey = (method: string): string => {
-  const normalized = method.trim().toLowerCase();
-  if (!normalized) {
-    return 'unknown';
-  }
-  return SUPPORTED_LOGIN_METHODS.has(normalized) ? normalized : 'unknown';
-};
 
 /**
  * t('module.operationsUser.detail.title')
