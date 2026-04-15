@@ -78,6 +78,7 @@ OPERATOR_USER_STATUS_REGISTERED = "registered"
 OPERATOR_USER_STATUS_TRIAL = "trial"
 OPERATOR_USER_STATUS_PAID = "paid"
 OPERATOR_USER_STATUS_UNKNOWN = "unknown"
+OPERATOR_USER_LIST_MAX_PAGE_SIZE = 100
 OPERATOR_USER_ROLE_REGULAR = "regular"
 OPERATOR_USER_ROLE_CREATOR = "creator"
 OPERATOR_USER_ROLE_OPERATOR = "operator"
@@ -1763,7 +1764,10 @@ def list_operator_users(
 ) -> PageNationDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
-        safe_page_size = max(int(page_size or 20), 1)
+        safe_page_size = min(
+            max(int(page_size or 20), 1),
+            OPERATOR_USER_LIST_MAX_PAGE_SIZE,
+        )
         filters = filters or {}
 
         user_bid = str(filters.get("user_bid", "") or "").strip()

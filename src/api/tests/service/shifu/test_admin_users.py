@@ -401,6 +401,37 @@ def test_list_operator_users_filters_by_email_identifier(app):
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_caps_page_size(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-page-size-a",
+            identify="13810000001",
+            nickname="Page Size A",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("phone", "13810000001")],
+        )
+        _seed_user(
+            app,
+            user_bid="user-page-size-b",
+            identify="13810000002",
+            nickname="Page Size B",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 2, 9, 0, 0),
+            updated_at=datetime(2026, 4, 2, 10, 0, 0),
+            providers=[("phone", "13810000002")],
+        )
+
+        result = list_operator_users(app, 1, 999, {})
+
+    assert isinstance(result, PageNationDTO)
+    assert result.page_size == 100
+    assert result.total == 2
+    assert len(result.data) == 2
+
+
 def test_list_operator_users_returns_learning_and_created_courses(app):
     with app.app_context():
         _seed_user(
