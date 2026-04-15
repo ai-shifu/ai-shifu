@@ -86,7 +86,7 @@ describe('courseVisitTracking', () => {
     expect(trackEvent).not.toHaveBeenCalled();
   });
 
-  test('does not mark the session when tracking fails', async () => {
+  test('marks the session once tracking is attempted', async () => {
     const trackEvent = jest
       .fn()
       .mockRejectedValueOnce(new Error('track failed'))
@@ -111,7 +111,7 @@ describe('courseVisitTracking', () => {
         storage,
         trackEvent,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
 
     await expect(
       trackCourseVisitIfNeeded({
@@ -123,8 +123,8 @@ describe('courseVisitTracking', () => {
         storage,
         trackEvent,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
 
-    expect(trackEvent).toHaveBeenCalledTimes(2);
+    expect(trackEvent).toHaveBeenCalledTimes(1);
   });
 });

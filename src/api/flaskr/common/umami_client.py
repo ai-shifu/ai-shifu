@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import logging
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -16,6 +17,8 @@ UMAMI_COURSE_VISIT_CACHE_PREFIX = "analytics:umami:course-visits:30d"
 UMAMI_METRICS_PAGE_SIZE = 500
 COURSE_VISIT_EVENT_PREFIX = "course_visit_"
 UMAMI_FAILURE_CACHE_TTL_SECONDS = 60
+UMAMI_CACHE_LOCK_WAIT_ATTEMPTS = 5
+UMAMI_CACHE_LOCK_WAIT_SECONDS = 0.1
 logger = logging.getLogger(__name__)
 
 
@@ -119,6 +122,16 @@ def _read_cached_int(cache_key: str) -> int | None:
     except ValueError:
         cache.delete(cache_key)
         return None
+
+
+def _wait_for_cached_int(cache_key: str) -> int | None:
+    for attempt in range(UMAMI_CACHE_LOCK_WAIT_ATTEMPTS):
+        cached_value = _read_cached_int(cache_key)
+        if cached_value is not None:
+            return cached_value
+        if attempt < UMAMI_CACHE_LOCK_WAIT_ATTEMPTS - 1:
+            time.sleep(UMAMI_CACHE_LOCK_WAIT_SECONDS)
+    return None
 
 
 def _login_for_access_token(base_url: str, timeout_seconds: int) -> str:
@@ -279,7 +292,7 @@ def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
         finally:
             lock.release()
 
-    cached_value = _read_cached_int(cache_key)
+    cached_value = _wait_for_cached_int(cache_key)
     if cached_value is not None:
         return cached_value
     return 0

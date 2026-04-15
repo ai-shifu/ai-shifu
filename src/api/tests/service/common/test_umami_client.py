@@ -259,6 +259,57 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
         assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
 
 
+def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
+    app, monkeypatch
+):
+    _mock_config(
+        monkeypatch,
+        {
+            "ANALYTICS_UMAMI_SITE_ID": "site-1",
+            "ANALYTICS_UMAMI_API_KEY": "api-key",
+            "ANALYTICS_UMAMI_API_URL": "",
+            "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": 900,
+            "ANALYTICS_UMAMI_TIMEOUT_SECONDS": 10,
+            "REDIS_KEY_PREFIX": "test:",
+        },
+    )
+
+    class BusyLock:
+        def acquire(self, blocking=True, blocking_timeout=None):
+            return False
+
+        def release(self):
+            return None
+
+    class CacheWrapper:
+        def get(self, key):
+            return None
+
+        def delete(self, *keys):
+            return 0
+
+        def setex(self, key, ttl, value):
+            return None
+
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return BusyLock()
+
+    read_values = iter([None, None, 11])
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(umami_client, "cache", CacheWrapper())
+    monkeypatch.setattr(
+        umami_client,
+        "_read_cached_int",
+        lambda cache_key: next(read_values),
+    )
+    monkeypatch.setattr(umami_client.time, "sleep", sleep_calls.append)
+
+    with app.app_context():
+        assert umami_client.get_course_visit_count_30d(app, "course-1") == 11
+
+    assert sleep_calls == [umami_client.UMAMI_CACHE_LOCK_WAIT_SECONDS]
+
+
 def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
     _mock_config(
         monkeypatch,

@@ -62,23 +62,21 @@ export const trackCourseVisitIfNeeded = async ({
     return false;
   }
 
+  let attempted = false;
   try {
+    attempted = true;
     await trackEvent(buildCourseVisitEventName(normalizedShifuBid), {
       shifu_bid: normalizedShifuBid,
       entry_type: entryType,
       preview_mode: false,
     });
-  } catch {
-    return false;
-  }
+  } catch {}
 
-  if (storage) {
+  if (attempted && storage) {
     try {
       storage.setItem(sessionKey, '1');
-    } catch {
-      // Ignore storage write failures after a successful emit.
-    }
+    } catch {}
   }
 
-  return true;
+  return attempted;
 };
