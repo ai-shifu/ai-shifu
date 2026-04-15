@@ -49,6 +49,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
     USER_STATE_TRAIL,
@@ -479,12 +480,14 @@ def _load_operator_user_contact_map(
             resolved["login_methods"].insert(0, login_method)
         if (
             credential.provider_name == "phone"
+            and credential.state == CREDENTIAL_STATE_VERIFIED
             and not resolved["mobile"]
             and credential.identifier
         ):
             resolved["mobile"] = credential.identifier
         if (
             credential.provider_name in {"email", "google"}
+            and credential.state == CREDENTIAL_STATE_VERIFIED
             and not resolved["email"]
             and credential.identifier
         ):

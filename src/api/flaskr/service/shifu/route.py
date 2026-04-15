@@ -549,7 +549,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         Operator user list
         ---
         tags:
-            - 用户
+            - User
         parameters:
             - name: page_index
               type: integer
@@ -640,7 +640,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         Get operator user detail
         ---
         tags:
-            - 用户
+            - User
         parameters:
             - name: user_bid
               in: path

@@ -25,6 +25,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
@@ -1072,6 +1073,89 @@ def test_get_operator_user_detail_prefers_latest_auth_credential(app):
             updated_at=datetime(2026, 4, 10, 14, 0, 0),
         )
         db.session.add_all([newer_phone, newer_email])
+        db.session.commit()
+        db.session.remove()
+
+        result = get_operator_user_detail(app, "user-latest-contact")
+
+    assert isinstance(result, AdminOperationUserSummaryDTO)
+    assert result.mobile == "13900000000"
+    assert result.email == "new@example.com"
+
+
+def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-latest-contact",
+            identify="13800000000",
+            nickname="Latest Contact",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 12, 0, 0),
+            providers=[("phone", "13800000000"), ("email", "old@example.com")],
+        )
+
+        newer_verified_phone = AuthCredential(
+            credential_bid="credential-new-phone",
+            user_bid="user-latest-contact",
+            provider_name="phone",
+            subject_id="13900000000",
+            subject_format="phone",
+            identifier="13900000000",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_VERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 13, 0, 0),
+            updated_at=datetime(2026, 4, 10, 13, 0, 0),
+        )
+        newer_verified_email = AuthCredential(
+            credential_bid="credential-new-email",
+            user_bid="user-latest-contact",
+            provider_name="email",
+            subject_id="new@example.com",
+            subject_format="email",
+            identifier="new@example.com",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_VERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 14, 0, 0),
+            updated_at=datetime(2026, 4, 10, 14, 0, 0),
+        )
+        newest_unverified_phone = AuthCredential(
+            credential_bid="credential-unverified-phone",
+            user_bid="user-latest-contact",
+            provider_name="phone",
+            subject_id="13700000000",
+            subject_format="phone",
+            identifier="13700000000",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_UNVERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 15, 0, 0),
+            updated_at=datetime(2026, 4, 10, 15, 0, 0),
+        )
+        newest_unverified_email = AuthCredential(
+            credential_bid="credential-unverified-email",
+            user_bid="user-latest-contact",
+            provider_name="email",
+            subject_id="pending@example.com",
+            subject_format="email",
+            identifier="pending@example.com",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_UNVERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 16, 0, 0),
+            updated_at=datetime(2026, 4, 10, 16, 0, 0),
+        )
+        db.session.add_all(
+            [
+                newer_verified_phone,
+                newer_verified_email,
+                newest_unverified_phone,
+                newest_unverified_email,
+            ]
+        )
         db.session.commit()
         db.session.remove()
 
