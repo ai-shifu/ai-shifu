@@ -291,24 +291,24 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合完成课程的部分教研和少量用户的初步体验。",
-        "title": "月套餐·轻量版"
+        "description": "适合首次体验，快速跑通建课与交付",
+        "title": "轻量版"
       },
       "creatorMonthlyPro": {
-        "description": "完成一门课程的完整教研和少量用户的完整体验。",
-        "title": "月套餐·专业版"
+        "description": "适合低成本试教，验证课程与学员反馈",
+        "title": "基础版"
       },
       "creatorYearly": {
-        "description": "完成一门课程的完整教研和完整体验，可服务学员数量 300~500 人。",
-        "title": "年套餐·专业版"
+        "description": "适合稳定开课，持续服务小班学员",
+        "title": "高阶版"
       },
       "creatorYearlyLite": {
-        "description": "完成一门课程的完整教研和完整体验，可服务学员数量 100~300 人。",
-        "title": "年套餐·轻量版"
+        "description": "适合年度稳定运营，覆盖常规课程交付",
+        "title": "进阶版"
       },
       "creatorYearlyPremium": {
-        "description": "完成一门课程的完整教研和完整体验，可服务学员数量 8000~12000 人。",
-        "title": "年套餐·尊享版"
+        "description": "适合品牌化交付，支持品牌标识与独立域名",
+        "title": "旗舰版"
       }
     },
     "sections": {
@@ -317,19 +317,19 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "适合阶段性爆发、课程集中上新或高频预览阶段的补充。",
+        "description": "按需随时补充，积分永久有效，用完为止。",
         "title": "120 积分包"
       },
       "creatorMedium": {
-        "description": "适合课程调优、阶段性教研或中等频率的创作消耗。",
+        "description": "按需随时补充，积分永久有效，用完为止。",
         "title": "50 积分包"
       },
       "creatorSmall": {
-        "description": "适合低余额补充、试运行和轻量创作场景的一次性充值。",
+        "description": "按需随时补充，积分永久有效，用完为止。",
         "title": "20 积分包"
       },
       "creatorXLarge": {
-        "description": "适合大规模活动、批量生成或高峰周期前的一次性大额补充。",
+        "description": "按需随时补充，积分永久有效，用完为止。",
         "title": "320 积分包"
       }
     }
@@ -680,44 +680,93 @@
       "yearly": "年积分数 {credits}"
     },
     "features": {
+      "base": {
+        "courseCreate": "课程创建与内容存储",
+        "studentImport": "学员交付与学习账号导入",
+        "aiListen": "AI 讲解与听课语音",
+        "dataQuery": "订单和学习数据查询"
+      },
+      "advanced": {
+        "includesLabel": "包含基础版全部权益，以及：",
+        "taskPriority": "任务优先处理",
+        "parallelProcessing": "更高并行处理能力",
+        "techBasic": "技术基础支持"
+      },
+      "pro": {
+        "includesLabel": "包含进阶版全部权益，以及：",
+        "branding": "自定义品牌标识",
+        "customDomain": "自定义域名",
+        "techPriority": "技术优先支持"
+      },
+      "premium": {
+        "includesLabel": "包含高阶版全部权益，以及：",
+        "concurrencyQuota": "更高并发任务配额",
+        "dedicatedSupport": "专属技术支持",
+        "onboarding": "含 1 次线上做课培训"
+      },
       "free": {
-        "preview": "基础预览能力",
-        "publish": "基础发布与试用"
+        "preview": "学员交付与学习账号导入",
+        "publish": "课程创建与内容存储"
       },
       "monthly": {
-        "preview": "支持课程预览与快速迭代",
-        "publish": "适合稳定上新与持续招生",
-        "support": "创作者运营支持"
+        "preview": "学员交付与学习账号导入",
+        "publish": "课程创建与内容存储",
+        "support": "AI 讲解与听课语音"
       },
       "yearly": {
         "lite": {
-          "ops": "支持完整课程交付与基础运营",
-          "publish": "适合 100~300 人规模的课程服务"
+          "ops": "更高并行处理能力",
+          "publish": "任务优先处理"
         },
         "premium": {
-          "analytics": "提供更深度的数据分析与经营复盘",
-          "branding": "尊享品牌标识与专属品牌体验",
-          "domain": "支持自定义域名绑定与更完整品牌能力",
-          "priority": "更高优先级的生成队列与系统资源",
-          "support": "专属技术支持与关键问题优先响应"
+          "analytics": "更高并发任务配额",
+          "branding": "自定义品牌标识",
+          "domain": "自定义域名",
+          "priority": "专属技术支持",
+          "support": "含 1 次线上做课培训"
         },
         "pro": {
-          "analytics": "支持更深度的数据分析与经营追踪",
-          "branding": "支持自定义品牌标识与 Logo 替换",
-          "domain": "支持自定义域名绑定",
-          "priority": "优先生成队列与更高并发能力",
-          "support": "专属技术支持响应"
+          "analytics": "技术优先支持",
+          "branding": "自定义品牌标识",
+          "domain": "自定义域名",
+          "priority": "更高并行处理能力",
+          "support": "技术基础支持"
         }
       }
     },
     "featuresTitle": "享有权益内容：",
     "free": {
       "creditSummary": "赠送积分数 {credits}",
-      "description": "适合体验创作者工作台与基础发布能力。",
-      "priceNote": "/ 新注册15日内有效",
-      "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
+      "description": "适合首次体验，快速跑通建课与交付",
       "priceValue": "¥0",
-      "title": "非会员"
+      "title": "体验版"
+    },
+    "scale": {
+      "sectionTitle": "学员支持规模（参考）",
+      "free": {
+        "students": "约 10 个以内学员",
+        "courses": "5~10 节课程"
+      },
+      "lite": {
+        "students": "约 1~3 个学员",
+        "courses": "5~10 节课程"
+      },
+      "basic": {
+        "students": "约 10 个以内学员",
+        "courses": "5~10 节课程"
+      },
+      "advanced": {
+        "students": "约 300 个以内学员",
+        "courses": "10~20 节课程"
+      },
+      "pro": {
+        "students": "约 500 个以内学员",
+        "courses": "10~20 节课程"
+      },
+      "premium": {
+        "students": "约 1000 个以内学员",
+        "courses": "10~20 节课程"
+      }
     },
     "intervalTabs": {
       "monthly": "月度套餐",

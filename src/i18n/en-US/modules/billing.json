@@ -291,24 +291,24 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for partial course research and a first experience with a smaller group of learners.",
-        "title": "Monthly · Lite"
+        "description": "Best for light creation, trial lessons, and learner interaction.",
+        "title": "Lite"
       },
       "creatorMonthlyPro": {
-        "description": "Built for complete course research and a full experience for a small learner cohort.",
-        "title": "Monthly · Pro"
+        "description": "Best for steady course delivery and serving a small learner base.",
+        "title": "Basic"
       },
       "creatorYearly": {
-        "description": "Complete course delivery and operations for programs serving roughly 300 to 500 learners.",
-        "title": "Yearly · Pro"
+        "description": "Best for refined operations and evenly paced credit delivery.",
+        "title": "Pro"
       },
       "creatorYearlyLite": {
-        "description": "Complete course delivery and operations for programs serving roughly 100 to 300 learners.",
-        "title": "Yearly · Lite"
+        "description": "Best for focused enablement and intensive project delivery.",
+        "title": "Advanced"
       },
       "creatorYearlyPremium": {
-        "description": "Complete course delivery and operations for larger programs serving roughly 8000 to 12000 learners.",
-        "title": "Yearly · Premium"
+        "description": "Best for large-scale learner delivery with full brand experience.",
+        "title": "Premium"
       }
     },
     "sections": {
@@ -317,19 +317,19 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "A larger refill for focused launch windows, heavy previews, or seasonal demand spikes.",
+        "description": "Buy anytime. Credits never expire — use until depleted.",
         "title": "120-credit pack"
       },
       "creatorMedium": {
-        "description": "A flexible refill for active course iteration and medium-volume creator workloads.",
+        "description": "Buy anytime. Credits never expire — use until depleted.",
         "title": "50-credit pack"
       },
       "creatorSmall": {
-        "description": "A lightweight refill for low-balance recovery, trial runs, or short bursts of creation.",
+        "description": "Buy anytime. Credits never expire — use until depleted.",
         "title": "20-credit pack"
       },
       "creatorXLarge": {
-        "description": "A high-capacity refill for major launches, bulk generation, or pre-peak traffic preparation.",
+        "description": "Buy anytime. Credits never expire — use until depleted.",
         "title": "320-credit pack"
       }
     }
@@ -680,44 +680,93 @@
       "yearly": "Yearly credits {credits}"
     },
     "features": {
+      "base": {
+        "courseCreate": "Course creation and content storage",
+        "studentImport": "Learner delivery and account import",
+        "aiListen": "AI narration and audio lessons",
+        "dataQuery": "Order and learning data queries"
+      },
+      "advanced": {
+        "includesLabel": "Everything in Basic, and:",
+        "taskPriority": "Priority task processing",
+        "parallelProcessing": "Higher parallel processing capacity",
+        "techBasic": "Basic technical support"
+      },
+      "pro": {
+        "includesLabel": "Everything in Advanced, and:",
+        "branding": "Custom branding",
+        "customDomain": "Custom domain",
+        "techPriority": "Priority technical support"
+      },
+      "premium": {
+        "includesLabel": "Everything in Pro, and:",
+        "concurrencyQuota": "Higher concurrency quota",
+        "dedicatedSupport": "Dedicated technical support",
+        "onboarding": "1 live course-building session included"
+      },
       "free": {
-        "preview": "Basic preview capability",
-        "publish": "Basic publishing and trial access"
+        "preview": "Learner delivery and account import",
+        "publish": "Course creation and content storage"
       },
       "monthly": {
-        "preview": "Preview and iterate on lessons quickly",
-        "publish": "Designed for steady publishing and admissions",
-        "support": "Creator operations support"
+        "preview": "Learner delivery and account import",
+        "publish": "Course creation and content storage",
+        "support": "AI narration and audio lessons"
       },
       "yearly": {
         "lite": {
-          "ops": "Supports complete course delivery with foundational operations",
-          "publish": "Designed for programs serving roughly 100 to 300 learners"
+          "ops": "Higher parallel processing capacity",
+          "publish": "Priority task processing"
         },
         "premium": {
-          "analytics": "Deeper analytics for performance review and business tracking",
-          "branding": "Premium branding presence with a stronger custom identity",
-          "domain": "Custom domain support and a more complete brand experience",
-          "priority": "Highest-priority generation queues and system capacity",
-          "support": "Dedicated technical support with priority response"
+          "analytics": "Higher concurrency quota",
+          "branding": "Custom branding",
+          "domain": "Custom domain",
+          "priority": "Dedicated technical support",
+          "support": "1 live course-building session included"
         },
         "pro": {
-          "analytics": "Deeper analytics and operational visibility",
-          "branding": "Custom branding and logo replacement support",
-          "domain": "Custom domain binding support",
-          "priority": "Priority generation queues and higher concurrency",
-          "support": "Dedicated technical support response"
+          "analytics": "Priority technical support",
+          "branding": "Custom branding",
+          "domain": "Custom domain",
+          "priority": "Higher parallel processing capacity",
+          "support": "Basic technical support"
         }
       }
     },
     "featuresTitle": "Included benefits:",
     "free": {
       "creditSummary": "{credits} bonus credits",
-      "description": "Best for exploring the creator workspace and basic publishing capabilities.",
-      "priceNote": "/ valid within 15 days of registration",
-      "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
+      "description": "Best for a first look — quickly run through courses and learner delivery.",
       "priceValue": "¥0",
-      "title": "Free"
+      "title": "Trial"
+    },
+    "scale": {
+      "sectionTitle": "Learner capacity (est.)",
+      "free": {
+        "students": "Up to ~10 learners",
+        "courses": "5–10 lessons"
+      },
+      "lite": {
+        "students": "Up to ~3 learners",
+        "courses": "5–10 lessons"
+      },
+      "basic": {
+        "students": "Up to ~10 learners",
+        "courses": "5–10 lessons"
+      },
+      "advanced": {
+        "students": "Up to ~300 learners",
+        "courses": "10–20 lessons"
+      },
+      "pro": {
+        "students": "Up to ~500 learners",
+        "courses": "10–20 lessons"
+      },
+      "premium": {
+        "students": "Up to ~1000 learners",
+        "courses": "10–20 lessons"
+      }
     },
     "intervalTabs": {
       "monthly": "Monthly Plans",
