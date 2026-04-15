@@ -23,6 +23,7 @@ import {
   type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
+  type StudyRecordPayload,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -120,6 +121,7 @@ export interface ChatContentItem {
   is_speakable?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  payload?: StudyRecordPayload;
 }
 
 interface SSEParams {

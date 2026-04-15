@@ -235,6 +235,15 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert complete_positions == [0, 1]
         assert segment_positions == [0, 1]
         assert synthesized_texts == ["First.", "Second."]
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert [cue.text for cue in audio_complete_events[0].content.subtitle_cues] == [
+            "First."
+        ]
+        assert [cue.text for cue in audio_complete_events[1].content.subtitle_cues] == [
+            "Second."
+        ]
         assert all(
             event.content.av_contract is None
             for event in events
@@ -254,6 +263,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
             assert [r.position for r in records] == [0, 1]
             assert all(r.oss_url for r in records)
+            assert records[0].subtitle_cues[0]["text"] == "First."
+            assert records[1].subtitle_cues[0]["text"] == "Second."
 
     def test_stream_generated_block_audio_listen_keeps_short_text_positions(
         self, monkeypatch

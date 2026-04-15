@@ -18,6 +18,8 @@
   "listenPlayerPortraitLabel": "Non-full screen",
   "listenPlayerScreenLabel": "Screen",
   "listenPlayerSettingsTitle": "Settings",
+  "listenPlayerSubtitleLabel": "Subtitles",
+  "listenPlayerSubtitleToggle": "Toggle subtitles",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "You've completed all available sections.",
   "outputInProgress": "Content is still generating. Please wait before retrying.",

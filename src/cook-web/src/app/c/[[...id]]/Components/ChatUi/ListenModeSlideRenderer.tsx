@@ -15,6 +15,7 @@ import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
   type Element as SlideElement,
+  type ElementSubtitleCue,
   type MobileViewMode,
   type SlidePlayerCustomActionContext,
 } from 'markdown-flow-ui/slide';
@@ -22,6 +23,7 @@ import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
+  resolveListenSlideSubtitleCues,
 } from './listenModeUtils';
 import {
   buildListenMarkerSequenceKey,
@@ -45,6 +47,7 @@ type ListenSlideElement = SlideElement & {
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
+  subtitle_cues?: ElementSubtitleCue[];
 };
 
 interface ListenModeSlideRendererProps {
@@ -282,6 +285,7 @@ const buildSlideElementList = ({
       const { audioSegments, audioUrl, isAudioStreaming } =
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
+      const subtitleCues = resolveListenSlideSubtitleCues(item);
       const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
@@ -307,6 +311,7 @@ const buildSlideElementList = ({
         is_audio_streaming: isAudioStreaming,
         isAudioStreaming,
         audio_segments: audioSegments,
+        subtitle_cues: subtitleCues,
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -1157,6 +1162,8 @@ const ListenModeSlideRenderer = ({
   const playerTexts = useMemo(
     () => ({
       settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
+      subtitleLabel: t('module.chat.listenPlayerSubtitleLabel'),
+      subtitleToggleAriaLabel: t('module.chat.listenPlayerSubtitleToggle'),
       screenLabel: t('module.chat.listenPlayerScreenLabel'),
       nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
       fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
