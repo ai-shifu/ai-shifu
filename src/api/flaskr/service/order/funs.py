@@ -196,19 +196,18 @@ def send_order_feishu(app: Flask, record_id: str):
 
 
 def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
-    with app.app_context():
-        order: Order = Order.query.filter(Order.order_bid == order_bid).first()
-        if not order:
-            return
-        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
-        title = "取消课程授权通知"
-        msgs = [
-            "用户标识：{}".format(user_identify),
-            "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
-            "订单号：{}".format(order_bid),
-            "来源：Open API",
-        ]
-        send_notify(app, title, msgs)
+    order: Order = Order.query.filter(Order.order_bid == order_bid).first()
+    if not order:
+        return
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
+    title = "取消课程授权通知"
+    msgs = [
+        "用户标识：{}".format(user_identify),
+        "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
+        "订单号：{}".format(order_bid),
+        "来源：Open API",
+    ]
+    send_notify(app, title, msgs)
 
 
 def is_order_has_timeout(app: Flask, origin_record: Order):
