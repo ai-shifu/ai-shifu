@@ -687,19 +687,19 @@
         "dataQuery": "订单和学习数据查询"
       },
       "advanced": {
-        "includesLabel": "包含基础版全部权益，以及：",
+        "includesLabel": "享有基础版全部权益，以及：",
         "taskPriority": "任务优先处理",
         "parallelProcessing": "更高并行处理能力",
         "techBasic": "技术基础支持"
       },
       "pro": {
-        "includesLabel": "包含进阶版全部权益，以及：",
+        "includesLabel": "享有进阶版全部权益，以及：",
         "branding": "自定义品牌标识",
         "customDomain": "自定义域名",
         "techPriority": "技术优先支持"
       },
       "premium": {
-        "includesLabel": "包含高阶版全部权益，以及：",
+        "includesLabel": "享有高阶版全部权益，以及：",
         "concurrencyQuota": "更高并发任务配额",
         "dedicatedSupport": "专属技术支持",
         "onboarding": "含 1 次线上做课培训"
@@ -734,7 +734,7 @@
         }
       }
     },
-    "featuresTitle": "享有权益内容：",
+    "featuresTitle": "享有权益：",
     "free": {
       "creditSummary": "赠送积分数 {credits}",
       "description": "适合首次体验，快速跑通建课与交付",
@@ -744,28 +744,22 @@
     "scale": {
       "sectionTitle": "学员支持规模（参考）",
       "free": {
-        "students": "约 10 个以内学员",
-        "courses": "5~10 节课程"
+        "students": "预估支持学员数：10人以内"
       },
       "lite": {
-        "students": "约 1~3 个学员",
-        "courses": "5~10 节课程"
+        "students": "预估支持学员数：3人以内"
       },
       "basic": {
-        "students": "约 10 个以内学员",
-        "courses": "5~10 节课程"
+        "students": "预估支持学员数：10人以内"
       },
       "advanced": {
-        "students": "约 300 个以内学员",
-        "courses": "10~20 节课程"
+        "students": "预估支持学员数：300人以内"
       },
       "pro": {
-        "students": "约 500 个以内学员",
-        "courses": "10~20 节课程"
+        "students": "预估支持学员数：500人以内"
       },
       "premium": {
-        "students": "约 1000 个以内学员",
-        "courses": "10~20 节课程"
+        "students": "预估支持学员数：1000人以内"
       }
     },
     "intervalTabs": {

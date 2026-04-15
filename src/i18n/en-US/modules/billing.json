@@ -744,28 +744,22 @@
     "scale": {
       "sectionTitle": "Learner capacity (est.)",
       "free": {
-        "students": "Up to ~10 learners",
-        "courses": "5–10 lessons"
+        "students": "Est. learner capacity: up to 10"
       },
       "lite": {
-        "students": "Up to ~3 learners",
-        "courses": "5–10 lessons"
+        "students": "Est. learner capacity: up to 3"
       },
       "basic": {
-        "students": "Up to ~10 learners",
-        "courses": "5–10 lessons"
+        "students": "Est. learner capacity: up to 10"
       },
       "advanced": {
-        "students": "Up to ~300 learners",
-        "courses": "10–20 lessons"
+        "students": "Est. learner capacity: up to 300"
       },
       "pro": {
-        "students": "Up to ~500 learners",
-        "courses": "10–20 lessons"
+        "students": "Est. learner capacity: up to 500"
       },
       "premium": {
-        "students": "Up to ~1000 learners",
-        "courses": "10–20 lessons"
+        "students": "Est. learner capacity: up to 1000"
       }
     },
     "intervalTabs": {

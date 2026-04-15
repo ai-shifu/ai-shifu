@@ -229,7 +229,6 @@ export function BillingOverviewShowcase({
                     ? t('module.billing.package.actions.nonMemberTooltip')
                     : undefined
                 }
-                courseScope={freeScale ? t(freeScale.courses) : undefined}
                 creditSummary={freeCreditSummary}
                 creditValidityLabel={freeCreditValidityLabel}
                 description={freeCardDescription}
@@ -287,7 +286,6 @@ export function BillingOverviewShowcase({
                       : undefined
                   }
                   badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
-                  courseScope={planScale ? t(planScale.courses) : undefined}
                   creditSummary={resolveBillingPlanCreditsLabel(
                     t,
                     plan,

@@ -56,30 +56,24 @@ const PLAN_FEATURE_DATA: Record<string, PlanFeatureData> = {
   },
 };
 
-const PLAN_SCALE_KEYS: Record<string, { students: string; courses: string }> = {
+const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
   'creator-plan-trial': {
     students: 'module.billing.package.scale.free.students',
-    courses: 'module.billing.package.scale.free.courses',
   },
   'creator-plan-monthly': {
     students: 'module.billing.package.scale.lite.students',
-    courses: 'module.billing.package.scale.lite.courses',
   },
   'creator-plan-monthly-pro': {
     students: 'module.billing.package.scale.basic.students',
-    courses: 'module.billing.package.scale.basic.courses',
   },
   'creator-plan-yearly-lite': {
     students: 'module.billing.package.scale.advanced.students',
-    courses: 'module.billing.package.scale.advanced.courses',
   },
   'creator-plan-yearly': {
     students: 'module.billing.package.scale.pro.students',
-    courses: 'module.billing.package.scale.pro.courses',
   },
   'creator-plan-yearly-premium': {
     students: 'module.billing.package.scale.premium.students',
-    courses: 'module.billing.package.scale.premium.courses',
   },
 };
 
@@ -93,7 +87,7 @@ export function getFreeFeatureData(): PlanFeatureData {
 
 export function getPlanScaleKeys(
   productCode: string,
-): { students: string; courses: string } | null {
+): { students: string } | null {
   return PLAN_SCALE_KEYS[productCode] || null;
 }
 
@@ -141,7 +135,6 @@ type PlanShowcaseCardProps = {
   actionTooltip?: string;
   badgeLabel?: string;
   compact?: boolean;
-  courseScope?: string;
   creditSummary: string;
   creditValidityLabel: string;
   description: string;
@@ -162,7 +155,6 @@ export function PlanShowcaseCard({
   actionTooltip,
   badgeLabel,
   compact = false,
-  courseScope,
   creditSummary,
   creditValidityLabel,
   description,
@@ -260,13 +252,11 @@ export function PlanShowcaseCard({
         </div>
       </div>
 
-      {studentCapacity || courseScope ? (
+      {studentCapacity ? (
         <div className={styles.planShowcaseCardScaleBox}>
           <UserGroupIcon className={styles.planShowcaseCardScaleIcon} />
           <div className={styles.planShowcaseCardScaleText}>
             {studentCapacity}
-            {studentCapacity && courseScope ? ' · ' : ''}
-            {courseScope}
           </div>
         </div>
       ) : null}
