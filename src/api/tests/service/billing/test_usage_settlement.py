@@ -277,22 +277,29 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
         }
 
         assert payload["status"] == "settled"
-        assert payload["entry_count"] == 3
+        assert payload["entry_count"] == 1
         assert payload["consumed_credits"] == 4
         assert wallet.available_credits == Decimal("0E-10")
         assert wallet.lifetime_consumed_credits == Decimal("4.0000000000")
-        assert [row.wallet_bucket_bid for row in entries] == [
-            "bucket-free",
-            "bucket-sub",
-            "bucket-topup",
-        ]
+        assert len(entries) == 1
+        assert entries[0].wallet_bucket_bid == ""
+        assert entries[0].amount == Decimal("-4.0000000000")
+        assert entries[0].balance_after == Decimal("0E-10")
         assert [
-            row.metadata_json["metric_breakdown"][0]["billing_metric"]
-            for row in entries
+            row["billing_metric"]
+            for row in entries[0].metadata_json["metric_breakdown"]
         ] == [
             "llm_input_tokens",
             "llm_cache_tokens",
             "llm_output_tokens",
+        ]
+        assert [
+            row["wallet_bucket_bid"]
+            for row in entries[0].metadata_json["bucket_breakdown"]
+        ] == [
+            "bucket-free",
+            "bucket-sub",
+            "bucket-topup",
         ]
         assert buckets["bucket-free"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
         assert buckets["bucket-sub"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
@@ -710,14 +717,14 @@ def test_settle_usage_prefers_earliest_expiry_then_oldest_created_in_same_priori
 
         payload = settle_bill_usage(billing_settlement_app, usage_bid="usage-creator-6")
 
-        entries = (
-            CreditLedgerEntry.query.filter_by(source_bid="usage-creator-6")
-            .order_by(CreditLedgerEntry.id.asc())
-            .all()
-        )
+        entry = CreditLedgerEntry.query.filter_by(source_bid="usage-creator-6").one()
 
         assert payload["status"] == "settled"
-        assert [row.wallet_bucket_bid for row in entries] == [
+        assert payload["entry_count"] == 1
+        assert entry.wallet_bucket_bid == ""
+        assert [
+            row["wallet_bucket_bid"] for row in entry.metadata_json["bucket_breakdown"]
+        ] == [
             "bucket-free-early",
             "bucket-free-same-old",
             "bucket-free-same-new",

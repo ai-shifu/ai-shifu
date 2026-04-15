@@ -432,19 +432,18 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
         ).one()
 
         assert settle_payload["status"] == "settled"
-        assert settle_payload["entry_count"] == 2
+        assert settle_payload["entry_count"] == 1
         assert settle_payload["consumed_credits"] == 2.5
-        assert [entry.wallet_bucket_bid for entry in usage_entries] == [
+        assert len(usage_entries) == 1
+        assert usage_entries[0].wallet_bucket_bid == ""
+        assert usage_entries[0].amount == Decimal("-2.5000000000")
+        assert usage_entries[0].balance_after == Decimal("2.0000000000")
+        assert [
+            item["wallet_bucket_bid"]
+            for item in usage_entries[0].metadata_json["bucket_breakdown"]
+        ] == [
             "bucket-consistency-free",
             "bucket-consistency-sub",
-        ]
-        assert [entry.amount for entry in usage_entries] == [
-            Decimal("-1.0000000000"),
-            Decimal("-1.5000000000"),
-        ]
-        assert [entry.balance_after for entry in usage_entries] == [
-            Decimal("3.5000000000"),
-            Decimal("2.0000000000"),
         ]
 
         assert expire_payload["status"] == "expired"

@@ -91,31 +91,34 @@ const MainInterface = ({
 
   return (
     <>
-    <WelcomeTrialDialog billingOverview={billingOverview} menuReady={menuReady} />
-    <div className='flex h-screen bg-stone-50'>
-      <div className='w-[280px]'>
-        <SidebarContent
-          menuItems={menuItems}
-          loading={!menuReady}
-          footerRef={desktopFooterRef}
-          userMenuOpen={desktopMenuOpen}
-          onFooterClick={onDesktopFooterClick}
-          onUserMenuClose={handleDesktopMenuClose}
-          logoSrc={resolvedLogo}
-          activePath={pathname}
-          billingOverview={billingOverview}
-          billingOverviewLoading={billingOverviewLoading}
-        />
-      </div>
-      <div
-        className='flex-1 overflow-y-auto overflow-x-hidden bg-background'
-        data-testid='admin-layout-content'
-      >
-        <div className='mx-auto flex h-full max-w-6xl flex-col px-5 py-5'>
-          {children}
+      <WelcomeTrialDialog
+        billingOverview={billingOverview}
+        menuReady={menuReady}
+      />
+      <div className='flex h-screen bg-stone-50'>
+        <div className='w-[280px]'>
+          <SidebarContent
+            menuItems={menuItems}
+            loading={!menuReady}
+            footerRef={desktopFooterRef}
+            userMenuOpen={desktopMenuOpen}
+            onFooterClick={onDesktopFooterClick}
+            onUserMenuClose={handleDesktopMenuClose}
+            logoSrc={resolvedLogo}
+            activePath={pathname}
+            billingOverview={billingOverview}
+            billingOverviewLoading={billingOverviewLoading}
+          />
+        </div>
+        <div
+          className='flex-1 overflow-y-auto overflow-x-hidden bg-background'
+          data-testid='admin-layout-content'
+        >
+          <div className='mx-auto flex h-full max-w-6xl flex-col px-5 py-5'>
+            {children}
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 };

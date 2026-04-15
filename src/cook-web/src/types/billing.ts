@@ -223,11 +223,30 @@ export type BillingWalletBucketList = {
 
 export type BillingMetricBreakdownItem = {
   billing_metric: BillingMetricName;
+  billing_metric_code?: number;
   raw_amount: number;
   unit_size: number;
+  rounded_units?: number;
   credits_per_unit: number;
   rounding_mode: BillingRoundingMode;
   consumed_credits: number;
+};
+
+export type BillingBucketMetricBreakdownItem = {
+  billing_metric: BillingMetricName;
+  billing_metric_code?: number;
+  consumed_credits: number;
+};
+
+export type BillingBucketBreakdownItem = {
+  wallet_bucket_bid: string;
+  bucket_category: string;
+  source_type: BillingBucketSourceType | string;
+  source_bid: string;
+  consumed_credits: number;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  metric_breakdown?: BillingBucketMetricBreakdownItem[];
 };
 
 export type BillingLedgerMetadata = {
@@ -238,6 +257,7 @@ export type BillingLedgerMetadata = {
   provider?: string;
   model?: string;
   metric_breakdown?: BillingMetricBreakdownItem[];
+  bucket_breakdown?: BillingBucketBreakdownItem[];
 };
 
 export type BillingLedgerItem = {

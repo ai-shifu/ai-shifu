@@ -191,11 +191,34 @@ class BillingWalletBucketListDTO(BillingBaseDTO):
 @register_schema_to_swagger
 class BillingMetricBreakdownDTO(BillingBaseDTO):
     billing_metric: str
+    billing_metric_code: int | None = None
     raw_amount: int
     unit_size: int
+    rounded_units: int | float | None = None
     credits_per_unit: int | float
     rounding_mode: str
     consumed_credits: int | float
+
+
+@register_schema_to_swagger
+class BillingBucketMetricBreakdownDTO(BillingBaseDTO):
+    billing_metric: str
+    billing_metric_code: int | None = None
+    consumed_credits: int | float
+
+
+@register_schema_to_swagger
+class BillingBucketBreakdownDTO(BillingBaseDTO):
+    wallet_bucket_bid: str
+    bucket_category: str
+    source_type: str
+    source_bid: str
+    consumed_credits: int | float
+    effective_from: str | None = None
+    effective_to: str | None = None
+    metric_breakdown: list[BillingBucketMetricBreakdownDTO] = Field(
+        default_factory=list
+    )
 
 
 @register_schema_to_swagger
@@ -207,6 +230,7 @@ class BillingLedgerMetadataDTO(BillingBaseDTO):
     provider: str | None = None
     model: str | None = None
     metric_breakdown: list[BillingMetricBreakdownDTO] = Field(default_factory=list)
+    bucket_breakdown: list[BillingBucketBreakdownDTO] = Field(default_factory=list)
 
 
 @register_schema_to_swagger

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Any
@@ -74,6 +74,46 @@ class UsageMetricBreakdownItem:
 
 
 @dataclass(slots=True, frozen=True)
+class UsageBucketMetricBreakdownItem:
+    billing_metric: str
+    billing_metric_code: int
+    consumed_credits: Decimal
+
+    def to_metadata_json(self) -> dict[str, Any]:
+        return {
+            "billing_metric": self.billing_metric,
+            "billing_metric_code": int(self.billing_metric_code),
+            "consumed_credits": decimal_to_number(self.consumed_credits),
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class UsageBucketBreakdownItem:
+    wallet_bucket_bid: str
+    bucket_category: str
+    source_type: str
+    source_bid: str
+    consumed_credits: Decimal
+    effective_from: str | None = None
+    effective_to: str | None = None
+    metric_breakdown: list[UsageBucketMetricBreakdownItem] = field(default_factory=list)
+
+    def to_metadata_json(self) -> dict[str, Any]:
+        return {
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "bucket_category": self.bucket_category,
+            "source_type": self.source_type,
+            "source_bid": self.source_bid,
+            "consumed_credits": decimal_to_number(self.consumed_credits),
+            "effective_from": self.effective_from,
+            "effective_to": self.effective_to,
+            "metric_breakdown": [
+                item.to_metadata_json() for item in self.metric_breakdown
+            ],
+        }
+
+
+@dataclass(slots=True, frozen=True)
 class UsageEntryMetadata:
     usage_bid: str
     usage_record_id: int
@@ -82,6 +122,7 @@ class UsageEntryMetadata:
     provider: str
     model: str
     metric_breakdown: list[UsageMetricBreakdownItem]
+    bucket_breakdown: list[UsageBucketBreakdownItem] = field(default_factory=list)
 
     def to_metadata_json(self) -> dict[str, Any]:
         return {
@@ -93,6 +134,9 @@ class UsageEntryMetadata:
             "model": self.model,
             "metric_breakdown": [
                 item.to_metadata_json() for item in self.metric_breakdown
+            ],
+            "bucket_breakdown": [
+                item.to_metadata_json() for item in self.bucket_breakdown
             ],
         }
 
@@ -249,8 +293,8 @@ def round_usage_units(
 def build_usage_entry_metadata(
     *,
     usage: BillUsageRecord,
-    charge: UsageMetricCharge,
-    consumed: Decimal,
+    charges: list[UsageMetricCharge],
+    bucket_breakdown: list[UsageBucketBreakdownItem] | None = None,
 ) -> UsageEntryMetadata:
     return UsageEntryMetadata(
         usage_bid=usage.usage_bid,
@@ -271,9 +315,11 @@ def build_usage_entry_metadata(
                     int(charge.rounding_mode or CREDIT_ROUNDING_MODE_CEIL),
                     "ceil",
                 ),
-                consumed_credits=consumed,
+                consumed_credits=charge.consumed_credits,
             )
+            for charge in charges
         ],
+        bucket_breakdown=list(bucket_breakdown or []),
     )
 
 

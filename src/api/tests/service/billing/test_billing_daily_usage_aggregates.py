@@ -302,6 +302,104 @@ def test_finalize_daily_usage_metrics_recomputes_full_day(
         ]
 
 
+def test_aggregate_daily_usage_metrics_supports_single_usage_ledger_with_multi_metric_metadata(
+    billing_daily_usage_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
+        lambda app, usage: "creator-agg-single-ledger",
+    )
+
+    with billing_daily_usage_app.app_context():
+        _add_llm_rates()
+        _add_usage(
+            usage_bid="usage-single-ledger",
+            shifu_bid="shifu-agg-1",
+            created_at=datetime(2026, 4, 8, 9, 0, 0),
+            input_tokens=100,
+            output_tokens=40,
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-usage-single-ledger",
+                creator_bid="creator-agg-single-ledger",
+                wallet_bid="wallet-creator-agg-single-ledger",
+                wallet_bucket_bid="",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                source_type=CREDIT_SOURCE_TYPE_USAGE,
+                source_bid="usage-single-ledger",
+                idempotency_key="usage:usage-single-ledger:consume",
+                amount=Decimal("-2.0000000000"),
+                balance_after=Decimal("0"),
+                metadata_json={
+                    "metric_breakdown": [
+                        {
+                            "billing_metric_code": BILLING_METRIC_LLM_INPUT_TOKENS,
+                            "consumed_credits": "1.2500000000",
+                        },
+                        {
+                            "billing_metric_code": BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                            "consumed_credits": "0.7500000000",
+                        },
+                    ],
+                    "bucket_breakdown": [
+                        {
+                            "wallet_bucket_bid": "bucket-free",
+                            "consumed_credits": "2.0000000000",
+                        }
+                    ],
+                },
+                created_at=datetime(2026, 4, 8, 9, 1, 0),
+                updated_at=datetime(2026, 4, 8, 9, 1, 0),
+            )
+        )
+        dao.db.session.commit()
+
+        payload = aggregate_daily_usage_metrics(
+            billing_daily_usage_app,
+            stat_date="2026-04-08",
+            creator_bid="creator-agg-single-ledger",
+            now=datetime(2026, 4, 8, 23, 0, 0),
+        )
+
+        creator_rows = (
+            BillingDailyUsageMetric.query.filter(
+                BillingDailyUsageMetric.stat_date == "2026-04-08",
+                BillingDailyUsageMetric.creator_bid == "creator-agg-single-ledger",
+            )
+            .order_by(BillingDailyUsageMetric.billing_metric.asc())
+            .all()
+        )
+
+        assert payload["status"] == "aggregated"
+        assert payload["usage_count"] == 1
+        assert payload["metric_count"] == 2
+        assert len(creator_rows) == 2
+        assert [
+            (
+                row.billing_metric,
+                int(row.raw_amount or 0),
+                int(row.record_count or 0),
+                str(row.consumed_credits),
+            )
+            for row in creator_rows
+        ] == [
+            (
+                BILLING_METRIC_LLM_INPUT_TOKENS,
+                100,
+                1,
+                "1.2500000000",
+            ),
+            (
+                BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                40,
+                1,
+                "0.7500000000",
+            ),
+        ]
+
+
 def _add_llm_rates() -> None:
     for metric_code in (
         BILLING_METRIC_LLM_INPUT_TOKENS,

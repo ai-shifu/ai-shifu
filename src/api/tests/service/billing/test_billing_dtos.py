@@ -4,6 +4,8 @@ from decimal import Decimal
 
 from flaskr.service.billing.dtos import (
     BillingAlertDTO,
+    BillingBucketBreakdownDTO,
+    BillingBucketMetricBreakdownDTO,
     BillingLedgerItemDTO,
     BillingLedgerMetadataDTO,
     BillingMetricBreakdownDTO,
@@ -103,11 +105,31 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
             metric_breakdown=[
                 BillingMetricBreakdownDTO(
                     billing_metric="llm_output_tokens",
+                    billing_metric_code=7303,
                     raw_amount=1234,
                     unit_size=1000,
+                    rounded_units=2,
                     credits_per_unit=1.25,
                     rounding_mode="ceil",
                     consumed_credits=2.5,
+                )
+            ],
+            bucket_breakdown=[
+                BillingBucketBreakdownDTO(
+                    wallet_bucket_bid="bucket-free",
+                    bucket_category="free",
+                    source_type="subscription",
+                    source_bid="sub-1",
+                    consumed_credits=1,
+                    effective_from="2026-04-01T00:00:00+00:00",
+                    effective_to="2026-05-01T00:00:00+00:00",
+                    metric_breakdown=[
+                        BillingBucketMetricBreakdownDTO(
+                            billing_metric="llm_output_tokens",
+                            billing_metric_code=7303,
+                            consumed_credits=1,
+                        )
+                    ],
                 )
             ],
         ),
@@ -134,6 +156,10 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 
     assert ledger_payload["metadata"]["metric_breakdown"][0]["billing_metric"] == (
         "llm_output_tokens"
+    )
+    assert (
+        ledger_payload["metadata"]["bucket_breakdown"][0]["wallet_bucket_bid"]
+        == "bucket-free"
     )
     assert bucket_payload == {
         "items": [

@@ -413,7 +413,7 @@ v1 冻结 subscription lifecycle 规则：
 - 一条发放动作创建一个 bucket，不把多个来源合并到同一 bucket
 - bucket 只维护当前可消费余额和生命周期状态，不替代不可变账本
 - 结算时按运行时 category priority、`effective_to asc nulls last`、`created_at asc` 选择可消费 bucket
-- 一条 usage 扣费可以拆成多条 consume ledger，每条对应一个 bucket
+- 一条 usage 扣费可以拆分消费多个 bucket，但默认只生成一条 `consume` ledger；bucket 级扣减明细回填到 `metadata.bucket_breakdown[]`
 - creator 可消费 credits 运行时只保留 `subscription` 与 `topup` 两类；`gift` / `refund` / `manual` 继续只保留为审计 `source_type`
 - 产品化 trial 作为正式 subscription grant，落成 `subscription` bucket；不存在单独的 “trial credits” 第三类
 - bucket 到期后不再参与 admission / settlement，需写入 `expire` ledger 并关闭 bucket
@@ -429,7 +429,7 @@ v1 冻结 bucket 规则：
 - `refund return` 不回写原 bucket，也不恢复原 bucket 的 `available_credits`；会新建 `source_type=refund` bucket，并按原订单类型映射到 `subscription/topup`，无法解析历史来源时默认归到 `subscription`
 - 正向人工补偿统一创建 `subscription` bucket；负向人工扣减按 `subscription -> topup` 顺序执行
 - legacy gift 默认归到 `subscription`；若历史元数据能明确解析出 topup 来源，则归到 `topup`
-- 同一条 usage 允许拆分扣减多个 bucket，但每条 consume ledger 都必须回填命中的 `wallet_bucket_bid`，保证 bucket 级幂等与 replay 可追溯
+- 同一条 usage 允许拆分扣减多个 bucket；bucket 级命中顺序和金额必须保留在 `metadata.bucket_breakdown[]` 中，历史多行 usage consume ledger 仍视为合法存量数据
 
 ### 3.6 `credit_ledger_entries`
 
@@ -440,16 +440,16 @@ v1 冻结 bucket 规则：
 | `ledger_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit ledger business identifier` | 账本业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属钱包 | `Credit wallet business identifier` | 钱包业务 ID |
-| `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 归属余额桶；bucket-scoped 分录必须回填 | `Credit wallet bucket business identifier` | 余额桶业务 ID |
+| `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 归属余额桶；单 bucket 分录回填，多 bucket usage consume 可为空 | `Credit wallet bucket business identifier` | 余额桶业务 ID |
 | `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 账本分录类型 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 分录来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应业务单号，如 order/subscription/usage | `Ledger source business identifier` | 来源业务 ID |
-| `idempotency_key` | `String(128)` | `not null, default="", index=True` | 统一幂等键；usage 扣分需带 metric + wallet_bucket_bid 维度 | `Ledger idempotency key` | 分录幂等键 |
+| `idempotency_key` | `String(128)` | `not null, default="", index=True` | 统一幂等键；聚合 usage consume 以 usage 维度稳定去重 | `Ledger idempotency key` | 分录幂等键 |
 | `amount` | `Numeric(20,10)` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
 | `balance_after` | `Numeric(20,10)` | `not null, default=0` | 写入后钱包总可用余额快照 | `Balance after entry` | 分录后钱包总余额 |
 | `expires_at` | `DateTime` | `nullable=True, index=True` | 仅 grant 类分录会有到期时间 | `Entry expiration timestamp` | 积分到期时间 |
 | `consumable_from` | `DateTime` | `nullable=True` | 仅需延迟可用时使用 | `Consumable from timestamp` | 开始可消费时间 |
-| `metadata` | `JSON` | `nullable=True` | 必须支持 `usage_bid`、`usage_scene`、`provider`、`model`、`metric_breakdown[]` | `Billing ledger metadata` | 分录元数据 |
+| `metadata` | `JSON` | `nullable=True` | 必须支持 `usage_bid`、`usage_scene`、`provider`、`model`、`metric_breakdown[]`、`bucket_breakdown[]` | `Billing ledger metadata` | 分录元数据 |
 
 主键 / 唯一索引 / 关键索引：
 
@@ -1031,9 +1031,9 @@ v1 需要新增：
 - 同一 `creator_bid` 的结算任务必须串行化，避免多个学生同时学习同一 creator 课程时发生并发扣减算错
 - bucket 扣减顺序固定为：`subscription > topup`；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先
 - `gift`、正向人工补偿、退款返还不再形成第三类可消费 credits；它们仅保留为 `source_type`，bucket 统一归到 `subscription/topup`
-- 一条 usage 可以拆成多个 bucket 扣减，并生成多条 `consume` ledger
+- 一条 usage 可以拆成多个 bucket 扣减，但默认只生成一条聚合 `consume` ledger；bucket 明细保留在 `metadata.bucket_breakdown[]`
 - bucket 过期任务只扫描 `credit_wallet_buckets`；过期后写 `expire` ledger 并把 bucket 关闭
-- 结算幂等 key 应以 `bill_usage.usage_bid + billing_metric + wallet_bucket_bid` 为核心，避免跨 bucket 重复扣分
+- 结算幂等 key 应至少以 `bill_usage.usage_bid` 为核心保证 usage 级去重；bucket 级扣减明细保留在 metadata 里
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 已支持：
   - LLM `input/cache/output` 三维 rate 匹配与扣分
   - TTS 主 metric 结算
@@ -1503,7 +1503,7 @@ type CreatorBrandingConfig = {
 - 多个学生并发学习同一 creator 课程时，Celery 串行扣减是否仍然准确
 - `free > subscription > topup` 的 bucket 扣减优先级是否严格生效
 - 同一 bucket category 下是否按最早到期优先、再按最早创建优先
-- 一条 usage 超过单个 bucket 余额时，是否能拆分扣减多个 bucket 并保留可追溯 ledger
+- 一条 usage 超过单个 bucket 余额时，是否能拆分扣减多个 bucket，并在单条 usage consume ledger 的 `metadata.bucket_breakdown[]` 中保留可追溯明细
 - LLM `input/cache/output` 三维扣分是否准确
 - TTS `按次` 与 `按字数` 两种 metric 是否准确
 - webhook 幂等、乱序到达、sync 补偿、防重复发放或重复扣分

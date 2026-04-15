@@ -12,7 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import type { BillingTrialOffer, CreatorBillingOverview } from '@/types/billing';
+import type {
+  BillingTrialOffer,
+  CreatorBillingOverview,
+} from '@/types/billing';
 
 const DISMISSED_KEY = 'ai-shifu:welcome-trial-dismissed';
 
@@ -73,8 +76,14 @@ export function WelcomeTrialDialog({
     APP_NAME_DEFAULT;
 
   return (
-    <Dialog open={open} onOpenChange={val => !val && handleDismiss()}>
-      <DialogContent className='max-w-md' showClose>
+    <Dialog
+      open={open}
+      onOpenChange={val => !val && handleDismiss()}
+    >
+      <DialogContent
+        className='max-w-md'
+        showClose
+      >
         <DialogHeader className='items-center text-center'>
           <div className='mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10'>
             <Gift className='h-7 w-7 text-primary' />
@@ -90,7 +99,10 @@ export function WelcomeTrialDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className='mt-2 sm:justify-center'>
-          <Button onClick={handleDismiss} className='min-w-[160px]'>
+          <Button
+            onClick={handleDismiss}
+            className='min-w-[160px]'
+          >
             {t('module.billing.welcomeTrial.confirm')}
           </Button>
         </DialogFooter>

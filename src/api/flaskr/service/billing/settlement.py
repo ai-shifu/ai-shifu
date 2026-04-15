@@ -16,12 +16,16 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
 
 from .charges import (
+    UsageBucketBreakdownItem,
+    UsageBucketMetricBreakdownItem,
     build_usage_entry_metadata,
     build_usage_metric_charges,
 )
 from .consts import (
+    CREDIT_BUCKET_CATEGORY_LABELS,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from .bucket_categories import (
@@ -42,6 +46,12 @@ _ZERO = Decimal("0")
 _DECIMAL_QUANT = Decimal("0.0000000001")
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
+
+
+def _serialize_metadata_dt(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
 
 
 @dataclass(slots=True, frozen=True)
@@ -250,6 +260,7 @@ def settle_bill_usage(
             balance_after = total_available
             entry_count = 0
             total_consumed = _ZERO
+            bucket_breakdown_map: dict[str, dict[str, Any]] = {}
             for charge in metric_charges:
                 remaining = charge.consumed_credits
                 for bucket in buckets:
@@ -269,31 +280,41 @@ def settle_bill_usage(
                     )
                     sync_credit_bucket_status(bucket)
                     db.session.add(bucket)
-
-                    ledger_entry = CreditLedgerEntry(
-                        ledger_bid=generate_id(app),
-                        creator_bid=creator_bid,
-                        wallet_bid=wallet.wallet_bid,
-                        wallet_bucket_bid=bucket.wallet_bucket_bid,
-                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-                        source_type=CREDIT_SOURCE_TYPE_USAGE,
-                        source_bid=usage.usage_bid,
-                        idempotency_key=(
-                            f"usage:{usage.usage_bid}:{charge.billing_metric}:"
-                            f"{bucket.wallet_bucket_bid}:consume"
-                        ),
-                        amount=-consumed,
-                        balance_after=balance_after,
-                        expires_at=bucket.effective_to,
-                        consumable_from=bucket.effective_from,
-                        metadata_json=build_usage_entry_metadata(
-                            usage=usage,
-                            charge=charge,
-                            consumed=consumed,
-                        ).to_metadata_json(),
+                    bucket_key = str(bucket.wallet_bucket_bid or "").strip()
+                    metric_breakdown = bucket_breakdown_map.setdefault(
+                        bucket_key,
+                        {
+                            "wallet_bucket_bid": bucket_key,
+                            "bucket_category": CREDIT_BUCKET_CATEGORY_LABELS.get(
+                                int(bucket.bucket_category or 0),
+                                "subscription",
+                            ),
+                            "source_type": CREDIT_SOURCE_TYPE_LABELS.get(
+                                int(bucket.source_type or 0),
+                                "manual",
+                            ),
+                            "source_bid": str(bucket.source_bid or ""),
+                            "consumed_credits": _ZERO,
+                            "effective_from": bucket.effective_from,
+                            "effective_to": bucket.effective_to,
+                            "metric_breakdown": {},
+                        },
                     )
-                    db.session.add(ledger_entry)
-                    entry_count += 1
+                    metric_breakdown["consumed_credits"] += consumed
+                    metric_items = metric_breakdown["metric_breakdown"]
+                    metric_items[int(charge.billing_metric)] = {
+                        "billing_metric": charge.metric_label,
+                        "billing_metric_code": int(charge.billing_metric),
+                        "consumed_credits": (
+                            _to_decimal(
+                                metric_items.get(int(charge.billing_metric), {}).get(
+                                    "consumed_credits",
+                                    _ZERO,
+                                )
+                            )
+                            + consumed
+                        ),
+                    }
 
                 if remaining <= _ZERO:
                     continue
@@ -306,7 +327,70 @@ def settle_bill_usage(
                     consumed_credits=_decimal_to_number(total_required),
                 )
 
+            bucket_breakdown = [
+                UsageBucketBreakdownItem(
+                    wallet_bucket_bid=payload["wallet_bucket_bid"],
+                    bucket_category=payload["bucket_category"],
+                    source_type=payload["source_type"],
+                    source_bid=payload["source_bid"],
+                    consumed_credits=_to_decimal(payload["consumed_credits"]),
+                    effective_from=_serialize_metadata_dt(payload["effective_from"]),
+                    effective_to=_serialize_metadata_dt(payload["effective_to"]),
+                    metric_breakdown=[
+                        UsageBucketMetricBreakdownItem(
+                            billing_metric=str(metric_payload["billing_metric"]),
+                            billing_metric_code=int(
+                                metric_payload["billing_metric_code"] or 0
+                            ),
+                            consumed_credits=_to_decimal(
+                                metric_payload["consumed_credits"]
+                            ),
+                        )
+                        for metric_payload in payload["metric_breakdown"].values()
+                    ],
+                )
+                for payload in bucket_breakdown_map.values()
+            ]
+            primary_bucket_payload = (
+                next(iter(bucket_breakdown_map.values()))
+                if len(bucket_breakdown_map) == 1
+                else None
+            )
+
             refresh_credit_wallet_snapshot(wallet)
+            ledger_entry = CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=(
+                    str(primary_bucket_payload["wallet_bucket_bid"])
+                    if primary_bucket_payload is not None
+                    else ""
+                ),
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                source_type=CREDIT_SOURCE_TYPE_USAGE,
+                source_bid=usage.usage_bid,
+                idempotency_key=f"usage:{usage.usage_bid}:consume",
+                amount=-total_consumed,
+                balance_after=_to_decimal(wallet.available_credits),
+                expires_at=(
+                    primary_bucket_payload["effective_to"]
+                    if primary_bucket_payload is not None
+                    else None
+                ),
+                consumable_from=(
+                    primary_bucket_payload["effective_from"]
+                    if primary_bucket_payload is not None
+                    else None
+                ),
+                metadata_json=build_usage_entry_metadata(
+                    usage=usage,
+                    charges=metric_charges,
+                    bucket_breakdown=bucket_breakdown,
+                ).to_metadata_json(),
+            )
+            db.session.add(ledger_entry)
+            entry_count = 1
             persist_credit_wallet_snapshot(
                 wallet,
                 available_credits=wallet.available_credits,
