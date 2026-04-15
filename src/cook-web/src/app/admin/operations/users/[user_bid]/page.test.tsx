@@ -189,6 +189,42 @@ describe('AdminOperationUserDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/operations/users');
   });
 
+  test('uses course status translations for unknown course states', async () => {
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      user_bid: 'user-1',
+      mobile: '',
+      email: 'user-1@example.com',
+      nickname: 'Nick',
+      user_status: 'registered',
+      user_role: 'creator',
+      user_roles: ['creator'],
+      login_methods: ['email'],
+      registration_source: 'email',
+      language: 'en-US',
+      learning_courses: [],
+      created_courses: [
+        {
+          shifu_bid: 'course-unknown',
+          course_name: 'Unknown State Course',
+          course_status: '',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '0',
+      last_login_at: '',
+      last_learning_at: '',
+      created_at: '2026-04-14 10:00:00',
+      updated_at: '2026-04-14 11:00:00',
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByText('module.operationsCourse.statusLabels.unknown'),
+    ).toBeInTheDocument();
+  });
+
   test('uses default user name when nickname is empty', async () => {
     mockGetAdminOperationUserDetail.mockResolvedValueOnce({
       user_bid: 'user-1',

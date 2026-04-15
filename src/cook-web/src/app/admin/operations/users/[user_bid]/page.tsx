@@ -351,7 +351,7 @@ export default function AdminOperationUserDetailPage() {
     if (status === 'unpublished') {
       return tOperationsCourse('statusLabels.unpublished');
     }
-    return status || tOperationsUsers('statusLabels.unknown');
+    return status || tOperationsCourse('statusLabels.unknown');
   };
 
   if (!isReady || loading) {

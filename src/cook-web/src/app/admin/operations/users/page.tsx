@@ -526,9 +526,9 @@ export default function AdminOperationUsersPage() {
       if (status === 'unpublished') {
         return tOperationsCourse('statusLabels.unpublished');
       }
-      return status || tOperationsUsers('statusLabels.unknown');
+      return status || tOperationsCourse('statusLabels.unknown');
     },
-    [tOperationsCourse, tOperationsUsers],
+    [tOperationsCourse],
   );
 
   const contactType = React.useMemo(
@@ -1153,7 +1153,16 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('userId')}
                       >
-                        <OverflowTooltipText text={user.user_bid} />
+                        {userDetailUrl ? (
+                          <Link
+                            href={userDetailUrl}
+                            className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                          >
+                            <OverflowTooltipText text={user.user_bid} />
+                          </Link>
+                        ) : (
+                          <OverflowTooltipText text={user.user_bid} />
+                        )}
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'

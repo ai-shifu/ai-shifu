@@ -375,6 +375,92 @@ describe('AdminOperationUsersPage', () => {
     ).toHaveAttribute('href', '/admin/operations/course-2');
   });
 
+  test('links the user id cell when the primary contact is empty', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-no-contact',
+          mobile: '',
+          email: '',
+          nickname: 'No Contact',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: [],
+          registration_source: 'unknown',
+          language: 'en-US',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '0',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14 10:00:00',
+          updated_at: '2026-04-14 11:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    expect(
+      await screen.findByRole('link', { name: 'user-no-contact' }),
+    ).toHaveAttribute('href', '/admin/operations/users/user-no-contact');
+  });
+
+  test('uses course status translations for unknown course states in the dialog', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'registered',
+          user_role: 'creator',
+          user_roles: ['creator'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'en-US',
+          learning_courses: [],
+          created_courses: [
+            {
+              shifu_bid: 'course-unknown',
+              course_name: 'Unknown State Course',
+              course_status: '',
+              completed_lesson_count: 0,
+              total_lesson_count: 0,
+            },
+          ],
+          total_paid_amount: '0',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14 10:00:00',
+          updated_at: '2026-04-14 11:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (1)',
+      }),
+    );
+
+    expect(
+      screen.getByText('module.operationsCourse.statusLabels.unknown'),
+    ).toBeInTheDocument();
+  });
+
   test('uses default user name when nickname is empty', async () => {
     mockGetAdminOperationUsers.mockResolvedValueOnce({
       items: [

@@ -25,6 +25,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,
     USER_STATE_TRAIL,
@@ -969,3 +970,82 @@ def test_admin_operation_user_detail_route_returns_payload(
         "created_at": "2026-04-10 08:00:00",
         "updated_at": "2026-04-10 12:00:00",
     }
+
+
+def test_admin_operation_user_detail_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-detail-route",
+            identify="13812340000",
+            nickname="Detail Route User",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 12, 0, 0),
+            providers=[("phone", "13812340000")],
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-detail-route/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_get_operator_user_detail_prefers_latest_auth_credential(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-latest-contact",
+            identify="13800000000",
+            nickname="Latest Contact",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 12, 0, 0),
+            providers=[("phone", "13800000000"), ("email", "old@example.com")],
+        )
+
+        newer_phone = AuthCredential(
+            credential_bid="credential-new-phone",
+            user_bid="user-latest-contact",
+            provider_name="phone",
+            subject_id="13900000000",
+            subject_format="phone",
+            identifier="13900000000",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_VERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 13, 0, 0),
+            updated_at=datetime(2026, 4, 10, 13, 0, 0),
+        )
+        newer_email = AuthCredential(
+            credential_bid="credential-new-email",
+            user_bid="user-latest-contact",
+            provider_name="email",
+            subject_id="new@example.com",
+            subject_format="email",
+            identifier="new@example.com",
+            raw_profile="{}",
+            state=CREDENTIAL_STATE_VERIFIED,
+            deleted=0,
+            created_at=datetime(2026, 4, 10, 14, 0, 0),
+            updated_at=datetime(2026, 4, 10, 14, 0, 0),
+        )
+        db.session.add_all([newer_phone, newer_email])
+        db.session.commit()
+        db.session.remove()
+
+        result = get_operator_user_detail(app, "user-latest-contact")
+
+    assert isinstance(result, AdminOperationUserSummaryDTO)
+    assert result.mobile == "13900000000"
+    assert result.email == "new@example.com"

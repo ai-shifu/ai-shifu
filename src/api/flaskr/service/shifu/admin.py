@@ -458,7 +458,7 @@ def _load_operator_user_contact_map(
             AuthCredential.user_bid.in_(list(user_bids)),
             AuthCredential.deleted == 0,
         )
-        .order_by(AuthCredential.id.asc())
+        .order_by(AuthCredential.id.desc())
         .all()
     )
     contact_map: Dict[str, Dict[str, Any]] = {
@@ -475,7 +475,7 @@ def _load_operator_user_contact_map(
         )
         login_method = _normalize_login_method(credential.provider_name or "")
         if login_method and login_method not in resolved["login_methods"]:
-            resolved["login_methods"].append(login_method)
+            resolved["login_methods"].insert(0, login_method)
         if (
             credential.provider_name == "phone"
             and not resolved["mobile"]
