@@ -12,6 +12,7 @@ from flaskr.service.order.admin import (
     import_activation_order,
     normalize_contact_identifier,
 )
+from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -91,7 +92,11 @@ def open_api_grant_order(
                 return {"order_bid": existing_order.order_bid}
 
         result = import_activation_order(
-            app, user_identify, shifu_bid, contact_type=user_identify_type
+            app,
+            user_identify,
+            shifu_bid,
+            contact_type=user_identify_type,
+            payment_channel="open_api",
         )
         return result
 
@@ -120,4 +125,5 @@ def open_api_revoke_order(
 
         order.status = ORDER_STATUS_REFUND
         db.session.commit()
+        send_revoke_feishu(app, order.order_bid, user_identify)
         return {"order_bid": order.order_bid, "status": "revoked"}
