@@ -168,9 +168,8 @@ def send_order_feishu(app: Flask, record_id: str):
     msgs.append("昵称：{}".format(aggregate.name))
     msgs.append("课程名称：{}".format(shifu_info.title))
     msgs.append("实付金额：{}".format(order_info.price))
-    source_label = _CHANNEL_LABEL.get(
-        order_info.payment_channel, order_info.payment_channel or "未知"
-    )
+    channel = getattr(order_info, "payment_channel", "") or ""
+    source_label = _CHANNEL_LABEL.get(channel, channel or "未知")
     msgs.append("订单来源：{}".format(source_label))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
