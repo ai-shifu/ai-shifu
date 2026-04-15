@@ -840,5 +840,10 @@
     "none": "未开通",
     "pastDue": "续费失败",
     "paused": "已暂停"
+  },
+  "welcomeTrial": {
+    "title": "欢迎来到 {appName}",
+    "description": "新用户赠送体验版，包含 {credits} 积分，有效期 {days} 天。现在就开始创建你的第一门课程吧！",
+    "confirm": "好的，开始使用！"
   }
 }
