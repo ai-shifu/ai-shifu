@@ -664,6 +664,7 @@
     "walletTitle": "积分总览"
   },
   "package": {
+    "topupComingSoon": "敬请期待",
     "actions": {
       "buyNow": "立即购买",
       "currentSubscription": "当前订阅",

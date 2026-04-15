@@ -1,3 +1,6 @@
+// Set to true when topup purchasing is ready to launch
+const TOPUP_ENABLED = false;
+
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -163,46 +166,52 @@ export function BillingOverviewShowcase({
           <Skeleton className='h-[620px] rounded-[34px]' />
         </div>
       ) : showcaseTab === 'topup' ? (
-        <div
-          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
-          data-testid='billing-topup-grid'
-        >
-          {topups.map(product => {
-            const provider = resolveCheckoutProvider(
-              stripeAvailable,
-              pingxxAvailable,
-            );
-            const checkoutKey = provider
-              ? `topup:${provider}:${product.product_bid}`
-              : '';
+        TOPUP_ENABLED ? (
+          <div
+            className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+            data-testid='billing-topup-grid'
+          >
+            {topups.map(product => {
+              const provider = resolveCheckoutProvider(
+                stripeAvailable,
+                pingxxAvailable,
+              );
+              const checkoutKey = provider
+                ? `topup:${provider}:${product.product_bid}`
+                : '';
 
-            return (
-              <TopupCard
-                key={product.product_bid}
-                actionLabel={t('module.billing.package.actions.buyNow')}
-                actionLoading={checkoutLoadingKey === checkoutKey}
-                creditsLabel={t('module.billing.package.topup.creditLabel', {
-                  credits: formatBillingCredits(
-                    product.credit_amount,
+              return (
+                <TopupCard
+                  key={product.product_bid}
+                  actionLabel={t('module.billing.package.actions.buyNow')}
+                  actionLoading={checkoutLoadingKey === checkoutKey}
+                  creditsLabel={t('module.billing.package.topup.creditLabel', {
+                    credits: formatBillingCredits(
+                      product.credit_amount,
+                      i18n.language,
+                    ),
+                  })}
+                  description={resolveBillingProductDescription(t, product)}
+                  disabled={!provider}
+                  featured={Boolean(product.status_badge_key)}
+                  onAction={() =>
+                    provider && onSelectTopupCheckout(product, provider)
+                  }
+                  priceLabel={formatBillingPrice(
+                    product.price_amount,
+                    product.currency,
                     i18n.language,
-                  ),
-                })}
-                description={resolveBillingProductDescription(t, product)}
-                disabled={!provider}
-                featured={Boolean(product.status_badge_key)}
-                onAction={() =>
-                  provider && onSelectTopupCheckout(product, provider)
-                }
-                priceLabel={formatBillingPrice(
-                  product.price_amount,
-                  product.currency,
-                  i18n.language,
-                )}
-                testId={`billing-topup-card-${product.product_bid}`}
-              />
-            );
-          })}
-        </div>
+                  )}
+                  testId={`billing-topup-card-${product.product_bid}`}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className='flex min-h-[200px] items-center justify-center text-base text-slate-400'>
+            {t('module.billing.package.topupComingSoon')}
+          </div>
+        )
       ) : (
         <div
           className={cn(
