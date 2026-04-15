@@ -1,99 +1,118 @@
-# New Creator Trial Credits
+# New Creator Trial Product
 
 ## Summary
 
-This feature grants a one-time free credit trial to newly registered creators
-when they first enter the creator billing workspace.
+The creator free trial is now a first-class record in `billing_products`
+instead of a runtime sys-config program.
 
-The implementation keeps trial state inside existing billing tables instead of
-adding a dedicated trial table:
+Business policy stays the same:
 
-- credit grant is stored as a `free` wallet bucket
-- the matching ledger entry uses `source_type=gift`
-- idempotency is enforced by the existing
-  `(creator_bid, idempotency_key)` unique constraint on
-  `credit_ledger_entries`
+- one-time only
+- `100` credits
+- valid for `15` days
+- zero-price
+- non-auto-renew
 
-## Registration Anchor
+The trial remains publicly visible in billing overview, but it is rendered
+through the existing free card instead of being mixed into the paid plan grid.
 
-The feature does not modify `user_users`.
+There is no separate "trial credits" runtime category. Trial grants are
+exposed and consumed as normal `subscription` credits, alongside the only other
+creator-consumable category: `topup`.
 
-“Registration time” is defined as the earliest `created_at` among the
-creator's verified auth credentials in `user_auth_credentials`.
+## Product Model
 
-This means:
+The seed adds a fixed plan product:
 
-- users without any verified credential are not eligible
-- users who registered long ago and only became creators later are not
-  eligible
-- multi-provider users are evaluated by their earliest verified credential
+- `product_bid = billing-product-plan-trial`
+- `product_code = creator-plan-trial`
+- `product_type = plan`
+- `billing_mode = manual`
+- `billing_interval = none`
+- `price_amount = 0`
+- `credit_amount = 100`
+- `auto_renew_enabled = false`
 
-## Trial Policy
+`metadata` carries the trial-only behavior:
 
-Trial policy is controlled by the billing sys config
-`BILLING_NEW_CREATOR_TRIAL_CONFIG`.
+- `trial_valid_days = 15`
+- `public_trial_offer = true`
+- `starts_on_first_grant = true`
+- `highlights = [...]`
 
-The normalized config fields are:
+## Eligibility And Idempotency
 
-- `enabled`
-- `program_code`
-- `credit_amount`
-- `valid_days`
-- `eligible_registered_after`
-- `grant_trigger`
+The system only auto-opens the trial when all guards pass:
 
-Default seed values are:
+1. the user is a creator in the current request
+2. `PostAuthContext.creator_granted_now` is `true`
+3. the creator currently has no subscription
+4. no historical trial order or subscription exists for the fixed trial product
+5. no legacy config-era trial ledger exists
 
-- `enabled = 0`
-- `program_code = "new_creator_v1"`
-- `credit_amount = "100.0000000000"`
-- `valid_days = 15`
-- `eligible_registered_after = ""`
-- `grant_trigger = "billing_overview"`
+Legacy compatibility is kept only for duplicate prevention. Old users who
+already consumed the config-era trial are reported as `granted` and do not
+receive the productized trial again.
 
-If `enabled = 1` but `eligible_registered_after` is empty or invalid, automatic
-grant stays disabled and the backend logs a warning. This prevents accidental
-backfill to older creators during rollout.
+## Bootstrap Flow
 
-## Grant Flow
+The automatic bootstrap happens in the billing post-auth hook, not in billing
+overview.
 
-The only automatic trigger in v1 is `/api/billing/overview`.
+When the guard passes, billing creates the trial inside one transaction:
 
-On every overview request the backend:
+- a zero-amount `BillingOrder` with `order_type=subscription_start`
+- a matching `BillingSubscription`
+- `payment_provider='manual'`
+- `paid_at=now`
+- `current_period_end_at = now + 15 days`
 
-1. loads the normalized trial config
-2. resolves the creator's earliest verified credential timestamp
-3. checks whether a trial ledger already exists for the configured
-   `program_code`
-4. grants the trial only when all eligibility checks pass
-5. returns both the updated wallet snapshot and a `trial_offer` payload in the
-   overview response
+After that, the existing paid-order helpers are reused:
 
-Grant details:
+- `grant_paid_order_credits(...)`
+- `activate_subscription_for_paid_order(...)`
 
-- bucket category: `free`
-- source type: `gift`
-- effective from: request time
-- effective to: `effective_from + valid_days`
-- idempotency key: `trial:{program_code}:{creator_bid}`
+This keeps the trial on the same wallet / ledger / subscription path as paid
+products. New trial grants therefore create:
 
-## API Shape
+- a `subscription` wallet bucket
+- a `grant` ledger sourced from the order/subscription flow
+- an active subscription record
 
-`/api/billing/overview` adds a `trial_offer` object:
+## Lifecycle
+
+The trial subscription is a fixed-term manual subscription.
+
+It enters the existing subscription lifecycle pipeline and schedules a normal
+`EXPIRE` renewal event. After 15 days, the subscription transitions from
+`active` to `expired` through the standard renewal executor rather than
+remaining active forever.
+
+## Overview API
+
+`GET /billing/overview` exposes a product-backed `trial_offer`:
 
 - `enabled`
 - `status`
+- `product_bid`
+- `product_code`
+- `display_name`
+- `description`
+- `currency`
+- `price_amount`
 - `credit_amount`
 - `valid_days`
+- `highlights`
 - `starts_on_first_grant`
 - `granted_at`
 - `expires_at`
 
-`status` is one of:
+`status` remains one of:
 
 - `disabled`
 - `ineligible`
 - `eligible`
 - `granted`
 
-The frontend uses this object instead of hardcoded free-trial assumptions.
+The read model prefers product/order/subscription state. Legacy ledger-only
+users still resolve to `granted`.

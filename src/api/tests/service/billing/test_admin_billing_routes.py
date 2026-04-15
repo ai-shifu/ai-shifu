@@ -25,7 +25,6 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_SOURCE_TYPE_GIFT,
     CREDIT_SOURCE_TYPE_MANUAL,
@@ -338,7 +337,7 @@ class TestAdminBillingRoutes:
         assert item["failed_at"] == "2026-04-03T08:00:00+00:00"
         assert item["has_attention"] is True
 
-    def test_admin_billing_ledger_adjust_positive_creates_manual_free_bucket(
+    def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
         self, admin_billing_client
     ) -> None:
         client = admin_billing_client["client"]
@@ -379,7 +378,7 @@ class TestAdminBillingRoutes:
             )
 
             assert wallet.available_credits == Decimal("122.5000000000")
-            assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_FREE
+            assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
             assert bucket.available_credits == Decimal("12.5000000000")
             assert ledger_entry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT
             assert ledger_entry.amount == Decimal("12.5000000000")
@@ -424,16 +423,14 @@ class TestAdminBillingRoutes:
             )
 
             assert wallet.available_credits == Decimal("97.5000000000")
-            assert free_bucket.status == CREDIT_BUCKET_STATUS_EXHAUSTED
-            assert free_bucket.available_credits == Decimal("0")
-            assert subscription_bucket.available_credits == Decimal("97.5000000000")
+            assert free_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+            assert free_bucket.available_credits == Decimal("10.0000000000")
+            assert subscription_bucket.available_credits == Decimal("87.5000000000")
             assert [entry.wallet_bucket_bid for entry in entries] == [
-                "bucket-free",
                 "bucket-subscription",
             ]
             assert [entry.amount for entry in entries] == [
-                Decimal("-10.0000000000"),
-                Decimal("-2.5000000000"),
+                Decimal("-12.5000000000"),
             ]
 
     def test_admin_billing_routes_require_creator(self, admin_billing_client) -> None:

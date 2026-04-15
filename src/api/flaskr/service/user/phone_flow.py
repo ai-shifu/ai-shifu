@@ -201,7 +201,7 @@ def migrate_user_study_record(
     )
 
 
-def init_first_course(app: Flask, user_id: str) -> None:
+def init_first_course(app: Flask, user_id: str) -> bool:
     # Ensure pending state changes are visible to subsequent queries
     db.session.flush()
 
@@ -218,7 +218,8 @@ def init_first_course(app: Flask, user_id: str) -> None:
     ]
     lock_acquired = _acquire_bootstrap_lock(app)
     if lock_acquired is False:
-        return
+        return False
+    creator_granted_now = False
     try:
         verified_users = (
             UserEntity.query.filter(UserEntity.deleted == 0)
@@ -229,10 +230,11 @@ def init_first_course(app: Flask, user_id: str) -> None:
         )
         if len(verified_users) != 1 or verified_users[0].user_bid != user_id:
             db.session.flush()
-            return
+            return False
 
         # Bootstrap the first verified account so self-hosted deployments are
         # manageable without extra manual role assignment.
+        creator_granted_now = not bool(verified_users[0].is_creator)
         mark_user_roles(user_id, is_creator=True, is_operator=True)
 
         ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
@@ -243,7 +245,7 @@ def init_first_course(app: Flask, user_id: str) -> None:
             ShifuModel = DraftShifu
         if course_count != 1:
             db.session.flush()
-            return
+            return creator_granted_now
 
         course = (
             ShifuModel.query.filter(ShifuModel.deleted == 0)
@@ -261,6 +263,7 @@ def init_first_course(app: Flask, user_id: str) -> None:
             if draft:
                 draft.created_user_bid = user_id
         db.session.flush()
+        return creator_granted_now
     finally:
         if lock_acquired:
             _release_bootstrap_lock()
@@ -304,6 +307,7 @@ def verify_phone_code(
     redis.delete(code_key)
 
     created_new_user = False
+    creator_granted_now = False
     normalized_phone = phone.strip()
     normalized_course_id = str(course_id or "").strip() or None
 
@@ -383,7 +387,9 @@ def verify_phone_code(
                 identifier=normalized_phone,
                 defaults=defaults,
             )
-            init_first_course(app, target_aggregate.user_bid)
+            creator_granted_now = (
+                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+            )
         else:
             entity = get_user_entity_by_bid(
                 target_aggregate.user_bid, include_deleted=True
@@ -400,7 +406,9 @@ def verify_phone_code(
                     updates["language"] = language
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
-                    init_first_course(app, entity.user_bid)
+                    creator_granted_now = (
+                        init_first_course(app, entity.user_bid) or creator_granted_now
+                    )
 
         upsert_credential(
             app,
@@ -414,8 +422,14 @@ def verify_phone_code(
         )
 
         # If configured, automatically grant creator and demo-course permissions
-        ensure_admin_creator_and_demo_permissions(
-            app, target_aggregate.user_bid, target_aggregate.language, login_context
+        creator_granted_now = (
+            ensure_admin_creator_and_demo_permissions(
+                app,
+                target_aggregate.user_bid,
+                target_aggregate.language,
+                login_context,
+            )
+            or creator_granted_now
         )
 
         refreshed = load_user_aggregate(target_aggregate.user_bid)
@@ -430,6 +444,7 @@ def verify_phone_code(
         created_new_user,
         {
             "course_id": normalized_course_id,
+            "creator_granted_now": creator_granted_now,
             "language": language,
             "snapshot": snapshot.to_dict(),
         },

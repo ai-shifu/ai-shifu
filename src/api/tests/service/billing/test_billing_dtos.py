@@ -59,7 +59,14 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
         trial_offer=BillingTrialOfferDTO(
             enabled=True,
             status="granted",
+            product_bid="billing-product-plan-trial",
+            product_code="creator-plan-trial",
+            display_name="module.billing.package.free.title",
+            description="module.billing.package.free.description",
+            currency="CNY",
+            price_amount=0,
             credit_amount=100,
+            highlights=["module.billing.package.features.free.publish"],
             valid_days=15,
             starts_on_first_grant=True,
             granted_at="2026-04-09T00:00:00+00:00",
@@ -73,6 +80,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
     assert payload["subscription"]["status"] == "active"
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
+    assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
 
 
 def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> None:

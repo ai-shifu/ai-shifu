@@ -16,6 +16,7 @@ class PostAuthContext:
     login_context: str | None = None
     created_new_user: bool = False
     language: str | None = None
+    creator_granted_now: bool = False
 
 
 def run_post_auth_extensions(app: Flask, context: PostAuthContext) -> PostAuthContext:

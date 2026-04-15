@@ -22,6 +22,10 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
 )
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    resolve_wallet_bucket_runtime_category,
+)
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
@@ -158,7 +162,11 @@ def admit_creator_usage(
             and subscription.status in _ADMISSION_ACTIVE_SUBSCRIPTION_STATUSES
         )
         has_non_subscription_credits = any(
-            bucket.bucket_category != CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            resolve_wallet_bucket_runtime_category(
+                bucket,
+                load_order_type=load_billing_order_type_by_bid,
+            )
+            != CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
             for bucket in active_buckets
         )
         if not has_active_subscription and not has_non_subscription_credits:

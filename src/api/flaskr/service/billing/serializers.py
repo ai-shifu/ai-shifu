@@ -45,6 +45,11 @@ from .consts import (
     CREDIT_LEDGER_ENTRY_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_LABELS,
 )
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    resolve_credit_bucket_priority,
+    resolve_wallet_bucket_runtime_category,
+)
 from .models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
@@ -365,9 +370,13 @@ def serialize_wallet_bucket(
     *,
     timezone_name: str | None = None,
 ) -> BillingWalletBucketDTO:
+    category_code = resolve_wallet_bucket_runtime_category(
+        row,
+        load_order_type=load_billing_order_type_by_bid,
+    )
     return BillingWalletBucketDTO(
         wallet_bucket_bid=row.wallet_bucket_bid,
-        category=CREDIT_BUCKET_CATEGORY_LABELS.get(row.bucket_category, "free"),
+        category=CREDIT_BUCKET_CATEGORY_LABELS.get(category_code, "subscription"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         available_credits=decimal_to_number(row.available_credits),
@@ -382,7 +391,7 @@ def serialize_wallet_bucket(
             row.effective_to,
             timezone_name=timezone_name,
         ),
-        priority=int(row.priority or 0),
+        priority=resolve_credit_bucket_priority(category_code),
         status=CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active"),
     )
 

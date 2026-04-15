@@ -5,13 +5,14 @@ from pathlib import Path
 _API_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_billing_trial_config_migration_seeds_required_defaults() -> None:
+def test_billing_trial_productization_migration_replaces_legacy_config() -> None:
     source = (
-        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
+        _API_ROOT / "migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py"
     ).read_text(encoding="utf-8")
 
-    assert 'down_revision = "b114d7f5e2c1"' in source
-    assert '"key": "BILLING_NEW_CREATOR_TRIAL_CONFIG"' in source
-    assert '"program_code": "new_creator_v1"' in source
-    assert '"grant_trigger": "billing_overview"' in source
-    assert "op.bulk_insert(config_table, [_NEW_CREATOR_TRIAL_CONFIG])" in source
+    assert 'down_revision = "c225e8a6f3d2"' in source
+    assert '"product_code": "creator-plan-trial"' in source
+    assert '"trial_valid_days": 15' in source
+    assert '"public_trial_offer": True' in source
+    assert "op.bulk_insert(product_table, [_TRIAL_PRODUCT])" in source
+    assert '_LEGACY_TRIAL_CONFIG["key"]' in source

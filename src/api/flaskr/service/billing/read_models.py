@@ -23,12 +23,18 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     CREDIT_SOURCE_TYPE_USAGE,
+)
+from .bucket_categories import (
+    build_wallet_bucket_runtime_sort_key,
+    load_billing_order_type_by_bid,
 )
 from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
@@ -108,6 +114,13 @@ from .wallets import adjust_credit_wallet_balance
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
+
+
+def _is_public_trial_catalog_product(row: BillingProduct) -> bool:
+    if str(row.product_code or "").strip() == BILLING_TRIAL_PRODUCT_CODE:
+        return True
+    metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+    return bool(metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG))
 
 
 def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
@@ -256,6 +269,8 @@ def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
         plans: list[BillingPlanDTO] = []
         topups: list[BillingTopupProductDTO] = []
         for row in rows:
+            if _is_public_trial_catalog_product(row):
+                continue
             payload = _serialize_product(row)
             if isinstance(payload, BillingPlanDTO):
                 plans.append(payload)
@@ -439,14 +454,14 @@ def build_billing_wallet_buckets(
                 CreditWalletBucket.deleted == 0,
                 CreditWalletBucket.creator_bid == normalized_creator_bid,
             )
-            .order_by(
-                CreditWalletBucket.priority.asc(),
-                case((CreditWalletBucket.effective_to.is_(None), 1), else_=0).asc(),
-                CreditWalletBucket.effective_to.asc(),
-                CreditWalletBucket.created_at.asc(),
-                CreditWalletBucket.id.asc(),
-            )
+            .order_by(CreditWalletBucket.id.asc())
             .all()
+        )
+        rows.sort(
+            key=lambda row: build_wallet_bucket_runtime_sort_key(
+                row,
+                load_order_type=load_billing_order_type_by_bid,
+            )
         )
         return BillingWalletBucketListDTO(
             items=[

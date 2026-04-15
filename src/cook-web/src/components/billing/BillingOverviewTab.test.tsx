@@ -125,8 +125,18 @@ const mockMutateOverview = jest.fn();
 const DEFAULT_TRIAL_OFFER = {
   enabled: true,
   status: 'ineligible' as const,
+  product_bid: 'billing-product-plan-trial',
+  product_code: 'creator-plan-trial',
+  display_name: 'module.billing.package.free.title',
+  description: 'module.billing.package.free.description',
+  currency: 'CNY',
+  price_amount: 0,
   credit_amount: 100,
   valid_days: 15,
+  highlights: [
+    'module.billing.package.features.free.publish',
+    'module.billing.package.features.free.preview',
+  ],
   starts_on_first_grant: true,
   granted_at: null,
   expires_at: null,

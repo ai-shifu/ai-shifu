@@ -1419,7 +1419,7 @@ class TestBillingWriteRoutes:
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
             assert wallet.available_credits == 40
-            assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_FREE
+            assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
             assert refund_bucket.available_credits == 20
             assert refund_bucket.metadata_json["billing_order_bid"] == billing_order_bid
             assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND

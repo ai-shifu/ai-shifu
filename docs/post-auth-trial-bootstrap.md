@@ -2,32 +2,69 @@
 
 ## Summary
 
-This change introduces a dedicated post-auth extension point for backend login
-and creator-upgrade flows. The goal is to stop wiring new creator trial credit
-bootstrap directly inside `route/user.py`, while still reusing the existing
-plugin registration mechanism.
+Creator trial bootstrap is a post-auth follow-up that runs only when the user
+was promoted to creator during the current request.
 
-## Decisions
+This keeps login success independent from billing side effects while avoiding
+the old behavior where existing creators could be re-evaluated on every login.
 
-- `user` owns a stable `run_post_auth_extensions(app, context)` orchestration
-  helper for post-auth follow-up work.
-- `billing` registers its default new-creator trial bootstrap through the
-  existing plugin extension registry instead of being called directly by user
-  routes.
-- Post-auth handlers are best-effort only. Login success must not be blocked by
-  billing-side failures.
-- `billing overview` becomes read-only for trial offers. It reports eligibility
-  and existing grants, but no longer mutates wallet state.
+## Request Contract
 
-## Status Rules
+`PostAuthContext` now includes:
 
-- Existing grant ledger: `granted`
-- Trial config disabled: `disabled`
-- User is not a creator: `ineligible`
-- Config enabled, creator, no grant yet: `eligible`
+- `creator_granted_now: bool`
 
-## Non-Goals
+It means "this request is the one that just granted creator admin capability".
 
-- No general-purpose domain event bus
-- No async queue or durable event persistence for post-auth work
-- No historical backfill job for existing eligible creators
+The creator-upgrade chain now returns that signal end-to-end:
+
+- `init_first_course(...)`
+- `ensure_admin_creator_and_demo_permissions(...)`
+- `verify_phone_code(...)`
+- `/user/ensure_admin_creator`
+- phone login flow
+- Google OAuth flow
+
+The post-auth runner receives the final value through `PostAuthContext`.
+
+## Billing Hook Policy
+
+Billing registers a best-effort post-auth hook through the existing extension
+mechanism.
+
+The hook immediately returns unless `creator_granted_now` is `true`.
+
+This is the key policy change:
+
+- first-time creator grant in the current request: eligible for auto bootstrap
+- existing creator logging in again: no auto bootstrap attempt
+- non-creator login: no auto bootstrap attempt
+
+Failures inside the billing hook are logged but must not block authentication
+or creator promotion.
+
+## Bootstrap Guard
+
+Before creating the trial order, billing verifies:
+
+1. the user is currently a creator
+2. there is no current creator subscription
+3. there is no historical trial product order or subscription
+4. there is no legacy config-era trial ledger
+
+Only then does billing create the zero-amount manual order and subscription and
+reuse the normal paid-order grant helpers.
+
+## Read Model
+
+`GET /billing/overview` is now read-only for trial state. It never grants
+credits.
+
+It reports:
+
+- product-backed eligibility for the public trial offer
+- current trial grant state from order/subscription records
+- legacy grant state from the old ledger-only implementation
+
+This separation keeps all trial mutations in post-auth bootstrap and leaves
+overview as a pure query endpoint.

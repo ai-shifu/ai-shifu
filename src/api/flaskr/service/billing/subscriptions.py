@@ -22,7 +22,6 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-    BILLING_ORDER_TYPE_TOPUP,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -39,13 +38,16 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
+)
+from .bucket_categories import (
+    resolve_bucket_category_from_order_type,
+    resolve_credit_bucket_priority,
 )
 from .dtos import BillingSubscriptionDTO
 from .models import (
@@ -77,12 +79,6 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 from .value_objects import JsonObjectMap
-
-_BUCKET_PRIORITY_BY_CATEGORY = {
-    CREDIT_BUCKET_CATEGORY_FREE: 10,
-    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION: 20,
-    CREDIT_BUCKET_CATEGORY_TOPUP: 30,
-}
 
 _MANAGED_RENEWAL_EVENT_TYPES = (
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -172,6 +168,8 @@ def cancel_billing_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
         )
+        if _normalize_bid(subscription.billing_provider) == "manual":
+            raise_error("server.order.orderStatusError")
         if subscription.status not in (
             BILLING_SUBSCRIPTION_STATUS_ACTIVE,
             BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -215,6 +213,8 @@ def resume_billing_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
         )
+        if _normalize_bid(subscription.billing_provider) == "manual":
+            raise_error("server.order.orderStatusError")
         if subscription.status not in (
             BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
             BILLING_SUBSCRIPTION_STATUS_PAUSED,
@@ -613,22 +613,23 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
 
 
 def _resolve_credit_grant_context(order: BillingOrder) -> CreditGrantContext | None:
-    if order.order_type in {
-        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-        BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    }:
+    bucket_category = resolve_bucket_category_from_order_type(
+        int(order.order_type or 0)
+    )
+    if bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION:
         return CreditGrantContext(
             source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-            priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_SUBSCRIPTION],
+            priority=resolve_credit_bucket_priority(
+                CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            ),
             grant_reason="subscription",
         )
-    if order.order_type == BILLING_ORDER_TYPE_TOPUP:
+    if bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP:
         return CreditGrantContext(
             source_type=CREDIT_SOURCE_TYPE_TOPUP,
             bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
-            priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_TOPUP],
+            priority=resolve_credit_bucket_priority(CREDIT_BUCKET_CATEGORY_TOPUP),
             grant_reason="topup",
         )
     return None
@@ -855,6 +856,22 @@ def _sync_subscription_lifecycle_events(
                 subscription.subscription_bid,
                 event_types=(BILLING_RENEWAL_EVENT_TYPE_EXPIRE,),
             )
+        return
+
+    if (
+        subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        and product is not None
+    ):
+        _upsert_subscription_renewal_event(
+            app,
+            subscription,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=scheduled_at,
+        )
+        _cancel_subscription_renewal_events(
+            subscription.subscription_bid,
+            event_types=(BILLING_RENEWAL_EVENT_TYPE_RENEWAL,),
+        )
         return
 
     _cancel_subscription_renewal_events(

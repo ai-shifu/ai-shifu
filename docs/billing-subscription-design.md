@@ -230,13 +230,10 @@ v1.1 再补充下列扩展能力：
 
 v1 冻结业务规则：
 
-- 面向 creator 的公开自助目录固定只开放 4 个 active SKU，并与 `src/api/flaskr/service/billing/consts.py` 中的 seed 保持一致：
-  - `creator-plan-monthly`：月套餐，`CNY 99.00`，每周期发放 `300000.0000000000` credits
-  - `creator-plan-yearly`：年套餐，`CNY 999.00`，每周期发放 `3600000.0000000000` credits
-  - `creator-topup-small`：小额充值包，`CNY 199.00`，一次性发放 `500000.0000000000` credits
-  - `creator-topup-large`：大额充值包，`CNY 699.00`，一次性发放 `2000000.0000000000` credits
-- v1 不开放 creator 自助试用 SKU；试用积分只允许通过后台定向发放或补偿流程创建，不出现在 `GET /billing/catalog` 的 `plans[]` / `topups[]`
-- `gift` 积分不作为 creator 自助购买商品；赠送积分、试用积分和后台正向补偿都走运营或人工 grant 流程，不进入 subscription 合同，不创建支付订单
+- 面向 creator 的公开自助目录继续由 `billing_products` 驱动，但 API 仍只把付费 plan/topup 投影到 `GET /billing/catalog` 的 `plans[]` / `topups[]`
+- `creator-plan-trial` 是一个正式 `billing_products` 记录：`product_type=plan`、`billing_mode=manual`、`price_amount=0`、`credit_amount=100`、`auto_renew_enabled=0`
+- public trial product 不进入 creator 自助 checkout；它只用于 `GET /billing/overview` 的免费试用卡片，以及 post-auth 自动开通
+- `gift` 积分不作为 creator 自助购买商品；赠送积分和后台正向补偿仍走运营或人工 grant 流程
 - `product_type=grant` 与 `product_type=custom` 仅保留给运营投放、后台人工赠送和未来定制方案，不纳入当前 creator 自助购买入口
 
 ### 3.2 `billing_subscriptions`
@@ -386,10 +383,10 @@ v1 冻结 subscription lifecycle 规则：
 | `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet bucket business identifier` | 钱包余额桶业务 ID |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 所属钱包 | `Credit wallet business identifier` | 钱包业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
-| `bucket_category` | `SmallInteger` | `not null, index=True` | `7431=free; 7432=subscription; 7433=topup` | `Credit bucket category code` | 余额桶分类 |
+| `bucket_category` | `SmallInteger` | `not null, index=True` | `7431=legacy_free; 7432=subscription; 7433=topup` | `Credit bucket category code` | 余额桶分类；creator 运行时只暴露 `subscription/topup` 两类，`7431` 仅保留给历史数据兼容 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7415=refund; 7416=manual` | `Billing ledger source type code` | 余额桶来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应发放业务单号，如 order/subscription/refund | `Credit bucket source business identifier` | 来源业务 ID |
-| `priority` | `SmallInteger` | `not null, index=True` | 扣减顺序固定为 `1=free; 2=subscription; 3=topup` | `Credit bucket priority` | 扣减优先级 |
+| `priority` | `SmallInteger` | `not null, index=True` | 运行时扣减顺序固定为 `20=subscription; 30=topup` | `Credit bucket priority` | 扣减优先级 |
 | `original_credits` | `Numeric(20,10)` | `not null, default=0` | 初始发放积分 | `Original credits` | 初始积分 |
 | `available_credits` | `Numeric(20,10)` | `not null, default=0` | 当前可消费积分 | `Available credits` | 当前可用积分 |
 | `reserved_credits` | `Numeric(20,10)` | `not null, default=0` | 当前冻结积分 | `Reserved credits` | 当前冻结积分 |
@@ -415,21 +412,23 @@ v1 冻结 subscription lifecycle 规则：
 
 - 一条发放动作创建一个 bucket，不把多个来源合并到同一 bucket
 - bucket 只维护当前可消费余额和生命周期状态，不替代不可变账本
-- 结算时按 `priority asc`、`effective_to asc nulls last`、`created_at asc` 选择可消费 bucket
+- 结算时按运行时 category priority、`effective_to asc nulls last`、`created_at asc` 选择可消费 bucket
 - 一条 usage 扣费可以拆成多条 consume ledger，每条对应一个 bucket
-- `gift`、正向 `manual adjustment`、`refund return` 一律落成 `free` bucket
+- creator 可消费 credits 运行时只保留 `subscription` 与 `topup` 两类；`gift` / `refund` / `manual` 继续只保留为审计 `source_type`
+- 产品化 trial 作为正式 subscription grant，落成 `subscription` bucket；不存在单独的 “trial credits” 第三类
 - bucket 到期后不再参与 admission / settlement，需写入 `expire` ledger 并关闭 bucket
 
 v1 冻结 bucket 规则：
 
-- bucket 分类与优先级固定为：
-  - `free` bucket：优先级 `10`，仅承载 `gift`、试用积分、正向人工补偿和 `refund return`
-  - `subscription` bucket：优先级 `20`，仅承载 subscription 周期发放积分
-  - `topup` bucket：优先级 `30`，仅承载一次性充值包发放积分
+- bucket 运行时分类与优先级固定为：
+  - `subscription` bucket：优先级 `20`，承载 subscription 周期发放积分，以及 legacy gift / refund return / manual credit 等归并后的可消费积分
+  - `topup` bucket：优先级 `30`，承载一次性充值包积分，以及能明确解析为 topup 的退款返还或历史赠送
 - usage settlement 与 admission 只允许消费同时满足以下条件的 bucket：`status=active`、`available_credits > 0`、`effective_from <= settlement_at`，并且 `effective_to is null or effective_to > settlement_at`
-- bucket 扣减顺序在 v1 固定为 `(priority asc, effective_to asc nulls last, created_at asc, id asc)`；也就是始终先扣 `free`，再扣 `subscription`，最后扣 `topup`，同优先级下先扣最早到期、最早创建的 bucket
+- bucket 扣减顺序在 v1 固定为 `(runtime priority asc, effective_to asc nulls last, created_at asc, id asc)`；也就是始终先扣 `subscription`，再扣 `topup`，同优先级下先扣最早到期、最早创建的 bucket
 - `effective_to = null` 明确表示永不过期，在同优先级排序中必须排在所有有具体过期时间的 bucket 之后
-- `refund return` 不回写原 bucket，也不恢复原 bucket 的 `available_credits`；一律新建 `source_type=refund` 的 `free` bucket，并单独写 `credit_ledger_entries.entry_type=refund` 分录
+- `refund return` 不回写原 bucket，也不恢复原 bucket 的 `available_credits`；会新建 `source_type=refund` bucket，并按原订单类型映射到 `subscription/topup`，无法解析历史来源时默认归到 `subscription`
+- 正向人工补偿统一创建 `subscription` bucket；负向人工扣减按 `subscription -> topup` 顺序执行
+- legacy gift 默认归到 `subscription`；若历史元数据能明确解析出 topup 来源，则归到 `topup`
 - 同一条 usage 允许拆分扣减多个 bucket，但每条 consume ledger 都必须回填命中的 `wallet_bucket_bid`，保证 bucket 级幂等与 replay 可追溯
 
 ### 3.6 `credit_ledger_entries`
@@ -742,7 +741,8 @@ v1 的改造要求：
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
-- 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 和 new creator trial config seed，已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
+- 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
+- 当前实现中，产品化 trial plan seed 与移除 legacy trial sys-config 的迁移，已收敛到 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`
 - 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
 - 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
@@ -756,14 +756,14 @@ v1 的改造要求：
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
-- 当前实现中，usage settlement 已固定按 `free > subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后
+- 当前实现中，usage settlement 已固定按 `subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后；历史 `free` bucket 会在运行时归并进 `subscription/topup`
 - 当前实现中，LLM usage 已拆成 `input`、`cache`、`output` 三个 billing metric 独立计算费率与扣分，并把每个 metric 的 breakdown 写入 `credit_ledger_entries.metadata`
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分
 - 当前实现中，`production`、`preview`、`debug` 三种 billing scene 都统一通过 `src/api/flaskr/service/billing/ownership.py` 的 `resolve_usage_creator_bid` 解析归属 creator；优先按 `shifu_bid -> creator_bid`，无 `shifu_bid` 的 debug authoring usage 则回落到 `user_bid`
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 会在 creator 归属解析完成后，按 `creator_bid` 获取 `billing:settle_usage:{creator_bid}` cache lock，串行执行同一 creator 的 usage settlement 并在异常时释放锁
 - 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化钱包快照，冲突时抛出 `credit_wallet_version_conflict`
 - 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
-- 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 会把 refund return 新增为 `free` bucket + `refund` ledger，不回原 bucket
+- 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 会把 refund return 新增为 `subscription/topup` bucket + `refund` ledger，不回原 bucket
 - 当前实现中，admission 前置拦截只认可“当前可消费”的 bucket：必须 `status=active`、`available_credits>0`、`effective_from<=now` 且 `effective_to>now/null`；已到期 bucket、未来生效 bucket 和失效订阅都不会放行 learn / preview / debug 请求
 - 当前实现中，`replay_bill_usage_settlement` / `billing.replay_usage_settlement` 已落地：重放时会复用既有 usage 幂等检查，已结算 usage 返回 `already_settled` 而不会重复扣分；若传入的 `creator_bid` 与 usage 实际归属不一致，则直接返回 `creator_mismatch`
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
@@ -997,6 +997,7 @@ v1 需要新增：
 - `GET /billing/catalog` 读取 `billing_products`，但 API 返回仍按 `plans[]` / `topups[]` 投影
 - `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
 - `POST /billing/topups/checkout` 只能购买 `product_type=topup`
+- public trial plan 不允许通过 creator 自助 checkout；只允许 post-auth bootstrap 以 `manual` provider 自动创建
 - `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
 - webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
 - 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
@@ -1007,6 +1008,8 @@ v1 需要新增：
 - 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
 - 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `billing_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `billing_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
 - 当前实现中，Stripe subscription `past_due` 会回填 `grace_period_end_at`，取消或退款后会取消待执行的 renewal event
+- 当前实现中，trial bootstrap 会创建一笔 `payment_provider='manual'`、金额为 `0` 的 `subscription_start` 订单和对应 subscription，并复用 paid-order grant helper 写入 wallet bucket、ledger 与 subscription 生命周期
+- 当前实现中，active 的非自动续费 subscription 只要存在 `current_period_end_at`，都会同步生成 `expire` renewal event；因此 manual trial 会在 15 天后进入 `expired`
 
 ### 7.2 扣分与结算
 
@@ -1026,8 +1029,8 @@ v1 需要新增：
 - 所有实际积分扣减统一异步走 Celery settlement task；请求线程只负责准入判断和 usage 落库
 - 结算执行顺序固定为：先选择 `credit_wallet_buckets`，再写入 `credit_ledger_entries`，最后刷新 `credit_wallets`
 - 同一 `creator_bid` 的结算任务必须串行化，避免多个学生同时学习同一 creator 课程时发生并发扣减算错
-- bucket 扣减顺序固定为：`free > subscription > topup`；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先
-- `gift`、正向人工补偿、退款返还统一创建 `free` bucket；退款返还不回原 bucket
+- bucket 扣减顺序固定为：`subscription > topup`；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先
+- `gift`、正向人工补偿、退款返还不再形成第三类可消费 credits；它们仅保留为 `source_type`，bucket 统一归到 `subscription/topup`
 - 一条 usage 可以拆成多个 bucket 扣减，并生成多条 `consume` ledger
 - bucket 过期任务只扫描 `credit_wallet_buckets`；过期后写 `expire` ledger 并把 bucket 关闭
 - 结算幂等 key 应以 `bill_usage.usage_bid + billing_metric + wallet_bucket_bid` 为核心，避免跨 bucket 重复扣分
@@ -1297,7 +1300,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 核心接口说明：
 
 - `GET /billing/catalog`：读取 `billing_products`，输出 `plans[]` 与 `topups[]`
-- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`，同时支撑 sidebar 会员卡和 Billing Center 顶部 summary
+- `GET /billing/overview`：返回 `wallet`、`subscription`、`billing_alerts`、`trial_offer`，同时支撑 sidebar 会员卡、Billing Center 顶部 summary 和免费试用卡片
 - `GET /billing/wallet-buckets`：按 creator 返回积分来源 bucket 列表，字段至少包括 `category`、`source_type`、`source_bid`、`available_credits`、`effective_from`、`effective_to`、`priority`、`status`，默认按实际扣减顺序排序
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
 - `GET /billing/orders`：creator 自助查看自己的 billing 订单列表
@@ -1305,7 +1308,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
 - `POST /billing/orders/{billing_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
-- `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
+- `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
 - `POST /billing/topups/checkout`：发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
@@ -1343,7 +1346,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 说明：
 
 - `BillingPlan` 和 `BillingTopupProduct` 是 `billing_products` 的展示层投影，不是底层独立表
-- v1 的 `CreatorBillingOverview` 只返回钱包、订阅和告警
+- `BillingTrialOffer` 也是 `billing_products` 的展示层投影，但只用于 overview 免费卡片，不进入自助购买 catalog
+- v1 的 `CreatorBillingOverview` 返回钱包、订阅、告警和 `trial_offer`
 - `BillingWalletBucket` 是 `credit_wallet_buckets` 的只读投影，不并入 `CreatorBillingOverview`
 - billing order DTO 如需暴露 provider 调试信息，优先读取 `billing_orders.metadata` 的最近一次摘要；更完整的 provider 原始对象从 `order_pingxx_orders` / `order_stripe_orders` 的 billing raw snapshot 查看，不设计 append-only 事件历史
 - `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
@@ -1393,7 +1397,7 @@ type BillingSubscription = {
 
 type BillingWalletBucket = {
   wallet_bucket_bid: string;
-  category: 'free' | 'subscription' | 'topup';
+  category: 'subscription' | 'topup';
   source_type: 'subscription' | 'topup' | 'gift' | 'refund' | 'manual';
   source_bid: string;
   available_credits: number;

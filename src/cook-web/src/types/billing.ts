@@ -14,7 +14,7 @@ export type AdminBillingConsoleTab =
   | 'domains'
   | 'reports';
 
-export type BillingProvider = 'stripe' | 'pingxx';
+export type BillingProvider = 'stripe' | 'pingxx' | 'manual';
 
 export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
 
@@ -53,7 +53,7 @@ export type BillingSubscriptionStatus =
   | 'canceled'
   | 'expired';
 
-export type BillingBucketCategory = 'free' | 'subscription' | 'topup';
+export type BillingBucketCategory = 'subscription' | 'topup';
 
 export type BillingBucketSourceType =
   | 'subscription'
@@ -280,12 +280,21 @@ export type BillingWalletSnapshot = {
 export type BillingTrialOffer = {
   enabled: boolean;
   status: BillingTrialOfferStatus;
+  product_bid: string;
+  product_code: string;
+  display_name: string;
+  description: string;
+  currency: string;
+  price_amount: number;
   credit_amount: number;
+  highlights?: string[];
   valid_days: number;
   starts_on_first_grant: boolean;
   granted_at: string | null;
   expires_at: string | null;
 };
+
+export type BillingSubscriptionProduct = BillingPlan | BillingTrialOffer;
 
 export type CreatorBillingOverview = {
   creator_bid: string;

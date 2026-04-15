@@ -14,7 +14,7 @@ from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
 
 from .consts import (
-    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
@@ -25,13 +25,18 @@ from .consts import (
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
 )
+from .bucket_categories import (
+    build_wallet_bucket_runtime_sort_key,
+    load_billing_order_type_by_bid,
+    resolve_credit_bucket_priority,
+    resolve_runtime_credit_bucket_category,
+)
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .primitives import decimal_to_number as _decimal_to_number
 from .primitives import to_decimal as _to_decimal
 
 _ZERO = Decimal("0")
-_FREE_BUCKET_PRIORITY = 10
 _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
@@ -256,7 +261,7 @@ def grant_refund_return_credits(
     metadata: dict[str, Any] | None = None,
     effective_from: datetime | None = None,
 ) -> RefundReturnCreditsResult:
-    """Grant refunded credits back as a new free bucket."""
+    """Grant refunded credits back as a new subscription/topup bucket."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_refund_bid = str(refund_bid or "").strip()
@@ -295,14 +300,20 @@ def grant_refund_return_credits(
 
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         now = effective_from or datetime.now()
+        bucket_category = resolve_runtime_credit_bucket_category(
+            source_type=CREDIT_SOURCE_TYPE_REFUND,
+            source_bid=normalized_refund_bid,
+            metadata=metadata,
+            load_order_type=load_billing_order_type_by_bid,
+        )
         bucket = CreditWalletBucket(
             wallet_bucket_bid=generate_id(app),
             wallet_bid=wallet.wallet_bid,
             creator_bid=normalized_creator_bid,
-            bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+            bucket_category=bucket_category,
             source_type=CREDIT_SOURCE_TYPE_REFUND,
             source_bid=normalized_refund_bid,
-            priority=_FREE_BUCKET_PRIORITY,
+            priority=resolve_credit_bucket_priority(bucket_category),
             original_credits=normalized_amount,
             available_credits=normalized_amount,
             reserved_credits=Decimal("0"),
@@ -390,10 +401,12 @@ def adjust_credit_wallet_balance(
                 wallet_bucket_bid=generate_id(app),
                 wallet_bid=wallet.wallet_bid,
                 creator_bid=normalized_creator_bid,
-                bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
                 source_type=CREDIT_SOURCE_TYPE_MANUAL,
                 source_bid=adjustment_bid,
-                priority=_FREE_BUCKET_PRIORITY,
+                priority=resolve_credit_bucket_priority(
+                    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+                ),
                 original_credits=normalized_amount,
                 available_credits=normalized_amount,
                 reserved_credits=_ZERO,
@@ -657,12 +670,9 @@ def _load_adjustable_credit_buckets(
         and (row.effective_to is None or row.effective_to > adjustment_at)
     ]
     eligible.sort(
-        key=lambda row: (
-            int(row.priority or 0),
-            row.effective_to is None,
-            row.effective_to or datetime.max,
-            row.created_at or datetime.min,
-            int(row.id or 0),
+        key=lambda row: build_wallet_bucket_runtime_sort_key(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
         )
     )
     return eligible

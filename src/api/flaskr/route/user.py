@@ -129,7 +129,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 description: ensure admin creator permissions
         """
         language = getattr(request.user, "language", None) or "en-US"
-        ensure_admin_creator_and_demo_permissions(
+        creator_granted_now = ensure_admin_creator_and_demo_permissions(
             app,
             request.user.user_id,
             language,
@@ -143,6 +143,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 source="admin_creator",
                 login_context="admin",
                 created_new_user=False,
+                creator_granted_now=creator_granted_now,
                 language=language,
             ),
         )
@@ -397,6 +398,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     source="sms",
                     login_context=login_context,
                     created_new_user=bool(auth_result.is_new_user),
+                    creator_granted_now=bool(
+                        auth_result.metadata.get("creator_granted_now")
+                    ),
                     language=language or getattr(auth_result.user, "language", None),
                 ),
             )
@@ -683,6 +687,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 source="google",
                 login_context=auth_result.metadata.get("login_context"),
                 created_new_user=bool(auth_result.is_new_user),
+                creator_granted_now=bool(
+                    auth_result.metadata.get("creator_granted_now")
+                ),
                 language=auth_result.metadata.get("language")
                 or getattr(auth_result.user, "language", None),
             ),
@@ -725,6 +732,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 source="password",
                 login_context=None,
                 created_new_user=bool(auth_result.is_new_user),
+                creator_granted_now=bool(
+                    auth_result.metadata.get("creator_granted_now")
+                ),
                 language=language or getattr(auth_result.user, "language", None),
             ),
         )

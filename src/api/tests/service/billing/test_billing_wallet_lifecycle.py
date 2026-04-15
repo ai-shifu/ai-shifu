@@ -8,6 +8,7 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -23,6 +24,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
+    BillingOrder,
     CreditLedgerEntry,
     CreditUsageRate,
     CreditWallet,
@@ -124,7 +126,7 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
         assert ledger.balance_after == Decimal("0E-10")
 
 
-def test_grant_refund_return_credits_creates_free_bucket_and_refund_ledger(
+def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledger(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
     with billing_wallet_lifecycle_app.app_context():
@@ -144,7 +146,7 @@ def test_grant_refund_return_credits_creates_free_bucket_and_refund_ledger(
         ledger = CreditLedgerEntry.query.filter_by(source_bid="refund-return-1").one()
 
         assert payload["status"] == "granted"
-        assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_FREE
+        assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
         assert bucket.source_type == CREDIT_SOURCE_TYPE_REFUND
         assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
         assert bucket.available_credits == Decimal("1.2500000000")
@@ -238,6 +240,36 @@ def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
         assert wallet.available_credits == Decimal("3.5000000000")
         assert wallet.reserved_credits == Decimal("0.7500000000")
         assert wallet.version == 1
+
+
+def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                billing_order_bid="order-topup-refund-1",
+                creator_bid="creator-topup-refund-1",
+                order_type=BILLING_ORDER_TYPE_TOPUP,
+                product_bid="billing-product-topup-small",
+            )
+        )
+        dao.db.session.commit()
+
+        payload = grant_refund_return_credits(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-topup-refund-1",
+            amount=Decimal("2.0000000000"),
+            refund_bid="refund-topup-refund-1",
+            metadata={"billing_order_bid": "order-topup-refund-1"},
+        )
+
+        bucket = CreditWalletBucket.query.filter_by(
+            source_bid="refund-topup-refund-1"
+        ).one()
+
+        assert payload["status"] == "granted"
+        assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
 
 
 def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(

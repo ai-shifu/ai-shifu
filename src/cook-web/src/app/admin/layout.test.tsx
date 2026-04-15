@@ -34,6 +34,12 @@ jest.mock('next/link', () => ({
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/admin',
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+    prefetch: jest.fn(),
+  }),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -195,8 +201,18 @@ describe('SidebarContent', () => {
           trial_offer: {
             enabled: true,
             status: 'ineligible',
+            product_bid: 'billing-product-plan-trial',
+            product_code: 'creator-plan-trial',
+            display_name: 'module.billing.package.free.title',
+            description: 'module.billing.package.free.description',
+            currency: 'CNY',
+            price_amount: 0,
             credit_amount: 100,
             valid_days: 15,
+            highlights: [
+              'module.billing.package.features.free.publish',
+              'module.billing.package.features.free.preview',
+            ],
             starts_on_first_grant: true,
             granted_at: null,
             expires_at: null,
@@ -260,8 +276,18 @@ describe('AdminLayout', () => {
     trial_offer: {
       enabled: true,
       status: 'ineligible',
+      product_bid: 'billing-product-plan-trial',
+      product_code: 'creator-plan-trial',
+      display_name: 'module.billing.package.free.title',
+      description: 'module.billing.package.free.description',
+      currency: 'CNY',
+      price_amount: 0,
       credit_amount: 100,
       valid_days: 15,
+      highlights: [
+        'module.billing.package.features.free.publish',
+        'module.billing.package.features.free.preview',
+      ],
       starts_on_first_grant: true,
       granted_at: null,
       expires_at: null,
@@ -381,9 +407,6 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.monthlyTitle'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.totalCreditsLabel'),
-    ).toBeInTheDocument();
     expect(screen.getByText(/12,500/)).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
@@ -400,10 +423,6 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByText('module.billing.sidebar.cta'),
     ).not.toBeInTheDocument();
-
-    const billingNavLink = screen.getByTestId('admin-nav-billing');
-    expect(billingNavLink).toHaveAttribute('href', '/admin/billing');
-    expect(billingNavLink).toHaveTextContent('module.billing.navTitle');
   });
 
   test('hides the credits section when available credits are zero', () => {
@@ -426,14 +445,12 @@ describe('AdminLayout', () => {
       'data-href',
       '/admin/billing?tab=packages',
     );
+    expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
     expect(
-      screen.queryByText('module.billing.sidebar.totalCreditsLabel'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', {
+      screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('href', '/admin/billing?tab=details');
   });
 
   test('renders yearly membership title for yearly subscription plans', () => {

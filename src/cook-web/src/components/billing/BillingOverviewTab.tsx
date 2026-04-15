@@ -134,6 +134,7 @@ export function BillingOverviewTab({
   const pingxxAvailable = normalizedPaymentChannels.includes('pingxx');
   const plans = catalog?.plans || [];
   const topups = catalog?.topups || [];
+  const trialOffer = overview?.trial_offer;
   const currentPlan =
     plans.find(
       item => item.product_bid === overview?.subscription?.product_bid,
@@ -144,10 +145,14 @@ export function BillingOverviewTab({
   const yearlyPlans = plans.filter(
     product => product.billing_interval === 'year',
   );
-  const trialOffer = overview?.trial_offer;
   const hasActiveSubscription = Boolean(
     overview?.subscription &&
     !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+  );
+  const isTrialCurrentPlan = Boolean(
+    hasActiveSubscription &&
+    trialOffer?.product_bid &&
+    overview?.subscription?.product_bid === trialOffer.product_bid,
   );
   const firstAvailableTopup = topups[0]
     ? stripeAvailable
@@ -427,6 +432,7 @@ export function BillingOverviewTab({
         checkoutLoadingKey={checkoutLoadingKey}
         currentPlan={currentPlan}
         hasActiveSubscription={hasActiveSubscription}
+        isTrialCurrentPlan={isTrialCurrentPlan}
         isLoading={overviewLoading || catalogLoading}
         monthlyPlans={monthlyPlans}
         pingxxAvailable={pingxxAvailable}

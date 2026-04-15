@@ -24,6 +24,10 @@ from .consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_SOURCE_TYPE_USAGE,
 )
+from .bucket_categories import (
+    build_wallet_bucket_runtime_sort_key,
+    load_billing_order_type_by_bid,
+)
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
 from .primitives import decimal_to_number as _decimal_to_number
@@ -532,7 +536,7 @@ def _load_consumable_buckets(
             CreditWalletBucket.creator_bid == creator_bid,
             CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
         )
-        .order_by(CreditWalletBucket.priority.asc(), CreditWalletBucket.id.asc())
+        .order_by(CreditWalletBucket.id.asc())
         .all()
     )
     eligible = [
@@ -543,12 +547,9 @@ def _load_consumable_buckets(
         and (row.effective_to is None or row.effective_to > settlement_at)
     ]
     eligible.sort(
-        key=lambda row: (
-            int(row.priority or 0),
-            row.effective_to is None,
-            row.effective_to or datetime.max,
-            row.created_at or datetime.min,
-            int(row.id or 0),
+        key=lambda row: build_wallet_bucket_runtime_sort_key(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
         )
     )
     return eligible

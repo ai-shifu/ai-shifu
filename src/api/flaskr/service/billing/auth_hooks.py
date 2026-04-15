@@ -18,6 +18,9 @@ def bootstrap_creator_trial_post_auth(
 ) -> PostAuthContext:
     """Best-effort trial bootstrap for successful auth flows."""
 
+    if not context.creator_granted_now:
+        return context
+
     try:
         bootstrap_new_creator_trial_credits(app, context.user_id)
     except Exception:

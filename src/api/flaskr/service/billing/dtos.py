@@ -137,7 +137,14 @@ class BillingAlertDTO(BillingBaseDTO):
 class BillingTrialOfferDTO(BillingBaseDTO):
     enabled: bool
     status: str
+    product_bid: str
+    product_code: str
+    display_name: str
+    description: str
+    currency: str
+    price_amount: int
     credit_amount: int | float
+    highlights: list[str] = Field(default_factory=list)
     valid_days: int
     starts_on_first_grant: bool
     granted_at: str | None = None

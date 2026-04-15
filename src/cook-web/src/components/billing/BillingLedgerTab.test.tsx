@@ -36,14 +36,14 @@ describe('BillingLedgerTab', () => {
     mockGetBillingWalletBuckets.mockResolvedValue({
       items: [
         {
-          wallet_bucket_bid: 'bucket-free',
-          category: 'free',
+          wallet_bucket_bid: 'bucket-subscription',
+          category: 'subscription',
           source_type: 'gift',
           source_bid: 'grant-1',
           available_credits: 80,
           effective_from: '2026-03-01T00:00:00Z',
           effective_to: '2026-05-01T00:00:00Z',
-          priority: 10,
+          priority: 20,
           status: 'active',
         },
         {
@@ -63,11 +63,11 @@ describe('BillingLedgerTab', () => {
       items: [
         {
           ledger_bid: 'ledger-consume',
-          wallet_bucket_bid: 'bucket-free',
+          wallet_bucket_bid: 'bucket-subscription',
           entry_type: 'consume',
           source_type: 'usage',
           source_bid: 'usage-1',
-          idempotency_key: 'usage-1-bucket-free',
+          idempotency_key: 'usage-1-bucket-subscription',
           amount: -2.5,
           balance_after: 97.5,
           expires_at: null,

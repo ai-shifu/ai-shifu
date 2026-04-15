@@ -22,6 +22,7 @@ from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -33,6 +34,7 @@ from flaskr.service.billing.renewal import (
     claim_billing_renewal_event,
     run_billing_renewal_event,
 )
+from flaskr.service.billing.subscriptions import sync_subscription_lifecycle_events
 
 
 def _seed_products() -> list[BillingProduct]:
@@ -218,6 +220,44 @@ def test_run_billing_renewal_event_applies_expire(
     with billing_renewal_app.app_context():
         subscription = BillingSubscription.query.filter_by(
             subscription_bid="sub-expire-1"
+        ).one()
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
+
+
+def test_manual_trial_subscription_schedules_and_applies_expire(
+    billing_renewal_app: Flask,
+) -> None:
+    with billing_renewal_app.app_context():
+        subscription = _create_subscription(
+            "sub-trial-expire-1",
+            product_bid=BILLING_TRIAL_PRODUCT_BID,
+            billing_provider="manual",
+            provider_subscription_id="",
+            current_period_end_at=datetime.now() - timedelta(minutes=1),
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.flush()
+        sync_subscription_lifecycle_events(billing_renewal_app, subscription)
+        dao.db.session.commit()
+
+        event = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+        ).one()
+        renewal_event_bid = event.renewal_event_bid
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid=renewal_event_bid,
+    )
+
+    assert payload["status"] == "applied"
+    assert payload["subscription_status"] == "expired"
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-trial-expire-1"
         ).one()
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
 

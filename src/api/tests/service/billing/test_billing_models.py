@@ -5,13 +5,14 @@ from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
     BILLING_CONFIG_KEY_ENABLED,
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
-    BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
     BILLING_CONFIG_KEY_RATE_VERSION,
     BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
-    BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT,
+    BILLING_MODE_MANUAL,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_PRODUCT_SEEDS,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_METRIC_LLM_CACHE_TOKENS,
@@ -52,7 +53,7 @@ def test_billing_models_register_core_tables() -> None:
 
 
 def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
-    assert len(BILLING_PRODUCT_SEEDS) == 9
+    assert len(BILLING_PRODUCT_SEEDS) == 10
 
     plan_products = [
         row
@@ -64,12 +65,28 @@ def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
         for row in BILLING_PRODUCT_SEEDS
         if row["product_type"] == BILLING_PRODUCT_TYPE_TOPUP
     ]
+    trial_product = next(
+        row
+        for row in BILLING_PRODUCT_SEEDS
+        if row["product_code"] == BILLING_TRIAL_PRODUCT_CODE
+    )
 
-    assert len(plan_products) == 5
+    assert len(plan_products) == 6
     assert len(topup_products) == 4
-    assert all(row["billing_mode"] == BILLING_MODE_RECURRING for row in plan_products)
+    paid_plan_products = [
+        row
+        for row in plan_products
+        if row["product_code"] != BILLING_TRIAL_PRODUCT_CODE
+    ]
+    assert all(
+        row["billing_mode"] == BILLING_MODE_RECURRING for row in paid_plan_products
+    )
     assert all(row["billing_mode"] == BILLING_MODE_ONE_TIME for row in topup_products)
+    assert trial_product["billing_mode"] == BILLING_MODE_MANUAL
+    assert trial_product["price_amount"] == 0
+    assert trial_product["metadata"][BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG] is True
     assert {row["product_code"] for row in BILLING_PRODUCT_SEEDS} == {
+        BILLING_TRIAL_PRODUCT_CODE,
         "creator-plan-monthly",
         "creator-plan-monthly-pro",
         "creator-plan-yearly",
@@ -116,24 +133,14 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILLING_SYS_CONFIG_SEEDS) == 5
+    assert len(BILLING_SYS_CONFIG_SEEDS) == 4
     assert {row["key"] for row in BILLING_SYS_CONFIG_SEEDS} == {
         BILLING_CONFIG_KEY_ENABLED,
         BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILLING_CONFIG_KEY_RATE_VERSION,
-        BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
     }
     assert all(row["is_encrypted"] == 0 for row in BILLING_SYS_CONFIG_SEEDS)
-    trial_config_seed = next(
-        row
-        for row in BILLING_SYS_CONFIG_SEEDS
-        if row["key"] == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
-    )
-    assert (
-        BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT.items()
-        <= {**billing_consts.json.loads(trial_config_seed["value"])}.items()
-    )
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

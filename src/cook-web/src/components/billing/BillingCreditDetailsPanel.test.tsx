@@ -44,8 +44,18 @@ describe('BillingCreditDetailsPanel', () => {
         trial_offer: {
           enabled: true,
           status: 'ineligible',
+          product_bid: 'billing-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          display_name: 'module.billing.package.free.title',
+          description: 'module.billing.package.free.description',
+          currency: 'CNY',
+          price_amount: 0,
           credit_amount: 100,
           valid_days: 15,
+          highlights: [
+            'module.billing.package.features.free.publish',
+            'module.billing.package.features.free.preview',
+          ],
           starts_on_first_grant: true,
           granted_at: null,
           expires_at: null,
@@ -58,24 +68,13 @@ describe('BillingCreditDetailsPanel', () => {
       data: {
         items: [
           {
-            wallet_bucket_bid: 'bucket-free',
-            category: 'free',
+            wallet_bucket_bid: 'bucket-sub-1',
+            category: 'subscription',
             source_type: 'gift',
             source_bid: 'gift-1',
             available_credits: 10,
             effective_from: '2026-04-01T00:00:00',
             effective_to: '2026-08-12T23:59:00',
-            priority: 10,
-            status: 'active',
-          },
-          {
-            wallet_bucket_bid: 'bucket-sub-1',
-            category: 'subscription',
-            source_type: 'subscription',
-            source_bid: 'sub-1',
-            available_credits: 40,
-            effective_from: '2026-04-01T00:00:00',
-            effective_to: null,
             priority: 20,
             status: 'active',
           },
@@ -83,10 +82,10 @@ describe('BillingCreditDetailsPanel', () => {
             wallet_bucket_bid: 'bucket-sub-2',
             category: 'subscription',
             source_type: 'subscription',
-            source_bid: 'sub-2',
-            available_credits: 60,
+            source_bid: 'sub-1',
+            available_credits: 90,
             effective_from: '2026-04-01T00:00:00',
-            effective_to: '2026-09-15T23:59:00',
+            effective_to: null,
             priority: 20,
             status: 'active',
           },
@@ -117,9 +116,6 @@ describe('BillingCreditDetailsPanel', () => {
       screen.getByText('module.billing.details.title'),
     ).toBeInTheDocument();
     expect(screen.getByText('1,110.0000000')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.ledger.category.free'),
-    ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.ledger.category.subscription'),
     ).toBeInTheDocument();

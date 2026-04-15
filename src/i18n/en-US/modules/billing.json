@@ -285,6 +285,7 @@
       "creditsOneTime": "{credits} credits one time",
       "perMonth": "/ monthly",
       "perYear": "/ yearly",
+      "providerManual": "Manual",
       "providerPingxx": "Pingxx / Alipay QR",
       "providerStripe": "Stripe"
     },
@@ -360,7 +361,7 @@
       "validUntil": "Valid until"
     },
     "title": "Credit Details",
-    "totalCreditsDescription": "Credits are consumed in the order of free, subscription, and top-up buckets. Within the same category, the earliest-expiring balance is consumed first.",
+    "totalCreditsDescription": "Credits are consumed in the order of subscription and top-up buckets. Within the same category, the earliest-expiring balance is consumed first.",
     "totalCreditsLabel": "Total credits",
     "usageTable": {
       "columns": {
@@ -497,7 +498,6 @@
       "expired": "Expired"
     },
     "category": {
-      "free": "Free",
       "subscription": "Subscription",
       "topup": "Top-up"
     },

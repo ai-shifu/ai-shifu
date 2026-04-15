@@ -44,6 +44,8 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -670,6 +672,11 @@ def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduc
         .first()
     )
     if product is None or product.product_type != expected_type:
+        raise_error("server.order.orderNotFound")
+    metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
+    if str(product.product_code or "").strip() == BILLING_TRIAL_PRODUCT_CODE or bool(
+        metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG)
+    ):
         raise_error("server.order.orderNotFound")
     return product
 

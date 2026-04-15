@@ -61,7 +61,9 @@ def safe_int(value: Any) -> int | None:
         return None
 
 
-def coerce_bool(value: Any) -> bool:
+def coerce_bool(value: Any, *, default: bool = False) -> bool:
+    if value in (None, ""):
+        return default
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):

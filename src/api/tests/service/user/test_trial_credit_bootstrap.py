@@ -14,11 +14,20 @@ import pytest
 import flaskr.dao as dao
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 from flaskr.service.billing.consts import (
-    BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_PRODUCT_SEEDS,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
-from flaskr.service.billing.models import CreditLedgerEntry, CreditWallet
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    BillingSubscription,
+    CreditLedgerEntry,
+    CreditWallet,
+)
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.password_utils import hash_password
@@ -84,30 +93,13 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
     )
 
 
-def _build_trial_config() -> str:
-    return json.dumps(
-        {
-            "enabled": 1,
-            "program_code": "new_creator_v1",
-            "credit_amount": "100.0000000000",
-            "valid_days": 15,
-            "eligible_registered_after": "2000-01-01T00:00:00Z",
-            "grant_trigger": "billing_overview",
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-
-
-def _configure_trial(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.billing.trials.get_config",
-        lambda key, default=None: (
-            _build_trial_config()
-            if key == BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG
-            else default
-        ),
-    )
+def _seed_products() -> list[BillingProduct]:
+    items: list[BillingProduct] = []
+    for seed in BILLING_PRODUCT_SEEDS:
+        payload = dict(seed)
+        payload["metadata_json"] = payload.pop("metadata", None)
+        items.append(BillingProduct(**payload))
+    return items
 
 
 @pytest.fixture
@@ -157,6 +149,8 @@ def user_trial_client(monkeypatch, tmp_path):
 
     with app.app_context():
         dao.db.create_all()
+        dao.db.session.add_all(_seed_products())
+        dao.db.session.commit()
 
     return app.test_client()
 
@@ -192,11 +186,34 @@ def _seed_registered_user(
     return user_bid
 
 
-def test_verify_sms_code_admin_login_bootstraps_trial_credits_once(
-    user_trial_client, monkeypatch
+def _assert_trial_bootstrapped(user_bid: str) -> None:
+    wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).one()
+    order = BillingOrder.query.filter_by(creator_bid=user_bid, deleted=0).one()
+    subscription = BillingSubscription.query.filter_by(
+        creator_bid=user_bid,
+        deleted=0,
+    ).one()
+    ledgers = CreditLedgerEntry.query.filter_by(
+        creator_bid=user_bid,
+        deleted=0,
+    ).all()
+
+    assert wallet.available_credits == Decimal("100.0000000000")
+    assert order.product_bid == BILLING_TRIAL_PRODUCT_BID
+    assert order.payment_provider == "manual"
+    assert order.status == BILLING_ORDER_STATUS_PAID
+    assert subscription.product_bid == BILLING_TRIAL_PRODUCT_BID
+    assert subscription.billing_provider == "manual"
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert len(ledgers) == 1
+    assert ledgers[0].entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+    assert ledgers[0].source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+
+
+def test_verify_sms_code_admin_login_bootstraps_trial_once(
+    user_trial_client,
 ):
     app = user_trial_client.application
-    _configure_trial(monkeypatch)
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     phone = f"155{uuid.uuid4().int % 100000000:08d}"
 
@@ -228,28 +245,17 @@ def test_verify_sms_code_admin_login_bootstraps_trial_credits_once(
         user = UserEntity.query.filter_by(user_identify=phone, deleted=0).first()
         assert user is not None
         assert user.is_creator == 1
-
-        wallet = CreditWallet.query.filter_by(
-            creator_bid=user.user_bid,
-            deleted=0,
-        ).one()
-        ledgers = CreditLedgerEntry.query.filter_by(
-            creator_bid=user.user_bid,
-            deleted=0,
-            source_bid="new_creator_v1",
-        ).all()
-
-        assert wallet.available_credits == Decimal("100.0000000000")
-        assert len(ledgers) == 1
-        assert ledgers[0].entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
-        assert ledgers[0].source_type == CREDIT_SOURCE_TYPE_GIFT
+        _assert_trial_bootstrapped(user.user_bid)
+        assert (
+            BillingOrder.query.filter_by(creator_bid=user.user_bid, deleted=0).count()
+            == 1
+        )
 
 
-def test_ensure_admin_creator_bootstraps_trial_credits_for_existing_user(
-    user_trial_client, monkeypatch
+def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
+    user_trial_client,
 ):
     app = user_trial_client.application
-    _configure_trial(monkeypatch)
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
@@ -264,33 +270,33 @@ def test_ensure_admin_creator_bootstraps_trial_credits_for_existing_user(
         token = generate_token(app, user_bid)
         dao.db.session.commit()
 
-    response = user_trial_client.post(
+    first_response = user_trial_client.post(
+        "/api/user/ensure_admin_creator",
+        headers={"Token": token},
+    )
+    second_response = user_trial_client.post(
         "/api/user/ensure_admin_creator",
         headers={"Token": token},
     )
 
-    assert response.status_code == 200
-    assert response.get_json(force=True)["code"] == 0
+    assert first_response.status_code == 200
+    assert first_response.get_json(force=True)["code"] == 0
+    assert second_response.status_code == 200
+    assert second_response.get_json(force=True)["code"] == 0
 
     with app.app_context():
         user = UserEntity.query.filter_by(user_bid=user_bid, deleted=0).one()
-        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).one()
-        ledgers = CreditLedgerEntry.query.filter_by(
-            creator_bid=user_bid,
-            deleted=0,
-            source_bid="new_creator_v1",
-        ).all()
-
         assert user.is_creator == 1
-        assert wallet.available_credits == Decimal("100.0000000000")
-        assert len(ledgers) == 1
+        _assert_trial_bootstrapped(user_bid)
+        assert (
+            BillingOrder.query.filter_by(creator_bid=user_bid, deleted=0).count() == 1
+        )
 
 
-def test_password_login_bootstraps_trial_credits_for_existing_creator(
-    user_trial_client, monkeypatch
+def test_password_login_existing_creator_does_not_bootstrap_trial_again(
+    user_trial_client,
 ):
     app = user_trial_client.application
-    _configure_trial(monkeypatch)
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
 
@@ -325,22 +331,22 @@ def test_password_login_bootstraps_trial_credits_for_existing_creator(
     assert response.get_json(force=True)["code"] == 0
 
     with app.app_context():
-        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).one()
-        ledgers = CreditLedgerEntry.query.filter_by(
-            creator_bid=user_bid,
-            deleted=0,
-            source_bid="new_creator_v1",
-        ).all()
+        assert (
+            CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).count() == 0
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid=user_bid, deleted=0).count() == 0
+        )
+        assert (
+            BillingSubscription.query.filter_by(creator_bid=user_bid, deleted=0).count()
+            == 0
+        )
 
-        assert wallet.available_credits == Decimal("100.0000000000")
-        assert len(ledgers) == 1
 
-
-def test_password_login_non_creator_does_not_grant_trial_credits(
-    user_trial_client, monkeypatch
+def test_password_login_non_creator_does_not_grant_trial(
+    user_trial_client,
 ):
     app = user_trial_client.application
-    _configure_trial(monkeypatch)
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
 
@@ -375,24 +381,20 @@ def test_password_login_non_creator_does_not_grant_trial_credits(
     assert response.get_json(force=True)["code"] == 0
 
     with app.app_context():
-        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).first()
-        ledgers = CreditLedgerEntry.query.filter_by(
-            creator_bid=user_bid,
-            deleted=0,
-            source_bid="new_creator_v1",
-        ).all()
-
-        assert wallet is None
-        assert ledgers == []
+        assert (
+            CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).count() == 0
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid=user_bid, deleted=0).count() == 0
+        )
 
 
-def test_post_auth_extension_failures_do_not_block_login(
-    user_trial_client, monkeypatch
+def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
+    user_trial_client,
 ):
     app = user_trial_client.application
-    _configure_trial(monkeypatch)
+    app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"
-    password = "Abcd1234"
 
     with app.app_context():
         user_bid = _seed_registered_user(
@@ -400,19 +402,9 @@ def test_post_auth_extension_failures_do_not_block_login(
             identifier=email,
             provider_name="email",
             subject_format="email",
-            is_creator=True,
+            is_creator=False,
         )
-        password_credential = upsert_credential(
-            app,
-            user_bid=user_bid,
-            provider_name="password",
-            subject_id=email,
-            subject_format="email",
-            identifier=email,
-            metadata={},
-            verified=True,
-        )
-        set_password_hash(password_credential, hash_password(password))
+        token = generate_token(app, user_bid)
         dao.db.session.commit()
 
     def _failing_post_auth_handler(_context, *, app):
@@ -424,10 +416,9 @@ def test_post_auth_extension_failures_do_not_block_login(
     )
     handlers.insert(0, _failing_post_auth_handler)
     try:
-        response = _post_json(
-            user_trial_client,
-            "/api/user/login_password",
-            {"identifier": email, "password": password},
+        response = user_trial_client.post(
+            "/api/user/ensure_admin_creator",
+            headers={"Token": token},
         )
     finally:
         handlers.remove(_failing_post_auth_handler)
@@ -436,12 +427,4 @@ def test_post_auth_extension_failures_do_not_block_login(
     assert response.get_json(force=True)["code"] == 0
 
     with app.app_context():
-        wallet = CreditWallet.query.filter_by(creator_bid=user_bid, deleted=0).one()
-        ledgers = CreditLedgerEntry.query.filter_by(
-            creator_bid=user_bid,
-            deleted=0,
-            source_bid="new_creator_v1",
-        ).all()
-
-        assert wallet.available_credits == Decimal("100.0000000000")
-        assert len(ledgers) == 1
+        _assert_trial_bootstrapped(user_bid)

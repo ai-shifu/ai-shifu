@@ -9,19 +9,22 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/Card';
-import type { BillingPlan, BillingSubscription } from '@/types/billing';
 import {
   formatBillingDate,
   resolveBillingEmptyLabel,
-  resolveBillingPlanCreditsLabel,
   resolveBillingProviderLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
+  resolveBillingSubscriptionProductCreditsLabel,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
+import type {
+  BillingSubscriptionProduct,
+  BillingSubscription,
+} from '@/types/billing';
 
 type BillingSubscriptionCardProps = {
-  currentPlan: BillingPlan | null;
+  currentPlan: BillingSubscriptionProduct | null;
   subscription: BillingSubscription | null;
   actionLoading?: 'cancel' | 'resume' | '';
   onCancelSubscription?: (subscription: BillingSubscription) => void;
@@ -82,17 +85,23 @@ export function BillingSubscriptionCard({
 
   const canResume =
     Boolean(subscription) &&
+    subscription?.billing_provider !== 'manual' &&
     (subscriptionStatus === 'cancel_scheduled' ||
       subscriptionStatus === 'paused');
   const canCancel =
     Boolean(subscription) &&
+    subscription?.billing_provider !== 'manual' &&
     !subscription?.cancel_at_period_end &&
     subscriptionStatus !== 'canceled' &&
     subscriptionStatus !== 'expired' &&
     subscriptionStatus !== 'draft';
   const creditsLabel =
     currentPlan && subscription
-      ? resolveBillingPlanCreditsLabel(t, currentPlan, i18n.language)
+      ? resolveBillingSubscriptionProductCreditsLabel(
+          t,
+          currentPlan,
+          i18n.language,
+        )
       : t('module.billing.overview.subscriptionEmptyDescription');
 
   return (

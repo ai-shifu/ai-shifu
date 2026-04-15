@@ -285,6 +285,7 @@
       "creditsOneTime": "一次到账 {credits} 积分",
       "perMonth": "/ 每月",
       "perYear": "/ 每年",
+      "providerManual": "人工开通",
       "providerPingxx": "Pingxx / 支付宝二维码",
       "providerStripe": "Stripe"
     },
@@ -360,7 +361,7 @@
       "validUntil": "有效期"
     },
     "title": "积分详情",
-    "totalCreditsDescription": "积分会按免费积分、套餐积分、充值积分的顺序优先扣减；同类积分则优先扣减更早到期的部分。",
+    "totalCreditsDescription": "积分会按套餐积分、充值积分的顺序优先扣减；同类积分则优先扣减更早到期的部分。",
     "totalCreditsLabel": "总积分",
     "usageTable": {
       "columns": {
@@ -497,7 +498,6 @@
       "expired": "已过期"
     },
     "category": {
-      "free": "免费积分",
       "subscription": "订阅积分",
       "topup": "充值积分"
     },

@@ -30,6 +30,7 @@ type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
   currentPlan: BillingPlan | null;
   hasActiveSubscription: boolean;
+  isTrialCurrentPlan: boolean;
   isLoading: boolean;
   monthlyPlans: BillingPlan[];
   pingxxAvailable: boolean;
@@ -74,6 +75,7 @@ export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
   hasActiveSubscription,
+  isTrialCurrentPlan,
   isLoading,
   monthlyPlans,
   pingxxAvailable,
@@ -100,6 +102,29 @@ export function BillingOverviewShowcase({
     ),
   });
   const freeCreditValidityLabel = t('module.billing.package.validity.free');
+  const freeCardFeatureKeys = trialOffer?.highlights?.filter(item =>
+    Boolean(item),
+  )?.length
+    ? trialOffer.highlights
+    : getFreeFeatureKeys();
+  const freeCardPriceLabel =
+    trialOffer && trialOffer.currency
+      ? formatBillingPrice(
+          trialOffer.price_amount,
+          trialOffer.currency,
+          i18n.language,
+        )
+      : t('module.billing.package.free.priceValue');
+  const freeCardTitle = resolveBillingProductTitle(
+    t,
+    trialOffer,
+    t('module.billing.package.free.title'),
+  );
+  const freeCardDescription = resolveBillingProductDescription(
+    t,
+    trialOffer,
+    t('module.billing.package.free.description'),
+  );
 
   let freePriceMetaLabel = '';
   if (trialOffer) {
@@ -212,7 +237,7 @@ export function BillingOverviewShowcase({
           {renderFreeCard ? (
             <PlanShowcaseCard
               actionLabel={t(
-                !hasActiveSubscription || trialOffer?.status === 'granted'
+                !hasActiveSubscription || isTrialCurrentPlan
                   ? 'module.billing.package.actions.currentUsing'
                   : 'module.billing.package.actions.freeTrial',
               )}
@@ -223,14 +248,14 @@ export function BillingOverviewShowcase({
               }
               creditSummary={freeCreditSummary}
               creditValidityLabel={freeCreditValidityLabel}
-              description={t('module.billing.package.free.description')}
+              description={freeCardDescription}
               disabled
-              featured={!hasActiveSubscription}
-              footer={<PlanFeatureList items={getFreeFeatureKeys()} />}
-              priceLabel={t('module.billing.package.free.priceValue')}
+              featured={isTrialCurrentPlan || !hasActiveSubscription}
+              footer={<PlanFeatureList items={freeCardFeatureKeys} />}
+              priceLabel={freeCardPriceLabel}
               priceMetaLabel={freePriceMetaLabel}
               testId='billing-plan-card-free'
-              title={t('module.billing.package.free.title')}
+              title={freeCardTitle}
             />
           ) : null}
 

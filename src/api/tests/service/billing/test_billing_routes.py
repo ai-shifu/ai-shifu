@@ -712,9 +712,19 @@ class TestBillingRoutes:
             "subscription_cancel_scheduled"
         )
         assert overview_payload["data"]["trial_offer"] == {
-            "enabled": False,
-            "status": "disabled",
+            "enabled": True,
+            "status": "ineligible",
+            "product_bid": "billing-product-plan-trial",
+            "product_code": "creator-plan-trial",
+            "display_name": "module.billing.package.free.title",
+            "description": "module.billing.package.free.description",
+            "currency": "CNY",
+            "price_amount": 0,
             "credit_amount": 100,
+            "highlights": [
+                "module.billing.package.features.free.publish",
+                "module.billing.package.features.free.preview",
+            ],
             "valid_days": 15,
             "starts_on_first_grant": True,
             "granted_at": None,
@@ -729,7 +739,8 @@ class TestBillingRoutes:
             "bucket-subscription",
             "bucket-topup",
         ]
-        assert bucket_payload["data"]["items"][0]["category"] == "free"
+        assert bucket_payload["data"]["items"][0]["category"] == "subscription"
+        assert bucket_payload["data"]["items"][0]["priority"] == 20
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
     def test_overview_and_wallet_buckets_respect_request_timezone_and_fallback(

@@ -280,8 +280,42 @@ BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS = {
     BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY: "priority",
 }
 
+BILLING_TRIAL_PRODUCT_BID = "billing-product-plan-trial"
+BILLING_TRIAL_PRODUCT_CODE = "creator-plan-trial"
+BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG = "public_trial_offer"
+BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS = "trial_valid_days"
+BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT = "starts_on_first_grant"
+BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE = "new_creator_v1"
+
 
 BILLING_PRODUCT_SEEDS = (
+    {
+        "product_bid": BILLING_TRIAL_PRODUCT_BID,
+        "product_code": BILLING_TRIAL_PRODUCT_CODE,
+        "product_type": BILLING_PRODUCT_TYPE_PLAN,
+        "billing_mode": BILLING_MODE_MANUAL,
+        "billing_interval": BILLING_INTERVAL_NONE,
+        "billing_interval_count": 0,
+        "display_name_i18n_key": "module.billing.package.free.title",
+        "description_i18n_key": "module.billing.package.free.description",
+        "currency": "CNY",
+        "price_amount": 0,
+        "credit_amount": Decimal("100.0000000000"),
+        "allocation_interval": ALLOCATION_INTERVAL_MANUAL,
+        "auto_renew_enabled": 0,
+        "entitlement_payload": None,
+        "metadata": {
+            BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: True,
+            BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS: 15,
+            BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT: True,
+            "highlights": [
+                "module.billing.package.features.free.publish",
+                "module.billing.package.features.free.preview",
+            ],
+        },
+        "status": BILLING_PRODUCT_STATUS_ACTIVE,
+        "sort_order": 5,
+    },
     {
         "product_bid": "billing-product-plan-monthly",
         "product_code": "creator-plan-monthly",
@@ -493,16 +527,6 @@ BILLING_CONFIG_KEY_ENABLED = "BILLING_ENABLED"
 BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILLING_LOW_BALANCE_THRESHOLD"
 BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILLING_RENEWAL_TASK_CONFIG"
 BILLING_CONFIG_KEY_RATE_VERSION = "BILLING_RATE_VERSION"
-BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG = "BILLING_NEW_CREATOR_TRIAL_CONFIG"
-
-BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT = {
-    "enabled": 0,
-    "program_code": "new_creator_v1",
-    "credit_amount": "100.0000000000",
-    "valid_days": 15,
-    "eligible_registered_after": "",
-    "grant_trigger": "billing_overview",
-}
 
 
 @dataclass(slots=True, frozen=True)
@@ -619,19 +643,6 @@ BILLING_SYS_CONFIG_SEEDS = (
         "value": "bootstrap-v1",
         "is_encrypted": 0,
         "remark": "Billing rate version bootstrap marker",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-    {
-        "config_bid": "billing-config-new-creator-trial-config",
-        "key": BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
-        "value": json.dumps(
-            BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT,
-            separators=(",", ":"),
-            sort_keys=True,
-        ),
-        "is_encrypted": 0,
-        "remark": "New creator trial credit bootstrap config",
         "deleted": 0,
         "updated_by": "system",
     },

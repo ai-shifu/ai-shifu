@@ -35,11 +35,7 @@ type CategorySummaryRow = {
   effectiveTo: string | null;
 };
 
-const CATEGORY_ORDER: BillingBucketCategory[] = [
-  'free',
-  'subscription',
-  'topup',
-];
+const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
 
 function formatDetailWindow(value: string | null): string {
   const date = parseBillingDateValue(value);

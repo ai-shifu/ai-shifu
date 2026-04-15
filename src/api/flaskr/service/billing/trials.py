@@ -3,66 +3,74 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+import uuid
 from typing import Any
 
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
-from flaskr.service.config import get_config
-from flaskr.service.user.repository import (
-    get_first_verified_credential_created_at,
-    get_user_entity_by_bid,
-)
-from flaskr.util.uuid import generate_id
+from flaskr.service.user.repository import get_user_entity_by_bid
 
 from .consts import (
-    BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG,
-    BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT,
-    CREDIT_BUCKET_CATEGORY_FREE,
-    CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_SOURCE_TYPE_GIFT,
+    BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_PRODUCT_SEEDS,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_TRIAL_PRODUCT_BID,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
+    BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT,
+    BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
 )
 from .dtos import BillingTrialOfferDTO
-from .models import CreditLedgerEntry, CreditWalletBucket
+from .models import BillingOrder, BillingProduct, BillingSubscription, CreditLedgerEntry
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import decimal_to_number as _decimal_to_number
+from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
-from .primitives import safe_to_decimal as _safe_to_decimal
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .primitives import serialize_dt as _serialize_dt
 from .primitives import to_decimal as _to_decimal
-from .subscriptions import load_or_create_credit_wallet as _load_or_create_credit_wallet
-from .wallets import (
-    persist_credit_wallet_snapshot,
-    refresh_credit_wallet_snapshot,
-    sync_credit_bucket_status,
+from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
+
+_TRIAL_FALLBACK_PRODUCT_SEED = next(
+    (
+        seed
+        for seed in BILLING_PRODUCT_SEEDS
+        if seed["product_code"] == BILLING_TRIAL_PRODUCT_CODE
+    ),
+    None,
 )
 
-_BUCKET_PRIORITY_BY_CATEGORY = {
-    CREDIT_BUCKET_CATEGORY_FREE: 10,
-}
-
-
-@dataclass(slots=True, frozen=True)
-class NewCreatorTrialConfig:
-    enabled: bool
-    program_code: str
-    credit_amount: str
-    valid_days: int
-    eligible_registered_after: str
-    grant_trigger: str
+_ACTIVE_SUBSCRIPTION_STATUSES = (
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+)
 
 
 @dataclass(slots=True, frozen=True)
 class TrialOfferState:
     enabled: bool
     status: str
+    product_bid: str
+    product_code: str
+    display_name: str
+    description: str
+    currency: str
+    price_amount: int
     credit_amount: Decimal
+    highlights: tuple[str, ...]
     valid_days: int
     starts_on_first_grant: bool
     granted_at: datetime | None = None
@@ -74,7 +82,14 @@ class TrialOfferState:
         return BillingTrialOfferDTO(
             enabled=bool(self.enabled),
             status=str(self.status),
+            product_bid=str(self.product_bid),
+            product_code=str(self.product_code),
+            display_name=str(self.display_name),
+            description=str(self.description),
+            currency=str(self.currency),
+            price_amount=int(self.price_amount),
             credit_amount=_decimal_to_number(self.credit_amount),
+            highlights=list(self.highlights),
             valid_days=int(self.valid_days),
             starts_on_first_grant=bool(self.starts_on_first_grant),
             granted_at=_serialize_dt(
@@ -90,6 +105,302 @@ class TrialOfferState:
         )
 
 
+def _trial_product_field(product_ref: Any, field: str, default: Any = "") -> Any:
+    if isinstance(product_ref, BillingProduct):
+        return getattr(product_ref, field, default)
+    if isinstance(product_ref, dict):
+        return product_ref.get(field, default)
+    return default
+
+
+def _trial_product_metadata(product_ref: Any) -> dict[str, Any]:
+    if isinstance(product_ref, BillingProduct):
+        payload = product_ref.metadata_json
+    elif isinstance(product_ref, dict):
+        payload = product_ref.get("metadata_json")
+        if payload is None:
+            payload = product_ref.get("metadata")
+    else:
+        payload = None
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _resolve_trial_valid_days(product_ref: Any) -> int:
+    metadata = _trial_product_metadata(product_ref)
+    return _safe_to_positive_int(
+        metadata.get(BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS),
+        default=15,
+    )
+
+
+def _resolve_trial_highlights(product_ref: Any) -> tuple[str, ...]:
+    metadata = _trial_product_metadata(product_ref)
+    highlights = metadata.get("highlights")
+    if not isinstance(highlights, list):
+        return ()
+    return tuple(str(item) for item in highlights if str(item or "").strip())
+
+
+def _trial_product_public_enabled(product_ref: Any) -> bool:
+    metadata = _trial_product_metadata(product_ref)
+    return _coerce_bool(
+        metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG),
+        default=False,
+    )
+
+
+def _resolve_trial_product_reference() -> BillingProduct | dict[str, Any] | None:
+    product = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_code == BILLING_TRIAL_PRODUCT_CODE,
+            BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+    if product is not None:
+        return product
+    return _TRIAL_FALLBACK_PRODUCT_SEED
+
+
+def _build_trial_offer_state(
+    product_ref: BillingProduct | dict[str, Any] | None,
+    *,
+    enabled: bool,
+    status: str,
+    granted_at: datetime | None = None,
+    expires_at: datetime | None = None,
+) -> TrialOfferState:
+    metadata = _trial_product_metadata(product_ref)
+    return TrialOfferState(
+        enabled=bool(enabled),
+        status=str(status),
+        product_bid=str(
+            _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
+        ),
+        product_code=str(
+            _trial_product_field(
+                product_ref,
+                "product_code",
+                BILLING_TRIAL_PRODUCT_CODE,
+            )
+        ),
+        display_name=str(
+            _trial_product_field(product_ref, "display_name_i18n_key", "")
+        ),
+        description=str(_trial_product_field(product_ref, "description_i18n_key", "")),
+        currency=str(_trial_product_field(product_ref, "currency", "CNY")),
+        price_amount=int(_trial_product_field(product_ref, "price_amount", 0) or 0),
+        credit_amount=_to_decimal(
+            _trial_product_field(product_ref, "credit_amount", 0)
+        ),
+        highlights=_resolve_trial_highlights(product_ref),
+        valid_days=_resolve_trial_valid_days(product_ref),
+        starts_on_first_grant=_coerce_bool(
+            metadata.get(BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT),
+            default=True,
+        ),
+        granted_at=granted_at,
+        expires_at=expires_at,
+    )
+
+
+def _load_trial_subscription(creator_bid: str) -> BillingSubscription | None:
+    return (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.product_bid == BILLING_TRIAL_PRODUCT_BID,
+        )
+        .order_by(
+            BillingSubscription.current_period_end_at.desc(),
+            BillingSubscription.created_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        .first()
+    )
+
+
+def _load_trial_order(creator_bid: str) -> BillingOrder | None:
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == creator_bid,
+            BillingOrder.product_bid == BILLING_TRIAL_PRODUCT_BID,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        )
+        .order_by(BillingOrder.paid_at.desc(), BillingOrder.created_at.desc())
+        .first()
+    )
+
+
+def _load_active_creator_subscription(creator_bid: str) -> BillingSubscription | None:
+    return (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
+        )
+        .order_by(
+            BillingSubscription.current_period_end_at.desc(),
+            BillingSubscription.created_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        .first()
+    )
+
+
+def _load_legacy_trial_entry(creator_bid: str) -> CreditLedgerEntry | None:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return None
+    legacy_idempotency_key = f"trial:{BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE}:{normalized_creator_bid}"
+    return (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == normalized_creator_bid,
+        )
+        .filter(
+            (CreditLedgerEntry.idempotency_key == legacy_idempotency_key)
+            | (
+                CreditLedgerEntry.source_bid
+                == BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE
+            )
+        )
+        .order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
+        .first()
+    )
+
+
+def _resolve_trial_period_from_history(
+    *,
+    subscription: BillingSubscription | None,
+    order: BillingOrder | None,
+    legacy_entry: CreditLedgerEntry | None,
+) -> tuple[datetime | None, datetime | None]:
+    if subscription is not None:
+        granted_at = subscription.current_period_start_at or subscription.created_at
+        expires_at = subscription.current_period_end_at
+        return granted_at, expires_at
+    if order is not None:
+        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        granted_at = order.paid_at or order.created_at
+        expires_at = None
+        raw_expires_at = metadata.get("trial_expires_at")
+        if isinstance(raw_expires_at, str) and raw_expires_at.strip():
+            try:
+                expires_at = datetime.fromisoformat(raw_expires_at)
+            except ValueError:
+                expires_at = None
+        return granted_at, expires_at
+    if legacy_entry is not None:
+        granted_at = legacy_entry.consumable_from or legacy_entry.created_at
+        expires_at = legacy_entry.expires_at
+        return granted_at, expires_at
+    return None, None
+
+
+def _build_trial_subscription_bid(creator_bid: str) -> str:
+    return uuid.uuid5(
+        uuid.NAMESPACE_DNS,
+        f"billing-trial-subscription:{creator_bid}",
+    ).hex
+
+
+def _build_trial_order_bid(creator_bid: str) -> str:
+    return uuid.uuid5(
+        uuid.NAMESPACE_DNS,
+        f"billing-trial-order:{creator_bid}",
+    ).hex
+
+
+def _bootstrap_trial_subscription(
+    app: Flask,
+    *,
+    creator_bid: str,
+    product_ref: BillingProduct | dict[str, Any],
+    trigger: str,
+) -> None:
+    valid_days = _resolve_trial_valid_days(product_ref)
+    credit_amount = _to_decimal(_trial_product_field(product_ref, "credit_amount", 0))
+    if valid_days <= 0 or credit_amount <= 0:
+        return
+
+    now = datetime.now()
+    expires_at = now + timedelta(days=valid_days)
+    product_bid = str(
+        _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
+    )
+    product_code = str(
+        _trial_product_field(product_ref, "product_code", BILLING_TRIAL_PRODUCT_CODE)
+    )
+
+    subscription_metadata = _normalize_json_object(
+        {
+            "trial_bootstrap": True,
+            "trial_trigger": trigger,
+            "trial_product_code": product_code,
+            "trial_valid_days": valid_days,
+        }
+    ).to_metadata_json()
+    order_metadata = _normalize_json_object(
+        {
+            "checkout_type": "trial_bootstrap",
+            "trial_bootstrap": True,
+            "trial_trigger": trigger,
+            "trial_product_code": product_code,
+            "trial_valid_days": valid_days,
+            "trial_starts_at": now.isoformat(),
+            "trial_expires_at": expires_at.isoformat(),
+        }
+    ).to_metadata_json()
+
+    subscription = BillingSubscription(
+        subscription_bid=_build_trial_subscription_bid(creator_bid),
+        creator_bid=creator_bid,
+        product_bid=product_bid,
+        status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+        billing_provider="manual",
+        provider_subscription_id="",
+        provider_customer_id="",
+        billing_anchor_at=now,
+        current_period_start_at=now,
+        current_period_end_at=expires_at,
+        grace_period_end_at=None,
+        cancel_at_period_end=0,
+        next_product_bid="",
+        last_renewed_at=None,
+        last_failed_at=None,
+        metadata_json=subscription_metadata,
+    )
+    order = BillingOrder(
+        billing_order_bid=_build_trial_order_bid(creator_bid),
+        creator_bid=creator_bid,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        product_bid=product_bid,
+        subscription_bid=subscription.subscription_bid,
+        currency=str(_trial_product_field(product_ref, "currency", "CNY")),
+        payable_amount=0,
+        paid_amount=0,
+        payment_provider="manual",
+        channel="manual",
+        provider_reference_id="",
+        status=BILLING_ORDER_STATUS_PAID,
+        paid_at=now,
+        metadata_json=order_metadata,
+    )
+
+    db.session.add(subscription)
+    db.session.flush()
+    db.session.add(order)
+    db.session.flush()
+
+    granted = _grant_paid_order_credits(app, order)
+    if not granted:
+        raise RuntimeError("trial_order_credit_grant_failed")
+
+
 def _resolve_new_creator_trial_offer(
     app: Flask,
     creator_bid: str,
@@ -97,41 +408,69 @@ def _resolve_new_creator_trial_offer(
     trigger: str,
     timezone_name: str | None = None,
 ) -> BillingTrialOfferDTO:
-    config = _load_new_creator_trial_config(app)
-    existing_entry = _load_new_creator_trial_entry(
-        creator_bid,
-        program_code=config.program_code,
-    )
-    if existing_entry is not None:
-        return _serialize_trial_offer(
-            app,
-            _build_trial_offer_state_from_entry(
-                existing_entry,
-                enabled=bool(config.enabled),
-                config=config,
-            ),
-            timezone_name=timezone_name,
-        )
+    del trigger
 
-    if not config.enabled:
+    product_ref = _resolve_trial_product_reference()
+    enabled = bool(product_ref) and _trial_product_public_enabled(product_ref)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+
+    legacy_entry = _load_legacy_trial_entry(normalized_creator_bid)
+    trial_subscription = _load_trial_subscription(normalized_creator_bid)
+    trial_order = _load_trial_order(normalized_creator_bid)
+
+    if (
+        legacy_entry is not None
+        or trial_subscription is not None
+        or trial_order is not None
+    ):
+        granted_at, expires_at = _resolve_trial_period_from_history(
+            subscription=trial_subscription,
+            order=trial_order,
+            legacy_entry=legacy_entry,
+        )
         return _serialize_trial_offer(
             app,
             _build_trial_offer_state(
-                enabled=False,
-                status="disabled",
-                config=config,
+                product_ref,
+                enabled=enabled,
+                status="granted",
+                granted_at=granted_at,
+                expires_at=expires_at,
             ),
             timezone_name=timezone_name,
         )
 
-    creator = get_user_entity_by_bid(creator_bid)
+    if not enabled:
+        return _serialize_trial_offer(
+            app,
+            _build_trial_offer_state(
+                product_ref,
+                enabled=False,
+                status="disabled",
+            ),
+            timezone_name=timezone_name,
+        )
+
+    creator = get_user_entity_by_bid(normalized_creator_bid)
     if creator is None or not bool(creator.is_creator):
         return _serialize_trial_offer(
             app,
             _build_trial_offer_state(
+                product_ref,
                 enabled=True,
                 status="ineligible",
-                config=config,
+            ),
+            timezone_name=timezone_name,
+        )
+
+    current_subscription = _load_active_creator_subscription(normalized_creator_bid)
+    if current_subscription is not None:
+        return _serialize_trial_offer(
+            app,
+            _build_trial_offer_state(
+                product_ref,
+                enabled=True,
+                status="ineligible",
             ),
             timezone_name=timezone_name,
         )
@@ -139,274 +478,11 @@ def _resolve_new_creator_trial_offer(
     return _serialize_trial_offer(
         app,
         _build_trial_offer_state(
+            product_ref,
             enabled=True,
             status="eligible",
-            config=config,
         ),
         timezone_name=timezone_name,
-    )
-
-
-def _grant_new_creator_trial_credits(
-    app: Flask,
-    *,
-    creator_bid: str,
-    config: NewCreatorTrialConfig,
-    registered_at: datetime | None,
-    trigger: str,
-) -> TrialOfferState:
-    amount = _to_decimal(config.credit_amount)
-    valid_days = int(config.valid_days)
-    if amount <= 0 or valid_days <= 0:
-        return _build_trial_offer_state(
-            enabled=True,
-            status="ineligible",
-            config=config,
-        )
-
-    idempotency_key = _build_new_creator_trial_idempotency_key(
-        creator_bid=creator_bid,
-        program_code=config.program_code,
-    )
-    existing_entry = _load_new_creator_trial_entry(
-        creator_bid,
-        program_code=config.program_code,
-    )
-    if existing_entry is not None:
-        return _build_trial_offer_state_from_entry(
-            existing_entry,
-            enabled=True,
-            config=config,
-        )
-
-    wallet = _load_or_create_credit_wallet(app, creator_bid)
-    granted_at = datetime.now()
-    expires_at = granted_at + timedelta(days=valid_days)
-    trial_metadata = _normalize_json_object(
-        {
-            "trial_program": config.program_code,
-            "grant_trigger": trigger,
-            "registered_at": registered_at,
-            "trial_config": {
-                "credit_amount": amount,
-                "eligible_registered_after": config.eligible_registered_after,
-                "grant_trigger": config.grant_trigger,
-                "program_code": config.program_code,
-                "valid_days": valid_days,
-            },
-        }
-    ).to_metadata_json()
-
-    bucket = CreditWalletBucket(
-        wallet_bucket_bid=generate_id(app),
-        wallet_bid=wallet.wallet_bid,
-        creator_bid=creator_bid,
-        bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
-        source_type=CREDIT_SOURCE_TYPE_GIFT,
-        source_bid=config.program_code,
-        priority=_BUCKET_PRIORITY_BY_CATEGORY[CREDIT_BUCKET_CATEGORY_FREE],
-        original_credits=amount,
-        available_credits=amount,
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
-        effective_from=granted_at,
-        effective_to=expires_at,
-        status=CREDIT_BUCKET_STATUS_ACTIVE,
-        metadata_json=trial_metadata,
-    )
-
-    try:
-        db.session.add(bucket)
-        sync_credit_bucket_status(bucket)
-        refresh_credit_wallet_snapshot(wallet)
-        balance_after = _to_decimal(wallet.available_credits)
-        next_lifetime_granted = _to_decimal(wallet.lifetime_granted_credits) + amount
-        ledger_entry = CreditLedgerEntry(
-            ledger_bid=generate_id(app),
-            creator_bid=creator_bid,
-            wallet_bid=wallet.wallet_bid,
-            wallet_bucket_bid=bucket.wallet_bucket_bid,
-            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-            source_type=CREDIT_SOURCE_TYPE_GIFT,
-            source_bid=config.program_code,
-            idempotency_key=idempotency_key,
-            amount=amount,
-            balance_after=balance_after,
-            expires_at=expires_at,
-            consumable_from=granted_at,
-            metadata_json=trial_metadata,
-        )
-        persist_credit_wallet_snapshot(
-            wallet,
-            available_credits=wallet.available_credits,
-            reserved_credits=wallet.reserved_credits,
-            lifetime_granted_credits=next_lifetime_granted,
-            updated_at=granted_at,
-        )
-        db.session.add(ledger_entry)
-        db.session.commit()
-        return _build_trial_offer_state_from_entry(
-            ledger_entry,
-            enabled=True,
-            config=config,
-        )
-    except IntegrityError:
-        db.session.rollback()
-        existing_entry = _load_new_creator_trial_entry(
-            creator_bid,
-            program_code=config.program_code,
-        )
-        if existing_entry is not None:
-            return _build_trial_offer_state_from_entry(
-                existing_entry,
-                enabled=True,
-                config=config,
-            )
-        raise
-
-
-def _resolve_trial_registered_at(
-    creator_bid: str,
-    *,
-    fallback: datetime | None = None,
-) -> datetime | None:
-    registered_at = get_first_verified_credential_created_at(user_bid=creator_bid)
-    if registered_at is not None:
-        return registered_at
-    if fallback is not None:
-        return fallback
-    return datetime.now()
-
-
-def _load_new_creator_trial_entry(
-    creator_bid: str,
-    *,
-    program_code: str,
-) -> CreditLedgerEntry | None:
-    if not creator_bid or not program_code:
-        return None
-    return (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == creator_bid,
-            CreditLedgerEntry.idempotency_key
-            == _build_new_creator_trial_idempotency_key(
-                creator_bid=creator_bid,
-                program_code=program_code,
-            ),
-        )
-        .order_by(CreditLedgerEntry.id.desc())
-        .first()
-    )
-
-
-def _build_new_creator_trial_idempotency_key(
-    *,
-    creator_bid: str,
-    program_code: str,
-) -> str:
-    return f"trial:{program_code}:{creator_bid}"
-
-
-def _load_new_creator_trial_config(app: Flask) -> NewCreatorTrialConfig:
-    raw_value = get_config(BILLING_CONFIG_KEY_NEW_CREATOR_TRIAL_CONFIG, "")
-    payload = dict(BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT)
-    if isinstance(raw_value, dict):
-        candidate = raw_value
-    else:
-        raw_text = str(raw_value or "").strip()
-        candidate: dict[str, Any] = {}
-        if raw_text:
-            try:
-                loaded = json.loads(raw_text)
-            except json.JSONDecodeError:
-                app.logger.warning(
-                    "Invalid new creator trial config JSON: %s", raw_text
-                )
-                loaded = {}
-            if isinstance(loaded, dict):
-                candidate = loaded
-    payload.update(candidate)
-    return NewCreatorTrialConfig(
-        enabled=_coerce_bool(payload.get("enabled")),
-        program_code=str(
-            payload.get("program_code")
-            or BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["program_code"]
-        ).strip(),
-        credit_amount=str(
-            _safe_to_decimal(
-                payload.get("credit_amount"),
-                default=BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["credit_amount"],
-            )
-        ),
-        valid_days=_safe_to_positive_int(
-            payload.get("valid_days"),
-            default=int(BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["valid_days"]),
-        ),
-        eligible_registered_after=str(
-            payload.get("eligible_registered_after") or ""
-        ).strip(),
-        grant_trigger=str(
-            payload.get("grant_trigger")
-            or BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["grant_trigger"]
-        ).strip(),
-    )
-
-
-def _build_trial_offer_state(
-    *,
-    enabled: bool,
-    status: str,
-    config: NewCreatorTrialConfig,
-    granted_at: datetime | None = None,
-    expires_at: datetime | None = None,
-) -> TrialOfferState:
-    return TrialOfferState(
-        enabled=enabled,
-        status=status,
-        credit_amount=_to_decimal(config.credit_amount),
-        valid_days=int(config.valid_days),
-        starts_on_first_grant=True,
-        granted_at=granted_at,
-        expires_at=expires_at,
-    )
-
-
-def _build_trial_offer_state_from_entry(
-    entry: CreditLedgerEntry,
-    *,
-    enabled: bool,
-    config: NewCreatorTrialConfig,
-) -> TrialOfferState:
-    metadata = entry.metadata_json if isinstance(entry.metadata_json, dict) else {}
-    config_snapshot = (
-        metadata.get("trial_config")
-        if isinstance(metadata.get("trial_config"), dict)
-        else {}
-    )
-    offer_config = NewCreatorTrialConfig(
-        enabled=enabled,
-        program_code=config.program_code,
-        credit_amount=str(
-            _safe_to_decimal(
-                config_snapshot.get("credit_amount"),
-                default=config.credit_amount,
-            )
-        ),
-        valid_days=_safe_to_positive_int(
-            config_snapshot.get("valid_days"),
-            default=int(config.valid_days),
-        ),
-        eligible_registered_after=config.eligible_registered_after,
-        grant_trigger=config.grant_trigger,
-    )
-    return _build_trial_offer_state(
-        enabled=enabled,
-        status="granted",
-        config=offer_config,
-        granted_at=entry.created_at,
-        expires_at=entry.expires_at,
     )
 
 
@@ -420,46 +496,41 @@ def _serialize_trial_offer(
 
 
 def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
-    """Best-effort trial bootstrap for auth and role-grant entrypoints."""
-
-    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return
 
-    try:
-        config = _load_new_creator_trial_config(app)
-        if not config.enabled:
-            return
-
-        existing_entry = _load_new_creator_trial_entry(
-            normalized_creator_bid,
-            program_code=config.program_code,
-        )
-        if existing_entry is not None:
-            return
-
+    with app.app_context():
         creator = get_user_entity_by_bid(normalized_creator_bid)
         if creator is None or not bool(creator.is_creator):
             return
 
-        trigger = str(config.grant_trigger).strip() or str(
-            BILLING_NEW_CREATOR_TRIAL_CONFIG_DEFAULT["grant_trigger"]
-        )
-        _grant_new_creator_trial_credits(
-            app,
-            creator_bid=normalized_creator_bid,
-            config=config,
-            registered_at=_resolve_trial_registered_at(
-                normalized_creator_bid,
-                fallback=creator.created_at,
-            ),
-            trigger=trigger,
-        )
-    except Exception:
-        app.logger.exception(
-            "Failed to bootstrap new creator trial credits for creator_bid=%s",
-            normalized_creator_bid,
-        )
+        product_ref = _resolve_trial_product_reference()
+        if not product_ref or not _trial_product_public_enabled(product_ref):
+            return
+
+        if _load_active_creator_subscription(normalized_creator_bid) is not None:
+            return
+        if _load_trial_subscription(normalized_creator_bid) is not None:
+            return
+        if _load_trial_order(normalized_creator_bid) is not None:
+            return
+        if _load_legacy_trial_entry(normalized_creator_bid) is not None:
+            return
+
+        try:
+            _bootstrap_trial_subscription(
+                app,
+                creator_bid=normalized_creator_bid,
+                product_ref=product_ref,
+                trigger="post_auth_creator_grant",
+            )
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+        except Exception:
+            db.session.rollback()
+            raise
 
 
 resolve_new_creator_trial_offer = _resolve_new_creator_trial_offer

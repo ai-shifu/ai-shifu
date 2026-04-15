@@ -17,8 +17,10 @@ import type {
   BillingRenewalEventStatus,
   BillingRenewalEventSummary,
   BillingRenewalEventType,
+  BillingSubscriptionProduct,
   BillingSubscription,
   BillingSubscriptionStatus,
+  BillingTrialOffer,
   BillingTopupProduct,
   BillingUsageScene,
   BillingUsageType,
@@ -131,7 +133,6 @@ const BILLING_CAPABILITY_DESCRIPTION_KEYS: Record<string, string> = {
 };
 
 const BILLING_BUCKET_CATEGORY_KEYS: Record<BillingBucketCategory, string> = {
-  free: 'module.billing.ledger.category.free',
   subscription: 'module.billing.ledger.category.subscription',
   topup: 'module.billing.ledger.category.topup',
 };
@@ -188,6 +189,7 @@ const BILLING_ORDER_TYPE_KEYS: Record<BillingOrderType, string> = {
 };
 
 const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
+  manual: 'module.billing.catalog.labels.providerManual',
   stripe: 'module.billing.catalog.labels.providerStripe',
   pingxx: 'module.billing.catalog.labels.providerPingxx',
 };
@@ -278,7 +280,7 @@ export function resolveBillingCapabilityDescription(
 
 export function resolveBillingProductTitle(
   t: BillingTranslator,
-  product?: BillingPlan | BillingTopupProduct | null,
+  product?: BillingPlan | BillingTopupProduct | BillingTrialOffer | null,
   fallback = '',
 ): string {
   if (!product?.display_name) {
@@ -289,7 +291,7 @@ export function resolveBillingProductTitle(
 
 export function resolveBillingProductDescription(
   t: BillingTranslator,
-  product?: BillingPlan | BillingTopupProduct | null,
+  product?: BillingPlan | BillingTopupProduct | BillingTrialOffer | null,
   fallback = '',
 ): string {
   if (!product?.description) {
@@ -431,6 +433,19 @@ export function resolveBillingPlanCreditsLabel(
       credits: formatBillingCredits(product.credit_amount, locale),
     },
   );
+}
+
+export function resolveBillingSubscriptionProductCreditsLabel(
+  t: BillingTranslator,
+  product: BillingSubscriptionProduct,
+  locale: string,
+): string {
+  if ('billing_interval' in product) {
+    return resolveBillingPlanCreditsLabel(t, product, locale);
+  }
+  return t('module.billing.package.free.creditSummary', {
+    credits: formatBillingCredits(product.credit_amount, locale),
+  });
 }
 
 export function resolveBillingBucketCategoryLabel(
@@ -725,6 +740,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.capabilities.status.internalOnly'),
     t('module.billing.catalog.badges.bestValue'),
     t('module.billing.catalog.badges.recommended'),
+    t('module.billing.catalog.labels.providerManual'),
     t('module.billing.catalog.plans.creatorMonthly.description'),
     t('module.billing.catalog.plans.creatorMonthly.title'),
     t('module.billing.catalog.plans.creatorMonthlyPro.description'),
@@ -868,7 +884,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.bucketStatus.canceled'),
     t('module.billing.ledger.bucketStatus.exhausted'),
     t('module.billing.ledger.bucketStatus.expired'),
-    t('module.billing.ledger.category.free'),
     t('module.billing.ledger.category.subscription'),
     t('module.billing.ledger.category.topup'),
     t('module.billing.ledger.detail.balanceAfter'),
