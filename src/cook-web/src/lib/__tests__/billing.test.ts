@@ -1,8 +1,10 @@
 import {
   formatBillingCredits,
+  getBillingCreditPrecision,
   parseBillingDateValue,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
+  setBillingCreditPrecision,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 
@@ -30,10 +32,21 @@ const yearlyPlan: BillingPlan = {
 };
 
 describe('resolveBillingPlanCreditsLabel', () => {
-  test('formats credits with fixed seven-decimal precision', () => {
-    expect(formatBillingCredits(5, 'en-US')).toBe('5.0000000');
-    expect(formatBillingCredits(1.25, 'en-US')).toBe('1.2500000');
-    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.0000000');
+  afterEach(() => {
+    setBillingCreditPrecision();
+  });
+
+  test('formats credits with fixed two-decimal precision by default', () => {
+    expect(getBillingCreditPrecision()).toBe(2);
+    expect(formatBillingCredits(5, 'en-US')).toBe('5.00');
+    expect(formatBillingCredits(1.25, 'en-US')).toBe('1.25');
+    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.00');
+  });
+
+  test('formats credits with runtime-configured precision', () => {
+    setBillingCreditPrecision(2);
+    expect(formatBillingCredits(1.256, 'en-US')).toBe('1.26');
+    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.00');
   });
 
   test('uses monthly credits copy for monthly plans', () => {
@@ -42,7 +55,7 @@ describe('resolveBillingPlanCreditsLabel', () => {
     });
 
     expect(resolveBillingPlanCreditsLabel(t, monthlyPlan, 'zh-CN')).toBe(
-      'module.billing.package.creditSummary.monthly:5.0000000',
+      'module.billing.package.creditSummary.monthly:5.00',
     );
   });
 
@@ -52,7 +65,7 @@ describe('resolveBillingPlanCreditsLabel', () => {
     });
 
     expect(resolveBillingPlanCreditsLabel(t, yearlyPlan, 'en-US')).toBe(
-      'module.billing.package.creditSummary.yearly:10,000.0000000',
+      'module.billing.package.creditSummary.yearly:10,000.00',
     );
   });
 });

@@ -22,10 +22,10 @@ from .models import (
 )
 from .charges import build_usage_metric_charges
 from .ownership import resolve_usage_creator_bid
+from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 
 _ZERO = Decimal("0")
-_DECIMAL_QUANT = Decimal("0.0000000001")
 
 
 @dataclass(slots=True, frozen=True)
@@ -608,4 +608,4 @@ def _resolve_stat_date_range(
 
 
 def _quantize_decimal(value: Any) -> Decimal:
-    return _to_decimal(value).quantize(_DECIMAL_QUANT)
+    return _quantize_credit_amount(value)

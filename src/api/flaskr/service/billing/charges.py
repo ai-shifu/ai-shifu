@@ -24,9 +24,14 @@ from .consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from .models import CreditUsageRate
+from .primitives import (
+    credit_decimal_to_number,
+    decimal_to_number,
+    quantize_credit_amount,
+    to_decimal,
+)
 
 _ZERO = Decimal("0")
-_DECIMAL_QUANT = Decimal("0.0000000001")
 _ROUNDING_LABELS = {
     CREDIT_ROUNDING_MODE_CEIL: "ceil",
     CREDIT_ROUNDING_MODE_FLOOR: "floor",
@@ -67,9 +72,9 @@ class UsageMetricBreakdownItem:
             "raw_amount": int(self.raw_amount),
             "unit_size": int(self.unit_size),
             "rounded_units": decimal_to_number(self.rounded_units),
-            "credits_per_unit": decimal_to_number(self.credits_per_unit),
+            "credits_per_unit": credit_decimal_to_number(self.credits_per_unit),
             "rounding_mode": self.rounding_mode,
-            "consumed_credits": decimal_to_number(self.consumed_credits),
+            "consumed_credits": credit_decimal_to_number(self.consumed_credits),
         }
 
 
@@ -83,7 +88,7 @@ class UsageBucketMetricBreakdownItem:
         return {
             "billing_metric": self.billing_metric,
             "billing_metric_code": int(self.billing_metric_code),
-            "consumed_credits": decimal_to_number(self.consumed_credits),
+            "consumed_credits": credit_decimal_to_number(self.consumed_credits),
         }
 
 
@@ -104,7 +109,7 @@ class UsageBucketBreakdownItem:
             "bucket_category": self.bucket_category,
             "source_type": self.source_type,
             "source_bid": self.source_bid,
-            "consumed_credits": decimal_to_number(self.consumed_credits),
+            "consumed_credits": credit_decimal_to_number(self.consumed_credits),
             "effective_from": self.effective_from,
             "effective_to": self.effective_to,
             "metric_breakdown": [
@@ -218,8 +223,8 @@ def build_metric_charge(
         unit_size=int(rate.unit_size or 1),
         rounding_mode=int(rate.rounding_mode or CREDIT_ROUNDING_MODE_CEIL),
     )
-    consumed_credits = (rounded_units * to_decimal(rate.credits_per_unit)).quantize(
-        _DECIMAL_QUANT
+    consumed_credits = quantize_credit_amount(
+        rounded_units * to_decimal(rate.credits_per_unit)
     )
     return UsageMetricCharge(
         billing_metric=int(rate.billing_metric or billing_metric),
@@ -321,16 +326,3 @@ def build_usage_entry_metadata(
         ],
         bucket_breakdown=list(bucket_breakdown or []),
     )
-
-
-def to_decimal(value: Any) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    return Decimal(str(value or 0))
-
-
-def decimal_to_number(value: Decimal | Any) -> int | float:
-    decimal_value = to_decimal(value)
-    if decimal_value == decimal_value.to_integral_value():
-        return int(decimal_value)
-    return float(decimal_value)

@@ -82,7 +82,7 @@ from .dtos import (
     BillingWalletSnapshotDTO,
 )
 from .primitives import (
-    decimal_to_number,
+    credit_decimal_to_number,
     normalize_bid,
     normalize_json_object,
     serialize_dt,
@@ -132,7 +132,7 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
         "description": row.description_i18n_key,
         "currency": row.currency,
         "price_amount": int(row.price_amount or 0),
-        "credit_amount": decimal_to_number(row.credit_amount),
+        "credit_amount": credit_decimal_to_number(row.credit_amount),
     }
     if isinstance(highlights, list) and highlights:
         payload["highlights"] = [
@@ -167,10 +167,14 @@ def serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
             lifetime_consumed_credits=0,
         )
     return BillingWalletSnapshotDTO(
-        available_credits=decimal_to_number(wallet.available_credits),
-        reserved_credits=decimal_to_number(wallet.reserved_credits),
-        lifetime_granted_credits=decimal_to_number(wallet.lifetime_granted_credits),
-        lifetime_consumed_credits=decimal_to_number(wallet.lifetime_consumed_credits),
+        available_credits=credit_decimal_to_number(wallet.available_credits),
+        reserved_credits=credit_decimal_to_number(wallet.reserved_credits),
+        lifetime_granted_credits=credit_decimal_to_number(
+            wallet.lifetime_granted_credits
+        ),
+        lifetime_consumed_credits=credit_decimal_to_number(
+            wallet.lifetime_consumed_credits
+        ),
     )
 
 
@@ -379,7 +383,7 @@ def serialize_wallet_bucket(
         category=CREDIT_BUCKET_CATEGORY_LABELS.get(category_code, "subscription"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
-        available_credits=decimal_to_number(row.available_credits),
+        available_credits=credit_decimal_to_number(row.available_credits),
         effective_from=serialize_dt(
             app,
             row.effective_from,
@@ -410,8 +414,8 @@ def serialize_ledger_entry(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         idempotency_key=row.idempotency_key,
-        amount=decimal_to_number(row.amount),
-        balance_after=decimal_to_number(row.balance_after),
+        amount=credit_decimal_to_number(row.amount),
+        balance_after=credit_decimal_to_number(row.balance_after),
         expires_at=_serialize_ledger_dt(
             app,
             row.expires_at,
@@ -454,7 +458,7 @@ def serialize_daily_usage_metric(
         ),
         raw_amount=int(row.raw_amount or 0),
         record_count=int(row.record_count or 0),
-        consumed_credits=decimal_to_number(row.consumed_credits),
+        consumed_credits=credit_decimal_to_number(row.consumed_credits),
         window_started_at=serialize_dt(
             app,
             row.window_started_at,
@@ -481,7 +485,7 @@ def serialize_daily_ledger_summary(
         stat_date=row.stat_date,
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
-        amount=decimal_to_number(row.amount),
+        amount=credit_decimal_to_number(row.amount),
         entry_count=int(row.entry_count or 0),
         window_started_at=serialize_dt(
             app,

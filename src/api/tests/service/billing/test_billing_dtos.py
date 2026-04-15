@@ -184,6 +184,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         defaultLlmModel="gpt-5.4",
         wechatAppId="wechat-app-1",
         enableWechatCode=True,
+        billingCreditPrecision=2,
         stripePublishableKey="pk_test_123",
         stripeEnabled=True,
         paymentChannels=["stripe", "pingxx"],
@@ -251,5 +252,6 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
     }
+    assert payload["billingCreditPrecision"] == 2
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert context.__json__()["domain"]["is_custom_domain"] is True

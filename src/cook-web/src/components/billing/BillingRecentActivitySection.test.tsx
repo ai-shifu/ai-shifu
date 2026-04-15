@@ -132,7 +132,7 @@ describe('BillingRecentActivitySection', () => {
       ),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
-    expect(await screen.findByText('-2.5000000')).toBeInTheDocument();
+    expect(await screen.findByText('-2.50')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.orders.title'),
     ).not.toBeInTheDocument();
@@ -168,6 +168,6 @@ describe('BillingRecentActivitySection', () => {
     expect(
       await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
-    expect(await screen.findByText('+5.0000000')).toBeInTheDocument();
+    expect(await screen.findByText('+5.00')).toBeInTheDocument();
   });
 });

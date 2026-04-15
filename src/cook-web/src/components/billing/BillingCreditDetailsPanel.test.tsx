@@ -115,14 +115,14 @@ describe('BillingCreditDetailsPanel', () => {
     expect(
       screen.getByText('module.billing.details.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1,110.0000000')).toBeInTheDocument();
+    expect(screen.getByText('1,110.00')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.ledger.category.subscription'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.ledger.category.topup'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1,000.0000000')).toBeInTheDocument();
+    expect(screen.getByText('1,000.00')).toBeInTheDocument();
     expect(screen.getByText('2026.08.12 23:59')).toBeInTheDocument();
 
     await user.click(

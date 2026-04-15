@@ -306,6 +306,71 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
         assert buckets["bucket-topup"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
 
 
+def test_settle_usage_rounds_consumption_before_persisting(
+    billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-rounding",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_config",
+        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-rounding", "1.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add(
+            _create_bucket(
+                creator_bid="creator-rounding",
+                wallet_bid=wallet.wallet_bid,
+                bucket_bid="bucket-rounding",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                priority=30,
+                available_credits="1.0000000000",
+            )
+        )
+        dao.db.session.add(
+            _create_rate(
+                rate_bid="rate-rounding",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                credits_per_unit="0.1250000000",
+                unit_size=1,
+            )
+        )
+        dao.db.session.add(
+            _create_usage(
+                usage_bid="usage-rounding",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-test",
+                input_value=1,
+                input_cache=0,
+                output=0,
+                total=1,
+            )
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(
+            billing_settlement_app,
+            usage_bid="usage-rounding",
+        )
+
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-rounding").one()
+        entry = CreditLedgerEntry.query.filter_by(source_bid="usage-rounding").one()
+
+        assert payload["status"] == "settled"
+        assert payload["consumed_credits"] == 0.13
+        assert wallet.available_credits == Decimal("0.8700000000")
+        assert entry.amount == Decimal("-0.1300000000")
+        assert entry.balance_after == Decimal("0.8700000000")
+        assert entry.metadata_json["metric_breakdown"][0]["consumed_credits"] == 0.13
+        assert entry.metadata_json["bucket_breakdown"][0]["consumed_credits"] == 0.13
+
+
 def test_settle_tts_usage_is_idempotent(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:

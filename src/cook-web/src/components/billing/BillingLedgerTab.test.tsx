@@ -155,10 +155,10 @@ describe('BillingLedgerTab', () => {
       screen.getAllByText('module.billing.ledger.detail.title').length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText('usage-1').length).toBeGreaterThan(1);
-    expect(screen.getByText('-2.5000000')).toBeInTheDocument();
-    expect(screen.getAllByText('97.5000000').length).toBeGreaterThan(0);
-    expect(screen.getByText('1.2500000')).toBeInTheDocument();
-    expect(screen.getByText('2.5000000')).toBeInTheDocument();
+    expect(screen.getByText('-2.50')).toBeInTheDocument();
+    expect(screen.getAllByText('97.50').length).toBeGreaterThan(0);
+    expect(screen.getByText('1.25')).toBeInTheDocument();
+    expect(screen.getByText('2.50')).toBeInTheDocument();
   });
 
   test('renders empty state when wallet bucket dto is empty', async () => {

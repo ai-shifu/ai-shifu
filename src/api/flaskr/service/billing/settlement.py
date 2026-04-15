@@ -34,7 +34,9 @@ from .bucket_categories import (
 )
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
+from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import decimal_to_number as _decimal_to_number
+from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .wallets import (
     persist_credit_wallet_snapshot,
@@ -43,7 +45,6 @@ from .wallets import (
 )
 
 _ZERO = Decimal("0")
-_DECIMAL_QUANT = Decimal("0.0000000001")
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 
@@ -254,7 +255,7 @@ def settle_bill_usage(
                     usage_bid=usage.usage_bid,
                     creator_bid=creator_bid,
                     entry_count=0,
-                    consumed_credits=_decimal_to_number(total_required),
+                    consumed_credits=_credit_decimal_to_number(total_required),
                 )
 
             balance_after = total_available
@@ -270,12 +271,14 @@ def settle_bill_usage(
                     if bucket_available <= _ZERO:
                         continue
 
-                    consumed = min(bucket_available, remaining)
+                    consumed = _quantize_credit_amount(min(bucket_available, remaining))
                     balance_after -= consumed
                     remaining -= consumed
                     total_consumed += consumed
-                    bucket.available_credits = bucket_available - consumed
-                    bucket.consumed_credits = (
+                    bucket.available_credits = _quantize_credit_amount(
+                        bucket_available - consumed
+                    )
+                    bucket.consumed_credits = _quantize_credit_amount(
                         _to_decimal(bucket.consumed_credits) + consumed
                     )
                     sync_credit_bucket_status(bucket)
@@ -324,7 +327,7 @@ def settle_bill_usage(
                     usage_bid=usage.usage_bid,
                     creator_bid=creator_bid,
                     entry_count=0,
-                    consumed_credits=_decimal_to_number(total_required),
+                    consumed_credits=_credit_decimal_to_number(total_required),
                 )
 
             bucket_breakdown = [
@@ -409,7 +412,7 @@ def settle_bill_usage(
                 usage_bid=usage.usage_bid,
                 creator_bid=creator_bid,
                 entry_count=entry_count,
-                consumed_credits=_decimal_to_number(total_consumed),
+                consumed_credits=_credit_decimal_to_number(total_consumed),
             )
 
 

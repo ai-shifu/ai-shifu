@@ -33,7 +33,8 @@ from .bucket_categories import (
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
-from .primitives import decimal_to_number as _decimal_to_number
+from .primitives import credit_decimal_to_number as _credit_decimal_to_number
+from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 
 _ZERO = Decimal("0")
@@ -144,6 +145,8 @@ def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
         (_to_decimal(row.reserved_credits) for row in rows),
         start=_ZERO,
     )
+    wallet.available_credits = _quantize_credit_amount(wallet.available_credits)
+    wallet.reserved_credits = _quantize_credit_amount(wallet.reserved_credits)
     return wallet
 
 
@@ -164,15 +167,19 @@ def persist_credit_wallet_snapshot(
     expected_version = int(wallet.version or 0)
     next_version = expected_version + 1
     values: dict[str, Any] = {
-        "available_credits": _to_decimal(available_credits),
-        "reserved_credits": _to_decimal(reserved_credits),
+        "available_credits": _quantize_credit_amount(available_credits),
+        "reserved_credits": _quantize_credit_amount(reserved_credits),
         "version": next_version,
         "updated_at": updated_at or datetime.now(),
     }
     if lifetime_granted_credits is not None:
-        values["lifetime_granted_credits"] = _to_decimal(lifetime_granted_credits)
+        values["lifetime_granted_credits"] = _quantize_credit_amount(
+            lifetime_granted_credits
+        )
     if lifetime_consumed_credits is not None:
-        values["lifetime_consumed_credits"] = _to_decimal(lifetime_consumed_credits)
+        values["lifetime_consumed_credits"] = _quantize_credit_amount(
+            lifetime_consumed_credits
+        )
     if last_settled_usage_id is not None:
         values["last_settled_usage_id"] = int(last_settled_usage_id)
 
@@ -237,8 +244,10 @@ def rebuild_credit_wallet_snapshots(
                 WalletSnapshotRecord(
                     wallet_bid=wallet.wallet_bid,
                     creator_bid=wallet.creator_bid,
-                    available_credits=_decimal_to_number(wallet.available_credits),
-                    reserved_credits=_decimal_to_number(wallet.reserved_credits),
+                    available_credits=_credit_decimal_to_number(
+                        wallet.available_credits
+                    ),
+                    reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
                 )
             )
 
@@ -265,7 +274,7 @@ def grant_refund_return_credits(
 
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_refund_bid = str(refund_bid or "").strip()
-    normalized_amount = _to_decimal(amount)
+    normalized_amount = _quantize_credit_amount(amount)
     if (
         not normalized_creator_bid
         or not normalized_refund_bid
@@ -275,7 +284,7 @@ def grant_refund_return_credits(
             status="noop",
             creator_bid=normalized_creator_bid or None,
             source_bid=normalized_refund_bid or None,
-            amount=_decimal_to_number(normalized_amount),
+            amount=_credit_decimal_to_number(normalized_amount),
         )
 
     with app.app_context():
@@ -340,7 +349,7 @@ def grant_refund_return_credits(
             source_bid=normalized_refund_bid,
             idempotency_key=idempotency_key,
             amount=normalized_amount,
-            balance_after=_to_decimal(wallet.available_credits),
+            balance_after=_quantize_credit_amount(wallet.available_credits),
             expires_at=None,
             consumable_from=now,
             metadata_json={
@@ -376,14 +385,14 @@ def adjust_credit_wallet_balance(
     """Apply a manual admin ledger adjustment through credit buckets."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
-    normalized_amount = _to_decimal(amount)
+    normalized_amount = _quantize_credit_amount(amount)
     normalized_note = str(note or "").strip()
     normalized_operator_user_bid = str(operator_user_bid or "").strip()
     if not normalized_creator_bid or normalized_amount == _ZERO:
         return BillingLedgerAdjustResultDTO(
             status="noop",
             creator_bid=normalized_creator_bid or None,
-            amount=_decimal_to_number(normalized_amount),
+            amount=_credit_decimal_to_number(normalized_amount),
         )
 
     with app.app_context():
@@ -433,7 +442,7 @@ def adjust_credit_wallet_balance(
                 source_bid=adjustment_bid,
                 idempotency_key=f"adjustment:{adjustment_bid}:{bucket.wallet_bucket_bid}",
                 amount=normalized_amount,
-                balance_after=_to_decimal(wallet.available_credits),
+                balance_after=_quantize_credit_amount(wallet.available_credits),
                 expires_at=None,
                 consumable_from=adjusted_at,
                 metadata_json={
@@ -453,11 +462,13 @@ def adjust_credit_wallet_balance(
                 status="adjusted",
                 adjustment_bid=adjustment_bid,
                 creator_bid=normalized_creator_bid,
-                amount=_decimal_to_number(normalized_amount),
+                amount=_credit_decimal_to_number(normalized_amount),
                 wallet=BillingWalletRefDTO(
                     wallet_bid=wallet.wallet_bid,
-                    available_credits=_decimal_to_number(wallet.available_credits),
-                    reserved_credits=_decimal_to_number(wallet.reserved_credits),
+                    available_credits=_credit_decimal_to_number(
+                        wallet.available_credits
+                    ),
+                    reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
                 ),
                 wallet_bucket_bids=[bucket.wallet_bucket_bid],
                 ledger_bids=[ledger_entry.ledger_bid],
@@ -484,9 +495,11 @@ def adjust_credit_wallet_balance(
             if available <= _ZERO:
                 continue
 
-            adjusted_amount = min(available, remaining)
-            bucket.available_credits = available - adjusted_amount
-            bucket.consumed_credits = (
+            adjusted_amount = _quantize_credit_amount(min(available, remaining))
+            bucket.available_credits = _quantize_credit_amount(
+                available - adjusted_amount
+            )
+            bucket.consumed_credits = _quantize_credit_amount(
                 _to_decimal(bucket.consumed_credits) + adjusted_amount
             )
             sync_credit_bucket_status(bucket)
@@ -502,7 +515,7 @@ def adjust_credit_wallet_balance(
                 source_bid=adjustment_bid,
                 idempotency_key=f"adjustment:{adjustment_bid}:{bucket.wallet_bucket_bid}",
                 amount=-adjusted_amount,
-                balance_after=_to_decimal(wallet.available_credits),
+                balance_after=_quantize_credit_amount(wallet.available_credits),
                 expires_at=bucket.effective_to,
                 consumable_from=bucket.effective_from,
                 metadata_json={
@@ -526,11 +539,11 @@ def adjust_credit_wallet_balance(
             status="adjusted",
             adjustment_bid=adjustment_bid,
             creator_bid=normalized_creator_bid,
-            amount=_decimal_to_number(normalized_amount),
+            amount=_credit_decimal_to_number(normalized_amount),
             wallet=BillingWalletRefDTO(
                 wallet_bid=wallet.wallet_bid,
-                available_credits=_decimal_to_number(wallet.available_credits),
-                reserved_credits=_decimal_to_number(wallet.reserved_credits),
+                available_credits=_credit_decimal_to_number(wallet.available_credits),
+                reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
             ),
             wallet_bucket_bids=wallet_bucket_bids,
             ledger_bids=ledger_bids,
@@ -589,7 +602,9 @@ def expire_credit_wallet_buckets(
                 wallets[bucket.wallet_bid] = wallet
 
             bucket.available_credits = _ZERO
-            bucket.expired_credits = _to_decimal(bucket.expired_credits) + available
+            bucket.expired_credits = _quantize_credit_amount(
+                _to_decimal(bucket.expired_credits) + available
+            )
             bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
             db.session.add(bucket)
 
@@ -604,7 +619,7 @@ def expire_credit_wallet_buckets(
                 source_bid=bucket.source_bid,
                 idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
                 amount=-available,
-                balance_after=_to_decimal(wallet.available_credits),
+                balance_after=_quantize_credit_amount(wallet.available_credits),
                 expires_at=bucket.effective_to,
                 consumable_from=bucket.effective_from,
                 metadata_json={
@@ -627,7 +642,7 @@ def expire_credit_wallet_buckets(
             status="expired" if expired_count else "noop",
             creator_bid=normalized_creator_bid or None,
             bucket_count=expired_count,
-            expired_credits=_decimal_to_number(expired_total),
+            expired_credits=_credit_decimal_to_number(expired_total),
         )
 
 

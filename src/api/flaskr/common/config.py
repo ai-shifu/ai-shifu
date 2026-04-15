@@ -135,6 +135,14 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Currency symbol used in Cook Web (default: ¥)",
         group="frontend",
     ),
+    "BILLING_CREDIT_PRECISION": EnvVar(
+        name="BILLING_CREDIT_PRECISION",
+        default=2,
+        type=int,
+        description="Fractional digits used for billing credit display and settlement rounding. Values: 0-10.",
+        group="frontend",
+        validator=lambda x: 0 <= int(x) <= 10,
+    ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
         default="/",

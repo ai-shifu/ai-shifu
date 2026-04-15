@@ -400,6 +400,54 @@ def test_aggregate_daily_usage_metrics_supports_single_usage_ledger_with_multi_m
         ]
 
 
+def test_aggregate_daily_usage_metrics_quantizes_consumed_credits_with_configured_precision(
+    billing_daily_usage_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
+        lambda app, usage: "creator-agg-precision",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_config",
+        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+    )
+
+    with billing_daily_usage_app.app_context():
+        _add_llm_rates()
+        _add_usage(
+            usage_bid="usage-agg-precision",
+            shifu_bid="shifu-agg-1",
+            created_at=datetime(2026, 4, 8, 9, 0, 0),
+            input_tokens=100,
+            output_tokens=0,
+        )
+        _add_usage_ledger(
+            creator_bid="creator-agg-precision",
+            usage_bid="usage-agg-precision",
+            metric_code=BILLING_METRIC_LLM_INPUT_TOKENS,
+            amount=Decimal("-1.2350000000"),
+            created_at=datetime(2026, 4, 8, 9, 1, 0),
+        )
+        dao.db.session.commit()
+
+        payload = aggregate_daily_usage_metrics(
+            billing_daily_usage_app,
+            stat_date="2026-04-08",
+            creator_bid="creator-agg-precision",
+            now=datetime(2026, 4, 8, 23, 0, 0),
+        )
+
+        row = BillingDailyUsageMetric.query.filter(
+            BillingDailyUsageMetric.stat_date == "2026-04-08",
+            BillingDailyUsageMetric.creator_bid == "creator-agg-precision",
+            BillingDailyUsageMetric.billing_metric == BILLING_METRIC_LLM_INPUT_TOKENS,
+        ).one()
+
+        assert payload["status"] == "aggregated"
+        assert str(row.consumed_credits) == "1.2400000000"
+
+
 def _add_llm_rates() -> None:
     for metric_code in (
         BILLING_METRIC_LLM_INPUT_TOKENS,

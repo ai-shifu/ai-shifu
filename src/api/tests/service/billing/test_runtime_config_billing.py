@@ -60,6 +60,7 @@ def runtime_config_client(monkeypatch):
         "DEFAULT_COURSE_ID": "global-course-1",
         "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
+        "BILLING_CREDIT_PRECISION": 4,
         "STRIPE_PUBLISHABLE_KEY": "pk_test_global",
         "STRIPE_ENABLED": True,
         "PAYMENT_CHANNELS_ENABLED": "pingxx,stripe",
@@ -85,6 +86,10 @@ def runtime_config_client(monkeypatch):
     monkeypatch.setattr(
         config_route,
         "get_config",
+        lambda key, default="": config_values.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_config",
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(
@@ -177,6 +182,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["billingCreditPrecision"] == 4
     assert payload["entitlements"] == {
         "branding_enabled": True,
         "custom_domain_enabled": True,
@@ -219,6 +225,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
     assert payload["homeUrl"] == "/"
+    assert payload["billingCreditPrecision"] == 4
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,

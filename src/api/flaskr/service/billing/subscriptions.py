@@ -71,6 +71,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
+from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import serialize_subscription as _serialize_subscription
 from .wallets import (
@@ -515,7 +516,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         return False
     _ensure_pingxx_renewal_applied_cycle(order, product)
 
-    amount = _to_decimal(product.credit_amount)
+    amount = _quantize_credit_amount(product.credit_amount)
     if amount <= 0:
         return False
 
@@ -571,8 +572,10 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     db.session.add(bucket)
     sync_credit_bucket_status(bucket)
     refresh_credit_wallet_snapshot(wallet)
-    balance_after = _to_decimal(wallet.available_credits)
-    next_lifetime_granted = _to_decimal(wallet.lifetime_granted_credits) + amount
+    balance_after = _quantize_credit_amount(wallet.available_credits)
+    next_lifetime_granted = _quantize_credit_amount(
+        _to_decimal(wallet.lifetime_granted_credits) + amount
+    )
     ledger_entry = CreditLedgerEntry(
         ledger_bid=generate_id(app),
         creator_bid=order.creator_bid,

@@ -566,6 +566,7 @@ class RuntimeConfigDTO(BillingBaseDTO):
     defaultLlmModel: str
     wechatAppId: str
     enableWechatCode: bool
+    billingCreditPrecision: int
     stripePublishableKey: str
     stripeEnabled: bool
     paymentChannels: list[str]

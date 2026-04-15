@@ -34,12 +34,12 @@ from .consts import (
 from .dtos import BillingTrialOfferDTO
 from .models import BillingOrder, BillingProduct, BillingSubscription, CreditLedgerEntry
 from .primitives import coerce_bool as _coerce_bool
-from .primitives import decimal_to_number as _decimal_to_number
+from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .primitives import serialize_dt as _serialize_dt
-from .primitives import to_decimal as _to_decimal
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 _TRIAL_FALLBACK_PRODUCT_SEED = next(
@@ -88,7 +88,7 @@ class TrialOfferState:
             description=str(self.description),
             currency=str(self.currency),
             price_amount=int(self.price_amount),
-            credit_amount=_decimal_to_number(self.credit_amount),
+            credit_amount=_credit_decimal_to_number(self.credit_amount),
             highlights=list(self.highlights),
             valid_days=int(self.valid_days),
             starts_on_first_grant=bool(self.starts_on_first_grant),
@@ -192,7 +192,7 @@ def _build_trial_offer_state(
         description=str(_trial_product_field(product_ref, "description_i18n_key", "")),
         currency=str(_trial_product_field(product_ref, "currency", "CNY")),
         price_amount=int(_trial_product_field(product_ref, "price_amount", 0) or 0),
-        credit_amount=_to_decimal(
+        credit_amount=_quantize_credit_amount(
             _trial_product_field(product_ref, "credit_amount", 0)
         ),
         highlights=_resolve_trial_highlights(product_ref),
@@ -323,7 +323,9 @@ def _bootstrap_trial_subscription(
     trigger: str,
 ) -> None:
     valid_days = _resolve_trial_valid_days(product_ref)
-    credit_amount = _to_decimal(_trial_product_field(product_ref, "credit_amount", 0))
+    credit_amount = _quantize_credit_amount(
+        _trial_product_field(product_ref, "credit_amount", 0)
+    )
     if valid_days <= 0 or credit_amount <= 0:
         return
 

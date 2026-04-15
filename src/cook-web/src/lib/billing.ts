@@ -223,11 +223,39 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 const BILLING_OFFSETLESS_DATETIME_RE =
   /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
 const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
+const DEFAULT_BILLING_CREDIT_PRECISION = 2;
+const MAX_BILLING_CREDIT_PRECISION = 10;
 
-export function formatBillingCredits(value: number, locale: string): string {
+let billingCreditPrecision = DEFAULT_BILLING_CREDIT_PRECISION;
+
+function normalizeBillingCreditPrecision(value?: number | null): number {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return DEFAULT_BILLING_CREDIT_PRECISION;
+  }
+  return Math.min(
+    MAX_BILLING_CREDIT_PRECISION,
+    Math.max(0, Math.trunc(numericValue)),
+  );
+}
+
+export function setBillingCreditPrecision(value?: number | null): void {
+  billingCreditPrecision = normalizeBillingCreditPrecision(value);
+}
+
+export function getBillingCreditPrecision(): number {
+  return billingCreditPrecision;
+}
+
+export function formatBillingCredits(
+  value: number,
+  locale: string,
+  precision: number = billingCreditPrecision,
+): string {
+  const normalizedPrecision = normalizeBillingCreditPrecision(precision);
   return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 7,
-    maximumFractionDigits: 7,
+    minimumFractionDigits: normalizedPrecision,
+    maximumFractionDigits: normalizedPrecision,
   }).format(Number(value || 0));
 }
 

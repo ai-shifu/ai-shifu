@@ -6,6 +6,7 @@ from flaskr.service.billing.dtos import (
     RuntimeLegalUrlsDTO,
     RuntimeLocalizedUrlDTO,
 )
+from flaskr.service.billing.primitives import get_billing_credit_precision
 from flaskr.service.billing.runtime_config import build_runtime_billing_context
 from flaskr.service.config.funcs import get_config
 
@@ -90,6 +91,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
             wechatAppId=get_config("WECHAT_APP_ID", ""),
             enableWechatCode=bool(get_config("WECHAT_APP_ID", "")),
+            billingCreditPrecision=get_billing_credit_precision(),
             stripePublishableKey=get_config("STRIPE_PUBLISHABLE_KEY", ""),
             stripeEnabled=_to_bool(get_config("STRIPE_ENABLED", False), False),
             paymentChannels=_to_list(

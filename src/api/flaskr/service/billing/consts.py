@@ -524,6 +524,7 @@ BILLING_PRODUCT_SEEDS = (
 )
 
 BILLING_CONFIG_KEY_ENABLED = "BILLING_ENABLED"
+BILLING_CONFIG_KEY_CREDIT_PRECISION = "BILLING_CREDIT_PRECISION"
 BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILLING_LOW_BALANCE_THRESHOLD"
 BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILLING_RENEWAL_TASK_CONFIG"
 BILLING_CONFIG_KEY_RATE_VERSION = "BILLING_RATE_VERSION"
@@ -607,6 +608,15 @@ BILLING_SYS_CONFIG_SEEDS = (
         "value": "1",
         "is_encrypted": 0,
         "remark": "Creator billing feature flag",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "billing-config-credit-precision",
+        "key": BILLING_CONFIG_KEY_CREDIT_PRECISION,
+        "value": "2",
+        "is_encrypted": 0,
+        "remark": "Fractional digits used for billing credit display and settlement rounding",
         "deleted": 0,
         "updated_by": "system",
     },

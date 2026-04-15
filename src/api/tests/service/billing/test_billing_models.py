@@ -3,6 +3,7 @@ from __future__ import annotations
 from flaskr.dao import db
 from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
+    BILLING_CONFIG_KEY_CREDIT_PRECISION,
     BILLING_CONFIG_KEY_ENABLED,
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILLING_CONFIG_KEY_RATE_VERSION,
@@ -133,8 +134,9 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILLING_SYS_CONFIG_SEEDS) == 4
+    assert len(BILLING_SYS_CONFIG_SEEDS) == 5
     assert {row["key"] for row in BILLING_SYS_CONFIG_SEEDS} == {
+        BILLING_CONFIG_KEY_CREDIT_PRECISION,
         BILLING_CONFIG_KEY_ENABLED,
         BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
