@@ -1,5 +1,5 @@
 import type { ChatContentItem } from './useChatLogicHook';
-import type { SubtitleCueData } from '@/c-api/studyV2';
+import type { ElementSubtitleCue } from 'markdown-flow-ui/slide';
 import {
   getAudioSegmentDataListFromTracks,
   hasAudioContentInTrack,
@@ -37,7 +37,7 @@ const normalizeSubtitleCueNumber = (value: unknown) => {
   return null;
 };
 
-const sortSubtitleCues = (cues: SubtitleCueData[]) =>
+const sortSubtitleCues = (cues: ElementSubtitleCue[]) =>
   [...cues].sort(
     (prevCue, nextCue) =>
       Number(prevCue.position ?? 0) - Number(nextCue.position ?? 0) ||
@@ -48,14 +48,14 @@ const sortSubtitleCues = (cues: SubtitleCueData[]) =>
 
 export const resolveListenSlideSubtitleCues = (
   item: Pick<ChatContentItem, 'payload'>,
-): SubtitleCueData[] | undefined => {
+): ElementSubtitleCue[] | undefined => {
   const rawSubtitleCues = item.payload?.audio?.subtitle_cues as unknown;
 
   if (!Array.isArray(rawSubtitleCues)) {
     return undefined;
   }
 
-  const normalizedSubtitleCues = rawSubtitleCues.reduce<SubtitleCueData[]>(
+  const normalizedSubtitleCues = rawSubtitleCues.reduce<ElementSubtitleCue[]>(
     (result, cue) => {
       if (!cue || typeof cue !== 'object') {
         return result;
@@ -77,7 +77,8 @@ export const resolveListenSlideSubtitleCues = (
         text,
         start_ms: startMs,
         end_ms: endMs,
-        ...(segmentIndex === null ? {} : { segment_index: segmentIndex }),
+        // Always emit the slide contract shape after normalization.
+        segment_index: segmentIndex ?? 0,
         ...(position === null ? {} : { position }),
       });
 

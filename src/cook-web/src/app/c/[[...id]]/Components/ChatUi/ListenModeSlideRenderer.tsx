@@ -15,6 +15,7 @@ import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
   type Element as SlideElement,
+  type ElementSubtitleCue,
   type MobileViewMode,
   type SlidePlayerCustomActionContext,
 } from 'markdown-flow-ui/slide';
@@ -34,7 +35,6 @@ import {
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
-import type { SubtitleCueData } from '@/c-api/studyV2';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -47,7 +47,7 @@ type ListenSlideElement = SlideElement & {
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
-  subtitle_cues?: SubtitleCueData[];
+  subtitle_cues?: ElementSubtitleCue[];
 };
 
 interface ListenModeSlideRendererProps {

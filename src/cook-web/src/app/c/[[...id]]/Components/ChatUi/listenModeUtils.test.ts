@@ -102,7 +102,6 @@ describe('listenModeUtils', () => {
                 text: '第一句',
                 start_ms: 0,
                 end_ms: 1200,
-                segment_index: 0,
                 position: 0,
               },
               {
