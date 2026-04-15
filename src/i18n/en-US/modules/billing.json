@@ -664,7 +664,6 @@
     "walletTitle": "Credits Overview"
   },
   "package": {
-    "topupComingSoon": "Coming soon",
     "actions": {
       "buyNow": "Buy now",
       "currentSubscription": "Current subscription",
@@ -681,29 +680,17 @@
       "yearly": "Yearly credits {credits}"
     },
     "features": {
-      "base": {
-        "courseCreate": "Course creation and content storage",
-        "studentImport": "Learner delivery and account import",
-        "aiListen": "AI narration and audio lessons",
-        "dataQuery": "Order and learning data queries"
-      },
       "advanced": {
         "includesLabel": "Everything in Basic, and:",
-        "taskPriority": "Priority task processing",
         "parallelProcessing": "Higher parallel processing capacity",
+        "taskPriority": "Priority task processing",
         "techBasic": "Basic technical support"
       },
-      "pro": {
-        "includesLabel": "Everything in Advanced, and:",
-        "branding": "Custom branding",
-        "customDomain": "Custom domain",
-        "techPriority": "Priority technical support"
-      },
-      "premium": {
-        "includesLabel": "Everything in Pro, and:",
-        "concurrencyQuota": "Higher concurrency quota",
-        "dedicatedSupport": "Dedicated technical support",
-        "onboarding": "1 live course-building session included"
+      "base": {
+        "aiListen": "AI narration and audio lessons",
+        "courseCreate": "Course creation and content storage",
+        "dataQuery": "Order and learning data queries",
+        "studentImport": "Learner delivery and account import"
       },
       "free": {
         "preview": "Learner delivery and account import",
@@ -713,6 +700,18 @@
         "preview": "Learner delivery and account import",
         "publish": "Course creation and content storage",
         "support": "AI narration and audio lessons"
+      },
+      "premium": {
+        "concurrencyQuota": "Higher concurrency quota",
+        "dedicatedSupport": "Dedicated technical support",
+        "includesLabel": "Everything in Pro, and:",
+        "onboarding": "1 live course-building session included"
+      },
+      "pro": {
+        "branding": "Custom branding",
+        "customDomain": "Custom domain",
+        "includesLabel": "Everything in Advanced, and:",
+        "techPriority": "Priority technical support"
       },
       "yearly": {
         "lite": {
@@ -742,37 +741,38 @@
       "priceValue": "¥0",
       "title": "Trial"
     },
+    "intervalTabs": {
+      "monthly": "Monthly Plans",
+      "topup": "Credit Top-ups",
+      "yearly": "Yearly Plans"
+    },
     "scale": {
-      "sectionTitle": "Learner capacity (est.)",
+      "advanced": {
+        "students": "Est. learner capacity: up to 300"
+      },
+      "basic": {
+        "students": "Est. learner capacity: up to 10"
+      },
       "free": {
         "students": "Est. learner capacity: up to 10"
       },
       "lite": {
         "students": "Est. learner capacity: up to 3"
       },
-      "basic": {
-        "students": "Est. learner capacity: up to 10"
-      },
-      "advanced": {
-        "students": "Est. learner capacity: up to 300"
+      "premium": {
+        "students": "Est. learner capacity: up to 1000"
       },
       "pro": {
         "students": "Est. learner capacity: up to 500"
       },
-      "premium": {
-        "students": "Est. learner capacity: up to 1000"
-      }
-    },
-    "intervalTabs": {
-      "monthly": "Monthly Plans",
-      "topup": "Credit Top-ups",
-      "yearly": "Yearly Plans"
+      "sectionTitle": "Learner capacity (est.)"
     },
     "subtitle": "Choose the right credit plan.",
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits"
     },
+    "topupComingSoon": "Coming soon",
     "validity": {
       "free": "Validity: valid within 15 days from registration",
       "monthly": "Validity: counted from the purchase month, valid every month",
@@ -864,17 +864,17 @@
     "successTitle": "Billing updated"
   },
   "sidebar": {
+    "creditsLabel": "Credits",
     "cta": "Open billing center",
     "description": "Review your plan, credits, and upcoming billing actions.",
+    "expired": "Expired",
+    "expiresInDays": "{days}d left",
     "monthlyTitle": "Monthly plan",
     "nonMemberTitle": "Non-member",
+    "periodLabel": "Period",
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",
-    "creditsLabel": "Credits",
-    "periodLabel": "Period",
-    "expired": "Expired",
-    "expiresInDays": "{days}d left",
     "upgradeCta": "Upgrade",
     "usageCta": "View usage",
     "yearlyTitle": "Yearly plan"

@@ -664,7 +664,6 @@
     "walletTitle": "积分总览"
   },
   "package": {
-    "topupComingSoon": "敬请期待",
     "actions": {
       "buyNow": "立即购买",
       "currentSubscription": "当前订阅",
@@ -681,29 +680,17 @@
       "yearly": "年积分数 {credits}"
     },
     "features": {
-      "base": {
-        "courseCreate": "课程创建与内容存储",
-        "studentImport": "学员交付与学习账号导入",
-        "aiListen": "AI 讲解与听课语音",
-        "dataQuery": "订单和学习数据查询"
-      },
       "advanced": {
         "includesLabel": "享有基础版全部权益，以及：",
-        "taskPriority": "任务优先处理",
         "parallelProcessing": "更高并行处理能力",
+        "taskPriority": "任务优先处理",
         "techBasic": "技术基础支持"
       },
-      "pro": {
-        "includesLabel": "享有进阶版全部权益，以及：",
-        "branding": "自定义品牌标识",
-        "customDomain": "自定义域名",
-        "techPriority": "技术优先支持"
-      },
-      "premium": {
-        "includesLabel": "享有高阶版全部权益，以及：",
-        "concurrencyQuota": "更高并发任务配额",
-        "dedicatedSupport": "专属技术支持",
-        "onboarding": "含 1 次线上做课培训"
+      "base": {
+        "aiListen": "AI 讲解与听课语音",
+        "courseCreate": "课程创建与内容存储",
+        "dataQuery": "订单和学习数据查询",
+        "studentImport": "学员交付与学习账号导入"
       },
       "free": {
         "preview": "学员交付与学习账号导入",
@@ -713,6 +700,18 @@
         "preview": "学员交付与学习账号导入",
         "publish": "课程创建与内容存储",
         "support": "AI 讲解与听课语音"
+      },
+      "premium": {
+        "concurrencyQuota": "更高并发任务配额",
+        "dedicatedSupport": "专属技术支持",
+        "includesLabel": "享有高阶版全部权益，以及：",
+        "onboarding": "含 1 次线上做课培训"
+      },
+      "pro": {
+        "branding": "自定义品牌标识",
+        "customDomain": "自定义域名",
+        "includesLabel": "享有进阶版全部权益，以及：",
+        "techPriority": "技术优先支持"
       },
       "yearly": {
         "lite": {
@@ -742,37 +741,38 @@
       "priceValue": "¥0",
       "title": "体验版"
     },
+    "intervalTabs": {
+      "monthly": "月度套餐",
+      "topup": "积分充值",
+      "yearly": "年度套餐"
+    },
     "scale": {
-      "sectionTitle": "学员支持规模（参考）",
+      "advanced": {
+        "students": "预估支持学员数：300人以内"
+      },
+      "basic": {
+        "students": "预估支持学员数：10人以内"
+      },
       "free": {
         "students": "预估支持学员数：10人以内"
       },
       "lite": {
         "students": "预估支持学员数：3人以内"
       },
-      "basic": {
-        "students": "预估支持学员数：10人以内"
-      },
-      "advanced": {
-        "students": "预估支持学员数：300人以内"
+      "premium": {
+        "students": "预估支持学员数：1000人以内"
       },
       "pro": {
         "students": "预估支持学员数：500人以内"
       },
-      "premium": {
-        "students": "预估支持学员数：1000人以内"
-      }
-    },
-    "intervalTabs": {
-      "monthly": "月度套餐",
-      "topup": "积分充值",
-      "yearly": "年度套餐"
+      "sectionTitle": "学员支持规模（参考）"
     },
     "subtitle": "请选择合适的积分套餐",
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分"
     },
+    "topupComingSoon": "敬请期待",
     "validity": {
       "free": "有效期：注册日起 15 内有效",
       "monthly": "有效期：当月购买起计算日起，每月有效",
@@ -864,17 +864,17 @@
     "successTitle": "账务已更新"
   },
   "sidebar": {
+    "creditsLabel": "剩余积分",
     "cta": "前往会员中心",
     "description": "查看会员状态、积分余额与后续账务动作。",
+    "expired": "已到期",
+    "expiresInDays": "剩 {days} 天",
     "monthlyTitle": "月订阅",
     "nonMemberTitle": "非会员",
+    "periodLabel": "套餐周期",
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
-    "creditsLabel": "剩余积分",
-    "periodLabel": "套餐周期",
-    "expired": "已到期",
-    "expiresInDays": "剩 {days} 天",
     "upgradeCta": "升级",
     "usageCta": "查看使用情况",
     "yearlyTitle": "年订阅"

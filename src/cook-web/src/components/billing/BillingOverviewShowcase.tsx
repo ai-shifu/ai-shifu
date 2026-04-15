@@ -224,34 +224,40 @@ export function BillingOverviewShowcase({
           )}
           data-testid='billing-plan-grid'
         >
-          {renderFreeCard ? (() => {
-            const freeScale = getPlanScaleKeys(trialOffer?.product_code || 'creator-plan-trial');
-            return (
-              <PlanShowcaseCard
-                actionLabel={t(
-                  !hasActiveSubscription || isTrialCurrentPlan
-                    ? 'module.billing.package.actions.currentUsing'
-                    : 'module.billing.package.actions.freeTrial',
-                )}
-                actionTooltip={
-                  !hasActiveSubscription
-                    ? t('module.billing.package.actions.nonMemberTooltip')
-                    : undefined
-                }
-                creditSummary={freeCreditSummary}
-                creditValidityLabel={freeCreditValidityLabel}
-                description={freeCardDescription}
-                disabled
-                featured={isTrialCurrentPlan || !hasActiveSubscription}
-                footer={<PlanFeatureList items={freeCardFeatureKeys} />}
-                priceLabel={freeCardPriceLabel}
-                priceMetaLabel={freePriceMetaLabel}
-                studentCapacity={freeScale ? t(freeScale.students) : undefined}
-                testId='billing-plan-card-free'
-                title={freeCardTitle}
-              />
-            );
-          })() : null}
+          {renderFreeCard
+            ? (() => {
+                const freeScale = getPlanScaleKeys(
+                  trialOffer?.product_code || 'creator-plan-trial',
+                );
+                return (
+                  <PlanShowcaseCard
+                    actionLabel={t(
+                      !hasActiveSubscription || isTrialCurrentPlan
+                        ? 'module.billing.package.actions.currentUsing'
+                        : 'module.billing.package.actions.freeTrial',
+                    )}
+                    actionTooltip={
+                      !hasActiveSubscription
+                        ? t('module.billing.package.actions.nonMemberTooltip')
+                        : undefined
+                    }
+                    creditSummary={freeCreditSummary}
+                    creditValidityLabel={freeCreditValidityLabel}
+                    description={freeCardDescription}
+                    disabled
+                    featured={isTrialCurrentPlan || !hasActiveSubscription}
+                    footer={<PlanFeatureList items={freeCardFeatureKeys} />}
+                    priceLabel={freeCardPriceLabel}
+                    priceMetaLabel={freePriceMetaLabel}
+                    studentCapacity={
+                      freeScale ? t(freeScale.students) : undefined
+                    }
+                    testId='billing-plan-card-free'
+                    title={freeCardTitle}
+                  />
+                );
+              })()
+            : null}
 
           {(showcaseTab === 'monthly' ? monthlyPlans : yearlyPlans).map(
             plan => {
@@ -308,7 +314,12 @@ export function BillingOverviewShowcase({
                   description={resolveBillingProductDescription(t, plan)}
                   disabled={!provider || isCurrentPlan || isDowngradeLocked}
                   featured={isFeatured}
-                  footer={<PlanFeatureList includesLabel={planFeatureData.includesLabel} items={planFeatureData.items} />}
+                  footer={
+                    <PlanFeatureList
+                      includesLabel={planFeatureData.includesLabel}
+                      items={planFeatureData.items}
+                    />
+                  }
                   onAction={() =>
                     provider && onSelectPlanCheckout(plan, provider)
                   }
@@ -318,7 +329,9 @@ export function BillingOverviewShowcase({
                     i18n.language,
                   )}
                   priceMetaLabel={formatBillingPlanInterval(t, plan)}
-                  studentCapacity={planScale ? t(planScale.students) : undefined}
+                  studentCapacity={
+                    planScale ? t(planScale.students) : undefined
+                  }
                   testId={`billing-plan-card-${plan.product_bid}`}
                   title={resolveBillingProductTitle(t, plan)}
                 />

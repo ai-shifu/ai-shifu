@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
-import { CheckIcon, InformationCircleIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import {
+  CheckIcon,
+  InformationCircleIcon,
+  UserGroupIcon,
+} from '@heroicons/react/24/outline';
 import { Sparkles, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -78,7 +82,9 @@ const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
 };
 
 export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
-  return PLAN_FEATURE_DATA[product.product_code] || { items: BASE_FEATURE_KEYS };
+  return (
+    PLAN_FEATURE_DATA[product.product_code] || { items: BASE_FEATURE_KEYS }
+  );
 }
 
 export function getFreeFeatureData(): PlanFeatureData {

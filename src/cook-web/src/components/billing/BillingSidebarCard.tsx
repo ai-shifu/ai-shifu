@@ -66,13 +66,19 @@ export function BillingSidebarCard({
       <div className='flex items-center justify-between gap-3'>
         <div className='flex min-w-0 flex-col gap-0.5'>
           <div className='flex items-center gap-1.5 text-sm leading-5'>
-            <span className='text-slate-400'>{t('module.billing.sidebar.creditsLabel')}:</span>
+            <span className='text-slate-400'>
+              {t('module.billing.sidebar.creditsLabel')}:
+            </span>
             <span className='font-semibold text-slate-900'>{creditsValue}</span>
           </div>
           {expiryCountdown && (
             <div className='flex items-center gap-1.5 text-sm leading-5'>
-              <span className='text-slate-400'>{t('module.billing.sidebar.periodLabel')}:</span>
-              <span className='font-semibold text-slate-900'>{expiryCountdown}</span>
+              <span className='text-slate-400'>
+                {t('module.billing.sidebar.periodLabel')}:
+              </span>
+              <span className='font-semibold text-slate-900'>
+                {expiryCountdown}
+              </span>
             </div>
           )}
         </div>
