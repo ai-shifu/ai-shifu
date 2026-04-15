@@ -332,6 +332,10 @@ class AudioSegmentDTO(BaseModel):
     is_final: bool = Field(
         default=False, description="Whether this is the last segment"
     )
+    subtitle_cues: List["SubtitleCueDTO"] = Field(
+        default_factory=list,
+        description="Subtitle cues available up to the current streamed segment",
+    )
 
     def __init__(
         self,
@@ -343,6 +347,7 @@ class AudioSegmentDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
+        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
     ):
         super().__init__(
             position=position,
@@ -353,6 +358,7 @@ class AudioSegmentDTO(BaseModel):
             audio_data=audio_data,
             duration_ms=duration_ms,
             is_final=is_final,
+            subtitle_cues=subtitle_cues or [],
         )
 
     def __json__(self):
@@ -369,6 +375,8 @@ class AudioSegmentDTO(BaseModel):
             ret["stream_element_type"] = self.stream_element_type
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
+        if self.subtitle_cues:
+            ret["subtitle_cues"] = [cue.__json__() for cue in self.subtitle_cues]
         return ret
 
 

@@ -95,13 +95,19 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
 
 
 def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
-    return {
+    payload = {
         "position": int(getattr(audio_segment, "position", 0) or 0),
         "segment_index": int(audio_segment.segment_index or 0),
         "audio_data": str(audio_segment.audio_data or ""),
         "duration_ms": int(audio_segment.duration_ms or 0),
         "is_final": bool(getattr(audio_segment, "is_final", False)),
     }
+    subtitle_cues = normalize_subtitle_cues(
+        getattr(audio_segment, "subtitle_cues", None)
+    )
+    if subtitle_cues:
+        payload["subtitle_cues"] = subtitle_cues
+    return payload
 
 
 def _upsert_audio_segment_payload(
@@ -117,6 +123,9 @@ def _upsert_audio_segment_payload(
     incoming_audio_data = str(incoming_segment.get("audio_data", "") or "")
     incoming_duration_ms = int(incoming_segment.get("duration_ms", 0) or 0)
     incoming_is_final = bool(incoming_segment.get("is_final", False))
+    incoming_subtitle_cues = normalize_subtitle_cues(
+        incoming_segment.get("subtitle_cues")
+    )
 
     for idx, existing in enumerate(normalized):
         existing_position = int(existing.get("position", 0) or 0)
@@ -134,18 +143,21 @@ def _upsert_audio_segment_payload(
             incoming_duration_ms or existing.get("duration_ms", 0) or 0
         )
         merged["is_final"] = bool(existing.get("is_final", False) or incoming_is_final)
+        if incoming_subtitle_cues:
+            merged["subtitle_cues"] = incoming_subtitle_cues
         normalized[idx] = merged
         return normalized
 
-    normalized.append(
-        {
-            "position": incoming_position,
-            "segment_index": incoming_index,
-            "audio_data": incoming_audio_data,
-            "duration_ms": incoming_duration_ms,
-            "is_final": incoming_is_final,
-        }
-    )
+    next_segment = {
+        "position": incoming_position,
+        "segment_index": incoming_index,
+        "audio_data": incoming_audio_data,
+        "duration_ms": incoming_duration_ms,
+        "is_final": incoming_is_final,
+    }
+    if incoming_subtitle_cues:
+        next_segment["subtitle_cues"] = incoming_subtitle_cues
+    normalized.append(next_segment)
     normalized.sort(
         key=lambda item: (
             int(item.get("position", 0) or 0),
@@ -164,6 +176,11 @@ def _clone_audio_segments(
             continue
         segment = dict(item)
         segment["is_final"] = bool(segment.get("is_final", False))
+        subtitle_cues = normalize_subtitle_cues(segment.get("subtitle_cues"))
+        if subtitle_cues:
+            segment["subtitle_cues"] = subtitle_cues
+        else:
+            segment.pop("subtitle_cues", None)
         cloned.append(segment)
     return cloned
 

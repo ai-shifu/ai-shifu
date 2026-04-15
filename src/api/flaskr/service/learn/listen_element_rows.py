@@ -212,6 +212,7 @@ def _deserialize_event_content(
                 else None
             ),
             av_contract=payload.get("av_contract"),
+            subtitle_cues=normalize_subtitle_cues(payload.get("subtitle_cues")),
         )
 
     if row.event_type == GeneratedType.AUDIO_COMPLETE.value:

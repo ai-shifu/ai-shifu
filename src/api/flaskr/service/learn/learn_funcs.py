@@ -897,6 +897,7 @@ def _build_audio_segment_message(
     duration_ms: int,
     position: int | None = None,
     av_contract: dict | None = None,
+    subtitle_cues: list[dict] | None = None,
 ) -> RunMarkdownFlowDTO:
     content_kwargs = {
         "segment_index": segment_index,
@@ -908,6 +909,8 @@ def _build_audio_segment_message(
         content_kwargs["position"] = position
     if av_contract is not None:
         content_kwargs["av_contract"] = av_contract
+    if subtitle_cues:
+        content_kwargs["subtitle_cues"] = normalize_subtitle_cues(subtitle_cues)
 
     return RunMarkdownFlowDTO(
         outline_bid=outline_bid or "",
@@ -1022,6 +1025,7 @@ def _yield_stream_tts_audio_segments(
             duration_ms=duration_ms,
             position=position,
             av_contract=av_contract,
+            subtitle_cues=subtitle_cues,
         )
 
 

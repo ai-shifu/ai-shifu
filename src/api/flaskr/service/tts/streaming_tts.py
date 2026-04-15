@@ -466,6 +466,21 @@ class StreamingTTSProcessor:
                     )
 
             if segment.audio_data and not segment.error:
+                subtitle_cues: list[dict[str, Any]] = []
+                with self._lock:
+                    for (
+                        saved_segment_index,
+                        _saved_audio_data,
+                        saved_duration_ms,
+                        saved_segment_text,
+                    ) in self._all_audio_data:
+                        append_subtitle_cue(
+                            subtitle_cues,
+                            text=str(saved_segment_text or ""),
+                            duration_ms=int(saved_duration_ms or 0),
+                            segment_index=int(saved_segment_index or 0),
+                            position=self.position,
+                        )
                 # Encode to base64
                 base64_audio = base64.b64encode(segment.audio_data).decode("utf-8")
 
@@ -482,6 +497,7 @@ class StreamingTTSProcessor:
                         stream_element_number=self.stream_element_number,
                         stream_element_type=self.stream_element_type,
                         av_contract=self.av_contract,
+                        subtitle_cues=normalize_subtitle_cues(subtitle_cues),
                     ),
                 )
 

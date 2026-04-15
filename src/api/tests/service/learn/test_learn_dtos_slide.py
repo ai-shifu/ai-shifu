@@ -28,6 +28,29 @@ def test_audio_segment_dto_payload_has_no_legacy_fields():
     assert "slide_id" not in payload
 
 
+def test_audio_segment_dto_payload_can_include_subtitle_cues():
+    dto = AudioSegmentDTO(
+        segment_index=0,
+        audio_data="ZmFrZS1hdWRpbw==",
+        duration_ms=123,
+        is_final=False,
+        position=2,
+        subtitle_cues=[
+            {
+                "text": "Hello world.",
+                "start_ms": 0,
+                "end_ms": 123,
+                "segment_index": 0,
+                "position": 2,
+            }
+        ],
+    )
+    payload = dto.__json__()
+
+    assert payload["subtitle_cues"][0]["text"] == "Hello world."
+    assert payload["subtitle_cues"][0]["position"] == 2
+
+
 def test_audio_complete_dto_payload_has_no_legacy_fields():
     dto = AudioCompleteDTO(
         audio_url="https://example.com/a.mp3",

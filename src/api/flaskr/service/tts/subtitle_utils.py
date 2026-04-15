@@ -7,7 +7,22 @@ def normalize_subtitle_cues(
     subtitle_cues: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
 ) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
-    for item in list(subtitle_cues or []):
+    for raw_item in list(subtitle_cues or []):
+        item: dict[str, Any] | None = None
+        if isinstance(raw_item, dict):
+            item = raw_item
+        elif hasattr(raw_item, "model_dump"):
+            dumped_item = raw_item.model_dump()
+            if isinstance(dumped_item, dict):
+                item = dumped_item
+        elif hasattr(raw_item, "__dict__"):
+            item = {
+                "text": getattr(raw_item, "text", ""),
+                "start_ms": getattr(raw_item, "start_ms", 0),
+                "end_ms": getattr(raw_item, "end_ms", 0),
+                "segment_index": getattr(raw_item, "segment_index", 0),
+                "position": getattr(raw_item, "position", 0),
+            }
         if not isinstance(item, dict):
             continue
         text = str(item.get("text", "") or "").strip()

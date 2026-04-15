@@ -102,8 +102,19 @@ class TestStreamingTtsSubtitles:
         audio_complete_events = [
             event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
         ]
+        audio_segment_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+        ]
 
         assert len(audio_complete_events) == 1
+        assert len(audio_segment_events) == 2
+        assert [cue.text for cue in audio_segment_events[0].content.subtitle_cues] == [
+            "First sentence."
+        ]
+        assert [cue.text for cue in audio_segment_events[1].content.subtitle_cues] == [
+            "First sentence.",
+            "Second sentence.",
+        ]
         subtitle_cues = audio_complete_events[0].content.subtitle_cues
         assert [cue.text for cue in subtitle_cues] == [
             "First sentence.",
