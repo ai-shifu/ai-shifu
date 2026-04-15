@@ -528,7 +528,9 @@ class ListenElementRunStreamMixin:
                 state.latest_av_contract = content.av_contract
             position = int(getattr(content, "position", 0) or 0)
             current_audio = state.audio_by_position.get(position)
-            progressive_subtitle_cues = list(getattr(content, "subtitle_cues", []) or [])
+            progressive_subtitle_cues = list(
+                getattr(content, "subtitle_cues", []) or []
+            )
             progressive_duration_ms = int(getattr(content, "duration_ms", 0) or 0)
             if progressive_subtitle_cues:
                 progressive_duration_ms = int(
