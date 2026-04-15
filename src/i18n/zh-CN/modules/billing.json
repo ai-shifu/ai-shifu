@@ -870,6 +870,10 @@
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
+    "creditsLabel": "剩余积分",
+    "periodLabel": "套餐周期",
+    "expired": "已到期",
+    "expiresInDays": "剩 {days} 天",
     "upgradeCta": "升级",
     "usageCta": "查看使用情况",
     "yearlyTitle": "年订阅"

@@ -1,32 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Crown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { CreatorBillingOverview } from '@/types/billing';
-import { formatBillingCredits } from '@/lib/billing';
+import {
+  formatBillingCredits,
+  formatBillingExpiryCountdown,
+} from '@/lib/billing';
 
 type BillingSidebarCardProps = {
   overview?: CreatorBillingOverview;
   isLoading?: boolean;
-};
-
-const resolveMembershipTitleKey = (overview?: CreatorBillingOverview) => {
-  const productCode = overview?.subscription?.product_code?.toLowerCase() || '';
-
-  if (!productCode) {
-    return 'module.billing.sidebar.nonMemberTitle' as const;
-  }
-
-  if (productCode.includes('year')) {
-    return 'module.billing.sidebar.yearlyTitle' as const;
-  }
-
-  if (productCode.includes('month')) {
-    return 'module.billing.sidebar.monthlyTitle' as const;
-  }
-
-  return 'module.billing.sidebar.nonMemberTitle' as const;
 };
 
 const BILLING_CENTER_HREF = '/admin/billing';
@@ -41,12 +26,18 @@ export function BillingSidebarCard({
   const router = useRouter();
   const availableCredits = overview?.wallet.available_credits ?? 0;
   const shouldShowCredits = !isLoading && availableCredits > 0;
-  const membershipTitleKey = resolveMembershipTitleKey(overview);
 
   const creditsValue =
     overview && !isLoading
       ? formatBillingCredits(availableCredits, i18n.language)
       : t('module.billing.sidebar.placeholderValue');
+
+  const expiryCountdown = !isLoading
+    ? formatBillingExpiryCountdown(
+        t as (key: string, opts?: Record<string, unknown>) => string,
+        overview?.subscription?.current_period_end_at,
+      )
+    : '';
 
   const handleCardClick = React.useCallback(() => {
     router.push(BILLING_PACKAGES_HREF);
@@ -73,18 +64,17 @@ export function BillingSidebarCard({
       data-testid='admin-billing-sidebar-card'
     >
       <div className='flex items-center justify-between gap-3'>
-        <div className='flex min-w-0 items-center gap-3'>
-          <div className='flex shrink-0 items-center justify-center text-slate-950'>
-            <Crown className='h-4 w-4' />
+        <div className='flex min-w-0 flex-col gap-0.5'>
+          <div className='flex items-center gap-1.5 text-sm leading-5'>
+            <span className='text-slate-400'>{t('module.billing.sidebar.creditsLabel')}:</span>
+            <span className='font-semibold text-slate-900'>{creditsValue}</span>
           </div>
-          <p className='mr-2 truncate text-sm font-extrabold leading-5 text-slate-950'>
-            {t(membershipTitleKey)}
-            {shouldShowCredits && (
-              <span className='ml-2 font-medium text-slate-500'>
-                {creditsValue}
-              </span>
-            )}
-          </p>
+          {expiryCountdown && (
+            <div className='flex items-center gap-1.5 text-sm leading-5'>
+              <span className='text-slate-400'>{t('module.billing.sidebar.periodLabel')}:</span>
+              <span className='font-semibold text-slate-900'>{expiryCountdown}</span>
+            </div>
+          )}
         </div>
         <span className='inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white'>
           {t('module.billing.sidebar.upgradeCta')}

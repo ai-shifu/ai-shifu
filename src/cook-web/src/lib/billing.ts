@@ -317,6 +317,27 @@ export function resolveBillingProductTitle(
   return t(product.display_name);
 }
 
+const SUBSCRIPTION_PRODUCT_CODE_TITLE_KEYS: Record<string, string> = {
+  'creator-plan-monthly': 'module.billing.catalog.plans.creatorMonthly.title',
+  'creator-plan-monthly-pro':
+    'module.billing.catalog.plans.creatorMonthlyPro.title',
+  'creator-plan-yearly': 'module.billing.catalog.plans.creatorYearly.title',
+  'creator-plan-yearly-lite':
+    'module.billing.catalog.plans.creatorYearlyLite.title',
+  'creator-plan-yearly-premium':
+    'module.billing.catalog.plans.creatorYearlyPremium.title',
+};
+
+export function resolveSubscriptionProductName(
+  t: BillingTranslator,
+  productCode?: string | null,
+  fallback = '',
+): string {
+  if (!productCode) return fallback;
+  const key = SUBSCRIPTION_PRODUCT_CODE_TITLE_KEYS[productCode];
+  return key ? t(key) : fallback;
+}
+
 export function resolveBillingProductDescription(
   t: BillingTranslator,
   product?: BillingPlan | BillingTopupProduct | BillingTrialOffer | null,
@@ -404,6 +425,21 @@ export function parseBillingDateValue(
   }
 
   return date;
+}
+
+export function formatBillingExpiryCountdown(
+  t: BillingTranslator,
+  value: string | null | undefined,
+): string {
+  const date = parseBillingDateValue(value);
+  if (!date) return '';
+
+  const now = new Date();
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysLeft = Math.ceil((date.getTime() - now.getTime()) / msPerDay);
+
+  if (daysLeft <= 0) return t('module.billing.sidebar.expired');
+  return t('module.billing.sidebar.expiresInDays', { days: daysLeft });
 }
 
 export function formatBillingDate(

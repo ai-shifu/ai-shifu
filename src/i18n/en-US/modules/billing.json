@@ -870,6 +870,10 @@
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",
+    "creditsLabel": "Credits",
+    "periodLabel": "Period",
+    "expired": "Expired",
+    "expiresInDays": "{days}d left",
     "upgradeCta": "Upgrade",
     "usageCta": "View usage",
     "yearlyTitle": "Yearly plan"
