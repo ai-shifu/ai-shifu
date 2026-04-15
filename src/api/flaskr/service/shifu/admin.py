@@ -294,7 +294,7 @@ def _normalize_login_method(provider_name: str) -> str:
         return ""
     if normalized in {"phone", "email", "google", "wechat"}:
         return normalized
-    return normalized
+    return "unknown"
 
 
 def _normalize_registration_source(provider_name: str) -> str:

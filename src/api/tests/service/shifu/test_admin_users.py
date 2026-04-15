@@ -1049,3 +1049,22 @@ def test_get_operator_user_detail_prefers_latest_auth_credential(app):
     assert isinstance(result, AdminOperationUserSummaryDTO)
     assert result.mobile == "13900000000"
     assert result.email == "new@example.com"
+
+
+def test_get_operator_user_detail_normalizes_unknown_login_methods(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-unknown-login-method",
+            identify="unknown@example.com",
+            nickname="Unknown Login Method",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 12, 0, 0),
+            providers=[("password", "unknown@example.com")],
+        )
+
+        result = get_operator_user_detail(app, "user-unknown-login-method")
+
+    assert isinstance(result, AdminOperationUserSummaryDTO)
+    assert result.login_methods == ["unknown", "email"]

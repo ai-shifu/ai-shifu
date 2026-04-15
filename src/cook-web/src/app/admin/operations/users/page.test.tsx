@@ -461,6 +461,60 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
+  test('shows localized unknown labels for unexpected login methods and course statuses', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-unknown-values',
+          mobile: '',
+          email: 'user-unknown@example.com',
+          nickname: 'Unknown Values',
+          user_status: 'registered',
+          user_role: 'creator',
+          user_roles: ['creator'],
+          login_methods: ['password'],
+          registration_source: 'unknown',
+          language: 'en-US',
+          learning_courses: [],
+          created_courses: [
+            {
+              shifu_bid: 'course-archived',
+              course_name: 'Archived Course',
+              course_status: 'archived',
+              completed_lesson_count: 0,
+              total_lesson_count: 0,
+            },
+          ],
+          total_paid_amount: '0',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14 10:00:00',
+          updated_at: '2026-04-14 11:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    expect(
+      await screen.findByText('module.operationsUser.loginMethodLabels.unknown'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (1)',
+      }),
+    );
+
+    expect(
+      screen.getByText('module.operationsCourse.statusLabels.unknown (archived)'),
+    ).toBeInTheDocument();
+  });
+
   test('uses default user name when nickname is empty', async () => {
     mockGetAdminOperationUsers.mockResolvedValueOnce({
       items: [

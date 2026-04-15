@@ -54,6 +54,21 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
 
 const EMPTY_VALUE = '--';
 const DEFAULT_VISIBLE_COURSE_COUNT = 10;
+const SUPPORTED_LOGIN_METHODS = new Set([
+  'phone',
+  'email',
+  'google',
+  'wechat',
+  'unknown',
+]);
+
+const normalizeLoginMethodLabelKey = (method: string): string => {
+  const normalized = method.trim().toLowerCase();
+  if (!normalized) {
+    return 'unknown';
+  }
+  return SUPPORTED_LOGIN_METHODS.has(normalized) ? normalized : 'unknown';
+};
 
 /**
  * t('module.operationsUser.detail.title')
@@ -340,7 +355,9 @@ export default function AdminOperationUserDetailPage() {
     methods.length
       ? methods
           .map(method =>
-            tOperationsUsers(`loginMethodLabels.${method || 'unknown'}`),
+            tOperationsUsers(
+              `loginMethodLabels.${normalizeLoginMethodLabelKey(method)}`,
+            ),
           )
           .join(' / ')
       : EMPTY_VALUE;
@@ -351,7 +368,8 @@ export default function AdminOperationUserDetailPage() {
     if (status === 'unpublished') {
       return tOperationsCourse('statusLabels.unpublished');
     }
-    return status || tOperationsCourse('statusLabels.unknown');
+    const unknownLabel = tOperationsCourse('statusLabels.unknown');
+    return status ? `${unknownLabel} (${status})` : unknownLabel;
   };
 
   if (!isReady || loading) {
