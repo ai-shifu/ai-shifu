@@ -252,6 +252,24 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
     raise_param_error("datetime format invalid")
 
 
+def _parse_positive_query_int(
+    raw_value: object,
+    *,
+    field_name: str,
+    default: int,
+    minimum: int = 1,
+) -> int:
+    if raw_value is None:
+        return default
+    try:
+        parsed_value = int(raw_value)
+    except (TypeError, ValueError):
+        raise_param_error(field_name)
+    if parsed_value < minimum:
+        raise_param_error(field_name)
+    return parsed_value
+
+
 @inject
 def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     """
@@ -674,8 +692,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator course user list
         """
         _require_operator()
-        page_index = int(request.args.get("page", 1))
-        page_size = int(request.args.get("page_size", 20))
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         filters = {
             "keyword": request.args.get("keyword", ""),
             "user_role": request.args.get("user_role", ""),

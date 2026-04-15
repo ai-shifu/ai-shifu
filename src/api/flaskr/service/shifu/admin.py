@@ -163,7 +163,7 @@ def _load_course_user_contact_map(
             continue
         resolved = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
         identify = str(user.user_identify or "").strip()
-        if identify.isdigit() and not resolved["mobile"]:
+        if len(identify) == 11 and identify.isdigit() and not resolved["mobile"]:
             resolved["mobile"] = identify
         elif "@" in identify and not resolved["email"]:
             resolved["email"] = identify

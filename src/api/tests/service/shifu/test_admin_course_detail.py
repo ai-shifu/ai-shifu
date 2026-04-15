@@ -701,6 +701,7 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
     [
         "/api/shifu/admin/operations/courses/course-detail/detail",
         "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
+        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
     ],
 )
 def test_admin_operation_course_detail_routes_require_operator(
@@ -1272,10 +1273,30 @@ def test_admin_operation_course_users_route_applies_filters(
     assert item["user_bid"] == "student-1"
     assert item["total_paid_amount"] == "299"
 
-    with pytest.raises(AppException) as exc_info:
-        get_operator_course_chapter_detail(
-            app,
-            shifu_bid="course-detail",
-            outline_item_bid="   ",
-        )
-    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+@pytest.mark.parametrize(
+    ("query_string", "expected_param"),
+    [
+        ("page=abc&page_size=20", "page"),
+        ("page=1&page_size=xyz", "page_size"),
+        ("page=0&page_size=20", "page"),
+        ("page=1&page_size=0", "page_size"),
+    ],
+)
+def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
+    test_client,
+    monkeypatch,
+    query_string,
+    expected_param,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        f"/api/shifu/admin/operations/courses/course-detail/users?{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == expected_param
