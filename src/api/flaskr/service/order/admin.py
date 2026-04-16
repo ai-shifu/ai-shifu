@@ -455,98 +455,97 @@ def import_activation_order(
     payment_channel: str = "manual",
 ) -> Dict[str, str]:
     """Create activation order for a user identified by phone or email."""
-    with app.app_context():
-        normalized_identifier = normalize_contact_identifier(mobile, contact_type)
+    normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 
-        normalized_course_id = str(course_id or "").strip()
-        if not normalized_course_id:
-            raise_param_error("course_id")
+    normalized_course_id = str(course_id or "").strip()
+    if not normalized_course_id:
+        raise_param_error("course_id")
 
-        normalized_nickname = str(user_nick_name or "").strip()
-        nickname_value = (
-            normalized_nickname
-            if allow_empty_nickname
-            else normalized_nickname or normalized_identifier
+    normalized_nickname = str(user_nick_name or "").strip()
+    nickname_value = (
+        normalized_nickname
+        if allow_empty_nickname
+        else normalized_nickname or normalized_identifier
+    )
+    defaults = {
+        "identify": normalized_identifier,
+        "nickname": nickname_value,
+        "state": USER_STATE_REGISTERED,
+    }
+    existing_aggregate = load_user_aggregate_by_identifier(
+        normalized_identifier, providers=[contact_type]
+    )
+    aggregate, created_new_user = ensure_user_for_identifier(
+        app,
+        provider=contact_type,
+        identifier=normalized_identifier,
+        defaults=defaults,
+    )
+
+    if not aggregate:
+        raise_error("server.user.userNotFound")
+
+    user_id = aggregate.user_bid
+
+    existing_success_order = (
+        Order.query.filter(
+            Order.user_bid == user_id,
+            Order.shifu_bid == normalized_course_id,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.deleted == 0,
         )
-        defaults = {
-            "identify": normalized_identifier,
-            "nickname": nickname_value,
-            "state": USER_STATE_REGISTERED,
-        }
-        existing_aggregate = load_user_aggregate_by_identifier(
-            normalized_identifier, providers=[contact_type]
-        )
-        aggregate, created_new_user = ensure_user_for_identifier(
-            app,
-            provider=contact_type,
-            identifier=normalized_identifier,
-            defaults=defaults,
-        )
-
-        if not aggregate:
-            raise_error("server.user.userNotFound")
-
-        user_id = aggregate.user_bid
-
-        existing_success_order = (
-            Order.query.filter(
-                Order.user_bid == user_id,
-                Order.shifu_bid == normalized_course_id,
-                Order.status == ORDER_STATUS_SUCCESS,
-                Order.deleted == 0,
+        .order_by(Order.id.desc())
+        .first()
+    )
+    if existing_success_order:
+        if contact_type == "email":
+            raise_error_with_args(
+                "server.order.emailAlreadyActivated", email=normalized_identifier
             )
-            .order_by(Order.id.desc())
-            .first()
-        )
-        if existing_success_order:
-            if contact_type == "email":
-                raise_error_with_args(
-                    "server.order.emailAlreadyActivated", email=normalized_identifier
-                )
-            else:
-                raise_error_with_args(
-                    "server.order.mobileAlreadyActivated",
-                    mobile=normalized_identifier,
-                )
+        else:
+            raise_error_with_args(
+                "server.order.mobileAlreadyActivated",
+                mobile=normalized_identifier,
+            )
 
-        entity = get_user_entity_by_bid(user_id, include_deleted=True)
-        if entity:
-            updates = {"identify": normalized_identifier}
-            if normalized_nickname:
-                updates["nickname"] = normalized_nickname
-            if aggregate.state == USER_STATE_UNREGISTERED:
-                updates["state"] = USER_STATE_REGISTERED
-            update_user_entity_fields(entity, **updates)
-        if created_new_user or (
-            existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
-        ):
-            ensure_demo_course_permissions(app, user_id)
+    entity = get_user_entity_by_bid(user_id, include_deleted=True)
+    if entity:
+        updates = {"identify": normalized_identifier}
+        if normalized_nickname:
+            updates["nickname"] = normalized_nickname
+        if aggregate.state == USER_STATE_UNREGISTERED:
+            updates["state"] = USER_STATE_REGISTERED
+        update_user_entity_fields(entity, **updates)
+    if created_new_user or (
+        existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
+    ):
+        ensure_demo_course_permissions(app, user_id)
 
-        upsert_credential(
-            app,
-            user_bid=user_id,
-            provider_name=contact_type,
-            subject_id=normalized_identifier,
-            subject_format=contact_type,
-            identifier=normalized_identifier,
-            metadata={"course_id": normalized_course_id},
-            verified=True,
-        )
-        db.session.commit()
+    upsert_credential(
+        app,
+        user_bid=user_id,
+        provider_name=contact_type,
+        subject_id=normalized_identifier,
+        subject_format=contact_type,
+        identifier=normalized_identifier,
+        metadata={"course_id": normalized_course_id},
+        verified=True,
+    )
+    db.session.commit()
 
-        buy_record = init_buy_record(app, user_id, normalized_course_id)
-        order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
-        if not order:
-            raise_error("server.order.orderNotFound")
+    buy_record = init_buy_record(app, user_id, normalized_course_id)
+    order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
+    if not order:
+        raise_error("server.order.orderNotFound")
 
-        order.payable_price = Decimal("0")
-        order.paid_price = Decimal("0")
-        order.payment_channel = payment_channel
-        db.session.commit()
+    order.payable_price = Decimal("0")
+    order.paid_price = Decimal("0")
+    order.payment_channel = payment_channel
+    db.session.commit()
 
-        success_buy_record(app, order.order_bid)
+    success_buy_record(app, order.order_bid)
 
-        return {"order_bid": order.order_bid}
+    return {"order_bid": order.order_bid}
 
 
 def import_activation_orders(
