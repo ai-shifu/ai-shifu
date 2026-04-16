@@ -25,10 +25,8 @@ export const ChatMobileHeader = ({
   navOpen,
   iconPopoverPayload,
 }) => {
-  const {
-    onOpen: onIconPopoverOpen,
-    onClose: onIconPopoverClose,
-  } = useDisclosure();
+  const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
+    useDisclosure();
 
   const hasPopoverContentControl = shifu.hasControl(
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,

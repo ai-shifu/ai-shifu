@@ -1,1 +1,44 @@
-.ChatMobileHeader{display:flex;flex-flow:row nowrap;align-items:center;flex:0 0 var(--mobile-chat-header-height, 44px);flex-shrink:0;min-height:var(--mobile-chat-header-height, 44px);max-height:var(--mobile-chat-header-height, 44px);background:#fff;padding:6px 20px;height:var(--mobile-chat-header-height, 44px);width:100%;box-sizing:border-box;border-bottom:1px solid #e5e5e5}.ChatMobileHeader .actionGroup{display:inline-flex;align-items:center;margin-left:24px;gap:20px;flex-shrink:0}.ChatMobileHeader .iconButton{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;background:rgba(0,0,0,0);cursor:pointer}.iconButtonPopover{max-width:95.55%}@media(min-width: 376px){.iconButtonPopover{max-width:83.27%}}.iconButtonPopover :global(.adm-popover-inner){max-width:100%}
+.ChatMobileHeader {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  flex: 0 0 var(--mobile-chat-header-height, 44px);
+  flex-shrink: 0;
+  min-height: var(--mobile-chat-header-height, 44px);
+  max-height: var(--mobile-chat-header-height, 44px);
+  background: #fff;
+  padding: 6px 20px;
+  height: var(--mobile-chat-header-height, 44px);
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid #e5e5e5;
+}
+.ChatMobileHeader .actionGroup {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 24px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.ChatMobileHeader .iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0);
+  cursor: pointer;
+}
+.iconButtonPopover {
+  max-width: 95.55%;
+}
+@media (min-width: 376px) {
+  .iconButtonPopover {
+    max-width: 83.27%;
+  }
+}
+.iconButtonPopover :global(.adm-popover-inner) {
+  max-width: 100%;
+}

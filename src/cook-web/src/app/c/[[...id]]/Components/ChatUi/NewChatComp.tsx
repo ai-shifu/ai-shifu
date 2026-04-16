@@ -244,11 +244,15 @@ export const NewChatComponents = ({
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
     [t],
   );
-  const listenModeUpgradeDialogTitle = t('module.chat.listenModeUpgradeDialogTitle');
+  const listenModeUpgradeDialogTitle = t(
+    'module.chat.listenModeUpgradeDialogTitle',
+  );
   const listenModeUpgradeDialogDescription = t(
     'module.chat.listenModeUpgradeDialogDescription',
   );
-  const listenModeUpgradeDialogRedo = t('module.chat.listenModeUpgradeDialogRedo');
+  const listenModeUpgradeDialogRedo = t(
+    'module.chat.listenModeUpgradeDialogRedo',
+  );
   const listenModeUpgradeDialogReadLegacy = t(
     'module.chat.listenModeUpgradeDialogReadLegacy',
   );
@@ -367,13 +371,14 @@ export const NewChatComponents = ({
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
-  const { learningMode, showLearningModeToggle, updateLearningMode } = useSystemStore(
-    useShallow(state => ({
-      learningMode: state.learningMode,
-      showLearningModeToggle: state.showLearningModeToggle,
-      updateLearningMode: state.updateLearningMode,
-    })),
-  );
+  const { learningMode, showLearningModeToggle, updateLearningMode } =
+    useSystemStore(
+      useShallow(state => ({
+        learningMode: state.learningMode,
+        showLearningModeToggle: state.showLearningModeToggle,
+        updateLearningMode: state.updateLearningMode,
+      })),
+    );
   const isListenMode = learningMode === 'listen';
   const previousLearningModeRef = useRef(learningMode);
   const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
