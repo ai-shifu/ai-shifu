@@ -334,6 +334,7 @@ const OrdersPage = () => {
       { value: 'pingxx', label: t('module.order.paymentChannel.pingxx') },
       { value: 'stripe', label: t('module.order.paymentChannel.stripe') },
       { value: 'manual', label: t('module.order.paymentChannel.manual') },
+      { value: 'open_api', label: t('module.order.paymentChannel.open_api') },
     ],
     [t],
   );

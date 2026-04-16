@@ -72,7 +72,8 @@
       "learnerCount": "学习人数",
       "orderAmount": "流水总额",
       "orderCount": "订单数",
-      "ratingScore": "评分"
+      "ratingScore": "评分",
+      "visitCount30d": "近30天访问人数"
     },
     "title": "课程详情",
     "userLearningStatus": {

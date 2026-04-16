@@ -885,6 +885,56 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
   });
 
+  it('keeps interaction elements that arrive after lesson completion updates', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+        content: {
+          outline_bid: 'lesson-1',
+          title: 'Lesson 1',
+          status: 'completed',
+          has_children: false,
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'interaction-after-complete',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'interaction-after-complete',
+          generated_block_bid: 'interaction-after-complete',
+          element_type: 'interaction',
+          content: '?[下一节//_sys_next_chapter]',
+          is_marker: true,
+          is_new: true,
+          is_renderable: false,
+          is_speakable: false,
+          user_input: '',
+          like_status: 'none',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(
+          item => item.element_bid === 'interaction-after-complete',
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          element_bid: 'interaction-after-complete',
+          type: ChatContentItemType.INTERACTION,
+          content: '?[下一节//_sys_next_chapter]',
+        }),
+      ),
+    );
+  });
+
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

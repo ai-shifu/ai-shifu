@@ -173,6 +173,12 @@ class LearnGeneratedAudio(db.Model):
         comment="Number of segments synthesized",
     )
 
+    subtitle_cues = Column(
+        JSON,
+        nullable=True,
+        comment="Subtitle cues aligned with synthesized TTS segments",
+    )
+
     # Status
     status = Column(
         SmallInteger,
@@ -223,6 +229,7 @@ class LearnGeneratedAudio(db.Model):
             "file_size": self.file_size,
             "audio_format": self.audio_format,
             "voice_id": self.voice_id,
+            "subtitle_cues": self.subtitle_cues or [],
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

@@ -1,6 +1,11 @@
 import React from 'react';
-import { within } from '@testing-library/dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import AdminOperationCourseDetailPage from './page';
 
 const mockReplace = jest.fn();
@@ -217,6 +222,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08 11:00:00',
       },
       metrics: {
+        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',
@@ -287,7 +293,14 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('¥88').length).toBeGreaterThan(0);
+    const visitorsMetricCard = screen.getByText(
+      'module.operationsCourse.detail.metricsLabels.visitCount30d',
+    ).parentElement;
+    expect(visitorsMetricCard).not.toBeNull();
+    expect(
+      within(visitorsMetricCard as HTMLElement).getByText('34'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('¥88')).toBeInTheDocument();
     expect(screen.getByText('4.2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
     expect(screen.getByText('Lesson 1')).toBeInTheDocument();
@@ -344,6 +357,32 @@ describe('AdminOperationCourseDetailPage', () => {
       shifu_bid: 'course-1',
       outline_item_bid: 'lesson-1',
     });
+    expect(await screen.findByText('lesson content')).toBeInTheDocument();
+
+    const copyButton = screen.getByRole('button', {
+      name: 'module.operationsCourse.detail.contentDetailDialog.copy',
+    });
+
+    await waitFor(() => {
+      expect(copyButton).not.toBeDisabled();
+    });
+
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(mockCopyText).toHaveBeenCalledWith(
+        [
+          'module.operationsCourse.detail.contentDetailDialog.sections.content',
+          'lesson content',
+          '',
+          'module.operationsCourse.detail.contentDetailDialog.sections.systemPrompt (module.operationsCourse.detail.contentDetailDialog.sources.chapter)',
+          'lesson system prompt',
+        ].join('\n'),
+      );
+    });
+    expect(mockToastShow).toHaveBeenCalledWith(
+      'module.operationsCourse.detail.contentDetailDialog.copySuccess',
+    );
   });
 
   test('redirects non-operators back to admin', async () => {
@@ -372,6 +411,7 @@ describe('AdminOperationCourseDetailPage', () => {
         updated_at: '2026-04-08 11:00:00',
       },
       metrics: {
+        visit_count_30d: 34,
         learner_count: 12,
         order_count: 4,
         order_amount: '88',

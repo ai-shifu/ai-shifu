@@ -51,5 +51,6 @@
   "unknownError": "未知错误",
   "unsupportedBrowserDescription": "当前 iOS 版本暂不支持，请升级到 iOS 16.4 或更高版本后再访问。",
   "unsupportedBrowserTitle": "当前 iOS 版本暂不支持",
+  "userManagement": "用户管理",
   "waitingForCompletion": "敬请期待"
 }
