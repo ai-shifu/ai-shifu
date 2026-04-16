@@ -321,7 +321,7 @@ type TopupCardProps = {
   actionLabel: string;
   actionLoading?: boolean;
   creditsLabel: string;
-  description: string;
+  description?: string;
   disabled?: boolean;
   featured?: boolean;
   onAction?: () => void;
@@ -351,7 +351,9 @@ export function TopupCard({
             <Sparkles className={styles.topupCardIcon} />
             <div className={styles.topupCardTitle}>{creditsLabel}</div>
           </div>
-          <div className={styles.topupCardDescription}>{description}</div>
+          {description ? (
+            <div className={styles.topupCardDescription}>{description}</div>
+          ) : null}
         </div>
 
         <div className={styles.topupCardFooter}>

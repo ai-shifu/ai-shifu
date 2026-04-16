@@ -321,19 +321,19 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "Buy anytime. Credits never expire — use until depleted.",
+        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
         "title": "120-credit pack"
       },
       "creatorMedium": {
-        "description": "Buy anytime. Credits never expire — use until depleted.",
+        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
         "title": "50-credit pack"
       },
       "creatorSmall": {
-        "description": "Buy anytime. Credits never expire — use until depleted.",
+        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
         "title": "20-credit pack"
       },
       "creatorXLarge": {
-        "description": "Buy anytime. Credits never expire — use until depleted.",
+        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
         "title": "320-credit pack"
       }
     }
@@ -787,7 +787,10 @@
     "subtitle": "Choose the right credit plan.",
     "title": "Credit Plans",
     "topup": {
-      "creditLabel": "{credits} credits"
+      "creditLabel": "{credits} credits",
+      "noteFrozen": "Top-up credits never expire, but they can be used only while the account has an active credit plan; otherwise they will be frozen.",
+      "noteInstant": "Credits take effect immediately after purchase.",
+      "noteTitle": "Top-up notes"
     },
     "topupComingSoon": "Coming soon",
     "validity": {

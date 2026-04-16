@@ -456,6 +456,16 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-topup-card-billing-product-topup-small'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.topup.noteTitle'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.topup.noteInstant'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.topup.noteFrozen'),
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-topup-card-billing-product-topup-medium'),
     ).toBeInTheDocument();

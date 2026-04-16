@@ -321,19 +321,19 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "按需随时补充，积分永久有效，用完为止。",
+        "description": "购买后即时生效，积分永不过期；但仅当账户下存在有效期内的积分套餐时，积分包才可使用，否则将被冻结。",
         "title": "120 积分包"
       },
       "creatorMedium": {
-        "description": "按需随时补充，积分永久有效，用完为止。",
+        "description": "购买后即时生效，积分永不过期；但仅当账户下存在有效期内的积分套餐时，积分包才可使用，否则将被冻结。",
         "title": "50 积分包"
       },
       "creatorSmall": {
-        "description": "按需随时补充，积分永久有效，用完为止。",
+        "description": "购买后即时生效，积分永不过期；但仅当账户下存在有效期内的积分套餐时，积分包才可使用，否则将被冻结。",
         "title": "20 积分包"
       },
       "creatorXLarge": {
-        "description": "按需随时补充，积分永久有效，用完为止。",
+        "description": "购买后即时生效，积分永不过期；但仅当账户下存在有效期内的积分套餐时，积分包才可使用，否则将被冻结。",
         "title": "320 积分包"
       }
     }
@@ -787,7 +787,10 @@
     "subtitle": "请选择合适的积分套餐",
     "title": "积分套餐",
     "topup": {
-      "creditLabel": "{credits} 积分"
+      "creditLabel": "{credits} 积分",
+      "noteFrozen": "账户下需要存在有效期内的积分套餐时才可以使用，否则会被暂时冻结。",
+      "noteInstant": "购买后即时生效, 积分永不过期。",
+      "noteTitle": "积分充值说明"
     },
     "topupComingSoon": "敬请期待",
     "validity": {

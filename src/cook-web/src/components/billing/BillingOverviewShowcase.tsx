@@ -192,45 +192,59 @@ export function BillingOverviewShowcase({
           <Skeleton className='h-[620px] rounded-[34px]' />
         </div>
       ) : showcaseTab === 'topup' ? (
-        <div
-          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
-          data-testid='billing-topup-grid'
-        >
-          {topups.map(product => {
-            const provider = resolveCheckoutProvider(
-              stripeAvailable,
-              pingxxAvailable,
-            );
-            const checkoutKey = provider
-              ? `topup:${provider}:${product.product_bid}`
-              : '';
+        <div className='space-y-4'>
+          <div
+            className='rounded-2xl border border-[rgba(0,82,217,0.12)] bg-[rgba(0,82,217,0.04)] px-5 py-4 text-sm leading-6 text-[var(--base-foreground,#0A0A0A)]'
+            data-testid='billing-topup-note'
+          >
+            <div className='font-medium text-[var(--base-foreground,#0A0A0A)]'>
+              {t('module.billing.package.topup.noteTitle')}
+            </div>
+            <ul className='mt-2 list-disc space-y-1 pl-5 text-[var(--base-muted-foreground,#525252)]'>
+              <li>{t('module.billing.package.topup.noteInstant')}</li>
+              <li>{t('module.billing.package.topup.noteFrozen')}</li>
+            </ul>
+          </div>
 
-            return (
-              <TopupCard
-                key={product.product_bid}
-                actionLabel={t('module.billing.package.actions.buyNow')}
-                actionLoading={checkoutLoadingKey === checkoutKey}
-                creditsLabel={t('module.billing.package.topup.creditLabel', {
-                  credits: formatBillingCredits(
-                    product.credit_amount,
+          <div
+            className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+            data-testid='billing-topup-grid'
+          >
+            {topups.map(product => {
+              const provider = resolveCheckoutProvider(
+                stripeAvailable,
+                pingxxAvailable,
+              );
+              const checkoutKey = provider
+                ? `topup:${provider}:${product.product_bid}`
+                : '';
+
+              return (
+                <TopupCard
+                  key={product.product_bid}
+                  actionLabel={t('module.billing.package.actions.buyNow')}
+                  actionLoading={checkoutLoadingKey === checkoutKey}
+                  creditsLabel={t('module.billing.package.topup.creditLabel', {
+                    credits: formatBillingCredits(
+                      product.credit_amount,
+                      i18n.language,
+                    ),
+                  })}
+                  disabled={!provider}
+                  featured={Boolean(product.status_badge_key)}
+                  onAction={() =>
+                    provider && onSelectTopupCheckout(product, provider)
+                  }
+                  priceLabel={formatBillingPrice(
+                    product.price_amount,
+                    product.currency,
                     i18n.language,
-                  ),
-                })}
-                description={resolveBillingProductDescription(t, product)}
-                disabled={!provider}
-                featured={Boolean(product.status_badge_key)}
-                onAction={() =>
-                  provider && onSelectTopupCheckout(product, provider)
-                }
-                priceLabel={formatBillingPrice(
-                  product.price_amount,
-                  product.currency,
-                  i18n.language,
-                )}
-                testId={`billing-topup-card-${product.product_bid}`}
-              />
-            );
-          })}
+                  )}
+                  testId={`billing-topup-card-${product.product_bid}`}
+                />
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div
