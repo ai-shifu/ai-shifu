@@ -171,10 +171,10 @@
     display: flex;
     flex: 1 1 0;
     height: calc(
-      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 58px - 40px
+      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 48px - 40px
     );
     max-height: calc(
-      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 58px - 40px
+      calc(var(--app-viewport-block-unit, 1dvh) * 100) - 48px - 40px
     );
     min-height: 0;
     flex-direction: column;
