@@ -1,6 +1,7 @@
 // Course catalog
 import { memo, useCallback, useState, useEffect, useContext } from 'react';
 import styles from './CourseCatalogList.module.scss';
+import { cn } from '@/lib/utils';
 import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
@@ -17,6 +18,7 @@ export const CourseCatalogList = ({
   onTryLessonSelect,
   selectedLessonId = '',
   bannerInfo = null,
+  hideCourseHeader = false,
 }) => {
   const [trialNodePosition, setTrialNodePosition] = useState(
     TRAIL_NODE_POSITION.NORMAL,
@@ -37,17 +39,24 @@ export const CourseCatalogList = ({
   return (
     <>
       <div className={styles.courseCatalogList}>
-        <div className={styles.titleRow}>
-          <div className={styles.titleArea}>
-            {courseAvatar && (
-              <Avatar className='w-8 h-8 mr-3'>
-                <AvatarImage src={courseAvatar} />
-              </Avatar>
-            )}
-            <div className={styles.titleName}>{courseName}</div>
+        {!hideCourseHeader ? (
+          <div className={styles.titleRow}>
+            <div className={styles.titleArea}>
+              {courseAvatar && (
+                <Avatar className='w-8 h-8 mr-3'>
+                  <AvatarImage src={courseAvatar} />
+                </Avatar>
+              )}
+              <div className={styles.titleName}>{courseName}</div>
+            </div>
           </div>
-        </div>
-        <div className={styles.listRow}>
+        ) : null}
+        <div
+          className={cn(
+            styles.listRow,
+            hideCourseHeader ? styles.listRowWithoutHeader : '',
+          )}
+        >
           {catalogs.map(catalog => {
             return (
               // @ts-expect-error EXPECT

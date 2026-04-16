@@ -172,6 +172,7 @@ const NavDrawer = ({
                 <CourseCatalogList
                   courseAvatar={courseAvatar}
                   courseName={courseName}
+                  hideCourseHeader={mobileStyle}
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
                   // @ts-expect-error EXPECT
