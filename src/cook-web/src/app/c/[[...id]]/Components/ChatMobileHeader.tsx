@@ -16,7 +16,7 @@ import { BookOpen, Check, Headphones, Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
-import { LEARNING_MODE_LABELS, LEARNING_MODE_OPTIONS } from './learningModeOptions';
+import { LEARNING_MODE_OPTIONS } from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
 
 export const ChatMobileHeader = ({
@@ -75,9 +75,9 @@ export const ChatMobileHeader = ({
         ) : null}
         <span
           className='min-w-0 truncate text-[16px] font-semibold leading-[14px] text-black/80'
-          title={courseName || LEARNING_MODE_LABELS[learningMode]}
+          title={courseName || ''}
         >
-          {courseName || LEARNING_MODE_LABELS[learningMode]}
+          {courseName || ''}
         </span>
       </div>
 
