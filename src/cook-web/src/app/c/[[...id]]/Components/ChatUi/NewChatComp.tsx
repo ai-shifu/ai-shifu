@@ -22,6 +22,7 @@ import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -38,7 +39,7 @@ import {
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
-import { stripCustomButtonAfterContent } from './chatUiUtils';
+import { syncCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -76,10 +77,12 @@ const buildReadModeItemsWithAskState = ({
   items,
   askListByAnchorElementBid,
   mobileStyle,
+  askButtonMarkup,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Record<string, AskMessage[]>;
   mobileStyle: boolean;
+  askButtonMarkup: string;
 }) => {
   const existingAskAnchorSet = new Set<string>();
   const likeStatusAnchorSet = new Set<string>();
@@ -101,6 +104,18 @@ const buildReadModeItemsWithAskState = ({
   const nextItems: ChatContentItem[] = [];
 
   items.forEach(item => {
+    const nextItem =
+      mobileStyle && item.type === ChatContentItemType.CONTENT
+        ? ({
+            ...item,
+            content: syncCustomButtonAfterContent({
+              content: item.content,
+              buttonMarkup: askButtonMarkup,
+              shouldShowButton: true,
+            }),
+          } satisfies ChatContentItem)
+        : item;
+
     if (item.type === ChatContentItemType.ASK) {
       const anchorElementBid = item.parent_element_bid || '';
       const storedAskList = anchorElementBid
@@ -123,12 +138,12 @@ const buildReadModeItemsWithAskState = ({
       return;
     }
 
-    nextItems.push(item);
+    nextItems.push(nextItem);
 
     const anchorElementBid =
-      item.type === ChatContentItemType.LIKE_STATUS
-        ? item.parent_element_bid || ''
-        : item.element_bid || '';
+      nextItem.type === ChatContentItemType.LIKE_STATUS
+        ? nextItem.parent_element_bid || ''
+        : nextItem.element_bid || '';
 
     if (
       !anchorElementBid ||
@@ -145,10 +160,10 @@ const buildReadModeItemsWithAskState = ({
     }
 
     const shouldInsertAfterCurrent =
-      item.type === ChatContentItemType.LIKE_STATUS ||
+      nextItem.type === ChatContentItemType.LIKE_STATUS ||
       (!likeStatusAnchorSet.has(anchorElementBid) &&
-        (item.type === ChatContentItemType.CONTENT ||
-          item.type === ChatContentItemType.INTERACTION));
+        (nextItem.type === ChatContentItemType.CONTENT ||
+          nextItem.type === ChatContentItemType.INTERACTION));
 
     if (!shouldInsertAfterCurrent) {
       return;
@@ -215,6 +230,11 @@ export const NewChatComponents = ({
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
+  const askButtonMarkup = useMemo(
+    () =>
+      `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+    [t],
+  );
   const listenModeUpgradeDialogTitle = t('module.chat.listenModeUpgradeDialogTitle');
   const listenModeUpgradeDialogDescription = t(
     'module.chat.listenModeUpgradeDialogDescription',
@@ -487,8 +507,9 @@ export const NewChatComponents = ({
         items,
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
+        askButtonMarkup,
       }),
-    [items, mobileStyle, scopedAskListByAnchorElementBid],
+    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
   );
 
   useEffect(() => {
@@ -613,7 +634,11 @@ export const NewChatComponents = ({
       if (item.type !== ChatContentItemType.CONTENT) {
         return item;
       }
-      const sanitizedContent = stripCustomButtonAfterContent(item.content);
+      const sanitizedContent = syncCustomButtonAfterContent({
+        content: item.content,
+        buttonMarkup: askButtonMarkup,
+        shouldShowButton: false,
+      });
       if (sanitizedContent === item.content) {
         return item;
       }
@@ -624,7 +649,7 @@ export const NewChatComponents = ({
       };
     });
     return hasChanges ? nextItems : items;
-  }, [isListenModeActive, items, mobileStyle]);
+  }, [askButtonMarkup, isListenModeActive, items, mobileStyle]);
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();

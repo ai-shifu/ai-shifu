@@ -46,6 +46,24 @@ export const stripCustomButtonAfterContent = (
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
 };
 
+export const syncCustomButtonAfterContent = ({
+  content,
+  buttonMarkup,
+  shouldShowButton,
+}: {
+  content?: string | null;
+  buttonMarkup: string;
+  shouldShowButton: boolean;
+}): string => {
+  const baseContent = content ?? '';
+
+  if (shouldShowButton) {
+    return appendCustomButtonAfterContent(baseContent, buttonMarkup);
+  }
+
+  return stripCustomButtonAfterContent(baseContent) ?? '';
+};
+
 export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
   item: T,
 ): T => {
