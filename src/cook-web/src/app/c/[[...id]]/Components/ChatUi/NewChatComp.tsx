@@ -39,7 +39,11 @@ import {
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
-import { syncCustomButtonAfterContent } from './chatUiUtils';
+import {
+  resolvePreviousActionableItem,
+  shouldShowMobileAskButtonForReadContent,
+  syncCustomButtonAfterContent,
+} from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -103,7 +107,12 @@ const buildReadModeItemsWithAskState = ({
   const insertedAskAnchorSet = new Set<string>();
   const nextItems: ChatContentItem[] = [];
 
-  items.forEach(item => {
+  items.forEach((item, index) => {
+    const previousActionableItem = resolvePreviousActionableItem(items, index);
+    const shouldShowMobileAskButton = shouldShowMobileAskButtonForReadContent({
+      item,
+      previousActionableItem,
+    });
     const nextItem =
       mobileStyle && item.type === ChatContentItemType.CONTENT
         ? ({
@@ -111,7 +120,7 @@ const buildReadModeItemsWithAskState = ({
             content: syncCustomButtonAfterContent({
               content: item.content,
               buttonMarkup: askButtonMarkup,
-              shouldShowButton: true,
+              shouldShowButton: shouldShowMobileAskButton,
             }),
           } satisfies ChatContentItem)
         : item;
