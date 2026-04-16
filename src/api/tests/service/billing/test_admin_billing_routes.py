@@ -17,7 +17,6 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
-    BILLING_PRODUCT_SEEDS,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -52,7 +51,6 @@ from flaskr.service.billing.read_models import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -60,6 +58,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import AppException
+from tests.common.fixtures.billing_products import build_billing_products
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 _ROUTE_DIR = _API_ROOT / "flaskr" / "route"
@@ -99,15 +98,6 @@ def _load_register_billing_routes():
 register_billing_routes = _load_register_billing_routes()
 
 
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        items.append(BillingProduct(**payload))
-    return items
-
-
 @pytest.fixture
 def admin_billing_client():
     app = Flask(__name__)
@@ -142,7 +132,7 @@ def admin_billing_client():
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(build_billing_products())
         dao.db.session.add_all(
             [
                 CreditWallet(

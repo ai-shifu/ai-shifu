@@ -20,7 +20,6 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
-    BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -38,7 +37,6 @@ from flaskr.service.billing.models import (
     BillingDailyUsageMetric,
     BillingOrder,
     BillingEntitlement,
-    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -78,6 +76,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
+from tests.common.fixtures.billing_products import build_billing_products
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 _ROUTE_DIR = _API_ROOT / "flaskr" / "route"
@@ -118,23 +117,22 @@ register_billing_routes = _load_register_billing_routes()
 billing_routes_module = sys.modules["flaskr.service.billing.routes"]
 
 
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        if payload["product_bid"] == "billing-product-plan-yearly":
-            payload["entitlement_payload"] = {
-                "branding_enabled": True,
-                "custom_domain_enabled": True,
-                "priority_class": "vip",
-                "max_concurrency": "8",
-                "analytics_tier": "enterprise",
-                "support_tier": "priority",
-                "feature_payload": {"beta_reports": True},
+def _seed_products_with_yearly_entitlements():
+    return build_billing_products(
+        overrides_by_bid={
+            "billing-product-plan-yearly": {
+                "entitlement_payload": {
+                    "branding_enabled": True,
+                    "custom_domain_enabled": True,
+                    "priority_class": "vip",
+                    "max_concurrency": "8",
+                    "analytics_tier": "enterprise",
+                    "support_tier": "priority",
+                    "feature_payload": {"beta_reports": True},
+                }
             }
-        items.append(BillingProduct(**payload))
-    return items
+        }
+    )
 
 
 @pytest.fixture
@@ -173,7 +171,7 @@ def billing_test_client():
     with app.app_context():
         dao.db.create_all()
 
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(_seed_products_with_yearly_entitlements())
         dao.db.session.add_all(
             [
                 DraftShifu(

@@ -18,7 +18,6 @@ from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-    BILLING_PRODUCT_SEEDS,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -41,15 +40,6 @@ from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .primitives import serialize_dt as _serialize_dt
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
-
-_TRIAL_FALLBACK_PRODUCT_SEED = next(
-    (
-        seed
-        for seed in BILLING_PRODUCT_SEEDS
-        if seed["product_code"] == BILLING_TRIAL_PRODUCT_CODE
-    ),
-    None,
-)
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -157,7 +147,7 @@ def _trial_product_public_enabled(product_ref: Any) -> bool:
 
 
 def _resolve_trial_product_reference() -> BillingProduct | dict[str, Any] | None:
-    product = (
+    return (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
             BillingProduct.product_code == BILLING_TRIAL_PRODUCT_CODE,
@@ -166,9 +156,6 @@ def _resolve_trial_product_reference() -> BillingProduct | dict[str, Any] | None
         .order_by(BillingProduct.id.desc())
         .first()
     )
-    if product is not None:
-        return product
-    return _TRIAL_FALLBACK_PRODUCT_SEED
 
 
 def _build_trial_offer_state(

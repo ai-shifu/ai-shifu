@@ -10,7 +10,6 @@ from .daily_aggregates import (  # noqa: F401
 )
 from .admission import admit_creator_usage  # noqa: F401
 from .consts import (  # noqa: F401
-    BILLING_PRODUCT_SEEDS,
     BILLING_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )

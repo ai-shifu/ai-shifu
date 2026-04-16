@@ -10,7 +10,6 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
-    BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_ROUNDING_MODE_CEIL,
@@ -32,6 +31,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
+from tests.common.fixtures.billing_products import build_billing_product
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 
@@ -163,24 +163,20 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
 
 
 def _seed_yearly_plan_product() -> BillingProduct:
-    for seed in BILLING_PRODUCT_SEEDS:
-        if seed["product_bid"] != "billing-product-plan-yearly":
-            continue
-
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        payload["entitlement_payload"] = {
-            "branding_enabled": True,
-            "custom_domain_enabled": False,
-            "priority_class": "priority",
-            "max_concurrency": "4",
-            "analytics_tier": "advanced",
-            "support_tier": "business_hours",
-            "feature_payload": {"report_export": True},
-        }
-        return BillingProduct(**payload)
-
-    raise AssertionError("billing-product-plan-yearly seed not found")
+    return build_billing_product(
+        "billing-product-plan-yearly",
+        overrides={
+            "entitlement_payload": {
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "priority_class": "priority",
+                "max_concurrency": "4",
+                "analytics_tier": "advanced",
+                "support_tier": "business_hours",
+                "feature_payload": {"report_export": True},
+            }
+        },
+    )
 
 
 def _add_rate() -> None:

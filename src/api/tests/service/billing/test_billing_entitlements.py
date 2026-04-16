@@ -11,7 +11,6 @@ from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
     BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY,
-    BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
@@ -22,9 +21,9 @@ from flaskr.service.billing.entitlements import (
 )
 from flaskr.service.billing.models import (
     BillingEntitlement,
-    BillingProduct,
     BillingSubscription,
 )
+from tests.common.fixtures.billing_products import build_billing_products
 
 
 @pytest.fixture
@@ -48,23 +47,22 @@ def billing_entitlement_app() -> Flask:
         dao.db.drop_all()
 
 
-def _seed_products() -> list[BillingProduct]:
-    products: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        if payload["product_bid"] == "billing-product-plan-yearly":
-            payload["entitlement_payload"] = {
-                "branding_enabled": True,
-                "custom_domain_enabled": False,
-                "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
-                "max_concurrency": "4",
-                "analytics_tier": "advanced",
-                "support_tier": "business_hours",
-                "feature_payload": {"report_export": True},
+def _seed_products_with_yearly_entitlements():
+    return build_billing_products(
+        overrides_by_bid={
+            "billing-product-plan-yearly": {
+                "entitlement_payload": {
+                    "branding_enabled": True,
+                    "custom_domain_enabled": False,
+                    "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
+                    "max_concurrency": "4",
+                    "analytics_tier": "advanced",
+                    "support_tier": "business_hours",
+                    "feature_payload": {"report_export": True},
+                }
             }
-        products.append(BillingProduct(**payload))
-    return products
+        }
+    )
 
 
 def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
@@ -72,7 +70,7 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
 ) -> None:
     now = datetime(2026, 4, 8, 12, 0, 0)
     with billing_entitlement_app.app_context():
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(_seed_products_with_yearly_entitlements())
         dao.db.session.add(
             BillingSubscription(
                 subscription_bid="sub-snapshot-1",
@@ -146,7 +144,7 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
 ) -> None:
     now = datetime(2026, 4, 8, 12, 0, 0)
     with billing_entitlement_app.app_context():
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(_seed_products_with_yearly_entitlements())
         dao.db.session.add(
             BillingSubscription(
                 subscription_bid="sub-product-1",

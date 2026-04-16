@@ -8,7 +8,6 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    BILLING_PRODUCT_SEEDS,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
@@ -26,7 +25,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
 )
@@ -35,15 +33,7 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.service.billing.subscriptions import sync_subscription_lifecycle_events
-
-
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        items.append(BillingProduct(**payload))
-    return items
+from tests.common.fixtures.billing_products import build_billing_products
 
 
 @pytest.fixture
@@ -62,7 +52,7 @@ def billing_renewal_app() -> Flask:
     dao.db.init_app(app)
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(build_billing_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()

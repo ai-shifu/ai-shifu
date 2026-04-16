@@ -8,14 +8,12 @@ from flaskr.service.billing.consts import (
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILLING_CONFIG_KEY_RATE_VERSION,
     BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
-    BILLING_MODE_MANUAL,
-    BILLING_MODE_ONE_TIME,
-    BILLING_MODE_RECURRING,
-    BILLING_PRODUCT_SEEDS,
+    BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
+    BILLING_TRIAL_PRODUCT_BID,
     BILLING_TRIAL_PRODUCT_CODE,
     BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
-    BILLING_PRODUCT_TYPE_PLAN,
-    BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT,
+    BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -53,51 +51,15 @@ def test_billing_models_register_core_tables() -> None:
     assert credit_ledger_entries.c.amount.type.scale == 10
 
 
-def test_billing_product_seeds_cover_plan_and_topup_catalog() -> None:
-    assert len(BILLING_PRODUCT_SEEDS) == 10
-
-    plan_products = [
-        row
-        for row in BILLING_PRODUCT_SEEDS
-        if row["product_type"] == BILLING_PRODUCT_TYPE_PLAN
-    ]
-    topup_products = [
-        row
-        for row in BILLING_PRODUCT_SEEDS
-        if row["product_type"] == BILLING_PRODUCT_TYPE_TOPUP
-    ]
-    trial_product = next(
-        row
-        for row in BILLING_PRODUCT_SEEDS
-        if row["product_code"] == BILLING_TRIAL_PRODUCT_CODE
+def test_billing_trial_constants_remain_stable() -> None:
+    assert BILLING_TRIAL_PRODUCT_BID == "billing-product-plan-trial"
+    assert BILLING_TRIAL_PRODUCT_CODE == "creator-plan-trial"
+    assert BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG == "public_trial_offer"
+    assert BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS == "trial_valid_days"
+    assert BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT == (
+        "starts_on_first_grant"
     )
-
-    assert len(plan_products) == 6
-    assert len(topup_products) == 4
-    paid_plan_products = [
-        row
-        for row in plan_products
-        if row["product_code"] != BILLING_TRIAL_PRODUCT_CODE
-    ]
-    assert all(
-        row["billing_mode"] == BILLING_MODE_RECURRING for row in paid_plan_products
-    )
-    assert all(row["billing_mode"] == BILLING_MODE_ONE_TIME for row in topup_products)
-    assert trial_product["billing_mode"] == BILLING_MODE_MANUAL
-    assert trial_product["price_amount"] == 0
-    assert trial_product["metadata"][BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG] is True
-    assert {row["product_code"] for row in BILLING_PRODUCT_SEEDS} == {
-        BILLING_TRIAL_PRODUCT_CODE,
-        "creator-plan-monthly",
-        "creator-plan-monthly-pro",
-        "creator-plan-yearly",
-        "creator-plan-yearly-lite",
-        "creator-plan-yearly-premium",
-        "creator-topup-small",
-        "creator-topup-medium",
-        "creator-topup-large",
-        "creator-topup-xlarge",
-    }
+    assert BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE == "new_creator_v1"
 
 
 def test_credit_usage_rate_seeds_cover_all_scenes_with_bootstrap_defaults() -> None:

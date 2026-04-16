@@ -15,7 +15,6 @@ import flaskr.dao as dao
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
-    BILLING_PRODUCT_SEEDS,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_BID,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -23,7 +22,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -38,6 +36,7 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.token_store import token_store
 from flaskr.service.user.utils import generate_token
+from tests.common.fixtures.billing_products import build_billing_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
 _API_ROOT = Path(__file__).resolve().parents[3]
@@ -93,15 +92,6 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
     )
 
 
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        items.append(BillingProduct(**payload))
-    return items
-
-
 @pytest.fixture
 def user_trial_client(monkeypatch, tmp_path):
     import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
@@ -149,7 +139,7 @@ def user_trial_client(monkeypatch, tmp_path):
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(build_billing_products())
         dao.db.session.commit()
 
     return app.test_client()

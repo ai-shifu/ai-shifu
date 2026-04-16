@@ -742,7 +742,7 @@ v1 的改造要求：
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
 - 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
-- 当前实现中，产品化 trial plan seed 与移除 legacy trial sys-config 的迁移，已收敛到 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`
+- 当前实现中，trial 产品化与 legacy trial sys-config 移除最初落在 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`；后续完整 billing 产品目录的数据库真源规范化，已收敛到 `src/api/migrations/versions/9a6b3c2d1e4f_canonicalize_billing_product_catalog.py`
 - 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
 - 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态

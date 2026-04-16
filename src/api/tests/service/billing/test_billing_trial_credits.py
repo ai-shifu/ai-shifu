@@ -16,7 +16,6 @@ from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-    BILLING_PRODUCT_SEEDS,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -29,7 +28,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -40,6 +38,7 @@ from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.common.models import AppException
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
+from tests.common.fixtures.billing_products import build_billing_products
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 _ROUTE_DIR = _API_ROOT / "flaskr" / "route"
@@ -77,15 +76,6 @@ def _load_register_billing_routes():
 
 
 register_billing_routes = _load_register_billing_routes()
-
-
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        items.append(BillingProduct(**payload))
-    return items
 
 
 def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
@@ -135,7 +125,7 @@ def trial_billing_client():
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(build_billing_products())
         dao.db.session.commit()
 
     return app.test_client()

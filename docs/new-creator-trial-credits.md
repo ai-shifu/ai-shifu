@@ -22,7 +22,11 @@ creator-consumable category: `topup`.
 
 ## Product Model
 
-The seed adds a fixed plan product:
+The database-backed catalog keeps a fixed plan product for the trial. Runtime
+reads the product row from `billing_products`; it does not fall back to code
+seeds anymore.
+
+The canonical row is maintained by migrations:
 
 - `product_bid = billing-product-plan-trial`
 - `product_code = creator-plan-trial`
@@ -115,4 +119,5 @@ remaining active forever.
 - `granted`
 
 The read model prefers product/order/subscription state. Legacy ledger-only
-users still resolve to `granted`.
+users still resolve to `granted`. If the trial product row is missing, the fix
+is to apply the billing catalog migrations rather than editing runtime code.

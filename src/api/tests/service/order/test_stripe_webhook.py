@@ -13,14 +13,12 @@ import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
-    BILLING_PRODUCT_SEEDS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
-    BillingProduct,
     BillingSubscription,
 )
 from flaskr.service.billing.models import (
@@ -32,6 +30,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE
 from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+from tests.common.fixtures.billing_products import build_billing_products
 
 _ROUTE_DIR = Path(__file__).resolve().parents[3] / "flaskr" / "route"
 
@@ -84,20 +83,11 @@ def stripe_webhook_app():
     _load_route_module("order").register_order_handler(app, "/api/order")
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(_seed_products())
+        dao.db.session.add_all(build_billing_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
-
-
-def _seed_products() -> list[BillingProduct]:
-    items: list[BillingProduct] = []
-    for seed in BILLING_PRODUCT_SEEDS:
-        payload = dict(seed)
-        payload["metadata_json"] = payload.pop("metadata", None)
-        items.append(BillingProduct(**payload))
-    return items
 
 
 def _ensure_order(status, order_bid):
