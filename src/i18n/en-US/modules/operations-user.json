@@ -1,0 +1,80 @@
+{
+  "__namespace__": "module.operationsUser",
+  "courseSummary": {
+    "dialog": {
+      "courseId": "Course ID",
+      "courseName": "Course Name",
+      "createdTitle": "Created Courses",
+      "description": "User: {user}",
+      "learningTitle": "Learning Courses",
+      "status": "Status"
+    },
+    "empty": "--"
+  },
+  "detail": {
+    "back": "Back",
+    "basicInfo": "Basic Information",
+    "createdCourses": "Created Courses",
+    "emptyCourses": "No courses",
+    "learningCourses": "Learning Courses",
+    "learningProgress": "Progress",
+    "overview": "Overview",
+    "title": "User Detail"
+  },
+  "emptyList": "No users",
+  "filters": {
+    "createdAt": "Created At",
+    "email": "Email",
+    "mobile": "Mobile",
+    "nickname": "Nickname",
+    "role": "Role",
+    "status": "Status",
+    "userId": "User ID"
+  },
+  "loginMethodLabels": {
+    "email": "Email",
+    "google": "Google",
+    "phone": "Mobile",
+    "unknown": "Unknown",
+    "wechat": "WeChat"
+  },
+  "registrationSourceLabels": {
+    "email": "Email",
+    "google": "Google",
+    "imported": "Imported",
+    "phone": "Mobile",
+    "unknown": "Unknown",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "Creator",
+    "learner": "Learner",
+    "operator": "Operator",
+    "regular": "Regular",
+    "unknown": "Unknown"
+  },
+  "statusLabels": {
+    "paid": "Paid",
+    "registered": "Registered",
+    "unknown": "Unknown",
+    "unregistered": "Unregistered"
+  },
+  "table": {
+    "createdAt": "Created At",
+    "createdCourses": "Created Courses",
+    "email": "Email",
+    "lastLearningAt": "Last Learning",
+    "lastLoginAt": "Last Login",
+    "learningCourses": "Learning Courses",
+    "loginMethods": "Login Methods",
+    "mobile": "Mobile",
+    "nickname": "Nickname",
+    "registrationSource": "Registration Source",
+    "role": "Role",
+    "status": "Status",
+    "totalPaidAmount": "Total Paid",
+    "updatedAt": "Updated At",
+    "userId": "User ID"
+  },
+  "title": "User Management"
+}
