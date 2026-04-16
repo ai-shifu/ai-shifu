@@ -145,6 +145,12 @@
     color: #fff;
   }
 
+  .planShowcaseCardAction:disabled {
+    background: #0052d9;
+    color: #fff;
+    opacity: 0.6;
+  }
+
   .planShowcaseCardCreditBox {
     background: #fff;
   }

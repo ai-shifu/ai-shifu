@@ -528,7 +528,7 @@
       "release": "释放"
     },
     "loadError": "积分来源读取失败，请刷新后重试。",
-    "neverExpires": "跟随订阅积分的有效期",
+    "neverExpires": "跟随套餐积分的有效期",
     "pagination": {
       "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
     },
@@ -536,8 +536,8 @@
       "gift": "赠送积分",
       "manual": "人工调整",
       "refund": "退款返还",
-      "subscription": "订阅发放",
-      "topup": "充值购买",
+      "subscription": "套餐积分",
+      "topup": "积分包",
       "usage": "用量结算"
     },
     "summary": {

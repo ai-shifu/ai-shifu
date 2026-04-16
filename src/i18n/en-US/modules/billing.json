@@ -536,8 +536,8 @@
       "gift": "Gift credits",
       "manual": "Manual adjustment",
       "refund": "Refund return",
-      "subscription": "Subscription grant",
-      "topup": "Top-up purchase",
+      "subscription": "Plan credits",
+      "topup": "Credit pack",
       "usage": "Usage settlement"
     },
     "summary": {
