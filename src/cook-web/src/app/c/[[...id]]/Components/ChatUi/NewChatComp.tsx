@@ -338,9 +338,10 @@ export const NewChatComponents = ({
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
-  const { learningMode, updateLearningMode } = useSystemStore(
+  const { learningMode, showLearningModeToggle, updateLearningMode } = useSystemStore(
     useShallow(state => ({
       learningMode: state.learningMode,
+      showLearningModeToggle: state.showLearningModeToggle,
       updateLearningMode: state.updateLearningMode,
     })),
   );
@@ -460,6 +461,7 @@ export const NewChatComponents = ({
     updateSelectedLesson,
     getNextLessonId,
     scrollToLesson,
+    listenRequestEnabled: showLearningModeToggle,
     shouldPromptLessonFeedback:
       isPromptContextSettled &&
       (isListenModeActive ? isListenFeedbackReady : isAtBottom),

@@ -31,7 +31,6 @@ import {
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import { isListenModeActive } from '../learningModeOptions';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -66,12 +65,9 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
-  const learningMode = useSystemStore(state => state.learningMode);
-  const shouldUseListenMode = isListenModeActive({
-    learningMode,
-    courseTtsEnabled,
-  });
+  const shouldUseListenMode = useSystemStore(
+    state => state.showLearningModeToggle,
+  );
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
