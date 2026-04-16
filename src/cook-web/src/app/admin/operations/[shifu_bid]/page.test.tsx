@@ -319,7 +319,9 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('¥88').length).toBeGreaterThan(0);
+    const bobRow = screen.getByText('Bob').closest('tr');
+    expect(bobRow).not.toBeNull();
+    expect(within(bobRow as HTMLElement).getByText('88')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.operationsCourse.detail.userRole.student')
         .length,
