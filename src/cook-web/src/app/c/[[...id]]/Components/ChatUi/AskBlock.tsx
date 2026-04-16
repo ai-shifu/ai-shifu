@@ -353,6 +353,10 @@ export default function AskBlock({
   // Decide which messages to display
   const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
+  const shouldRenderMobileDialog =
+    mobileStyle &&
+    shouldShowMobileDialog &&
+    (hasAskAnswerMessages || shouldForceSlideMobileDialog);
 
   useEffect(() => {
     ensureLessonScope(outline_bid);
@@ -381,7 +385,7 @@ export default function AskBlock({
   }, [hasDisplayMessages]);
 
   useEffect(() => {
-    if (!mobileStyle || !expanded) {
+    if (!shouldRenderMobileDialog || !expanded) {
       return;
     }
 
@@ -395,7 +399,7 @@ export default function AskBlock({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [mobileStyle, expanded]);
+  }, [expanded, shouldRenderMobileDialog]);
 
   useEffect(() => {
     if (!mobileStyle || !shouldShowMobileDialog || !expanded) {
@@ -597,11 +601,7 @@ export default function AskBlock({
     );
   };
 
-  if (
-    mobileStyle &&
-    shouldShowMobileDialog &&
-    (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
-  ) {
+  if (shouldRenderMobileDialog) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
