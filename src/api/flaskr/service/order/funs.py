@@ -196,19 +196,18 @@ def send_order_feishu(app: Flask, record_id: str):
 
 
 def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
-    with app.app_context():
-        order: Order = Order.query.filter(Order.order_bid == order_bid).first()
-        if not order:
-            return
-        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
-        title = "取消课程授权通知"
-        msgs = [
-            "用户标识：{}".format(user_identify),
-            "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
-            "订单号：{}".format(order_bid),
-            "来源：Open API",
-        ]
-        send_notify(app, title, msgs)
+    order: Order = Order.query.filter(Order.order_bid == order_bid).first()
+    if not order:
+        return
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
+    title = "取消课程授权通知"
+    msgs = [
+        "用户标识：{}".format(user_identify),
+        "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
+        "订单号：{}".format(order_bid),
+        "来源：Open API",
+    ]
+    send_notify(app, title, msgs)
 
 
 def is_order_has_timeout(app: Flask, origin_record: Order):
@@ -267,107 +266,100 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
 
 
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
-    with app.app_context():
-        set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
-        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
-        app.logger.info(f"shifu_info: {shifu_info}")
-        if not shifu_info:
-            raise_error("server.shifu.courseNotFound")
+    set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
+    app.logger.info(f"shifu_info: {shifu_info}")
+    if not shifu_info:
+        raise_error("server.shifu.courseNotFound")
 
-        with _order_init_lock(app, user_id, course_id):
-            order_timeout_make_new_order = False
+    with _order_init_lock(app, user_id, course_id):
+        order_timeout_make_new_order = False
 
-            # By default, each user should only have one unpaid order per course (shifu).
-            # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
-            origin_record = (
-                Order.query.filter(
-                    Order.user_bid == user_id,
-                    Order.shifu_bid == course_id,
-                    Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
-                )
-                .order_by(Order.id.desc())
-                .first()
+        # By default, each user should only have one unpaid order per course (shifu).
+        # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
+        origin_record = (
+            Order.query.filter(
+                Order.user_bid == user_id,
+                Order.shifu_bid == course_id,
+                Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
             )
-            if origin_record:
-                if origin_record.status != ORDER_STATUS_SUCCESS:
-                    order_timeout_make_new_order = is_order_has_timeout(
-                        app, origin_record
-                    )
-                if order_timeout_make_new_order:
-                    # Check if there are any coupons in the order. If there are, make them failure
-                    void_promo_campaign_applications(
-                        app, origin_record.user_bid, origin_record.order_bid
-                    )
-            else:
-                order_timeout_make_new_order = True
-            if (
-                (not order_timeout_make_new_order)
-                and origin_record
-                and active_id is None
-            ):
-                return query_buy_record(app, origin_record.order_bid)
-            # raise_error("server.order.orderNotFound")
-            order_id = str(get_uuid(app))
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if origin_record:
+            if origin_record.status != ORDER_STATUS_SUCCESS:
+                order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
             if order_timeout_make_new_order:
-                buy_record = Order()
-                buy_record.user_bid = user_id
-                buy_record.shifu_bid = course_id
-                buy_record.payable_price = decimal.Decimal(shifu_info.price)
-                buy_record.status = ORDER_STATUS_INIT
-                buy_record.order_bid = order_id
-                buy_record.payable_price = decimal.Decimal(shifu_info.price)
-            else:
-                buy_record = origin_record
-                order_id = origin_record.order_bid
-            campaign_applications = apply_promo_campaigns(
-                app,
-                shifu_bid=course_id,
-                user_bid=user_id,
-                order_bid=order_id,
-                promo_bid=active_id,
-                payable_price=buy_record.payable_price,
-            )
-            price_items = []
-            price_items.append(
-                PayItemDto(
-                    _("server.order.payItemProduct"),
-                    _("server.order.payItemBasePrice"),
-                    buy_record.payable_price,
-                    False,
-                    None,
+                # Check if there are any coupons in the order. If there are, make them failure
+                void_promo_campaign_applications(
+                    app, origin_record.user_bid, origin_record.order_bid
                 )
-            )
-            discount_value = decimal.Decimal(0.00)
-            if campaign_applications:
-                for campaign_application in campaign_applications:
-                    discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
-                        campaign_application.discount_amount
-                    )
-                    price_items.append(
-                        PayItemDto(
-                            _("server.order.payItemPromotion"),
-                            campaign_application.promo_name,
-                            campaign_application.discount_amount,
-                            True,
-                            None,
-                        )
-                    )
-            if discount_value > buy_record.payable_price:
-                discount_value = buy_record.payable_price
-            buy_record.paid_price = decimal.Decimal(
-                buy_record.payable_price
-            ) - decimal.Decimal(discount_value)
-            db.session.merge(buy_record)
-            db.session.commit()
-            return AICourseBuyRecordDTO(
-                buy_record.order_bid,
-                buy_record.user_bid,
-                buy_record.shifu_bid,
+        else:
+            order_timeout_make_new_order = True
+        if (not order_timeout_make_new_order) and origin_record and active_id is None:
+            return query_buy_record(app, origin_record.order_bid)
+        # raise_error("server.order.orderNotFound")
+        order_id = str(get_uuid(app))
+        if order_timeout_make_new_order:
+            buy_record = Order()
+            buy_record.user_bid = user_id
+            buy_record.shifu_bid = course_id
+            buy_record.payable_price = decimal.Decimal(shifu_info.price)
+            buy_record.status = ORDER_STATUS_INIT
+            buy_record.order_bid = order_id
+            buy_record.payable_price = decimal.Decimal(shifu_info.price)
+        else:
+            buy_record = origin_record
+            order_id = origin_record.order_bid
+        campaign_applications = apply_promo_campaigns(
+            app,
+            shifu_bid=course_id,
+            user_bid=user_id,
+            order_bid=order_id,
+            promo_bid=active_id,
+            payable_price=buy_record.payable_price,
+        )
+        price_items = []
+        price_items.append(
+            PayItemDto(
+                _("server.order.payItemProduct"),
+                _("server.order.payItemBasePrice"),
                 buy_record.payable_price,
-                buy_record.status,
-                discount_value,
-                price_items,
+                False,
+                None,
             )
+        )
+        discount_value = decimal.Decimal(0.00)
+        if campaign_applications:
+            for campaign_application in campaign_applications:
+                discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
+                    campaign_application.discount_amount
+                )
+                price_items.append(
+                    PayItemDto(
+                        _("server.order.payItemPromotion"),
+                        campaign_application.promo_name,
+                        campaign_application.discount_amount,
+                        True,
+                        None,
+                    )
+                )
+        if discount_value > buy_record.payable_price:
+            discount_value = buy_record.payable_price
+        buy_record.paid_price = decimal.Decimal(
+            buy_record.payable_price
+        ) - decimal.Decimal(discount_value)
+        db.session.merge(buy_record)
+        db.session.commit()
+        return AICourseBuyRecordDTO(
+            buy_record.order_bid,
+            buy_record.user_bid,
+            buy_record.shifu_bid,
+            buy_record.payable_price,
+            buy_record.status,
+            discount_value,
+            price_items,
+        )
 
 
 @register_schema_to_swagger
@@ -1339,25 +1331,24 @@ def success_buy_record(app: Flask, record_id: str):
     """
     Success buy record
     """
-    with app.app_context():
-        app.logger.info('success buy record:"{}"'.format(record_id))
-        buy_record = Order.query.filter(Order.order_bid == record_id).first()
-        if buy_record:
-            set_shifu_context(
-                buy_record.shifu_bid,
-                get_shifu_creator_bid(app, buy_record.shifu_bid),
-            )
-            try:
-                set_user_state(buy_record.user_bid, USER_STATE_PAID)
-            except Exception as e:
-                app.logger.error("update user state error:%s", e)
-            buy_record.status = ORDER_STATUS_SUCCESS
-            db.session.commit()
-            send_order_feishu(app, buy_record.order_bid)
-            return query_buy_record(app, record_id)
-        else:
-            app.logger.error("record:{} not found".format(record_id))
-        return None
+    app.logger.info('success buy record:"{}"'.format(record_id))
+    buy_record = Order.query.filter(Order.order_bid == record_id).first()
+    if buy_record:
+        set_shifu_context(
+            buy_record.shifu_bid,
+            get_shifu_creator_bid(app, buy_record.shifu_bid),
+        )
+        try:
+            set_user_state(buy_record.user_bid, USER_STATE_PAID)
+        except Exception as e:
+            app.logger.error("update user state error:%s", e)
+        buy_record.status = ORDER_STATUS_SUCCESS
+        db.session.commit()
+        send_order_feishu(app, buy_record.order_bid)
+        return query_buy_record(app, record_id)
+    else:
+        app.logger.error("record:{} not found".format(record_id))
+    return None
 
 
 class DiscountInfo:
