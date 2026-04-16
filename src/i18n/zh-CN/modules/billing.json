@@ -283,6 +283,10 @@
     },
     "labels": {
       "creditsOneTime": "一次到账 {credits} 积分",
+      "everyDays": "/ 每 {count} 天",
+      "everyMonths": "/ 每 {count} 个月",
+      "everyYears": "/ 每 {count} 年",
+      "perDay": "/ 每日",
       "perMonth": "/ 每月",
       "perYear": "/ 每年",
       "providerManual": "人工开通",
@@ -343,6 +347,13 @@
     "processing": "处理中...",
     "productLabel": "商品",
     "providerLabel": "支付通道",
+    "subject": {
+      "plan": {
+        "day": "日套餐",
+        "month": "月套餐",
+        "year": "年套餐"
+      }
+    },
     "title": "确认购买",
     "topupDescription": "你将进入一次性积分充值的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。"
@@ -676,8 +687,12 @@
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
     },
     "creditSummary": {
+      "daily": "日积分数 {credits}",
+      "days": "每 {count} 天积分数 {credits}",
       "monthly": "月积分数 {credits}",
-      "yearly": "年积分数 {credits}"
+      "months": "每 {count} 个月积分数 {credits}",
+      "yearly": "年积分数 {credits}",
+      "years": "每 {count} 年积分数 {credits}"
     },
     "features": {
       "advanced": {
@@ -686,11 +701,10 @@
         "taskPriority": "任务优先处理",
         "techBasic": "技术基础支持"
       },
-      "base": {
-        "aiListen": "AI 讲解与听课语音",
-        "courseCreate": "课程创建与内容存储",
-        "dataQuery": "订单和学习数据查询",
-        "studentImport": "学员交付与学习账号导入"
+      "daily": {
+        "preview": "适合短周期验证与快速体验",
+        "publish": "支持短期发布与快速上手",
+        "support": "日订阅运营支持"
       },
       "free": {
         "preview": "学员交付与学习账号导入",
@@ -738,10 +752,13 @@
     "free": {
       "creditSummary": "赠送积分数 {credits}",
       "description": "适合首次体验，快速跑通建课与交付",
+      "priceNote": "/ 新注册 {days} 日内有效",
+      "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
       "title": "体验版"
     },
     "intervalTabs": {
+      "daily": "日度套餐",
       "monthly": "月度套餐",
       "topup": "积分充值",
       "yearly": "年度套餐"
@@ -774,9 +791,13 @@
     },
     "topupComingSoon": "敬请期待",
     "validity": {
+      "daily": "有效期：自购买当日起按日生效",
+      "days": "有效期：自购买当日起每 {count} 天续期",
       "free": "有效期：注册日起 15 内有效",
       "monthly": "有效期：当月购买起计算日起，每月有效",
-      "yearly": "有效期：当月购买起计算日起，每年有效"
+      "months": "有效期：自购买当月起每 {count} 个月续期",
+      "yearly": "有效期：当月购买起计算日起，每年有效",
+      "years": "有效期：自购买当月起每 {count} 年续期"
     }
   },
   "page": {
@@ -866,6 +887,7 @@
   "sidebar": {
     "creditsLabel": "剩余积分",
     "cta": "前往会员中心",
+    "dailyTitle": "日订阅",
     "description": "查看会员状态、积分余额与后续账务动作。",
     "expired": "已到期",
     "expiresInDays": "剩 {days} 天",

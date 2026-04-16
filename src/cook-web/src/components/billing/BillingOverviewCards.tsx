@@ -17,47 +17,55 @@ import type { BillingPlan } from '@/types/billing';
 import { cn } from '@/lib/utils';
 import styles from './BillingOverviewCards.module.scss';
 
-export type ShowcaseTab = 'monthly' | 'yearly' | 'topup';
+export type ShowcaseTab = 'daily' | 'monthly' | 'yearly' | 'topup';
 
 type PlanFeatureData = {
   includesLabel?: string;
   items: string[];
 };
 
-const BASE_FEATURE_KEYS: string[] = [
-  'module.billing.package.features.base.courseCreate',
-  'module.billing.package.features.base.studentImport',
-  'module.billing.package.features.base.aiListen',
-  'module.billing.package.features.base.dataQuery',
+const DEFAULT_FREE_FEATURE_KEYS: string[] = [
+  'module.billing.package.features.free.publish',
+  'module.billing.package.features.free.preview',
 ];
 
-const PLAN_FEATURE_DATA: Record<string, PlanFeatureData> = {
-  'creator-plan-monthly': { items: BASE_FEATURE_KEYS },
-  'creator-plan-monthly-pro': { items: BASE_FEATURE_KEYS },
-  'creator-plan-yearly-lite': {
-    includesLabel: 'module.billing.package.features.advanced.includesLabel',
-    items: [
-      'module.billing.package.features.advanced.taskPriority',
-      'module.billing.package.features.advanced.parallelProcessing',
-      'module.billing.package.features.advanced.techBasic',
-    ],
-  },
-  'creator-plan-yearly': {
-    includesLabel: 'module.billing.package.features.pro.includesLabel',
-    items: [
-      'module.billing.package.features.pro.branding',
-      'module.billing.package.features.pro.customDomain',
-      'module.billing.package.features.pro.techPriority',
-    ],
-  },
-  'creator-plan-yearly-premium': {
-    includesLabel: 'module.billing.package.features.premium.includesLabel',
-    items: [
-      'module.billing.package.features.premium.concurrencyQuota',
-      'module.billing.package.features.premium.dedicatedSupport',
-      'module.billing.package.features.premium.onboarding',
-    ],
-  },
+const PLAN_FEATURE_INCLUDE_LABELS: Record<string, string> = {
+  'creator-plan-yearly-lite':
+    'module.billing.package.features.advanced.includesLabel',
+  'creator-plan-yearly': 'module.billing.package.features.pro.includesLabel',
+  'creator-plan-yearly-premium':
+    'module.billing.package.features.premium.includesLabel',
+};
+
+const PLAN_FEATURE_FALLBACK_KEYS: Record<string, string[]> = {
+  'creator-plan-monthly': [
+    'module.billing.package.features.monthly.publish',
+    'module.billing.package.features.monthly.preview',
+    'module.billing.package.features.monthly.support',
+  ],
+  'creator-plan-monthly-pro': [
+    'module.billing.package.features.monthly.publish',
+    'module.billing.package.features.monthly.preview',
+    'module.billing.package.features.monthly.support',
+  ],
+  'creator-plan-yearly-lite': [
+    'module.billing.package.features.yearly.lite.ops',
+    'module.billing.package.features.yearly.lite.publish',
+  ],
+  'creator-plan-yearly': [
+    'module.billing.package.features.yearly.pro.branding',
+    'module.billing.package.features.yearly.pro.domain',
+    'module.billing.package.features.yearly.pro.priority',
+    'module.billing.package.features.yearly.pro.analytics',
+    'module.billing.package.features.yearly.pro.support',
+  ],
+  'creator-plan-yearly-premium': [
+    'module.billing.package.features.yearly.premium.branding',
+    'module.billing.package.features.yearly.premium.domain',
+    'module.billing.package.features.yearly.premium.priority',
+    'module.billing.package.features.yearly.premium.analytics',
+    'module.billing.package.features.yearly.premium.support',
+  ],
 };
 
 const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
@@ -82,13 +90,50 @@ const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
 };
 
 export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
-  return (
-    PLAN_FEATURE_DATA[product.product_code] || { items: BASE_FEATURE_KEYS }
-  );
+  const productHighlights = product.highlights?.filter(item => Boolean(item));
+  if (productHighlights && productHighlights.length > 0) {
+    return {
+      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
+      items: productHighlights,
+    };
+  }
+
+  if (PLAN_FEATURE_FALLBACK_KEYS[product.product_code]) {
+    return {
+      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
+      items: PLAN_FEATURE_FALLBACK_KEYS[product.product_code],
+    };
+  }
+
+  if (product.billing_interval === 'day') {
+    return {
+      items: [
+        'module.billing.package.features.daily.publish',
+        'module.billing.package.features.daily.preview',
+        'module.billing.package.features.daily.support',
+      ],
+    };
+  }
+
+  if (product.billing_interval === 'year') {
+    return {
+      items: PLAN_FEATURE_FALLBACK_KEYS['creator-plan-yearly'],
+    };
+  }
+
+  return {
+    items: PLAN_FEATURE_FALLBACK_KEYS['creator-plan-monthly'],
+  };
 }
 
-export function getFreeFeatureData(): PlanFeatureData {
-  return { items: BASE_FEATURE_KEYS };
+export function getFreeFeatureData(highlights?: string[]): PlanFeatureData {
+  const featureItems = highlights?.filter(item => Boolean(item));
+  return {
+    items:
+      featureItems && featureItems.length > 0
+        ? featureItems
+        : DEFAULT_FREE_FEATURE_KEYS,
+  };
 }
 
 export function getPlanScaleKeys(

@@ -16,6 +16,7 @@ from flaskr.service.order.payment_providers import get_payment_provider
 from flaskr.util.uuid import generate_id
 
 from .consts import (
+    BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
     BILLING_ORDER_STATUS_PENDING,
@@ -407,6 +408,8 @@ def _calculate_billing_cycle_end(
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
         return None
+    if interval == BILLING_INTERVAL_DAY:
+        return cycle_start_at + timedelta(days=interval_count)
     if interval == BILLING_INTERVAL_MONTH:
         return _add_months(cycle_start_at, interval_count)
     if interval == BILLING_INTERVAL_YEAR:
@@ -759,6 +762,8 @@ def _resolve_credit_bucket_effective_to(
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
         return None
+    if interval == BILLING_INTERVAL_DAY:
+        return effective_from + timedelta(days=interval_count)
     if interval == BILLING_INTERVAL_MONTH:
         return _add_months(effective_from, interval_count)
     if interval == BILLING_INTERVAL_YEAR:

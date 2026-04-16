@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from flaskr.dao import db
 from flaskr.service.billing import consts as billing_consts
 from flaskr.service.billing.consts import (
+    BILLING_INTERVAL_DAY,
+    BILLING_INTERVAL_MONTH,
+    BILLING_INTERVAL_YEAR,
     BILLING_CONFIG_KEY_CREDIT_PRECISION,
     BILLING_CONFIG_KEY_ENABLED,
     BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
@@ -22,6 +27,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.models import BillingProduct, CreditUsageRate
+from flaskr.service.billing.queries import calculate_billing_cycle_end
 from flaskr.service.metering import consts as metering_consts
 from flaskr.service.promo import consts as promo_consts
 from flaskr.service.shifu import consts as shifu_consts
@@ -82,6 +88,44 @@ def test_credit_usage_rate_seeds_cover_all_scenes_with_bootstrap_defaults() -> N
 
 def test_billing_product_model_uses_catalog_table_name() -> None:
     assert BillingProduct.__tablename__ == "billing_products"
+
+
+def test_calculate_billing_cycle_end_supports_day_month_and_year_intervals() -> None:
+    cycle_start = datetime(2026, 4, 16, 12, 0, 0)
+
+    daily_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_DAY,
+        billing_interval_count=1,
+    )
+    weekly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_DAY,
+        billing_interval_count=7,
+    )
+    monthly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+    yearly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_YEAR,
+        billing_interval_count=1,
+    )
+
+    assert calculate_billing_cycle_end(
+        daily_product,
+        cycle_start_at=cycle_start,
+    ) == datetime(2026, 4, 17, 12, 0, 0)
+    assert calculate_billing_cycle_end(
+        weekly_product,
+        cycle_start_at=cycle_start,
+    ) == datetime(2026, 4, 23, 12, 0, 0)
+    assert calculate_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=cycle_start,
+    ) == datetime(2026, 5, 16, 12, 0, 0)
+    assert calculate_billing_cycle_end(
+        yearly_product,
+        cycle_start_at=cycle_start,
+    ) == datetime(2027, 4, 16, 12, 0, 0)
 
 
 def test_credit_usage_rate_model_registers_unique_constraints() -> None:

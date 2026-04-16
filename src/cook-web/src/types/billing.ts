@@ -25,7 +25,7 @@ export type BillingCapabilityStatus =
 
 export type BillingPaymentMode = 'subscription' | 'one_time';
 
-export type BillingPlanInterval = 'month' | 'year';
+export type BillingPlanInterval = 'day' | 'month' | 'year';
 
 export type BillingOrderStatus =
   | 'init'

@@ -150,7 +150,7 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
     if row.product_type == BILLING_PRODUCT_TYPE_PLAN:
         payload["billing_interval"] = BILLING_INTERVAL_LABELS.get(
             row.billing_interval,
-            "month",
+            "none",
         )
         payload["billing_interval_count"] = int(row.billing_interval_count or 0)
         payload["auto_renew_enabled"] = bool(row.auto_renew_enabled)

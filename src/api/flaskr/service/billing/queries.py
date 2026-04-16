@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import case
@@ -14,6 +14,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from .primitives import coerce_datetime, normalize_bid
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
+    BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
     BILLING_ORDER_STATUS_LABELS,
@@ -229,6 +230,8 @@ def calculate_billing_cycle_end(
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
         return None
+    if interval == BILLING_INTERVAL_DAY:
+        return cycle_start_at + timedelta(days=interval_count)
     if interval == BILLING_INTERVAL_MONTH:
         return add_months(cycle_start_at, interval_count)
     if interval == BILLING_INTERVAL_YEAR:

@@ -139,6 +139,9 @@ export function BillingOverviewTab({
     plans.find(
       item => item.product_bid === overview?.subscription?.product_bid,
     ) || null;
+  const dailyPlans = plans.filter(
+    product => product.billing_interval === 'day',
+  );
   const monthlyPlans = plans.filter(
     product => product.billing_interval === 'month',
   );
@@ -163,12 +166,27 @@ export function BillingOverviewTab({
     : null;
 
   useEffect(() => {
-    if (currentPlan?.billing_interval === 'year') {
-      setShowcaseTab(currentTab =>
-        currentTab === 'monthly' ? 'yearly' : currentTab,
-      );
+    if (currentPlan?.billing_interval) {
+      setShowcaseTab(currentTab => {
+        if (currentTab === 'topup') {
+          return currentTab;
+        }
+        if (currentPlan.billing_interval === 'day') {
+          return 'daily';
+        }
+        if (currentPlan.billing_interval === 'year') {
+          return 'yearly';
+        }
+        return 'monthly';
+      });
     }
   }, [currentPlan?.billing_interval]);
+
+  useEffect(() => {
+    if (showcaseTab === 'daily' && dailyPlans.length === 0) {
+      setShowcaseTab('monthly');
+    }
+  }, [dailyPlans.length, showcaseTab]);
 
   async function handleCheckout() {
     if (!checkoutTarget) {
@@ -431,10 +449,12 @@ export function BillingOverviewTab({
       <BillingOverviewShowcase
         checkoutLoadingKey={checkoutLoadingKey}
         currentPlan={currentPlan}
+        dailyPlans={dailyPlans}
         hasActiveSubscription={hasActiveSubscription}
         isTrialCurrentPlan={isTrialCurrentPlan}
         isLoading={overviewLoading || catalogLoading}
         monthlyPlans={monthlyPlans}
+        orderedPlans={plans}
         pingxxAvailable={pingxxAvailable}
         renderFreeCard={renderFreeCard}
         showcaseTab={showcaseTab}

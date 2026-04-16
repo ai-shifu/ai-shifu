@@ -14,6 +14,9 @@ import pytest
 import flaskr.dao as dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
+    ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_INTERVAL_DAY,
+    BILLING_MODE_RECURRING,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -29,6 +32,8 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
@@ -43,6 +48,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -372,6 +378,57 @@ class TestBillingWriteRoutes:
             ]
             == "month"
         )
+
+    def test_subscription_checkout_supports_daily_stripe_recurring_interval(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingProduct(
+                    product_bid="billing-product-plan-daily",
+                    product_code="creator-plan-daily",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    billing_mode=BILLING_MODE_RECURRING,
+                    billing_interval=BILLING_INTERVAL_DAY,
+                    billing_interval_count=7,
+                    display_name_i18n_key=(
+                        "module.billing.catalog.plans.creatorMonthly.title"
+                    ),
+                    description_i18n_key=(
+                        "module.billing.catalog.plans.creatorMonthly.description"
+                    ),
+                    currency="CNY",
+                    price_amount=390,
+                    credit_amount=Decimal("3.0000000000"),
+                    allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+                    auto_renew_enabled=1,
+                    entitlement_payload=None,
+                    metadata_json=None,
+                    status=BILLING_PRODUCT_STATUS_ACTIVE,
+                    sort_order=15,
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-daily",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        recurring = stripe_request["extra"]["line_items"][0]["price_data"]["recurring"]
+        assert recurring["interval"] == "day"
+        assert recurring["interval_count"] == 7
 
     def test_subscription_checkout_rejects_lower_tier_plan_while_active(
         self, billing_write_client

@@ -283,6 +283,10 @@
     },
     "labels": {
       "creditsOneTime": "{credits} credits one time",
+      "everyDays": "/ every {count} days",
+      "everyMonths": "/ every {count} months",
+      "everyYears": "/ every {count} years",
+      "perDay": "/ daily",
       "perMonth": "/ monthly",
       "perYear": "/ yearly",
       "providerManual": "Manual",
@@ -343,6 +347,13 @@
     "processing": "Processing...",
     "productLabel": "Product",
     "providerLabel": "Payment provider",
+    "subject": {
+      "plan": {
+        "day": "Daily plan",
+        "month": "Monthly plan",
+        "year": "Yearly plan"
+      }
+    },
     "title": "Confirm purchase",
     "topupDescription": "You are about to open a one-time credit top-up checkout.",
     "unsupported": "This payment method is not available right now."
@@ -676,8 +687,12 @@
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
     },
     "creditSummary": {
+      "daily": "Daily credits {credits}",
+      "days": "Credits every {count} days: {credits}",
       "monthly": "Monthly credits {credits}",
-      "yearly": "Yearly credits {credits}"
+      "months": "Credits every {count} months: {credits}",
+      "yearly": "Yearly credits {credits}",
+      "years": "Credits every {count} years: {credits}"
     },
     "features": {
       "advanced": {
@@ -686,11 +701,10 @@
         "taskPriority": "Priority task processing",
         "techBasic": "Basic technical support"
       },
-      "base": {
-        "aiListen": "AI narration and audio lessons",
-        "courseCreate": "Course creation and content storage",
-        "dataQuery": "Order and learning data queries",
-        "studentImport": "Learner delivery and account import"
+      "daily": {
+        "preview": "Fast-turn daily access for short validation cycles",
+        "publish": "Short-term publishing and onboarding coverage",
+        "support": "Daily plan operational support"
       },
       "free": {
         "preview": "Learner delivery and account import",
@@ -738,10 +752,13 @@
     "free": {
       "creditSummary": "{credits} bonus credits",
       "description": "Best for a first look — quickly run through courses and learner delivery.",
+      "priceNote": "/ valid within {days} days of registration",
+      "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
       "priceValue": "¥0",
       "title": "Trial"
     },
     "intervalTabs": {
+      "daily": "Daily Plans",
       "monthly": "Monthly Plans",
       "topup": "Credit Top-ups",
       "yearly": "Yearly Plans"
@@ -774,9 +791,13 @@
     },
     "topupComingSoon": "Coming soon",
     "validity": {
+      "daily": "Validity: counted from the purchase day, valid every day",
+      "days": "Validity: counted from the purchase day, renews every {count} days",
       "free": "Validity: valid within 15 days from registration",
       "monthly": "Validity: counted from the purchase month, valid every month",
-      "yearly": "Validity: counted from the purchase month, valid every year"
+      "months": "Validity: counted from the purchase month, renews every {count} months",
+      "yearly": "Validity: counted from the purchase month, valid every year",
+      "years": "Validity: counted from the purchase month, renews every {count} years"
     }
   },
   "page": {
@@ -866,6 +887,7 @@
   "sidebar": {
     "creditsLabel": "Credits",
     "cta": "Open billing center",
+    "dailyTitle": "Daily plan",
     "description": "Review your plan, credits, and upcoming billing actions.",
     "expired": "Expired",
     "expiresInDays": "{days}d left",

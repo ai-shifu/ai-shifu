@@ -196,7 +196,7 @@ v1.1 再补充下列扩展能力：
 | `product_code` | `String(64)` | `not null, default="", unique=True` | 稳定编码，用于配置和对外联调 | `Billing product code` | 商品稳定编码 |
 | `product_type` | `SmallInteger` | `not null, index=True` | `7111=plan; 7112=topup; 7113=grant; 7114=custom` | `Billing product type code` | 商品类型编码 |
 | `billing_mode` | `SmallInteger` | `not null` | `7121=recurring; 7122=one_time; 7123=manual` | `Billing mode code` | 计费模式编码 |
-| `billing_interval` | `SmallInteger` | `not null, default=0` | `7131=none; 7132=month; 7133=year` | `Billing interval code` | 套餐周期编码 |
+| `billing_interval` | `SmallInteger` | `not null, default=0` | `7131=none; 7132=month; 7133=year; 7134=day` | `Billing interval code` | 套餐周期编码 |
 | `billing_interval_count` | `Integer` | `not null, default=0` | 周期倍数，月套餐常见为 `1` | `Billing interval count` | 周期倍数 |
 | `display_name_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Display name i18n key` | 展示名称翻译 key |
 | `description_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Description i18n key` | 描述翻译 key |
@@ -1361,7 +1361,7 @@ type BillingPlan = {
   product_type: 'plan';
   display_name: string;
   description: string;
-  billing_interval: 'month' | 'year';
+  billing_interval: 'day' | 'month' | 'year';
   billing_interval_count: number;
   currency: string;
   price_amount: number;

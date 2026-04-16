@@ -13,6 +13,7 @@ import type {
   BillingOrderType,
   BillingPingxxChannel,
   BillingPlan,
+  BillingPlanInterval,
   BillingProvider,
   BillingRenewalEventStatus,
   BillingRenewalEventSummary,
@@ -30,6 +31,48 @@ type BillingTranslator = (
   key: string,
   options?: Record<string, unknown>,
 ) => string;
+
+const BILLING_PLAN_INTERVAL_LABEL_KEYS: Record<BillingPlanInterval, string> = {
+  day: 'module.billing.catalog.labels.perDay',
+  month: 'module.billing.catalog.labels.perMonth',
+  year: 'module.billing.catalog.labels.perYear',
+};
+
+const BILLING_PLAN_INTERVAL_COUNT_LABEL_KEYS: Record<
+  BillingPlanInterval,
+  string
+> = {
+  day: 'module.billing.catalog.labels.everyDays',
+  month: 'module.billing.catalog.labels.everyMonths',
+  year: 'module.billing.catalog.labels.everyYears',
+};
+
+const BILLING_PLAN_CREDIT_SUMMARY_KEYS: Record<BillingPlanInterval, string> = {
+  day: 'module.billing.package.creditSummary.daily',
+  month: 'module.billing.package.creditSummary.monthly',
+  year: 'module.billing.package.creditSummary.yearly',
+};
+
+const BILLING_PLAN_CREDIT_SUMMARY_COUNT_KEYS: Record<
+  BillingPlanInterval,
+  string
+> = {
+  day: 'module.billing.package.creditSummary.days',
+  month: 'module.billing.package.creditSummary.months',
+  year: 'module.billing.package.creditSummary.years',
+};
+
+const BILLING_PLAN_VALIDITY_KEYS: Record<BillingPlanInterval, string> = {
+  day: 'module.billing.package.validity.daily',
+  month: 'module.billing.package.validity.monthly',
+  year: 'module.billing.package.validity.yearly',
+};
+
+const BILLING_PLAN_VALIDITY_COUNT_KEYS: Record<BillingPlanInterval, string> = {
+  day: 'module.billing.package.validity.days',
+  month: 'module.billing.package.validity.months',
+  year: 'module.billing.package.validity.years',
+};
 
 const BILLING_STATUS_KEYS: Record<string, string> = {
   active: 'module.billing.status.active',
@@ -478,10 +521,13 @@ export function formatBillingPlanInterval(
   t: BillingTranslator,
   product: BillingPlan,
 ): string {
-  if (product.billing_interval === 'year') {
-    return t('module.billing.catalog.labels.perYear');
+  const intervalCount = Math.max(product.billing_interval_count || 0, 1);
+  if (intervalCount > 1) {
+    return t(BILLING_PLAN_INTERVAL_COUNT_LABEL_KEYS[product.billing_interval], {
+      count: intervalCount,
+    });
   }
-  return t('module.billing.catalog.labels.perMonth');
+  return t(BILLING_PLAN_INTERVAL_LABEL_KEYS[product.billing_interval]);
 }
 
 export function resolveBillingPlanCreditsLabel(
@@ -489,12 +535,29 @@ export function resolveBillingPlanCreditsLabel(
   product: BillingPlan,
   locale: string,
 ): string {
+  const intervalCount = Math.max(product.billing_interval_count || 0, 1);
   return t(
-    product.billing_interval === 'year'
-      ? 'module.billing.package.creditSummary.yearly'
-      : 'module.billing.package.creditSummary.monthly',
+    intervalCount > 1
+      ? BILLING_PLAN_CREDIT_SUMMARY_COUNT_KEYS[product.billing_interval]
+      : BILLING_PLAN_CREDIT_SUMMARY_KEYS[product.billing_interval],
     {
+      count: intervalCount,
       credits: formatBillingCredits(product.credit_amount, locale),
+    },
+  );
+}
+
+export function resolveBillingPlanValidityLabel(
+  t: BillingTranslator,
+  product: BillingPlan,
+): string {
+  const intervalCount = Math.max(product.billing_interval_count || 0, 1);
+  return t(
+    intervalCount > 1
+      ? BILLING_PLAN_VALIDITY_COUNT_KEYS[product.billing_interval]
+      : BILLING_PLAN_VALIDITY_KEYS[product.billing_interval],
+    {
+      count: intervalCount,
     },
   );
 }
@@ -804,6 +867,12 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.capabilities.status.internalOnly'),
     t('module.billing.catalog.badges.bestValue'),
     t('module.billing.catalog.badges.recommended'),
+    t('module.billing.catalog.labels.everyDays', { count: 7 }),
+    t('module.billing.catalog.labels.everyMonths', { count: 3 }),
+    t('module.billing.catalog.labels.everyYears', { count: 2 }),
+    t('module.billing.catalog.labels.perDay'),
+    t('module.billing.catalog.labels.perMonth'),
+    t('module.billing.catalog.labels.perYear'),
     t('module.billing.catalog.labels.providerManual'),
     t('module.billing.catalog.plans.creatorMonthly.description'),
     t('module.billing.catalog.plans.creatorMonthly.title'),
@@ -828,18 +897,49 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.overview.walletTitle'),
     t('module.billing.package.actions.currentUsing'),
     t('module.billing.package.actions.freeTrial'),
+    t('module.billing.package.creditSummary.daily'),
+    t('module.billing.package.creditSummary.days', { count: 7, credits: '7' }),
     t('module.billing.package.creditSummary.monthly'),
+    t('module.billing.package.creditSummary.months', {
+      count: 3,
+      credits: '9',
+    }),
     t('module.billing.package.creditSummary.yearly'),
+    t('module.billing.package.creditSummary.years', {
+      count: 2,
+      credits: '24',
+    }),
     t('module.billing.package.free.creditSummary'),
     t('module.billing.package.free.description'),
     t('module.billing.package.free.priceNote'),
     t('module.billing.package.free.priceNoteGranted'),
     t('module.billing.package.free.priceValue'),
     t('module.billing.package.free.title'),
+    t('module.billing.package.subtitle'),
+    t('module.billing.package.topupComingSoon'),
+    t('module.billing.package.scale.advanced.students'),
+    t('module.billing.package.scale.basic.students'),
+    t('module.billing.package.scale.free.students'),
+    t('module.billing.package.scale.lite.students'),
+    t('module.billing.package.scale.premium.students'),
+    t('module.billing.package.scale.pro.students'),
+    t('module.billing.package.scale.sectionTitle'),
+    t('module.billing.package.features.advanced.includesLabel'),
+    t('module.billing.package.features.advanced.parallelProcessing'),
+    t('module.billing.package.features.advanced.taskPriority'),
+    t('module.billing.package.features.advanced.techBasic'),
+    t('module.billing.package.features.daily.preview'),
+    t('module.billing.package.features.daily.publish'),
+    t('module.billing.package.features.daily.support'),
     t('module.billing.package.features.free.preview'),
     t('module.billing.package.features.free.publish'),
+    t('module.billing.package.intervalTabs.daily'),
+    t('module.billing.package.validity.daily'),
+    t('module.billing.package.validity.days', { count: 7 }),
     t('module.billing.package.validity.monthly'),
+    t('module.billing.package.validity.months', { count: 3 }),
     t('module.billing.package.validity.yearly'),
+    t('module.billing.package.validity.years', { count: 2 }),
     t('module.billing.package.features.monthly.preview'),
     t('module.billing.package.features.monthly.publish'),
     t('module.billing.package.features.monthly.support'),
@@ -855,6 +955,14 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.features.yearly.premium.domain'),
     t('module.billing.package.features.yearly.premium.priority'),
     t('module.billing.package.features.yearly.premium.support'),
+    t('module.billing.package.features.premium.concurrencyQuota'),
+    t('module.billing.package.features.premium.dedicatedSupport'),
+    t('module.billing.package.features.premium.includesLabel'),
+    t('module.billing.package.features.premium.onboarding'),
+    t('module.billing.package.features.pro.branding'),
+    t('module.billing.package.features.pro.customDomain'),
+    t('module.billing.package.features.pro.includesLabel'),
+    t('module.billing.package.features.pro.techPriority'),
     t('module.billing.alerts.actions.checkoutTopup'),
     t('module.billing.alerts.actions.openOrders'),
     t('module.billing.alerts.actions.resumeSubscription'),
@@ -862,6 +970,9 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.alerts.lowBalance'),
     t('module.billing.alerts.subscriptionPastDue'),
     t('module.billing.checkout.planDescription'),
+    t('module.billing.checkout.subject.plan.day'),
+    t('module.billing.checkout.subject.plan.month'),
+    t('module.billing.checkout.subject.plan.year'),
     t('module.billing.checkout.topupDescription'),
     t('module.billing.domains.actions.bind'),
     t('module.billing.domains.actions.binding'),
@@ -1000,6 +1111,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.usageScene.production'),
     t('module.billing.page.tabs.plans'),
     t('module.billing.sidebar.cta'),
+    t('module.billing.sidebar.creditsLabel'),
+    t('module.billing.sidebar.dailyTitle'),
     t('module.billing.sidebar.description'),
     t('module.billing.sidebar.monthlyTitle'),
     t('module.billing.sidebar.nonMemberTitle'),

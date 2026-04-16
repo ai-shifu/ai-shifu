@@ -14,12 +14,17 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_INTERVAL_DAY,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -37,6 +42,7 @@ from flaskr.service.billing.models import (
     BillingDailyUsageMetric,
     BillingOrder,
     BillingEntitlement,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
@@ -741,6 +747,53 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][0]["category"] == "subscription"
         assert bucket_payload["data"]["items"][0]["priority"] == 20
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
+
+    def test_catalog_serializes_daily_plan_interval_without_month_fallback(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            dao.db.session.add(
+                BillingProduct(
+                    product_bid="billing-product-plan-daily",
+                    product_code="creator-plan-daily",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    billing_mode=BILLING_MODE_RECURRING,
+                    billing_interval=BILLING_INTERVAL_DAY,
+                    billing_interval_count=7,
+                    display_name_i18n_key=(
+                        "module.billing.catalog.plans.creatorMonthly.title"
+                    ),
+                    description_i18n_key=(
+                        "module.billing.catalog.plans.creatorMonthly.description"
+                    ),
+                    currency="CNY",
+                    price_amount=390,
+                    credit_amount=Decimal("3.0000000000"),
+                    allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+                    auto_renew_enabled=1,
+                    entitlement_payload=None,
+                    metadata_json={
+                        "highlights": [
+                            "module.billing.package.features.daily.publish",
+                            "module.billing.package.features.daily.preview",
+                        ]
+                    },
+                    status=BILLING_PRODUCT_STATUS_ACTIVE,
+                    sort_order=15,
+                )
+            )
+            dao.db.session.commit()
+
+        payload = billing_test_client.get("/api/billing/catalog").get_json(force=True)
+        daily_plan = next(
+            item
+            for item in payload["data"]["plans"]
+            if item["product_bid"] == "billing-product-plan-daily"
+        )
+
+        assert daily_plan["billing_interval"] == "day"
+        assert daily_plan["billing_interval_count"] == 7
 
     def test_overview_and_wallet_buckets_respect_request_timezone_and_fallback(
         self, billing_test_client

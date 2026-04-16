@@ -285,6 +285,25 @@ const CATALOG_RESPONSE = {
   ],
 };
 
+const DAILY_PLAN = {
+  product_bid: 'billing-product-plan-daily',
+  product_code: 'creator-plan-daily',
+  product_type: 'plan' as const,
+  display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+  description: 'module.billing.catalog.plans.creatorMonthly.description',
+  billing_interval: 'day' as const,
+  billing_interval_count: 7,
+  currency: 'CNY',
+  price_amount: 390,
+  credit_amount: 21,
+  auto_renew_enabled: true,
+  highlights: [
+    'module.billing.package.features.daily.publish',
+    'module.billing.package.features.daily.preview',
+    'module.billing.package.features.daily.support',
+  ],
+};
+
 function renderOverviewTab(
   props?: React.ComponentProps<typeof BillingOverviewTab>,
 ) {
@@ -378,6 +397,11 @@ describe('BillingOverviewTab', () => {
         name: 'module.billing.package.intervalTabs.monthly',
       }),
     ).toHaveAttribute('data-state', 'active');
+    expect(
+      screen.queryByRole('tab', {
+        name: 'module.billing.package.intervalTabs.daily',
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
@@ -444,6 +468,70 @@ describe('BillingOverviewTab', () => {
     expect(screen.getByTestId('billing-topup-grid')).toHaveClass(
       '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
     );
+  });
+
+  test('renders a daily tab only when daily plans exist and defaults to it for a daily subscription', () => {
+    const dailyCatalog = {
+      ...CATALOG_RESPONSE,
+      plans: [DAILY_PLAN, ...CATALOG_RESPONSE.plans],
+    };
+
+    mockGetBillingCatalog.mockResolvedValue(dailyCatalog);
+    mockUseSWR.mockReturnValue({
+      data: dailyCatalog,
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-daily-1',
+          product_bid: DAILY_PLAN.product_bid,
+          product_code: DAILY_PLAN.product_code,
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-04-08T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.billing.package.intervalTabs.daily',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(
+      screen.getByTestId('billing-plan-card-billing-product-plan-daily'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.creditSummary.days'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.package.validity.days'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.catalog.labels.everyDays'),
+    ).toBeInTheDocument();
   });
 
   test('keeps the non-member card visible when the trial offer is disabled', () => {

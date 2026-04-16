@@ -7,6 +7,9 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_INTERVAL_DAY,
+    BILLING_MODE_RECURRING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
@@ -18,6 +21,8 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
@@ -25,6 +30,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingRenewalEvent,
     BillingSubscription,
 )
@@ -417,6 +423,74 @@ def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
         assert order.provider_reference_id == ""
         assert order.metadata_json["provider_reference_type"] == "charge"
         assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
+
+
+def test_run_billing_renewal_event_writes_daily_cycle_metadata(
+    billing_renewal_app: Flask,
+) -> None:
+    cycle_end = datetime.now() - timedelta(hours=1)
+    expected_cycle_end = cycle_end + timedelta(days=7)
+
+    with billing_renewal_app.app_context():
+        dao.db.session.add(
+            BillingProduct(
+                product_bid="billing-product-plan-daily",
+                product_code="creator-plan-daily",
+                product_type=BILLING_PRODUCT_TYPE_PLAN,
+                billing_mode=BILLING_MODE_RECURRING,
+                billing_interval=BILLING_INTERVAL_DAY,
+                billing_interval_count=7,
+                display_name_i18n_key=(
+                    "module.billing.catalog.plans.creatorMonthly.title"
+                ),
+                description_i18n_key=(
+                    "module.billing.catalog.plans.creatorMonthly.description"
+                ),
+                currency="CNY",
+                price_amount=390,
+                credit_amount=3,
+                allocation_interval=ALLOCATION_INTERVAL_PER_CYCLE,
+                auto_renew_enabled=1,
+                entitlement_payload=None,
+                metadata_json=None,
+                status=BILLING_PRODUCT_STATUS_ACTIVE,
+                sort_order=15,
+            )
+        )
+        subscription = _create_subscription(
+            "sub-daily-renewal-1",
+            product_bid="billing-product-plan-daily",
+            current_period_end_at=cycle_end,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+        )
+        event = _create_renewal_event(
+            "renewal-daily-1",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            scheduled_at=cycle_end - timedelta(minutes=5),
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(event)
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        billing_renewal_app,
+        renewal_event_bid="renewal-daily-1",
+    )
+
+    assert payload["status"] == "queued_for_reconcile"
+
+    with billing_renewal_app.app_context():
+        order = BillingOrder.query.filter_by(
+            billing_order_bid=payload["billing_order_bid"]
+        ).one()
+        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
+        assert (
+            order.metadata_json["renewal_cycle_end_at"]
+            == expected_cycle_end.isoformat()
+        )
 
 
 def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(

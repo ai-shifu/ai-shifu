@@ -1,9 +1,11 @@
 import {
   formatBillingCredits,
+  formatBillingPlanInterval,
   getBillingCreditPrecision,
   parseBillingDateValue,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
+  resolveBillingPlanValidityLabel,
   setBillingCreditPrecision,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
@@ -29,6 +31,16 @@ const yearlyPlan: BillingPlan = {
   billing_interval: 'year',
   credit_amount: 10000,
   price_amount: 1500000,
+};
+
+const dailyPlan: BillingPlan = {
+  ...monthlyPlan,
+  product_bid: 'billing-product-plan-daily',
+  product_code: 'creator-plan-daily',
+  billing_interval: 'day',
+  billing_interval_count: 7,
+  credit_amount: 21,
+  price_amount: 390,
 };
 
 describe('resolveBillingPlanCreditsLabel', () => {
@@ -66,6 +78,31 @@ describe('resolveBillingPlanCreditsLabel', () => {
 
     expect(resolveBillingPlanCreditsLabel(t, yearlyPlan, 'en-US')).toBe(
       'module.billing.package.creditSummary.yearly:10,000.00',
+    );
+  });
+
+  test('uses count-aware daily credits copy for daily plans', () => {
+    const t = jest.fn((key: string, options?: Record<string, unknown>) => {
+      return `${key}:${String(options?.count || '')}:${String(options?.credits || '')}`;
+    });
+
+    expect(resolveBillingPlanCreditsLabel(t, dailyPlan, 'en-US')).toBe(
+      'module.billing.package.creditSummary.days:7:21.00',
+    );
+  });
+});
+
+describe('billing interval formatters', () => {
+  test('formats count-aware daily interval labels', () => {
+    const t = jest.fn((key: string, options?: Record<string, unknown>) => {
+      return `${key}:${String(options?.count || '')}`;
+    });
+
+    expect(formatBillingPlanInterval(t, dailyPlan)).toBe(
+      'module.billing.catalog.labels.everyDays:7',
+    );
+    expect(resolveBillingPlanValidityLabel(t, dailyPlan)).toBe(
+      'module.billing.package.validity.days:7',
     );
   });
 });

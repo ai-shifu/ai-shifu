@@ -91,6 +91,12 @@ _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
     BILLING_ORDER_STATUS_FAILED: 4,
 }
 
+_CHECKOUT_PLAN_SUBJECT_PREFIX_KEYS = {
+    "day": "module.billing.checkout.subject.plan.day",
+    "month": "module.billing.checkout.subject.plan.month",
+    "year": "module.billing.checkout.subject.plan.year",
+}
+
 
 @dataclass(slots=True, frozen=True)
 class ProviderReferenceReconcileResult:
@@ -994,7 +1000,9 @@ def _build_stripe_line_item(
     interval: str | None = None
     interval_count: int | None = None
     if payment_mode == "subscription":
-        interval = BILLING_INTERVAL_LABELS.get(product.billing_interval, "month")
+        interval = BILLING_INTERVAL_LABELS.get(product.billing_interval)
+        if interval in {None, "none"}:
+            raise_param_error("product_bid")
         interval_count = int(product.billing_interval_count or 1)
     return StripeLineItemPayload(
         currency=str(product.currency or "CNY").lower(),
@@ -1008,11 +1016,26 @@ def _build_stripe_line_item(
 
 def _resolve_checkout_product_name(product: BillingProduct) -> str:
     display_name_key = _normalize_bid(product.display_name_i18n_key)
+    translated_name = ""
     if display_name_key:
-        translated = str(translate(display_name_key) or "").strip()
-        if translated and translated != display_name_key:
-            return translated
-    return str(product.product_code or product.product_bid or "").strip()
+        translated_name = str(translate(display_name_key) or "").strip()
+        if translated_name == display_name_key:
+            translated_name = ""
+    product_name = (
+        translated_name
+        or str(product.product_code or product.product_bid or "").strip()
+    )
+
+    if product.product_type == BILLING_PRODUCT_TYPE_PLAN:
+        interval_label = BILLING_INTERVAL_LABELS.get(product.billing_interval)
+        if interval_label in {"day", "month", "year"}:
+            subject_prefix_key = _CHECKOUT_PLAN_SUBJECT_PREFIX_KEYS.get(
+                interval_label, ""
+            )
+            subject_prefix = str(translate(subject_prefix_key) or "").strip()
+            if subject_prefix and subject_prefix != subject_prefix_key:
+                return f"{subject_prefix}·{product_name}"
+    return product_name
 
 
 def _inject_billing_query(url: str, billing_order_bid: str) -> str:

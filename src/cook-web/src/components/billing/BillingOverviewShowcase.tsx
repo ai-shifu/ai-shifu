@@ -1,14 +1,13 @@
-// Set to true when topup purchasing is ready to launch
-const TOPUP_ENABLED = false;
-
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   formatBillingCredits,
+  formatBillingDate,
   formatBillingPlanInterval,
   formatBillingPrice,
   resolveBillingPlanCreditsLabel,
+  resolveBillingPlanValidityLabel,
   resolveBillingProductDescription,
   resolveBillingProductTitle,
 } from '@/lib/billing';
@@ -32,10 +31,12 @@ import type { ShowcaseTab } from './BillingOverviewCards';
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
   currentPlan: BillingPlan | null;
+  dailyPlans: BillingPlan[];
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   isLoading: boolean;
   monthlyPlans: BillingPlan[];
+  orderedPlans: BillingPlan[];
   pingxxAvailable: boolean;
   renderFreeCard: boolean;
   showcaseTab: ShowcaseTab;
@@ -77,10 +78,12 @@ function resolvePlanRank(
 export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
+  dailyPlans,
   hasActiveSubscription,
   isTrialCurrentPlan,
   isLoading,
   monthlyPlans,
+  orderedPlans,
   pingxxAvailable,
   renderFreeCard,
   showcaseTab,
@@ -93,7 +96,6 @@ export function BillingOverviewShowcase({
   onShowcaseTabChange,
 }: BillingOverviewShowcaseProps) {
   const { t, i18n } = useTranslation();
-  const orderedPlans = [...monthlyPlans, ...yearlyPlans];
   const currentPlanRank = resolvePlanRank(
     orderedPlans,
     currentPlan?.product_bid || null,
@@ -105,7 +107,7 @@ export function BillingOverviewShowcase({
     ),
   });
   const freeCreditValidityLabel = t('module.billing.package.validity.free');
-  const freeFeatureData = getFreeFeatureData();
+  const freeFeatureData = getFreeFeatureData(trialOffer?.highlights);
   const freeCardFeatureKeys = freeFeatureData.items;
   const freeCardPriceLabel =
     trialOffer && trialOffer.currency
@@ -126,7 +128,23 @@ export function BillingOverviewShowcase({
     t('module.billing.package.free.description'),
   );
 
-  const freePriceMetaLabel = '';
+  let freePriceMetaLabel = '';
+  if (trialOffer) {
+    if (
+      trialOffer.status === 'granted' &&
+      trialOffer.granted_at &&
+      trialOffer.expires_at
+    ) {
+      freePriceMetaLabel = t('module.billing.package.free.priceNoteGranted', {
+        grantedAt: formatBillingDate(trialOffer.granted_at, i18n.language),
+        expiresAt: formatBillingDate(trialOffer.expires_at, i18n.language),
+      });
+    } else {
+      freePriceMetaLabel = t('module.billing.package.free.priceNote', {
+        days: trialOffer.valid_days,
+      });
+    }
+  }
 
   return (
     <>
@@ -137,6 +155,14 @@ export function BillingOverviewShowcase({
           value={showcaseTab}
         >
           <TabsList className='h-[var(--height-h-9,36px)] rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]'>
+            {dailyPlans.length > 0 ? (
+              <TabsTrigger
+                className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
+                value='daily'
+              >
+                {t('module.billing.package.intervalTabs.daily')}
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger
               className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
               value='monthly'
@@ -166,52 +192,46 @@ export function BillingOverviewShowcase({
           <Skeleton className='h-[620px] rounded-[34px]' />
         </div>
       ) : showcaseTab === 'topup' ? (
-        TOPUP_ENABLED ? (
-          <div
-            className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
-            data-testid='billing-topup-grid'
-          >
-            {topups.map(product => {
-              const provider = resolveCheckoutProvider(
-                stripeAvailable,
-                pingxxAvailable,
-              );
-              const checkoutKey = provider
-                ? `topup:${provider}:${product.product_bid}`
-                : '';
+        <div
+          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+          data-testid='billing-topup-grid'
+        >
+          {topups.map(product => {
+            const provider = resolveCheckoutProvider(
+              stripeAvailable,
+              pingxxAvailable,
+            );
+            const checkoutKey = provider
+              ? `topup:${provider}:${product.product_bid}`
+              : '';
 
-              return (
-                <TopupCard
-                  key={product.product_bid}
-                  actionLabel={t('module.billing.package.actions.buyNow')}
-                  actionLoading={checkoutLoadingKey === checkoutKey}
-                  creditsLabel={t('module.billing.package.topup.creditLabel', {
-                    credits: formatBillingCredits(
-                      product.credit_amount,
-                      i18n.language,
-                    ),
-                  })}
-                  description={resolveBillingProductDescription(t, product)}
-                  disabled={!provider}
-                  featured={Boolean(product.status_badge_key)}
-                  onAction={() =>
-                    provider && onSelectTopupCheckout(product, provider)
-                  }
-                  priceLabel={formatBillingPrice(
-                    product.price_amount,
-                    product.currency,
+            return (
+              <TopupCard
+                key={product.product_bid}
+                actionLabel={t('module.billing.package.actions.buyNow')}
+                actionLoading={checkoutLoadingKey === checkoutKey}
+                creditsLabel={t('module.billing.package.topup.creditLabel', {
+                  credits: formatBillingCredits(
+                    product.credit_amount,
                     i18n.language,
-                  )}
-                  testId={`billing-topup-card-${product.product_bid}`}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className='flex min-h-[200px] items-center justify-center text-base text-slate-400'>
-            {t('module.billing.package.topupComingSoon')}
-          </div>
-        )
+                  ),
+                })}
+                description={resolveBillingProductDescription(t, product)}
+                disabled={!provider}
+                featured={Boolean(product.status_badge_key)}
+                onAction={() =>
+                  provider && onSelectTopupCheckout(product, provider)
+                }
+                priceLabel={formatBillingPrice(
+                  product.price_amount,
+                  product.currency,
+                  i18n.language,
+                )}
+                testId={`billing-topup-card-${product.product_bid}`}
+              />
+            );
+          })}
+        </div>
       ) : (
         <div
           className={cn(
@@ -259,85 +279,81 @@ export function BillingOverviewShowcase({
               })()
             : null}
 
-          {(showcaseTab === 'monthly' ? monthlyPlans : yearlyPlans).map(
-            plan => {
-              const provider = resolveCheckoutProvider(
-                stripeAvailable,
-                pingxxAvailable,
-              );
-              const isCurrentPlan =
-                currentPlan?.product_bid === plan.product_bid;
-              const planRank = resolvePlanRank(orderedPlans, plan.product_bid);
-              const isDowngradeLocked =
-                hasActiveSubscription &&
-                !isCurrentPlan &&
-                currentPlanRank >= 0 &&
-                planRank >= 0 &&
-                planRank < currentPlanRank;
-              const isFeatured = isCurrentPlan;
-              const checkoutKey = provider
-                ? `plan:${provider}:${plan.product_bid}`
-                : '';
-              const planScale = getPlanScaleKeys(plan.product_code);
-              const planBadgeKey = plan.status_badge_key;
-              const planFeatureData = getPlanFeatureData(plan);
+          {(showcaseTab === 'daily'
+            ? dailyPlans
+            : showcaseTab === 'yearly'
+              ? yearlyPlans
+              : monthlyPlans
+          ).map(plan => {
+            const provider = resolveCheckoutProvider(
+              stripeAvailable,
+              pingxxAvailable,
+            );
+            const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
+            const planRank = resolvePlanRank(orderedPlans, plan.product_bid);
+            const isDowngradeLocked =
+              hasActiveSubscription &&
+              !isCurrentPlan &&
+              currentPlanRank >= 0 &&
+              planRank >= 0 &&
+              planRank < currentPlanRank;
+            const isFeatured = isCurrentPlan;
+            const checkoutKey = provider
+              ? `plan:${provider}:${plan.product_bid}`
+              : '';
+            const planScale = getPlanScaleKeys(plan.product_code);
+            const planBadgeKey = plan.status_badge_key;
+            const planFeatureData = getPlanFeatureData(plan);
 
-              return (
-                <PlanShowcaseCard
-                  key={plan.product_bid}
-                  actionLabel={
-                    isCurrentPlan
-                      ? t('module.billing.package.actions.currentSubscription')
-                      : isDowngradeLocked
-                        ? t('module.billing.package.actions.downgradeDisabled')
-                        : hasActiveSubscription
-                          ? t('module.billing.package.actions.upgradeNow')
-                          : t('module.billing.package.actions.subscribeNow')
-                  }
-                  actionLoading={checkoutLoadingKey === checkoutKey}
-                  actionTooltip={
-                    isDowngradeLocked
-                      ? t('module.billing.package.actions.upgradeOnlyTooltip')
-                      : undefined
-                  }
-                  badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
-                  creditSummary={resolveBillingPlanCreditsLabel(
-                    t,
-                    plan,
-                    i18n.language,
-                  )}
-                  creditValidityLabel={t(
-                    plan.billing_interval === 'year'
-                      ? 'module.billing.package.validity.yearly'
-                      : 'module.billing.package.validity.monthly',
-                  )}
-                  description={resolveBillingProductDescription(t, plan)}
-                  disabled={!provider || isCurrentPlan || isDowngradeLocked}
-                  featured={isFeatured}
-                  footer={
-                    <PlanFeatureList
-                      includesLabel={planFeatureData.includesLabel}
-                      items={planFeatureData.items}
-                    />
-                  }
-                  onAction={() =>
-                    provider && onSelectPlanCheckout(plan, provider)
-                  }
-                  priceLabel={formatBillingPrice(
-                    plan.price_amount,
-                    plan.currency,
-                    i18n.language,
-                  )}
-                  priceMetaLabel={formatBillingPlanInterval(t, plan)}
-                  studentCapacity={
-                    planScale ? t(planScale.students) : undefined
-                  }
-                  testId={`billing-plan-card-${plan.product_bid}`}
-                  title={resolveBillingProductTitle(t, plan)}
-                />
-              );
-            },
-          )}
+            return (
+              <PlanShowcaseCard
+                key={plan.product_bid}
+                actionLabel={
+                  isCurrentPlan
+                    ? t('module.billing.package.actions.currentSubscription')
+                    : isDowngradeLocked
+                      ? t('module.billing.package.actions.downgradeDisabled')
+                      : hasActiveSubscription
+                        ? t('module.billing.package.actions.upgradeNow')
+                        : t('module.billing.package.actions.subscribeNow')
+                }
+                actionLoading={checkoutLoadingKey === checkoutKey}
+                actionTooltip={
+                  isDowngradeLocked
+                    ? t('module.billing.package.actions.upgradeOnlyTooltip')
+                    : undefined
+                }
+                badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
+                creditSummary={resolveBillingPlanCreditsLabel(
+                  t,
+                  plan,
+                  i18n.language,
+                )}
+                creditValidityLabel={resolveBillingPlanValidityLabel(t, plan)}
+                description={resolveBillingProductDescription(t, plan)}
+                disabled={!provider || isCurrentPlan || isDowngradeLocked}
+                featured={isFeatured}
+                footer={
+                  <PlanFeatureList
+                    includesLabel={planFeatureData.includesLabel}
+                    items={planFeatureData.items}
+                  />
+                }
+                onAction={() =>
+                  provider && onSelectPlanCheckout(plan, provider)
+                }
+                priceLabel={formatBillingPrice(
+                  plan.price_amount,
+                  plan.currency,
+                  i18n.language,
+                )}
+                priceMetaLabel={formatBillingPlanInterval(t, plan)}
+                studentCapacity={planScale ? t(planScale.students) : undefined}
+                testId={`billing-plan-card-${plan.product_bid}`}
+                title={resolveBillingProductTitle(t, plan)}
+              />
+            );
+          })}
         </div>
       )}
     </>
