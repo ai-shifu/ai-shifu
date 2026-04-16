@@ -1,7 +1,7 @@
 """add billing core phase
 
 Revision ID: b114d7f5e2c1
-Revises: 2b7c9d1e4f6a
+Revises: 1c8f4b7a9d2e
 Create Date: 2026-04-09 20:00:00.000000
 
 """
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import mysql
 
 
 revision = "b114d7f5e2c1"
-down_revision = "2b7c9d1e4f6a"
+down_revision = "1c8f4b7a9d2e"
 branch_labels = None
 depends_on = None
 
