@@ -171,9 +171,10 @@ const buildReadModeItemsWithAskState = ({
   return nextItems;
 };
 
-const getFirstTextContentItem = (items: ChatContentItem[]) =>
+const getFirstHistoryTextContentItem = (items: ChatContentItem[]) =>
   items.find(
     item =>
+      item.isHistory === true &&
       item.type === ChatContentItemType.CONTENT &&
       item.element_type === ELEMENT_TYPE.TEXT,
   );
@@ -182,7 +183,7 @@ const hasItemAudio = (item?: ChatContentItem) =>
   Boolean(item?.audio_url?.trim() || item?.audioUrl?.trim());
 
 const shouldBlockListenModeForLegacyHistory = (items: ChatContentItem[]) => {
-  const firstTextContentItem = getFirstTextContentItem(items);
+  const firstTextContentItem = getFirstHistoryTextContentItem(items);
 
   if (!firstTextContentItem) {
     return false;
