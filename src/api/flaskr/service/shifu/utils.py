@@ -75,27 +75,26 @@ def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
     """
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
-    with app.app_context():
-        draft = (
-            DraftShifu.query.filter(
-                DraftShifu.shifu_bid == shifu_bid,
-                DraftShifu.deleted == 0,
-            )
-            .order_by(DraftShifu.id.desc())
-            .first()
+    draft = (
+        DraftShifu.query.filter(
+            DraftShifu.shifu_bid == shifu_bid,
+            DraftShifu.deleted == 0,
         )
-        if draft and draft.created_user_bid:
-            return draft.created_user_bid
+        .order_by(DraftShifu.id.desc())
+        .first()
+    )
+    if draft and draft.created_user_bid:
+        return draft.created_user_bid
 
-        published = (
-            PublishedShifu.query.filter(
-                PublishedShifu.shifu_bid == shifu_bid,
-                PublishedShifu.deleted == 0,
-            )
-            .order_by(PublishedShifu.id.desc())
-            .first()
+    published = (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == shifu_bid,
+            PublishedShifu.deleted == 0,
         )
-        if published and published.created_user_bid:
-            return published.created_user_bid
+        .order_by(PublishedShifu.id.desc())
+        .first()
+    )
+    if published and published.created_user_bid:
+        return published.created_user_bid
 
     return None

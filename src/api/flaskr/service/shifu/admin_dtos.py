@@ -86,6 +86,88 @@ class AdminOperationCourseSummaryDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserCourseSummaryDTO(BaseModel):
+    """Course summary shown in operator user-related course lists."""
+
+    shifu_bid: str = Field(
+        ..., description="Course business identifier", required=False
+    )
+    course_name: str = Field(..., description="Course name", required=False)
+    course_status: str = Field(..., description="Course status", required=False)
+    completed_lesson_count: int = Field(
+        default=0,
+        description="Completed visible lesson count for the learner",
+        required=False,
+    )
+    total_lesson_count: int = Field(
+        default=0,
+        description="Total visible lesson count for the learner course",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserSummaryDTO(BaseModel):
+    """User summary shown in the operator user list."""
+
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    user_status: str = Field(..., description="User status", required=False)
+    user_role: str = Field(..., description="Resolved user role", required=False)
+    user_roles: list[str] = Field(
+        default_factory=list,
+        description="Resolved user roles",
+        required=False,
+    )
+    login_methods: list[str] = Field(
+        default_factory=list,
+        description="Resolved login methods",
+        required=False,
+    )
+    registration_source: str = Field(
+        default="unknown",
+        description="Resolved registration source",
+        required=False,
+    )
+    language: str = Field(..., description="User language", required=False)
+    learning_courses: list[AdminOperationUserCourseSummaryDTO] = Field(
+        default_factory=list,
+        description="Courses the user learned via successful orders",
+        required=False,
+    )
+    created_courses: list[AdminOperationUserCourseSummaryDTO] = Field(
+        default_factory=list,
+        description="Courses created by the user",
+        required=False,
+    )
+    total_paid_amount: str = Field(
+        default="0",
+        description="Total successful paid order amount",
+        required=False,
+    )
+    last_login_at: str = Field(
+        default="",
+        description="Latest login timestamp",
+        required=False,
+    )
+    last_learning_at: str = Field(
+        default="",
+        description="Latest learning timestamp",
+        required=False,
+    )
+    created_at: str = Field(..., description="Created at", required=False)
+    updated_at: str = Field(..., description="Updated at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
 class AdminOperationCourseDetailBasicInfoDTO(BaseModel):
     """Operator-facing course basic information."""
 

@@ -104,9 +104,11 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    get_operator_user_detail,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     list_operator_courses,
+    list_operator_users,
     transfer_operator_course_creator,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
@@ -540,6 +542,117 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             list_operator_courses(app, page_index, page_size, filters)
         )
+
+    @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
+    def admin_operations_users():
+        """
+        Operator user list
+        ---
+        tags:
+            - User
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: user_bid
+              type: string
+              required: false
+            - name: identifier
+              type: string
+              required: false
+              description: User phone, email, identify, or user_bid keyword
+            - name: mobile
+              type: string
+              required: false
+              description: Deprecated alias for identifier
+            - name: nickname
+              type: string
+              required: false
+            - name: user_status
+              type: string
+              required: false
+              description: unregistered, registered, or paid
+            - name: user_role
+              type: string
+              required: false
+              description: regular, creator, learner, or operator
+            - name: start_time
+              type: string
+              required: false
+              description: User created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: User created end date (YYYY-MM-DD)
+        responses:
+            200:
+                description: List active users for operators
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/PageNationDTO"
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "user_bid": request.args.get("user_bid", ""),
+            "identifier": request.args.get("identifier", ""),
+            "mobile": request.args.get("mobile", ""),
+            "nickname": request.args.get("nickname", ""),
+            "user_status": request.args.get("user_status", ""),
+            "user_role": request.args.get("user_role", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_users(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
+    )
+    def admin_operation_user_detail(user_bid: str):
+        """
+        Get operator user detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        responses:
+            200:
+                description: Operator user detail
+        """
+        _require_operator()
+        return make_common_response(get_operator_user_detail(app, user_bid))
 
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]

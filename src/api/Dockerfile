@@ -9,6 +9,11 @@ ARG SRC_ROOT
 ARG API_SRC
 ARG I18N_SRC
 
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_NO_CACHE_DIR=1
+
 # ensure /etc/apt/sources.list exists and change APT source to aliyun mirror
 RUN if [ -f /etc/apt/sources.list ]; then \
     sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \
@@ -24,8 +29,8 @@ RUN if [ -f /etc/apt/sources.list ]; then \
 WORKDIR /app
 
 COPY ${API_SRC}/requirements.txt ./requirements.txt
-RUN pip install --upgrade pip setuptools wheel
-RUN pip install -r requirements.txt
+RUN python -m pip install --upgrade "pip<25" setuptools wheel
+RUN python -m pip install -r requirements.txt
 
 COPY ${API_SRC} ./
 COPY ${I18N_SRC} /app/i18n

@@ -1236,13 +1236,15 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-              if (isEnd) {
-                return;
-              }
-
               const elementRecord = response.content as StudyRecordItem;
               const itemBid = resolveElementItemBid(elementRecord);
               const elementType = resolveRecordElementType(elementRecord);
+
+              // Lesson completion updates can be emitted before the trailing
+              // interaction controls, so keep those final interaction markers.
+              if (isEnd && elementType !== ELEMENT_TYPE.INTERACTION) {
+                return;
+              }
 
               if (!itemBid) {
                 return;
@@ -2080,7 +2082,15 @@ function useChatLogicHook({
       blockBid: string,
       options?: { skipConfirm?: boolean },
     ) => {
-      if (isStreamingRef.current) {
+      // Detect re-selection early so we can bypass streaming guards for it.
+      // Re-selection = user clicked an interaction that is NOT the last actionable element.
+      const earlyLastActionable = resolveLastActionableElementBid(
+        contentListRef.current,
+      );
+      const isReGenerate =
+        Boolean(earlyLastActionable) && blockBid !== earlyLastActionable;
+
+      if (!isReGenerate && isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -2225,24 +2235,16 @@ function useChatLogicHook({
         return;
       }
 
-      const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
-        () => {
-          return null;
-        },
-      );
-      if (runningRes?.is_running) {
-        showOutputInProgressToast();
-        return;
-      }
-
-      let isReGenerate = false;
-      const currentList = contentListRef.current;
-      if (currentList.length > 0) {
-        const lastActionableElementBid =
-          resolveLastActionableElementBid(currentList);
-        isReGenerate =
-          Boolean(lastActionableElementBid) &&
-          blockBid !== lastActionableElementBid;
+      if (!isReGenerate) {
+        const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
+          () => {
+            return null;
+          },
+        );
+        if (runningRes?.is_running) {
+          showOutputInProgressToast();
+          return;
+        }
       }
 
       if (isReGenerate && !options?.skipConfirm) {
