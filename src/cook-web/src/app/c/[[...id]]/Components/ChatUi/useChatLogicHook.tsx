@@ -1236,13 +1236,15 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-              if (isEnd) {
-                return;
-              }
-
               const elementRecord = response.content as StudyRecordItem;
               const itemBid = resolveElementItemBid(elementRecord);
               const elementType = resolveRecordElementType(elementRecord);
+
+              // Lesson completion updates can be emitted before the trailing
+              // interaction controls, so keep those final interaction markers.
+              if (isEnd && elementType !== ELEMENT_TYPE.INTERACTION) {
+                return;
+              }
 
               if (!itemBid) {
                 return;
