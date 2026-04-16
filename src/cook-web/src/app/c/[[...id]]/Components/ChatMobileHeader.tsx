@@ -2,23 +2,21 @@ import styles from './ChatMobileHeader.module.scss';
 
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
-
+import { useShallow } from 'zustand/react/shallow';
+import { useCourseStore } from '@/c-store';
+import { useSystemStore } from '@/c-store/useSystemStore';
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/Popover';
-import IconButton from './IconButton/IconButton';
-import moeIcon from './IconButton/icon16-more2x.png';
-import closeIcon from './IconButton/close-2x.png';
-
-import { Button } from '@/components/ui/Button';
-import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
-
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
+import { BookOpen, Check, Headphones, Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
-import LogoWithText from '@/c-components/logo/LogoWithText';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
+import { LEARNING_MODE_LABELS, LEARNING_MODE_OPTIONS } from './learningModeOptions';
 
 export const ChatMobileHeader = ({
   className,
@@ -27,7 +25,6 @@ export const ChatMobileHeader = ({
   iconPopoverPayload,
 }) => {
   const {
-    open: iconPopoverOpen,
     onOpen: onIconPopoverOpen,
     onClose: onIconPopoverClose,
   } = useDisclosure();
@@ -36,11 +33,25 @@ export const ChatMobileHeader = ({
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
-  const popoverVisible = iconPopoverOpen && hasPopoverContentControl;
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
+    })),
+  );
+  const { learningMode, showLearningModeToggle, updateLearningMode } =
+    useSystemStore(
+      useShallow(state => ({
+        learningMode: state.learningMode,
+        showLearningModeToggle: state.showLearningModeToggle,
+        updateLearningMode: state.updateLearningMode,
+      })),
+    );
+  const MenuIcon = navOpen ? X : Menu;
 
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
-      {iconPopoverPayload && (
+      {iconPopoverPayload && hasPopoverContentControl ? (
         <div
           className='hidden'
           style={{ display: 'none' }}
@@ -51,30 +62,88 @@ export const ChatMobileHeader = ({
             onClose={onIconPopoverClose}
           />
         </div>
-      )}
-      <LogoWithText
-        direction='row'
-        size={30}
-      />
-      <Popover
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        content={
-          <MobileHeaderIconPopover
-            payload={iconPopoverPayload}
-            onClose={onIconPopoverClose}
-            onOpen={onIconPopoverOpen}
-          />
-        }
-        className={styles.iconButtonPopover}
-        visible={iconPopoverOpen && hasPopoverContentControl}
-        placement='bottom-end'
-      >
-        <IconButton
-          icon={navOpen ? closeIcon.src : moeIcon.src}
+      ) : null}
+      <div className='flex min-w-0 flex-1 items-center'>
+        {courseAvatar ? (
+          <Avatar className='mr-2 h-8 w-8 shrink-0'>
+            <AvatarImage
+              src={courseAvatar}
+              alt=''
+            />
+          </Avatar>
+        ) : null}
+        <span
+          className='min-w-0 truncate text-[16px] font-semibold leading-[14px] text-black/80'
+          title={courseName || LEARNING_MODE_LABELS[learningMode]}
+        >
+          {courseName || LEARNING_MODE_LABELS[learningMode]}
+        </span>
+      </div>
+
+      <div className={styles.actionGroup}>
+        {showLearningModeToggle ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                aria-label='切换学习模式'
+                className={styles.iconButton}
+              >
+                <BookOpen
+                  size={20}
+                  strokeWidth={2}
+                  className='text-neutral-500'
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align='end'
+              sideOffset={8}
+              className='min-w-[120px] rounded-xl border-border bg-white p-1 shadow-lg'
+            >
+              {LEARNING_MODE_OPTIONS.map(option => {
+                const ItemIcon =
+                  option.mode === 'listen' ? Headphones : BookOpen;
+
+                return (
+                  <DropdownMenuItem
+                    key={option.mode}
+                    className='rounded-lg px-3 py-2 text-[14px] font-medium text-black/80'
+                    onSelect={() => updateLearningMode(option.mode)}
+                  >
+                    <ItemIcon
+                      size={18}
+                      strokeWidth={2}
+                      className='text-neutral-500'
+                    />
+                    <span>{option.label}</span>
+                    {learningMode === option.mode ? (
+                      <Check
+                        size={16}
+                        strokeWidth={2}
+                        className='ml-auto text-black'
+                      />
+                    ) : null}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+
+        <button
+          type='button'
+          aria-label={navOpen ? '关闭目录' : '打开目录'}
+          className={styles.iconButton}
           onClick={onSettingClick}
-        />
-      </Popover>
+        >
+          <MenuIcon
+            size={20}
+            strokeWidth={2}
+            className='text-neutral-500'
+          />
+        </button>
+      </div>
     </div>
   );
 };

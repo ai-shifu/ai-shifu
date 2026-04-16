@@ -55,10 +55,13 @@
 
   &.mobile {
     position: fixed;
-    top: 48px;
+    top: var(--mobile-chat-header-height, 44px);
     left: 0;
     width: 100%;
-    height: calc(calc(var(--app-viewport-block-unit, 1dvh) * 100) - 48px);
+    height: calc(
+      calc(var(--app-viewport-block-unit, 1dvh) * 100) -
+        var(--mobile-chat-header-height, 44px)
+    );
     display: block;
     z-index: 20;
 

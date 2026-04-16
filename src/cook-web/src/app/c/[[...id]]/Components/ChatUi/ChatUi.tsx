@@ -14,6 +14,7 @@ import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+import { LEARNING_MODE_LABELS } from '../learningModeOptions';
 
 interface ChatUiProps {
   chapterId: string;
@@ -120,7 +121,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>听课</span>
+                  <span>{LEARNING_MODE_LABELS.listen}</span>
                 </button>
                 <button
                   type='button'
@@ -134,7 +135,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>阅读</span>
+                  <span>{LEARNING_MODE_LABELS.read}</span>
                 </button>
               </div>
             ) : null}
