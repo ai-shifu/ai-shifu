@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import {
-  checkIsRunning,
   getRunMessage,
   SSE_INPUT_TYPE,
   SSE_OUTPUT_TYPE,
@@ -203,11 +202,6 @@ export default function AskBlock({
     }
 
     if (!question) {
-      return;
-    }
-    const runningRes = await checkIsRunning(shifu_bid, outline_bid);
-    if (runningRes.is_running) {
-      showOutputInProgressToast();
       return;
     }
 
