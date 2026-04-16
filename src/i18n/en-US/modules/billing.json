@@ -788,7 +788,7 @@
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits",
-      "noteFrozen": "Top-up credits never expire, but they can be used only while the account has an active credit plan; otherwise they will be frozen.",
+      "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
       "noteInstant": "Credits take effect immediately after purchase.",
       "noteTitle": "Top-up notes"
     },

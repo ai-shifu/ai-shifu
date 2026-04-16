@@ -788,7 +788,7 @@
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分",
-      "noteFrozen": "账户下需要存在有效期内的积分套餐时才可以使用，否则会被暂时冻结。",
+      "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
       "noteInstant": "购买后即时生效, 积分永不过期。",
       "noteTitle": "积分充值说明"
     },
