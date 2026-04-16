@@ -9,6 +9,7 @@ from sqlalchemy import and_, or_
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
+from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
@@ -1623,6 +1624,7 @@ def get_operator_course_detail(
         course_status = detail_source["course_status"]
 
         creator_user_bid = str(course.created_user_bid or "").strip()
+        visit_count_30d = get_course_visit_count_30d(app, normalized_shifu_bid)
         learner_count = (
             db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
             .filter(
@@ -1700,6 +1702,7 @@ def get_operator_course_detail(
                 updated_at=_format_datetime(course.updated_at),
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
+                visit_count_30d=int(visit_count_30d),
                 learner_count=int(learner_count),
                 order_count=int(getattr(order_summary, "order_count", 0) or 0),
                 order_amount=_format_decimal(

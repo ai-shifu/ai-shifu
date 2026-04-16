@@ -226,6 +226,10 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     monkeypatch,
 ):
     _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 7,
+    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -451,6 +455,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "updated_at": "2026-04-03 15:30:00",
     }
     assert payload["data"]["metrics"] == {
+        "visit_count_30d": 7,
         "learner_count": 2,
         "order_count": 1,
         "order_amount": "88",

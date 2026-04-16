@@ -358,6 +358,7 @@ export type I18nKey =
   | 'module.operationsCourse.detail.metricsLabels.orderAmount'
   | 'module.operationsCourse.detail.metricsLabels.orderCount'
   | 'module.operationsCourse.detail.metricsLabels.ratingScore'
+  | 'module.operationsCourse.detail.metricsLabels.visitCount30d'
   | 'module.operationsCourse.detail.title'
   | 'module.operationsCourse.detail.visibility.hidden'
   | 'module.operationsCourse.detail.visibility.visible'
