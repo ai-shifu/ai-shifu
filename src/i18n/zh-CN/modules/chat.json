@@ -11,7 +11,7 @@
   "lessonFeedbackScoreRequired": "请选择1-5分后再提交",
   "lessonFeedbackSubmitted": "感谢你的反馈",
   "listenInteractionHint": "提交以下内容后继续学习",
-  "listenModeTtsDisabled": "当前课程未开启语音合成，无法使用听课模式",
+  "listenModeTtsDisabled": "当前课程未开启听课模式，无法使用该模式",
   "listenPlayerBack": "返回非全屏",
   "listenPlayerFullscreenHint": "请旋转屏幕以获得最佳体验",
   "listenPlayerLandscapeLabel": "全屏",
@@ -32,5 +32,5 @@
   "regenerateConfirmTitle": "确定重新生成此内容？",
   "slideAudioBuffering": "正在缓冲中...",
   "thinking": "思考中...",
-  "ttsSynthesisPreview": "语音合成（预览版）"
+  "ttsSynthesisPreview": "听课模式"
 }

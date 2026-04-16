@@ -26,6 +26,14 @@ import {
 import { useEnvStore, useCourseStore } from '@/c-store';
 import { UserProvider, useUserStore } from '@/store';
 
+const parseBooleanQueryParam = (value?: string) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  return value.trim().toLowerCase() === 'true';
+};
+
 export default function ChatLayout({
   children,
 }: {
@@ -66,14 +74,19 @@ export default function ChatLayout({
     (state: EnvStoreState) => state.enableWxcode,
   );
 
-  const { updateCourseName, updateCourseAvatar, updateCourseTtsEnabled } =
-    useCourseStore(
-      useShallow((state: CourseStoreState) => ({
-        updateCourseName: state.updateCourseName,
-        updateCourseAvatar: state.updateCourseAvatar,
-        updateCourseTtsEnabled: state.updateCourseTtsEnabled,
-      })),
-    );
+  const {
+    courseTtsEnabled,
+    updateCourseName,
+    updateCourseAvatar,
+    updateCourseTtsEnabled,
+  } = useCourseStore(
+    useShallow((state: CourseStoreState) => ({
+      courseTtsEnabled: state.courseTtsEnabled,
+      updateCourseName: state.updateCourseName,
+      updateCourseAvatar: state.updateCourseAvatar,
+      updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+    })),
+  );
 
   const { userInfo, initUser } = useUserStore();
 
@@ -89,13 +102,27 @@ export default function ChatLayout({
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
-  const isPreviewMode = params.preview
-    ? params.preview.toLowerCase() === 'true'
-    : false;
-  const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
-  const listenModeEnabled = params.listen
-    ? params.listen.toLowerCase() === 'true'
-    : false;
+  const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
+  const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
+  const listenModeParam = parseBooleanQueryParam(params.listen);
+  const hasListenModeOverride = listenModeParam !== null;
+  const isCourseListenModeAvailable = courseTtsEnabled === true;
+  const showLearningModeToggle =
+    courseTtsEnabled === null
+      ? listenModeParam === true
+      : isCourseListenModeAvailable;
+  const effectiveLearningMode =
+    courseTtsEnabled === null
+      ? listenModeParam === true
+        ? 'listen'
+        : 'read'
+      : hasListenModeOverride
+        ? listenModeParam === true && isCourseListenModeAvailable
+          ? 'listen'
+          : 'read'
+        : isCourseListenModeAvailable
+          ? 'listen'
+          : 'read';
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -161,12 +188,13 @@ export default function ChatLayout({
   useEffect(() => {
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
-    updateShowLearningModeToggle(listenModeEnabled);
-    updateLearningMode(listenModeEnabled ? 'listen' : 'read');
+    updateShowLearningModeToggle(showLearningModeToggle);
+    updateLearningMode(effectiveLearningMode);
   }, [
+    effectiveLearningMode,
     isPreviewMode,
     isSkipMode,
-    listenModeEnabled,
+    showLearningModeToggle,
     updatePreviewMode,
     updateSkip,
     updateShowLearningModeToggle,

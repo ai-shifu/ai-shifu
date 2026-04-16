@@ -16,7 +16,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 1. 合并增量 `audio_segments` 后再写回状态，不直接全量替换。
 2. 仅新增当前步骤可播片段时不重置整段播放；结构变化才重启。
 3. 用户手动切 marker 时立即清除当前 buffering 状态。
-4. `run` 请求体 `listen` 以 URL 查询参数为单一真值来源。
+4. `run` 请求体 `listen` 需要优先尊重 URL 显式 `listen` 参数；当 URL 未显式传入时，前端默认学习模式与听课模式入口由课程级 `tts_enabled` 兜底决定。
 5. `LIKE_STATUS` 仅表示流结束信号，TTS 还需校验 `is_speakable` 或已有可播音频。
 6. 仅允许点击播放按钮时触发 `generated-blocks/:id/tts`，禁止 `onStepChange` 自动补拉。
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
@@ -27,6 +27,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 12. 听课模式组装 `elementList` 时，若内容本身是 `<iframe data-tag="video" ...></iframe>` 形式的视频 iframe，即使后端 `element_type` 仍是通用类型，也要优先把 slide element 的 `type` 推断为 `video`。
 13. 听课模式消费 `record` 历史接口时，若 `payload.audio.subtitle_cues` 存在，必须在 `elementList` 中显式透传为 `subtitle_cues`，不要只保留 `content` 导致字幕时间轴元数据在渲染层丢失。
 14. 听课模式 `run` 的 `audio_segment` 若已生成当前累计字幕 cue，必须同步透传到对应 element patch 的 `payload.audio.subtitle_cues`，不要等到 `audio_complete` 才返回字幕。
+15. 课程设置里的 `tts_enabled` 虽然沿用后端字段名，但前端产品语义视为“听课模式开关”；改动作者端文案或 learner 端默认模式时，必须同时检查设置页文案、课程信息映射和 `/c/...` 布局层默认 `learningMode` 是否一致。
 
 ## 备注
 

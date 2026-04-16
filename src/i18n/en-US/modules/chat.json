@@ -11,7 +11,7 @@
   "lessonFeedbackScoreRequired": "Please choose a score from 1 to 5.",
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
   "listenInteractionHint": "Submit the following to continue learning",
-  "listenModeTtsDisabled": "Text-to-Speech is not enabled for this course, so listen mode is unavailable.",
+  "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
   "listenPlayerBack": "Back to non-full screen",
   "listenPlayerFullscreenHint": "Please rotate your screen for the best experience",
   "listenPlayerLandscapeLabel": "Full screen",
@@ -32,5 +32,5 @@
   "regenerateConfirmTitle": "Confirm regenerate this content?",
   "slideAudioBuffering": "Buffering...",
   "thinking": "Thinking...",
-  "ttsSynthesisPreview": "Text-to-Speech (Preview)"
+  "ttsSynthesisPreview": "Listen Mode"
 }
