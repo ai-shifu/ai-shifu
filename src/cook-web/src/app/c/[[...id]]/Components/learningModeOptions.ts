@@ -16,3 +16,11 @@ export const LEARNING_MODE_LABELS = LEARNING_MODE_OPTIONS.reduce(
   },
   {} as Record<(typeof LEARNING_MODE_OPTIONS)[number]['mode'], string>,
 );
+
+export const isListenModeActive = ({
+  learningMode,
+  courseTtsEnabled,
+}: {
+  learningMode: 'listen' | 'read';
+  courseTtsEnabled: boolean | null;
+}) => learningMode === 'listen' && courseTtsEnabled !== false;
