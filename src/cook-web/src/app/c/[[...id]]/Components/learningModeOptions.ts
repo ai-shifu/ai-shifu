@@ -20,10 +20,13 @@ export const LEARNING_MODE_OPTIONS = [
 
 export const LEARNING_MODE_LABEL_KEYS = LEARNING_MODE_OPTIONS.reduce<
   Record<LearningMode, I18nKey>
->((labels, option) => {
-  labels[option.mode] = option.labelKey;
-  return labels;
-}, {} as Record<LearningMode, I18nKey>);
+>(
+  (labels, option) => {
+    labels[option.mode] = option.labelKey;
+    return labels;
+  },
+  {} as Record<LearningMode, I18nKey>,
+);
 
 export const isListenModeActive = ({
   learningMode,
