@@ -15,6 +15,7 @@ import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { LEARNING_MODE_LABELS } from '../learningModeOptions';
+import HeaderBetaBadge from '../HeaderBetaBadge';
 
 interface ChatUiProps {
   chapterId: string;
@@ -113,10 +114,12 @@ export const ChatUi = ({
                   type='button'
                   className={cn(
                     styles.modeButton,
+                    'relative overflow-visible',
                     learningMode === 'listen' ? styles.modeButtonActive : '',
                   )}
                   onClick={() => updateLearningMode('listen')}
                 >
+                  <HeaderBetaBadge />
                   <Headphones
                     size={16}
                     strokeWidth={2}

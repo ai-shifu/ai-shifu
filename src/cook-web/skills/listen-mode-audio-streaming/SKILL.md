@@ -16,7 +16,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 1. 合并增量 `audio_segments` 后再写回状态，不直接全量替换。
 2. 仅新增当前步骤可播片段时不重置整段播放；结构变化才重启。
 3. 用户手动切 marker 时立即清除当前 buffering 状态。
-4. `run` 请求体 `listen` 需要优先尊重 URL 显式 `listen` 参数；当 URL 未显式传入时，前端默认学习模式与听课模式入口由课程级 `tts_enabled` 兜底决定。
+4. `run` 请求体 `listen` 需要优先尊重 URL 显式 `listen` 参数；当 URL 未显式传入时，课程级 `tts_enabled` 只决定听课模式入口是否可用，learner 默认学习模式仍保持阅读模式。
 5. `LIKE_STATUS` 仅表示流结束信号，TTS 还需校验 `is_speakable` 或已有可播音频。
 6. 仅允许点击播放按钮时触发 `generated-blocks/:id/tts`，禁止 `onStepChange` 自动补拉。
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。

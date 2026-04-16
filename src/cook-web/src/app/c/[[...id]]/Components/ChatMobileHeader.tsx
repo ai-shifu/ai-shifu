@@ -17,6 +17,7 @@ import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
 import { LEARNING_MODE_LABELS, LEARNING_MODE_OPTIONS } from './learningModeOptions';
+import HeaderBetaBadge from './HeaderBetaBadge';
 
 export const ChatMobileHeader = ({
   className,
@@ -87,7 +88,7 @@ export const ChatMobileHeader = ({
               <button
                 type='button'
                 aria-label='切换学习模式'
-                className={styles.iconButton}
+                className={cn(styles.iconButton, 'relative overflow-visible')}
               >
                 <BookOpen
                   size={20}
@@ -117,6 +118,9 @@ export const ChatMobileHeader = ({
                       className='text-neutral-500'
                     />
                     <span>{option.label}</span>
+                    {option.mode === 'listen' ? (
+                      <HeaderBetaBadge variant='inline' />
+                    ) : null}
                     {learningMode === option.mode ? (
                       <Check
                         size={16}

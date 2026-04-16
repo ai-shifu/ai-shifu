@@ -120,9 +120,7 @@ export default function ChatLayout({
         ? listenModeParam === true && isCourseListenModeAvailable
           ? 'listen'
           : 'read'
-        : isCourseListenModeAvailable
-          ? 'listen'
-          : 'read';
+        : 'read';
 
   if (channel !== currChannel) {
     updateChannel(currChannel);

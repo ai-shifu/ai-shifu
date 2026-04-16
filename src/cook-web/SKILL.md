@@ -9,7 +9,7 @@
 
 ## Project-Wide Constraints
 
-- Treat URL parameters as explicit overrides: use `lessonid` for lesson targeting, let `listen` query override learner mode when present, and fall back to course-level `tts_enabled` to decide whether listen mode is available and default-selected.
+- Treat URL parameters as explicit overrides: use `lessonid` for lesson targeting, let `listen` query override learner mode when present, and fall back to course-level `tts_enabled` to decide whether listen mode is available while keeping read mode as the default.
 - Streaming chat must use `element_bid` as the stable render key, with compatibility fields backfilled in the shared normalization entry point.
 - When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
