@@ -10,11 +10,10 @@ import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useCourseStore, useUiLayoutStore } from '@/c-store';
-import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import { useUiLayoutStore } from '@/c-store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
-import { LEARNING_MODE_LABELS } from '../learningModeOptions';
+import { LEARNING_MODE_LABEL_KEYS } from '../learningModeOptions';
 import HeaderBetaBadge from '../HeaderBetaBadge';
 
 interface ChatUiProps {
@@ -51,7 +50,6 @@ export const ChatUi = ({
   showUserSettings = true,
   userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
-  onMobileSettingClick = () => {},
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
@@ -77,11 +75,11 @@ export const ChatUi = ({
     })),
   );
 
-  const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
   const isListenMode = learningMode === 'listen';
+  const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
 
   useEffect(() => {
@@ -124,7 +122,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{LEARNING_MODE_LABELS.listen}</span>
+                  <span>{t(LEARNING_MODE_LABEL_KEYS.listen)}</span>
                 </button>
                 <button
                   type='button'
@@ -138,7 +136,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{LEARNING_MODE_LABELS.read}</span>
+                  <span>{t(LEARNING_MODE_LABEL_KEYS.read)}</span>
                 </button>
               </div>
             ) : null}
@@ -187,7 +185,7 @@ export const ChatUi = ({
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}
           </span>
-          <span className={styles.separator}>|</span>
+          <span className={styles.separator}>{footerSeparator}</span>
           <span className={styles.footerText}>
             <MarkdownFlowLink
               prefix={t('module.chat.poweredByPrefix')}

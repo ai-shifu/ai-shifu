@@ -1,26 +1,34 @@
+import type { I18nKey } from '@/types/i18n-keys';
+
+export type LearningMode = 'listen' | 'read';
+
+type LearningModeOption = {
+  mode: LearningMode;
+  labelKey: I18nKey;
+};
+
 export const LEARNING_MODE_OPTIONS = [
   {
     mode: 'listen',
-    label: '听课',
+    labelKey: 'module.chat.learningModeListen',
   },
   {
     mode: 'read',
-    label: '阅读',
+    labelKey: 'module.chat.learningModeRead',
   },
-] as const;
+] as const satisfies readonly LearningModeOption[];
 
-export const LEARNING_MODE_LABELS = LEARNING_MODE_OPTIONS.reduce(
-  (labels, option) => {
-    labels[option.mode] = option.label;
-    return labels;
-  },
-  {} as Record<(typeof LEARNING_MODE_OPTIONS)[number]['mode'], string>,
-);
+export const LEARNING_MODE_LABEL_KEYS = LEARNING_MODE_OPTIONS.reduce<
+  Record<LearningMode, I18nKey>
+>((labels, option) => {
+  labels[option.mode] = option.labelKey;
+  return labels;
+}, {} as Record<LearningMode, I18nKey>);
 
 export const isListenModeActive = ({
   learningMode,
   courseTtsEnabled,
 }: {
-  learningMode: 'listen' | 'read';
+  learningMode: LearningMode;
   courseTtsEnabled: boolean | null;
 }) => learningMode === 'listen' && courseTtsEnabled !== false;

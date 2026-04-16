@@ -1,6 +1,7 @@
 import styles from './ChatMobileHeader.module.scss';
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useCourseStore } from '@/c-store';
@@ -25,6 +26,7 @@ export const ChatMobileHeader = ({
   navOpen,
   iconPopoverPayload,
 }) => {
+  const { t } = useTranslation();
   const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
     useDisclosure();
 
@@ -85,7 +87,7 @@ export const ChatMobileHeader = ({
             <DropdownMenuTrigger asChild>
               <button
                 type='button'
-                aria-label='切换学习模式'
+                aria-label={t('module.chat.learningModeToggle')}
                 className={cn(styles.iconButton, 'relative overflow-visible')}
               >
                 <BookOpen
@@ -115,7 +117,7 @@ export const ChatMobileHeader = ({
                       strokeWidth={2}
                       className='text-neutral-500'
                     />
-                    <span>{option.label}</span>
+                    <span>{t(option.labelKey)}</span>
                     {option.mode === 'listen' ? (
                       <HeaderBetaBadge variant='inline' />
                     ) : null}
@@ -135,7 +137,11 @@ export const ChatMobileHeader = ({
 
         <button
           type='button'
-          aria-label={navOpen ? '关闭目录' : '打开目录'}
+          aria-label={
+            navOpen
+              ? t('module.chat.closeCatalog')
+              : t('module.chat.openCatalog')
+          }
           className={styles.iconButton}
           onClick={onSettingClick}
         >
