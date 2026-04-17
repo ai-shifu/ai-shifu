@@ -21,6 +21,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    BILLING_ORDER_TYPE_TOPUP,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_GIFT,
@@ -45,6 +46,7 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
+    BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -60,8 +62,10 @@ from flaskr.service.billing.provider_state import (
 )
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
+    repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
+from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.common.models import AppException
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_providers import (
@@ -70,6 +74,8 @@ from flaskr.service.order.payment_providers import (
     PaymentRefundResult,
     SubscriptionUpdateResult,
 )
+from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.repository import create_user_entity
 from tests.common.fixtures.billing_products import build_billing_products
 
 _API_ROOT = Path(__file__).resolve().parents[3]
@@ -139,6 +145,20 @@ def _add_active_subscription(
                 updated_at=current_period_start_at or now - timedelta(days=1),
             )
         )
+        dao.db.session.commit()
+
+
+def _seed_creator_user(app: Flask, *, creator_bid: str = "creator-1") -> None:
+    with app.app_context():
+        entity = create_user_entity(
+            user_bid=creator_bid,
+            identify=f"{creator_bid}@example.com",
+            nickname="Creator",
+            language="en-US",
+            avatar="",
+            state=USER_STATE_REGISTERED,
+        )
+        entity.is_creator = 1
         dao.db.session.commit()
 
 
@@ -620,6 +640,69 @@ class TestBillingWriteRoutes:
             == "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
         )
 
+    def test_subscription_checkout_rejects_lower_tier_against_paid_plan_when_trial_overlaps(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+
+        with app.app_context():
+            dao.db.session.add_all(
+                [
+                    BillingSubscription(
+                        subscription_bid="sub-trial-overlap",
+                        creator_bid="creator-1",
+                        product_bid=BILLING_TRIAL_PRODUCT_BID,
+                        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                        billing_provider="manual",
+                        provider_subscription_id="",
+                        provider_customer_id="",
+                        current_period_start_at=now - timedelta(days=1),
+                        current_period_end_at=now + timedelta(days=14),
+                        cancel_at_period_end=0,
+                        next_product_bid="",
+                        metadata_json={"trial": True},
+                        created_at=now - timedelta(days=1),
+                        updated_at=now - timedelta(days=1),
+                    ),
+                    BillingSubscription(
+                        subscription_bid="sub-paid-overlap-pro",
+                        creator_bid="creator-1",
+                        product_bid="billing-product-plan-monthly-pro",
+                        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                        billing_provider="stripe",
+                        provider_subscription_id="sub_provider_paid_overlap_pro",
+                        provider_customer_id="cus_provider_paid_overlap_pro",
+                        current_period_start_at=now - timedelta(hours=6),
+                        current_period_end_at=now + timedelta(days=1),
+                        cancel_at_period_end=0,
+                        next_product_bid="",
+                        metadata_json={},
+                        created_at=now - timedelta(hours=6),
+                        updated_at=now - timedelta(hours=6),
+                    ),
+                ]
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 7107
+        assert (
+            payload["message"]
+            == "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+        )
+
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
     ) -> None:
@@ -892,6 +975,91 @@ class TestBillingWriteRoutes:
             assert bucket.effective_to == current_period_end_at
             assert ledger.expires_at == current_period_end_at
 
+    def test_trial_then_paid_then_topup_prefers_paid_subscription_for_overview_and_expiry(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        _seed_creator_user(app, creator_bid="creator-1")
+        with app.app_context():
+            bootstrap_new_creator_trial_credits(app, "creator-1")
+
+        paid_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "pingxx",
+            },
+        ).get_json(force=True)
+        paid_order_bid = paid_checkout["data"]["billing_order_bid"]
+        paid_sync = client.post(f"/api/billing/orders/{paid_order_bid}/sync").get_json(
+            force=True
+        )
+        with app.app_context():
+            paid_subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+            ).one()
+            paid_subscription.current_period_end_at = (
+                paid_subscription.current_period_start_at + timedelta(days=1)
+            )
+            dao.db.session.commit()
+
+        topup_checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        topup_order_bid = topup_checkout["data"]["billing_order_bid"]
+        topup_sync = client.post(
+            f"/api/billing/orders/{topup_order_bid}/sync"
+        ).get_json(force=True)
+        overview = client.get("/api/billing/overview").get_json(force=True)
+
+        assert paid_sync["code"] == 0
+        assert topup_sync["code"] == 0
+        assert overview["code"] == 0
+
+        with app.app_context():
+            paid_subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+            ).one()
+            trial_subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+            ).one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+
+            assert trial_subscription.current_period_end_at is not None
+            assert paid_subscription.current_period_end_at is not None
+            assert (
+                trial_subscription.current_period_end_at
+                > paid_subscription.current_period_end_at
+            )
+            assert bucket.effective_to == paid_subscription.current_period_end_at
+            assert ledger.expires_at == paid_subscription.current_period_end_at
+
+        assert (
+            overview["data"]["subscription"]["subscription_bid"]
+            == paid_subscription.subscription_bid
+        )
+        assert (
+            overview["data"]["subscription"]["product_bid"]
+            == "billing-product-plan-monthly"
+        )
+
     def test_topup_checkout_rejects_without_active_subscription(
         self, billing_write_client
     ) -> None:
@@ -907,6 +1075,143 @@ class TestBillingWriteRoutes:
         ).get_json(force=True)
 
         assert checkout["code"] != 0
+
+    def test_repair_topup_grant_expiries_updates_only_misaligned_expiry_fields(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        now = datetime(2026, 4, 17, 12, 0, 0)
+        trial_end = now + timedelta(days=15)
+        paid_end = now + timedelta(days=1)
+        topup_paid_at = now + timedelta(minutes=5)
+
+        with app.app_context():
+            wallet = CreditWallet(
+                wallet_bid="wallet-repair-1",
+                creator_bid="creator-1",
+                available_credits=Decimal("20.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("20.0000000000"),
+                lifetime_consumed_credits=Decimal("0"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=now,
+                updated_at=now,
+            )
+            dao.db.session.add(wallet)
+            dao.db.session.add_all(
+                [
+                    BillingSubscription(
+                        subscription_bid="sub-trial-repair",
+                        creator_bid="creator-1",
+                        product_bid=BILLING_TRIAL_PRODUCT_BID,
+                        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                        billing_provider="manual",
+                        provider_subscription_id="",
+                        provider_customer_id="",
+                        current_period_start_at=now,
+                        current_period_end_at=trial_end,
+                        cancel_at_period_end=0,
+                        next_product_bid="",
+                        metadata_json={"trial": True},
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    BillingSubscription(
+                        subscription_bid="sub-paid-repair",
+                        creator_bid="creator-1",
+                        product_bid="billing-product-plan-monthly",
+                        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                        billing_provider="stripe",
+                        provider_subscription_id="sub_provider_repair",
+                        provider_customer_id="cus_provider_repair",
+                        current_period_start_at=now,
+                        current_period_end_at=paid_end,
+                        cancel_at_period_end=0,
+                        next_product_bid="",
+                        metadata_json={},
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    BillingOrder(
+                        billing_order_bid="billing-topup-repair-1",
+                        creator_bid="creator-1",
+                        order_type=BILLING_ORDER_TYPE_TOPUP,
+                        product_bid="billing-product-topup-small",
+                        subscription_bid="",
+                        currency="CNY",
+                        payable_amount=5000,
+                        paid_amount=5000,
+                        payment_provider="pingxx",
+                        channel="alipay_qr",
+                        provider_reference_id="ch_topup_repair_1",
+                        status=BILLING_ORDER_STATUS_PAID,
+                        paid_at=topup_paid_at,
+                        metadata_json={"checkout_type": "topup"},
+                        created_at=topup_paid_at,
+                        updated_at=topup_paid_at,
+                    ),
+                    CreditWalletBucket(
+                        wallet_bucket_bid="bucket-topup-repair-1",
+                        wallet_bid="wallet-repair-1",
+                        creator_bid="creator-1",
+                        bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                        source_bid="billing-topup-repair-1",
+                        priority=30,
+                        original_credits=Decimal("20.0000000000"),
+                        available_credits=Decimal("20.0000000000"),
+                        reserved_credits=Decimal("0"),
+                        consumed_credits=Decimal("0"),
+                        expired_credits=Decimal("0"),
+                        effective_from=topup_paid_at,
+                        effective_to=trial_end,
+                        status=CREDIT_BUCKET_STATUS_ACTIVE,
+                        metadata_json={"billing_order_bid": "billing-topup-repair-1"},
+                        created_at=topup_paid_at,
+                        updated_at=topup_paid_at,
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="ledger-topup-repair-1",
+                        creator_bid="creator-1",
+                        wallet_bid="wallet-repair-1",
+                        wallet_bucket_bid="bucket-topup-repair-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                        source_bid="billing-topup-repair-1",
+                        idempotency_key="grant:billing-topup-repair-1",
+                        amount=Decimal("20.0000000000"),
+                        balance_after=Decimal("20.0000000000"),
+                        expires_at=trial_end,
+                        consumable_from=topup_paid_at,
+                        metadata_json={"billing_order_bid": "billing-topup-repair-1"},
+                        created_at=topup_paid_at,
+                        updated_at=topup_paid_at,
+                    ),
+                ]
+            )
+            dao.db.session.commit()
+
+            result = repair_topup_grant_expiries(app, creator_bid="creator-1")
+
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-topup-repair-1"
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                ledger_bid="ledger-topup-repair-1"
+            ).one()
+
+            assert result.status == "repaired"
+            assert result.inspected_bucket_count == 1
+            assert result.repaired_bucket_count == 1
+            assert result.repaired_ledger_count == 1
+            assert result.skipped_bucket_bids == []
+            assert bucket.effective_to == paid_end
+            assert ledger.expires_at == paid_end
+            assert wallet.available_credits == Decimal("20.0000000000")
+            assert wallet.reserved_credits == Decimal("0E-10")
+            assert wallet.version == 0
 
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
         self, billing_write_client, monkeypatch

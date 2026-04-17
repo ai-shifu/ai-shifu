@@ -7,6 +7,7 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_TRIAL_PRODUCT_BID,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_ENTERPRISE,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
@@ -18,6 +19,10 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.entitlements import (
     resolve_creator_entitlement_state,
     serialize_creator_entitlements,
+)
+from flaskr.service.billing.queries import (
+    load_current_subscription,
+    load_primary_active_subscription,
 )
 from flaskr.service.billing.models import (
     BillingEntitlement,
@@ -191,3 +196,114 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
         "analytics_tier": "basic",
         "support_tier": "self_serve",
     }
+
+
+def test_primary_active_subscription_prefers_higher_sort_order_paid_plan_over_trial(
+    billing_entitlement_app: Flask,
+) -> None:
+    now = datetime.now()
+    with billing_entitlement_app.app_context():
+        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(
+            [
+                BillingSubscription(
+                    subscription_bid="sub-trial-overlap",
+                    creator_bid="creator-overlap-1",
+                    product_bid=BILLING_TRIAL_PRODUCT_BID,
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=14),
+                    created_at=now - timedelta(days=1),
+                    updated_at=now - timedelta(days=1),
+                ),
+                BillingSubscription(
+                    subscription_bid="sub-paid-overlap",
+                    creator_bid="creator-overlap-1",
+                    product_bid="billing-product-plan-monthly",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(hours=6),
+                    current_period_end_at=now + timedelta(days=1),
+                    created_at=now - timedelta(hours=6),
+                    updated_at=now - timedelta(hours=6),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        primary = load_primary_active_subscription(
+            "creator-overlap-1",
+            as_of=now,
+        )
+        current = load_current_subscription("creator-overlap-1")
+
+    assert primary is not None
+    assert primary.subscription_bid == "sub-paid-overlap"
+    assert current is not None
+    assert current.subscription_bid == "sub-paid-overlap"
+
+
+def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
+    billing_entitlement_app: Flask,
+) -> None:
+    now = datetime(2026, 4, 8, 12, 0, 0)
+    with billing_entitlement_app.app_context():
+        dao.db.session.add_all(
+            build_billing_products(
+                overrides_by_bid={
+                    BILLING_TRIAL_PRODUCT_BID: {
+                        "entitlement_payload": {
+                            "priority_class": "standard",
+                            "max_concurrency": "2",
+                            "analytics_tier": "basic",
+                            "support_tier": "self_serve",
+                        }
+                    },
+                    "billing-product-plan-monthly": {
+                        "entitlement_payload": {
+                            "branding_enabled": True,
+                            "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
+                            "max_concurrency": "4",
+                            "analytics_tier": "advanced",
+                            "support_tier": "business_hours",
+                            "feature_payload": {"paid_plan": True},
+                        }
+                    },
+                }
+            )
+        )
+        dao.db.session.add_all(
+            [
+                BillingSubscription(
+                    subscription_bid="sub-trial-entitlement",
+                    creator_bid="creator-overlap-2",
+                    product_bid=BILLING_TRIAL_PRODUCT_BID,
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=14),
+                    created_at=now - timedelta(days=1),
+                    updated_at=now - timedelta(days=1),
+                ),
+                BillingSubscription(
+                    subscription_bid="sub-paid-entitlement",
+                    creator_bid="creator-overlap-2",
+                    product_bid="billing-product-plan-monthly",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(hours=6),
+                    current_period_end_at=now + timedelta(days=1),
+                    created_at=now - timedelta(hours=6),
+                    updated_at=now - timedelta(hours=6),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        state = resolve_creator_entitlement_state(
+            "creator-overlap-2",
+            as_of=now,
+        )
+
+    assert state["source_kind"] == "product_payload"
+    assert state["source_bid"] == "sub-paid-entitlement"
+    assert state["product_bid"] == "billing-product-plan-monthly"
+    assert state["max_concurrency"] == 4
+    assert state["feature_payload"] == {"paid_plan": True}

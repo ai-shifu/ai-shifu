@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import calendar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -36,7 +36,6 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
@@ -67,6 +66,7 @@ from .queries import (
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+    load_primary_active_subscription as _load_primary_active_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
     load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
     serialize_order_metadata_datetime as _serialize_order_metadata_datetime,
@@ -98,14 +98,6 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
 
-_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES = (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-)
-
 
 @dataclass(slots=True, frozen=True)
 class CreditGrantContext:
@@ -113,6 +105,49 @@ class CreditGrantContext:
     bucket_category: int
     priority: int
     grant_reason: str
+
+
+@dataclass(slots=True, frozen=True)
+class TopupExpiryRepairRecord:
+    wallet_bucket_bid: str
+    billing_order_bid: str | None
+    previous_effective_to: datetime | None
+    effective_to: datetime
+    ledger_bids: tuple[str, ...] = ()
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "billing_order_bid": self.billing_order_bid,
+            "previous_effective_to": self.previous_effective_to,
+            "effective_to": self.effective_to,
+            "ledger_bids": list(self.ledger_bids),
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class TopupExpiryRepairResult:
+    status: str
+    creator_bid: str | None
+    inspected_bucket_count: int
+    repaired_bucket_count: int
+    repaired_ledger_count: int
+    repaired_records: list[TopupExpiryRepairRecord] = field(default_factory=list)
+    skipped_bucket_bids: list[str] = field(default_factory=list)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "inspected_bucket_count": self.inspected_bucket_count,
+            "repaired_bucket_count": self.repaired_bucket_count,
+            "repaired_ledger_count": self.repaired_ledger_count,
+            "repaired_records": [item.to_payload() for item in self.repaired_records],
+            "skipped_bucket_bids": list(self.skipped_bucket_bids),
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
 
 
 def _load_owned_subscription(
@@ -136,33 +171,7 @@ def load_effective_topup_subscription(
     *,
     as_of: datetime | None = None,
 ) -> BillingSubscription | None:
-    effective_at = as_of or datetime.now()
-    subscription = (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
-            BillingSubscription.status.in_(_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES),
-        )
-        .order_by(
-            BillingSubscription.current_period_end_at.desc(),
-            BillingSubscription.created_at.desc(),
-            BillingSubscription.id.desc(),
-        )
-        .first()
-    )
-    if subscription is None:
-        return None
-    if (
-        subscription.current_period_start_at is not None
-        and subscription.current_period_start_at > effective_at
-    ):
-        return None
-    if (
-        subscription.current_period_end_at is None
-        or subscription.current_period_end_at <= effective_at
-    ):
-        return None
-    return subscription
+    return _load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
 def _merge_provider_metadata(
@@ -833,6 +842,139 @@ def _resolve_topup_bucket_effective_to(
     if subscription is None:
         return None
     return subscription.current_period_end_at
+
+
+def repair_topup_grant_expiries(
+    app: Flask,
+    *,
+    creator_bid: str,
+) -> TopupExpiryRepairResult:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return TopupExpiryRepairResult(
+            status="noop",
+            creator_bid=None,
+            inspected_bucket_count=0,
+            repaired_bucket_count=0,
+            repaired_ledger_count=0,
+        )
+
+    with app.app_context():
+        buckets = (
+            CreditWalletBucket.query.filter(
+                CreditWalletBucket.deleted == 0,
+                CreditWalletBucket.creator_bid == normalized_creator_bid,
+                CreditWalletBucket.source_type == CREDIT_SOURCE_TYPE_TOPUP,
+            )
+            .order_by(
+                CreditWalletBucket.created_at.asc(),
+                CreditWalletBucket.id.asc(),
+            )
+            .all()
+        )
+        if not buckets:
+            return TopupExpiryRepairResult(
+                status="noop",
+                creator_bid=normalized_creator_bid,
+                inspected_bucket_count=0,
+                repaired_bucket_count=0,
+                repaired_ledger_count=0,
+            )
+
+        repaired_at = datetime.now()
+        repaired_records: list[TopupExpiryRepairRecord] = []
+        skipped_bucket_bids: list[str] = []
+        repaired_ledger_count = 0
+
+        for bucket in buckets:
+            order = (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == normalized_creator_bid,
+                    BillingOrder.billing_order_bid == _normalize_bid(bucket.source_bid),
+                    BillingOrder.order_type == BILLING_ORDER_TYPE_TOPUP,
+                )
+                .order_by(BillingOrder.id.desc())
+                .first()
+            )
+            reference_effective_from = (
+                order.paid_at
+                if order is not None and order.paid_at is not None
+                else None
+            ) or bucket.effective_from
+            if reference_effective_from is None:
+                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
+                continue
+
+            expected_effective_to = _resolve_topup_bucket_effective_to(
+                creator_bid=normalized_creator_bid,
+                effective_from=reference_effective_from,
+            )
+            if expected_effective_to is None:
+                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
+                continue
+
+            grant_entries = (
+                CreditLedgerEntry.query.filter(
+                    CreditLedgerEntry.deleted == 0,
+                    CreditLedgerEntry.creator_bid == normalized_creator_bid,
+                    CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                )
+                .order_by(
+                    CreditLedgerEntry.created_at.asc(), CreditLedgerEntry.id.asc()
+                )
+                .all()
+            )
+
+            previous_effective_to = bucket.effective_to
+            updated_ledger_bids: list[str] = []
+            if previous_effective_to != expected_effective_to:
+                bucket.effective_to = expected_effective_to
+                bucket.updated_at = repaired_at
+                db.session.add(bucket)
+
+            for entry in grant_entries:
+                if entry.expires_at == expected_effective_to:
+                    continue
+                entry.expires_at = expected_effective_to
+                entry.updated_at = repaired_at
+                db.session.add(entry)
+                updated_ledger_bids.append(entry.ledger_bid)
+
+            if (
+                previous_effective_to == expected_effective_to
+                and not updated_ledger_bids
+            ):
+                continue
+
+            repaired_ledger_count += len(updated_ledger_bids)
+            repaired_records.append(
+                TopupExpiryRepairRecord(
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    billing_order_bid=order.billing_order_bid
+                    if order is not None
+                    else None,
+                    previous_effective_to=previous_effective_to,
+                    effective_to=expected_effective_to,
+                    ledger_bids=tuple(updated_ledger_bids),
+                )
+            )
+
+        if repaired_records:
+            db.session.commit()
+        else:
+            db.session.rollback()
+
+        return TopupExpiryRepairResult(
+            status="repaired" if repaired_records else "noop",
+            creator_bid=normalized_creator_bid,
+            inspected_bucket_count=len(buckets),
+            repaired_bucket_count=len(repaired_records),
+            repaired_ledger_count=repaired_ledger_count,
+            repaired_records=repaired_records,
+            skipped_bucket_bids=skipped_bucket_bids,
+        )
 
 
 def _resolve_credit_bucket_effective_from(

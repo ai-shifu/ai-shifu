@@ -13,26 +13,16 @@ from .consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
     BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from .dtos import BillingEntitlementsDTO
-from .models import BillingEntitlement, BillingProduct, BillingSubscription
+from .models import BillingEntitlement, BillingProduct
+from .queries import (
+    load_primary_active_subscription as _load_primary_active_subscription,
+)
 from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
-
-_ACTIVE_SUBSCRIPTION_STATUSES = (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-)
 
 
 @dataclass(slots=True, frozen=True)
@@ -132,19 +122,7 @@ def _resolve_subscription_product_entitlement_state(
     *,
     as_of: datetime,
 ) -> CreatorEntitlementState | None:
-    subscription = (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
-            BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
-        )
-        .order_by(
-            BillingSubscription.current_period_end_at.desc(),
-            BillingSubscription.created_at.desc(),
-            BillingSubscription.id.desc(),
-        )
-        .first()
-    )
+    subscription = _load_primary_active_subscription(creator_bid, as_of=as_of)
     if subscription is None:
         return None
 

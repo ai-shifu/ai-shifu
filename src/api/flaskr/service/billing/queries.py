@@ -253,33 +253,59 @@ def add_years(value: datetime, years: int) -> datetime:
     return value.replace(year=year, day=day)
 
 
-def load_current_subscription(creator_bid: str) -> BillingSubscription | None:
-    prioritized = (
-        BillingSubscription.query.filter(
+def load_primary_active_subscription(
+    creator_bid: str,
+    *,
+    as_of: datetime | None = None,
+) -> BillingSubscription | None:
+    normalized_creator_bid = normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return None
+
+    resolved_at = as_of or datetime.now()
+    product_sort_order = case(
+        (BillingProduct.sort_order.is_(None), -1),
+        else_=BillingProduct.sort_order,
+    )
+    return (
+        BillingSubscription.query.outerjoin(
+            BillingProduct,
+            (BillingProduct.product_bid == BillingSubscription.product_bid)
+            & (BillingProduct.deleted == 0),
+        )
+        .filter(
             BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.creator_bid == normalized_creator_bid,
             BillingSubscription.status.in_(_ACTIVE_SUBSCRIPTION_STATUSES),
+            (
+                BillingSubscription.current_period_start_at.is_(None)
+                | (BillingSubscription.current_period_start_at <= resolved_at)
+            ),
+            BillingSubscription.current_period_end_at.isnot(None),
+            BillingSubscription.current_period_end_at > resolved_at,
         )
         .order_by(
-            case(
-                *[
-                    (BillingSubscription.status == status, rank)
-                    for status, rank in _SUBSCRIPTION_STATUS_SORT.items()
-                ],
-                else_=99,
-            ),
+            product_sort_order.desc(),
             BillingSubscription.current_period_end_at.desc(),
             BillingSubscription.created_at.desc(),
             BillingSubscription.id.desc(),
         )
         .first()
     )
+
+
+def load_current_subscription(creator_bid: str) -> BillingSubscription | None:
+    normalized_creator_bid = normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return None
+
+    prioritized = load_primary_active_subscription(normalized_creator_bid)
     if prioritized is not None:
         return prioritized
     return (
         BillingSubscription.query.filter(
             BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.creator_bid == normalized_creator_bid,
         )
         .order_by(BillingSubscription.created_at.desc(), BillingSubscription.id.desc())
         .first()

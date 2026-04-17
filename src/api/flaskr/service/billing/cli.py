@@ -18,6 +18,7 @@ from .daily_aggregates import (
 )
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
+from .subscriptions import repair_topup_grant_expiries
 from .wallets import rebuild_credit_wallet_snapshots
 
 
@@ -106,6 +107,21 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             wallet_bid=wallet_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="repair-topup-expiry")
+    @click.option("--creator-bid", default="", help="Repair one creator.")
+    @with_appcontext
+    def repair_topup_expiry_command(creator_bid: str) -> None:
+        """Repair one creator's topup grant expiry against the active paid plan."""
+
+        if not str(creator_bid or "").strip():
+            raise click.ClickException("Pass --creator-bid for topup expiry repair.")
+
+        payload = repair_topup_grant_expiries(
+            current_app,
+            creator_bid=creator_bid,
         )
         _echo_payload(payload)
 

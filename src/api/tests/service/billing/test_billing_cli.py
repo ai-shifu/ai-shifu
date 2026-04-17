@@ -96,6 +96,46 @@ def test_billing_rebuild_wallets_cli_prints_helper_payload(
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
 
 
+def test_billing_repair_topup_expiry_cli_requires_creator_bid(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-topup-expiry"]
+    )
+
+    assert result.exit_code != 0
+    assert "Pass --creator-bid for topup expiry repair." in result.output
+
+
+def test_billing_repair_topup_expiry_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_topup_grant_expiries",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "repaired_bucket_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-topup-expiry",
+            "--creator-bid",
+            "creator-cli-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+
+
 def test_billing_reconcile_order_cli_prints_helper_payload(
     billing_cli_runner,
     monkeypatch: pytest.MonkeyPatch,
