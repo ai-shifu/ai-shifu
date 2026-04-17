@@ -2029,6 +2029,7 @@ def get_operator_course_detail(
         redeemed_coupon_orders = (
             db.session.query(CouponUsage.order_bid.label("order_bid"))
             .filter(
+                CouponUsage.shifu_bid == normalized_shifu_bid,
                 CouponUsage.deleted == 0,
                 CouponUsage.status == COUPON_STATUS_USED,
             )
