@@ -6,6 +6,10 @@
   "detail": {
     "back": "返回课程列表",
     "basicInfo": "基础信息",
+    "boolean": {
+      "no": "否",
+      "yes": "是"
+    },
     "chapterType": {
       "chapter": "章",
       "lesson": "节"
@@ -72,6 +76,50 @@
       "visitCount30d": "近30天访问人数"
     },
     "title": "课程详情",
+    "userLearningStatus": {
+      "completed": "已完成",
+      "learning": "学习中",
+      "notStarted": "未开始"
+    },
+    "userRole": {
+      "creator": "创作者",
+      "normal": "普通用户",
+      "operator": "运营者",
+      "student": "学员"
+    },
+    "users": "用户数据",
+    "usersCount": "共 {count} 课程用户",
+    "usersDescription": "查看课程相关用户的学习进度、付费情况与最近活跃时间。",
+    "usersFilters": {
+      "all": "全部",
+      "learningStatus": "学习状态",
+      "paymentPaid": "已付费",
+      "paymentStatus": "是否付费",
+      "paymentUnpaid": "未付费",
+      "userKeyword": "用户搜索",
+      "userKeywordPlaceholder": "输入用户ID / 手机号 / 邮箱 / 昵称",
+      "userKeywordPlaceholderEmail": "输入用户ID / 邮箱 / 昵称",
+      "userKeywordPlaceholderPhone": "输入用户ID / 手机号 / 昵称",
+      "userRole": "用户身份"
+    },
+    "usersTable": {
+      "account": "手机号 / 邮箱",
+      "accountEmail": "邮箱",
+      "accountPhone": "手机号",
+      "action": "操作",
+      "detailAction": "详情",
+      "empty": "暂无用户数据",
+      "isPaid": "是否付费",
+      "joinedAt": "加入课程时间",
+      "lastLearnedAt": "最近学习时间",
+      "lastLoginAt": "最近登录时间",
+      "learningProgress": "学习进度",
+      "learningStatus": "学习状态",
+      "nickname": "昵称",
+      "totalPaidAmount": "累计付费金额",
+      "userId": "用户ID",
+      "userRole": "用户身份"
+    },
     "visibility": {
       "hidden": "隐藏",
       "visible": "显示"

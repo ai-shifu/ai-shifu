@@ -74,8 +74,8 @@ const MainInterface = ({
   const resolvedLogo = logoSrc || defaultLogo;
 
   return (
-    <div className='h-screen flex bg-stone-50'>
-      <div className='w-[280px]'>
+    <div className='flex h-screen overflow-hidden bg-stone-50'>
+      <div className='h-full w-[280px] shrink-0'>
         <SidebarContent
           menuItems={menuItems}
           loading={!menuReady}
@@ -87,8 +87,8 @@ const MainInterface = ({
           activePath={pathname}
         />
       </div>
-      <div className='flex-1 p-5  overflow-hidden bg-background'>
-        <div className='max-w-6xl mx-auto h-full overflow-hidden'>
+      <div className='min-h-0 flex-1 overflow-hidden bg-stone-50 p-5'>
+        <div className='mx-auto h-full min-h-0 max-w-6xl overflow-hidden'>
           {children}
         </div>
       </div>
