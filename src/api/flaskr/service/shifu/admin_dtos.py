@@ -201,9 +201,7 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
     learner_count: int = Field(
         ..., description="Distinct learner count", required=False
     )
-    order_count: int = Field(
-        ..., description="Successful order count", required=False
-    )
+    order_count: int = Field(..., description="Successful order count", required=False)
     order_amount: str = Field(
         ...,
         description="Collected amount including full coupon redemptions",
