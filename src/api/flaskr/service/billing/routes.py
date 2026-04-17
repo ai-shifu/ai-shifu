@@ -20,19 +20,12 @@ from flaskr.service.billing.read_models import (
     build_admin_billing_daily_usage_metrics_page,
     build_admin_billing_domain_audits_page,
     build_admin_billing_entitlements_page,
-    build_admin_billing_domain_bindings,
     build_admin_billing_orders_page,
     build_admin_billing_subscriptions_page,
     build_billing_catalog,
-    build_billing_daily_ledger_summary_page,
-    build_billing_daily_usage_metrics_page,
-    build_billing_entitlements,
     build_billing_ledger_page,
-    build_billing_order_detail,
-    build_billing_orders_page,
     build_billing_overview,
     build_billing_wallet_buckets,
-    bind_admin_billing_domain,
 )
 from flaskr.service.billing.subscriptions import (
     cancel_billing_subscription,
@@ -111,48 +104,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
-    @app.route(path_prefix + "/entitlements", methods=["GET"])
-    def billing_entitlements_api():
-        _require_creator()
-        return make_common_response(
-            build_billing_entitlements(
-                app,
-                _get_creator_bid(),
-            )
-        )
-
-    @app.route(path_prefix + "/reports/usage-daily", methods=["GET"])
-    def billing_daily_usage_reports_api():
-        _require_creator()
-        page_index, page_size = _get_page_args()
-        return make_common_response(
-            build_billing_daily_usage_metrics_page(
-                app,
-                _get_creator_bid(),
-                page_index=page_index,
-                page_size=page_size,
-                stat_date_from=_get_optional_query_arg("date_from", max_length=10),
-                stat_date_to=_get_optional_query_arg("date_to", max_length=10),
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
-    @app.route(path_prefix + "/reports/ledger-daily", methods=["GET"])
-    def billing_daily_ledger_reports_api():
-        _require_creator()
-        page_index, page_size = _get_page_args()
-        return make_common_response(
-            build_billing_daily_ledger_summary_page(
-                app,
-                _get_creator_bid(),
-                page_index=page_index,
-                page_size=page_size,
-                stat_date_from=_get_optional_query_arg("date_from", max_length=10),
-                stat_date_to=_get_optional_query_arg("date_to", max_length=10),
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
     @app.route(path_prefix + "/wallet-buckets", methods=["GET"])
     def billing_wallet_buckets_api():
         _require_creator()
@@ -174,32 +125,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 _get_creator_bid(),
                 page_index=page_index,
                 page_size=page_size,
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
-    @app.route(path_prefix + "/orders", methods=["GET"])
-    def billing_orders_api():
-        _require_creator()
-        page_index, page_size = _get_page_args()
-        return make_common_response(
-            build_billing_orders_page(
-                app,
-                _get_creator_bid(),
-                page_index=page_index,
-                page_size=page_size,
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
-    @app.route(path_prefix + "/orders/<billing_order_bid>", methods=["GET"])
-    def billing_order_detail_api(billing_order_bid: str):
-        _require_creator()
-        return make_common_response(
-            build_billing_order_detail(
-                app,
-                _get_creator_bid(),
-                billing_order_bid,
                 timezone_name=_get_timezone_name(),
             )
         )
@@ -299,17 +224,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
-    @app.route(admin_path_prefix + "/domain-bindings", methods=["GET"])
-    def admin_billing_domain_bindings_api():
-        _require_creator()
-        return make_common_response(
-            build_admin_billing_domain_bindings(
-                app,
-                creator_bid=_get_creator_bid(),
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
     @app.route(admin_path_prefix + "/domain-audits", methods=["GET"])
     def admin_billing_domain_audits_api():
         _require_creator()
@@ -321,18 +235,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
-            )
-        )
-
-    @app.route(admin_path_prefix + "/domains/bind", methods=["POST"])
-    def admin_billing_domain_bind_api():
-        _require_creator()
-        return make_common_response(
-            bind_admin_billing_domain(
-                app,
-                creator_bid=_get_creator_bid(),
-                payload=request.get_json(silent=True) or {},
                 timezone_name=_get_timezone_name(),
             )
         )

@@ -199,17 +199,9 @@
         "description": "Catalog cards for plans and topups remain active.",
         "title": "Creator catalog"
       },
-      "creatorEntitlements": {
-        "description": "Creator entitlement snapshots remain visible.",
-        "title": "Creator entitlements"
-      },
       "creatorOrders": {
         "description": "Creator orders, sync, refund, and topup flows remain enabled.",
         "title": "Creator orders"
-      },
-      "creatorReports": {
-        "description": "Creator daily usage and ledger reports remain enabled.",
-        "title": "Creator reports"
       },
       "creatorSubscriptionCheckout": {
         "description": "Creator subscription checkout, cancel, and resume remain enabled.",
@@ -270,19 +262,13 @@
   },
   "catalog": {
     "actions": {
-      "buyWithPingxx": "Pay with QR code",
-      "buyWithStripe": "Buy with Stripe",
-      "currentPlan": "Current plan",
-      "processing": "Processing...",
-      "subscribe": "Subscribe with Stripe",
-      "unavailable": "Unavailable"
+      "processing": "Processing..."
     },
     "badges": {
       "bestValue": "Best value",
       "recommended": "Recommended"
     },
     "labels": {
-      "creditsOneTime": "{credits} credits one time",
       "everyDays": "/ every {count} days",
       "everyMonths": "/ every {count} months",
       "everyYears": "/ every {count} years",
@@ -314,10 +300,6 @@
         "description": "Best for large-scale operations with support for high-concurrency course delivery.",
         "title": "Premium"
       }
-    },
-    "sections": {
-      "plans": "Membership plans",
-      "topups": "Top-up packs"
     },
     "topups": {
       "creatorLarge": {
@@ -381,64 +363,8 @@
     }
   },
   "domains": {
-    "actions": {
-      "bind": "Bind domain",
-      "binding": "Binding...",
-      "disable": "Disable",
-      "disabling": "Disabling...",
-      "loadError": "Domain settings could not be loaded. Refresh and try again.",
-      "verify": "Verify now",
-      "verifying": "Verifying..."
-    },
-    "branding": {
-      "description": "Preview the branding values currently flowing through runtime-config. Updating these assets still depends on your entitlement payload.",
-      "disabled": "Branding locked",
-      "enabled": "Branding active",
-      "fields": {
-        "favicon": "Favicon URL",
-        "homeUrl": "Home URL",
-        "logoSquare": "Square logo",
-        "logoWide": "Wide logo"
-      },
-      "runtimeNote": "This panel reflects the effective runtime snapshot that already powers the creator shell and learner entry points.",
-      "title": "Branding Snapshot"
-    },
-    "description": "Manage the effective branding snapshot and custom-domain bindings for your creator workspace.",
-    "feedback": {
-      "bind": "Domain binding updated.",
-      "disable": "Domain binding disabled.",
-      "verify": "Domain verification refreshed."
-    },
-    "form": {
-      "capabilityBlocked": "Your current entitlement does not allow custom domains yet. Upgrade the plan before binding a host.",
-      "errors": {
-        "hostRequired": "Enter a domain host before binding."
-      },
-      "hostHelp": "Use only the host, for example creator.example.com. The backend will normalize the value before saving.",
-      "hostLabel": "Custom domain host",
-      "hostPlaceholder": "creator.example.com"
-    },
     "records": {
-      "description": "Track every binding, inspect the TXT verification record, and see which host is currently effective.",
-      "effective": "Effective",
-      "empty": "No domain bindings yet. Bind a host to generate the verification record.",
-      "fields": {
-        "lastVerified": "Last verified",
-        "method": "Verification method",
-        "recordName": "TXT record name",
-        "recordValue": "TXT record value"
-      },
-      "neverVerified": "Not verified yet",
-      "title": "Binding Records",
-      "verificationError": "Verification failed: {code}"
-    },
-    "settings": {
-      "description": "Bind a domain, verify it, and disable stale hosts without leaving the billing center.",
-      "disabled": "Custom domain locked",
-      "effectiveDomain": "Current effective domain: {host}",
-      "enabled": "Custom domain enabled",
-      "noEffectiveDomain": "No verified host is active yet.",
-      "title": "Domain Settings"
+      "neverVerified": "Not verified yet"
     },
     "ssl": {
       "issued": "SSL issued",
@@ -450,10 +376,6 @@
       "failed": "Verification failed",
       "pending": "Pending verification",
       "verified": "Verified"
-    },
-    "title": "Domains & Branding",
-    "verificationMethod": {
-      "dns_txt": "DNS TXT"
     }
   },
   "entitlements": {
@@ -462,23 +384,11 @@
       "basic": "Basic",
       "enterprise": "Enterprise"
     },
-    "description": "Review the runtime limits and service tier that your current creator billing state activates.",
     "flags": {
       "branding": "Branding override",
-      "brandingDescription": "Controls whether runtime-config can publish creator-specific logo, favicon, and home URL overrides.",
       "customDomain": "Custom domain",
-      "customDomainDescription": "Controls whether verified creator domains can route traffic and resolve creator context by host.",
-      "description": "These switches gate whether branding and custom-domain features can take effect in runtime.",
       "disabled": "Disabled",
-      "enabled": "Enabled",
-      "title": "Feature Gates"
-    },
-    "loadError": "Entitlement data could not be loaded. Refresh and try again.",
-    "metricDescriptions": {
-      "analyticsTier": "Determines how much reporting detail and daily aggregate data is exposed to the creator surface.",
-      "maxConcurrency": "Caps how many creator-scoped settlement or admission flows can proceed in parallel.",
-      "priorityClass": "Determines how creator traffic is prioritized when shared compute capacity is constrained.",
-      "supportTier": "Determines the expected support response path that accompanies the current plan."
+      "enabled": "Enabled"
     },
     "metrics": {
       "analyticsTier": "Analytics tier",
@@ -491,14 +401,11 @@
       "standard": "Standard",
       "vip": "VIP"
     },
-    "runtimeBadge": "Runtime snapshot",
-    "runtimeNote": "These values are resolved from the active entitlement snapshot or the current subscription product payload, and they directly affect admission, reporting, and domain routing.",
     "support": {
       "businessHours": "Business hours",
       "priority": "Priority support",
       "selfServe": "Self-serve"
-    },
-    "title": "Entitlements"
+    }
   },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
@@ -569,7 +476,6 @@
       "source": "Source",
       "status": "Status"
     },
-    "title": "Credit Activity",
     "usageScene": {
       "debug": "Debug",
       "preview": "Preview",
@@ -577,45 +483,6 @@
     }
   },
   "orders": {
-    "actions": {
-      "continuePayment": "Continue payment",
-      "sync": "Sync status"
-    },
-    "description": "Review billing order status and trigger a manual sync when a payment provider callback is delayed.",
-    "detail": {
-      "emptyMetadata": "No provider metadata is stored for this order yet.",
-      "fields": {
-        "createdAt": "Created at",
-        "failedAt": "Failed at",
-        "failureCode": "Failure code",
-        "failureMessage": "Failure message",
-        "orderBid": "Order bid",
-        "orderType": "Order type",
-        "paidAmount": "Paid amount",
-        "paidAt": "Paid at",
-        "payableAmount": "Payable amount",
-        "paymentMode": "Payment mode",
-        "productBid": "Product bid",
-        "provider": "Provider",
-        "providerReferenceId": "Provider reference",
-        "refundedAt": "Refunded at",
-        "status": "Status",
-        "subscriptionBid": "Subscription bid"
-      },
-      "loadError": "Billing order detail could not be loaded. Refresh and try again.",
-      "sections": {
-        "amounts": "Amounts & timing",
-        "metadata": "Latest provider payload",
-        "references": "References",
-        "summary": "Order summary"
-      },
-      "title": "Payment details"
-    },
-    "empty": "No billing orders yet. Purchases and renewals will appear here.",
-    "loadError": "Billing orders could not be loaded. Refresh and try again.",
-    "pagination": {
-      "page": "Page {page} / {pageCount} · {total} orders"
-    },
     "paymentMode": {
       "oneTime": "One-time payment",
       "subscription": "Subscription"
@@ -629,18 +496,6 @@
       "refunded": "Refunded",
       "timeout": "Timed out"
     },
-    "syncSuccess": "Order status refreshed: {status}",
-    "table": {
-      "actions": "Actions",
-      "amount": "Amount",
-      "createdAt": "Created at",
-      "failure": "Failure",
-      "order": "Order",
-      "provider": "Provider",
-      "status": "Status",
-      "sync": "Sync"
-    },
-    "title": "Payments",
     "type": {
       "manual": "Manual order",
       "refund": "Refund order",
@@ -819,7 +674,6 @@
     }
   },
   "reports": {
-    "description": "Track daily usage consumption and ledger movement windows for each creator billing workspace.",
     "empty": "No daily report data yet.",
     "loadError": "Unable to load billing reports right now.",
     "metric": {
@@ -829,19 +683,6 @@
       "ttsInputChars": "TTS input chars",
       "ttsOutputChars": "TTS output chars",
       "ttsRequestCount": "TTS request count"
-    },
-    "pagination": {
-      "page": "Page {page} / {pageCount} · {total} rows"
-    },
-    "sections": {
-      "ledger": {
-        "description": "Summarized ledger entry movement by day, entry type, and source bucket.",
-        "title": "Daily Ledger Summary"
-      },
-      "usage": {
-        "description": "Daily creator usage cost rollups by shifu, scene, metric, and provider/model window.",
-        "title": "Daily Usage Summary"
-      }
     },
     "table": {
       "count": "Entry count",
@@ -857,7 +698,6 @@
       "usageType": "Usage type",
       "window": "Window"
     },
-    "title": "Usage Reports",
     "usageType": {
       "llm": "LLM",
       "tts": "TTS"

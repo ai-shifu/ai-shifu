@@ -42,14 +42,8 @@ jest.mock('@/api', () => ({
   default: {
     getBillingBootstrap: jest.fn(),
     getBillingCatalog: jest.fn(),
-    getBillingDailyLedgerSummary: jest.fn(),
-    getBillingDailyUsageMetrics: jest.fn(),
-    getBillingEntitlements: jest.fn(),
     getBillingLedger: jest.fn(),
-    getBillingOrderDetail: jest.fn(),
-    getBillingOrders: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
-    getAdminBillingDomainBindings: jest.fn(),
   },
 }));
 
@@ -82,18 +76,9 @@ jest.mock('@/components/ui/Sheet', () => ({
   ),
 }));
 
-const mockGetAdminBillingDomainBindings =
-  api.getAdminBillingDomainBindings as jest.Mock;
 const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
-const mockGetBillingDailyLedgerSummary =
-  api.getBillingDailyLedgerSummary as jest.Mock;
-const mockGetBillingDailyUsageMetrics =
-  api.getBillingDailyUsageMetrics as jest.Mock;
-const mockGetBillingEntitlements = api.getBillingEntitlements as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
-const mockGetBillingOrderDetail = api.getBillingOrderDetail as jest.Mock;
-const mockGetBillingOrders = api.getBillingOrders as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 
@@ -119,15 +104,9 @@ describe('AdminBillingPage', () => {
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 
-    mockGetAdminBillingDomainBindings.mockReset();
     mockGetBillingBootstrap.mockReset();
     mockGetBillingCatalog.mockReset();
-    mockGetBillingDailyLedgerSummary.mockReset();
-    mockGetBillingDailyUsageMetrics.mockReset();
-    mockGetBillingEntitlements.mockReset();
     mockGetBillingLedger.mockReset();
-    mockGetBillingOrderDetail.mockReset();
-    mockGetBillingOrders.mockReset();
     mockGetBillingWalletBuckets.mockReset();
     mockUseBillingOverview.mockReset();
 
@@ -263,52 +242,6 @@ describe('AdminBillingPage', () => {
       page_size: 4,
       total: 1,
     });
-    mockGetBillingOrders.mockResolvedValue({
-      items: [
-        {
-          billing_order_bid: 'order-1',
-          creator_bid: 'creator-1',
-          product_bid: 'billing-product-plan-monthly',
-          subscription_bid: 'sub-1',
-          order_type: 'subscription_start',
-          status: 'paid',
-          payment_provider: 'stripe',
-          payment_mode: 'subscription',
-          payable_amount: 9900,
-          paid_amount: 9900,
-          currency: 'CNY',
-          provider_reference_id: 'cs_test_1',
-          failure_message: '',
-          created_at: '2026-04-05T12:00:00Z',
-          paid_at: '2026-04-05T12:05:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 4,
-      total: 1,
-    });
-    mockGetBillingOrderDetail.mockResolvedValue({
-      billing_order_bid: 'order-1',
-      creator_bid: 'creator-1',
-      product_bid: 'billing-product-plan-monthly',
-      subscription_bid: 'sub-1',
-      order_type: 'subscription_start',
-      status: 'paid',
-      payment_provider: 'stripe',
-      payment_mode: 'subscription',
-      payable_amount: 9900,
-      paid_amount: 9900,
-      currency: 'CNY',
-      provider_reference_id: 'cs_test_1',
-      failure_message: '',
-      created_at: '2026-04-05T12:00:00Z',
-      paid_at: '2026-04-05T12:05:00Z',
-      failed_at: null,
-      refunded_at: null,
-      failure_code: '',
-      metadata: {},
-    });
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -371,11 +304,6 @@ describe('AdminBillingPage', () => {
 
     expect(mockGetBillingWalletBuckets).not.toHaveBeenCalled();
     expect(mockGetBillingLedger).not.toHaveBeenCalled();
-    expect(mockGetBillingOrders).not.toHaveBeenCalled();
-    expect(mockGetBillingEntitlements).not.toHaveBeenCalled();
-    expect(mockGetAdminBillingDomainBindings).not.toHaveBeenCalled();
-    expect(mockGetBillingDailyUsageMetrics).not.toHaveBeenCalled();
-    expect(mockGetBillingDailyLedgerSummary).not.toHaveBeenCalled();
   });
 
   test('switches to details and scrolls when an open-orders alert is triggered', async () => {

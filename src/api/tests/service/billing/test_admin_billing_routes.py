@@ -31,7 +31,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.dtos import (
     BillingDomainAuditsPageDTO,
-    BillingDomainBindingsDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
     BillingSubscriptionsPageDTO,
@@ -44,7 +43,6 @@ from flaskr.service.billing.read_models import (
     build_admin_billing_daily_ledger_summary_page,
     build_admin_billing_daily_usage_metrics_page,
     build_admin_billing_domain_audits_page,
-    build_admin_billing_domain_bindings,
     build_admin_billing_entitlements_page,
     build_admin_billing_orders_page,
     build_admin_billing_subscriptions_page,
@@ -443,10 +441,6 @@ class TestAdminBillingRoutes:
 
         results = {
             "subscriptions": build_admin_billing_subscriptions_page(app),
-            "domain_bindings": build_admin_billing_domain_bindings(
-                app,
-                creator_bid="creator-1",
-            ),
             "domain_audits": build_admin_billing_domain_audits_page(app),
             "entitlements": build_admin_billing_entitlements_page(app),
             "orders": build_admin_billing_orders_page(app),
@@ -464,7 +458,6 @@ class TestAdminBillingRoutes:
         }
 
         assert isinstance(results["subscriptions"], BillingSubscriptionsPageDTO)
-        assert isinstance(results["domain_bindings"], BillingDomainBindingsDTO)
         assert isinstance(results["domain_audits"], BillingDomainAuditsPageDTO)
         assert isinstance(results["entitlements"], BillingEntitlementsPageDTO)
         assert isinstance(results["orders"], AdminBillingOrdersPageDTO)

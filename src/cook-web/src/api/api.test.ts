@@ -8,19 +8,8 @@ describe('billing api definitions', () => {
     expect(api.acknowledgeBillingTrialWelcome).toBe(
       'POST /billing/trial-offer/welcome/ack',
     );
-    expect(api.getBillingEntitlements).toBe('GET /billing/entitlements');
-    expect(api.getBillingDailyUsageMetrics).toBe(
-      'GET /billing/reports/usage-daily',
-    );
-    expect(api.getBillingDailyLedgerSummary).toBe(
-      'GET /billing/reports/ledger-daily',
-    );
     expect(api.getBillingWalletBuckets).toBe('GET /billing/wallet-buckets');
     expect(api.getBillingLedger).toBe('GET /billing/ledger');
-    expect(api.getBillingOrders).toBe('GET /billing/orders');
-    expect(api.getBillingOrderDetail).toBe(
-      'GET /billing/orders/{billing_order_bid}',
-    );
     expect(api.checkoutBillingOrder).toBe(
       'POST /billing/orders/{billing_order_bid}/checkout',
     );
@@ -47,9 +36,6 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',
     );
-    expect(api.getAdminBillingDomainBindings).toBe(
-      'GET /admin/billing/domain-bindings',
-    );
     expect(api.getAdminBillingDomainAudits).toBe(
       'GET /admin/billing/domain-audits',
     );
@@ -59,7 +45,6 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingDailyLedgerSummary).toBe(
       'GET /admin/billing/reports/ledger-daily',
     );
-    expect(api.bindAdminBillingDomain).toBe('POST /admin/billing/domains/bind');
     expect(api.adjustAdminBillingLedger).toBe(
       'POST /admin/billing/ledger/adjust',
     );

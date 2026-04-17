@@ -4,7 +4,6 @@ import { buildBillingSwrKey, withBillingTimezone } from '@/lib/billing';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import type {
   BillingBootstrap,
-  BillingEntitlements,
   BillingWalletBucketList,
   CreatorBillingOverview,
 } from '@/types/billing';
@@ -15,7 +14,6 @@ const BILLING_SWR_OPTIONS = {
 
 export const BILLING_BOOTSTRAP_SWR_KEY = ['creator-billing-bootstrap'] as const;
 export const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
-export const BILLING_ENTITLEMENTS_SWR_KEY = 'creator-billing-entitlements';
 export const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
 
 export function useBillingBootstrap() {
@@ -35,19 +33,6 @@ export function useBillingOverview() {
       (await api.getBillingOverview(
         withBillingTimezone({}, timezone),
       )) as CreatorBillingOverview,
-    BILLING_SWR_OPTIONS,
-  );
-}
-
-export function useBillingEntitlements() {
-  const timezone = getBrowserTimeZone();
-
-  return useSWR<BillingEntitlements>(
-    buildBillingSwrKey(BILLING_ENTITLEMENTS_SWR_KEY, timezone),
-    async () =>
-      (await api.getBillingEntitlements(
-        withBillingTimezone({}, timezone),
-      )) as BillingEntitlements,
     BILLING_SWR_OPTIONS,
   );
 }

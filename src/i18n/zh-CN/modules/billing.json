@@ -199,17 +199,9 @@
         "description": "套餐与充值包目录当前仍为 active。",
         "title": "创作者商品目录"
       },
-      "creatorEntitlements": {
-        "description": "创作者权益快照当前仍可查看。",
-        "title": "创作者权益"
-      },
       "creatorOrders": {
         "description": "创作者订单、sync、refund 和 topup 流程当前仍启用。",
         "title": "创作者订单"
-      },
-      "creatorReports": {
-        "description": "创作者 usage 与 ledger 日报表当前仍启用。",
-        "title": "创作者报表"
       },
       "creatorSubscriptionCheckout": {
         "description": "创作者订阅购买、取消与恢复当前仍启用。",
@@ -270,19 +262,13 @@
   },
   "catalog": {
     "actions": {
-      "buyWithPingxx": "扫码支付",
-      "buyWithStripe": "使用 Stripe 购买",
-      "currentPlan": "当前套餐",
-      "processing": "处理中...",
-      "subscribe": "使用 Stripe 订阅",
-      "unavailable": "暂不可用"
+      "processing": "处理中..."
     },
     "badges": {
       "bestValue": "更划算",
       "recommended": "推荐"
     },
     "labels": {
-      "creditsOneTime": "一次到账 {credits} 积分",
       "everyDays": "/ 每 {count} 天",
       "everyMonths": "/ 每 {count} 个月",
       "everyYears": "/ 每 {count} 年",
@@ -314,10 +300,6 @@
         "description": "适合大规模运营，支持高并发课程交付",
         "title": "旗舰版"
       }
-    },
-    "sections": {
-      "plans": "会员套餐",
-      "topups": "充值包"
     },
     "topups": {
       "creatorLarge": {
@@ -381,64 +363,8 @@
     }
   },
   "domains": {
-    "actions": {
-      "bind": "绑定域名",
-      "binding": "绑定中...",
-      "disable": "停用",
-      "disabling": "停用中...",
-      "loadError": "域名设置读取失败，请刷新后重试。",
-      "verify": "立即校验",
-      "verifying": "校验中..."
-    },
-    "branding": {
-      "description": "查看当前已经进入 runtime-config 的品牌配置快照。真正的品牌素材来源仍由权益 payload 决定。",
-      "disabled": "品牌能力未开启",
-      "enabled": "品牌能力已生效",
-      "fields": {
-        "favicon": "Favicon 地址",
-        "homeUrl": "首页地址",
-        "logoSquare": "方形 Logo",
-        "logoWide": "横版 Logo"
-      },
-      "runtimeNote": "这里展示的是当前 runtime-config 实际生效的品牌值，创作者后台和学员入口都会复用这组结果。",
-      "title": "品牌配置快照"
-    },
-    "description": "在创作者账务中心里管理当前生效的品牌快照和自定义域名绑定。",
-    "feedback": {
-      "bind": "域名绑定已更新。",
-      "disable": "域名绑定已停用。",
-      "verify": "域名校验结果已刷新。"
-    },
-    "form": {
-      "capabilityBlocked": "当前套餐还不支持自定义域名，请先升级权益后再绑定。",
-      "errors": {
-        "hostRequired": "请先输入要绑定的域名。"
-      },
-      "hostHelp": "只填写 host 即可，例如 creator.example.com。后端会在保存前统一做规范化处理。",
-      "hostLabel": "自定义域名 Host",
-      "hostPlaceholder": "creator.example.com"
-    },
     "records": {
-      "description": "查看每条绑定记录、TXT 校验值，以及当前真正生效的域名。",
-      "effective": "当前生效",
-      "empty": "当前还没有域名绑定，先绑定一个 host 后会生成校验记录。",
-      "fields": {
-        "lastVerified": "最近校验时间",
-        "method": "校验方式",
-        "recordName": "TXT 记录名",
-        "recordValue": "TXT 记录值"
-      },
-      "neverVerified": "尚未校验",
-      "title": "绑定记录",
-      "verificationError": "校验失败：{code}"
-    },
-    "settings": {
-      "description": "在账务中心直接完成域名绑定、校验和停用，不再跳到其它配置页。",
-      "disabled": "自定义域名未开启",
-      "effectiveDomain": "当前生效域名：{host}",
-      "enabled": "自定义域名已开启",
-      "noEffectiveDomain": "当前还没有已生效的校验域名。",
-      "title": "域名设置"
+      "neverVerified": "尚未校验"
     },
     "ssl": {
       "issued": "SSL 已签发",
@@ -450,10 +376,6 @@
       "failed": "校验失败",
       "pending": "待校验",
       "verified": "已校验"
-    },
-    "title": "域名与品牌",
-    "verificationMethod": {
-      "dns_txt": "DNS TXT"
     }
   },
   "entitlements": {
@@ -462,23 +384,11 @@
       "basic": "基础分析",
       "enterprise": "企业分析"
     },
-    "description": "查看当前 creator billing 状态真正激活的运行时能力和服务等级。",
     "flags": {
       "branding": "品牌覆写",
-      "brandingDescription": "决定 runtime-config 是否允许发布创作者专属的 logo、favicon 和 home URL。",
       "customDomain": "自定义域名",
-      "customDomainDescription": "决定已校验的创作者域名是否可以接管流量并按 host 解析 creator 上下文。",
-      "description": "这两个开关决定品牌配置和自定义域名能力能否在运行时真正生效。",
       "disabled": "未开启",
-      "enabled": "已开启",
-      "title": "功能开关"
-    },
-    "loadError": "权益数据读取失败，请刷新后重试。",
-    "metricDescriptions": {
-      "analyticsTier": "决定创作者端可以看到多少报表细节，以及会开放哪些日报聚合视图。",
-      "maxConcurrency": "限制同一个创作者在 admission / settlement 上允许并行推进的最大数量。",
-      "priorityClass": "决定在共享算力紧张时，当前创作者请求的优先级。",
-      "supportTier": "决定当前套餐对应的支持响应等级和后续处理路径。"
+      "enabled": "已开启"
     },
     "metrics": {
       "analyticsTier": "分析等级",
@@ -491,14 +401,11 @@
       "standard": "标准",
       "vip": "VIP"
     },
-    "runtimeBadge": "运行时快照",
-    "runtimeNote": "这些值来自当前生效的 entitlement snapshot 或订阅商品 payload，并且会直接影响 admission、报表聚合和域名路由行为。",
     "support": {
       "businessHours": "工作时间支持",
       "priority": "优先支持",
       "selfServe": "自助支持"
-    },
-    "title": "权益与能力"
+    }
   },
   "ledger": {
     "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
@@ -569,7 +476,6 @@
       "source": "积分来源",
       "status": "状态"
     },
-    "title": "积分明细",
     "usageScene": {
       "debug": "调试",
       "preview": "预览",
@@ -577,45 +483,6 @@
     }
   },
   "orders": {
-    "actions": {
-      "continuePayment": "继续支付",
-      "sync": "同步状态"
-    },
-    "description": "查看 billing 订单状态，并在 provider 回调延迟时手动补一次同步。",
-    "detail": {
-      "emptyMetadata": "当前订单还没有保存 provider 原始 payload。",
-      "fields": {
-        "createdAt": "创建时间",
-        "failedAt": "失败时间",
-        "failureCode": "失败码",
-        "failureMessage": "失败信息",
-        "orderBid": "订单号",
-        "orderType": "订单类型",
-        "paidAmount": "实付金额",
-        "paidAt": "支付时间",
-        "payableAmount": "应付金额",
-        "paymentMode": "支付模式",
-        "productBid": "商品 BID",
-        "provider": "支付通道",
-        "providerReferenceId": "Provider 引用",
-        "refundedAt": "退款时间",
-        "status": "状态",
-        "subscriptionBid": "订阅 BID"
-      },
-      "loadError": "订单详情读取失败，请刷新后重试。",
-      "sections": {
-        "amounts": "金额与时间",
-        "metadata": "最近一次 provider payload",
-        "references": "关联引用",
-        "summary": "订单摘要"
-      },
-      "title": "付款详情"
-    },
-    "empty": "当前还没有 billing 订单，后续购买和续费会展示在这里。",
-    "loadError": "订单列表读取失败，请刷新后重试。",
-    "pagination": {
-      "page": "第 {page} / {pageCount} 页，共 {total} 条订单"
-    },
     "paymentMode": {
       "oneTime": "一次性支付",
       "subscription": "订阅支付"
@@ -629,18 +496,6 @@
       "refunded": "已退款",
       "timeout": "已超时"
     },
-    "syncSuccess": "订单状态已刷新：{status}",
-    "table": {
-      "actions": "操作",
-      "amount": "金额",
-      "createdAt": "创建时间",
-      "failure": "失败信息",
-      "order": "订单",
-      "provider": "支付通道",
-      "status": "状态",
-      "sync": "同步"
-    },
-    "title": "付款记录",
     "type": {
       "manual": "人工订单",
       "refund": "退款订单",
@@ -819,7 +674,6 @@
     }
   },
   "reports": {
-    "description": "查看创作者维度的 usage 日汇总，以及账本变动的每日统计窗口。",
     "empty": "暂无日报表数据。",
     "loadError": "当前无法加载账务报表。",
     "metric": {
@@ -829,19 +683,6 @@
       "ttsInputChars": "TTS 输入字符",
       "ttsOutputChars": "TTS 输出字符",
       "ttsRequestCount": "TTS 请求次数"
-    },
-    "pagination": {
-      "page": "第 {page} / {pageCount} 页 · 共 {total} 条"
-    },
-    "sections": {
-      "ledger": {
-        "description": "按天汇总不同账本 entry type 与积分来源 bucket 的变动情况。",
-        "title": "账本日汇总"
-      },
-      "usage": {
-        "description": "按 shifu、scene、metric 与 provider/model 窗口汇总创作者 usage 成本。",
-        "title": "Usage 日汇总"
-      }
     },
     "table": {
       "count": "条目数",
@@ -857,7 +698,6 @@
       "usageType": "Usage 类型",
       "window": "统计窗口"
     },
-    "title": "用量与账本报表",
     "usageType": {
       "llm": "LLM",
       "tts": "TTS"

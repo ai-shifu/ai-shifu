@@ -348,13 +348,6 @@ export type BillingOrderSummary = {
   paid_at: string | null;
 };
 
-export type BillingOrderDetail = BillingOrderSummary & {
-  metadata?: Record<string, unknown> | null;
-  failure_code?: string;
-  refunded_at?: string | null;
-  failed_at?: string | null;
-};
-
 export type BillingCheckoutResult = {
   billing_order_bid: string;
   provider: BillingProvider;
@@ -379,13 +372,6 @@ export type BillingEntitlements = {
   support_tier: BillingSupportTier;
 };
 
-export type CreatorBrandingConfig = {
-  logo_wide_url: string | null;
-  logo_square_url: string | null;
-  favicon_url: string | null;
-  home_url: string | null;
-};
-
 export type BillingDomainBinding = {
   domain_binding_bid: string;
   creator_bid: string;
@@ -399,17 +385,6 @@ export type BillingDomainBinding = {
   ssl_status: BillingDomainSslStatus;
   is_effective: boolean;
   metadata?: Record<string, unknown>;
-};
-
-export type BillingDomainBindingsResponse = {
-  creator_bid: string;
-  custom_domain_enabled: boolean;
-  items: BillingDomainBinding[];
-};
-
-export type BillingDomainBindingMutationResult = {
-  action: 'bind' | 'verify' | 'disable';
-  binding: BillingDomainBinding;
 };
 
 export type BillingUsageType = 'llm' | 'tts';

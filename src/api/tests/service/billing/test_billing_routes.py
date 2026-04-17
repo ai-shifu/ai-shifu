@@ -50,12 +50,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.dtos import (
     BillingCatalogDTO,
-    BillingDailyLedgerSummaryPageDTO,
-    BillingDailyUsageMetricsPageDTO,
-    BillingEntitlementsDTO,
     BillingLedgerPageDTO,
-    BillingOrderDetailDTO,
-    BillingOrdersPageDTO,
     BillingOverviewDTO,
     BillingRouteBootstrapDTO,
     BillingWalletBucketListDTO,
@@ -63,12 +58,7 @@ from flaskr.service.billing.dtos import (
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
-    build_billing_daily_ledger_summary_page,
-    build_billing_daily_usage_metrics_page,
-    build_billing_entitlements,
     build_billing_ledger_page,
-    build_billing_order_detail,
-    build_billing_orders_page,
     build_billing_overview,
     build_billing_wallet_buckets,
 )
@@ -640,18 +630,6 @@ class TestBillingRoutes:
             "path": "/api/billing/catalog",
         } in payload["data"]["creator_routes"]
         assert {
-            "method": "GET",
-            "path": "/api/billing/entitlements",
-        } in payload["data"]["creator_routes"]
-        assert {
-            "method": "GET",
-            "path": "/api/billing/reports/usage-daily",
-        } in payload["data"]["creator_routes"]
-        assert {
-            "method": "GET",
-            "path": "/api/billing/reports/ledger-daily",
-        } in payload["data"]["creator_routes"]
-        assert {
             "method": "POST",
             "path": "/api/billing/orders/{billing_order_bid}/sync",
         } in payload["data"]["creator_routes"]
@@ -883,25 +861,15 @@ class TestBillingRoutes:
             "bootstrap": build_billing_route_bootstrap("/api/billing"),
             "catalog": build_billing_catalog(app),
             "overview": build_billing_overview(app, "creator-1"),
-            "entitlements": build_billing_entitlements(app, "creator-1"),
-            "usage_daily": build_billing_daily_usage_metrics_page(app, "creator-1"),
-            "ledger_daily": build_billing_daily_ledger_summary_page(app, "creator-1"),
             "wallet_buckets": build_billing_wallet_buckets(app, "creator-1"),
             "ledger": build_billing_ledger_page(app, "creator-1"),
-            "orders": build_billing_orders_page(app, "creator-1"),
-            "order_detail": build_billing_order_detail(app, "creator-1", "order-1"),
         }
 
         assert isinstance(results["bootstrap"], BillingRouteBootstrapDTO)
         assert isinstance(results["catalog"], BillingCatalogDTO)
         assert isinstance(results["overview"], BillingOverviewDTO)
-        assert isinstance(results["entitlements"], BillingEntitlementsDTO)
-        assert isinstance(results["usage_daily"], BillingDailyUsageMetricsPageDTO)
-        assert isinstance(results["ledger_daily"], BillingDailyLedgerSummaryPageDTO)
         assert isinstance(results["wallet_buckets"], BillingWalletBucketListDTO)
         assert isinstance(results["ledger"], BillingLedgerPageDTO)
-        assert isinstance(results["orders"], BillingOrdersPageDTO)
-        assert isinstance(results["order_detail"], BillingOrderDetailDTO)
 
         for value in results.values():
             assert not isinstance(value, dict)
@@ -918,101 +886,6 @@ class TestBillingRoutes:
         assert billing_routes_module.make_common_response.__module__ == (
             make_common_response.__module__
         )
-
-    def test_entitlements_route_returns_snapshot_then_product_fallback(
-        self, billing_test_client
-    ) -> None:
-        snapshot_response = billing_test_client.get("/api/billing/entitlements")
-        fallback_response = billing_test_client.get(
-            "/api/billing/entitlements",
-            headers={"X-User-Id": "creator-3"},
-        )
-        default_response = billing_test_client.get(
-            "/api/billing/entitlements",
-            headers={"X-User-Id": "creator-4"},
-        )
-
-        snapshot_payload = snapshot_response.get_json(force=True)
-        fallback_payload = fallback_response.get_json(force=True)
-        default_payload = default_response.get_json(force=True)
-
-        assert snapshot_payload["code"] == 0
-        assert snapshot_payload["data"] == {
-            "branding_enabled": True,
-            "custom_domain_enabled": True,
-            "priority_class": "priority",
-            "max_concurrency": 3,
-            "analytics_tier": "advanced",
-            "support_tier": "business_hours",
-        }
-
-        assert fallback_payload["code"] == 0
-        assert fallback_payload["data"] == {
-            "branding_enabled": True,
-            "custom_domain_enabled": True,
-            "priority_class": "vip",
-            "max_concurrency": 8,
-            "analytics_tier": "enterprise",
-            "support_tier": "priority",
-        }
-
-        assert default_payload["code"] == 0
-        assert default_payload["data"] == {
-            "branding_enabled": False,
-            "custom_domain_enabled": False,
-            "priority_class": "standard",
-            "max_concurrency": 1,
-            "analytics_tier": "basic",
-            "support_tier": "self_serve",
-        }
-
-    def test_daily_reports_routes_return_creator_scoped_rows_with_date_filters(
-        self, billing_test_client
-    ) -> None:
-        usage_response = billing_test_client.get(
-            "/api/billing/reports/usage-daily?page_index=1&page_size=10&date_from=2026-04-06"
-        )
-        ledger_response = billing_test_client.get(
-            "/api/billing/reports/ledger-daily?page_index=1&page_size=10&date_from=2026-04-06"
-        )
-
-        usage_payload = usage_response.get_json(force=True)
-        ledger_payload = ledger_response.get_json(force=True)
-
-        assert usage_payload["code"] == 0
-        assert usage_payload["data"]["total"] == 1
-        assert usage_payload["data"]["items"] == [
-            {
-                "daily_usage_metric_bid": "daily-usage-1",
-                "stat_date": "2026-04-06",
-                "shifu_bid": "shifu-1",
-                "usage_scene": "production",
-                "usage_type": "llm",
-                "provider": "openai",
-                "model": "gpt-4o-mini",
-                "billing_metric": "llm_output_tokens",
-                "raw_amount": 1234,
-                "record_count": 3,
-                "consumed_credits": 4.5,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
-            }
-        ]
-
-        assert ledger_payload["code"] == 0
-        assert ledger_payload["data"]["total"] == 1
-        assert ledger_payload["data"]["items"] == [
-            {
-                "daily_ledger_summary_bid": "daily-ledger-1",
-                "stat_date": "2026-04-06",
-                "entry_type": "consume",
-                "source_type": "usage",
-                "amount": -4.5,
-                "entry_count": 3,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
-            }
-        ]
 
     def test_admin_entitlements_and_reports_routes_return_cross_creator_rows(
         self, billing_test_client
@@ -1101,18 +974,14 @@ class TestBillingRoutes:
             }
         ]
 
-    def test_ledger_and_orders_support_pagination_and_creator_isolation(
+    def test_ledger_supports_pagination_and_creator_isolation(
         self, billing_test_client
     ) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1"
         )
-        orders_response = billing_test_client.get(
-            "/api/billing/orders?page_index=1&page_size=1"
-        )
 
         ledger_payload = ledger_response.get_json(force=True)
-        orders_payload = orders_response.get_json(force=True)
 
         assert ledger_payload["code"] == 0
         assert ledger_payload["data"]["total"] == 2
@@ -1137,65 +1006,27 @@ class TestBillingRoutes:
             == 2.5
         )
 
-        assert orders_payload["code"] == 0
-        assert orders_payload["data"]["total"] == 2
-        assert orders_payload["data"]["items"][0]["billing_order_bid"] == "order-2"
-        assert orders_payload["data"]["items"][0]["payment_mode"] == "one_time"
-        assert orders_payload["data"]["items"][0]["status"] == "paid"
-
-    def test_ledger_orders_and_daily_reports_use_requested_timezone(
-        self, billing_test_client
-    ) -> None:
+    def test_ledger_uses_requested_timezone(self, billing_test_client) -> None:
         try:
             target_tz = ZoneInfo("Asia/Shanghai")
             ledger_source_tz = ZoneInfo("Asia/Shanghai")
         except ZoneInfoNotFoundError:
             pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
 
-        app_tz = ZoneInfo(billing_test_client.application.config.get("TZ", "UTC"))
-
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
         )
-        orders_response = billing_test_client.get(
-            "/api/billing/orders?page_index=1&page_size=1&timezone=Asia/Shanghai"
-        )
-        report_response = billing_test_client.get(
-            "/api/billing/reports/ledger-daily?page_index=1&page_size=10"
-            "&date_from=2026-04-06&timezone=Asia/Shanghai"
-        )
 
         ledger_payload = ledger_response.get_json(force=True)
-        orders_payload = orders_response.get_json(force=True)
-        report_payload = report_response.get_json(force=True)
 
         expected_ledger_created_at = datetime(
             2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
-        ).astimezone(target_tz)
-        expected_order_created_at = datetime(
-            2026, 4, 6, 11, 0, 0, tzinfo=app_tz
-        ).astimezone(target_tz)
-        expected_window_started_at = datetime(
-            2026, 4, 6, 0, 0, 0, tzinfo=app_tz
         ).astimezone(target_tz)
 
         assert ledger_payload["code"] == 0
         assert (
             ledger_payload["data"]["items"][0]["created_at"]
             == expected_ledger_created_at.isoformat()
-        )
-
-        assert orders_payload["code"] == 0
-        assert (
-            orders_payload["data"]["items"][0]["created_at"]
-            == expected_order_created_at.isoformat()
-        )
-
-        assert report_payload["code"] == 0
-        assert report_payload["data"]["items"][0]["stat_date"] == "2026-04-06"
-        assert (
-            report_payload["data"]["items"][0]["window_started_at"]
-            == expected_window_started_at.isoformat()
         )
 
     def test_build_billing_ledger_page_uses_requested_timezone_for_created_at(
@@ -1315,28 +1146,6 @@ class TestBillingRoutes:
         assert items_by_bid["ledger-debug"].metadata["course_name"] == (
             "Draft Course 1"
         )
-
-    def test_billing_order_detail_requires_current_creator(
-        self, billing_test_client
-    ) -> None:
-        detail_response = billing_test_client.get("/api/billing/orders/order-1")
-        payload = detail_response.get_json(force=True)
-
-        assert payload["code"] == 0
-        assert payload["data"]["billing_order_bid"] == "order-1"
-        assert payload["data"]["payment_mode"] == "subscription"
-        assert payload["data"]["failure_code"] == "card_declined"
-        assert payload["data"]["metadata"]["event_type"] == (
-            "checkout.session.completed"
-        )
-        assert payload["data"]["failed_at"] is not None
-
-        forbidden = billing_test_client.get(
-            "/api/billing/orders/order-1",
-            headers={"X-User-Id": "creator-2"},
-        )
-        forbidden_payload = forbidden.get_json(force=True)
-        assert forbidden_payload["code"] != 0
 
     def test_billing_routes_require_creator(self, billing_test_client) -> None:
         response = billing_test_client.get(
