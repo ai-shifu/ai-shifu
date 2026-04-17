@@ -652,10 +652,8 @@
   },
   "overview": {
     "actions": {
-      "cancelSubscription": "周期结束后取消",
       "choosePlan": "选择套餐",
       "managePlan": "管理当前套餐",
-      "resumeSubscription": "恢复订阅",
       "topupCredits": "购买充值包",
       "watchRenewal": "关注续费状态"
     },
@@ -665,13 +663,6 @@
       "resumeSuccess": "订阅续费已恢复。"
     },
     "loadError": "账务数据加载失败，请刷新后重试。",
-    "subscriptionEmptyDescription": "选择一个套餐后，这个创作者空间会开始按周期获得积分。",
-    "subscriptionEmptyTitle": "当前还没有有效订阅",
-    "subscriptionEndsOn": "{date} 到期",
-    "subscriptionProviderLabel": "支付通道",
-    "subscriptionRenewsOn": "{date} 自动续费",
-    "subscriptionTimingLabel": "续费安排",
-    "subscriptionTitle": "当前订阅",
     "walletTitle": "积分总览"
   },
   "package": {
@@ -805,13 +796,10 @@
   },
   "page": {
     "adminLink": "打开后台账务视图",
-    "badge": "预览版",
-    "subtitle": "在一个页面里管理套餐、积分与付款记录。",
     "tabs": {
       "ledger": "积分详情",
       "plans": "积分套餐"
-    },
-    "title": "会员与积分"
+    }
   },
   "renewal": {
     "eventType": {

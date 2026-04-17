@@ -42,7 +42,7 @@ v1.1 再补充下列扩展能力：
 - 前端以 Figma `方案1` 浅色稿为唯一视觉准绳，保留现有 `/admin` 作为创作中心首页，只补侧边栏会员卡、`会员与积分` 导航和新的 `/admin/billing`
 - 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
 - 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口；业务状态不复用旧 `order_orders`，provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
-- Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 只支持 topup checkout，subscription checkout 明确返回 `unsupported`
+- Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 支持 topup checkout，以及由平台自管的 subscription start / renewal 补单链路，不依赖 provider-managed recurring
 - 支付成功后必须真实写入 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
 - 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
 - 以上暂缓能力仍属于完整 v1 / v1.1 目标，继续保留在本文后续章节和任务清单中
@@ -1004,7 +1004,7 @@ v1 需要新增：
 - 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
 - 当前批次 provider 能力矩阵固定为：
   - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、`refund_payment`、paid success grant
-  - Pingxx：只支持 `topup` checkout、webhook、sync；subscription checkout 与 `refund_payment` 必须显式返回 `unsupported`
+  - Pingxx：支持 `topup` checkout、`subscription_start` checkout、webhook、sync，以及通过本地 renewal order 继续支付；`refund_payment` 继续显式返回 `unsupported`
 - `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
 - 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
 - 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `billing_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `billing_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
@@ -1312,7 +1312,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
 - `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
-- Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
+- Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 和 subscription order 都返回一次性 charge 所需 payload
 - `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，把最近摘要覆盖写入关联 `billing_orders.metadata`，并更新关联 provider raw snapshot
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
@@ -1490,7 +1490,7 @@ type CreatorBrandingConfig = {
 - `/admin/billing` 三个 tab 是否能按真实接口加载和切换
 - `GET /billing/overview` 是否同时满足 sidebar 会员卡和 Billing Center summary
 - Stripe 套餐 checkout、Stripe topup checkout 成功后，`billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 是否同步更新
-- Pingxx topup 是否可正常 checkout / sync / webhook；Pingxx subscription 是否固定返回 `unsupported`
+- Pingxx topup 与 subscription_start / renewal order 是否可正常 checkout / sync / webhook，并保持周期推进与 grant 幂等
 - `POST /billing/orders/{billing_order_bid}/sync` 和 webhook 重复调用时，是否不会重复 grant 积分
 - 继续复用 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 后，billing 分流和 legacy `/order` 支付回调是否都通过 route 级回归
 - `GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders` 的排序、分页和 DTO 字段是否与前端类型一致
@@ -1524,7 +1524,7 @@ type CreatorBrandingConfig = {
 
 ### 9.4 主要风险
 
-- 国内通道是否支持真实 recurring；若不支持，必须显式返回 `unsupported`
+- 国内通道不提供 provider-managed recurring 时，平台自管 renewal order、补单继续支付与订阅过期切换是否仍保持一致
 - provider webhook 乱序或重复回调导致的状态覆盖问题
 - 费率 wildcard fallback 配置错误导致的错误扣分
 - 报表层聚合与真相源不一致时的 rebuild 成本

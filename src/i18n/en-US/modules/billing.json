@@ -652,10 +652,8 @@
   },
   "overview": {
     "actions": {
-      "cancelSubscription": "Cancel at period end",
       "choosePlan": "Choose a plan",
       "managePlan": "Manage your plan",
-      "resumeSubscription": "Resume subscription",
       "topupCredits": "Top up credits",
       "watchRenewal": "Watch upcoming renewal"
     },
@@ -665,13 +663,6 @@
       "resumeSuccess": "Subscription renewal has been restored."
     },
     "loadError": "Billing data could not be loaded. Refresh and try again.",
-    "subscriptionEmptyDescription": "Choose a plan to unlock recurring credits for this creator workspace.",
-    "subscriptionEmptyTitle": "No active subscription",
-    "subscriptionEndsOn": "Ends on {date}",
-    "subscriptionProviderLabel": "Provider",
-    "subscriptionRenewsOn": "Renews on {date}",
-    "subscriptionTimingLabel": "Renewal",
-    "subscriptionTitle": "Current subscription",
     "walletTitle": "Credits Overview"
   },
   "package": {
@@ -805,13 +796,10 @@
   },
   "page": {
     "adminLink": "Open billing ops",
-    "badge": "Preview",
-    "subtitle": "Manage subscriptions, credits, and payment records from one place.",
     "tabs": {
       "ledger": "Credit Details",
       "plans": "Credit Plans"
-    },
-    "title": "Membership & Credits"
+    }
   },
   "renewal": {
     "eventType": {

@@ -9,11 +9,16 @@ def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() 
     source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
 
     assert "from flaskr.service.billing.admission import admit_creator_usage" in source
+    assert (
+        "from flaskr.service.billing.admission import reserve_creator_runtime_slot"
+        in source
+    )
     assert "from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG" in source
     assert "def _admit_creator_debug_usage() -> None:" in source
     assert source.count("_admit_creator_debug_usage()") >= 3
     assert "def ask_preview_api():" in source
     assert "def tts_preview_api():" in source
+    assert "with runtime_lease or nullcontext():" in source
 
 
 def test_shifu_ask_preview_routes_pass_debug_usage_context_into_chat_llm() -> None:
@@ -22,35 +27,14 @@ def test_shifu_ask_preview_routes_pass_debug_usage_context_into_chat_llm() -> No
     assert "from flaskr.service.metering import UsageContext" in source
     assert 'generation_name="ask_provider_preview"' in source
     assert "usage_context=UsageContext(" in source
-    assert source.count("usage_scene=BILL_USAGE_SCENE_DEBUG") >= 2
-
-
-def test_legacy_shifu_preview_http_routes_keep_debug_admission_and_runtime_lease() -> (
-    None
-):
-    source = (_API_ROOT / "flaskr/service/shifu/http/preview_routes.py").read_text(
-        encoding="utf-8"
-    )
-
-    assert "from flaskr.service.billing.admission import admit_creator_usage" in source
-    assert (
-        "from flaskr.service.billing.admission import reserve_creator_runtime_slot"
-        in source
-    )
-    assert "with runtime_lease or nullcontext():" in source
     assert "request_user_is_creator=bool(" in source
-    assert "runtime_lease=runtime_lease" in source
-
-
-def test_legacy_shifu_ask_preview_helper_keeps_debug_usage_context() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/ask_preview.py").read_text(
-        encoding="utf-8"
-    )
-
-    assert "from flaskr.service.metering import UsageContext" in source
-    assert "request_user_is_creator: bool = False" in source
-    assert "usage_context=UsageContext(" in source
     assert source.count("usage_scene=BILL_USAGE_SCENE_DEBUG") >= 2
+
+
+def test_shifu_tts_preview_route_passes_runtime_lease_into_helper() -> None:
+    source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
+
+    assert "runtime_lease=runtime_lease" in source
 
 
 def test_shifu_tts_preview_helper_records_debug_metering() -> None:

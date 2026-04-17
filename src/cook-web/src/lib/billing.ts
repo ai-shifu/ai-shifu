@@ -1311,7 +1311,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.renewal.status.pending'),
     t('module.billing.renewal.status.processing'),
     t('module.billing.renewal.status.succeeded'),
-    t('module.billing.overview.actions.cancelSubscription'),
     t('module.billing.status.active'),
     t('module.billing.status.cancelScheduled'),
     t('module.billing.status.canceled'),
@@ -1320,7 +1319,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.status.none'),
     t('module.billing.status.pastDue'),
     t('module.billing.status.paused'),
-    t('module.billing.overview.actions.resumeSubscription'),
     t('module.billing.overview.feedback.cancelSuccess'),
     t('module.billing.overview.feedback.resumeSuccess'),
   ];
