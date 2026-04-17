@@ -8,7 +8,10 @@ type LegacyBlockCompatItem = {
   parent_element_bid?: string;
   parent_block_bid?: string;
   ask_list?: LegacyBlockCompatItem[];
+  type?: string;
 };
+
+type ReadModeAskButtonCandidate = LegacyBlockCompatItem;
 
 export const appendCustomButtonAfterContent = (
   content: string | undefined,
@@ -44,6 +47,24 @@ export const stripCustomButtonAfterContent = (
   }
   // Remove ask button markup from listen mode content.
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
+};
+
+export const syncCustomButtonAfterContent = ({
+  content,
+  buttonMarkup,
+  shouldShowButton,
+}: {
+  content?: string | null;
+  buttonMarkup: string;
+  shouldShowButton: boolean;
+}): string => {
+  const baseContent = content ?? '';
+
+  if (shouldShowButton) {
+    return appendCustomButtonAfterContent(baseContent, buttonMarkup);
+  }
+
+  return stripCustomButtonAfterContent(baseContent) ?? '';
 };
 
 export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
@@ -82,3 +103,50 @@ export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
 export const normalizeLegacyBlockCompatList = <T extends LegacyBlockCompatItem>(
   items: T[],
 ): T[] => items.map(normalizeLegacyBlockCompatItem);
+
+export const resolvePreviousActionableItem = <
+  T extends ReadModeAskButtonCandidate,
+>(
+  items: T[],
+  currentIndex: number,
+): T | undefined => {
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const candidate = items[index];
+
+    if (!candidate) {
+      continue;
+    }
+
+    if (candidate.element_bid === 'loading') {
+      continue;
+    }
+
+    if (candidate.type === 'ask' || candidate.type === 'likeStatus') {
+      continue;
+    }
+
+    return candidate;
+  }
+
+  return undefined;
+};
+
+export const shouldShowMobileAskButtonForReadContent = <
+  T extends ReadModeAskButtonCandidate,
+>({
+  item,
+  previousActionableItem,
+}: {
+  item: T;
+  previousActionableItem?: T;
+}): boolean => {
+  if (item.type !== 'content') {
+    return false;
+  }
+
+  if (!item.element_bid || item.element_bid === 'loading') {
+    return false;
+  }
+
+  return previousActionableItem?.type !== 'interaction';
+};

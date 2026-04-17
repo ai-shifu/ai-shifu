@@ -10,10 +10,11 @@ import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useCourseStore, useUiLayoutStore } from '@/c-store';
-import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import { useUiLayoutStore } from '@/c-store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+import { getLearningModeLabel } from '../learningModeOptions';
+import HeaderBetaBadge from '../HeaderBetaBadge';
 
 interface ChatUiProps {
   chapterId: string;
@@ -49,7 +50,6 @@ export const ChatUi = ({
   showUserSettings = true,
   userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
-  onMobileSettingClick = () => {},
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
@@ -75,11 +75,11 @@ export const ChatUi = ({
     })),
   );
 
-  const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
   const isListenMode = learningMode === 'listen';
+  const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
 
   useEffect(() => {
@@ -112,15 +112,17 @@ export const ChatUi = ({
                   type='button'
                   className={cn(
                     styles.modeButton,
+                    'relative overflow-visible',
                     learningMode === 'listen' ? styles.modeButtonActive : '',
                   )}
                   onClick={() => updateLearningMode('listen')}
                 >
+                  <HeaderBetaBadge />
                   <Headphones
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>听课</span>
+                  <span>{getLearningModeLabel(t, 'listen')}</span>
                 </button>
                 <button
                   type='button'
@@ -134,7 +136,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>阅读</span>
+                  <span>{getLearningModeLabel(t, 'read')}</span>
                 </button>
               </div>
             ) : null}
@@ -183,7 +185,7 @@ export const ChatUi = ({
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}
           </span>
-          <span className={styles.separator}>|</span>
+          <span className={styles.separator}>{footerSeparator}</span>
           <span className={styles.footerText}>
             <MarkdownFlowLink
               prefix={t('module.chat.poweredByPrefix')}

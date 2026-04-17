@@ -20,11 +20,10 @@ import LoadingBar from './LoadingBar';
 import styles from './AskBlock.module.scss';
 import { toast } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import Image from 'next/image';
-import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
+import { useSystemStore } from '@/c-store/useSystemStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
@@ -65,6 +64,9 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
+  const shouldUseListenMode = useSystemStore(
+    state => state.showLearningModeToggle,
+  );
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
@@ -245,7 +247,7 @@ export default function AskBlock({
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
-        listen: false,
+        listen: shouldUseListenMode,
       },
       async response => {
         try {
@@ -332,6 +334,7 @@ export default function AskBlock({
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
     setAskList,
+    shouldUseListenMode,
     updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(
@@ -344,6 +347,10 @@ export default function AskBlock({
   // Decide which messages to display
   const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
+  const shouldRenderMobileDialog =
+    mobileStyle &&
+    shouldShowMobileDialog &&
+    (hasAskAnswerMessages || shouldForceSlideMobileDialog);
 
   useEffect(() => {
     ensureLessonScope(outline_bid);
@@ -372,7 +379,7 @@ export default function AskBlock({
   }, [hasDisplayMessages]);
 
   useEffect(() => {
-    if (!mobileStyle || !expanded) {
+    if (!shouldRenderMobileDialog || !expanded) {
       return;
     }
 
@@ -386,7 +393,7 @@ export default function AskBlock({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [mobileStyle, expanded]);
+  }, [expanded, shouldRenderMobileDialog]);
 
   useEffect(() => {
     if (!mobileStyle || !shouldShowMobileDialog || !expanded) {
@@ -588,11 +595,7 @@ export default function AskBlock({
     );
   };
 
-  if (
-    mobileStyle &&
-    shouldShowMobileDialog &&
-    (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
-  ) {
+  if (shouldRenderMobileDialog) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}

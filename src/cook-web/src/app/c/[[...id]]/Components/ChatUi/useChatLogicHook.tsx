@@ -138,6 +138,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
+  listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, elementBid: string) => void;
@@ -197,6 +198,7 @@ function useChatLogicHook({
   chapterId,
   previewMode,
   isListenMode = false,
+  listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
   chatBoxBottomRef,
@@ -1153,7 +1155,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: isListenMode },
+        { ...sseParams, listen: listenRequestEnabled },
         async response => {
           if (
             sseRef.current !== source ||
@@ -1635,6 +1637,7 @@ function useChatLogicHook({
       chapterUpdate,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -2578,7 +2581,7 @@ function useChatLogicHook({
           shifu_bid: shifuBid,
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
-          listen: isListenMode,
+          listen: listenRequestEnabled,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
@@ -2637,6 +2640,7 @@ function useChatLogicHook({
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       matchItemBid,
       resolveSourceGeneratedBlockBid,
       setTrackedContentList,
