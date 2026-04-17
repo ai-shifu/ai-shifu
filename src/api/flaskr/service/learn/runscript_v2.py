@@ -46,8 +46,19 @@ from flaskr.common.shifu_context import (
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
 
-# Max parallel ask (follow-up) requests per (user, outline). Hard-coded for easy tuning.
-MAX_PARALLEL_ASK_COUNT = 3
+# Default max parallel ask (follow-up) requests per (user, outline).
+# Actual value is read from Flask config (see MAX_PARALLEL_ASK_COUNT in config.py).
+DEFAULT_MAX_PARALLEL_ASK_COUNT = 3
+
+
+def _get_max_parallel_ask_count(app: Flask) -> int:
+    try:
+        return int(
+            app.config.get("MAX_PARALLEL_ASK_COUNT", DEFAULT_MAX_PARALLEL_ASK_COUNT)
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PARALLEL_ASK_COUNT
+
 
 # Lua scripts for atomic ask semaphore operations
 _LUA_ACQUIRE_ASK_SLOT = """
@@ -93,7 +104,7 @@ def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
             _LUA_ACQUIRE_ASK_SLOT,
             1,
             _get_ask_sem_key(app, user_bid, outline_bid),
-            str(MAX_PARALLEL_ASK_COUNT),
+            str(_get_max_parallel_ask_count(app)),
             str(RUN_SCRIPT_TIMEOUT_SECONDS),
         )
         return bool(result)
@@ -419,7 +430,8 @@ def run_script(
     is_ask = input_type == INPUT_TYPE_ASK
     if is_ask:
         # Ask (follow-up) requests use a counting semaphore instead of the main mutex
-        # so they can run in parallel with the main lesson stream (up to MAX_PARALLEL_ASK_COUNT).
+        # so they can run in parallel with the main lesson stream (up to
+        # MAX_PARALLEL_ASK_COUNT, configurable via Flask config).
         lock = None
         acquired = _ask_sem_acquire(app, user_bid, outline_bid)
         if not acquired:
@@ -427,7 +439,7 @@ def run_script(
                 "ask semaphore full: user_bid=%s outline_bid=%s max=%s",
                 user_bid,
                 outline_bid,
-                MAX_PARALLEL_ASK_COUNT,
+                _get_max_parallel_ask_count(app),
             )
     else:
         lock = cache_provider.lock(
