@@ -77,6 +77,7 @@ jobs:
 
           targets: set[str] = set()
           full_run = False
+          skip_run = False
 
           def normalize(path: str) -> str:
               prefix = "src/api/"
@@ -87,14 +88,27 @@ jobs:
               if pathlib.Path(candidate).exists():
                   targets.add(candidate)
 
+          def is_control_plane_backend_path(path: str) -> bool:
+              if path in {
+                  "src/api/AGENTS.md",
+                  "src/api/CLAUDE.md",
+                  "src/api/SKILL.md",
+                  ".github/workflows/backend-tests.yml",
+              }:
+                  return True
+              return path.startswith("src/api/scripts/")
+
           for path in changed:
               if path in {
                   "src/api/requirements.txt",
-                  ".github/workflows/backend-tests.yml",
               }:
                   full_run = True
                   break
               if not path.startswith("src/api/"):
+                  if path == ".github/workflows/backend-tests.yml":
+                      continue
+                  continue
+              if is_control_plane_backend_path(path):
                   continue
               if path.startswith("src/api/migrations/"):
                   full_run = True
@@ -120,20 +134,35 @@ jobs:
               full_run = True
               break
 
-          if full_run or not targets:
+          if full_run:
               targets = {"tests"}
+          elif not targets:
+              skip_run = True
 
           targets_list = " ".join(sorted(targets))
-          print(f"Selected targets: {targets_list}")
+          if skip_run:
+              print("Selected targets: <skipped>")
+          else:
+              print(f"Selected targets: {targets_list}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"SKIP_BACKEND_TESTS={'1' if skip_run else '0'}\n")
               env_file.write(f"TEST_TARGETS={targets_list}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("### Backend test targets (PR)\n")
-              summary.write(f"- Targets: `{targets_list}`\n")
+              if skip_run:
+                  summary.write("- Targets: `skipped`\n")
+                  summary.write("- Reason: control-plane or tooling-only backend changes.\n")
+              else:
+                  summary.write(f"- Targets: `{targets_list}`\n")
           PY
 
+      - name: Skip backend tests (PR control-plane only)
+        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS == '1'
+        run: |
+          echo "Skipping backend tests because the PR only changed backend control-plane or tooling files."
+
       - name: Run tests (PR incremental)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS != '1'
         working-directory: src/api
         run: |
           python -m pytest --testmon $TEST_TARGETS
