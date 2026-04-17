@@ -80,14 +80,15 @@ FLASK_APP=app.py flask console billing retry-renewal --renewal-event-bid <renewa
 1. Creator 进入 `/admin/billing` 能看到 catalog、overview、orders。
 2. Stripe topup 成功后：
    - `billing_orders` 进入 `paid`
-   - `credit_wallet_buckets` 新增 topup bucket
-   - `credit_ledger_entries` 新增 grant entry
+   - `credit_wallet_buckets` 新增 topup bucket，且在有效套餐内购买时 `effective_to` 与当前套餐周期结束时间一致
+   - `credit_ledger_entries` 新增 grant entry，`expires_at` 与 topup bucket 保持一致
    - `credit_wallets.available_credits` 增加
 3. Stripe subscription 首次支付成功后：
    - `billing_subscriptions` 进入 `active`
    - 首期 bucket / ledger / wallet 已写入
 4. Pingxx topup 成功后：
    - 旧 callback 入口能推进 `billing_orders`
+   - topup bucket / grant ledger 的到期时间与当前有效套餐一致
    - 不影响旧 `/order` 流程
 5. 对同一 creator 触发多条 usage settlement：
    - Celery 按 creator 维度串行

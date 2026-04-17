@@ -422,7 +422,7 @@ v1 冻结 bucket 规则：
 
 - bucket 运行时分类与优先级固定为：
   - `subscription` bucket：优先级 `20`，承载 subscription 周期发放积分，以及 legacy gift / refund return / manual credit 等归并后的可消费积分
-  - `topup` bucket：优先级 `30`，承载一次性充值包积分，以及能明确解析为 topup 的退款返还或历史赠送
+  - `topup` bucket：优先级 `30`，承载一次性充值包积分，以及能明确解析为 topup 的退款返还或历史赠送；若 creator 当前存在有效套餐，则 topup bucket 的 `effective_to` 必须与当前套餐 `current_period_end_at` 对齐
 - usage settlement 与 admission 只允许消费同时满足以下条件的 bucket：`status=active`、`available_credits > 0`、`effective_from <= settlement_at`，并且 `effective_to is null or effective_to > settlement_at`
 - bucket 扣减顺序在 v1 固定为 `(runtime priority asc, effective_to asc nulls last, created_at asc, id asc)`；也就是始终先扣 `subscription`，再扣 `topup`，同优先级下先扣最早到期、最早创建的 bucket
 - `effective_to = null` 明确表示永不过期，在同优先级排序中必须排在所有有具体过期时间的 bucket 之后
@@ -756,6 +756,7 @@ v1 的改造要求：
 - 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
+- 当前实现中，creator 在有效套餐期内购买 topup 时，grant 会把 topup bucket / ledger 的过期时间对齐到当前套餐 `current_period_end_at`，避免 topup 积分无限期保留
 - 当前实现中，usage settlement 已固定按 `subscription > topup` 扣减；同优先级内按 `effective_to` 最早优先，再按 `created_at` 最早优先，`effective_to = null` 排在最后；历史 `free` bucket 会在运行时归并进 `subscription/topup`
 - 当前实现中，LLM usage 已拆成 `input`、`cache`、`output` 三个 billing metric 独立计算费率与扣分，并把每个 metric 的 breakdown 写入 `credit_ledger_entries.metadata`
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分

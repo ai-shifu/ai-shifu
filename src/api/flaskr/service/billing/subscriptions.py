@@ -22,6 +22,7 @@ from .consts import (
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
@@ -94,6 +95,13 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
+)
+
+_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES = (
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
 )
 
 
@@ -744,6 +752,12 @@ def _resolve_credit_bucket_effective_to(
     product: BillingProduct,
     effective_from: datetime,
 ) -> datetime | None:
+    if order.order_type == BILLING_ORDER_TYPE_TOPUP:
+        return _resolve_topup_bucket_effective_to(
+            creator_bid=order.creator_bid,
+            effective_from=effective_from,
+        )
+
     if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
         renewal_cycle_end_at = _extract_resolved_order_cycle_end_at(metadata)
@@ -769,6 +783,39 @@ def _resolve_credit_bucket_effective_to(
     if interval == BILLING_INTERVAL_YEAR:
         return _add_years(effective_from, interval_count)
     return None
+
+
+def _resolve_topup_bucket_effective_to(
+    *,
+    creator_bid: str,
+    effective_from: datetime,
+) -> datetime | None:
+    subscription = (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.status.in_(_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES),
+        )
+        .order_by(
+            BillingSubscription.current_period_end_at.desc(),
+            BillingSubscription.created_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        .first()
+    )
+    if subscription is None:
+        return None
+    if (
+        subscription.current_period_start_at is not None
+        and subscription.current_period_start_at > effective_from
+    ):
+        return None
+    if (
+        subscription.current_period_end_at is None
+        or subscription.current_period_end_at <= effective_from
+    ):
+        return None
+    return subscription.current_period_end_at
 
 
 def _resolve_credit_bucket_effective_from(

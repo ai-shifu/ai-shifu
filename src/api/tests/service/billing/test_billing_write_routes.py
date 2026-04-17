@@ -816,6 +816,64 @@ class TestBillingWriteRoutes:
                 == 1
             )
 
+    def test_topup_grant_expires_with_current_subscription_period(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start_at = now - timedelta(days=3)
+        current_period_end_at = now + timedelta(days=27)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-topup-active-1",
+                    creator_bid="creator-1",
+                    product_bid="billing-product-plan-monthly",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="stripe",
+                    provider_subscription_id="sub_provider_topup_active_1",
+                    provider_customer_id="cus_provider_topup_active_1",
+                    current_period_start_at=current_period_start_at,
+                    current_period_end_at=current_period_end_at,
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=current_period_start_at,
+                    updated_at=current_period_start_at,
+                )
+            )
+            dao.db.session.commit()
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        billing_order_bid = checkout["data"]["billing_order_bid"]
+
+        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=billing_order_bid,
+            ).one()
+            assert bucket.effective_to == current_period_end_at
+            assert ledger.expires_at == current_period_end_at
+
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
         self, billing_write_client, monkeypatch
     ) -> None:

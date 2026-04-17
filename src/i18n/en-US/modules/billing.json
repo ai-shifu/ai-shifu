@@ -321,19 +321,19 @@
     },
     "topups": {
       "creatorLarge": {
-        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
         "title": "120-credit pack"
       },
       "creatorMedium": {
-        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
         "title": "50-credit pack"
       },
       "creatorSmall": {
-        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
         "title": "20-credit pack"
       },
       "creatorXLarge": {
-        "description": "Credits take effect immediately after purchase and never expire. Top-up credits can be used only while the account has an active credit plan; otherwise they will be frozen.",
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
         "title": "320-credit pack"
       }
     }
