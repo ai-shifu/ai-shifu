@@ -997,7 +997,7 @@ v1 需要新增：
 
 - `GET /billing/catalog` 读取 `billing_products`，但 API 返回仍按 `plans[]` / `topups[]` 投影
 - `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
-- `POST /billing/topups/checkout` 只能购买 `product_type=topup`
+- `POST /billing/topups/checkout` 只能购买 `product_type=topup`，且 creator 当前必须处于有效套餐周期内
 - public trial plan 不允许通过 creator 自助 checkout；只允许 post-auth bootstrap 以 `manual` provider 自动创建
 - `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
 - webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
@@ -1310,7 +1310,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/orders/{billing_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
-- `POST /billing/topups/checkout`：发起一次性充值支付
+- `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性充值支付
 - checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 返回一次性支付所需 payload；Pingxx subscription 固定 `unsupported`
 - `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，把最近摘要覆盖写入关联 `billing_orders.metadata`，并更新关联 provider raw snapshot

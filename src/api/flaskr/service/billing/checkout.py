@@ -76,6 +76,7 @@ from .primitives import to_decimal as _to_decimal
 from .subscriptions import (
     grant_paid_order_credits as _grant_paid_order_credits,
     load_billing_product_by_bid as _load_billing_product_by_bid,
+    load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
@@ -252,6 +253,8 @@ def create_billing_topup_checkout(
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
+        if _load_effective_topup_subscription(normalized_creator_bid) is None:
+            raise_error("server.billing.subscriptionInactive")
         order = BillingOrder(
             billing_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,

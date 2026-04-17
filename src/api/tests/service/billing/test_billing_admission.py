@@ -14,6 +14,7 @@ from flaskr.service.billing.admission import (
 )
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -94,7 +95,24 @@ def _create_bucket(
     )
 
 
-def test_admit_creator_usage_allows_topup_credits_without_subscription(
+def _create_active_subscription(
+    creator_bid: str,
+    *,
+    status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    current_period_start_at=None,
+    current_period_end_at=None,
+) -> BillingSubscription:
+    now = datetime.now()
+    return BillingSubscription(
+        subscription_bid=f"subscription-{creator_bid}",
+        creator_bid=creator_bid,
+        status=status,
+        current_period_start_at=current_period_start_at or now - timedelta(days=1),
+        current_period_end_at=current_period_end_at or now + timedelta(days=29),
+    )
+
+
+def test_admit_creator_usage_allows_topup_credits_during_active_subscription(
     billing_admission_app: Flask,
 ) -> None:
     with billing_admission_app.app_context():
@@ -105,6 +123,7 @@ def test_admit_creator_usage_allows_topup_credits_without_subscription(
             )
         )
         dao.db.session.add(_create_wallet("creator-topup-1", "25.0000000000"))
+        dao.db.session.add(_create_active_subscription("creator-topup-1"))
         dao.db.session.add(
             _create_bucket(
                 "creator-topup-1",
@@ -124,6 +143,36 @@ def test_admit_creator_usage_allows_topup_credits_without_subscription(
     assert payload["creator_bid"] == "creator-topup-1"
     assert payload["usage_scene"] == BILL_USAGE_SCENE_PREVIEW
     assert payload["wallet_available_credits"] == Decimal("25.0000000000")
+
+
+def test_admit_creator_usage_rejects_topup_credits_without_active_subscription(
+    billing_admission_app: Flask,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-topup-no-sub-1",
+                created_user_bid="creator-topup-no-sub-1",
+            )
+        )
+        dao.db.session.add(_create_wallet("creator-topup-no-sub-1", "25.0000000000"))
+        dao.db.session.add(
+            _create_bucket(
+                "creator-topup-no-sub-1",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                available_credits="25.0000000000",
+            )
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(AppException) as exc_info:
+        admit_creator_usage(
+            billing_admission_app,
+            shifu_bid="shifu-topup-no-sub-1",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionInactive"]
 
 
 def test_admit_creator_usage_rejects_missing_credits(
@@ -190,6 +239,7 @@ def test_admit_creator_usage_accepts_direct_creator_bid_for_debug(
 ) -> None:
     with billing_admission_app.app_context():
         dao.db.session.add(_create_wallet("creator-debug-1", "12.5000000000"))
+        dao.db.session.add(_create_active_subscription("creator-debug-1"))
         dao.db.session.add(
             _create_bucket(
                 "creator-debug-1",
@@ -215,6 +265,7 @@ def test_admit_creator_usage_resolves_priority_class_and_max_concurrency(
 ) -> None:
     with billing_admission_app.app_context():
         dao.db.session.add(_create_wallet("creator-priority-1", "12.5000000000"))
+        dao.db.session.add(_create_active_subscription("creator-priority-1"))
         dao.db.session.add(
             _create_bucket(
                 "creator-priority-1",
@@ -320,6 +371,7 @@ def test_reserve_creator_runtime_slot_enforces_entitlement_concurrency(
     )
     with billing_admission_app.app_context():
         dao.db.session.add(_create_wallet("creator-runtime-1", "8.0000000000"))
+        dao.db.session.add(_create_active_subscription("creator-runtime-1"))
         dao.db.session.add(
             _create_bucket(
                 "creator-runtime-1",

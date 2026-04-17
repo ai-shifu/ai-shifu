@@ -13,36 +13,18 @@ from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.service.common.models import raise_error
 
-from .consts import (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-    CREDIT_BUCKET_STATUS_ACTIVE,
-)
-from .bucket_categories import (
-    load_billing_order_type_by_bid,
-    resolve_wallet_bucket_runtime_category,
-)
+from .consts import CREDIT_BUCKET_STATUS_ACTIVE
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
 from .primitives import to_decimal as _to_decimal
+from .subscriptions import load_effective_topup_subscription
 
 _ZERO_CREDITS = Decimal("0")
 _RUNTIME_CONCURRENCY_KEY_SUFFIX = ":billing:runtime:concurrency:"
 _RUNTIME_CONCURRENCY_LOCK_KEY_SUFFIX = ":billing:runtime:concurrency:lock:"
 _RUNTIME_CONCURRENCY_LOCK_TIMEOUT_SECONDS = 5
 _RUNTIME_CONCURRENCY_SLOT_TTL_SECONDS = 3600
-_ADMISSION_ACTIVE_SUBSCRIPTION_STATUSES = (
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-)
 
 
 @dataclass
@@ -158,18 +140,13 @@ def admit_creator_usage(
             raise_error("server.billing.creditInsufficient")
 
         has_active_subscription = (
-            subscription is not None
-            and subscription.status in _ADMISSION_ACTIVE_SUBSCRIPTION_STATUSES
-        )
-        has_non_subscription_credits = any(
-            resolve_wallet_bucket_runtime_category(
-                bucket,
-                load_order_type=load_billing_order_type_by_bid,
+            load_effective_topup_subscription(
+                normalized_creator_bid,
+                as_of=admission_at,
             )
-            != CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-            for bucket in active_buckets
+            is not None
         )
-        if not has_active_subscription and not has_non_subscription_credits:
+        if not has_active_subscription:
             raise_error("server.billing.subscriptionInactive")
 
         entitlement_state = resolve_creator_entitlement_state(

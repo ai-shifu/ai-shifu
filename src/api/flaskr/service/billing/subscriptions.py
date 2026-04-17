@@ -36,6 +36,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
@@ -102,6 +103,7 @@ _TOPUP_EXPIRY_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
 )
 
 
@@ -126,6 +128,40 @@ def _load_owned_subscription(
     subscription = query.order_by(BillingSubscription.created_at.desc()).first()
     if subscription is None:
         raise_error("server.order.orderNotFound")
+    return subscription
+
+
+def load_effective_topup_subscription(
+    creator_bid: str,
+    *,
+    as_of: datetime | None = None,
+) -> BillingSubscription | None:
+    effective_at = as_of or datetime.now()
+    subscription = (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid == creator_bid,
+            BillingSubscription.status.in_(_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES),
+        )
+        .order_by(
+            BillingSubscription.current_period_end_at.desc(),
+            BillingSubscription.created_at.desc(),
+            BillingSubscription.id.desc(),
+        )
+        .first()
+    )
+    if subscription is None:
+        return None
+    if (
+        subscription.current_period_start_at is not None
+        and subscription.current_period_start_at > effective_at
+    ):
+        return None
+    if (
+        subscription.current_period_end_at is None
+        or subscription.current_period_end_at <= effective_at
+    ):
+        return None
     return subscription
 
 
@@ -790,30 +826,11 @@ def _resolve_topup_bucket_effective_to(
     creator_bid: str,
     effective_from: datetime,
 ) -> datetime | None:
-    subscription = (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid == creator_bid,
-            BillingSubscription.status.in_(_TOPUP_EXPIRY_SUBSCRIPTION_STATUSES),
-        )
-        .order_by(
-            BillingSubscription.current_period_end_at.desc(),
-            BillingSubscription.created_at.desc(),
-            BillingSubscription.id.desc(),
-        )
-        .first()
+    subscription = load_effective_topup_subscription(
+        creator_bid,
+        as_of=effective_from,
     )
     if subscription is None:
-        return None
-    if (
-        subscription.current_period_start_at is not None
-        and subscription.current_period_start_at > effective_from
-    ):
-        return None
-    if (
-        subscription.current_period_end_at is None
-        or subscription.current_period_end_at <= effective_from
-    ):
         return None
     return subscription.current_period_end_at
 

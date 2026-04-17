@@ -110,6 +110,38 @@ def _load_register_billing_routes():
 register_billing_routes = _load_register_billing_routes()
 
 
+def _add_active_subscription(
+    app: Flask,
+    *,
+    creator_bid: str = "creator-1",
+    subscription_bid: str = "sub-topup-active-default",
+    current_period_start_at: datetime | None = None,
+    current_period_end_at: datetime | None = None,
+) -> None:
+    now = datetime.now()
+    with app.app_context():
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid=subscription_bid,
+                creator_bid=creator_bid,
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id=f"provider-{subscription_bid}",
+                provider_customer_id=f"customer-{subscription_bid}",
+                current_period_start_at=current_period_start_at
+                or now - timedelta(days=1),
+                current_period_end_at=current_period_end_at or now + timedelta(days=29),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_period_start_at or now - timedelta(days=1),
+                updated_at=current_period_start_at or now - timedelta(days=1),
+            )
+        )
+        dao.db.session.commit()
+
+
 @pytest.fixture
 def billing_write_client(monkeypatch):
     app = Flask(__name__)
@@ -754,6 +786,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-paid-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -824,27 +857,12 @@ class TestBillingWriteRoutes:
         now = datetime.now()
         current_period_start_at = now - timedelta(days=3)
         current_period_end_at = now + timedelta(days=27)
-
-        with app.app_context():
-            dao.db.session.add(
-                BillingSubscription(
-                    subscription_bid="sub-topup-active-1",
-                    creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly",
-                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-                    billing_provider="stripe",
-                    provider_subscription_id="sub_provider_topup_active_1",
-                    provider_customer_id="cus_provider_topup_active_1",
-                    current_period_start_at=current_period_start_at,
-                    current_period_end_at=current_period_end_at,
-                    cancel_at_period_end=0,
-                    next_product_bid="",
-                    metadata_json={},
-                    created_at=current_period_start_at,
-                    updated_at=current_period_start_at,
-                )
-            )
-            dao.db.session.commit()
+        _add_active_subscription(
+            app,
+            subscription_bid="sub-topup-active-1",
+            current_period_start_at=current_period_start_at,
+            current_period_end_at=current_period_end_at,
+        )
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -874,10 +892,28 @@ class TestBillingWriteRoutes:
             assert bucket.effective_to == current_period_end_at
             assert ledger.expires_at == current_period_end_at
 
+    def test_topup_checkout_rejects_without_active_subscription(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+
+        assert checkout["code"] != 0
+
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
         self, billing_write_client, monkeypatch
     ) -> None:
         client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-default-provider-1")
 
         def fake_get_config(key, default=None):
             if key == "PAYMENT_CHANNELS_ENABLED":
@@ -909,6 +945,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-rebuild-1")
 
         with app.app_context():
             dao.db.session.add(
@@ -1554,6 +1591,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-refund-stripe-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
@@ -1626,6 +1664,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-refund-pingxx-1")
 
         checkout = client.post(
             "/api/billing/topups/checkout",
