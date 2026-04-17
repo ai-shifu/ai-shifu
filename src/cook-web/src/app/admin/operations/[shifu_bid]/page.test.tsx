@@ -11,10 +11,16 @@ import AdminOperationCourseDetailPage from './page';
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseDetail = jest.fn();
+const mockGetAdminOperationCourseUsers = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
+const mockEnvState = {
+  currencySymbol: '¥',
+  loginMethodsEnabled: ['phone'],
+  defaultLoginMethod: 'phone',
+};
 
 const mockUserState = {
   isInitialized: true,
@@ -39,6 +45,8 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOperationCourseDetail: (...args: unknown[]) =>
       mockGetAdminOperationCourseDetail(...args),
+    getAdminOperationCourseUsers: (...args: unknown[]) =>
+      mockGetAdminOperationCourseUsers(...args),
     getAdminOperationCourseChapterDetail: (...args: unknown[]) =>
       mockGetAdminOperationCourseChapterDetail(...args),
   },
@@ -52,8 +60,13 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/c-store', () => ({
   __esModule: true,
-  useEnvStore: (selector: (state: { currencySymbol: string }) => unknown) =>
-    selector({ currencySymbol: '¥' }),
+  useEnvStore: (
+    selector: (state: {
+      currencySymbol: string;
+      loginMethodsEnabled: string[];
+      defaultLoginMethod: string;
+    }) => unknown,
+  ) => selector(mockEnvState),
 }));
 
 jest.mock('@/c-utils/textutils', () => ({
@@ -81,15 +94,85 @@ jest.mock('@/components/loading', () => ({
   default: () => <div data-testid='loading-indicator' />,
 }));
 
+jest.mock('@/components/ui/Dialog', () => ({
+  __esModule: true,
+  Dialog: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
+    open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: React.PropsWithChildren) => (
+    <div role='dialog'>{children}</div>
+  ),
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+}));
+
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 describe('AdminOperationCourseDetailPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseDetail.mockReset();
+    mockGetAdminOperationCourseUsers.mockReset();
     mockGetAdminOperationCourseChapterDetail.mockReset();
     mockCopyText.mockReset();
     mockToastShow.mockReset();
     mockToastFail.mockReset();
+    mockEnvState.currencySymbol = '¥';
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockEnvState.defaultLoginMethod = 'phone';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = {
@@ -102,6 +185,29 @@ describe('AdminOperationCourseDetailPage', () => {
       content: 'lesson content',
       llm_system_prompt: 'lesson system prompt',
       llm_system_prompt_source: 'chapter',
+    });
+    mockGetAdminOperationCourseUsers.mockResolvedValue({
+      items: [
+        {
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          user_role: 'student',
+          learned_lesson_count: 1,
+          total_lesson_count: 3,
+          learning_status: 'learning',
+          is_paid: true,
+          total_paid_amount: '88',
+          last_learning_at: '2026-04-08 11:30:00',
+          joined_at: '2026-04-07 09:00:00',
+          last_login_at: '2026-04-08 12:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
     });
     mockGetAdminOperationCourseDetail.mockResolvedValue({
       basic_info: {
@@ -174,6 +280,15 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
     });
+    expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+      shifu_bid: 'course-1',
+      page: 1,
+      page_size: 20,
+      keyword: '',
+      user_role: 'all',
+      learning_status: 'all',
+      payment_status: 'all',
+    });
 
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
@@ -200,10 +315,17 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(
       screen.getByText('module.operationsCourse.detail.contentStatus.has'),
     ).toBeInTheDocument();
-    expect(screen.getByText('13900001234')).toBeInTheDocument();
-    expect(screen.getByText('Bob')).toBeInTheDocument();
+    expect(screen.getAllByText('13900001234').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    const bobRow = screen.getByText('Bob').closest('tr');
+    expect(bobRow).not.toBeNull();
+    expect(within(bobRow as HTMLElement).getByText('88')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('module.operationsCourse.detail.userRole.student')
+        .length,
+    ).toBeGreaterThan(0);
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -214,7 +336,7 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/operations');
   });
 
-  test('opens chapter content dialog and copies detail', async () => {
+  test('opens chapter content dialog and requests chapter detail', async () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
@@ -327,5 +449,153 @@ describe('AdminOperationCourseDetailPage', () => {
         'module.operationsCourse.statusLabels.unknown (mystery)',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('searches course users with explicit search button', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    mockGetAdminOperationCourseUsers.mockClear();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: {
+          value: 'student',
+        },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: 'student',
+        user_role: 'all',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+  });
+
+  test('shows empty account when current site mode field is missing', async () => {
+    mockGetAdminOperationCourseUsers.mockResolvedValue({
+      items: [
+        {
+          user_bid: 'guest-1',
+          mobile: '',
+          email: 'guest@example.com',
+          nickname: '',
+          user_role: 'student',
+          learned_lesson_count: 0,
+          total_lesson_count: 0,
+          learning_status: 'not_started',
+          is_paid: false,
+          total_paid_amount: '0',
+          last_learning_at: '',
+          joined_at: '',
+          last_login_at: '',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('guest-1');
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+    expect(screen.queryByText('guest@example.com')).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderPhone',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('uses email placeholder in com site mode', async () => {
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderEmail',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('applies select filters immediately when user changes them', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    mockGetAdminOperationCourseUsers.mockClear();
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.userRole.operator',
+      })[0],
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: '',
+        user_role: 'operator',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+  });
+
+  test('does not apply draft keyword until search is submitted', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    mockGetAdminOperationCourseUsers.mockClear();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: {
+          value: '15811237246',
+        },
+      },
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.userRole.operator',
+      })[0],
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: '',
+        user_role: 'operator',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
   });
 });

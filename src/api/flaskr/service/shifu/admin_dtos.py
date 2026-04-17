@@ -258,6 +258,46 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationCourseUserDTO(BaseModel):
+    """Operator-facing course user row."""
+
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    user_role: str = Field(..., description="Resolved user role", required=False)
+    learned_lesson_count: int = Field(
+        default=0,
+        description="Distinct learned visible lesson count",
+        required=False,
+    )
+    total_lesson_count: int = Field(
+        default=0,
+        description="Total visible lesson count",
+        required=False,
+    )
+    learning_status: str = Field(
+        ..., description="not_started, learning, or completed", required=False
+    )
+    is_paid: bool = Field(..., description="Whether the user has paid", required=False)
+    total_paid_amount: str = Field(
+        default="0", description="Course-scoped paid amount", required=False
+    )
+    last_learning_at: str = Field(
+        default="", description="Latest learning timestamp", required=False
+    )
+    joined_at: str = Field(
+        default="", description="Course join timestamp", required=False
+    )
+    last_login_at: str = Field(
+        default="", description="Latest login timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
 class AdminOperationCourseChapterDetailDTO(BaseModel):
     """Operator-facing chapter content detail payload."""
 
