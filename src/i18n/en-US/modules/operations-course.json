@@ -70,7 +70,7 @@
     "metricsLabels": {
       "followUpCount": "Ask",
       "learnerCount": "Learners",
-      "orderAmount": "Gross Revenue",
+      "orderAmount": "Collected Revenue (Incl. Coupon Codes)",
       "orderCount": "Orders",
       "ratingScore": "Rating",
       "visitCount30d": "Visitors (30d)"
