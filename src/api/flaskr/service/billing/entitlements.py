@@ -37,7 +37,6 @@ class CreatorEntitlementState:
     branding_enabled: bool
     custom_domain_enabled: bool
     priority_class: str
-    max_concurrency: int
     analytics_tier: str
     support_tier: str
     feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
@@ -47,7 +46,6 @@ class CreatorEntitlementState:
             "branding_enabled": self.branding_enabled,
             "custom_domain_enabled": self.custom_domain_enabled,
             "priority_class": self.priority_class,
-            "max_concurrency": self.max_concurrency,
             "analytics_tier": self.analytics_tier,
             "support_tier": self.support_tier,
         }
@@ -156,7 +154,6 @@ def _resolve_subscription_product_entitlement_state(
         branding_enabled=default_state.branding_enabled,
         custom_domain_enabled=default_state.custom_domain_enabled,
         priority_class=default_state.priority_class,
-        max_concurrency=default_state.max_concurrency,
         analytics_tier=default_state.analytics_tier,
         support_tier=default_state.support_tier,
         feature_payload=_normalize_feature_payload(
@@ -181,7 +178,6 @@ def _build_default_entitlement_state(creator_bid: str) -> CreatorEntitlementStat
             BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
             "standard",
         ),
-        max_concurrency=1,
         analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
             BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
             "basic",
@@ -211,7 +207,6 @@ def _serialize_entitlement_row_state(
             row.priority_class,
             "standard",
         ),
-        max_concurrency=max(int(row.max_concurrency or 1), 1),
         analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
             row.analytics_tier,
             "basic",
@@ -241,10 +236,6 @@ def _apply_entitlement_payload(
         labels=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS,
         default=base_state.priority_class,
     )
-    max_concurrency = _to_positive_int(
-        payload.get("max_concurrency"),
-        default=base_state.max_concurrency,
-    )
     analytics_tier = _resolve_labeled_value(
         payload.get("analytics_tier"),
         labels=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
@@ -271,7 +262,6 @@ def _apply_entitlement_payload(
         branding_enabled=branding_enabled,
         custom_domain_enabled=custom_domain_enabled,
         priority_class=priority_class,
-        max_concurrency=max_concurrency,
         analytics_tier=analytics_tier,
         support_tier=support_tier,
         feature_payload=feature_payload,
@@ -323,12 +313,3 @@ def _to_bool(value: Any, *, default: bool = False) -> bool:
     if normalized in {"0", "false", "no", "n", "off"}:
         return False
     return default
-
-
-def _to_positive_int(value: Any, *, default: int = 1) -> int:
-    if value is None or value == "":
-        return max(int(default or 1), 1)
-    try:
-        return max(int(value), 1)
-    except (TypeError, ValueError):
-        return max(int(default or 1), 1)

@@ -34,7 +34,6 @@ import tempfile
 import json
 import uuid
 import re
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
@@ -57,7 +56,6 @@ from flaskr.route.common import make_common_response, bypass_token_validation, f
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.admission import reserve_creator_runtime_slot
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
@@ -2378,13 +2376,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("ask_temperature")
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
-        admission_payload = _admit_creator_debug_usage()
-        runtime_lease = None
-        if admission_payload is not None:
-            runtime_lease = reserve_creator_runtime_slot(
-                app,
-                admission_payload=admission_payload,
-            )
+        _admit_creator_debug_usage()
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
@@ -2486,40 +2478,39 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         answer = ""
 
         try:
-            with runtime_lease or nullcontext():
-                try:
-                    llm_runtime = (
-                        _build_llm_runtime()
-                        if requested_provider == ASK_PROVIDER_LLM
-                        else None
-                    )
-                    answer = _invoke_provider(requested_provider, runtime=llm_runtime)
-                except (AskProviderError, AskProviderTimeoutError) as error:
-                    provider_error = str(error)
-                    if (
-                        mode != ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
-                        or requested_provider == ASK_PROVIDER_LLM
-                    ):
-                        raise_param_error(provider_error)
-                    used_provider = ASK_PROVIDER_LLM
-                    fallback_used = True
-                    answer = _invoke_provider(
-                        ASK_PROVIDER_LLM, runtime=_build_llm_runtime()
-                    )
-
-                if not answer:
-                    raise_param_error("ask preview returned empty response")
-
-                return make_common_response(
-                    {
-                        "answer": answer,
-                        "provider": used_provider,
-                        "requested_provider": requested_provider,
-                        "mode": mode,
-                        "fallback_used": fallback_used,
-                        "provider_error": provider_error,
-                    }
+            try:
+                llm_runtime = (
+                    _build_llm_runtime()
+                    if requested_provider == ASK_PROVIDER_LLM
+                    else None
                 )
+                answer = _invoke_provider(requested_provider, runtime=llm_runtime)
+            except (AskProviderError, AskProviderTimeoutError) as error:
+                provider_error = str(error)
+                if (
+                    mode != ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
+                    or requested_provider == ASK_PROVIDER_LLM
+                ):
+                    raise_param_error(provider_error)
+                used_provider = ASK_PROVIDER_LLM
+                fallback_used = True
+                answer = _invoke_provider(
+                    ASK_PROVIDER_LLM, runtime=_build_llm_runtime()
+                )
+
+            if not answer:
+                raise_param_error("ask preview returned empty response")
+
+            return make_common_response(
+                {
+                    "answer": answer,
+                    "provider": used_provider,
+                    "requested_provider": requested_provider,
+                    "mode": mode,
+                    "fallback_used": fallback_used,
+                    "provider_error": provider_error,
+                }
+            )
         finally:
             preview_output = answer or provider_error
             finalize_langfuse_trace(
@@ -2596,19 +2587,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
         json_data = request.get_json() or {}
-        admission_payload = _admit_creator_debug_usage()
-        runtime_lease = None
-        if admission_payload is not None:
-            runtime_lease = reserve_creator_runtime_slot(
-                app,
-                admission_payload=admission_payload,
-            )
+        _admit_creator_debug_usage()
         request_user = getattr(request, "user", None)
         return build_tts_preview_response(
             json_data,
             request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
             request_user_is_creator=bool(getattr(request_user, "is_creator", False)),
-            runtime_lease=runtime_lease,
         )
 
     return app

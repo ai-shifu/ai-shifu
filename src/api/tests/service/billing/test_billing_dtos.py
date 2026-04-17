@@ -224,7 +224,6 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
             branding_enabled=True,
             custom_domain_enabled=True,
             priority_class="priority",
-            max_concurrency=4,
             analytics_tier="advanced",
             support_tier="business_hours",
         ),

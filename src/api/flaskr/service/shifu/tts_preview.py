@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from contextlib import nullcontext
 from dataclasses import replace
 from typing import Any
 
@@ -45,7 +44,6 @@ def build_tts_preview_response(
     *,
     request_user_id: str = "",
     request_user_is_creator: bool = False,
-    runtime_lease: Any = None,
 ) -> Response:
     app = current_app._get_current_object()
     payload = json_data or {}
@@ -107,80 +105,79 @@ def build_tts_preview_response(
         total_duration_ms = 0
         total_word_count = 0
         try:
-            with runtime_lease or nullcontext():
-                for index, segment_text in enumerate(segments):
-                    result = synthesize_text(
-                        text=segment_text,
-                        voice_settings=voice_settings,
-                        audio_settings=safe_audio_settings,
-                        model=validated.model or None,
-                        provider_name=validated.provider,
-                    )
-                    total_duration_ms += int(result.duration_ms or 0)
-                    word_count = int(getattr(result, "word_count", 0) or 0)
-                    total_word_count += word_count
-                    record_tts_usage(
-                        app,
-                        usage_context,
-                        provider=validated.provider,
-                        model=validated.model or "",
-                        is_stream=True,
-                        input=len(segment_text or ""),
-                        output=len(segment_text or ""),
-                        total=len(segment_text or ""),
-                        word_count=word_count,
-                        duration_ms=int(result.duration_ms or 0),
-                        latency_ms=0,
-                        record_level=1,
-                        parent_usage_bid=parent_usage_bid,
-                        segment_index=index,
-                        segment_count=0,
-                        extra=usage_metadata,
-                    )
-                    audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
-                    payload = {
-                        "outline_bid": "",
-                        "generated_block_bid": "",
-                        "type": "audio_segment",
-                        "content": {
-                            "segment_index": index,
-                            "audio_data": audio_base64,
-                            "duration_ms": int(result.duration_ms or 0),
-                            "is_final": False,
-                        },
-                    }
-                    yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
-
+            for index, segment_text in enumerate(segments):
+                result = synthesize_text(
+                    text=segment_text,
+                    voice_settings=voice_settings,
+                    audio_settings=safe_audio_settings,
+                    model=validated.model or None,
+                    provider_name=validated.provider,
+                )
+                total_duration_ms += int(result.duration_ms or 0)
+                word_count = int(getattr(result, "word_count", 0) or 0)
+                total_word_count += word_count
                 record_tts_usage(
                     app,
                     usage_context,
-                    usage_bid=parent_usage_bid,
                     provider=validated.provider,
                     model=validated.model or "",
                     is_stream=True,
-                    input=len(text or ""),
-                    output=len(cleaned_text or ""),
-                    total=len(cleaned_text or ""),
-                    word_count=total_word_count,
-                    duration_ms=total_duration_ms,
+                    input=len(segment_text or ""),
+                    output=len(segment_text or ""),
+                    total=len(segment_text or ""),
+                    word_count=word_count,
+                    duration_ms=int(result.duration_ms or 0),
                     latency_ms=0,
-                    record_level=0,
-                    parent_usage_bid="",
-                    segment_index=0,
-                    segment_count=len(segments),
+                    record_level=1,
+                    parent_usage_bid=parent_usage_bid,
+                    segment_index=index,
+                    segment_count=0,
                     extra=usage_metadata,
                 )
+                audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
                 payload = {
                     "outline_bid": "",
                     "generated_block_bid": "",
-                    "type": "audio_complete",
+                    "type": "audio_segment",
                     "content": {
-                        "audio_url": "",
-                        "audio_bid": audio_bid,
-                        "duration_ms": total_duration_ms,
+                        "segment_index": index,
+                        "audio_data": audio_base64,
+                        "duration_ms": int(result.duration_ms or 0),
+                        "is_final": False,
                     },
                 }
                 yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+            record_tts_usage(
+                app,
+                usage_context,
+                usage_bid=parent_usage_bid,
+                provider=validated.provider,
+                model=validated.model or "",
+                is_stream=True,
+                input=len(text or ""),
+                output=len(cleaned_text or ""),
+                total=len(cleaned_text or ""),
+                word_count=total_word_count,
+                duration_ms=total_duration_ms,
+                latency_ms=0,
+                record_level=0,
+                parent_usage_bid="",
+                segment_index=0,
+                segment_count=len(segments),
+                extra=usage_metadata,
+            )
+            payload = {
+                "outline_bid": "",
+                "generated_block_bid": "",
+                "type": "audio_complete",
+                "content": {
+                    "audio_url": "",
+                    "audio_bid": audio_bid,
+                    "duration_ms": total_duration_ms,
+                },
+            }
+            yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
         except GeneratorExit:
             current_app.logger.info("client closed tts preview stream early")
             raise

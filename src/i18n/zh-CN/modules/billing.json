@@ -60,7 +60,6 @@
       },
       "table": {
         "analytics": "分析等级",
-        "concurrency": "最大并发",
         "creator": "创作者",
         "features": "功能开关",
         "priority": "优先级",

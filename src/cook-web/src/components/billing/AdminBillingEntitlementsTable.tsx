@@ -162,9 +162,6 @@ export function AdminBillingEntitlementsTable() {
                     {t('module.billing.admin.entitlements.table.priority')}
                   </TableHead>
                   <TableHead>
-                    {t('module.billing.admin.entitlements.table.concurrency')}
-                  </TableHead>
-                  <TableHead>
                     {t('module.billing.admin.entitlements.table.analytics')}
                   </TableHead>
                   <TableHead>
@@ -180,7 +177,7 @@ export function AdminBillingEntitlementsTable() {
               </TableHeader>
               <TableBody>
                 {!items.length ? (
-                  <TableEmpty colSpan={8}>
+                  <TableEmpty colSpan={7}>
                     {t('module.billing.admin.entitlements.empty')}
                   </TableEmpty>
                 ) : (
@@ -203,9 +200,6 @@ export function AdminBillingEntitlementsTable() {
                       </TableCell>
                       <TableCell className='text-slate-700'>
                         {resolvePriorityLabel(t, item.priority_class)}
-                      </TableCell>
-                      <TableCell className='font-medium text-slate-900'>
-                        {item.max_concurrency.toLocaleString(i18n.language)}
                       </TableCell>
                       <TableCell className='text-slate-700'>
                         {resolveAnalyticsLabel(t, item.analytics_tier)}

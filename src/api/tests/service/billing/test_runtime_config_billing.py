@@ -112,7 +112,6 @@ def runtime_config_client(monkeypatch):
                     branding_enabled=1,
                     custom_domain_enabled=1,
                     priority_class=7702,
-                    max_concurrency=4,
                     analytics_tier=7712,
                     support_tier=7722,
                     feature_payload={
@@ -134,7 +133,6 @@ def runtime_config_client(monkeypatch):
                     branding_enabled=0,
                     custom_domain_enabled=0,
                     priority_class=7701,
-                    max_concurrency=1,
                     analytics_tier=7711,
                     support_tier=7721,
                     effective_from=now - timedelta(days=2),
@@ -187,7 +185,6 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "branding_enabled": True,
         "custom_domain_enabled": True,
         "priority_class": "priority",
-        "max_concurrency": 4,
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
     }
@@ -230,7 +227,6 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
         "branding_enabled": False,
         "custom_domain_enabled": False,
         "priority_class": "standard",
-        "max_concurrency": 1,
         "analytics_tier": "basic",
         "support_tier": "self_serve",
     }

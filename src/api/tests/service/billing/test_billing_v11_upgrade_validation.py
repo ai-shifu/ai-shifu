@@ -145,7 +145,6 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
         "branding_enabled": True,
         "custom_domain_enabled": False,
         "priority_class": "priority",
-        "max_concurrency": 4,
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
     }
@@ -170,7 +169,6 @@ def _seed_yearly_plan_product() -> BillingProduct:
                 "branding_enabled": True,
                 "custom_domain_enabled": False,
                 "priority_class": "priority",
-                "max_concurrency": "4",
                 "analytics_tier": "advanced",
                 "support_tier": "business_hours",
                 "feature_payload": {"report_export": True},

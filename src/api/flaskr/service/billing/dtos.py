@@ -172,7 +172,6 @@ class BillingEntitlementsDTO(BillingBaseDTO):
     branding_enabled: bool
     custom_domain_enabled: bool
     priority_class: str
-    max_concurrency: int
     analytics_tier: str
     support_tier: str
 

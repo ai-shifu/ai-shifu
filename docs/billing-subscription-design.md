@@ -576,7 +576,6 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | `branding_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Branding enabled flag` | 是否启用品牌定制 |
 | `custom_domain_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Custom domain enabled flag` | 是否支持自定义域名 |
 | `priority_class` | `SmallInteger` | `not null, default=7701` | `7701=standard; 7702=priority; 7703=vip` | `Priority class code` | 队列优先级档位 |
-| `max_concurrency` | `Integer` | `not null, default=1` | 允许并发上限 | `Max concurrency` | 并发上限 |
 | `analytics_tier` | `SmallInteger` | `not null, default=7711` | `7711=basic; 7712=advanced; 7713=enterprise` | `Analytics tier code` | 分析能力等级 |
 | `support_tier` | `SmallInteger` | `not null, default=7721` | `7721=self_serve; 7722=business_hours; 7723=priority` | `Support tier code` | 支持等级 |
 | `feature_payload` | `JSON` | `nullable=True` | 细粒度 feature 开关 | `Entitlement feature payload` | 权益扩展载荷 |
@@ -742,7 +741,7 @@ v1 的改造要求：
 - 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
 - 当前实现中，trial 产品化与 legacy trial sys-config 移除最初落在 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`；后续完整 billing 产品目录的数据库真源规范化，已收敛到 `src/api/migrations/versions/9a6b3c2d1e4f_canonicalize_billing_product_catalog.py`
 - 当前实现中，creator 侧 entitlement/domain/report 的底层表、resolver、聚合任务与 runtime-config 扩展已落地；但 creator 运行时 `/admin/billing` 仍只保留 `packages` / `details` 两个 tab，不额外暴露独立 entitlements/domains/reports 接口
-- 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
+- 当前实现中，learn / preview / debug 的 runtime admission 仅校验 subscription / credits 可用性；不再做 `creator_bid` 维度的 runtime slot 并发限流
 - 当前实现中，admin 域名面已收敛为 `GET /admin/billing/domain-audits` 审核视图；creator 自助 bind / verify / disable 不属于当前 active surface
 - 当前实现中，`billing.verify_domain_binding` task 已复用 `src/api/flaskr/service/billing/domains.py` 的既有 verify flow：可按 `domain_binding_bid` 或 `host` 加载 binding，并在未显式传 `verification_token` 时回退到绑定上已有 token 做后台刷新
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
@@ -818,7 +817,7 @@ v1 需要新增的改造点：
 - 不允许在 learn / preview / debug 的请求线程内直接扣减积分、更新 `credit_wallet_buckets` 或刷新 `credit_wallets`
 - 当前 `src/api/flaskr/service/metering/recorder.py` 仍只负责 `bill_usage` 持久化，不触碰 `credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`
 - v1 不做运行时并发配额控制，但必须在结算层实现 `creator_bid` 维度串行化，避免多个学生同时学习同一 creator 课程时发生并发扣减算错
-- entitlement/runtime enforcement 里的 `max_concurrency` 与 priority 仍属于 v1.1 扩展能力
+- 当前版本已确认不再引入 creator runtime 并发配额；entitlement 侧只保留 `priority_class`、branding、domain、analytics、support 等扩展能力
 
 ### 5.4 Runtime Config 与前端边界
 
@@ -921,7 +920,7 @@ v1 冻结低余额阈值、告警与错误码规则：
   - `server.billing.subscriptionInactive`：当前没有 active-like subscription，且也没有任何 `free/topup` bucket 可兜底
 - `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先充值或开通订阅”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/充值积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
 - v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
-- v1.1 在 entitlement/runtime enforcement 中新增 `server.billing.concurrencyExceeded`，语义固定为“当前创作者运行时并发已满，请等待其他会话结束后再试”
+- 当前版本不再保留 `server.billing.concurrencyExceeded`；runtime admission 阻断只围绕 credits / subscription 状态
 
 ### 6.4 Worker / Beat 分工
 
@@ -1440,7 +1439,6 @@ type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
   priority_class: 'standard' | 'priority' | 'vip';
-  max_concurrency: number;
   analytics_tier: 'basic' | 'advanced' | 'enterprise';
   support_tier: 'self_serve' | 'business_hours' | 'priority';
 };

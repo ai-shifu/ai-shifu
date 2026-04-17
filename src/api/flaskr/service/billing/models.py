@@ -992,12 +992,6 @@ class BillingEntitlement(BillingTableMixin, db.Model):
         default=BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
         comment="Priority class code",
     )
-    max_concurrency = Column(
-        Integer,
-        nullable=False,
-        default=1,
-        comment="Max concurrency",
-    )
     analytics_tier = Column(
         SmallInteger,
         nullable=False,

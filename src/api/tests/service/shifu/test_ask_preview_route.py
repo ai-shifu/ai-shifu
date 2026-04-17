@@ -296,11 +296,6 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
             raising=False,
         )
         monkeypatch.setattr(
-            "flaskr.service.shifu.route.reserve_creator_runtime_slot",
-            lambda _app, admission_payload: None,
-            raising=False,
-        )
-        monkeypatch.setattr(
             "flaskr.api.llm.chat_llm",
             fake_chat_llm,
             raising=False,

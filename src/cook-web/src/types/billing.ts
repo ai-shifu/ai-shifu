@@ -367,7 +367,6 @@ export type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
   priority_class: BillingPriorityClass;
-  max_concurrency: number;
   analytics_tier: BillingAnalyticsTier;
   support_tier: BillingSupportTier;
 };

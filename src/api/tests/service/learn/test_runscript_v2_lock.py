@@ -56,14 +56,6 @@ class FakeCacheProvider:
         return deleted
 
 
-class FakeRuntimeLease:
-    def __init__(self):
-        self.release_calls = 0
-
-    def release(self):
-        self.release_calls += 1
-
-
 class FakeListenElementAdapter:
     def __init__(self, *_args, **_kwargs):
         self._seq = 0
@@ -705,86 +697,6 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
         assert [event["event_type"] for event in events] == ["error", "done"]
         assert events[0]["content"] == "translated:server.learn.outputInProgress"
         assert events[1]["is_terminal"] is True
-
-
-def test_run_script_lock_busy_skips_runtime_admission(monkeypatch):
-    app = _make_test_app()
-    _patch_fake_element_adapter(monkeypatch)
-    with app.app_context():
-        lock = FakeLock([False, False, False, False, False, False])
-        cache = FakeCacheProvider(lock)
-        reserve_calls: list[object] = []
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr(
-            runscript_v2,
-            "reserve_creator_runtime_slot",
-            lambda *_args, **_kwargs: reserve_calls.append("called"),
-        )
-
-        chunks = list(
-            runscript_v2.run_script(
-                app=app,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-                input={"input": ["x"]},
-                input_type="normal",
-                runtime_admission_payload=object(),
-            )
-        )
-        events = _parse_sse_events(chunks)
-
-        assert reserve_calls == []
-        assert [event["type"] for event in events] == ["error", "done"]
-
-
-def test_run_script_runtime_admission_reserves_after_lock_and_releases(monkeypatch):
-    app = _make_test_app()
-    _patch_fake_element_adapter(monkeypatch)
-    with app.app_context():
-        lock = FakeLock([True])
-        cache = FakeCacheProvider(lock)
-        lease = FakeRuntimeLease()
-        admission_payload = object()
-        reserve_calls: list[object] = []
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(
-            runscript_v2,
-            "reserve_creator_runtime_slot",
-            lambda _app, admission_payload: (
-                reserve_calls.append(admission_payload) or lease
-            ),
-        )
-
-        def fake_run_script_inner(**_kwargs):
-            with app.app_context():
-                yield RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-1",
-                    type=GeneratedType.CONTENT,
-                    content="hello",
-                )
-
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
-
-        chunks = list(
-            runscript_v2.run_script(
-                app=app,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-                input={"input": ["x"]},
-                input_type="normal",
-                runtime_admission_payload=admission_payload,
-            )
-        )
-        events = _parse_sse_events(chunks)
-
-        assert reserve_calls == [admission_payload]
-        assert lease.release_calls == 1
-        assert lock.release_calls == 1
-        assert [event["type"] for event in events] == ["element", "done"]
 
 
 def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):

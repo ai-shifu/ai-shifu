@@ -60,7 +60,6 @@
       },
       "table": {
         "analytics": "Analytics tier",
-        "concurrency": "Max concurrency",
         "creator": "Creator",
         "features": "Features",
         "priority": "Priority class",

@@ -180,7 +180,6 @@ describe('AdminBillingConsolePage', () => {
           branding_enabled: true,
           custom_domain_enabled: false,
           priority_class: 'priority',
-          max_concurrency: 3,
           analytics_tier: 'advanced',
           support_tier: 'business_hours',
           effective_from: '2026-04-01T00:00:00Z',

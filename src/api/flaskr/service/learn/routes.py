@@ -1,6 +1,5 @@
 import json
 import uuid
-from contextlib import nullcontext
 
 from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
@@ -9,11 +8,6 @@ from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.admission import (
-    CreatorRuntimeAdmissionLease,
-    CreatorUsageAdmission,
-    reserve_creator_runtime_slot,
-)
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
@@ -79,14 +73,11 @@ def _stream_sse_response(
     error_log: str,
     error_event_factory=None,
     terminal_event_factory=None,
-    runtime_lease: CreatorRuntimeAdmissionLease | None = None,
 ) -> Response:
     def event_stream():
-        release_context = runtime_lease or nullcontext()
         try:
-            with release_context:
-                for message in message_iter_factory():
-                    yield _to_sse_data_line(message)
+            for message in message_iter_factory():
+                yield _to_sse_data_line(message)
         except GeneratorExit:
             app.logger.info(close_log)
             raise
@@ -111,13 +102,10 @@ def _stream_passthrough_response(
     message_iter_factory,
     close_log: str,
     error_log: str,
-    runtime_lease: CreatorRuntimeAdmissionLease | None = None,
 ) -> Response:
     def event_stream():
-        release_context = runtime_lease or nullcontext()
         try:
-            with release_context:
-                yield from message_iter_factory()
+            yield from message_iter_factory()
         except GeneratorExit:
             app.logger.info(close_log)
             raise
@@ -180,12 +168,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         if not in_published:
             raise_error("server.shifu.lessonNotFoundInCourse")
 
-    def _admit_creator_usage_for_shifu(
-        shifu_bid: str, usage_scene: int
-    ) -> CreatorUsageAdmission | None:
+    def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
             return None
-        return admit_creator_usage(
+        admit_creator_usage(
             app,
             shifu_bid=shifu_bid,
             usage_scene=usage_scene,
@@ -337,7 +323,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
-        admission_payload = _admit_creator_usage_for_shifu(
+        _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         )
@@ -356,7 +342,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 listen=listen,
                 preview_mode=preview_mode,
                 shifu_context_snapshot=shifu_context_snapshot,
-                runtime_admission_payload=admission_payload,
             ),
             close_log="client closed learn runtime stream early",
             error_log="run outline item failed",
@@ -485,16 +470,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             preview_request.block_index,
             visual_mode,
         )
-        admission_payload = _admit_creator_usage_for_shifu(
+        _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW,
         )
-        runtime_lease = None
-        if admission_payload is not None:
-            runtime_lease = reserve_creator_runtime_slot(
-                app,
-                admission_payload=admission_payload,
-            )
 
         return _stream_sse_response(
             app,
@@ -521,7 +500,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 is_terminal=True,
                 content="",
             ),
-            runtime_lease=runtime_lease,
         )
 
     @app.route(

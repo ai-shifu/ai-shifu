@@ -1,7 +1,6 @@
 {
   "__namespace__": "server.billing",
   "__flat__": {
-    "concurrencyExceeded": "The creator runtime is busy. Wait for another session to finish and try again.",
     "creditInsufficient": "Insufficient credits. Purchase a topup or subscription before continuing.",
     "customDomainDisabled": "Custom domains are not enabled for this creator.",
     "domainBindingNotFound": "The requested custom domain binding was not found.",

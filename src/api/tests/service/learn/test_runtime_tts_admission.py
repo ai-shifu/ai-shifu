@@ -167,10 +167,8 @@ def test_run_route_passes_admission_payload_to_run_script() -> None:
     assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_passthrough_response" in called_names
     assert "run_script" in called_names
-    assert any(
-        keyword.arg == "runtime_admission_payload"
-        and isinstance(keyword.value, ast.Name)
-        and keyword.value.id == "admission_payload"
+    assert all(
+        keyword.arg != "runtime_admission_payload"
         for keyword in run_script_call.keywords
     )
 
@@ -187,12 +185,6 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
         "flaskr.service.learn.routes.admit_creator_usage",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("builtin demo should skip creator admission")
-        ),
-    )
-    monkeypatch.setattr(
-        "flaskr.service.learn.routes.reserve_creator_runtime_slot",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("builtin demo should skip runtime slot reservation")
         ),
     )
     monkeypatch.setattr(
@@ -221,7 +213,7 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     assert '"content": "ok"' in body
 
 
-def test_run_route_passes_none_runtime_admission_payload_for_builtin_demo(
+def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     monkeypatch, test_client
 ):
     _mock_user(monkeypatch, "user-run")
@@ -238,7 +230,7 @@ def test_run_route_passes_none_runtime_admission_payload_for_builtin_demo(
     )
 
     def _fake_run_script(*_args, **kwargs):
-        assert kwargs["runtime_admission_payload"] is None
+        assert "runtime_admission_payload" not in kwargs
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 
     monkeypatch.setattr(

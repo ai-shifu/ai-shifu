@@ -1133,7 +1133,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.admin.entitlements.source.productPayload'),
     t('module.billing.admin.entitlements.source.snapshot'),
     t('module.billing.admin.entitlements.table.analytics'),
-    t('module.billing.admin.entitlements.table.concurrency'),
     t('module.billing.admin.entitlements.table.creator'),
     t('module.billing.admin.entitlements.table.features'),
     t('module.billing.admin.entitlements.table.priority'),

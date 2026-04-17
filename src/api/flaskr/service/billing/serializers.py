@@ -526,7 +526,6 @@ def serialize_admin_entitlement_state(
         branding_enabled=bool(state.branding_enabled),
         custom_domain_enabled=bool(state.custom_domain_enabled),
         priority_class=str(state.priority_class or "standard"),
-        max_concurrency=max(int(state.max_concurrency or 1), 1),
         analytics_tier=str(state.analytics_tier or "basic"),
         support_tier=str(state.support_tier or "self_serve"),
         effective_from=serialize_dt(

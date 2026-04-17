@@ -60,7 +60,6 @@ def _seed_products_with_yearly_entitlements():
                     "branding_enabled": True,
                     "custom_domain_enabled": False,
                     "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
-                    "max_concurrency": "4",
                     "analytics_tier": "advanced",
                     "support_tier": "business_hours",
                     "feature_payload": {"report_export": True},
@@ -96,7 +95,6 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
                     branding_enabled=0,
                     custom_domain_enabled=0,
                     priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
-                    max_concurrency=2,
                     analytics_tier=7712,
                     support_tier=7722,
                     effective_from=now - timedelta(days=3),
@@ -112,7 +110,6 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
                     branding_enabled=1,
                     custom_domain_enabled=1,
                     priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
-                    max_concurrency=12,
                     analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_ENTERPRISE,
                     support_tier=BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY,
                     feature_payload={"priority_queue": True},
@@ -138,7 +135,6 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
         "branding_enabled": True,
         "custom_domain_enabled": True,
         "priority_class": "vip",
-        "max_concurrency": 12,
         "analytics_tier": "enterprise",
         "support_tier": "priority",
     }
@@ -180,7 +176,6 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
         "branding_enabled": True,
         "custom_domain_enabled": False,
         "priority_class": "priority",
-        "max_concurrency": 4,
         "analytics_tier": "advanced",
         "support_tier": "business_hours",
     }
@@ -192,7 +187,6 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
         "branding_enabled": False,
         "custom_domain_enabled": False,
         "priority_class": "standard",
-        "max_concurrency": 1,
         "analytics_tier": "basic",
         "support_tier": "self_serve",
     }
@@ -253,7 +247,6 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
                     BILLING_TRIAL_PRODUCT_BID: {
                         "entitlement_payload": {
                             "priority_class": "standard",
-                            "max_concurrency": "2",
                             "analytics_tier": "basic",
                             "support_tier": "self_serve",
                         }
@@ -262,7 +255,6 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
                         "entitlement_payload": {
                             "branding_enabled": True,
                             "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
-                            "max_concurrency": "4",
                             "analytics_tier": "advanced",
                             "support_tier": "business_hours",
                             "feature_payload": {"paid_plan": True},
@@ -305,5 +297,4 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
     assert state["source_kind"] == "product_payload"
     assert state["source_bid"] == "sub-paid-entitlement"
     assert state["product_bid"] == "billing-product-plan-monthly"
-    assert state["max_concurrency"] == 4
     assert state["feature_payload"] == {"paid_plan": True}

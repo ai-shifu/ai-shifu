@@ -11,11 +11,6 @@ from flask import Flask
 from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.i18n import _
-from flaskr.service.billing.admission import (
-    CreatorRuntimeAdmissionLease,
-    CreatorUsageAdmission,
-    reserve_creator_runtime_slot,
-)
 
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -322,7 +317,6 @@ def run_script(
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
-    runtime_admission_payload: CreatorUsageAdmission | None = None,
 ) -> Generator[str, None, None]:
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
@@ -359,7 +353,6 @@ def run_script(
             time.sleep(lock_retry_sleep_seconds)
 
     if acquired:
-        runtime_lease: CreatorRuntimeAdmissionLease | None = None
         stop_event = threading.Event()
         # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
         output_queue: queue.SimpleQueue = queue.SimpleQueue()
@@ -426,12 +419,6 @@ def run_script(
                     output_queue.put(("done", None))
 
         try:
-            if runtime_admission_payload is not None:
-                runtime_lease = reserve_creator_runtime_slot(
-                    app,
-                    admission_payload=runtime_admission_payload,
-                )
-
             producer_thread = threading.Thread(
                 target=producer, name="run_script_stream_producer", daemon=True
             )
@@ -634,9 +621,6 @@ def run_script(
             if producer_thread is not None and producer_thread.is_alive():
                 app.logger.warning("run_script producer thread did not stop in time")
 
-            with contextlib.suppress(Exception):
-                if runtime_lease is not None:
-                    runtime_lease.release()
             with contextlib.suppress(Exception):
                 lock.release()
             _clear_run_script_status(app, user_bid, outline_bid)

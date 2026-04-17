@@ -7,11 +7,7 @@ from flask import Flask
 import pytest
 
 import flaskr.dao as dao
-from flaskr.common.cache_provider import InMemoryCacheProvider
-from flaskr.service.billing.admission import (
-    admit_creator_usage,
-    reserve_creator_runtime_slot,
-)
+from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
     BILLING_ORDER_STATUS_PAID,
@@ -270,7 +266,7 @@ def test_admit_creator_usage_accepts_direct_creator_bid_for_debug(
     assert payload["usage_scene"] == BILL_USAGE_SCENE_DEBUG
 
 
-def test_admit_creator_usage_resolves_priority_class_and_max_concurrency(
+def test_admit_creator_usage_resolves_priority_class(
     billing_admission_app: Flask,
 ) -> None:
     with billing_admission_app.app_context():
@@ -290,7 +286,6 @@ def test_admit_creator_usage_resolves_priority_class_and_max_concurrency(
                 source_type=CREDIT_SOURCE_TYPE_MANUAL,
                 source_bid="manual-priority-1",
                 priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
-                max_concurrency=6,
                 effective_from=datetime.now() - timedelta(minutes=5),
                 effective_to=None,
             )
@@ -304,7 +299,6 @@ def test_admit_creator_usage_resolves_priority_class_and_max_concurrency(
     )
 
     assert payload["priority_class"] == "vip"
-    assert payload["max_concurrency"] == 6
 
 
 def test_admit_creator_usage_rejects_expired_topup_bucket_even_if_wallet_snapshot_positive(
@@ -468,64 +462,3 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
 
     assert payload["allowed"] is True
     assert payload["creator_bid"] == "creator-repair-cycle-1"
-
-
-def test_reserve_creator_runtime_slot_enforces_entitlement_concurrency(
-    billing_admission_app: Flask,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.billing.admission.cache_provider",
-        InMemoryCacheProvider(),
-    )
-    with billing_admission_app.app_context():
-        dao.db.session.add(_create_wallet("creator-runtime-1", "8.0000000000"))
-        dao.db.session.add(_create_active_subscription("creator-runtime-1"))
-        dao.db.session.add(
-            _create_bucket(
-                "creator-runtime-1",
-                category=CREDIT_BUCKET_CATEGORY_TOPUP,
-                available_credits="8.0000000000",
-            )
-        )
-        dao.db.session.add(
-            BillingEntitlement(
-                entitlement_bid="entitlement-runtime-1",
-                creator_bid="creator-runtime-1",
-                source_type=CREDIT_SOURCE_TYPE_MANUAL,
-                source_bid="manual-runtime-1",
-                max_concurrency=1,
-                effective_from=datetime.now() - timedelta(minutes=5),
-                effective_to=None,
-            )
-        )
-        dao.db.session.commit()
-
-    admission_payload = admit_creator_usage(
-        billing_admission_app,
-        creator_bid="creator-runtime-1",
-        usage_scene=BILL_USAGE_SCENE_DEBUG,
-    )
-    runtime_lease = reserve_creator_runtime_slot(
-        billing_admission_app,
-        admission_payload=admission_payload,
-    )
-
-    assert runtime_lease.active_runtime_count == 1
-
-    with pytest.raises(AppException) as exc_info:
-        reserve_creator_runtime_slot(
-            billing_admission_app,
-            admission_payload=admission_payload,
-        )
-
-    assert exc_info.value.code == ERROR_CODE["server.billing.concurrencyExceeded"]
-
-    runtime_lease.release()
-
-    next_lease = reserve_creator_runtime_slot(
-        billing_admission_app,
-        admission_payload=admission_payload,
-    )
-    assert next_lease.active_runtime_count == 1
-    next_lease.release()
