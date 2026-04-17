@@ -13,7 +13,7 @@ from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.service.common.models import raise_error
 
-from .consts import CREDIT_BUCKET_STATUS_ACTIVE
+from .consts import CREDIT_BUCKET_CATEGORY_SUBSCRIPTION, CREDIT_BUCKET_STATUS_ACTIVE
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
@@ -147,6 +147,28 @@ def admit_creator_usage(
             is not None
         )
         if not has_active_subscription:
+            active_subscription_bucket = next(
+                (
+                    bucket
+                    for bucket in active_buckets
+                    if int(bucket.bucket_category or 0)
+                    == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+                ),
+                None,
+            )
+            if active_subscription_bucket is not None:
+                app.logger.warning(
+                    "billing admission invariant violated: creator has an active "
+                    "subscription bucket but no active subscription "
+                    "creator_bid=%s shifu_bid=%s wallet_bucket_bid=%s "
+                    "source_bid=%s effective_from=%s effective_to=%s",
+                    normalized_creator_bid,
+                    str(shifu_bid or "").strip(),
+                    active_subscription_bucket.wallet_bucket_bid,
+                    active_subscription_bucket.source_bid,
+                    active_subscription_bucket.effective_from,
+                    active_subscription_bucket.effective_to,
+                )
             raise_error("server.billing.subscriptionInactive")
 
         entitlement_state = resolve_creator_entitlement_state(

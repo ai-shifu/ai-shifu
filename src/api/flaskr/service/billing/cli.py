@@ -18,7 +18,10 @@ from .daily_aggregates import (
 )
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
-from .subscriptions import repair_topup_grant_expiries
+from .subscriptions import (
+    repair_subscription_cycle_mismatches,
+    repair_topup_grant_expiries,
+)
 from .wallets import rebuild_credit_wallet_snapshots
 
 
@@ -122,6 +125,31 @@ def register_billing_commands(console) -> None:
         payload = repair_topup_grant_expiries(
             current_app,
             creator_bid=creator_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="repair-subscription-cycle")
+    @click.option("--creator-bid", default="", help="Repair one creator.")
+    @click.option("--subscription-bid", default="", help="Repair one subscription.")
+    @with_appcontext
+    def repair_subscription_cycle_command(
+        creator_bid: str,
+        subscription_bid: str,
+    ) -> None:
+        """Repair mismatched subscription cycle rows from paid billing grants."""
+
+        if (
+            not str(creator_bid or "").strip()
+            and not str(subscription_bid or "").strip()
+        ):
+            raise click.ClickException(
+                "Pass --creator-bid or --subscription-bid for subscription cycle repair."
+            )
+
+        payload = repair_subscription_cycle_mismatches(
+            current_app,
+            creator_bid=creator_bid,
+            subscription_bid=subscription_bid,
         )
         _echo_payload(payload)
 

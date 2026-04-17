@@ -31,6 +31,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -60,6 +61,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
+from flaskr.service.billing.queries import calculate_billing_cycle_end
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
     repair_topup_grant_expiries,
@@ -761,6 +763,9 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
+            product = BillingProduct.query.filter_by(
+                product_bid=order.product_bid
+            ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
@@ -784,6 +789,13 @@ class TestBillingWriteRoutes:
             assert wallet.available_credits == 5
             assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+            assert subscription.current_period_start_at == order.paid_at
+            assert bucket.effective_from == order.paid_at
+            assert subscription.current_period_end_at == calculate_billing_cycle_end(
+                product,
+                cycle_start_at=order.paid_at,
+            )
+            assert bucket.effective_to == subscription.current_period_end_at
             assert raw_order.status == 1
             assert raw_order.charge_id == "ch_billing_test"
             assert (
@@ -1890,6 +1902,83 @@ class TestBillingWriteRoutes:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_start_at == paid_at
             assert subscription.current_period_end_at == datetime(2026, 7, 5, 10, 0, 0)
+
+    def test_existing_subscription_grant_realigns_future_dated_cycle_on_replay(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        paid_at = datetime(2026, 4, 15, 13, 10, 37)
+        corrupted_start_at = datetime(2026, 4, 17, 14, 31, 53)
+        corrupted_end_at = datetime(2026, 4, 18, 14, 31, 53)
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-pingxx-start-repair-1",
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=None,
+                current_period_end_at=None,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=paid_at,
+                updated_at=paid_at,
+            )
+            order = BillingOrder(
+                billing_order_bid="billing-pingxx-start-repair-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="billing-product-plan-monthly",
+                subscription_bid="sub-pingxx-start-repair-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=990,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="ch_pingxx_start_repair_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=paid_at,
+                metadata_json={},
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            initial_grant = grant_paid_order_credits(app, order)
+            subscription.current_period_start_at = corrupted_start_at
+            subscription.current_period_end_at = corrupted_end_at
+            subscription.updated_at = corrupted_start_at
+            dao.db.session.add(subscription)
+            dao.db.session.commit()
+
+            replay_grant = grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            product = BillingProduct.query.filter_by(
+                product_bid="billing-product-plan-monthly"
+            ).one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="billing-pingxx-start-repair-1",
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-pingxx-start-repair-1"
+            ).one()
+
+            assert initial_grant is True
+            assert replay_grant is False
+            assert bucket.effective_from == paid_at
+            assert bucket.effective_to == calculate_billing_cycle_end(
+                product,
+                cycle_start_at=paid_at,
+            )
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.current_period_start_at == bucket.effective_from
+            assert subscription.current_period_end_at == bucket.effective_to
 
     def test_refund_paid_stripe_order_marks_order_refunded(
         self, billing_write_client

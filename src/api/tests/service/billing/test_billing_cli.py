@@ -136,6 +136,49 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
 
 
+def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-subscription-cycle"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Pass --creator-bid or --subscription-bid for subscription cycle repair."
+        in result.output
+    )
+
+
+def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_subscription_cycle_mismatches",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "repaired_subscription_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-subscription-cycle",
+            "--creator-bid",
+            "creator-cli-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+
+
 def test_billing_reconcile_order_cli_prints_helper_payload(
     billing_cli_runner,
     monkeypatch: pytest.MonkeyPatch,
