@@ -17,7 +17,10 @@ import { BookOpen, Check, Headphones, Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
-import { LEARNING_MODE_OPTIONS } from './learningModeOptions';
+import {
+  getLearningModeLabel,
+  LEARNING_MODE_OPTIONS,
+} from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
 
 export const ChatMobileHeader = ({
@@ -117,7 +120,7 @@ export const ChatMobileHeader = ({
                       strokeWidth={2}
                       className='text-neutral-500'
                     />
-                    <span>{t(option.labelKey)}</span>
+                    <span>{getLearningModeLabel(t, option.mode)}</span>
                     {option.mode === 'listen' ? (
                       <HeaderBetaBadge variant='inline' />
                     ) : null}

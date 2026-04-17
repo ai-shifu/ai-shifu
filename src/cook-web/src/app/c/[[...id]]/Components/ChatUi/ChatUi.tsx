@@ -13,7 +13,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUiLayoutStore } from '@/c-store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
-import { LEARNING_MODE_LABEL_KEYS } from '../learningModeOptions';
+import { getLearningModeLabel } from '../learningModeOptions';
 import HeaderBetaBadge from '../HeaderBetaBadge';
 
 interface ChatUiProps {
@@ -122,7 +122,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{t(LEARNING_MODE_LABEL_KEYS.listen)}</span>
+                  <span>{getLearningModeLabel(t, 'listen')}</span>
                 </button>
                 <button
                   type='button'
@@ -136,7 +136,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{t(LEARNING_MODE_LABEL_KEYS.read)}</span>
+                  <span>{getLearningModeLabel(t, 'read')}</span>
                 </button>
               </div>
             ) : null}
