@@ -1,3 +1,11 @@
+---
+title: Teacher Analytics Dashboard (v1)
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Teacher Analytics Dashboard (v1)
 
 ## Background

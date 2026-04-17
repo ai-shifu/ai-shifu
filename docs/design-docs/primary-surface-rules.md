@@ -1,3 +1,11 @@
+---
+title: Primary Surface Rules Completion
+status: implemented
+owner_surface: repo
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Primary Surface Rules Completion
 
 ## Summary
@@ -74,4 +82,4 @@ baseline handbook.
 
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/check_ai_collab_docs.py`
-- `pre-commit run --files .github/AGENTS.md docker/AGENTS.md scripts/AGENTS.md docs/primary-surface-rules.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .cursor/rules/*.mdc .github/instructions/*.instructions.md .github/CLAUDE.md docker/CLAUDE.md scripts/CLAUDE.md`
+- `pre-commit run --files .github/AGENTS.md docker/AGENTS.md scripts/AGENTS.md docs/design-docs/primary-surface-rules.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .cursor/rules/*.mdc .github/instructions/*.instructions.md .github/CLAUDE.md docker/CLAUDE.md scripts/CLAUDE.md`

@@ -35,4 +35,4 @@ This repository includes a small set of scripts focused on internationalization 
 
 Notes
 - Legacy allowlists for unused/missing translations have been removed; CI enforces clean state by default.
-- See `docs/i18n.md` for the complete i18n workflow and conventions.
+- See `docs/references/i18n.md` for the complete i18n workflow and conventions.

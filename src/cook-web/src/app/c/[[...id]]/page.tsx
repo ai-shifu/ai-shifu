@@ -622,6 +622,7 @@ export default function ChatPage() {
 
   return (
     <div
+      data-testid='course-chat-page'
       className={clsx(
         styles.newChatPage,
         isListenMode ? styles.listenMode : '',

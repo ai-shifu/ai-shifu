@@ -54,11 +54,14 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 
 ## Commands
 
-- `python scripts/check_ai_collab_docs.py` validates the AI-doc ownership and
-  generated-file model after doc-tooling changes.
+- `python scripts/check_repo_harness.py` validates the AI-doc ownership,
+  knowledge metadata, and generated-file model after doc-tooling changes.
 
 - `python scripts/generate_ai_collab_docs.py` regenerates the derived AI-doc
   mirrors after AI instruction or generator changes.
+
+- `python scripts/build_repo_knowledge_index.py` regenerates the knowledge
+  indexes and generated document inventory.
 
 - `python scripts/check_translations.py && python scripts/check_translation_usage.py --fail-on-unused`
   is the shared translation validation pass after translation-tooling changes.
@@ -77,7 +80,7 @@ under `scripts/`, including translation utilities and AI-doc tooling.
   and locale-metadata checks in the same task.
 
 - When AI-doc generation or validation scripts change, regenerate docs, rerun
-  `python scripts/check_ai_collab_docs.py`, and run focused pre-commit on the
+  `python scripts/check_repo_harness.py`, and run focused pre-commit on the
   touched files.
 
 ## Related Skills

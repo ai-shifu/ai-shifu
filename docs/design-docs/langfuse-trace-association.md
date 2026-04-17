@@ -1,3 +1,11 @@
+---
+title: Langfuse Trace Association
+status: implemented
+owner_surface: backend
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Langfuse Trace Association
 
 ## Background

@@ -1,3 +1,11 @@
+---
+title: Dashboard Entry Page (v2) Technical Design
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Dashboard Entry Page (v2) Technical Design
 
 ## Goal

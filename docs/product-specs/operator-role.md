@@ -1,3 +1,11 @@
+---
+title: Operator Role Design
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Operator Role Design
 
 ## Context

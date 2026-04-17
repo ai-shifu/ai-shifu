@@ -1,3 +1,11 @@
+---
+title: Operator Course Detail Page
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 ## Operator Course Detail Page
 
 ### Goal

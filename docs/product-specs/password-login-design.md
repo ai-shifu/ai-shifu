@@ -1,3 +1,11 @@
+---
+title: Password Login Feature Design
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Password Login Feature Design
 
 ## 1. Overview

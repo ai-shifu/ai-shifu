@@ -1,3 +1,11 @@
+---
+title: AI Doc Generator Shrink And Baseline Restoration
+status: implemented
+owner_surface: repo
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # AI Doc Generator Shrink And Baseline Restoration
 
 ## Summary

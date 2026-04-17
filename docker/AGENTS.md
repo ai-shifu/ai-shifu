@@ -84,7 +84,7 @@ environment examples.
   were not exercised locally.
 
 - When only Docker-side docs or AI instructions change, run
-  `python scripts/check_ai_collab_docs.py` and note that containers were not
+  `python scripts/check_repo_harness.py` and note that containers were not
   started.
 
 ## Related Skills

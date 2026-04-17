@@ -1,3 +1,11 @@
+---
+title: Operator Course Visit Analytics
+status: implemented
+owner_surface: shared
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 ## Operator Course Visit Analytics
 
 ### Goal
@@ -395,7 +403,7 @@ If there is no new product decision, implement exactly this:
 If a future task references this design, use this prompt:
 
 > Implement the operator course visit metric according to
-> `docs/operator-course-visit-analytics.md`: add a dedicated Umami
+> `docs/product-specs/operator-course-visit-analytics.md`: add a dedicated Umami
 > `course_visit` event with `shifu_bid`, sync exact rolling 30-day visitor data
 > into backend-owned analytics tables, and expose `visit_count_30d` in the
 > operator course detail metrics before learner count.

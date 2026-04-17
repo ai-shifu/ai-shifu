@@ -16,5 +16,6 @@ applyTo: "AGENTS.md,CLAUDE.md,SKILL.md,.claude/**/*.md,.cursor/rules/**/*.mdc,.g
   parallel instruction files in the same change.
 
 - Run `python scripts/generate_ai_collab_docs.py` and
-  `python scripts/check_ai_collab_docs.py` after modifying shared AI
-  collaboration guidance.
+  `python scripts/check_repo_harness.py` after modifying shared AI
+  collaboration guidance, and regenerate knowledge indexes when the docs
+  structure moves.

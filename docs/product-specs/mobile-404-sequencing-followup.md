@@ -1,3 +1,11 @@
+---
+title: Mobile 404 Follow-up: Sequencing Improvement Plan
+status: implemented
+owner_surface: frontend
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # Mobile 404 Follow-up: Sequencing Improvement Plan
 
 ## Background

@@ -1,3 +1,11 @@
+---
+title: AI Tool Compatibility Layer Design
+status: implemented
+owner_surface: repo
+last_reviewed: 2026-04-17
+canonical: true
+---
+
 # AI Tool Compatibility Layer Design
 
 ## Summary
