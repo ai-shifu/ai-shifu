@@ -48,10 +48,10 @@
 }
 .navDrawerWrapper.mobile {
   position: fixed;
-  top: 58px;
+  top: 48px;
   left: 0;
   width: 100%;
-  height: calc(var(--app-viewport-block-unit, 1dvh) * 100 - 58px);
+  height: calc(var(--app-viewport-block-unit, 1dvh) * 100 - 48px);
   display: block;
   z-index: 20;
 }

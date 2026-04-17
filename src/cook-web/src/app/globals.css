@@ -136,6 +136,7 @@ body.listen-mode-vh-fallback #root {
   strong {
     color: var(--primary);
   }
+  custom-button-after-content,
   .content-render-custom-button-after-content {
     width: 58px;
     height: 20px;
@@ -150,6 +151,15 @@ body.listen-mode-vh-fallback #root {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     background-color: rgba(26, 104, 235, var(--tw-bg-opacity, 1));
     color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
+  }
+  custom-button-after-content img,
+  .content-render-custom-button-after-content img {
+    flex-shrink: 0;
+  }
+  custom-button-after-content span,
+  .content-render-custom-button-after-content span {
+    color: inherit;
+    white-space: nowrap;
   }
 }
 

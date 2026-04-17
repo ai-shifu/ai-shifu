@@ -332,6 +332,10 @@ class AudioSegmentDTO(BaseModel):
     is_final: bool = Field(
         default=False, description="Whether this is the last segment"
     )
+    subtitle_cues: List["SubtitleCueDTO"] = Field(
+        default_factory=list,
+        description="Subtitle cues available up to the current streamed segment",
+    )
 
     def __init__(
         self,
@@ -343,6 +347,7 @@ class AudioSegmentDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
+        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
     ):
         super().__init__(
             position=position,
@@ -353,6 +358,7 @@ class AudioSegmentDTO(BaseModel):
             audio_data=audio_data,
             duration_ms=duration_ms,
             is_final=is_final,
+            subtitle_cues=subtitle_cues or [],
         )
 
     def __json__(self):
@@ -369,6 +375,8 @@ class AudioSegmentDTO(BaseModel):
             ret["stream_element_type"] = self.stream_element_type
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
+        if self.subtitle_cues:
+            ret["subtitle_cues"] = [cue.__json__() for cue in self.subtitle_cues]
         return ret
 
 
@@ -393,6 +401,10 @@ class AudioCompleteDTO(BaseModel):
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
+    subtitle_cues: List["SubtitleCueDTO"] = Field(
+        default_factory=list,
+        description="Subtitle cue list aligned with synthesized TTS segments",
+    )
 
     def __init__(
         self,
@@ -403,6 +415,7 @@ class AudioCompleteDTO(BaseModel):
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
+        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
     ):
         super().__init__(
             position=position,
@@ -412,6 +425,7 @@ class AudioCompleteDTO(BaseModel):
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
+            subtitle_cues=subtitle_cues or [],
         )
 
     def __json__(self):
@@ -427,6 +441,8 @@ class AudioCompleteDTO(BaseModel):
             ret["stream_element_type"] = self.stream_element_type
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
+        if self.subtitle_cues:
+            ret["subtitle_cues"] = [cue.__json__() for cue in self.subtitle_cues]
         return ret
 
 
@@ -443,6 +459,44 @@ class ElementVisualDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class SubtitleCueDTO(BaseModel):
+    text: str = Field(..., description="Cue text", required=False)
+    start_ms: int = Field(..., description="Cue start in ms", required=False)
+    end_ms: int = Field(..., description="Cue end in ms", required=False)
+    segment_index: int = Field(
+        ..., description="TTS segment index for this cue", required=False
+    )
+    position: int = Field(
+        default=0, description="Audio position within the block", required=False
+    )
+
+    def __init__(
+        self,
+        text: str,
+        start_ms: int,
+        end_ms: int,
+        segment_index: int,
+        position: int = 0,
+    ):
+        super().__init__(
+            text=text or "",
+            start_ms=int(start_ms or 0),
+            end_ms=int(end_ms or 0),
+            segment_index=int(segment_index or 0),
+            position=int(position or 0),
+        )
+
+    def __json__(self):
+        return {
+            "text": self.text or "",
+            "start_ms": int(self.start_ms or 0),
+            "end_ms": int(self.end_ms or 0),
+            "segment_index": int(self.segment_index or 0),
+            "position": int(self.position or 0),
+        }
+
+
+@register_schema_to_swagger
 class ElementAudioDTO(BaseModel):
     position: int = Field(
         default=0, description="Audio position within the element", required=False
@@ -450,6 +504,11 @@ class ElementAudioDTO(BaseModel):
     audio_url: str = Field(..., description="Audio URL", required=False)
     audio_bid: str = Field(..., description="Audio business identifier", required=False)
     duration_ms: int = Field(..., description="Audio duration in ms", required=False)
+    subtitle_cues: List[SubtitleCueDTO] = Field(
+        default_factory=list,
+        description="Subtitle cue list aligned with the final audio",
+        required=False,
+    )
 
     def __init__(
         self,
@@ -457,21 +516,26 @@ class ElementAudioDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
+        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
     ):
         super().__init__(
             position=position,
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
+            subtitle_cues=subtitle_cues or [],
         )
 
     def __json__(self):
-        return {
+        ret = {
             "position": int(self.position or 0),
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": int(self.duration_ms or 0),
         }
+        if self.subtitle_cues:
+            ret["subtitle_cues"] = [cue.__json__() for cue in self.subtitle_cues]
+        return ret
 
 
 @register_schema_to_swagger

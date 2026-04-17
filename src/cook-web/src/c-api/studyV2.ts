@@ -95,8 +95,21 @@ export const LESSON_FEEDBACK_VARIABLE_NAME =
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
+export interface SubtitleCueData {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  segment_index?: number;
+  position?: number;
+}
+
+export interface StudyRecordAudioPayload {
+  subtitle_cues?: SubtitleCueData[];
+  [key: string]: unknown;
+}
+
 export interface StudyRecordPayload {
-  audio?: unknown;
+  audio?: StudyRecordAudioPayload;
   previous_visuals?: unknown[];
   user_input?: string;
   [key: string]: unknown;
@@ -218,17 +231,6 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
-const getListenFlagFromPageUrl = (): boolean => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const listenParam = new URLSearchParams(window.location.search).get('listen');
-  return (
-    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
-  );
-};
-
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -243,7 +245,7 @@ export const getRunMessage = (
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
-  payload.listen = getListenFlagFromPageUrl();
+  payload.listen = Boolean(body.listen);
 
   const baseURL = getResolvedBaseURL();
 
@@ -368,7 +370,7 @@ export const getLessonStudyRecord = async ({
     .get(
       `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
     )
-    .catch(error => {
+    .catch(() => {
       // when error, return empty records, go run api
       return {
         elements: [],

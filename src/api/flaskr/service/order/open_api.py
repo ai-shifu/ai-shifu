@@ -12,6 +12,7 @@ from flaskr.service.order.admin import (
     import_activation_order,
     normalize_contact_identifier,
 )
+from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -78,22 +79,25 @@ def open_api_grant_order(
     returned without creating a duplicate.  If the user does not yet exist,
     a new account is created via import_activation_order.
     """
-    with app.app_context():
-        verify_course_ownership(app, owner_bid, shifu_bid)
+    verify_course_ownership(app, owner_bid, shifu_bid)
 
-        normalized = normalize_contact_identifier(user_identify, user_identify_type)
-        aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[user_identify_type]
-        )
-        if aggregate:
-            existing_order = _find_active_order(aggregate.user_bid, shifu_bid)
-            if existing_order:
-                return {"order_bid": existing_order.order_bid}
+    normalized = normalize_contact_identifier(user_identify, user_identify_type)
+    aggregate = load_user_aggregate_by_identifier(
+        normalized, providers=[user_identify_type]
+    )
+    if aggregate:
+        existing_order = _find_active_order(aggregate.user_bid, shifu_bid)
+        if existing_order:
+            return {"order_bid": existing_order.order_bid}
 
-        result = import_activation_order(
-            app, user_identify, shifu_bid, contact_type=user_identify_type
-        )
-        return result
+    result = import_activation_order(
+        app,
+        user_identify,
+        shifu_bid,
+        contact_type=user_identify_type,
+        payment_channel="open_api",
+    )
+    return result
 
 
 def open_api_revoke_order(
@@ -104,20 +108,20 @@ def open_api_revoke_order(
     user_identify_type: str = "phone",
 ) -> Dict[str, Any]:
     """Revoke course access by setting order status to REFUND (503)."""
-    with app.app_context():
-        verify_course_ownership(app, owner_bid, shifu_bid)
-        normalized = normalize_contact_identifier(user_identify, user_identify_type)
+    verify_course_ownership(app, owner_bid, shifu_bid)
+    normalized = normalize_contact_identifier(user_identify, user_identify_type)
 
-        aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[user_identify_type]
-        )
-        if not aggregate:
-            raise_error("server.openapi.noActiveAuthorization")
+    aggregate = load_user_aggregate_by_identifier(
+        normalized, providers=[user_identify_type]
+    )
+    if not aggregate:
+        raise_error("server.openapi.noActiveAuthorization")
 
-        order = _find_active_order(aggregate.user_bid, shifu_bid)
-        if not order:
-            raise_error("server.openapi.noActiveAuthorization")
+    order = _find_active_order(aggregate.user_bid, shifu_bid)
+    if not order:
+        raise_error("server.openapi.noActiveAuthorization")
 
-        order.status = ORDER_STATUS_REFUND
-        db.session.commit()
-        return {"order_bid": order.order_bid, "status": "revoked"}
+    order.status = ORDER_STATUS_REFUND
+    db.session.commit()
+    send_revoke_feishu(app, order.order_bid, user_identify)
+    return {"order_bid": order.order_bid, "status": "revoked"}

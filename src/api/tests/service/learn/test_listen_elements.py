@@ -4167,6 +4167,131 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app):
         ]
 
 
+def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioSegmentDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-stream-segment-subtitles"
+    shifu_bid = "shifu-stream-segment-subtitles"
+    outline_bid = "outline-stream-segment-subtitles"
+    progress_bid = "progress-stream-segment-subtitles"
+    generated_block_bid = "generated-stream-segment-subtitles"
+
+    with app.app_context():
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-stream-segment-subtitles",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Narration subtitle stream.\n",
+            ).set_mdflow_stream_parts([("Narration subtitle stream.\n", "text", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    stream_element_number=1,
+                    stream_element_type="text",
+                    segment_index=0,
+                    audio_data="segment-0",
+                    duration_ms=180,
+                    is_final=False,
+                    subtitle_cues=[
+                        {
+                            "text": "Narration subtitle stream.",
+                            "start_ms": 0,
+                            "end_ms": 180,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                ),
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        text_events = [
+            item.content
+            for item in streamed
+            if item.type == "element" and item.content.element_type == ElementType.TEXT
+        ]
+
+        assert len(text_events) == 2
+        segment_patch = text_events[-1]
+        assert segment_patch.payload is not None
+        assert segment_patch.payload.audio is not None
+        assert [cue.text for cue in segment_patch.payload.audio.subtitle_cues] == [
+            "Narration subtitle stream."
+        ]
+        assert segment_patch.payload.audio.duration_ms == 180
+        assert segment_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": False,
+                "subtitle_cues": [
+                    {
+                        "text": "Narration subtitle stream.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]
+
+
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
     _require_app(app)
 

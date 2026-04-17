@@ -23,6 +23,7 @@ import {
   type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
+  type StudyRecordPayload,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -120,6 +121,7 @@ export interface ChatContentItem {
   is_speakable?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  payload?: StudyRecordPayload;
 }
 
 interface SSEParams {
@@ -133,10 +135,10 @@ export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
   lessonId: string;
-  lessonStatus?: string;
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
+  listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, elementBid: string) => void;
@@ -193,10 +195,10 @@ function useChatLogicHook({
   onGoChapter,
   outlineBid,
   lessonId,
-  lessonStatus = '',
   chapterId,
   previewMode,
   isListenMode = false,
+  listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
   chatBoxBottomRef,
@@ -212,7 +214,6 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
-  const isCompletedLesson = lessonStatus === LESSON_STATUS_VALUE.COMPLETED;
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -1154,7 +1155,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: isListenMode },
+        { ...sseParams, listen: listenRequestEnabled },
         async response => {
           if (
             sseRef.current !== source ||
@@ -1237,13 +1238,15 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-              if (isEnd) {
-                return;
-              }
-
               const elementRecord = response.content as StudyRecordItem;
               const itemBid = resolveElementItemBid(elementRecord);
               const elementType = resolveRecordElementType(elementRecord);
+
+              // Lesson completion updates can be emitted before the trailing
+              // interaction controls, so keep those final interaction markers.
+              if (isEnd && elementType !== ELEMENT_TYPE.INTERACTION) {
+                return;
+              }
 
               if (!itemBid) {
                 return;
@@ -1634,6 +1637,7 @@ function useChatLogicHook({
       chapterUpdate,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -1808,9 +1812,8 @@ function useChatLogicHook({
           setLoadedChapterId(chapterId);
         }
         if (
-          !isCompletedLesson &&
           recordResp.elements[recordResp.elements.length - 1].element_type !==
-            ELEMENT_TYPE.INTERACTION
+          ELEMENT_TYPE.INTERACTION
           //   ||
           // recordResp.elements[recordResp.elements.length - 1].element_type ===
           //   BLOCK_TYPE.ERROR
@@ -1821,13 +1824,11 @@ function useChatLogicHook({
           });
         }
       } else {
-        if (!isCompletedLesson) {
-          runRef.current?.({
-            input: '',
-            input_type: SSE_INPUT_TYPE.NORMAL,
-          });
-        }
-        if (!effectivePreviewMode && !isCompletedLesson) {
+        runRef.current?.({
+          input: '',
+          input_type: SSE_INPUT_TYPE.NORMAL,
+        });
+        if (!effectivePreviewMode) {
           trackEvent('learner_lesson_start', {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
@@ -1850,7 +1851,6 @@ function useChatLogicHook({
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
-    isCompletedLesson,
     // lessonId,
     effectivePreviewMode,
     trackEvent,
@@ -2581,7 +2581,7 @@ function useChatLogicHook({
           shifu_bid: shifuBid,
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
-          listen: isListenMode,
+          listen: listenRequestEnabled,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
@@ -2640,6 +2640,7 @@ function useChatLogicHook({
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       matchItemBid,
       resolveSourceGeneratedBlockBid,
       setTrackedContentList,

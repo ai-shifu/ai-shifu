@@ -6,6 +6,10 @@
   "detail": {
     "back": "Back to list",
     "basicInfo": "Basic Info",
+    "boolean": {
+      "no": "No",
+      "yes": "Yes"
+    },
     "chapterType": {
       "chapter": "Ch.",
       "lesson": "Sec."
@@ -68,9 +72,54 @@
       "learnerCount": "Learners",
       "orderAmount": "Gross Revenue",
       "orderCount": "Orders",
-      "ratingScore": "Rating"
+      "ratingScore": "Rating",
+      "visitCount30d": "Visitors (30d)"
     },
     "title": "Course Detail",
+    "userLearningStatus": {
+      "completed": "Completed",
+      "learning": "Learning",
+      "notStarted": "Not Started"
+    },
+    "userRole": {
+      "creator": "Creator",
+      "normal": "General User",
+      "operator": "Operator",
+      "student": "Student"
+    },
+    "users": "Users",
+    "usersCount": "{count} course users",
+    "usersDescription": "Review course-related users, their learning progress, payment status, and recent activity.",
+    "usersFilters": {
+      "all": "All",
+      "learningStatus": "Learning Status",
+      "paymentPaid": "Paid",
+      "paymentStatus": "Payment",
+      "paymentUnpaid": "Unpaid",
+      "userKeyword": "User Search",
+      "userKeywordPlaceholder": "Search by user ID, phone, email, or nickname",
+      "userKeywordPlaceholderEmail": "Search by user ID, email, or nickname",
+      "userKeywordPlaceholderPhone": "Search by user ID, phone, or nickname",
+      "userRole": "User Role"
+    },
+    "usersTable": {
+      "account": "Phone / Email",
+      "accountEmail": "Email",
+      "accountPhone": "Phone",
+      "action": "Action",
+      "detailAction": "Detail",
+      "empty": "No user data",
+      "isPaid": "Paid",
+      "joinedAt": "Joined",
+      "lastLearnedAt": "Last Learned",
+      "lastLoginAt": "Last Login",
+      "learningProgress": "Progress",
+      "learningStatus": "Learning Status",
+      "nickname": "Nickname",
+      "totalPaidAmount": "Paid Amount",
+      "userId": "User ID",
+      "userRole": "User Role"
+    },
     "visibility": {
       "hidden": "Hidden",
       "visible": "Visible"

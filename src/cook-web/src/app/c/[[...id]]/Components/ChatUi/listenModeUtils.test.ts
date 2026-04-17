@@ -1,8 +1,16 @@
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
   canRequestListenModeTtsForItem,
+  resolveListenSlideSubtitleCues,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
+
+type ChatContentItem = NonNullable<
+  Parameters<typeof canRequestListenModeTtsForItem>[0]
+>;
+
+const ChatContentItemType = {
+  LIKE_STATUS: 'likeStatus',
+} as const;
 
 const createContentItem = (
   overrides: Partial<ChatContentItem> = {},
@@ -19,7 +27,7 @@ const createLikeStatusItem = (
 ): ChatContentItem => ({
   element_bid: '',
   parent_element_bid: parentElementBid,
-  type: ChatContentItemType.LIKE_STATUS,
+  type: ChatContentItemType.LIKE_STATUS as ChatContentItem['type'],
   ...overrides,
 });
 
@@ -75,5 +83,53 @@ describe('listenModeUtils', () => {
 
     expect(ready.has('speakable-block')).toBe(true);
     expect(ready.has('visual-only-block')).toBe(false);
+  });
+
+  it('maps payload subtitle cues into normalized slide metadata', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        payload: {
+          audio: {
+            subtitle_cues: [
+              {
+                text: '第二句',
+                start_ms: 1200,
+                end_ms: 1800,
+                segment_index: 1,
+                position: 0,
+              },
+              {
+                text: '第一句',
+                start_ms: 0,
+                end_ms: 1200,
+                position: 0,
+              },
+              {
+                text: '',
+                start_ms: 1800,
+                end_ms: 2400,
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: '第一句',
+        start_ms: 0,
+        end_ms: 1200,
+        segment_index: 0,
+        position: 0,
+      },
+      {
+        text: '第二句',
+        start_ms: 1200,
+        end_ms: 1800,
+        segment_index: 1,
+        position: 0,
+      },
+    ]);
   });
 });
