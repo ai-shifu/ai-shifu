@@ -842,6 +842,37 @@ class TestBillingRoutes:
             == "2026-04-01T00:00:00+00:00"
         )
 
+    def test_wallet_buckets_return_runtime_expired_status_before_expire_task_runs(
+        self,
+        billing_test_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class _FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                current = cls(2026, 5, 1, 12, 0, 0)
+                if tz is not None:
+                    return current.replace(tzinfo=tz)
+                return current
+
+        monkeypatch.setattr(
+            "flaskr.service.billing.serializers.datetime",
+            _FixedDateTime,
+        )
+
+        payload = billing_test_client.get("/api/billing/wallet-buckets").get_json(
+            force=True
+        )
+
+        bucket_map = {
+            item["wallet_bucket_bid"]: item for item in payload["data"]["items"]
+        }
+
+        assert payload["code"] == 0
+        assert bucket_map["bucket-free"]["status"] == "expired"
+        assert bucket_map["bucket-subscription"]["status"] == "expired"
+        assert bucket_map["bucket-topup"]["status"] == "active"
+
     def test_billing_public_builders_return_dto_instances(
         self,
         billing_test_client,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from flask import Flask
@@ -374,6 +375,14 @@ def serialize_wallet_bucket(
     *,
     timezone_name: str | None = None,
 ) -> BillingWalletBucketDTO:
+    runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
+    if (
+        runtime_status == "active"
+        and row.effective_to is not None
+        and row.effective_to <= datetime.now()
+    ):
+        runtime_status = "expired"
+
     category_code = resolve_wallet_bucket_runtime_category(
         row,
         load_order_type=load_billing_order_type_by_bid,
@@ -396,7 +405,7 @@ def serialize_wallet_bucket(
             timezone_name=timezone_name,
         ),
         priority=resolve_credit_bucket_priority(category_code),
-        status=CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active"),
+        status=runtime_status,
     )
 
 

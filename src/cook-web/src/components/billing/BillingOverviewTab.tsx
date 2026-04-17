@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
@@ -9,7 +9,10 @@ import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import {
+  BILLING_WALLET_BUCKETS_SWR_KEY,
+  useBillingOverview,
+} from '@/hooks/useBillingData';
 import type {
   BillingAlert,
   BillingCheckoutResult,
@@ -118,7 +121,12 @@ export function BillingOverviewTab({
     open: Boolean(pingxxCheckout),
     billingOrderBid: pingxxCheckout?.billingOrderBid || '',
     onResolved: async result => {
-      await mutateOverview();
+      await Promise.all([
+        mutateOverview(),
+        mutateSWRCache(
+          buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
+        ),
+      ]);
       if (result.status !== 'pending') {
         setPingxxCheckout(null);
       }

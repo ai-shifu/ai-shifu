@@ -5,7 +5,7 @@ import api from '@/api';
 import { toast } from '@/hooks/useToast';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-import useSWR from 'swr';
+import useSWR, { mutate as mutateSWRCache } from 'swr';
 import {
   openBillingCheckoutUrl,
   openBillingPaymentWindow,
@@ -53,11 +53,13 @@ jest.mock('@/api', () => ({
 jest.mock('swr', () => ({
   __esModule: true,
   default: jest.fn(),
+  mutate: jest.fn(),
 }));
 
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
+  BILLING_WALLET_BUCKETS_SWR_KEY: 'billing-wallet-buckets',
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -121,6 +123,7 @@ const mockOpenBillingPaymentWindow = openBillingPaymentWindow as jest.Mock;
 const mockToast = toast as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockUseSWR = useSWR as jest.Mock;
+const mockMutateSWRCache = mutateSWRCache as jest.Mock;
 const mockMutateOverview = jest.fn();
 const DEFAULT_TRIAL_OFFER = {
   enabled: true,
@@ -328,6 +331,7 @@ describe('BillingOverviewTab', () => {
     mockToast.mockReset();
     mockUseBillingOverview.mockReset();
     mockUseSWR.mockReset();
+    mockMutateSWRCache.mockReset();
     mockMutateOverview.mockReset();
 
     mockUseBillingOverview.mockReturnValue({
@@ -1136,6 +1140,10 @@ describe('BillingOverviewTab', () => {
     });
     await waitFor(() => {
       expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+        'Asia/Shanghai',
+      ]);
       expect(
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();
