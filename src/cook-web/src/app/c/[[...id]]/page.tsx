@@ -78,6 +78,9 @@ export default function ChatPage() {
   const { trackEvent } = useTracking();
   const attemptedCourseVisitKeyRef = useRef<string | null>(null);
   const pendingCourseVisitKeyRef = useRef<string | null>(null);
+  const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
+    null,
+  );
 
   /**
    * User info and init part
@@ -330,7 +333,13 @@ export default function ChatPage() {
       return;
     }
 
-    const entryType = urlLessonId ? 'deep_link' : 'catalog';
+    if (!initialCourseVisitEntryTypeRef.current) {
+      initialCourseVisitEntryTypeRef.current = urlLessonId
+        ? 'deep_link'
+        : 'catalog';
+    }
+
+    const entryType = initialCourseVisitEntryTypeRef.current;
     const authState = isLoggedIn ? 'logged_in' : 'guest';
     const visitAttemptKey = `${courseId}:${entryType}:${previewMode ? 'preview' : 'live'}:${authState}`;
 
