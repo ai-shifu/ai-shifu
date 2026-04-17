@@ -360,7 +360,7 @@ export default function ChatPage() {
         if (pendingCourseVisitKeyRef.current === visitAttemptKey) {
           pendingCourseVisitKeyRef.current = null;
         }
-    });
+      });
   }, [
     courseId,
     courseName,
