@@ -56,14 +56,12 @@ v1.1 再补充下列扩展能力：
 | `creator_catalog` | `active` | `GET /api/billing/catalog` | on | 是 | creator 可以查看当前可售套餐和充值包 |
 | `creator_subscription_checkout` | `active` | `/api/billing/overview`、`/subscriptions/checkout`、`/subscriptions/cancel`、`/subscriptions/resume` | on | 是 | 套餐购买、取消、恢复和 overview 当前正式可达 |
 | `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 钱包桶和账本明细当前正式可达 |
-| `creator_orders` | `active` | `GET /api/billing/orders*`、`POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/refund` | on | 是 | creator 订单、topup、sync、refund 当前正式可达 |
-| `creator_entitlements` | `active` | `GET /api/billing/entitlements` | on | 是 | 当前 billing center 已展示 entitlement 快照 |
-| `creator_reports` | `active` | `GET /api/billing/reports/*` | on | 是 | creator usage/ledger 日报表当前已暴露 |
+| `creator_orders` | `active` | `POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/sync`、`POST /api/billing/orders/*/checkout`、`POST /api/billing/orders/*/refund` | on | 是 | creator topup、补单 checkout、sync、refund 当前正式可达 |
 | `admin_subscriptions` | `active` | `GET /api/admin/billing/subscriptions` | on | 是 | admin 订阅审查当前正式可达 |
 | `admin_orders` | `active` | `GET /api/admin/billing/orders` | on | 是 | admin 订单审查当前正式可达 |
 | `admin_ledger_adjust` | `active` | `POST /api/admin/billing/ledger/adjust` | on | 是 | admin 手工账本调整当前正式可达 |
 | `admin_entitlements` | `active` | `GET /api/admin/billing/entitlements` | on | 是 | admin 权益查看当前正式可达 |
-| `admin_domains` | `active` | `GET/POST /api/admin/billing/domain*` | on | 是 | admin 域名绑定和审核当前正式可达 |
+| `admin_domains` | `active` | `GET /api/admin/billing/domain-audits` | on | 是 | admin 域名审核当前正式可达 |
 | `admin_reports` | `active` | `GET /api/admin/billing/reports/*` | on | 是 | admin usage/ledger 报表当前正式可达 |
 | `runtime_billing_extensions` | `active` | `GET /api/config/runtime-config` | on | 否 | runtime config 已返回 billing entitlement/domain 扩展 |
 | `billing_feature_flag` | `default_disabled` | `BILLING_ENABLED` | off | 否 | feature flag seed 默认关闭，代码能力存在 |
@@ -743,9 +741,9 @@ v1 的改造要求：
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
 - 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
 - 当前实现中，trial 产品化与 legacy trial sys-config 移除最初落在 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`；后续完整 billing 产品目录的数据库真源规范化，已收敛到 `src/api/migrations/versions/9a6b3c2d1e4f_canonicalize_billing_product_catalog.py`
-- 当前实现中，creator 侧 `GET /billing/entitlements` 与 entitlement resolver 已落地，优先读取 `billing_entitlements` 的当前快照；若不存在，再回退到订阅商品的 `entitlement_payload`，最后回退到默认权益
+- 当前实现中，creator 侧 entitlement/domain/report 的底层表、resolver、聚合任务与 runtime-config 扩展已落地；但 creator 运行时 `/admin/billing` 仍只保留 `packages` / `details` 两个 tab，不额外暴露独立 entitlements/domains/reports 接口
 - 当前实现中，learn / preview / debug 的 runtime admission 已开始解析 `priority_class` 和 `max_concurrency`，并通过 creator 维度的 Redis slot 计数在 billable work 开始前做并发限流
-- 当前实现中，`POST /admin/billing/domains/bind` 已支持 `bind`、`verify`、`disable` 三种 action；`GET /admin/billing/domain-bindings` 会按 creator 返回当前域名绑定状态、校验 token 和生效状态
+- 当前实现中，admin 域名面已收敛为 `GET /admin/billing/domain-audits` 审核视图；creator 自助 bind / verify / disable 不属于当前 active surface
 - 当前实现中，`billing.verify_domain_binding` task 已复用 `src/api/flaskr/service/billing/domains.py` 的既有 verify flow：可按 `domain_binding_bid` 或 `host` 加载 binding，并在未显式传 `verification_token` 时回退到绑定上已有 token 做后台刷新
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
@@ -1127,10 +1125,9 @@ v1 前端不新建全局 billing store，默认采用：
 - 新增 `src/cook-web/src/app/admin/billing/page.tsx`
 - 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增常驻 `我的会员` 卡片
 - 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增 `会员与积分` 菜单，统一跳转到 `/admin/billing`
-- Billing Center 使用 `Tabs` 拆成三个视图：
+- Billing Center 使用 `Tabs` 拆成两个视图：
   - `套餐与积分`
   - `积分明细`
-  - `付款记录`
 
 页面职责：
 
@@ -1143,12 +1140,8 @@ v1 前端不新建全局 billing store，默认采用：
 - `积分明细`
   - 按需读取 `GET /billing/wallet-buckets`
   - 读取 `GET /billing/ledger`
-  - 展示 bucket 来源摘要、积分流水、来源类型、余额变化、时间筛选
+  - 展示 bucket 来源摘要、积分流水、来源类型、余额变化，以及最近 activity
   - usage 类明细通过右侧 detail sheet 展开
-- `付款记录`
-  - 读取 `GET /billing/orders`
-  - 展示支付单、状态、provider、金额、失败信息
-  - 通过 `GET /billing/orders/{billing_order_bid}` 打开详情抽屉
 
 #### 7.5.2 v1 组件拆分
 
@@ -1156,15 +1149,15 @@ v1 前端不新建全局 billing store，默认采用：
 
 - `BillingSidebarCard.tsx`
 - `BillingAlertsBanner.tsx`
-- `BillingOverviewCard.tsx`
-- `BillingSubscriptionCard.tsx`
-- `BillingCatalogCards.tsx`
-- `BillingWalletBucketsCard.tsx`
-- `BillingLedgerTable.tsx`
+- `BillingOverviewHero.tsx`
+- `BillingOverviewCards.tsx`
+- `BillingOverviewShowcase.tsx`
+- `BillingOverviewTab.tsx`
+- `BillingCreditDetailsPanel.tsx`
+- `BillingRecentActivitySection.tsx`
 - `BillingUsageDetailSheet.tsx`
-- `BillingOrdersTable.tsx`
 - `BillingCheckoutDialog.tsx`
-- `BillingOrderDetailSheet.tsx`
+- `BillingPingxxQrDialog.tsx`
 
 组件约束：
 
@@ -1180,9 +1173,8 @@ v1 前端不新建全局 billing store，默认采用：
 - `getBillingOverview`
 - `getBillingWalletBuckets`
 - `getBillingLedger`
-- `getBillingOrders`
-- `getBillingOrderDetail`
 - `syncBillingOrder`
+- `checkoutBillingOrder`
 - `checkoutBillingSubscription`
 - `cancelBillingSubscription`
 - `resumeBillingSubscription`
@@ -1199,7 +1191,6 @@ v1 前端不新建全局 billing store，默认采用：
 - `BillingWalletBucket`
 - `BillingLedgerItem`
 - `BillingOrderSummary`
-- `BillingOrderDetail`
 - `CreatorBillingOverview`
 - `BillingCheckoutResult`
 
@@ -1207,7 +1198,7 @@ v1 前端不新建全局 billing store，默认采用：
 
 - `getBillingCatalog` 和 `getBillingOverview` 在 `Overview` tab 首屏并行请求
 - `getBillingWalletBuckets` 作为只读明细查询按需加载，不并入 `Overview` 首屏返回
-- `getBillingLedger` 和 `getBillingOrders` 在对应 tab 激活时懒加载
+- `getBillingLedger` 在 `Details` tab 激活时懒加载；order sync / checkout 由 Stripe result、Pingxx polling 和 checkout dialog 按需触发
 - 写操作成功后只刷新受影响的 SWR key，不全页硬刷新
 
 #### 7.5.4 Stripe 支付回跳
@@ -1221,7 +1212,7 @@ v1 前端方案：
 - billing result 页职责：
   - 从 query 读取 `billing_order_bid` / `session_id`
   - 先调用 `POST /billing/orders/{billing_order_bid}/sync`
-  - 再读取 `GET /billing/orders/{billing_order_bid}` 或 `GET /billing/overview` 刷新状态
+  - 必要时允许用户重试 sync，并在成功后回跳 `/admin/billing`
   - 成功后跳回 `/admin/billing`
   - 待支付或失败时展示明确状态和重试入口
 
@@ -1235,13 +1226,9 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 当前实现状态：
 
-- `src/cook-web/src/app/admin/billing/page.tsx` 已补齐 6-tab shell：`Plans`、`Ledger`、`Orders`、`Entitlements`、`Domains`、`Reports`
-- `Entitlements` tab 已接入真实数据：复用 `GET /billing/entitlements`
-- `Entitlements` tab 当前展示 priority class、max concurrency、analytics tier、support tier，以及 branding/custom domain 两个 feature gate
-- `Domains` tab 已接入真实数据：复用 `GET /billing/entitlements`、`GET /admin/billing/domain-bindings`、`POST /admin/billing/domains/bind`
-- `Domains` tab 当前同时展示 runtime-config 生效中的 branding snapshot，以及 creator 侧的 domain bind / verify / disable 交互
-- `Reports` tab 已接入 creator 侧日报表视图：复用 `GET /billing/reports/usage-daily` 与 `GET /billing/reports/ledger-daily`
-- `Reports` tab 当前展示 usage 日汇总与 ledger 日汇总两个 section，按 creator 维度读取最近分页窗口
+- `src/cook-web/src/app/admin/billing/page.tsx` 当前运行时只保留 2-tab shell：`Plans`、`Details`
+- creator 侧 live surface 收敛为 overview checkout、Pingxx polling、Stripe billing result sync，以及 details 页中的 wallet / ledger activity
+- creator 侧 `Orders`、`Entitlements`、`Domains`、`Reports` 扩展 tab 当前不接线，也不宣称为 shipped UI
 - `src/cook-web/src/app/admin/billing/admin/page.tsx` 现已扩展为 6-tab ops console：`Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports`
 - admin `Entitlements` tab 已接入 `GET /admin/billing/entitlements`，查看跨 creator 的有效权益快照
 - admin `Domains` tab 已接入 `GET /admin/billing/domain-audits`，审核跨 creator 的自定义域名状态与 entitlement gate
@@ -1249,15 +1236,11 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 页面职责：
 
-- `Entitlements`
-  - 展示当前权益快照、并发等级、优先级、分析等级、支持等级
-- `Domains`
-  - 展示当前 runtime-config 生效中的品牌配置快照：`logo_wide_url`、`logo_square_url`、`favicon_url`、`home_url`
-  - 展示域名绑定状态、校验 token、最近校验时间、证书状态
-  - 发起域名绑定和重试校验
-  - 停用已绑定域名
-- `Reports`
-  - 展示 usage 日汇总和 ledger 日汇总
+- creator `/admin/billing`
+  - `Plans`：展示 overview、catalog、alerts、checkout 与订单同步入口
+  - `Details`：展示 wallet bucket 明细、ledger activity 与 usage detail sheet
+- admin `/admin/billing/admin`
+  - 保留 `Subscriptions`、`Orders`、`Exceptions`、`Entitlements`、`Domains`、`Reports` 六个 ops tab
 
 #### 7.5.6 i18n 与状态展示
 
@@ -1284,9 +1267,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/overview`
 - `GET /billing/wallet-buckets`
 - `GET /billing/ledger`
-- `GET /billing/orders`
-- `GET /billing/orders/{billing_order_bid}`
 - `POST /billing/orders/{billing_order_bid}/sync`
+- `POST /billing/orders/{billing_order_bid}/checkout`
 - `POST /billing/orders/{billing_order_bid}/refund`
 - `POST /billing/subscriptions/checkout`
 - `POST /billing/subscriptions/cancel`
@@ -1304,9 +1286,8 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/overview`：返回 `wallet`、`subscription`、`billing_alerts`、`trial_offer`，同时支撑 sidebar 会员卡、Billing Center 顶部 summary 和免费试用卡片
 - `GET /billing/wallet-buckets`：按 creator 返回积分来源 bucket 列表，字段至少包括 `category`、`source_type`、`source_bid`、`available_credits`、`effective_from`、`effective_to`、`priority`、`status`，默认按实际扣减顺序排序
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
-- `GET /billing/orders`：creator 自助查看自己的 billing 订单列表
-- `GET /billing/orders/{billing_order_bid}`：creator 查看单笔 billing 订单详情
 - `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
+- `POST /billing/orders/{billing_order_bid}/checkout`：对已创建的待支付订单继续发起 provider checkout
 - `POST /billing/orders/{billing_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
@@ -1319,27 +1300,17 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 ### 8.2 v1.1 扩展 API
 
-- `POST /admin/billing/domains/bind`
-- `GET /admin/billing/domain-bindings`
 - `GET /admin/billing/domain-audits`
 - `GET /admin/billing/entitlements`
 - `GET /admin/billing/reports/usage-daily`
 - `GET /admin/billing/reports/ledger-daily`
-- `GET /billing/entitlements`
-- `GET /billing/reports/usage-daily`
-- `GET /billing/reports/ledger-daily`
 
 扩展接口说明：
 
-- `POST /admin/billing/domains/bind`：统一处理 `bind`、`verify`、`disable` 三种 action；`bind` 生成新的校验 token，`verify` 按 token 刷新 `pending/verified/failed`，`disable` 停用域名
-- `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态，返回 `custom_domain_enabled` 和域名列表
 - `GET /admin/billing/domain-audits`：按后台分页查看跨 creator 的域名绑定审核数据，支持 `creator_bid`、`status`、`page_index`、`page_size`
 - `GET /admin/billing/entitlements`：按后台分页查看跨 creator 的有效权益快照，支持 `creator_bid`、`page_index`、`page_size`
 - `GET /admin/billing/reports/usage-daily`：按后台分页查看跨 creator usage 日汇总，支持 `creator_bid`、`date_from`、`date_to`、`page_index`、`page_size`、`timezone`
 - `GET /admin/billing/reports/ledger-daily`：按后台分页查看跨 creator ledger 日汇总，支持 `creator_bid`、`date_from`、`date_to`、`page_index`、`page_size`、`timezone`
-- `GET /billing/entitlements`：读取 v1.1 扩展权益快照
-- `GET /billing/reports/usage-daily`：按 creator 返回 usage 日汇总分页，支持 `page_index`、`page_size`、`date_from`、`date_to`、`timezone`
-- `GET /billing/reports/ledger-daily`：按 creator 返回 ledger 日汇总分页，支持 `page_index`、`page_size`、`date_from`、`date_to`、`timezone`
 - `GET /api/runtime-config`：在保留现有全局配置字段的同时，追加 `entitlements`、`branding`、`domain` 三个 v1.1 扩展结果；若 branding 命中，会同步覆盖顶层 logo/home 字段以兼容现有前端初始化逻辑
 
 ### 8.3 DTO 投影
