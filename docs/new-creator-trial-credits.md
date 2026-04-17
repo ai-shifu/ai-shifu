@@ -2,8 +2,8 @@
 
 ## Summary
 
-The creator free trial is now a first-class record in `billing_products`
-instead of a runtime sys-config program.
+The creator free trial is now a first-class record in `billing_products`, and
+that table is the only runtime source of truth for the offer.
 
 Business policy stays the same:
 
@@ -23,8 +23,8 @@ creator-consumable category: `topup`.
 ## Product Model
 
 The database-backed catalog keeps a fixed plan product for the trial. Runtime
-reads the product row from `billing_products`; it does not fall back to code
-seeds anymore.
+reads the product row from `billing_products`; it does not fall back to
+`sys_configs` or code seeds anymore.
 
 The canonical row is maintained by migrations:
 
@@ -52,10 +52,10 @@ The system only auto-opens the trial when all guards pass:
 2. `PostAuthContext.creator_granted_now` is `true`
 3. the creator currently has no subscription
 4. no historical trial order or subscription exists for the fixed trial product
-5. no legacy config-era trial ledger exists
+5. no legacy pre-product trial ledger exists
 
 Legacy compatibility is kept only for duplicate prevention. Old users who
-already consumed the config-era trial are reported as `granted` and do not
+already consumed the legacy pre-product trial are reported as `granted` and do not
 receive the productized trial again.
 
 ## Bootstrap Flow

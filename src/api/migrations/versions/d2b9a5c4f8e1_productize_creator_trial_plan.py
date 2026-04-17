@@ -9,7 +9,6 @@ Create Date: 2026-04-15 10:30:00.000000
 from __future__ import annotations
 
 from decimal import Decimal
-import json
 
 from alembic import op
 import sqlalchemy as sa
@@ -50,27 +49,6 @@ _TRIAL_PRODUCT = {
     "deleted": 0,
 }
 
-_LEGACY_TRIAL_CONFIG = {
-    "config_bid": "billing-config-new-creator-trial-config",
-    "key": "BILLING_NEW_CREATOR_TRIAL_CONFIG",
-    "value": json.dumps(
-        {
-            "credit_amount": "100.0000000000",
-            "eligible_registered_after": "",
-            "enabled": 0,
-            "grant_trigger": "billing_overview",
-            "program_code": "new_creator_v1",
-            "valid_days": 15,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    ),
-    "is_encrypted": 0,
-    "remark": "New creator trial credit bootstrap config",
-    "deleted": 0,
-    "updated_by": "system",
-}
-
 
 def upgrade():
     product_table = sa.table(
@@ -94,21 +72,7 @@ def upgrade():
         sa.column("sort_order", sa.Integer()),
         sa.column("deleted", sa.SmallInteger()),
     )
-    config_table = sa.table(
-        "sys_configs",
-        sa.column("config_bid", sa.String(length=36)),
-        sa.column("key", sa.String(length=255)),
-        sa.column("value", sa.Text()),
-        sa.column("is_encrypted", sa.SmallInteger()),
-        sa.column("remark", sa.Text()),
-        sa.column("deleted", sa.SmallInteger()),
-        sa.column("updated_by", sa.String(length=36)),
-    )
-
     op.bulk_insert(product_table, [_TRIAL_PRODUCT])
-    op.execute(
-        config_table.delete().where(config_table.c.key == _LEGACY_TRIAL_CONFIG["key"])
-    )
 
 
 def downgrade():
@@ -117,20 +81,8 @@ def downgrade():
         sa.column("product_bid", sa.String(length=36)),
         sa.column("product_code", sa.String(length=64)),
     )
-    config_table = sa.table(
-        "sys_configs",
-        sa.column("config_bid", sa.String(length=36)),
-        sa.column("key", sa.String(length=255)),
-        sa.column("value", sa.Text()),
-        sa.column("is_encrypted", sa.SmallInteger()),
-        sa.column("remark", sa.Text()),
-        sa.column("deleted", sa.SmallInteger()),
-        sa.column("updated_by", sa.String(length=36)),
-    )
-
     op.execute(
         product_table.delete().where(
             product_table.c.product_bid == _TRIAL_PRODUCT["product_bid"]
         )
     )
-    op.bulk_insert(config_table, [_LEGACY_TRIAL_CONFIG])

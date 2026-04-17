@@ -7,6 +7,8 @@ was promoted to creator during the current request.
 
 This keeps login success independent from billing side effects while avoiding
 the old behavior where existing creators could be re-evaluated on every login.
+The runtime trial definition is read only from the product row in
+`billing_products`.
 
 ## Request Contract
 
@@ -50,7 +52,7 @@ Before creating the trial order, billing verifies:
 1. the user is currently a creator
 2. there is no current creator subscription
 3. there is no historical trial product order or subscription
-4. there is no legacy config-era trial ledger
+4. there is no legacy pre-product trial ledger
 
 Only then does billing create the zero-amount manual order and subscription and
 reuse the normal paid-order grant helpers.
@@ -67,4 +69,4 @@ It reports:
 - legacy grant state from the old ledger-only implementation
 
 This separation keeps all trial mutations in post-auth bootstrap and leaves
-overview as a pure query endpoint.
+overview as a pure query endpoint with no sys-config fallback.
