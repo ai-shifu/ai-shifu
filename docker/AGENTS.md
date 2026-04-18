@@ -61,6 +61,9 @@ environment examples.
 - `cd docker && docker compose -f docker-compose.dev.yml config` validates the
   local-dev compose file after edits.
 
+- `cd docker && docker compose -f docker-compose.dev.yml up -d` should bring up
+  the default app plus observability stack together for Phase 2 harness work.
+
 - `cd docker && docker compose -f docker-compose.latest.yml config` validates
   the freshest-published-image compose file after edits.
 
@@ -82,6 +85,8 @@ environment examples.
 - When startup commands, entrypoints, or mounts change, review the affected
   backend and frontend boot assumptions and note any runtime smoke checks that
   were not exercised locally.
+- When observability services change, verify Grafana, Loki, Tempo, Prometheus,
+  and the OTEL collector all stay internally reachable from the dev stack.
 
 - When only Docker-side docs or AI instructions change, run
   `python scripts/check_repo_harness.py` and note that containers were not

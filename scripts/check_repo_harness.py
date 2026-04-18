@@ -9,6 +9,7 @@ import sys
 from build_repo_knowledge_index import (
     DOCS_ROOT,
     FRONTMATTER_FIELDS,
+    GARDENING_SUMMARY_PATH,
     GENERATED_COMMENT as KNOWLEDGE_GENERATED_COMMENT,
     build_knowledge_docs,
     parse_frontmatter,
@@ -25,6 +26,8 @@ from generate_ai_collab_docs import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
+HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
 MANUAL_AGENTS = {
     ROOT / "AGENTS.md": (
         "ARCHITECTURE.md",
@@ -32,6 +35,7 @@ MANUAL_AGENTS = {
         "docs/engineering-baseline.md",
         "docs/exec-plans/active/",
         "python scripts/check_repo_harness.py",
+        "python scripts/check_architecture_boundaries.py",
     ),
     ROOT / "src" / "api" / "AGENTS.md": (
         "../../ARCHITECTURE.md",
@@ -55,6 +59,11 @@ REQUIRED_ROOT_DOCS = (
     DOCS_ROOT / "RELIABILITY.md",
     DOCS_ROOT / "SECURITY.md",
     DOCS_ROOT / "exec-plans" / "tech-debt-tracker.md",
+    DOCS_ROOT / "design-docs" / "agent-first-harness-phase-2.md",
+    DOCS_ROOT / "references" / "architecture-boundaries.md",
+    BOUNDARY_BASELINE,
+    HARNESS_HEALTH,
+    GARDENING_SUMMARY_PATH,
 )
 REQUIRED_DIRS = (
     DOCS_ROOT / "design-docs",
@@ -79,6 +88,11 @@ README_MARKERS = (
     "references/",
     "exec-plans/active/",
     "generated/",
+)
+REQUIRED_WORKFLOWS = (
+    ROOT / ".github" / "workflows" / "repo-harness.yml",
+    ROOT / ".github" / "workflows" / "runtime-harness.yml",
+    ROOT / ".github" / "workflows" / "harness-gardening.yml",
 )
 
 
@@ -171,6 +185,9 @@ def check_root_docs(errors: list[str]) -> None:
     for path in REQUIRED_DIRS:
         if not path.exists():
             errors.append(f"Missing required docs directory: {path}")
+    for path in REQUIRED_WORKFLOWS:
+        if not path.exists():
+            errors.append(f"Missing required harness workflow: {path}")
 
     readme = DOCS_ROOT / "README.md"
     if readme.exists():
@@ -181,6 +198,19 @@ def check_root_docs(errors: list[str]) -> None:
 
     if (ROOT / "tasks.md").exists():
         errors.append("Repository-root tasks.md is retired and must not exist")
+
+    if BOUNDARY_BASELINE.exists():
+        text = BOUNDARY_BASELINE.read_text(encoding="utf-8")
+        if '"version"' not in text or '"violations"' not in text:
+            errors.append(f"Boundary baseline is malformed: {BOUNDARY_BASELINE}")
+
+    if GARDENING_SUMMARY_PATH.exists():
+        text = GARDENING_SUMMARY_PATH.read_text(encoding="utf-8")
+        if KNOWLEDGE_GENERATED_COMMENT not in text:
+            errors.append(
+                "Harness gardening summary is missing generated marker: "
+                f"{GARDENING_SUMMARY_PATH}"
+            )
 
 
 def check_frontmatter_docs(errors: list[str]) -> None:

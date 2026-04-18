@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 
@@ -19,6 +20,25 @@ FRONTMATTER_FIELDS = (
     "owner_surface",
     "last_reviewed",
     "canonical",
+)
+BOUNDARY_BASELINE_PATH = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
+HARNESS_HEALTH_PATH = DOCS_ROOT / "generated" / "harness-health.md"
+GARDENING_SUMMARY_PATH = DOCS_ROOT / "generated" / "harness-gardening-summary.md"
+REQUIRED_HARNESS_WORKFLOWS = (
+    ROOT / ".github" / "workflows" / "repo-harness.yml",
+    ROOT / ".github" / "workflows" / "runtime-harness.yml",
+    ROOT / ".github" / "workflows" / "harness-gardening.yml",
+)
+REQUIRED_RUNTIME_ASSETS = (
+    ROOT / "scripts" / "check_architecture_boundaries.py",
+    ROOT / "src" / "api" / "scripts" / "harness_diagnostics.py",
+    ROOT / "src" / "cook-web" / "e2e" / "smoke.spec.ts",
+    ROOT / "docker" / "docker-compose.dev.yml",
+    ROOT / "docker" / "observability" / "loki-config.yml",
+    ROOT / "docker" / "observability" / "tempo-config.yml",
+    ROOT / "docker" / "observability" / "prometheus.yml",
+    ROOT / "docker" / "observability" / "promtail-config.yml",
+    ROOT / "docker" / "observability" / "otel-collector-config.yml",
 )
 
 
@@ -207,6 +227,62 @@ def render_inventory(records: list[DocRecord]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def load_boundary_baseline() -> tuple[int, dict[str, int]]:
+    if not BOUNDARY_BASELINE_PATH.exists():
+        return 0, {}
+    payload = json.loads(BOUNDARY_BASELINE_PATH.read_text(encoding="utf-8"))
+    violations = payload.get("violations", [])
+    counts: dict[str, int] = {}
+    for item in violations:
+        rule_id = str(item.get("rule_id", "") or "")
+        if not rule_id:
+            continue
+        counts[rule_id] = counts.get(rule_id, 0) + 1
+    return len(violations), counts
+
+
+def render_harness_health_report(
+    *,
+    design_records: list[DocRecord],
+    product_records: list[DocRecord],
+    reference_records: list[DocRecord],
+    active_plans: list[DocRecord],
+    completed_plans: list[DocRecord],
+) -> str:
+    baseline_count, baseline_breakdown = load_boundary_baseline()
+    lines = [
+        GENERATED_COMMENT,
+        "",
+        "# Harness Health",
+        "",
+        "This generated report summarizes the repository harness control plane.",
+        "",
+        "## Knowledge System",
+        "",
+        f"- Design docs: `{len(design_records)}`",
+        f"- Product specs: `{len(product_records)}`",
+        f"- References: `{len(reference_records)}`",
+        f"- Active ExecPlans: `{len(active_plans)}`",
+        f"- Completed ExecPlans: `{len(completed_plans)}`",
+        "",
+        "## Boundary Baseline",
+        "",
+        f"- Baseline entries: `{baseline_count}`",
+    ]
+    if baseline_breakdown:
+        for rule_id, count in sorted(baseline_breakdown.items()):
+            lines.append(f"- `{rule_id}`: `{count}`")
+    else:
+        lines.append("- No boundary baseline has been recorded yet.")
+
+    lines.extend(["", "## Critical Assets", ""])
+    for path in REQUIRED_RUNTIME_ASSETS + REQUIRED_HARNESS_WORKFLOWS:
+        rel = path.relative_to(ROOT).as_posix()
+        lines.append(f"- {'OK' if path.exists() else 'MISSING'} `{rel}`")
+    lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def build_knowledge_docs() -> dict[Path, str]:
     design_records = build_frontmatter_records(DOCS_ROOT / "design-docs", "design-doc")
     product_records = build_frontmatter_records(
@@ -287,6 +363,24 @@ def build_knowledge_docs() -> dict[Path, str]:
                 last_reviewed="2026-04-17",
                 canonical="true",
             ),
+            DocRecord(
+                path=HARNESS_HEALTH_PATH,
+                title="Harness Health",
+                category="generated-doc",
+                status="reference",
+                owner_surface="repo",
+                last_reviewed="2026-04-17",
+                canonical="true",
+            ),
+            DocRecord(
+                path=GARDENING_SUMMARY_PATH,
+                title="Harness Gardening Summary",
+                category="generated-doc",
+                status="reference",
+                owner_surface="repo",
+                last_reviewed="2026-04-17",
+                canonical="true",
+            ),
         ]
     )
 
@@ -312,6 +406,13 @@ def build_knowledge_docs() -> dict[Path, str]:
         ),
         DOCS_ROOT / "generated" / "doc-inventory.md": render_inventory(
             sorted(all_records, key=lambda record: rel_doc(record.path))
+        ),
+        HARNESS_HEALTH_PATH: render_harness_health_report(
+            design_records=design_records,
+            product_records=product_records,
+            reference_records=reference_records,
+            active_plans=active_plans,
+            completed_plans=completed_plans,
         ),
     }
 

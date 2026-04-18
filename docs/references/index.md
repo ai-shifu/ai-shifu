@@ -4,5 +4,6 @@
 
 Evergreen repository references and operational guides live here.
 
+- [Architecture Boundaries](../references/architecture-boundaries.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [Scripts Overview](../references/scripts.md)

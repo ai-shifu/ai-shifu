@@ -9,9 +9,9 @@ the repository from drifting into inconsistent patterns.
 
 - Convert remaining historical references to the retired `tasks.md` workflow
   into `PLANS.md` / ExecPlan language when those files are next touched.
+- Shrink `docs/generated/architecture-boundary-baseline.json` steadily rather
+  than allowing new frontend/backend drift to accumulate.
+- Keep the default observability-enabled dev stack healthy and revisit only if
+  maintenance cost outweighs debugging leverage.
 - Expand the browser harness only after the three baseline smoke paths stay
   stable in local development.
-- Decouple the failing backend startup migration from runtime service imports
-  so the default Docker dev stack can pass the new smoke suite.
-- Reassess whether a richer local observability stack is justified after the
-  request-id diagnostics workflow has been used on real failures.

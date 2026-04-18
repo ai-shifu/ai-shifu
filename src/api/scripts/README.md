@@ -87,3 +87,8 @@ python scripts/harness_diagnostics.py --request-id <request-id>
 - request id and detection mode (`langfuse-configured` or `local-log-only`)
 - explicit trace-id hints when they appear in logs
 - a bounded excerpt of matching `ai-shifu.log*` lines
+- when the local dev observability stack is reachable, a Loki/Tempo/Prometheus
+  summary plus Grafana explore links for the same request context
+- the default dev harness now boots the API through
+  `scripts/repair_dev_migration_state.py` before rerunning Alembic, so
+  diagnostics can assume the self-healing path is part of normal startup

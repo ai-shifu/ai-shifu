@@ -1,0 +1,19 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yml
+
+clients:
+  - url: http://ai-shifu-loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: ai-shifu-api
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ai-shifu-api
+          source: app-log
+          __path__: /var/log/ai-shifu-api/ai-shifu.log*

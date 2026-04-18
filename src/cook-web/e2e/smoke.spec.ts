@@ -18,6 +18,14 @@ const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
 const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
 const DEFAULT_DEMO_SHIFU_BID =
   process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
+const DEFAULT_GRAFANA_URL =
+  process.env.AI_SHIFU_GRAFANA_URL || 'http://127.0.0.1:3001';
+const DEFAULT_LOKI_URL =
+  process.env.AI_SHIFU_LOKI_URL || 'http://127.0.0.1:3100';
+const DEFAULT_TEMPO_URL =
+  process.env.AI_SHIFU_TEMPO_URL || 'http://127.0.0.1:3200';
+const DEFAULT_PROMETHEUS_URL =
+  process.env.AI_SHIFU_PROMETHEUS_URL || 'http://127.0.0.1:9090';
 
 const createRequestId = (testInfo: TestInfo) =>
   `pw-${Date.now()}-${testInfo.title
@@ -44,6 +52,15 @@ const ensurePhoneLoginVisible = async (page: Page) => {
   await expect(phoneInput).toBeVisible();
   return phoneInput;
 };
+
+const buildObservabilityHints = (requestId: string) => ({
+  grafana: DEFAULT_GRAFANA_URL,
+  loki: DEFAULT_LOKI_URL,
+  tempo: DEFAULT_TEMPO_URL,
+  prometheus: DEFAULT_PROMETHEUS_URL,
+  requestId,
+  diagnosticsCommand: `cd src/api && python scripts/harness_diagnostics.py --request-id ${requestId}`,
+});
 
 const loginWithPhone = async (page: Page, redirectPath: string) => {
   await page.goto(`/login?redirect=${encodeURIComponent(redirectPath)}`);
@@ -177,6 +194,7 @@ test.describe('agent-first smoke harness', () => {
           console: consoleEntries,
           network: networkEntries.slice(-25),
           screenshot: screenshotPath,
+          observability: buildObservabilityHints(lastObservedRequestId),
         },
         null,
         2,

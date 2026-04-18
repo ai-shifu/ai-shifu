@@ -18,6 +18,8 @@ intent, engineering rules, and long-running execution context.
 - `exec-plans/active/`: currently active ExecPlans
 - `exec-plans/completed/`: archived ExecPlans
 - `generated/`: generated indexes and inventory files
+  Includes `doc-inventory.md`, `harness-health.md`, and the committed
+  architecture-boundary baseline.
 
 ## Workflow
 
@@ -25,5 +27,8 @@ intent, engineering rules, and long-running execution context.
 - `PLANS.md` defines the required ExecPlan structure and maintenance rules.
 - Generated knowledge docs are owned by scripts and must not be edited
   manually.
+- Architecture boundary rules live in `references/architecture-boundaries.md`,
+  and the committed baseline is checked by
+  `python scripts/check_architecture_boundaries.py`.
 - Historical flat topic docs are retired; new docs should be placed in the
   directory that matches their ownership and purpose.

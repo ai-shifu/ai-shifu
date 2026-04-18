@@ -18,6 +18,9 @@ alwaysApply: false
   `python scripts/build_repo_knowledge_index.py` after changing
   knowledge-structure docs or metadata.
 
+- Run `python scripts/check_architecture_boundaries.py` after changing the
+  boundary rules reference or committed baseline.
+
 - If a design changes implementation expectations, update the nearest
   `AGENTS.md`, `CLAUDE.md`, and compatibility instruction files when they
   become stale.

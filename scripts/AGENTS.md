@@ -56,6 +56,8 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 
 - `python scripts/check_repo_harness.py` validates the AI-doc ownership,
   knowledge metadata, and generated-file model after doc-tooling changes.
+- `python scripts/check_architecture_boundaries.py` validates the committed
+  frontend/backend boundary baseline and fixture coverage.
 
 - `python scripts/generate_ai_collab_docs.py` regenerates the derived AI-doc
   mirrors after AI instruction or generator changes.
@@ -72,6 +74,8 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 ## Tests
 
 - Run the nearest checker after changing any generator or maintenance script.
+- Run `python scripts/check_architecture_boundaries.py --run-fixture-tests`
+  after changing the boundary checker or its fixture inventory.
 
 - When a script writes tracked files, rerun it and review the resulting diff to
   confirm deterministic output.

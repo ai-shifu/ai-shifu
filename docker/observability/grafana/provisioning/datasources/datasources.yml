@@ -1,0 +1,31 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://ai-shifu-prometheus:9090
+    isDefault: true
+    editable: false
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://ai-shifu-loki:3100
+    editable: false
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://ai-shifu-tempo:3200
+    editable: false
+    jsonData:
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      tracesToLogsV2:
+        datasourceUid: Loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        filterByTraceID: true
+      tracesToMetrics:
+        datasourceUid: Prometheus

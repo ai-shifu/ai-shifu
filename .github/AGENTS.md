@@ -70,6 +70,9 @@ AI compatibility instruction files.
 - `python scripts/check_repo_harness.py` is required when `.github/`
   instruction mirrors or manual AI-doc entry points change.
 
+- `python scripts/check_architecture_boundaries.py` is required when workflow
+  path filters or repo-harness coverage changes affect source ownership.
+
 ## Tests
 
 - Manually review at least one affected workflow for trigger scope, secret
@@ -86,6 +89,9 @@ AI compatibility instruction files.
 - When workflow changes affect backend, frontend, Docker, or scripts paths,
   verify the path filters and changed-file assumptions still match the intended
   automation surface.
+- Keep `repo-harness.yml`, `runtime-harness.yml`, and
+  `harness-gardening.yml` aligned with the actual harness assets they are meant
+  to police.
 
 ## Related Skills
 

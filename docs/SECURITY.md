@@ -8,6 +8,8 @@
   introducing privileged bypasses.
 - Prefer request-id correlation and trace hints over dumping broad logs into
   user-facing outputs.
+- Keep local observability services anonymous or local-only in dev; do not
+  expose them as remote production dependencies.
 
 ## Repository Rules
 
@@ -16,10 +18,12 @@
 - Generated knowledge files must not embed secret values.
 - Diagnostics scripts may surface request-scoped evidence, but they must avoid
   printing unrelated log history when the request id is missing or ambiguous.
+- Local observability compose config may expose loopback-only ports for Grafana,
+  Loki, Tempo, Prometheus, and OTEL, but it must not require committed secrets.
 
 ## Follow-Up Areas
 
-- If a richer observability stack is added later, document credential
-  management and local isolation before enabling it by default.
+- If observability expands beyond local-only dev usage, document access control,
+  retention, and credential handling before widening the scope.
 - If browser smoke coverage expands to authenticated third-party providers,
   provider credentials must stay behind existing configuration layers.

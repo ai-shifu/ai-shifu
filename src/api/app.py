@@ -43,9 +43,12 @@ def create_app() -> Flask:
         supports_credentials=True,
     )
     from flaskr.common import Config, init_log
+    from flaskr.common.observability import init_observability
 
     app.config = Config(app.config, app)
 
+    # init observability before request logging so trace ids are available in logs
+    init_observability(app)
     # init log
     init_log(app)
     app = enable_plugin_manager(app)

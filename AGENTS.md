@@ -49,6 +49,8 @@ to.
   knowledge indexes and the doc inventory.
 - `python scripts/check_repo_harness.py` validates AI-doc ownership, knowledge
   metadata, and generated harness artifacts.
+- `python scripts/check_architecture_boundaries.py` validates the committed
+  frontend/backend boundary baseline and blocks new drift.
 - `pre-commit run -a` is the repository-wide verification gate before a
   commit-sized change lands.
 
@@ -58,6 +60,8 @@ to.
   widen only when the change crosses a shared contract or multiple surfaces.
 - When a task touches only docs or instruction files, at minimum run
   `python scripts/check_repo_harness.py`.
+- When a task changes shared boundaries or introduces new app/service
+  dependencies, run `python scripts/check_architecture_boundaries.py`.
 - When a task touches the browser harness, run `cd src/cook-web && npm run test:e2e`.
 
 ## Related Skills

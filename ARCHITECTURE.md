@@ -30,6 +30,8 @@ validation.
 - `docs/exec-plans/active/`: current complex work tracked as living ExecPlans
 - `docs/exec-plans/completed/`: archived execution plans
 - `docs/generated/`: generated knowledge indexes and inventories
+- `docs/generated/harness-health.md`: generated summary of harness assets and
+  boundary baseline state
 
 ## Runtime Flow
 
@@ -56,5 +58,9 @@ validation.
   chat history or unwritten conventions.
 - Complex work is tracked in ExecPlans, not in ad-hoc branch notes.
 - Generated indexes and validation scripts make drift visible and fail fast.
+- Architecture boundary drift is frozen in a committed baseline and checked by
+  `scripts/check_architecture_boundaries.py`.
 - Browser smoke tests plus request-id diagnostics provide the minimum agent
   validation loop for UI work.
+- The default Docker dev stack now includes local observability services so
+  runtime failures can be correlated across logs, traces, and metrics.

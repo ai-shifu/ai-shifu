@@ -1,0 +1,79 @@
+name: Runtime Harness
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/runtime-harness.yml"
+      - "docker/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/runtime-harness.yml"
+      - "docker/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Start dev stack
+        working-directory: docker
+        run: docker compose -f docker-compose.dev.yml up -d --build
+
+      - name: Wait for API and observability health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5800/health >/dev/null && \
+               curl -fsS http://127.0.0.1:5800/internal/observability/health >/dev/null && \
+               curl -fsS http://127.0.0.1:3100/ready >/dev/null && \
+               curl -fsS http://127.0.0.1:3200/ready >/dev/null && \
+               curl -fsS http://127.0.0.1:9090/-/ready >/dev/null && \
+               curl -fsS http://127.0.0.1:3001/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f docker/docker-compose.dev.yml ps
+          docker compose -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
+          exit 1
+
+      - name: Install frontend dependencies
+        working-directory: src/cook-web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke harness
+        working-directory: src/cook-web
+        run: npm run test:e2e
+
+      - name: Capture compose logs
+        if: always()
+        run: docker compose -f docker/docker-compose.dev.yml logs > runtime-harness.log
+
+      - name: Stop dev stack
+        if: always()
+        run: docker compose -f docker/docker-compose.dev.yml down -v
+
+      - name: Upload runtime harness artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-harness-artifacts
+          path: |
+            src/cook-web/test-results
+            runtime-harness.log

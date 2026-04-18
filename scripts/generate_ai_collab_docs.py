@@ -154,6 +154,8 @@ ROOT_SPEC = DocSpec(
         "frontend verification baseline for shared Cook Web changes.",
         "`python scripts/check_repo_harness.py` validates the repository "
         "harness layout and should stay green after instruction changes.",
+        "`python scripts/check_architecture_boundaries.py` validates the "
+        "committed frontend/backend boundary baseline and blocks new drift.",
     ),
     tests=(
         "Run targeted backend pytest modules under `src/api/tests/` when a change "
@@ -164,6 +166,8 @@ ROOT_SPEC = DocSpec(
         "translation file inventories change.",
         "When a task updates only docs or instruction files, at minimum run the "
         "AI-doc validation script and note that no runtime code changed.",
+        "When a task changes shared dependency flow or boundary policy, run "
+        "`python scripts/check_architecture_boundaries.py` before closing it.",
     ),
     related_skills=(
         "`SKILL.md` is the repository-level skill index and boundary map.",
@@ -1666,6 +1670,8 @@ def build_documents() -> dict[Path, str]:
                 "Regenerate indexes and the document inventory with "
                 "`python scripts/build_repo_knowledge_index.py` after changing "
                 "knowledge-structure docs or metadata.",
+                "Run `python scripts/check_architecture_boundaries.py` after "
+                "changing the boundary rules reference or committed baseline.",
                 "If a design changes implementation expectations, update the "
                 "nearest `AGENTS.md`, `CLAUDE.md`, and compatibility instruction "
                 "files when they become stale.",
@@ -1826,8 +1832,10 @@ def build_documents() -> dict[Path, str]:
                 "update the parallel instruction files in the same change.",
                 "Run `python scripts/generate_ai_collab_docs.py` and "
                 "`python scripts/check_repo_harness.py` after modifying shared "
-                "AI collaboration guidance, and regenerate knowledge indexes "
-                "when the docs structure moves.",
+                "AI collaboration guidance, regenerate knowledge indexes when "
+                "the docs structure moves, and run "
+                "`python scripts/check_architecture_boundaries.py` when shared "
+                "source ownership boundaries change.",
             ),
         ),
         ROOT

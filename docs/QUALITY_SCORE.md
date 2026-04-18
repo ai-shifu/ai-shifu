@@ -10,37 +10,39 @@ governance work can be prioritized mechanically.
 ### repo docs
 
 - Current grade: `B`
-- Gaps: the knowledge layout is being restructured; some historical docs still
-  describe retired workflows.
-- Next action: keep the generated inventory green and convert remaining stale
-  references to ExecPlans.
+- Gaps: the knowledge layout is versioned and indexed, but durable health still
+  depends on scheduled gardening to keep `last_reviewed` data and retired-term
+  cleanup current.
+- Next action: keep the generated inventory and harness health report green, and
+  let the gardening workflow shrink stale references continuously.
 
 ### api
 
-- Current grade: `B`
+- Current grade: `B+`
 - Gaps: strong unit and contract coverage exists, but the default Docker dev
-  stack is currently blocked by a migration import failure before browser
-  smoke flows can reach steady state.
-- Next action: fix the startup migration coupling, then keep
-  `scripts/harness_diagnostics.py` in the standard smoke-failure workflow.
+  stack now depends on a compatibility repair step plus live observability
+  services to keep browser smoke validation stable.
+- Next action: keep the migration repair path self-healing, and keep
+  `scripts/harness_diagnostics.py` plus the local observability stack in the
+  standard smoke-failure workflow.
 
 ### cook-web
 
-- Current grade: `B-`
-- Gaps: route and component tests exist, but browser-driven validation was not
-  previously a standard path.
-- Next action: keep the Playwright smoke suite green and widen it only after
-  the minimum harness loop is stable.
+- Current grade: `B`
+- Gaps: route and component tests exist, but the browser harness still covers
+  only the minimum login, admin, and learner paths.
+- Next action: keep the Playwright smoke suite green under the default dev
+  harness and widen it only after the current three paths stay stable.
 
 ### runtime harness
 
-- Current grade: `C+`
-- Gaps: the repository now defines a browser-plus-log harness and captures
-  request ids plus failure artifacts, but the smoke paths are still red while
-  the backend startup migration failure returns `502` responses.
-- Next action: make the three smoke paths green in the default Docker dev
-  stack, then collect evidence on whether a richer local telemetry stack is
-  worth the extra maintenance cost.
+- Current grade: `B`
+- Gaps: the default dev stack now includes logs, traces, metrics, and browser
+  smoke plumbing, but the ongoing quality bar still depends on keeping the
+  smoke suite green and paying down the committed boundary baseline.
+- Next action: keep the default Docker dev stack healthy, reduce baseline
+  entries incrementally, and widen smoke coverage only after the current paths
+  stay stable.
 
 ### tests
 
