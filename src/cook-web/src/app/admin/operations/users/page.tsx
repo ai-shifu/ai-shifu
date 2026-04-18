@@ -1188,7 +1188,6 @@ export default function AdminOperationUsersPage() {
               prevLabel={t('module.order.paginationPrev', 'Previous')}
               nextLabel={t('module.order.paginationNext', 'Next')}
               className='justify-end w-auto mx-0'
-              hideWhenSinglePage
             />
           </div>
         ) : null}

@@ -2309,7 +2309,6 @@ export default function AdminOperationCourseDetailPage() {
                       prevLabel={t('module.order.paginationPrev', 'Previous')}
                       nextLabel={t('module.order.paginationNext', 'Next')}
                       className='mx-0 w-auto justify-end'
-                      hideWhenSinglePage
                     />
                   </div>
                 ) : null}
