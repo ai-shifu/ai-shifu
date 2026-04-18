@@ -37,6 +37,8 @@ describe('AdminPagination', () => {
     const nextLink = screen.getByRole('link', { name: /next/i });
 
     expect(previousLink).toHaveAttribute('aria-disabled', 'true');
+    expect(previousLink).toHaveAttribute('tabindex', '-1');
+    expect(previousLink).toHaveAttribute('aria-label', 'Previous');
 
     fireEvent.click(previousLink);
     fireEvent.click(nextLink);
@@ -58,10 +60,10 @@ describe('AdminPagination', () => {
 
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '4' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '5' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    const currentPageLink = screen.getByRole('link', { name: '5' });
+    expect(currentPageLink).toHaveAttribute('aria-current', 'page');
+    expect(currentPageLink).toHaveAttribute('tabindex', '-1');
+    expect(currentPageLink).toHaveClass('pointer-events-none');
     expect(screen.getByRole('link', { name: '6' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '10' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '2' })).not.toBeInTheDocument();
@@ -84,6 +86,8 @@ describe('AdminPagination', () => {
     const nextLink = screen.getByRole('link', { name: /next/i });
 
     expect(nextLink).toHaveAttribute('aria-disabled', 'true');
+    expect(nextLink).toHaveAttribute('tabindex', '-1');
+    expect(nextLink).toHaveAttribute('aria-label', 'Next');
 
     fireEvent.click(nextLink);
     fireEvent.click(screen.getByRole('link', { name: '9' }));

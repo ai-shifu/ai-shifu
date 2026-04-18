@@ -17,7 +17,7 @@ const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
-const translationCache = new Map<string, { t: (key: string) => string }>();
+const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 const mockEnvState = {
   currencySymbol: '¥',
   loginMethodsEnabled: ['phone'],
@@ -86,12 +86,12 @@ jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
     const cacheKey = ns || 'translation';
-    if (!translationCache.has(cacheKey)) {
-      translationCache.set(cacheKey, {
+    if (!mockTranslationCache.has(cacheKey)) {
+      mockTranslationCache.set(cacheKey, {
         t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
       });
     }
-    return translationCache.get(cacheKey)!;
+    return mockTranslationCache.get(cacheKey)!;
   },
 }));
 
