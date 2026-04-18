@@ -132,7 +132,9 @@ export function AdminPagination({
                 onClick={handlePageClick(item)}
                 tabIndex={normalizedPageIndex === item ? -1 : undefined}
                 className={
-                  normalizedPageIndex === item ? ACTIVE_LINK_CLASS_NAME : undefined
+                  normalizedPageIndex === item
+                    ? ACTIVE_LINK_CLASS_NAME
+                    : undefined
                 }
               >
                 {item}
@@ -147,7 +149,9 @@ export function AdminPagination({
             onClick={handlePageClick(normalizedPageIndex + 1)}
             aria-disabled={normalizedPageIndex >= normalizedPageCount}
             aria-label={nextLabel}
-            tabIndex={normalizedPageIndex >= normalizedPageCount ? -1 : undefined}
+            tabIndex={
+              normalizedPageIndex >= normalizedPageCount ? -1 : undefined
+            }
             className={
               normalizedPageIndex >= normalizedPageCount
                 ? DISABLED_LINK_CLASS_NAME
