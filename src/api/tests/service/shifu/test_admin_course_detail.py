@@ -23,6 +23,8 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order
+from flaskr.service.promo.consts import COUPON_STATUS_USED
+from flaskr.service.promo.models import CouponUsage
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
@@ -53,6 +55,7 @@ def _clear_tables() -> None:
     db.session.query(LearnLessonFeedback).delete()
     db.session.query(LearnGeneratedBlock).delete()
     db.session.query(LearnProgressRecord).delete()
+    db.session.query(CouponUsage).delete()
     db.session.query(Order).delete()
     db.session.query(UserToken).delete()
     db.session.query(AiCourseAuth).delete()
@@ -199,6 +202,28 @@ def _seed_paid_order(
             status=ORDER_STATUS_SUCCESS,
             created_at=created_at,
             updated_at=created_at,
+        )
+    )
+
+
+def _seed_coupon_usage(
+    *,
+    coupon_usage_bid: str,
+    order_bid: str,
+    shifu_bid: str,
+    user_bid: str,
+    code: str = "FULLREDEEM",
+) -> None:
+    db.session.add(
+        CouponUsage(
+            coupon_usage_bid=coupon_usage_bid,
+            coupon_bid=f"coupon-{coupon_usage_bid}",
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            order_bid=order_bid,
+            code=code,
+            status=COUPON_STATUS_USED,
+            deleted=0,
         )
     )
 
@@ -1277,6 +1302,83 @@ def test_admin_operation_course_users_route_applies_filters(
     item = payload["data"]["items"][0]
     assert item["user_bid"] == "student-1"
     assert item["total_paid_amount"] == "299"
+
+
+def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        db.session.add_all(
+            [
+                Order(
+                    order_bid="order-direct-paid",
+                    shifu_bid="course-detail",
+                    user_bid="user-direct-paid",
+                    payable_price=Decimal("88.00"),
+                    paid_price=Decimal("88.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-full-coupon",
+                    shifu_bid="course-detail",
+                    user_bid="user-full-coupon",
+                    payable_price=Decimal("66.00"),
+                    paid_price=Decimal("0.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-activation",
+                    shifu_bid="course-detail",
+                    user_bid="user-activation",
+                    payable_price=Decimal("0.00"),
+                    paid_price=Decimal("0.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+            ]
+        )
+        _seed_coupon_usage(
+            coupon_usage_bid="coupon-usage-full-coupon",
+            order_bid="order-full-coupon",
+            shifu_bid="course-detail",
+            user_bid="user-full-coupon",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["metrics"]["order_count"] == 3
+    assert payload["data"]["metrics"]["order_amount"] == "154"
 
 
 @pytest.mark.parametrize(

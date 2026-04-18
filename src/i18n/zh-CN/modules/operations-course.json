@@ -70,7 +70,7 @@
     "metricsLabels": {
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
-      "orderAmount": "流水总额",
+      "orderAmount": "实收总额（含兑换码）",
       "orderCount": "订单数",
       "ratingScore": "评分",
       "visitCount30d": "近30天访问人数"
