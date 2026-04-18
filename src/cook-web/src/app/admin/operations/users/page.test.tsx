@@ -554,4 +554,67 @@ describe('AdminOperationUsersPage', () => {
       await screen.findByText('module.user.defaultUserName'),
     ).toBeInTheDocument();
   });
+
+  test('requests the selected page when the user list pagination changes', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator'],
+          login_methods: ['phone'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '88.50',
+          last_login_at: '2026-04-15 09:00:00',
+          last_learning_at: '2026-04-15 10:00:00',
+          created_at: '2026-04-14 10:00:00',
+          updated_at: '2026-04-14 11:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: '2',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page_index: 2,
+          page_size: 20,
+        }),
+      );
+    });
+  });
 });

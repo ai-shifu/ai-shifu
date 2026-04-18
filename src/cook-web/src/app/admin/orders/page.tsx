@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
@@ -45,15 +47,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
@@ -63,7 +56,6 @@ import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -824,106 +816,6 @@ const OrdersPage = () => {
     return 'secondary';
   };
 
-  const renderPaginationItems = () => {
-    const items: React.ReactElement[] = [];
-    const maxVisiblePages = 5;
-
-    if (pageCount <= maxVisiblePages + 2) {
-      for (let i = 1; i <= pageCount; i++) {
-        items.push(
-          <PaginationItem key={i}>
-            <PaginationLink
-              href='#'
-              isActive={pageIndex === i}
-              onClick={e => {
-                e.preventDefault();
-                handlePageChange(i);
-              }}
-            >
-              {i}
-            </PaginationLink>
-          </PaginationItem>,
-        );
-      }
-    } else {
-      items.push(
-        <PaginationItem key={1}>
-          <PaginationLink
-            href='#'
-            isActive={pageIndex === 1}
-            onClick={e => {
-              e.preventDefault();
-              handlePageChange(1);
-            }}
-          >
-            {1}
-          </PaginationLink>
-        </PaginationItem>,
-      );
-
-      if (pageIndex > 3) {
-        items.push(
-          <PaginationItem key='start-ellipsis'>
-            <PaginationEllipsis />
-          </PaginationItem>,
-        );
-      }
-
-      let rangeStart = Math.max(2, pageIndex - 1);
-      let rangeEnd = Math.min(pageCount - 1, pageIndex + 1);
-
-      if (pageIndex <= 3) {
-        rangeStart = 2;
-        rangeEnd = 4;
-      }
-      if (pageIndex >= pageCount - 2) {
-        rangeEnd = pageCount - 1;
-        rangeStart = pageCount - 3;
-      }
-
-      for (let i = rangeStart; i <= rangeEnd; i++) {
-        items.push(
-          <PaginationItem key={i}>
-            <PaginationLink
-              href='#'
-              isActive={pageIndex === i}
-              onClick={e => {
-                e.preventDefault();
-                handlePageChange(i);
-              }}
-            >
-              {i}
-            </PaginationLink>
-          </PaginationItem>,
-        );
-      }
-
-      if (pageIndex < pageCount - 2) {
-        items.push(
-          <PaginationItem key='end-ellipsis'>
-            <PaginationEllipsis />
-          </PaginationItem>,
-        );
-      }
-
-      items.push(
-        <PaginationItem key={pageCount}>
-          <PaginationLink
-            href='#'
-            isActive={pageIndex === pageCount}
-            onClick={e => {
-              e.preventDefault();
-              handlePageChange(pageCount);
-            }}
-          >
-            {pageCount}
-          </PaginationLink>
-        </PaginationItem>,
-      );
-    }
-    return items;
-  };
-
   const filterItems = [
     {
       key: 'user_bid',
@@ -1417,45 +1309,14 @@ const OrdersPage = () => {
         </div>
 
         <div className='mt-4 mb-4 flex justify-end'>
-          <Pagination className='justify-end w-auto mx-0'>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href='#'
-                  onClick={e => {
-                    e.preventDefault();
-                    if (pageIndex > 1) handlePageChange(pageIndex - 1);
-                  }}
-                  aria-disabled={pageIndex <= 1}
-                  className={
-                    pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
-                  }
-                >
-                  {t('module.order.paginationPrev', 'Previous')}
-                </PaginationPrevious>
-              </PaginationItem>
-
-              {renderPaginationItems()}
-
-              <PaginationItem>
-                <PaginationNext
-                  href='#'
-                  onClick={e => {
-                    e.preventDefault();
-                    if (pageIndex < pageCount) handlePageChange(pageIndex + 1);
-                  }}
-                  aria-disabled={pageIndex >= pageCount}
-                  className={
-                    pageIndex >= pageCount
-                      ? 'pointer-events-none opacity-50'
-                      : ''
-                  }
-                >
-                  {t('module.order.paginationNext', 'Next')}
-                </PaginationNext>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <AdminPagination
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            onPageChange={handlePageChange}
+            prevLabel={t('module.order.paginationPrev', 'Previous')}
+            nextLabel={t('module.order.paginationNext', 'Next')}
+            className='justify-end w-auto mx-0'
+          />
         </div>
       </div>
 
