@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -302,7 +302,7 @@ const renderPagination = (
 
 const renderTooltipText = (text?: string, className?: string) => {
   return (
-    <AdminOverflowTooltipText
+    <AdminTooltipText
       text={text}
       className={className}
     />
@@ -1364,7 +1364,7 @@ const OperationsPage = () => {
                         >
                           <button
                             type='button'
-                            className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none'
+                            className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
                             onClick={() => handleDetailClick(course)}
                           >
                             {renderTooltipText(

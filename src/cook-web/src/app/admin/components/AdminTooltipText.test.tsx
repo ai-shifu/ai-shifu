@@ -1,12 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import AdminOverflowTooltipText from './AdminOverflowTooltipText';
+import AdminTooltipText from './AdminTooltipText';
 
 jest.mock('@/components/ui/tooltip', () => ({
   __esModule: true,
-  TooltipProvider: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
   Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
   TooltipContent: ({ children }: React.PropsWithChildren) => (
@@ -14,9 +11,9 @@ jest.mock('@/components/ui/tooltip', () => ({
   ),
 }));
 
-describe('AdminOverflowTooltipText', () => {
+describe('AdminTooltipText', () => {
   test('renders text and tooltip content', () => {
-    render(<AdminOverflowTooltipText text='Long content value' />);
+    render(<AdminTooltipText text='Long content value' />);
 
     expect(screen.getAllByText('Long content value')).toHaveLength(2);
     expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
@@ -26,12 +23,19 @@ describe('AdminOverflowTooltipText', () => {
 
   test('falls back to the provided empty value', () => {
     render(
-      <AdminOverflowTooltipText
+      <AdminTooltipText
         text='   '
         emptyValue='-'
       />,
     );
 
     expect(screen.getAllByText('-')).toHaveLength(2);
+  });
+
+  test('trims surrounding whitespace before rendering', () => {
+    render(<AdminTooltipText text='  Course One  ' />);
+
+    expect(screen.getAllByText('Course One')).toHaveLength(2);
+    expect(screen.queryByText('  Course One  ')).not.toBeInTheDocument();
   });
 });

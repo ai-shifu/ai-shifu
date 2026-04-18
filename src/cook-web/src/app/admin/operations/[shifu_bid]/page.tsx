@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
-import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
@@ -1853,7 +1853,7 @@ export default function AdminOperationCourseDetailPage() {
                                         chapter.node_type,
                                       )}
                                     </Badge>
-                                    <AdminOverflowTooltipText
+                                    <AdminTooltipText
                                       text={chapter.title || emptyValue}
                                       className='text-center text-sm font-medium text-foreground'
                                     />
@@ -1863,7 +1863,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
                                   style={getChapterColumnStyle('chapterId')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={
                                       chapter.outline_item_bid || emptyValue
                                     }
@@ -1915,12 +1915,12 @@ export default function AdminOperationCourseDetailPage() {
                                   style={getChapterColumnStyle('modifier')}
                                 >
                                   <div className='flex flex-col gap-0.5 leading-tight'>
-                                    <AdminOverflowTooltipText
+                                    <AdminTooltipText
                                       text={modifierPrimary}
                                       className='text-sm text-foreground'
                                     />
                                     {modifierSecondary ? (
-                                      <AdminOverflowTooltipText
+                                      <AdminTooltipText
                                         text={modifierSecondary}
                                         className='text-xs text-muted-foreground'
                                       />
@@ -1931,7 +1931,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
                                   style={getChapterColumnStyle('updatedAt')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={chapter.updated_at || emptyValue}
                                     className='mx-auto block max-w-full'
                                   />
@@ -2243,7 +2243,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('userId')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.user_bid}
                                     className='mx-auto block max-w-[180px] font-mono text-[11px] text-muted-foreground/65'
                                   />
@@ -2252,7 +2252,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
                                   style={getUserColumnStyle('account')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={resolveCourseUserAccount(row)}
                                     className='mx-auto block max-w-[180px] font-semibold text-foreground'
                                   />
@@ -2261,7 +2261,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
                                   style={getUserColumnStyle('nickname')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.nickname || defaultUserName}
                                     className='mx-auto block max-w-[140px]'
                                   />
@@ -2321,7 +2321,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('lastLearnedAt')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.last_learning_at}
                                     emptyValue={emptyValue}
                                     className='mx-auto block max-w-full tabular-nums'
@@ -2331,7 +2331,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('joinedAt')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.joined_at}
                                     emptyValue={emptyValue}
                                     className='mx-auto block max-w-full tabular-nums'
@@ -2341,7 +2341,7 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('lastLoginAt')}
                                 >
-                                  <AdminOverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.last_login_at}
                                     emptyValue={emptyValue}
                                     className='mx-auto block max-w-full tabular-nums'

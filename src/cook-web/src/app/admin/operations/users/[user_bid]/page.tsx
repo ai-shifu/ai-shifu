@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
-import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { EnvStoreState } from '@/c-types/store';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
@@ -142,75 +143,77 @@ const CourseTable = ({
         <CardTitle className='text-base font-semibold'>{title}</CardTitle>
       </CardHeader>
       <CardContent className='space-y-3'>
-        <Table className='table-fixed'>
-          <colgroup>
-            <col className='w-[38%]' />
-            <col className='w-[42%]' />
-            <col className='w-[20%]' />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='text-center'>{courseNameLabel}</TableHead>
-              <TableHead className='text-center'>{courseIdLabel}</TableHead>
-              <TableHead className='text-center'>{valueLabel}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {courses.length ? (
-              visibleCourses.map(course => {
-                const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
-                  course.shifu_bid,
-                );
-                return (
-                  <TableRow key={`${title}-${course.shifu_bid}`}>
-                    <TableCell
-                      className={cn(
-                        'max-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
-                        courseNameAlign === 'left'
-                          ? 'text-left'
-                          : 'text-center',
-                      )}
-                    >
-                      {courseDetailUrl ? (
-                        <Link
-                          href={courseDetailUrl}
-                          className={cn(
-                            'inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline',
-                            courseNameAlign === 'left' && 'align-top',
-                          )}
-                        >
-                          <AdminOverflowTooltipText
+        <TooltipProvider delayDuration={150}>
+          <Table className='table-fixed'>
+            <colgroup>
+              <col className='w-[38%]' />
+              <col className='w-[42%]' />
+              <col className='w-[20%]' />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead className='text-center'>{courseNameLabel}</TableHead>
+                <TableHead className='text-center'>{courseIdLabel}</TableHead>
+                <TableHead className='text-center'>{valueLabel}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {courses.length ? (
+                visibleCourses.map(course => {
+                  const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
+                    course.shifu_bid,
+                  );
+                  return (
+                    <TableRow key={`${title}-${course.shifu_bid}`}>
+                      <TableCell
+                        className={cn(
+                          'max-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
+                          courseNameAlign === 'left'
+                            ? 'text-left'
+                            : 'text-center',
+                        )}
+                      >
+                        {courseDetailUrl ? (
+                          <Link
+                            href={courseDetailUrl}
+                            className={cn(
+                              'inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline',
+                              courseNameAlign === 'left' && 'align-top',
+                            )}
+                          >
+                            <AdminTooltipText
+                              text={course.course_name}
+                              emptyValue={EMPTY_VALUE}
+                            />
+                          </Link>
+                        ) : (
+                          <AdminTooltipText
                             text={course.course_name}
                             emptyValue={EMPTY_VALUE}
                           />
-                        </Link>
-                      ) : (
-                        <AdminOverflowTooltipText
-                          text={course.course_name}
+                        )}
+                      </TableCell>
+                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+                        <AdminTooltipText
+                          text={course.shifu_bid}
                           emptyValue={EMPTY_VALUE}
                         />
-                      )}
-                    </TableCell>
-                    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                      <AdminOverflowTooltipText
-                        text={course.shifu_bid}
-                        emptyValue={EMPTY_VALUE}
-                      />
-                    </TableCell>
-                    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                      <AdminOverflowTooltipText
-                        text={renderValue(course)}
-                        emptyValue={EMPTY_VALUE}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableEmpty colSpan={3}>{emptyText}</TableEmpty>
-            )}
-          </TableBody>
-        </Table>
+                      </TableCell>
+                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+                        <AdminTooltipText
+                          text={renderValue(course)}
+                          emptyValue={EMPTY_VALUE}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableEmpty colSpan={3}>{emptyText}</TableEmpty>
+              )}
+            </TableBody>
+          </Table>
+        </TooltipProvider>
 
         {shouldShowToggle ? (
           <div className='flex justify-end'>

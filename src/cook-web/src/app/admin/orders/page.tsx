@@ -59,7 +59,7 @@ import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -622,7 +622,7 @@ const OrdersPage = () => {
 
   const renderTooltipText = (text?: string, className?: string) => {
     return (
-      <AdminOverflowTooltipText
+      <AdminTooltipText
         text={text}
         emptyValue='-'
         className={cn('truncate', className)}
