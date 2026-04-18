@@ -2308,6 +2308,14 @@ export default function AdminOperationCourseDetailPage() {
                       onPageChange={handleCourseUserPageChange}
                       prevLabel={t('module.order.paginationPrev', 'Previous')}
                       nextLabel={t('module.order.paginationNext', 'Next')}
+                      prevAriaLabel={t(
+                        'module.order.paginationPrevAriaLabel',
+                        'Go to previous page',
+                      )}
+                      nextAriaLabel={t(
+                        'module.order.paginationNextAriaLabel',
+                        'Go to next page',
+                      )}
                       className='mx-0 w-auto justify-end'
                     />
                   </div>

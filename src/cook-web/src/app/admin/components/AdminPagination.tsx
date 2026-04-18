@@ -17,6 +17,8 @@ type AdminPaginationProps = {
   onPageChange: (page: number) => void;
   prevLabel: string;
   nextLabel: string;
+  prevAriaLabel?: string;
+  nextAriaLabel?: string;
   className?: string;
   hideWhenSinglePage?: boolean;
 };
@@ -71,6 +73,8 @@ export function AdminPagination({
   onPageChange,
   prevLabel,
   nextLabel,
+  prevAriaLabel = 'Go to previous page',
+  nextAriaLabel = 'Go to next page',
   className,
   hideWhenSinglePage = false,
 }: AdminPaginationProps) {
@@ -105,7 +109,7 @@ export function AdminPagination({
             href='#'
             onClick={handlePageClick(normalizedPageIndex - 1)}
             aria-disabled={normalizedPageIndex <= 1}
-            aria-label={prevLabel}
+            aria-label={prevAriaLabel}
             tabIndex={normalizedPageIndex <= 1 ? -1 : undefined}
             className={
               normalizedPageIndex <= 1 ? DISABLED_LINK_CLASS_NAME : undefined
@@ -148,7 +152,7 @@ export function AdminPagination({
             href='#'
             onClick={handlePageClick(normalizedPageIndex + 1)}
             aria-disabled={normalizedPageIndex >= normalizedPageCount}
-            aria-label={nextLabel}
+            aria-label={nextAriaLabel}
             tabIndex={
               normalizedPageIndex >= normalizedPageCount ? -1 : undefined
             }

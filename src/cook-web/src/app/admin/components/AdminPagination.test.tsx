@@ -11,6 +11,8 @@ describe('AdminPagination', () => {
         onPageChange={jest.fn()}
         prevLabel='Previous'
         nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
         hideWhenSinglePage
       />,
     );
@@ -30,6 +32,8 @@ describe('AdminPagination', () => {
         onPageChange={onPageChange}
         prevLabel='Previous'
         nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
       />,
     );
 
@@ -38,7 +42,7 @@ describe('AdminPagination', () => {
 
     expect(previousLink).toHaveAttribute('aria-disabled', 'true');
     expect(previousLink).toHaveAttribute('tabindex', '-1');
-    expect(previousLink).toHaveAttribute('aria-label', 'Previous');
+    expect(previousLink).toHaveAttribute('aria-label', 'Go to previous page');
 
     fireEvent.click(previousLink);
     fireEvent.click(nextLink);
@@ -55,6 +59,8 @@ describe('AdminPagination', () => {
         onPageChange={jest.fn()}
         prevLabel='Previous'
         nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
       />,
     );
 
@@ -80,6 +86,8 @@ describe('AdminPagination', () => {
         onPageChange={onPageChange}
         prevLabel='Previous'
         nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
       />,
     );
 
@@ -87,7 +95,7 @@ describe('AdminPagination', () => {
 
     expect(nextLink).toHaveAttribute('aria-disabled', 'true');
     expect(nextLink).toHaveAttribute('tabindex', '-1');
-    expect(nextLink).toHaveAttribute('aria-label', 'Next');
+    expect(nextLink).toHaveAttribute('aria-label', 'Go to next page');
 
     fireEvent.click(nextLink);
     fireEvent.click(screen.getByRole('link', { name: '9' }));
@@ -106,6 +114,8 @@ describe('AdminPagination', () => {
         onPageChange={onPageChange}
         prevLabel='Previous'
         nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
       />,
     );
 

@@ -98,7 +98,9 @@
     "title": "Import Activation"
   },
   "paginationNext": "Next",
+  "paginationNextAriaLabel": "Go to next page",
   "paginationPrev": "Previous",
+  "paginationPrevAriaLabel": "Go to previous page",
   "paymentChannel": {
     "manual": "Manual",
     "open_api": "Open API",

@@ -1187,6 +1187,14 @@ export default function AdminOperationUsersPage() {
               onPageChange={handlePageChange}
               prevLabel={t('module.order.paginationPrev', 'Previous')}
               nextLabel={t('module.order.paginationNext', 'Next')}
+              prevAriaLabel={t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              )}
+              nextAriaLabel={t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              )}
               className='justify-end w-auto mx-0'
             />
           </div>
