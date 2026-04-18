@@ -25,8 +25,11 @@ from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.promo.consts import COUPON_STATUS_USED
-from flaskr.service.promo.models import CouponUsage
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+)
+from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseChapterDetailDTO,
     AdminOperationCourseDetailBasicInfoDTO,
@@ -2033,7 +2036,13 @@ def get_operator_course_detail(
                 CouponUsage.deleted == 0,
                 CouponUsage.status == COUPON_STATUS_USED,
             )
-            .distinct()
+            .union(
+                db.session.query(PromoRedemption.order_bid.label("order_bid")).filter(
+                    PromoRedemption.shifu_bid == normalized_shifu_bid,
+                    PromoRedemption.deleted == 0,
+                    PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                )
+            )
             .subquery()
         )
         order_amount_expr = case(
