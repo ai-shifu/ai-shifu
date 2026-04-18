@@ -108,9 +108,7 @@ describe('AdminPagination', () => {
     expect(screen.getAllByRole('link', { name: '1' })).toHaveLength(1);
     expect(screen.getAllByRole('link', { name: '2' })).toHaveLength(1);
     expect(
-      screen.queryByText((_, element) =>
-        element?.textContent === 'More pages',
-      ),
+      screen.queryByText((_, element) => element?.textContent === 'More pages'),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', { name: '1' }));
