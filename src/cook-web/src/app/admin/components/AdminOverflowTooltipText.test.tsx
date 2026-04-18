@@ -4,7 +4,9 @@ import AdminOverflowTooltipText from './AdminOverflowTooltipText';
 
 jest.mock('@/components/ui/tooltip', () => ({
   __esModule: true,
-  TooltipProvider: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  TooltipProvider: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
   TooltipContent: ({ children }: React.PropsWithChildren) => (
