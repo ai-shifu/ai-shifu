@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
+import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -174,22 +175,33 @@ const CourseTable = ({
                         <Link
                           href={courseDetailUrl}
                           className={cn(
-                            'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-primary transition-colors hover:text-primary/80 hover:underline',
+                            'inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline',
                             courseNameAlign === 'left' && 'align-top',
                           )}
-                          title={course.course_name || EMPTY_VALUE}
                         >
-                          {course.course_name || EMPTY_VALUE}
+                          <AdminOverflowTooltipText
+                            text={course.course_name}
+                            emptyValue={EMPTY_VALUE}
+                          />
                         </Link>
                       ) : (
-                        course.course_name || EMPTY_VALUE
+                        <AdminOverflowTooltipText
+                          text={course.course_name}
+                          emptyValue={EMPTY_VALUE}
+                        />
                       )}
                     </TableCell>
                     <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                      {course.shifu_bid || EMPTY_VALUE}
+                      <AdminOverflowTooltipText
+                        text={course.shifu_bid}
+                        emptyValue={EMPTY_VALUE}
+                      />
                     </TableCell>
                     <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                      {renderValue(course)}
+                      <AdminOverflowTooltipText
+                        text={renderValue(course)}
+                        emptyValue={EMPTY_VALUE}
+                      />
                     </TableCell>
                   </TableRow>
                 );

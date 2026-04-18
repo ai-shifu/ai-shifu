@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -59,12 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -306,72 +302,10 @@ const renderPagination = (
 
 const renderTooltipText = (text?: string, className?: string) => {
   return (
-    <OverflowTooltipText
+    <AdminOverflowTooltipText
       text={text}
       className={className}
     />
-  );
-};
-
-const OverflowTooltipText = ({
-  text,
-  className,
-}: {
-  text?: string;
-  className?: string;
-}) => {
-  const value = text && text.trim().length > 0 ? text : '--';
-  const textRef = useRef<HTMLSpanElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
-
-    updateOverflowState();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        updateOverflowState();
-      });
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [value]);
-
-  const content = (
-    <span
-      ref={textRef}
-      className={cn(
-        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
-        className,
-      )}
-    >
-      {value}
-    </span>
-  );
-
-  if (!isOverflowing) {
-    return content;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side='top'>{value}</TooltipContent>
-    </Tooltip>
   );
 };
 
@@ -1430,11 +1364,13 @@ const OperationsPage = () => {
                         >
                           <button
                             type='button'
-                            className='max-w-full truncate text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none'
+                            className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none'
                             onClick={() => handleDetailClick(course)}
-                            title={course.course_name || '--'}
                           >
-                            {course.course_name || '--'}
+                            {renderTooltipText(
+                              course.course_name,
+                              'truncate text-left',
+                            )}
                           </button>
                         </TableCell>
                         <TableCell

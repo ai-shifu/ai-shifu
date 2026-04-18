@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -249,63 +250,6 @@ const renderPagination = (
   );
 
   return items;
-};
-
-const OverflowTooltipText = ({
-  text,
-  className,
-}: {
-  text?: string;
-  className?: string;
-}) => {
-  const value = text && text.trim().length > 0 ? text : EMPTY_STATE_LABEL;
-  const textRef = useRef<HTMLSpanElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  React.useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
-
-    updateOverflowState();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        updateOverflowState();
-      });
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [value]);
-
-  const content = (
-    <span
-      ref={textRef}
-      className={cn(
-        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
-        className,
-      )}
-    >
-      {value}
-    </span>
-  );
-
-  if (!isOverflowing) {
-    return content;
-  }
-
-  return <span title={value}>{content}</span>;
 };
 
 type ClearableTextInputProps = {
@@ -1158,10 +1102,10 @@ export default function AdminOperationUsersPage() {
                             href={userDetailUrl}
                             className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                           >
-                            <OverflowTooltipText text={user.user_bid} />
+                            <AdminOverflowTooltipText text={user.user_bid} />
                           </Link>
                         ) : (
-                          <OverflowTooltipText text={user.user_bid} />
+                          <AdminOverflowTooltipText text={user.user_bid} />
                         )}
                       </TableCell>
                       <TableCell
@@ -1173,17 +1117,17 @@ export default function AdminOperationUsersPage() {
                             href={userDetailUrl}
                             className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                           >
-                            <OverflowTooltipText text={primaryContact} />
+                            <AdminOverflowTooltipText text={primaryContact} />
                           </Link>
                         ) : (
-                          <OverflowTooltipText text={primaryContact} />
+                          <AdminOverflowTooltipText text={primaryContact} />
                         )}
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('nickname')}
                       >
-                        <OverflowTooltipText
+                        <AdminOverflowTooltipText
                           text={user.nickname || defaultUserName}
                         />
                       </TableCell>
@@ -1191,7 +1135,7 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('status')}
                       >
-                        <OverflowTooltipText
+                        <AdminOverflowTooltipText
                           text={resolveStatusLabel(user.user_status)}
                         />
                       </TableCell>
@@ -1199,7 +1143,7 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('role')}
                       >
-                        <OverflowTooltipText
+                        <AdminOverflowTooltipText
                           text={resolveRoleLabel(user.user_role)}
                         />
                       </TableCell>
@@ -1207,13 +1151,13 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('loginMethods')}
                       >
-                        <OverflowTooltipText text={loginMethods} />
+                        <AdminOverflowTooltipText text={loginMethods} />
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('registrationSource')}
                       >
-                        <OverflowTooltipText
+                        <AdminOverflowTooltipText
                           text={resolveRegistrationSourceLabel(
                             user.registration_source,
                           )}
@@ -1257,7 +1201,7 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('totalPaidAmount')}
                       >
-                        <OverflowTooltipText
+                        <AdminOverflowTooltipText
                           text={`${currencySymbol}${user.total_paid_amount || '0'}`}
                         />
                       </TableCell>
@@ -1265,25 +1209,27 @@ export default function AdminOperationUsersPage() {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('lastLoginAt')}
                       >
-                        <OverflowTooltipText text={user.last_login_at} />
+                        <AdminOverflowTooltipText text={user.last_login_at} />
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('lastLearningAt')}
                       >
-                        <OverflowTooltipText text={user.last_learning_at} />
+                        <AdminOverflowTooltipText
+                          text={user.last_learning_at}
+                        />
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('createdAt')}
                       >
-                        <OverflowTooltipText text={user.created_at} />
+                        <AdminOverflowTooltipText text={user.created_at} />
                       </TableCell>
                       <TableCell
                         className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
                         style={getColumnStyle('updatedAt')}
                       >
-                        <OverflowTooltipText text={user.updated_at} />
+                        <AdminOverflowTooltipText text={user.updated_at} />
                       </TableCell>
                     </TableRow>
                   );
@@ -1403,21 +1349,23 @@ export default function AdminOperationUsersPage() {
                                   href={courseDetailUrl}
                                   className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                                 >
-                                  <OverflowTooltipText
+                                  <AdminOverflowTooltipText
                                     text={course.course_name}
                                   />
                                 </Link>
                               ) : (
-                                <OverflowTooltipText
+                                <AdminOverflowTooltipText
                                   text={course.course_name}
                                 />
                               )}
                             </TableCell>
                             <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                              <OverflowTooltipText text={course.shifu_bid} />
+                              <AdminOverflowTooltipText
+                                text={course.shifu_bid}
+                              />
                             </TableCell>
                             <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
-                              <OverflowTooltipText
+                              <AdminOverflowTooltipText
                                 text={resolveCourseStatusLabel(
                                   course.course_status,
                                 )}

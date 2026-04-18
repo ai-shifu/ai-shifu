@@ -39,12 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Pagination,
   PaginationContent,
@@ -64,6 +59,7 @@ import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminOverflowTooltipText from '@/app/admin/components/AdminOverflowTooltipText';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -625,21 +621,12 @@ const OrdersPage = () => {
   );
 
   const renderTooltipText = (text?: string, className?: string) => {
-    const value = text && text.trim().length > 0 ? text : '-';
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className={cn(
-              'inline-block max-w-full truncate align-bottom',
-              className,
-            )}
-          >
-            {value}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side='top'>{value}</TooltipContent>
-      </Tooltip>
+      <AdminOverflowTooltipText
+        text={text}
+        emptyValue='-'
+        className={cn('truncate', className)}
+      />
     );
   };
 
