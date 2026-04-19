@@ -3,6 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { useEnvStore } from '@/c-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
@@ -20,6 +21,8 @@ export function AdminBillingPageClient({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
   const activeTabFromUrl = React.useMemo(
     () => resolveBillingTab(searchParams.get('tab') ?? initialTab),
     [initialTab, searchParams],
@@ -31,6 +34,13 @@ export function AdminBillingPageClient({
   React.useEffect(() => {
     setActiveTab(activeTabFromUrl);
   }, [activeTabFromUrl]);
+
+  React.useEffect(() => {
+    if (!runtimeConfigLoaded || billingEnabled) {
+      return;
+    }
+    router.replace('/admin');
+  }, [billingEnabled, router, runtimeConfigLoaded]);
 
   const updateTab = React.useCallback(
     (nextTab: BillingTab) => {
@@ -79,6 +89,10 @@ export function AdminBillingPageClient({
       canceled = true;
     };
   }, [activeTab, scrollToOrdersRequested]);
+
+  if (!runtimeConfigLoaded || !billingEnabled) {
+    return null;
+  }
 
   return (
     <div

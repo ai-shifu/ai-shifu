@@ -1311,6 +1311,7 @@ export type I18nKey =
   | 'server.banner.bannerTitle'
   | 'server.billing.creditInsufficient'
   | 'server.billing.customDomainDisabled'
+  | 'server.billing.disabled'
   | 'server.billing.domainBindingNotFound'
   | 'server.billing.domainHostConflict'
   | 'server.billing.subscriptionInactive'

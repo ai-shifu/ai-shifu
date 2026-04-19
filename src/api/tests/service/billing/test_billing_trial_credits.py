@@ -255,6 +255,37 @@ def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
     assert payload["data"]["trial_offer"]["welcome_dialog_acknowledged_at"] is None
 
 
+def test_trial_bootstrap_skips_grant_when_billing_disabled(
+    trial_billing_client,
+    monkeypatch,
+) -> None:
+    app = trial_billing_client.application
+    with app.app_context():
+        _seed_creator(user_bid="creator-trial-disabled")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled", lambda: False
+    )
+
+    with app.app_context():
+        bootstrap_new_creator_trial_credits(app, "creator-trial-disabled")
+
+        assert (
+            CreditWallet.query.filter_by(
+                creator_bid="creator-trial-disabled",
+                deleted=0,
+            ).count()
+            == 0
+        )
+        assert (
+            BillingOrder.query.filter_by(
+                creator_bid="creator-trial-disabled",
+                deleted=0,
+            ).count()
+            == 0
+        )
+
+
 def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
     trial_billing_client,
 ) -> None:

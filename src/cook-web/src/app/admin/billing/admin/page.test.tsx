@@ -1,10 +1,22 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 
 import AdminBillingConsolePage from './page';
+
+const mockReplace = jest.fn();
+const mockEnvState = {
+  billingEnabled: 'true',
+  runtimeConfigLoaded: true,
+};
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -13,6 +25,12 @@ jest.mock('react-i18next', () => ({
       language: 'en-US',
     },
   }),
+}));
+
+jest.mock('@/c-store', () => ({
+  __esModule: true,
+  useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
+    selector(mockEnvState),
 }));
 
 jest.mock('@/lib/browser-timezone', () => ({
@@ -50,6 +68,9 @@ const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 
 describe('AdminBillingConsolePage', () => {
   beforeEach(() => {
+    mockReplace.mockReset();
+    mockEnvState.billingEnabled = 'true';
+    mockEnvState.runtimeConfigLoaded = true;
     mockAdjustAdminBillingLedger.mockReset();
     mockGetBillingBootstrap.mockReset();
     mockGetAdminBillingDailyLedgerSummary.mockReset();
@@ -271,6 +292,27 @@ describe('AdminBillingConsolePage', () => {
       wallet_bucket_bids: ['bucket-1'],
       ledger_bids: ['ledger-1'],
     });
+  });
+
+  test('redirects back to admin when billing is disabled', async () => {
+    mockEnvState.billingEnabled = 'false';
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingConsolePage />
+      </SWRConfig>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/admin');
+    });
+    expect(
+      screen.queryByTestId('admin-billing-console-page'),
+    ).not.toBeInTheDocument();
   });
 
   test('renders admin billing tabs and loads subscriptions, orders, and exceptions', async () => {

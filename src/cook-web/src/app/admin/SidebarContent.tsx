@@ -24,6 +24,7 @@ export type SidebarContentProps = {
   userMenuClassName?: string;
   logoSrc: string | StaticImageData;
   activePath?: string;
+  showBillingCard?: boolean;
   billingOverviewLoading?: boolean;
   billingOverview?: CreatorBillingOverview;
 };
@@ -109,6 +110,7 @@ export const SidebarContent = ({
   userMenuClassName,
   logoSrc,
   activePath,
+  showBillingCard = true,
   billingOverviewLoading = false,
   billingOverview,
 }: SidebarContentProps) => {
@@ -273,7 +275,7 @@ export const SidebarContent = ({
             >
               {renderMenuItems(menuItems)}
             </nav>
-            {!userMenuOpen ? (
+            {showBillingCard && !userMenuOpen ? (
               <BillingSidebarCard
                 overview={billingOverview}
                 isLoading={billingOverviewLoading}

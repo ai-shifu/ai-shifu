@@ -60,6 +60,7 @@ def runtime_config_client(monkeypatch):
         "DEFAULT_COURSE_ID": "global-course-1",
         "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
+        "BILLING_ENABLED": True,
         "BILLING_CREDIT_PRECISION": 4,
         "STRIPE_PUBLISHABLE_KEY": "pk_test_global",
         "STRIPE_ENABLED": True,
@@ -180,6 +181,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
     assert payload["entitlements"] == {
         "branding_enabled": True,
@@ -222,6 +224,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
     assert payload["homeUrl"] == "/"
+    assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
     assert payload["entitlements"] == {
         "branding_enabled": False,
@@ -258,6 +261,7 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
 
     assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["billingEnabled"] is True
     assert payload["entitlements"]["branding_enabled"] is True
     assert payload["domain"] == {
         "request_host": None,
@@ -291,7 +295,28 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     config = RuntimeConfigDTO(**route_payload)
 
     assert isinstance(config, RuntimeConfigDTO)
+    assert config.billingEnabled is True
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
     }
+
+
+def test_runtime_config_reports_disabled_billing_flag(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        config_route,
+        "get_config",
+        lambda key, default="": False if key == "BILLING_ENABLED" else default,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_config",
+        lambda key, default="": False if key == "BILLING_ENABLED" else default,
+    )
+
+    response = runtime_config_client.get("/api/runtime-config")
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["billingEnabled"] is False

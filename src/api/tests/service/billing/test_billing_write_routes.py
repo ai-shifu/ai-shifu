@@ -68,7 +68,7 @@ from flaskr.service.billing.subscriptions import (
     sync_subscription_lifecycle_events,
 )
 from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
@@ -116,6 +116,7 @@ def _load_register_billing_routes():
 
 
 register_billing_routes = _load_register_billing_routes()
+billing_write_routes_module = sys.modules["flaskr.service.billing.routes"]
 
 
 def _add_active_subscription(
@@ -354,6 +355,31 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutes:
+    def test_subscription_checkout_rejects_when_billing_feature_disabled(
+        self, billing_write_client, monkeypatch
+    ) -> None:
+        client = billing_write_client["client"]
+
+        monkeypatch.setattr(
+            billing_write_routes_module,
+            "is_billing_enabled",
+            lambda: False,
+        )
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "stripe",
+                "success_url": "https://example.com/payment/stripe/billing-result",
+                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == ERROR_CODE["server.billing.disabled"]
+        assert billing_write_client["stripe_requests"] == []
+
     def test_subscription_checkout_uses_configured_provider_when_omitted(
         self, billing_write_client, monkeypatch
     ) -> None:

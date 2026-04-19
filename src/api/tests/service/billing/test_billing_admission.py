@@ -203,6 +203,35 @@ def test_admit_creator_usage_rejects_missing_credits(
     assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
 
 
+def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
+    billing_admission_app: Flask,
+    monkeypatch,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-disabled-1",
+                created_user_bid="creator-disabled-1",
+            )
+        )
+        dao.db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.admission.is_billing_enabled", lambda: False
+    )
+
+    payload = admit_creator_usage(
+        billing_admission_app,
+        shifu_bid="shifu-disabled-1",
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+
+    assert payload["allowed"] is True
+    assert payload["creator_bid"] == "creator-disabled-1"
+    assert payload["wallet_available_credits"] == Decimal("0")
+    assert payload["priority_class"] == "standard"
+
+
 def test_admit_creator_usage_rejects_inactive_subscription_only_balance(
     billing_admission_app: Flask,
 ) -> None:

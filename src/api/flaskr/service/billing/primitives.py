@@ -8,6 +8,7 @@ from typing import Any
 
 from flask import Flask, has_app_context
 
+from flaskr.common.config import get_config as get_common_config
 from flaskr.service.config.funcs import get_config
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -16,7 +17,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.util.timezone import serialize_with_app_timezone
 
-from .consts import BILLING_CONFIG_KEY_CREDIT_PRECISION
+from .consts import BILLING_CONFIG_KEY_CREDIT_PRECISION, BILLING_CONFIG_KEY_ENABLED
 from .value_objects import JsonObjectMap
 
 _USAGE_SCENE_LABELS = {
@@ -26,6 +27,7 @@ _USAGE_SCENE_LABELS = {
 }
 DEFAULT_BILLING_CREDIT_PRECISION = 2
 MAX_BILLING_CREDIT_PRECISION = 10
+DEFAULT_BILLING_ENABLED = True
 
 
 def normalize_bid(value: Any) -> str:
@@ -69,6 +71,22 @@ def get_billing_credit_precision(
         get_config(BILLING_CONFIG_KEY_CREDIT_PRECISION, normalized_default),
         default=normalized_default,
     )
+
+
+def is_billing_enabled(*, default: bool = DEFAULT_BILLING_ENABLED) -> bool:
+    if not has_app_context():
+        return default
+    try:
+        raw_value = get_config(
+            BILLING_CONFIG_KEY_ENABLED,
+            "1" if default else "0",
+        )
+    except (KeyError, RuntimeError):
+        raw_value = get_common_config(
+            BILLING_CONFIG_KEY_ENABLED,
+            "1" if default else "0",
+        )
+    return coerce_bool(raw_value, default=default)
 
 
 def build_credit_quantizer(*, precision: int | None = None) -> Decimal:

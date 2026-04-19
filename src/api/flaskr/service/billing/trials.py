@@ -34,6 +34,7 @@ from .dtos import BillingTrialOfferDTO, BillingTrialWelcomeAckDTO
 from .models import BillingOrder, BillingProduct, BillingSubscription, CreditLedgerEntry
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number
+from .primitives import is_billing_enabled as _is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import quantize_credit_amount as _quantize_credit_amount
@@ -603,6 +604,8 @@ def _acknowledge_trial_welcome_dialog(
 def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
+        return
+    if not _is_billing_enabled():
         return
 
     with app.app_context():

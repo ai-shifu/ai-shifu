@@ -139,19 +139,19 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="runtime",
         user_visible=False,
         default_enabled=True,
-        route_entries=(("GET", "/api/config/runtime-config"),),
+        route_entries=(("GET", "/api/runtime-config"),),
         notes=(
             "Runtime config currently includes billing entitlement and domain fields.",
         ),
     ),
     BillingCapabilityDefinition(
         key="billing_feature_flag",
-        status="default_disabled",
+        status="active",
         audience="ops",
         user_visible=False,
-        default_enabled=False,
+        default_enabled=True,
         config_entries=("BILLING_ENABLED",),
-        notes=("The billing feature flag seed defaults to disabled.",),
+        notes=("The billing feature flag seed defaults to enabled.",),
     ),
     BillingCapabilityDefinition(
         key="renewal_task_queue",

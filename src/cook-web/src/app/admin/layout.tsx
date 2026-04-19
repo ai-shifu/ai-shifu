@@ -84,6 +84,9 @@ const MainInterface = ({
     isLoading: billingOverviewLoading,
     mutate: mutateBillingOverview,
   } = useBillingOverview();
+  const billingEnabled = useEnvStore(
+    (state: EnvStoreState) => state.billingEnabled === 'true',
+  );
   const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
 
   useEffect(() => {
@@ -94,11 +97,13 @@ const MainInterface = ({
 
   return (
     <>
-      <WelcomeTrialDialog
-        billingOverview={billingOverview}
-        menuReady={menuReady}
-        mutateBillingOverview={mutateBillingOverview}
-      />
+      {billingEnabled ? (
+        <WelcomeTrialDialog
+          billingOverview={billingOverview}
+          menuReady={menuReady}
+          mutateBillingOverview={mutateBillingOverview}
+        />
+      ) : null}
       <div className='flex h-screen bg-stone-50'>
         <div className='w-[280px]'>
           <SidebarContent
@@ -110,6 +115,7 @@ const MainInterface = ({
             onUserMenuClose={handleDesktopMenuClose}
             logoSrc={resolvedLogo}
             activePath={pathname}
+            showBillingCard={billingEnabled}
             billingOverview={billingOverview}
             billingOverviewLoading={billingOverviewLoading}
           />

@@ -13,6 +13,7 @@ import {
 import { BillingOverviewTab } from './BillingOverviewTab';
 
 const mockEnvState = {
+  billingEnabled: 'true',
   paymentChannels: ['stripe', 'pingxx'],
   runtimeConfigLoaded: true,
   stripeEnabled: 'true',

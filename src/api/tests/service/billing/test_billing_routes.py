@@ -62,7 +62,7 @@ from flaskr.service.billing.read_models import (
     build_billing_overview,
     build_billing_wallet_buckets,
 )
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -612,6 +612,21 @@ def billing_test_client():
 
 
 class TestBillingRoutes:
+    def test_billing_routes_reject_requests_when_feature_disabled(
+        self, billing_test_client, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            billing_routes_module,
+            "is_billing_enabled",
+            lambda: False,
+        )
+
+        response = billing_test_client.get("/api/billing")
+        payload = response.get_json(force=True)
+
+        assert response.status_code == 200
+        assert payload["code"] == ERROR_CODE["server.billing.disabled"]
+
     def test_billing_bootstrap_route_returns_design_manifest(
         self, billing_test_client
     ) -> None:

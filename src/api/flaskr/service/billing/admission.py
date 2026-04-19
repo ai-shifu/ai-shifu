@@ -15,6 +15,7 @@ from .consts import CREDIT_BUCKET_CATEGORY_SUBSCRIPTION, CREDIT_BUCKET_STATUS_AC
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
 from .ownership import resolve_shifu_creator_bid
+from .primitives import is_billing_enabled
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import load_effective_topup_subscription
 
@@ -62,6 +63,17 @@ def admit_creator_usage(
     )
     if not normalized_creator_bid:
         raise_error("server.shifu.shifuNotFound")
+
+    if not is_billing_enabled():
+        return CreatorUsageAdmission(
+            allowed=True,
+            creator_bid=normalized_creator_bid,
+            shifu_bid=str(shifu_bid or "").strip(),
+            usage_scene=usage_scene,
+            wallet_available_credits=_ZERO_CREDITS,
+            subscription_status=None,
+            priority_class="standard",
+        )
 
     with app.app_context():
         buckets = (

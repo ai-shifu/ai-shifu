@@ -2,7 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { useEnvStore } from '@/c-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
@@ -17,6 +19,9 @@ import { AdminBillingSubscriptionsTable } from '@/components/billing/AdminBillin
 
 export default function AdminBillingConsolePage() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
   const [activeTab, setActiveTab] =
     React.useState<AdminBillingConsoleTab>('subscriptions');
   const [adjustDialogOpen, setAdjustDialogOpen] = React.useState(false);
@@ -26,6 +31,17 @@ export default function AdminBillingConsolePage() {
     setAdjustCreatorBid(creatorBid);
     setAdjustDialogOpen(true);
   };
+
+  React.useEffect(() => {
+    if (!runtimeConfigLoaded || billingEnabled) {
+      return;
+    }
+    router.replace('/admin');
+  }, [billingEnabled, router, runtimeConfigLoaded]);
+
+  if (!runtimeConfigLoaded || !billingEnabled) {
+    return null;
+  }
 
   return (
     <>

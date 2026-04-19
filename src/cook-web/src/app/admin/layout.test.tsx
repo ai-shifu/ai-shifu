@@ -68,8 +68,12 @@ jest.mock('@/config/environment', () => ({
 jest.mock('@/c-store', () => ({
   __esModule: true,
   useEnvStore: (
-    selector: ((state: { logoWideUrl: string }) => unknown) | undefined,
-  ) => selector?.({ logoWideUrl: '/logo.png' }) ?? '/logo.png',
+    selector:
+      | ((state: { logoWideUrl: string; billingEnabled: string }) => unknown)
+      | undefined,
+  ) =>
+    selector?.({ logoWideUrl: '/logo.png', billingEnabled: 'true' }) ??
+    '/logo.png',
 }));
 
 const mockUserStoreState = {

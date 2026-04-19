@@ -18,6 +18,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 const mockEnvState = {
+  billingEnabled: 'true',
   paymentChannels: ['stripe', 'pingxx'],
   runtimeConfigLoaded: true,
   stripeEnabled: 'true',
@@ -100,6 +101,7 @@ describe('AdminBillingPage', () => {
   beforeEach(() => {
     mockSearchParamsValue = '';
     mockReplace.mockReset();
+    mockEnvState.billingEnabled = 'true';
     mockEnvState.paymentChannels = ['stripe', 'pingxx'];
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
@@ -304,6 +306,19 @@ describe('AdminBillingPage', () => {
 
     expect(mockGetBillingWalletBuckets).not.toHaveBeenCalled();
     expect(mockGetBillingLedger).not.toHaveBeenCalled();
+  });
+
+  test('redirects back to admin when billing is disabled', async () => {
+    mockEnvState.billingEnabled = 'false';
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/admin');
+    });
+    expect(mockGetBillingBootstrap).not.toHaveBeenCalled();
+    expect(mockGetBillingCatalog).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('admin-billing-page')).not.toBeInTheDocument();
   });
 
   test('switches to details and scrolls when an open-orders alert is triggered', async () => {
