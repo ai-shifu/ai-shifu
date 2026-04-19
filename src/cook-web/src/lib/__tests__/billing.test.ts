@@ -150,6 +150,25 @@ describe('resolveBillingLedgerReasonLabel', () => {
       'module.billing.ledger.usageScene.production - production course - learner@example.com',
     );
   });
+
+  test('shows expire label for expired ledger entries', () => {
+    expect(
+      resolveBillingLedgerReasonLabel(t, {
+        ledger_bid: 'ledger-expire',
+        wallet_bucket_bid: 'bucket-expire',
+        entry_type: 'expire',
+        source_type: 'topup',
+        source_bid: 'topup-expire',
+        idempotency_key: 'expire:bucket-expire',
+        amount: -3,
+        balance_after: 0,
+        expires_at: '2026-04-06T10:00:00Z',
+        consumable_from: '2026-04-01T10:00:00Z',
+        metadata: {},
+        created_at: '2026-04-06T10:00:00Z',
+      }),
+    ).toBe('module.billing.ledger.entryType.expire');
+  });
 });
 
 describe('parseBillingDateValue', () => {

@@ -561,89 +561,105 @@ def expire_credit_wallet_buckets(
     normalized_creator_bid = str(creator_bid or "").strip()
     cutoff = expire_before or datetime.now()
     with app.app_context():
-        query = CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-            CreditWalletBucket.effective_to.isnot(None),
-            CreditWalletBucket.effective_to <= cutoff,
+        result = _expire_credit_wallet_buckets_in_session(
+            app,
+            creator_bid=normalized_creator_bid,
+            expire_before=cutoff,
         )
-        if normalized_creator_bid:
-            query = query.filter(
-                CreditWalletBucket.creator_bid == normalized_creator_bid
-            )
-        buckets = query.order_by(
-            CreditWalletBucket.effective_to.asc(),
-            CreditWalletBucket.created_at.asc(),
-            CreditWalletBucket.id.asc(),
-        ).all()
-        if not buckets:
-            return WalletExpirationResult(
-                status="noop",
-                creator_bid=normalized_creator_bid or None,
-                bucket_count=0,
-                expired_credits=0,
-            )
-
-        wallets: dict[str, CreditWallet] = {}
-        expired_total = _ZERO
-        expired_count = 0
-        for bucket in buckets:
-            available = _to_decimal(bucket.available_credits)
-            if available <= _ZERO:
-                sync_credit_bucket_status(bucket)
-                db.session.add(bucket)
-                continue
-
-            wallet = wallets.get(bucket.wallet_bid)
-            if wallet is None:
-                wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
-                if wallet is None:
-                    continue
-                wallets[bucket.wallet_bid] = wallet
-
-            bucket.available_credits = _ZERO
-            bucket.expired_credits = _quantize_credit_amount(
-                _to_decimal(bucket.expired_credits) + available
-            )
-            bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
-            db.session.add(bucket)
-
-            refresh_credit_wallet_snapshot(wallet)
-            ledger_entry = CreditLedgerEntry(
-                ledger_bid=generate_id(app),
-                creator_bid=bucket.creator_bid,
-                wallet_bid=wallet.wallet_bid,
-                wallet_bucket_bid=bucket.wallet_bucket_bid,
-                entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                source_type=bucket.source_type,
-                source_bid=bucket.source_bid,
-                idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
-                amount=-available,
-                balance_after=_quantize_credit_amount(wallet.available_credits),
-                expires_at=bucket.effective_to,
-                consumable_from=bucket.effective_from,
-                metadata_json={
-                    "expired_bucket_bid": bucket.wallet_bucket_bid,
-                    "expired_at": cutoff.isoformat(),
-                },
-            )
-            persist_credit_wallet_snapshot(
-                wallet,
-                available_credits=wallet.available_credits,
-                reserved_credits=wallet.reserved_credits,
-                updated_at=cutoff,
-            )
-            db.session.add(ledger_entry)
-            expired_total += available
-            expired_count += 1
-
         db.session.commit()
+        return result
+
+
+def _expire_credit_wallet_buckets_in_session(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    expire_before: datetime | None = None,
+) -> WalletExpirationResult:
+    """Expire eligible buckets inside the current transaction without committing."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    cutoff = expire_before or datetime.now()
+    query = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_to.isnot(None),
+        CreditWalletBucket.effective_to <= cutoff,
+    )
+    if normalized_creator_bid:
+        query = query.filter(CreditWalletBucket.creator_bid == normalized_creator_bid)
+    buckets = query.order_by(
+        CreditWalletBucket.effective_to.asc(),
+        CreditWalletBucket.created_at.asc(),
+        CreditWalletBucket.id.asc(),
+    ).all()
+    if not buckets:
         return WalletExpirationResult(
-            status="expired" if expired_count else "noop",
+            status="noop",
             creator_bid=normalized_creator_bid or None,
-            bucket_count=expired_count,
-            expired_credits=_credit_decimal_to_number(expired_total),
+            bucket_count=0,
+            expired_credits=0,
         )
+
+    wallets: dict[str, CreditWallet] = {}
+    expired_total = _ZERO
+    expired_count = 0
+    for bucket in buckets:
+        available = _to_decimal(bucket.available_credits)
+        if available <= _ZERO:
+            sync_credit_bucket_status(bucket)
+            db.session.add(bucket)
+            continue
+
+        wallet = wallets.get(bucket.wallet_bid)
+        if wallet is None:
+            wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
+            if wallet is None:
+                continue
+            wallets[bucket.wallet_bid] = wallet
+
+        bucket.available_credits = _ZERO
+        bucket.expired_credits = _quantize_credit_amount(
+            _to_decimal(bucket.expired_credits) + available
+        )
+        bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
+        db.session.add(bucket)
+
+        refresh_credit_wallet_snapshot(wallet)
+        ledger_entry = CreditLedgerEntry(
+            ledger_bid=generate_id(app),
+            creator_bid=bucket.creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            source_type=bucket.source_type,
+            source_bid=bucket.source_bid,
+            idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
+            amount=-available,
+            balance_after=_quantize_credit_amount(wallet.available_credits),
+            expires_at=bucket.effective_to,
+            consumable_from=bucket.effective_from,
+            metadata_json={
+                "expired_bucket_bid": bucket.wallet_bucket_bid,
+                "expired_at": cutoff.isoformat(),
+            },
+        )
+        persist_credit_wallet_snapshot(
+            wallet,
+            available_credits=wallet.available_credits,
+            reserved_credits=wallet.reserved_credits,
+            updated_at=cutoff,
+        )
+        db.session.add(ledger_entry)
+        expired_total += available
+        expired_count += 1
+
+    return WalletExpirationResult(
+        status="expired" if expired_count else "noop",
+        creator_bid=normalized_creator_bid or None,
+        bucket_count=expired_count,
+        expired_credits=_credit_decimal_to_number(expired_total),
+    )
 
 
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:

@@ -42,6 +42,7 @@ from .subscriptions import (
 )
 from .models import BillingOrder, BillingRenewalEvent
 from .primitives import normalize_bid as _normalize_bid
+from .wallets import _expire_credit_wallet_buckets_in_session
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -346,6 +347,11 @@ def _execute_expire_subscription(
             ),
         )
 
+    _expire_credit_wallet_buckets_in_session(
+        app,
+        creator_bid=subscription.creator_bid,
+        expire_before=boundary_at or now,
+    )
     subscription.status = BILLING_SUBSCRIPTION_STATUS_EXPIRED
     subscription.updated_at = now
     db.session.add(subscription)
