@@ -320,6 +320,8 @@
     }
   },
   "checkout": {
+    "agreementLink": "付费协议",
+    "agreementPrefix": "我已阅读并同意",
     "cancel": "取消",
     "confirm": "继续支付",
     "creditsLabel": "积分",

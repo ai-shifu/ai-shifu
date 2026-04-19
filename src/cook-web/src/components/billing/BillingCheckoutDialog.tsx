@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getPaymentAgreementUrl } from '@/c-utils/urlUtils';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { resolveBillingPingxxChannelLabel } from '@/lib/billing';
 import type { BillingPingxxChannel } from '@/types/billing';
@@ -40,6 +42,12 @@ export function BillingCheckoutDialog({
   onPingxxChannelChange,
 }: BillingCheckoutDialogProps) {
   const { t } = useTranslation();
+  const [agreed, setAgreed] = useState(false);
+  const agreementUrl = getPaymentAgreementUrl();
+
+  useEffect(() => {
+    if (!open) setAgreed(false);
+  }, [open]);
 
   return (
     <Dialog
@@ -96,6 +104,30 @@ export function BillingCheckoutDialog({
             )}
           </div>
         ) : null}
+        {agreementUrl ? (
+          <div className='flex items-center gap-2 text-sm text-slate-600'>
+            <Checkbox
+              id='billing-checkout-agreement'
+              checked={agreed}
+              onCheckedChange={(checked) => setAgreed(checked === true)}
+            />
+            <label
+              htmlFor='billing-checkout-agreement'
+              className='cursor-pointer leading-none'
+            >
+              {t('module.billing.checkout.agreementPrefix')}{' '}
+              <a
+                href={agreementUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='text-primary underline underline-offset-2'
+                onClick={(e) => e.stopPropagation()}
+              >
+                {t('module.billing.checkout.agreementLink')}
+              </a>
+            </label>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             type='button'
@@ -108,7 +140,7 @@ export function BillingCheckoutDialog({
           <Button
             type='button'
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || (agreementUrl !== null && !agreed)}
           >
             {isLoading
               ? t('module.billing.checkout.processing')

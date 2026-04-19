@@ -320,6 +320,8 @@
     }
   },
   "checkout": {
+    "agreementLink": "Payment Agreement",
+    "agreementPrefix": "I have read and agreed to the",
     "cancel": "Cancel",
     "confirm": "Continue to payment",
     "creditsLabel": "Credits",
