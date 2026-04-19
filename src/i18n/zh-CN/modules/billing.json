@@ -320,12 +320,12 @@
     }
   },
   "checkout": {
-    "agreementLink": "付费协议",
+    "agreementLink": "积分购买协议",
     "agreementPrefix": "我已阅读并同意",
     "cancel": "取消",
     "confirm": "继续支付",
     "creditsLabel": "积分",
-    "planDescription": "你将进入创作者订阅套餐的支付确认流程。",
+    "planDescription": "以下是积分订阅套餐的支付环节。",
     "priceLabel": "价格",
     "processing": "处理中...",
     "productLabel": "商品",

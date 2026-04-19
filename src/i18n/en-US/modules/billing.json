@@ -320,12 +320,12 @@
     }
   },
   "checkout": {
-    "agreementLink": "Payment Agreement",
+    "agreementLink": "Credit Purchase Agreement",
     "agreementPrefix": "I have read and agreed to the",
     "cancel": "Cancel",
     "confirm": "Continue to payment",
     "creditsLabel": "Credits",
-    "planDescription": "You are about to start a recurring creator subscription checkout.",
+    "planDescription": "Here are the payment details for your credit subscription plan.",
     "priceLabel": "Price",
     "processing": "Processing...",
     "productLabel": "Product",
