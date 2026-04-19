@@ -7,9 +7,13 @@ import os
 from typing import Any
 
 from celery import Celery, Task
+from celery.schedules import crontab
 from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
+_DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
+_DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "*/10 * * * *"
+_DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 
 __CELERY_APP__: Celery | None = None
 
@@ -72,7 +76,80 @@ def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
         "broker_connection_retry_on_startup": True,
         "timezone": flask_app.config.get("TZ", "UTC"),
         "imports": ("flaskr.service.billing.tasks",),
+        "beat_schedule": _build_billing_beat_schedule(flask_app),
     }
+
+
+def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
+    return {
+        "billing.dispatch_due_renewal_events.schedule": {
+            "task": "billing.dispatch_due_renewal_events",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_RENEWAL_CRON",
+                _DEFAULT_BILLING_RENEWAL_CRON,
+            ),
+        },
+        "billing.expire_wallet_buckets.schedule": {
+            "task": "billing.expire_wallet_buckets",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_BUCKET_EXPIRE_CRON",
+                _DEFAULT_BILLING_BUCKET_EXPIRE_CRON,
+            ),
+        },
+        "billing.send_low_balance_alert.schedule": {
+            "task": "billing.send_low_balance_alert",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_LOW_BALANCE_CRON",
+                _DEFAULT_BILLING_LOW_BALANCE_CRON,
+            ),
+        },
+    }
+
+
+def _resolve_billing_crontab(
+    flask_app: Flask,
+    config_key: str,
+    default_expression: str,
+):
+    raw_expression = str(
+        flask_app.config.get(config_key) or os.getenv(config_key) or default_expression
+    ).strip()
+    schedule = _parse_crontab_expression(raw_expression)
+    if schedule is not None:
+        return schedule
+
+    flask_app.logger.warning(
+        "Invalid %s=%r; falling back to %s",
+        config_key,
+        raw_expression,
+        default_expression,
+    )
+    fallback_schedule = _parse_crontab_expression(default_expression)
+    if fallback_schedule is None:  # pragma: no cover - guarded by constants above
+        raise ValueError(f"Invalid default cron expression for {config_key}")
+    return fallback_schedule
+
+
+def _parse_crontab_expression(expression: str):
+    normalized_expression = " ".join(str(expression or "").split())
+    parts = normalized_expression.split(" ")
+    if len(parts) != 5 or any(not part for part in parts):
+        return None
+
+    minute, hour, day_of_month, month_of_year, day_of_week = parts
+    try:
+        return crontab(
+            minute=minute,
+            hour=hour,
+            day_of_month=day_of_month,
+            month_of_year=month_of_year,
+            day_of_week=day_of_week,
+        )
+    except Exception:
+        return None
 
 
 def _load_flask_app() -> Flask:

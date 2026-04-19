@@ -8,6 +8,22 @@ from flask import Flask, current_app
 import flaskr.common.celery_app as celery_app_module
 
 
+def _assert_cron_schedule(
+    schedule,
+    *,
+    minute: str,
+    hour: str,
+    day_of_month: str = "*",
+    month_of_year: str = "*",
+    day_of_week: str = "*",
+) -> None:
+    assert getattr(schedule, "_orig_minute") == minute
+    assert getattr(schedule, "_orig_hour") == hour
+    assert getattr(schedule, "_orig_day_of_month") == day_of_month
+    assert getattr(schedule, "_orig_month_of_year") == month_of_year
+    assert getattr(schedule, "_orig_day_of_week") == day_of_week
+
+
 def test_create_celery_app_reuses_flask_config() -> None:
     flask_app = Flask(__name__)
     flask_app.config.update(
@@ -15,6 +31,9 @@ def test_create_celery_app_reuses_flask_config() -> None:
         CELERY_RESULT_BACKEND="redis://backend.example:6379/4",
         CELERY_TASK_ALWAYS_EAGER=True,
         TZ="Asia/Shanghai",
+        BILLING_RENEWAL_CRON="*/2 * * * *",
+        BILLING_BUCKET_EXPIRE_CRON="*/15 * * * *",
+        BILLING_LOW_BALANCE_CRON="30 * * * *",
     )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
@@ -29,12 +48,39 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.expire_wallet_buckets" in celery_app.tasks
     assert "billing.reconcile_provider_reference" in celery_app.tasks
     assert "billing.send_low_balance_alert" in celery_app.tasks
+    assert "billing.dispatch_due_renewal_events" in celery_app.tasks
     assert "billing.run_renewal_event" in celery_app.tasks
     assert "billing.retry_failed_renewal" in celery_app.tasks
     assert "billing.aggregate_daily_usage_metrics" in celery_app.tasks
     assert "billing.aggregate_daily_ledger_summary" in celery_app.tasks
     assert "billing.rebuild_daily_aggregates" in celery_app.tasks
     assert "billing.verify_domain_binding" in celery_app.tasks
+
+    beat_schedule = celery_app.conf.beat_schedule
+    assert beat_schedule["billing.dispatch_due_renewal_events.schedule"]["task"] == (
+        "billing.dispatch_due_renewal_events"
+    )
+    assert beat_schedule["billing.expire_wallet_buckets.schedule"]["task"] == (
+        "billing.expire_wallet_buckets"
+    )
+    assert beat_schedule["billing.send_low_balance_alert.schedule"]["task"] == (
+        "billing.send_low_balance_alert"
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.dispatch_due_renewal_events.schedule"]["schedule"],
+        minute="*/2",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.expire_wallet_buckets.schedule"]["schedule"],
+        minute="*/15",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
+        minute="30",
+        hour="*",
+    )
 
 
 def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
@@ -237,3 +283,26 @@ def test_get_celery_app_loads_flask_app_from_app_factory(
     celery_app = celery_app_module.get_celery_app()
 
     assert getattr(celery_app, "flask_app") is fake_flask_app
+
+
+def test_create_celery_app_uses_default_billing_beat_crons() -> None:
+    flask_app = Flask(__name__)
+    celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
+
+    beat_schedule = celery_app.conf.beat_schedule
+
+    _assert_cron_schedule(
+        beat_schedule["billing.dispatch_due_renewal_events.schedule"]["schedule"],
+        minute="*",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.expire_wallet_buckets.schedule"]["schedule"],
+        minute="*/10",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
+        minute="0",
+        hour="*",
+    )

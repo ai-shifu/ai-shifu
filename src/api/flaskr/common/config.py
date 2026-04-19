@@ -544,6 +544,24 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Execute Celery tasks eagerly in-process for tests and local debugging.",
         group="celery",
     ),
+    "BILLING_RENEWAL_CRON": EnvVar(
+        name="BILLING_RENEWAL_CRON",
+        default="* * * * *",
+        description="Cron expression for dispatching due billing renewal events.",
+        group="celery",
+    ),
+    "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
+        name="BILLING_BUCKET_EXPIRE_CRON",
+        default="*/10 * * * *",
+        description="Cron expression for scanning expired billing wallet buckets.",
+        group="celery",
+    ),
+    "BILLING_LOW_BALANCE_CRON": EnvVar(
+        name="BILLING_LOW_BALANCE_CRON",
+        default="0 * * * *",
+        description="Cron expression for scanning billing low-balance alerts.",
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",

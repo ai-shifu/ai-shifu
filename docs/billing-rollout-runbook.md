@@ -21,6 +21,7 @@
   - `b114d7f5e2c1_add_billing_core_phase.py`
   - `c225e8a6f3d2_add_billing_extension_phase.py`
 - Redis、`celery-worker`、`celery-beat` 已部署且与 API 使用同一套配置
+- `BILLING_RENEWAL_CRON`、`BILLING_BUCKET_EXPIRE_CRON`、`BILLING_LOW_BALANCE_CRON` 已按目标环境配置
 - Stripe webhook 继续走旧入口 `/api/order/stripe/webhook`
 - Pingxx callback 继续走旧入口 `/api/callback/pingxx-callback`
 - `sys_configs` 中以下 key 已存在：
@@ -49,6 +50,7 @@
    - `credit_usage_rates` 已覆盖 `production / preview / debug`
    - `sys_configs` 已写入 billing feature flag 和 rate version
 5. 启动或滚动更新 `celery-worker` 与 `celery-beat`
+   - 当前 worker 默认只消费 `celery` 队列；`BILLING_RENEWAL_TASK_CONFIG.queue` 仍为保留字段，不作为当前 beat 路由依据
 6. 再发前端并打开 creator billing 导航
 
 ## 4. 回填与修复

@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Callable
 
+from flaskr.service.config import get_config
+
 from .checkout import reconcile_billing_provider_reference
+from .consts import (
+    BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+)
 from .daily_aggregates import (
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
     rebuild_daily_aggregates,
 )
 from .domains import verify_domain_binding
-from .models import BillingSubscription, CreditWallet
+from .models import BillingRenewalEvent, BillingSubscription, CreditWallet
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
@@ -90,6 +98,91 @@ def _serialize_task_payload(result: Any) -> Any:
     if hasattr(result, "__json__"):
         return result.__json__()
     raise TypeError(f"Unsupported task payload type: {type(result)!r}")
+
+
+def _load_renewal_task_config() -> dict[str, Any]:
+    defaults = {
+        "enabled": 0,
+        "batch_size": 100,
+        "lookahead_minutes": 60,
+        "queue": "billing-renewal",
+    }
+    raw_config = get_config(BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG, "") or ""
+    try:
+        parsed = json.loads(str(raw_config))
+    except (TypeError, ValueError):
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    return {**defaults, **parsed}
+
+
+def _coerce_positive_int(
+    value: Any,
+    default: int,
+    *,
+    minimum: int = 0,
+) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, normalized)
+
+
+def dispatch_due_renewal_events(
+    app,
+) -> dict[str, Any]:
+    """Find due renewal events and enqueue the existing runner task."""
+
+    with app.app_context():
+        config = _load_renewal_task_config()
+        if not _coerce_bool(config.get("enabled")):
+            return {
+                "status": "noop_disabled",
+                "candidate_count": 0,
+                "enqueued_count": 0,
+                "renewal_event_bids": [],
+            }
+
+        batch_size = _coerce_positive_int(config.get("batch_size"), 100, minimum=1)
+        lookahead_minutes = _coerce_positive_int(
+            config.get("lookahead_minutes"),
+            60,
+            minimum=0,
+        )
+        cutoff = datetime.now() + timedelta(minutes=lookahead_minutes)
+        events = (
+            BillingRenewalEvent.query.filter(
+                BillingRenewalEvent.deleted == 0,
+                BillingRenewalEvent.status == BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                BillingRenewalEvent.scheduled_at <= cutoff,
+            )
+            .order_by(
+                BillingRenewalEvent.scheduled_at.asc(),
+                BillingRenewalEvent.id.asc(),
+            )
+            .limit(batch_size)
+            .all()
+        )
+
+        renewal_event_bids: list[str] = []
+        for event in events:
+            run_renewal_event_task.apply_async(
+                kwargs={
+                    "renewal_event_bid": event.renewal_event_bid,
+                    "subscription_bid": event.subscription_bid,
+                    "creator_bid": event.creator_bid,
+                }
+            )
+            renewal_event_bids.append(event.renewal_event_bid)
+
+        return {
+            "status": "enqueued" if renewal_event_bids else "noop",
+            "candidate_count": len(events),
+            "enqueued_count": len(renewal_event_bids),
+            "renewal_event_bids": renewal_event_bids,
+        }
 
 
 def _run_reconcile_provider_reference(
@@ -275,6 +368,17 @@ def send_low_balance_alert_task(
         creators=creators,
     )
     return result.to_task_payload()
+
+
+@shared_task(name="billing.dispatch_due_renewal_events")
+def dispatch_due_renewal_events_task() -> dict[str, Any]:
+    """Enqueue due renewal events onto the default worker queue."""
+
+    app = _create_task_app()
+    payload = dispatch_due_renewal_events(app)
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = "billing.dispatch_due_renewal_events"
+    return payload
 
 
 @shared_task(name="billing.run_renewal_event")
