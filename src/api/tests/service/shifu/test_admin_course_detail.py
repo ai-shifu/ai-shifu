@@ -23,8 +23,11 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order
-from flaskr.service.promo.consts import COUPON_STATUS_USED
-from flaskr.service.promo.models import CouponUsage
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+)
+from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
@@ -55,6 +58,7 @@ def _clear_tables() -> None:
     db.session.query(LearnLessonFeedback).delete()
     db.session.query(LearnGeneratedBlock).delete()
     db.session.query(LearnProgressRecord).delete()
+    db.session.query(PromoRedemption).delete()
     db.session.query(CouponUsage).delete()
     db.session.query(Order).delete()
     db.session.query(UserToken).delete()
@@ -223,6 +227,31 @@ def _seed_coupon_usage(
             order_bid=order_bid,
             code=code,
             status=COUPON_STATUS_USED,
+            deleted=0,
+        )
+    )
+
+
+def _seed_promo_redemption(
+    *,
+    redemption_bid: str,
+    promo_bid: str,
+    order_bid: str,
+    shifu_bid: str,
+    user_bid: str,
+    discount_amount: str,
+    promo_name: str = "Full Redeem Promo",
+) -> None:
+    db.session.add(
+        PromoRedemption(
+            redemption_bid=redemption_bid,
+            promo_bid=promo_bid,
+            order_bid=order_bid,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            promo_name=promo_name,
+            discount_amount=Decimal(discount_amount),
+            status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
             deleted=0,
         )
     )
@@ -1381,6 +1410,74 @@ def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
     assert payload["data"]["metrics"]["order_amount"] == "154"
 
 
+def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    created_at = datetime(2026, 4, 2, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        db.session.add_all(
+            [
+                Order(
+                    order_bid="order-direct-paid",
+                    shifu_bid="course-detail",
+                    user_bid="user-direct-paid",
+                    payable_price=Decimal("88.00"),
+                    paid_price=Decimal("88.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-full-promo",
+                    shifu_bid="course-detail",
+                    user_bid="user-full-promo",
+                    payable_price=Decimal("66.00"),
+                    paid_price=Decimal("0.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+            ]
+        )
+        _seed_promo_redemption(
+            redemption_bid="promo-redemption-full",
+            promo_bid="promo-full",
+            order_bid="order-full-promo",
+            shifu_bid="course-detail",
+            user_bid="user-full-promo",
+            discount_amount="66.00",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["metrics"]["order_count"] == 2
+    assert payload["data"]["metrics"]["order_amount"] == "154"
+
+
 @pytest.mark.parametrize(
     ("query_string", "expected_param"),
     [
@@ -1406,4 +1503,4 @@ def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
 
     assert response.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == expected_param
+    assert payload["message"] == f"Params Error {expected_param}"
