@@ -16,6 +16,11 @@ from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+from flaskr.service.metering import UsageContext
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_event_name,
+    build_langfuse_generation_name,
+)
 
 
 class BreakException(Exception):
@@ -34,9 +39,16 @@ def check_text_with_llm_response(
     llm_settings: LLMSettings,
     attend_id: str,
     fmt_prompt: str,
+    usage_context: UsageContext,
+    chapter_title: str = "",
+    scene: str = "lesson_runtime",
 ):
     res = check_text(app, log_script.generated_block_bid, input, user_info.user_id)
-    span.event(name="check_text", input=input, output=res)
+    span.event(
+        name=build_langfuse_event_name(chapter_title, scene, "check_text"),
+        input=input,
+        output=res,
+    )
     add_risk_control_result(
         app,
         log_script.generated_block_bid,
@@ -74,7 +86,13 @@ def check_text_with_llm_response(
             model=llm_settings.model,
             json=False,
             stream=True,
-            generation_name="check_text_reject_" + str(log_script.generated_block_bid),
+            generation_name=build_langfuse_generation_name(
+                chapter_title,
+                scene,
+                "check_text_reject",
+            ),
+            usage_context=usage_context,
+            usage_scene=usage_context.usage_scene,
             **{"temperature": llm_settings.temperature},
         )
         response_text = ""

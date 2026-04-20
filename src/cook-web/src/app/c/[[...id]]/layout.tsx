@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
 import { getCourseInfo } from '@/c-api/course';
+import { tracking } from '@/c-common/tools/tracking';
 import {
   EnvStoreState,
   SystemStoreState,
@@ -26,7 +27,7 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   const envDataInitialized = useEnvStore(
@@ -40,8 +41,12 @@ export default function ChatLayout({
     updateWechatCode,
     setShowVip,
     updateLanguage,
+    previewMode,
+    skip,
     updatePreviewMode,
     updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
   } = useSystemStore() as SystemStoreState;
 
   // Use the original browser language without conversion
@@ -57,12 +62,14 @@ export default function ChatLayout({
     (state: EnvStoreState) => state.enableWxcode,
   );
 
-  const { updateCourseName, updateCourseAvatar } = useCourseStore(
-    useShallow((state: CourseStoreState) => ({
-      updateCourseName: state.updateCourseName,
-      updateCourseAvatar: state.updateCourseAvatar,
-    })),
-  );
+  const { updateCourseName, updateCourseAvatar, updateCourseTtsEnabled } =
+    useCourseStore(
+      useShallow((state: CourseStoreState) => ({
+        updateCourseName: state.updateCourseName,
+        updateCourseAvatar: state.updateCourseAvatar,
+        updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      })),
+    );
 
   const { userInfo, initUser } = useUserStore();
 
@@ -82,9 +89,22 @@ export default function ChatLayout({
     ? params.preview.toLowerCase() === 'true'
     : false;
   const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
+  const listenModeEnabled = params.listen
+    ? params.listen.toLowerCase() === 'true'
+    : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
+  }
+
+  // Apply preview/skip flags eagerly so child components (and their effects) see
+  // the correct mode on the first render.
+  if (previewMode !== isPreviewMode) {
+    updatePreviewMode(isPreviewMode);
+  }
+
+  if (skip !== isSkipMode) {
+    updateSkip(isSkipMode);
   }
 
   useEffect(() => {
@@ -137,7 +157,17 @@ export default function ChatLayout({
   useEffect(() => {
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
-  }, [isPreviewMode, isSkipMode, updatePreviewMode, updateSkip]);
+    updateShowLearningModeToggle(listenModeEnabled);
+    updateLearningMode(listenModeEnabled ? 'listen' : 'read');
+  }, [
+    isPreviewMode,
+    isSkipMode,
+    listenModeEnabled,
+    updatePreviewMode,
+    updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
+  ]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -145,38 +175,77 @@ export default function ChatLayout({
       if (courseId) {
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
-          if (resp) {
-            setShowVip(resp.course_price > 0);
-            updateCourseName(resp.course_name);
-            updateCourseAvatar(resp.course_avatar);
-            document.title = resp.course_name + ' - AI 师傅';
-            const metaDescription = document.querySelector(
-              'meta[name="description"]',
-            );
-            if (metaDescription) {
-              metaDescription.setAttribute('content', resp.course_desc);
-            } else {
-              const newMetaDescription = document.createElement('meta');
-              newMetaDescription.setAttribute('name', 'description');
-              newMetaDescription.setAttribute('content', resp.course_desc);
-              document.head.appendChild(newMetaDescription);
-            }
-            const metaKeywords = document.querySelector(
-              'meta[name="keywords"]',
-            );
-            if (metaKeywords) {
-              metaKeywords.setAttribute('content', resp.course_keywords);
-            } else {
-              const newMetaKeywords = document.createElement('meta');
-              newMetaKeywords.setAttribute('name', 'keywords');
-              newMetaKeywords.setAttribute('content', resp.course_keywords);
-              document.head.appendChild(newMetaKeywords);
-            }
+          setShowVip(resp.course_price > 0);
+          updateCourseName(resp.course_name);
+          updateCourseAvatar(resp.course_avatar);
+          updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+          const titleSuffix = t('common.core.brandName');
+          document.title = `${resp.course_name} - ${titleSuffix}`;
+          const metaDescription = document.querySelector(
+            'meta[name="description"]',
+          );
+          if (metaDescription) {
+            metaDescription.setAttribute('content', resp.course_desc);
           } else {
-            window.location.href = '/404';
+            const newMetaDescription = document.createElement('meta');
+            newMetaDescription.setAttribute('name', 'description');
+            newMetaDescription.setAttribute('content', resp.course_desc);
+            document.head.appendChild(newMetaDescription);
+          }
+          const metaKeywords = document.querySelector('meta[name="keywords"]');
+          if (metaKeywords) {
+            metaKeywords.setAttribute('content', resp.course_keywords);
+          } else {
+            const newMetaKeywords = document.createElement('meta');
+            newMetaKeywords.setAttribute('name', 'keywords');
+            newMetaKeywords.setAttribute('content', resp.course_keywords);
+            document.head.appendChild(newMetaKeywords);
           }
         } catch (error) {
-          window.location.href = '/404';
+          const isCourseNotFound = Boolean(
+            (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
+          );
+          if (isCourseNotFound) {
+            tracking('learner_course_404_redirect', {
+              shifu_bid: courseId,
+              preview_mode: isPreviewMode,
+              reason: 'course_not_found',
+              path: window.location.pathname,
+              ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+              is_wechat:
+                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
+              has_token: Boolean(useUserStore.getState().getToken()),
+            });
+            window.location.href = '/404';
+            return;
+          }
+
+          // Keep users on page for transient failures instead of forcing 404.
+          tracking('learner_course_info_non_404_error', {
+            shifu_bid: courseId,
+            preview_mode: isPreviewMode,
+            reason: 'transient_or_unknown_error',
+            path: window.location.pathname,
+            error_code:
+              (error as { code?: number | string })?.code?.toString?.() || '',
+            http_status:
+              (error as { status?: number | string })?.status?.toString?.() ||
+              '',
+            error_type:
+              (error as { status?: number | string })?.status ||
+              (error as { code?: number | string })?.code
+                ? 'http_error'
+                : 'unknown_error',
+            is_wechat:
+              typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
+            has_token: Boolean(useUserStore.getState().getToken()),
+          });
+          console.warn('Skip 404 redirect for non-notfound course info error', {
+            courseId,
+            error,
+          });
+          // TODO(lesson-mobile-404): sequence OAuth/checkWxcode/user init and course-info
+          // requests to eliminate race windows on weak mobile networks.
         }
       }
     };
@@ -185,7 +254,10 @@ export default function ChatLayout({
     courseId,
     envDataInitialized,
     setShowVip,
+    t,
     updateCourseName,
+    updateCourseAvatar,
+    updateCourseTtsEnabled,
     isPreviewMode,
   ]);
 

@@ -22,6 +22,7 @@ BACKEND_PATTERNS = [
     re.compile(r"_\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"raise_error\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"raise_error_with_args\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"raise_param_error\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"ERROR_CODE\\\[\"([A-Za-z0-9_.-]+)\"\\\]"),
 ]
 
@@ -109,8 +110,8 @@ def collect_backend_keys() -> Set[str]:
             for match in pattern.findall(text):
                 if "." not in match:
                     continue
-                # Only consider our backend namespaces
-                if match.startswith("server.") or match.startswith("module.backend."):
+                # Only consider backend namespaces we intentionally allow in Python.
+                if match.startswith("server.") or match.startswith("module."):
                     used.add(match)
                     # Add alias (with domain remap where needed)
                     if match.startswith("server."):
@@ -135,7 +136,7 @@ def collect_backend_keys() -> Set[str]:
                             )
                         else:
                             used.add("module.backend." + match[len("server.") :])
-                    else:
+                    elif match.startswith("module.backend."):
                         if match.startswith("module.backend.course."):
                             used.add(
                                 "server.shifu." + match[len("module.backend.course.") :]

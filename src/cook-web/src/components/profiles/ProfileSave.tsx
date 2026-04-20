@@ -1,7 +1,6 @@
 /** inject profile to mc-editor */
 'use client';
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import {
@@ -15,12 +14,7 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
-import type {
-  Profile,
-  EnumItem,
-  ProfileType,
-} from '@/components/profiles/types';
+import type { Profile } from '@/components/profiles/types';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 interface ProfileSaveProps {
@@ -40,53 +34,43 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(!!value?.profile_id);
-  const [editingId, setEditingId] = useState<number>();
+  const [editingId, setEditingId] = useState<string>();
   const [profile, setProfile] = useState<Profile>({
     profile_key: '',
-    profile_remark: '',
     profile_type: 'text',
-    profile_items: [],
-  });
-
-  const [newEnumItem, setNewEnumItem] = useState<EnumItem>({
-    value: '',
-    name: '',
   });
 
   const resetForm = () => {
     setProfile({
       profile_key: '',
-      profile_remark: '',
       profile_type: 'text',
-      profile_items: [],
     });
-    setNewEnumItem({ value: '', name: '' });
     setIsEditing(false);
     setEditingId(undefined);
   };
 
   const handleSaveProfile = async () => {
     const trimmedKey = profile.profile_key.trim();
-    if (trimmedKey) {
-      const profileToSave: Profile = {
-        ...profile,
-        profile_key: trimmedKey,
-        profile_items:
-          profile.profile_type === 'option' ? profile.profile_items : undefined,
-        profile_id: editingId?.toString(),
-        parent_id: parentId,
-      };
-      const res = await api.saveProfile(profileToSave).catch(error => {
-        // Log error for debugging
-        console.error('Failed to save profile:', error);
-        // TODO: Show user-friendly error message via toast or notification
-        return null;
-      });
-      if (res) {
-        onSaveSuccess?.(profileToSave);
-        resetForm();
-        onOpenChange?.(false);
-      }
+    if (!trimmedKey) {
+      return;
+    }
+
+    const profileToSave: Profile = {
+      ...profile,
+      profile_key: trimmedKey,
+      profile_type: 'text',
+      profile_id: editingId,
+      parent_id: parentId,
+      profile_remark: '',
+    };
+    const res = await api.saveProfile(profileToSave).catch(error => {
+      console.error('Failed to save profile:', error);
+      return null;
+    });
+    if (res) {
+      onSaveSuccess?.(profileToSave);
+      resetForm();
+      onOpenChange?.(false);
     }
   };
 
@@ -95,63 +79,23 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
     onOpenChange?.(false);
   };
 
-  const handleAddEnumItem = () => {
-    if (newEnumItem.value.trim() && newEnumItem.name.trim()) {
-      setProfile({
-        ...profile,
-        profile_items: [...(profile.profile_items || []), { ...newEnumItem }],
-      });
-      setNewEnumItem({ value: '', name: '' });
-    }
-  };
-
-  const handleRemoveEnumItem = (index: number) => {
-    const updatedEnumItems = [...(profile.profile_items || [])];
-    updatedEnumItems.splice(index, 1);
-    setProfile({
-      ...profile,
-      profile_items: updatedEnumItems,
-    });
-  };
-
   useEffect(() => {
-    const fetchProfileItemOptionList = async () => {
-      if (value) {
-        setEditingId(value.profile_id as unknown as number);
-        setIsEditing(!!value.profile_id);
-        if (value.profile_type === 'option' && value.profile_id) {
-          const res = await api.getProfileItemOptionList({
-            parent_id: value.profile_id,
-          });
-          if (res) {
-            const enumItems: EnumItem[] = [];
-            for (const item of res) {
-              enumItems.push({
-                value: item.value,
-                name: item.name,
-              });
-            }
-            setProfile({
-              ...value,
-              profile_items: enumItems,
-            });
-          } else {
-            setProfile({
-              ...value,
-              profile_items: [],
-            });
-          }
-        } else {
-          setProfile({
-            ...value,
-            profile_items: [],
-          });
-        }
-      } else {
-        resetForm();
-      }
-    };
-    fetchProfileItemOptionList();
+    if (value) {
+      setEditingId(value.profile_id);
+      setIsEditing(!!value.profile_id);
+      setProfile({
+        profile_key: value.profile_key,
+        profile_type: 'text',
+      });
+      return;
+    }
+
+    setProfile({
+      profile_key: '',
+      profile_type: 'text',
+    });
+    setIsEditing(false);
+    setEditingId(undefined);
   }, [value]);
 
   return (
@@ -201,138 +145,6 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               className='col-span-3'
             />
           </div>
-          <div className='grid grid-cols-4 items-center gap-4'>
-            <Label
-              htmlFor='title'
-              className='text-right'
-            >
-              {t('module.profiles.title')}
-            </Label>
-            <Input
-              id='profile_remark'
-              value={profile.profile_remark}
-              onChange={e =>
-                setProfile({ ...profile, profile_remark: e.target.value })
-              }
-              className='col-span-3'
-              placeholder={t('module.profiles.optional')}
-            />
-          </div>
-          <div className='grid grid-cols-4 items-center gap-4'>
-            <Label className='text-right'>
-              {t('module.profiles.dataType')}
-            </Label>
-            <div className='col-span-3'>
-              <RadioGroup
-                value={profile.profile_type}
-                onValueChange={(value: ProfileType) =>
-                  setProfile({ ...profile, profile_type: value })
-                }
-                className='flex flex-row space-x-4'
-              >
-                <div className='flex items-center space-x-2'>
-                  <RadioGroupItem
-                    value='text'
-                    id='text'
-                  />
-                  <Label htmlFor='text'>{t('module.profiles.string')}</Label>
-                </div>
-                <div className='flex items-center space-x-2'>
-                  <RadioGroupItem
-                    value='option'
-                    id='option'
-                  />
-                  <Label htmlFor='option'>{t('module.profiles.option')}</Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </div>
-
-          {profile.profile_type === 'option' && (
-            <>
-              <div className='grid grid-cols-4 gap-4'>
-                <div className='col-span-4'>
-                  <Label className='mb-2 block'>
-                    {t('module.profiles.enumItem')}
-                  </Label>
-                  {!!profile.profile_items?.length && (
-                    <div className='mb-3 rounded-md border'>
-                      <div className='grid grid-cols-12 border-b bg-muted px-3 py-2 text-sm font-medium'>
-                        <div className='col-span-5'>
-                          {t('module.profiles.optionValue')}
-                        </div>
-                        <div className='col-span-5'>
-                          {t('module.profiles.optionName')}
-                        </div>
-                        <div className='col-span-2 text-right'>
-                          {t('module.profiles.operation')}
-                        </div>
-                      </div>
-                      <div className='divide-y'>
-                        {(profile.profile_items || []).map((item, index) => (
-                          <div
-                            key={`${item.value}-${index}`}
-                            className='grid grid-cols-12 items-center px-3 py-2'
-                          >
-                            <div className='col-span-5 truncate'>
-                              {item.value}
-                            </div>
-                            <div className='col-span-5 truncate'>
-                              {item.name}
-                            </div>
-                            <div className='col-span-2 text-right'>
-                              <Button
-                                variant='ghost'
-                                size='icon'
-                                className='h-7 w-7'
-                                onClick={() => handleRemoveEnumItem(index)}
-                              >
-                                <X className='h-4 w-4' />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className='grid grid-cols-12 gap-2'>
-                    <Input
-                      placeholder={t('module.profiles.optionValue')}
-                      value={newEnumItem.value}
-                      onChange={e =>
-                        setNewEnumItem({
-                          ...newEnumItem,
-                          value: e.target.value,
-                        })
-                      }
-                      className='col-span-5'
-                    />
-                    <Input
-                      placeholder={t('module.profiles.title')}
-                      value={newEnumItem.name}
-                      onChange={e =>
-                        setNewEnumItem({
-                          ...newEnumItem,
-                          name: e.target.value,
-                        })
-                      }
-                      className='col-span-5'
-                    />
-                    <Button
-                      onClick={handleAddEnumItem}
-                      className='col-span-2 h-8'
-                      disabled={
-                        !newEnumItem.value.trim() || !newEnumItem.name.trim()
-                      }
-                    >
-                      {t('module.profiles.add')}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
         </div>
         <DialogFooter>
           <Button
@@ -345,11 +157,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
           <Button
             className='h-8'
             onClick={handleSaveProfile}
-            disabled={
-              !profile.profile_key.trim() ||
-              (profile.profile_type === 'option' &&
-                (profile.profile_items || []).length === 0)
-            }
+            disabled={!profile.profile_key.trim()}
           >
             {isEditing ? t('module.profiles.save') : t('module.profiles.add')}
           </Button>

@@ -3,7 +3,7 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import i18n, { normalizeLanguage } from '@/i18n';
+import { normalizeLanguage } from '@/i18n';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import api from '@/api';
 import {
@@ -22,12 +22,14 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { useEnvStore } from '@/c-store/envStore';
+import SetPasswordModal from '../Settings/SetPasswordModal';
 
 import Image from 'next/image';
-import imgUserInfo from '@/c-assets/newchat/light/userInfo.png';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
+import { Monitor, BookPlus, KeyRound } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -44,12 +46,20 @@ const MainMenuModal = ({
   const { t } = useTranslation();
 
   const htmlRef = useRef(null);
-  const { isLoggedIn, logout } = useUserStore(
+  const { isLoggedIn, logout, userInfo, refreshUserInfo } = useUserStore(
     useShallow(state => ({
       logout: state.logout,
       isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
+      refreshUserInfo: state.refreshUserInfo,
     })),
   );
+
+  const isCreator = userInfo?.is_creator ?? false;
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
+    ? loginMethodsEnabled.includes('password')
+    : false;
 
   const { trackEvent } = useTracking();
 
@@ -72,6 +82,32 @@ const MainMenuModal = ({
     }
 
     onPersonalInfoClick?.();
+  };
+
+  const [setPasswordModalOpen, setSetPasswordModalOpen] = useState(false);
+  const onSetPasswordClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_set_password' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+
+    setSetPasswordModalOpen(true);
+    // Close the user menu to avoid layering with the password modal.
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
+  };
+
+  const onAdminEntryClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    // Admin console handles login redirect and permission request internally
+    window.open('/admin', '_blank');
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
   };
 
   const onLoginClick = () => {
@@ -156,21 +192,6 @@ const MainMenuModal = ({
             <>
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                onClick={onUserInfoClick}
-              >
-                <Image
-                  className={styles.rowIcon}
-                  width={16}
-                  height={16}
-                  src={imgUserInfo.src}
-                  alt=''
-                />
-                <div className={styles.rowTitle}>
-                  {t('component.menus.navigationMenus.basicInfo')}
-                </div>
-              </div>
-              <div
-                className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={_onPersonalInfoClick}
               >
                 <Image
@@ -182,6 +203,42 @@ const MainMenuModal = ({
                 />
                 <div className={styles.rowTitle}>
                   {t('component.menus.navigationMenus.personalInfo')}
+                </div>
+              </div>
+              {isPasswordEnabled ? (
+                <div
+                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                  onClick={onSetPasswordClick}
+                  title={t('module.settings.password')}
+                >
+                  <KeyRound
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                  <div className={styles.rowTitle}>
+                    {t('module.settings.passwordPlaceholder')}
+                  </div>
+                </div>
+              ) : null}
+              <div
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={onAdminEntryClick}
+              >
+                {isCreator ? (
+                  <Monitor
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                ) : (
+                  <BookPlus
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                )}
+                <div className={styles.rowTitle}>
+                  {isCreator
+                    ? t('component.menus.navigationMenus.adminConsole')
+                    : t('component.menus.navigationMenus.createCourse')}
                 </div>
               </div>
             </>
@@ -246,6 +303,11 @@ const MainMenuModal = ({
           )}
         </div>
       </PopupModal>
+      <SetPasswordModal
+        open={setPasswordModalOpen}
+        onClose={() => setSetPasswordModalOpen(false)}
+        onSuccess={refreshUserInfo}
+      />
     </>
   );
 };

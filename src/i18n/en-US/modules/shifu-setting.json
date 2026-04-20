@@ -1,12 +1,141 @@
 {
   "__namespace__": "module.shifuSetting",
   "addKeyword": "Add Keyword",
+  "archive": "Archive course",
+  "archiveConfirm": "Archiving moves this course to \"Archived\". You can restore it later; editing and learning remain available while archived.",
+  "archiveSuccess": "Course archived",
+  "archiveTitle": "Archive course?",
+  "askModel": "Follow-up model",
+  "askPreview": "Test Follow-up",
+  "askPreviewLoading": "Testing...",
+  "askPreviewQuestion": "Test question",
+  "askPreviewQuestionPlaceholder": "Enter a question to test follow-up settings",
+  "askPreviewQuestionRequired": "Please enter a test question",
+  "askPreviewResult": "Test result",
+  "askPreviewUsedFallback": "Provider {provider} failed, switched to LLM fallback",
+  "askPreviewUsedProvider": "Provider used: {provider}",
+  "askProviderConfigInvalidJson": "{field} must be valid JSON object",
+  "askProviderConfigRequired": "{field} is required",
+  "askProviderDescriptions": {
+    "coze": "Use the Coze bot chat API for follow-up.",
+    "coze_workflow": "Use the Coze workflow run API for follow-up.",
+    "dify": "Use the Dify chat app for follow-up.",
+    "llm": "Use the built-in follow-up LLM only.",
+    "volc_knowledge": "Use the Volcengine knowledge base search API for follow-up."
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Coze personal access token.",
+        "label": "API Key"
+      },
+      "bot_id": {
+        "hint": "Coze bot identifier.",
+        "label": "Bot ID"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Coze personal access token.",
+        "label": "API Key"
+      },
+      "workflow_id": {
+        "hint": "Coze workflow identifier.",
+        "label": "Workflow ID"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Dify app API key.",
+        "label": "API Key"
+      },
+      "base_url": {
+        "hint": "Dify base URL, e.g. https://api.dify.ai/v1",
+        "label": "Base URL"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "Volcengine account ID for the V-Account-Id header.",
+        "label": "Account ID"
+      },
+      "ak": {
+        "hint": "Volcengine access key.",
+        "label": "Access Key"
+      },
+      "collection_name": {
+        "hint": "Knowledge base collection name.",
+        "label": "Collection Name"
+      },
+      "sk": {
+        "hint": "Volcengine secret key.",
+        "label": "Secret Key"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "Provider Only",
+    "provider_then_llm": "Provider Then LLM"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Coze Workflow",
+    "dify": "Dify",
+    "llm": "LLM",
+    "volc_knowledge": "Volcengine Knowledge Base"
+  },
+  "askProviderSelect": "Select provider",
+  "askTemperature": "Follow-up temperature",
+  "askTemperatureHint": "Set follow-up generation creativity (0-2)",
+  "askTitle": "Follow-up Settings",
+  "draftConflictDescription": "This course was updated by {phone}. Refresh to get the latest content.",
+  "draftConflictRefresh": "Refresh",
+  "draftConflictTitle": "Course updated",
+  "draftConflictUnknownUser": "another user",
   "fileSizeLimit": "File size cannot exceed 2MB",
   "imageFormatHint": "Supported formats: JPG, PNG. Max size 2MB, recommended aspect ratio 1:1",
   "inputKeywords": "Enter keyword and press Enter",
   "keywords": "Keywords",
   "learningUrl": "Learning URL",
   "number": "Number",
+  "permissionContactRequired": "Please enter at least one contact",
+  "permissionCount": "Shared users: {count}/{max}",
+  "permissionDialogTitle": "Shared permissions",
+  "permissionDuplicate": "Already shared: {values}",
+  "permissionEdit": "Edit",
+  "permissionEditChangeItem": "{identifier}: {from} → {to}",
+  "permissionEditChangeTitle": "Permission changes",
+  "permissionEditConfirmTitle": "Confirm permission changes?",
+  "permissionEditNoChanges": "No changes to save",
+  "permissionEditRemoveTitle": "Will be removed",
+  "permissionEditSuccess": "Permission changes saved",
+  "permissionEmailInvalid": "Please enter valid email addresses: {values}",
+  "permissionEmailLabel": "Email addresses",
+  "permissionEmailPlaceholder": "Enter email addresses, separated by comma or newline",
+  "permissionEmpty": "No shared users yet",
+  "permissionGrant": "Grant",
+  "permissionGrantConfirmDesc": "Grant <strong>{permission}</strong> access for {contactType}",
+  "permissionGrantConfirmTitle": "Confirm shared access",
+  "permissionGrantSuccess": "Permissions granted",
+  "permissionLabel": "Permission",
+  "permissionLimit": "Up to {count} shared users are allowed",
+  "permissionLoading": "Loading...",
+  "permissionManage": "Manage",
+  "permissionOwnerNotAllowed": "You can't grant permissions to the course creator",
+  "permissionPhoneInvalid": "Please enter valid phone numbers: {values}",
+  "permissionPhoneLabel": "Phone numbers",
+  "permissionPhonePlaceholder": "Enter phone numbers to grant shared access in bulk",
+  "permissionPublish": "Publish",
+  "permissionPublishHint": "Publish includes edit permission",
+  "permissionPublishHintWrapped": "({hint})",
+  "permissionReadOnly": "Read-only",
+  "permissionRemove": "Remove",
+  "permissionRemoveUndo": "Undo removal",
+  "permissionRemoved": "Removed",
+  "permissionSectionDesc": "Grant access to this course for other users",
+  "permissionSectionTitle": "Shared permissions",
+  "permissionTabGrant": "Grant access",
+  "permissionTabList": "Shared users",
   "placeholder": "Please enter",
   "previewUrl": "Preview URL",
   "price": "Price",
@@ -19,7 +148,7 @@
   "shifuDescriptionMaxLength": "Description cannot exceed 500 characters",
   "shifuName": "Name",
   "shifuNameEmpty": "Name cannot be empty",
-  "shifuNameMaxLength": "Name cannot exceed {{maxLength}} characters",
+  "shifuNameMaxLength": "Name cannot exceed {maxLength} characters",
   "shifuPriceEmpty": "Price cannot be empty",
   "shifuPriceFormat": "Price must be a valid number",
   "shifuPrompt": "Course Prompt",
@@ -34,7 +163,34 @@
   "temperatureHint": "Set the creativity of the AI output (0-2)",
   "temperatureHint2": "The lower the temperature, the more stable the output, but the lower the creativity; the higher the temperature, the more unstable the output, but the higher the creativity",
   "title": "Course Settings",
+  "ttsDescription": "Enable AI voice synthesis for generated content",
+  "ttsEmotion": "Emotion",
+  "ttsEmotionDefault": "Default",
+  "ttsModel": "Model",
+  "ttsPitch": "Pitch",
+  "ttsPitchHint": "Adjust pitch (provider-specific range)",
+  "ttsPreview": "Preview Voice",
+  "ttsPreviewLoading": "Loading...",
+  "ttsPreviewStop": "Stop",
+  "ttsProvider": "Provider",
+  "ttsProviderHint": "Select a TTS provider",
+  "ttsProviderRequiredDesc": "Please choose a TTS provider before saving.",
+  "ttsProviderRequiredTitle": "Select a TTS provider",
+  "ttsSelectEmotion": "Select emotion",
+  "ttsSelectModel": "Select model",
+  "ttsSelectProvider": "Select provider",
+  "ttsSelectVoice": "Select a voice",
+  "ttsSpeed": "Speed",
+  "ttsSpeedHint": "Adjust speech speed (provider-specific range)",
+  "ttsTitle": "Text-to-Speech (Preview)",
+  "ttsVoice": "Voice",
+  "unarchive": "Restore course",
+  "unarchiveConfirm": "Unarchiving moves the course back to \"All\". Editing and learning remain available.",
+  "unarchiveSuccess": "Course restored",
+  "unarchiveTitle": "Unarchive course?",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
-  "uploading": "Uploading"
+  "uploading": "Uploading",
+  "useLearnerLanguageDescription": "When enabled, AI will teach in the language selected by learner",
+  "useLearnerLanguageTitle": "Auto Translation"
 }

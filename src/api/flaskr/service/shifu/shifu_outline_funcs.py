@@ -33,6 +33,7 @@ from .shifu_history_manager import (
     save_outline_history,
     delete_outline_history,
 )
+from .shifu_mdflow_funcs import cleanup_outline_history_versions
 from datetime import datetime
 from markdown_flow import MarkdownFlow
 
@@ -358,6 +359,7 @@ def modify_outline(
             db.session.add(new_outline)
             db.session.flush()
             save_outline_history(app, user_id, shifu_id, outline_id, new_outline.id)
+            cleanup_outline_history_versions(app, shifu_id, outline_id)
             db.session.commit()
 
         outline_type_value = existing_outline.type
@@ -447,6 +449,8 @@ def delete_outline(app, user_id: str, shifu_id: str, outline_id: str):
                 new_item.updated_user_bid = user_id
                 new_item.updated_at = now_time
                 db.session.add(new_item)
+        for item_id in ids_to_delete:
+            cleanup_outline_history_versions(app, shifu_id, item_id)
         delete_outline_history(app, user_id, shifu_id, outline_id)
         db.session.commit()
         return True
@@ -477,6 +481,7 @@ def reorder_outline_tree(
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
         existing_items_map = {item.outline_item_bid: item for item in existing_items}
+        changed_outline_bids = set()
 
         history_infos = []
 
@@ -504,6 +509,7 @@ def reorder_outline_tree(
                             type="outline",
                             children=[],
                         )
+                        changed_outline_bids.add(outline_dto.bid)
                         existing_items_map[outline_dto.bid] = new_item
                     else:
                         history_info = HistoryItem(
@@ -526,6 +532,8 @@ def reorder_outline_tree(
 
         outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
         rebuild_positions(outline_dtos, history_infos=history_infos)
+        for outline_bid in changed_outline_bids:
+            cleanup_outline_history_versions(app, shifu_id, outline_bid)
         save_outline_tree_history(app, user_id, shifu_id, history_infos)
         db.session.commit()
         return True
@@ -649,6 +657,7 @@ def modify_unit(
             save_outline_history(
                 app, user_id, existing_unit.shifu_bid, unit_id, new_unit.id
             )
+            cleanup_outline_history_versions(app, existing_unit.shifu_bid, unit_id)
             db.session.commit()
 
         return OutlineDto(
@@ -732,6 +741,8 @@ def delete_unit(app, user_id: str, unit_id: str):
                 new_item.updated_user_bid = user_id
                 new_item.updated_at = now_time
                 db.session.add(new_item)
+        for item_id in ids_to_delete:
+            cleanup_outline_history_versions(app, unit_to_delete.shifu_bid, item_id)
         delete_outline_history(app, user_id, unit_to_delete.shifu_bid, unit_id)
         db.session.commit()
         return True

@@ -23,6 +23,7 @@ interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
   loginContext?: string;
+  courseId?: string;
 }
 
 export function useAuth(options: UseAuthOptions = {}) {
@@ -34,18 +35,49 @@ export function useAuth(options: UseAuthOptions = {}) {
   // Generic wrapper for API calls with automatic token refresh on expiration
   const callWithTokenRefresh = async <T extends ApiResponse>(
     apiCall: () => Promise<T>,
+    hasRetried = false,
   ): Promise<T> => {
-    const response = await apiCall();
+    const buildTokenRetryError = (message?: string) => {
+      const error = new Error(
+        message || t('module.auth.failed') || t('common.core.networkError'),
+      ) as Error & { code?: number };
+      error.code = 1005;
+      return error;
+    };
 
-    // Handle token expiration
-    if (response.code === 1005) {
-      // Refresh token
-      await logout(false);
-      // Retry the API call
-      return await apiCall();
+    const tokenBefore = useUserStore.getState().getToken?.() || '';
+    try {
+      const response = await apiCall();
+
+      // Handle token expiration
+      if (response.code === 1005) {
+        if (!hasRetried) {
+          const tokenAfter = useUserStore.getState().getToken?.() || '';
+          // Request layer usually handles auth recovery. Only run local recovery
+          // if token did not change (recovery likely did not happen yet).
+          if (tokenAfter === tokenBefore) {
+            await logout(false);
+          }
+          // Retry the API call once with the new guest token
+          return await callWithTokenRefresh(apiCall, true);
+        }
+        throw buildTokenRetryError(response.message || response.msg);
+      }
+
+      return response;
+    } catch (error: any) {
+      if (error?.code === 1005 && !hasRetried) {
+        const tokenAfter = useUserStore.getState().getToken?.() || '';
+        if (tokenAfter === tokenBefore) {
+          await logout(false);
+        }
+        return await callWithTokenRefresh(apiCall, true);
+      }
+      if (error?.code === 1005 && hasRetried) {
+        throw buildTokenRetryError(error?.message);
+      }
+      throw error;
     }
-
-    return response;
   };
 
   // Handle common login errors
@@ -117,6 +149,7 @@ export function useAuth(options: UseAuthOptions = {}) {
           sms_code,
           language,
           login_context: options.loginContext,
+          course_id: options.courseId,
         }),
       );
 

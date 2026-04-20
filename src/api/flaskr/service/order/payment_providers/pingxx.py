@@ -1,15 +1,35 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Dict, Any
 
-import pingpp
 from flask import Flask
 
 from flaskr.service.config import get_config
 
 from .base import PaymentProvider, PaymentRequest, PaymentCreationResult
 from . import register_payment_provider
+
+
+_PINGPP_CLIENT: Any | None = None
+_PINGPP_IMPORT_ERROR: Exception | None = None
+
+
+def _get_pingpp_client() -> Any:
+    global _PINGPP_CLIENT, _PINGPP_IMPORT_ERROR
+    if _PINGPP_CLIENT is not None:
+        return _PINGPP_CLIENT
+    if _PINGPP_IMPORT_ERROR is not None:
+        raise _PINGPP_IMPORT_ERROR
+    try:
+        import pingpp  # type: ignore
+
+        _PINGPP_CLIENT = pingpp
+        return pingpp
+    except Exception as exc:  # pragma: no cover
+        _PINGPP_IMPORT_ERROR = exc
+        raise
 
 
 class PingxxProvider(PaymentProvider):
@@ -22,8 +42,14 @@ class PingxxProvider(PaymentProvider):
 
     def _ensure_client(self, app: Flask) -> Any:
         """Configure pingpp client once per process."""
+        try:
+            client = _get_pingpp_client()
+        except Exception as exc:  # pragma: no cover
+            app.logger.error("Pingxx dependency is not available: %s", exc)
+            raise RuntimeError("Pingxx dependency is not available") from exc
+
         if self._client_initialized:
-            return pingpp
+            return client
 
         api_key = get_config("PINGXX_SECRET_KEY")
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
@@ -34,15 +60,43 @@ class PingxxProvider(PaymentProvider):
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
 
-        pingpp.api_key = api_key
-        pingpp.private_key_path = private_key_path
+        client.api_key = api_key
+        client.private_key_path = private_key_path
         self._client_initialized = True
         app.logger.info("Pingxx client initialized")
-        return pingpp
+        return client
 
     def ensure_client(self, app: Flask) -> Any:
         """Public wrapper for configuring the pingpp client."""
         return self._ensure_client(app)
+
+    _NON_BMP_RE = re.compile(r"[\uD800-\uDFFF\U00010000-\U0010FFFF]")
+
+    @classmethod
+    def _sanitize_str(cls, text: str) -> str:
+        """Strip characters outside the Unicode BMP.
+
+        Some WeChat payment APIs (via Ping++) reject non-BMP Unicode
+        code points (above U+FFFF) and UTF-16 surrogates (U+D800-DFFF)
+        with: '请求内容传入了非UTF8参数'.  This covers emoji and rare
+        CJK Extension B+ ideographs which are extremely unlikely in
+        payment descriptions.
+        """
+        if not text:
+            return text
+        return cls._NON_BMP_RE.sub("", text).strip()
+
+    def _sanitize_extra(self, extra: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively sanitize string values in charge extra dict."""
+        sanitized: Dict[str, Any] = {}
+        for k, v in extra.items():
+            if isinstance(v, str):
+                sanitized[k] = self._sanitize_str(v)
+            elif isinstance(v, dict):
+                sanitized[k] = self._sanitize_extra(v)
+            else:
+                sanitized[k] = v
+        return sanitized
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
@@ -59,9 +113,9 @@ class PingxxProvider(PaymentProvider):
             amount=request.amount,
             client_ip=request.client_ip,
             currency=request.currency,
-            subject=request.subject,
-            body=request.body,
-            extra=charge_extra,
+            subject=self._sanitize_str(request.subject) or request.order_bid,
+            body=self._sanitize_str(request.body) or request.order_bid,
+            extra=self._sanitize_extra(charge_extra),
         )
 
         return PaymentCreationResult(

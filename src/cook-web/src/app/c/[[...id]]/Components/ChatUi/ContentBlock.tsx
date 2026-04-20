@@ -1,11 +1,16 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-// TODO@XJL
-// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
-import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
+import { ContentRender } from 'markdown-flow-ui/renderer';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  getAudioTrackByPosition,
+  hasAudioContentInTrack,
+} from '@/c-utils/audio-utils';
+import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -17,6 +22,10 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
+  onAudioEnded?: (blockBid: string) => void;
+  showAudioAction?: boolean;
 }
 
 const ContentBlock = memo(
@@ -30,6 +39,10 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
+    autoPlayAudio = false,
+    onAudioPlayStateChange,
+    onAudioEnded,
+    showAudioAction = true,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -56,13 +69,23 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
+    const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
+    const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
+    const shouldShowAudioAction = Boolean(showAudioAction);
+    const isLessonFeedbackInteraction =
+      item.type === ChatContentItemType.INTERACTION &&
+      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
+
+    if (isLessonFeedbackInteraction) {
+      return null;
+    }
+
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          // typingSpeed={20}
           enableTypewriter={false}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
@@ -76,10 +99,33 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
+        {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
+          <div className='mt-2 flex justify-end'>
+            <AudioPlayer
+              audioUrl={primaryTrack?.audioUrl}
+              streamingSegments={primaryTrack?.audioSegments}
+              isStreaming={Boolean(primaryTrack?.isAudioStreaming)}
+              autoPlay={autoPlayAudio}
+              onPlayStateChange={
+                onAudioPlayStateChange
+                  ? isPlaying => onAudioPlayStateChange(blockBid, isPlaying)
+                  : undefined
+              }
+              onEnded={onAudioEnded ? () => onAudioEnded(blockBid) : undefined}
+              size={16}
+            />
+          </div>
+        ) : null}
       </div>
     );
   },
   (prevProps, nextProps) => {
+    const prevPrimaryTrack = getAudioTrackByPosition(
+      prevProps.item.audioTracks ?? [],
+    );
+    const nextPrimaryTrack = getAudioTrackByPosition(
+      nextProps.item.audioTracks ?? [],
+    );
     // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
@@ -94,7 +140,17 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText
+      prevProps.copiedButtonText === nextProps.copiedButtonText &&
+      Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
+      Boolean(prevProps.showAudioAction) ===
+        Boolean(nextProps.showAudioAction) &&
+      // Audio state (mobile only rendering)
+      (prevPrimaryTrack?.audioUrl ?? '') ===
+        (nextPrimaryTrack?.audioUrl ?? '') &&
+      Boolean(prevPrimaryTrack?.isAudioStreaming) ===
+        Boolean(nextPrimaryTrack?.isAudioStreaming) &&
+      (prevPrimaryTrack?.audioSegments?.length ?? 0) ===
+        (nextPrimaryTrack?.audioSegments?.length ?? 0)
     );
   },
 );

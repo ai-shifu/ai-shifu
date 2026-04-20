@@ -1,7 +1,8 @@
-def test_edun(app):
-    from api.flaskr.api.check.yidun import check_text
-    from flaskr.util.uuid import generate_id
+def test_check_text_returns_unconfigured_for_yidun(app):
+    from flaskr.api.check import check_text, CHECK_RESULT_UNCONF
 
     with app.app_context():
-        edun = check_text(generate_id(app), generate_id(app), "你好啊")
-        app.logger.info(edun)
+        app.config["CHECK_PROVIDER"] = "yidun"
+        result = check_text(app, "data-id", "hello", "user-1")
+        assert result.check_result == CHECK_RESULT_UNCONF
+        assert result.provider == "yidun"

@@ -2,6 +2,7 @@ import traceback
 import threading
 import queue
 import contextlib
+import time
 from typing import Any, Generator, Optional
 from flask import Flask
 
@@ -11,8 +12,13 @@ from flaskr.i18n import _
 import json
 
 
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
-from flaskr.dao import db, redis_client
+from flaskr.service.learn.learn_dtos import (
+    RunMarkdownFlowDTO,
+    RunStatusDTO,
+    ViewingModeDTO,
+)
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
     get_outline_item_dto,
@@ -44,6 +50,8 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = False,
+    viewing_mode: Optional[ViewingModeDTO] = None,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -110,6 +118,8 @@ def run_script_inner(
                 outline_item_info=outline_item_info,
                 user_info=user_info,
                 is_paid=is_paid,
+                listen=listen,
+                viewing_mode=viewing_mode,
                 preview_mode=preview_mode,
             )
 
@@ -155,12 +165,16 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = False,
+    viewing_mode: Optional[ViewingModeDTO] = None,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.1))
+    lock_retry_count = 5
+    lock_retry_sleep_seconds = 0.2
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = (
         app.config.get("REDIS_KEY_PREFIX")
         + ":run_script:"
@@ -168,12 +182,28 @@ def run_script(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(
+    lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
-    if lock.acquire(blocking=True):
+    acquired = False
+    for attempt in range(lock_retry_count + 1):
+        if lock.acquire(blocking=True):
+            acquired = True
+            break
+        if attempt < lock_retry_count:
+            app.logger.info(
+                "run_script lock busy, retrying: user_bid=%s outline_bid=%s attempt=%s/%s",
+                user_bid,
+                outline_bid,
+                attempt + 1,
+                lock_retry_count + 1,
+            )
+            time.sleep(lock_retry_sleep_seconds)
+
+    if acquired:
         stop_event = threading.Event()
-        output_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+        # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
+        output_queue: queue.SimpleQueue = queue.SimpleQueue()
         # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
         parent_request_id = getattr(log_thread_local, "request_id", None)
         parent_url = getattr(log_thread_local, "url", None)
@@ -190,6 +220,8 @@ def run_script(
             input=input,
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
+            listen=listen,
+            viewing_mode=viewing_mode,
             preview_mode=preview_mode,
             stop_event=stop_event,
         )
@@ -234,35 +266,45 @@ def run_script(
         done_received = False
         try:
             while True:
+                kind: str
+                payload: object
                 try:
-                    kind, payload = output_queue.get(timeout=heartbeat_interval)
+                    kind, payload = output_queue.get_nowait()
                 except queue.Empty:
                     if done_received or client_disconnected:
                         break
+                    if heartbeat_interval > 0:
+                        # Keep waiting cooperative under gevent while polling a thread-safe queue.
+                        time.sleep(heartbeat_interval)
                     try:
-                        yield (
-                            "data: "
-                            + json.dumps(
-                                {"type": "heartbeat"}, default=fmt, ensure_ascii=False
+                        kind, payload = output_queue.get_nowait()
+                    except queue.Empty:
+                        try:
+                            yield (
+                                "data: "
+                                + json.dumps(
+                                    {"type": "heartbeat"},
+                                    default=fmt,
+                                    ensure_ascii=False,
+                                )
+                                + "\n\n".encode("utf-8").decode("utf-8")
                             )
-                            + "\n\n".encode("utf-8").decode("utf-8")
-                        )
-                    except GeneratorExit:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream during heartbeat"
-                        )
-                        break
-                    except (ConnectionError, BrokenPipeError, OSError) as exc:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream during heartbeat: %s",
-                            repr(exc),
-                        )
-                        break
-                    continue
+                        except GeneratorExit:
+                            client_disconnected = True
+                            stop_event.set()
+                            app.logger.info(
+                                "Client disconnected from SSE stream during heartbeat"
+                            )
+                            break
+                        except (ConnectionError, BrokenPipeError, OSError) as exc:
+                            client_disconnected = True
+                            stop_event.set()
+                            app.logger.info(
+                                "Client disconnected from SSE stream during heartbeat: %s",
+                                repr(exc),
+                            )
+                            break
+                        continue
 
                 if kind == "data":
                     try:
@@ -381,7 +423,53 @@ def run_script(
             + "\n\n".encode("utf-8").decode("utf-8")
         )
     else:
-        app.logger.warning("lockfail")
+        app.logger.warning(
+            "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.CONTENT,
+                    content=str(_("server.learn.outputInProgress")),
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.DONE,
+                    content="",
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
 
 
 def get_run_status(
@@ -397,7 +485,7 @@ def get_run_status(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(lock_key, timeout=300, blocking_timeout=0)
+    lock = cache_provider.lock(lock_key, timeout=300, blocking_timeout=0)
     if lock.acquire(blocking=False):
         # Lock acquired successfully, so no other process is running
         lock.release()

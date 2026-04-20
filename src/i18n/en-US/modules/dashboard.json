@@ -1,0 +1,34 @@
+{
+  "__namespace__": "module.dashboard",
+  "entry": {
+    "kpi": {
+      "courses": "Courses",
+      "learners": "Total Learners",
+      "orderAmount": "Total Order Amount",
+      "orders": "Total Orders"
+    },
+    "table": {
+      "course": "Course",
+      "empty": "No courses",
+      "lastActive": "Last active",
+      "learners": "Learners",
+      "orderAmount": "Order Amount",
+      "orders": "Orders",
+      "reset": "Reset",
+      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
+      "search": "Search",
+      "searchPlaceholder": "Search by course name / course id",
+      "title": "Course List",
+      "totalCount": "Total: {count}"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Select date range",
+    "reset": "Reset"
+  },
+  "pagination": {
+    "next": "Next",
+    "prev": "Previous"
+  },
+  "title": "Dashboard"
+}
