@@ -8,6 +8,7 @@ import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
@@ -37,12 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
@@ -363,65 +359,6 @@ function ClearableTextInput({
         </button>
       ) : null}
     </div>
-  );
-}
-
-function OverflowTooltipText({
-  text,
-  className,
-}: {
-  text?: string;
-  className?: string;
-}) {
-  const value = text && text.trim().length > 0 ? text : '--';
-  const textRef = useRef<HTMLSpanElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
-
-    updateOverflowState();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        updateOverflowState();
-      });
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [value]);
-
-  const content = (
-    <span
-      ref={textRef}
-      className={`inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom ${className || ''}`}
-    >
-      {value}
-    </span>
-  );
-
-  if (!isOverflowing) {
-    return content;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side='top'>{value}</TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -1797,8 +1734,9 @@ export default function AdminOperationCourseDetailPage() {
                                         chapter.node_type,
                                       )}
                                     </Badge>
-                                    <OverflowTooltipText
+                                    <AdminTooltipText
                                       text={chapter.title || emptyValue}
+                                      emptyValue={emptyValue}
                                       className='text-center text-sm font-medium text-foreground'
                                     />
                                   </div>
@@ -1807,10 +1745,11 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
                                   style={getChapterColumnStyle('chapterId')}
                                 >
-                                  <OverflowTooltipText
+                                  <AdminTooltipText
                                     text={
                                       chapter.outline_item_bid || emptyValue
                                     }
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[240px] font-mono text-[11px] text-muted-foreground/65'
                                   />
                                 </TableCell>
@@ -1859,13 +1798,15 @@ export default function AdminOperationCourseDetailPage() {
                                   style={getChapterColumnStyle('modifier')}
                                 >
                                   <div className='flex flex-col gap-0.5 leading-tight'>
-                                    <OverflowTooltipText
+                                    <AdminTooltipText
                                       text={modifierPrimary}
+                                      emptyValue={emptyValue}
                                       className='text-sm text-foreground'
                                     />
                                     {modifierSecondary ? (
-                                      <OverflowTooltipText
+                                      <AdminTooltipText
                                         text={modifierSecondary}
+                                        emptyValue={emptyValue}
                                         className='text-xs text-muted-foreground'
                                       />
                                     ) : null}
@@ -1875,8 +1816,9 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
                                   style={getChapterColumnStyle('updatedAt')}
                                 >
-                                  <OverflowTooltipText
+                                  <AdminTooltipText
                                     text={chapter.updated_at || emptyValue}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-full'
                                   />
                                 </TableCell>
@@ -2187,8 +2129,9 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('userId')}
                                 >
-                                  <OverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.user_bid}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[180px] font-mono text-[11px] text-muted-foreground/65'
                                   />
                                 </TableCell>
@@ -2196,8 +2139,9 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
                                   style={getUserColumnStyle('account')}
                                 >
-                                  <OverflowTooltipText
+                                  <AdminTooltipText
                                     text={resolveCourseUserAccount(row)}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[180px] font-semibold text-foreground'
                                   />
                                 </TableCell>
@@ -2205,8 +2149,9 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
                                   style={getUserColumnStyle('nickname')}
                                 >
-                                  <OverflowTooltipText
+                                  <AdminTooltipText
                                     text={row.nickname || defaultUserName}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[140px]'
                                   />
                                 </TableCell>
@@ -2265,25 +2210,31 @@ export default function AdminOperationCourseDetailPage() {
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('lastLearnedAt')}
                                 >
-                                  <span className='tabular-nums'>
-                                    {row.last_learning_at || emptyValue}
-                                  </span>
+                                  <AdminTooltipText
+                                    text={row.last_learning_at}
+                                    emptyValue={emptyValue}
+                                    className='mx-auto block max-w-full tabular-nums'
+                                  />
                                 </TableCell>
                                 <TableCell
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('joinedAt')}
                                 >
-                                  <span className='tabular-nums'>
-                                    {row.joined_at || emptyValue}
-                                  </span>
+                                  <AdminTooltipText
+                                    text={row.joined_at}
+                                    emptyValue={emptyValue}
+                                    className='mx-auto block max-w-full tabular-nums'
+                                  />
                                 </TableCell>
                                 <TableCell
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
                                   style={getUserColumnStyle('lastLoginAt')}
                                 >
-                                  <span className='tabular-nums'>
-                                    {row.last_login_at || emptyValue}
-                                  </span>
+                                  <AdminTooltipText
+                                    text={row.last_login_at}
+                                    emptyValue={emptyValue}
+                                    className='mx-auto block max-w-full tabular-nums'
+                                  />
                                 </TableCell>
                                 <TableCell
                                   className='sticky right-0 z-[1] bg-white py-2.5 text-center text-sm text-muted-foreground/80 shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border before:content-[""]'

@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -34,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
@@ -136,63 +138,6 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
-
-const OverflowTooltipText = ({
-  text,
-  className,
-}: {
-  text?: string;
-  className?: string;
-}) => {
-  const value = text && text.trim().length > 0 ? text : EMPTY_STATE_LABEL;
-  const textRef = useRef<HTMLSpanElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  React.useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
-
-    updateOverflowState();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        updateOverflowState();
-      });
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [value]);
-
-  const content = (
-    <span
-      ref={textRef}
-      className={cn(
-        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
-        className,
-      )}
-    >
-      {value}
-    </span>
-  );
-
-  if (!isOverflowing) {
-    return content;
-  }
-
-  return <span title={value}>{content}</span>;
-};
 
 type ClearableTextInputProps = {
   value: string;
@@ -791,25 +736,28 @@ export default function AdminOperationUsersPage() {
 
   return (
     <div className='h-full p-0'>
-      <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='mb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {tOperationsUsers('title')}
-          </h1>
-        </div>
+      <TooltipProvider delayDuration={150}>
+        <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
+          <div className='mb-5'>
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {tOperationsUsers('title')}
+            </h1>
+          </div>
 
-        <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
-          <div className='space-y-4'>
-            <div
-              className={cn(
-                'grid gap-4',
-                expanded
-                  ? 'grid-cols-1 xl:grid-cols-3'
-                  : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]',
-              )}
-            >
-              {(expanded ? expandedPrimaryFilterItems : primaryFilterItems).map(
-                item => (
+          <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
+            <div className='space-y-4'>
+              <div
+                className={cn(
+                  'grid gap-4',
+                  expanded
+                    ? 'grid-cols-1 xl:grid-cols-3'
+                    : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]',
+                )}
+              >
+                {(expanded
+                  ? expandedPrimaryFilterItems
+                  : primaryFilterItems
+                ).map(item => (
                   <div
                     key={item.key}
                     className='flex items-center'
@@ -824,481 +772,521 @@ export default function AdminOperationUsersPage() {
                     </span>
                     <div className='flex-1 min-w-0'>{item.component}</div>
                   </div>
-                ),
-              )}
+                ))}
 
-              {!expanded ? (
-                <div className='flex items-center justify-end gap-2'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={handleReset}
-                  >
-                    {t('module.order.filters.reset')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    onClick={handleSearch}
-                  >
-                    {t('module.order.filters.search')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant='ghost'
-                    className='px-2 text-primary'
-                    onClick={() => setExpanded(true)}
-                  >
-                    {t('common.core.expand')}
-                    <ChevronDown className='ml-1 h-4 w-4' />
-                  </Button>
+                {!expanded ? (
+                  <div className='flex items-center justify-end gap-2'>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={handleReset}
+                    >
+                      {t('module.order.filters.reset')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      onClick={handleSearch}
+                    >
+                      {t('module.order.filters.search')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='ghost'
+                      className='px-2 text-primary'
+                      onClick={() => setExpanded(true)}
+                    >
+                      {t('common.core.expand')}
+                      <ChevronDown className='ml-1 h-4 w-4' />
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              {expanded ? (
+                <div className='space-y-4'>
+                  <div className='grid gap-4 xl:grid-cols-3'>
+                    {expandedSecondaryFilterItems.map(item => (
+                      <div
+                        key={item.key}
+                        className='flex items-center'
+                      >
+                        <span
+                          className={cn(
+                            "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
+                            'w-20',
+                          )}
+                        >
+                          {item.label}
+                        </span>
+                        <div className='flex-1 min-w-0'>{item.component}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className='flex items-center justify-end gap-2'>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={handleReset}
+                    >
+                      {t('module.order.filters.reset')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      onClick={handleSearch}
+                    >
+                      {t('module.order.filters.search')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='ghost'
+                      className='px-2 text-primary'
+                      onClick={() => setExpanded(false)}
+                    >
+                      {t('common.core.collapse')}
+                      <ChevronUp className='ml-1 h-4 w-4' />
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </div>
+          </div>
 
-            {expanded ? (
-              <div className='space-y-4'>
-                <div className='grid gap-4 xl:grid-cols-3'>
-                  {expandedSecondaryFilterItems.map(item => (
-                    <div
-                      key={item.key}
-                      className='flex items-center'
+          <div className='max-h-[calc(100vh-18rem)] overflow-auto rounded-xl border border-border bg-white shadow-sm'>
+            {loading ? (
+              <div className='flex items-center justify-center h-40'>
+                <Loading />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('userId')}
                     >
-                      <span
-                        className={cn(
-                          "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                          'w-20',
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                      <div className='flex-1 min-w-0'>{item.component}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className='flex items-center justify-end gap-2'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={handleReset}
-                  >
-                    {t('module.order.filters.reset')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    onClick={handleSearch}
-                  >
-                    {t('module.order.filters.search')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant='ghost'
-                    className='px-2 text-primary'
-                    onClick={() => setExpanded(false)}
-                  >
-                    {t('common.core.collapse')}
-                    <ChevronUp className='ml-1 h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className='max-h-[calc(100vh-18rem)] overflow-auto rounded-xl border border-border bg-white shadow-sm'>
-          {loading ? (
-            <div className='flex items-center justify-center h-40'>
-              <Loading />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('userId')}
-                  >
-                    {tOperationsUsers('table.userId')}
-                    {renderResizeHandle('userId')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('mobile')}
-                  >
-                    {contactColumnLabel}
-                    {renderResizeHandle('mobile')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('nickname')}
-                  >
-                    {tOperationsUsers('table.nickname')}
-                    {renderResizeHandle('nickname')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('status')}
-                  >
-                    {tOperationsUsers('table.status')}
-                    {renderResizeHandle('status')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('role')}
-                  >
-                    {tOperationsUsers('table.role')}
-                    {renderResizeHandle('role')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('loginMethods')}
-                  >
-                    {tOperationsUsers('table.loginMethods')}
-                    {renderResizeHandle('loginMethods')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('registrationSource')}
-                  >
-                    {tOperationsUsers('table.registrationSource')}
-                    {renderResizeHandle('registrationSource')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('learningCourses')}
-                  >
-                    {tOperationsUsers('table.learningCourses')}
-                    {renderResizeHandle('learningCourses')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('createdCourses')}
-                  >
-                    {tOperationsUsers('table.createdCourses')}
-                    {renderResizeHandle('createdCourses')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('totalPaidAmount')}
-                  >
-                    {tOperationsUsers('table.totalPaidAmount')}
-                    {renderResizeHandle('totalPaidAmount')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('lastLoginAt')}
-                  >
-                    {tOperationsUsers('table.lastLoginAt')}
-                    {renderResizeHandle('lastLoginAt')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('lastLearningAt')}
-                  >
-                    {tOperationsUsers('table.lastLearningAt')}
-                    {renderResizeHandle('lastLearningAt')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('createdAt')}
-                  >
-                    {tOperationsUsers('table.createdAt')}
-                    {renderResizeHandle('createdAt')}
-                  </TableHead>
-                  <TableHead
-                    className='relative sticky top-0 z-30 bg-muted text-center'
-                    style={getColumnStyle('updatedAt')}
-                  >
-                    {tOperationsUsers('table.updatedAt')}
-                    {renderResizeHandle('updatedAt')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length === 0 ? (
-                  <TableEmpty colSpan={14}>
-                    {tOperationsUsers('emptyList')}
-                  </TableEmpty>
-                ) : null}
-                {users.map(user => {
-                  const primaryContact =
-                    contactType === 'email'
-                      ? user.email || user.mobile || ''
-                      : user.mobile || user.email || '';
-                  const userDetailUrl = buildAdminOperationsUserDetailUrl(
-                    user.user_bid,
-                  );
-                  const loginMethods = user.login_methods.length
-                    ? user.login_methods
-                        .map(resolveLoginMethodLabel)
-                        .join(' / ')
-                    : EMPTY_STATE_LABEL;
-                  return (
-                    <TableRow key={user.user_bid}>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('userId')}
-                      >
-                        {userDetailUrl ? (
-                          <Link
-                            href={userDetailUrl}
-                            className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                          >
-                            <OverflowTooltipText text={user.user_bid} />
-                          </Link>
-                        ) : (
-                          <OverflowTooltipText text={user.user_bid} />
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('mobile')}
-                      >
-                        {userDetailUrl && primaryContact ? (
-                          <Link
-                            href={userDetailUrl}
-                            className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                          >
-                            <OverflowTooltipText text={primaryContact} />
-                          </Link>
-                        ) : (
-                          <OverflowTooltipText text={primaryContact} />
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('nickname')}
-                      >
-                        <OverflowTooltipText
-                          text={user.nickname || defaultUserName}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('status')}
-                      >
-                        <OverflowTooltipText
-                          text={resolveStatusLabel(user.user_status)}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('role')}
-                      >
-                        <OverflowTooltipText
-                          text={resolveRoleLabel(user.user_role)}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('loginMethods')}
-                      >
-                        <OverflowTooltipText text={loginMethods} />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('registrationSource')}
-                      >
-                        <OverflowTooltipText
-                          text={resolveRegistrationSourceLabel(
-                            user.registration_source,
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 align-top text-center'
-                        style={getColumnStyle('learningCourses')}
-                      >
-                        <CourseListPreview
-                          courses={user.learning_courses || []}
-                          emptyLabel={tOperationsUsers('courseSummary.empty')}
-                          ariaLabel={`${tOperationsUsers('table.learningCourses')} (${(user.learning_courses || []).length})`}
-                          onView={() =>
-                            setCourseDialog({
-                              user,
-                              courses: user.learning_courses || [],
-                              type: 'learning',
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 align-top text-center'
-                        style={getColumnStyle('createdCourses')}
-                      >
-                        <CourseListPreview
-                          courses={user.created_courses || []}
-                          emptyLabel={tOperationsUsers('courseSummary.empty')}
-                          ariaLabel={`${tOperationsUsers('table.createdCourses')} (${(user.created_courses || []).length})`}
-                          onView={() =>
-                            setCourseDialog({
-                              user,
-                              courses: user.created_courses || [],
-                              type: 'created',
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('totalPaidAmount')}
-                      >
-                        <OverflowTooltipText
-                          text={`${currencySymbol}${user.total_paid_amount || '0'}`}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('lastLoginAt')}
-                      >
-                        <OverflowTooltipText text={user.last_login_at} />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('lastLearningAt')}
-                      >
-                        <OverflowTooltipText text={user.last_learning_at} />
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('createdAt')}
-                      >
-                        <OverflowTooltipText text={user.created_at} />
-                      </TableCell>
-                      <TableCell
-                        className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                        style={getColumnStyle('updatedAt')}
-                      >
-                        <OverflowTooltipText text={user.updated_at} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-
-        {pageCount > 1 ? (
-          <div className='mt-4 mb-4 flex justify-end'>
-            <AdminPagination
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              onPageChange={handlePageChange}
-              prevLabel={t('module.order.paginationPrev', 'Previous')}
-              nextLabel={t('module.order.paginationNext', 'Next')}
-              prevAriaLabel={t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              )}
-              nextAriaLabel={t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              )}
-              className='justify-end w-auto mx-0'
-            />
-          </div>
-        ) : null}
-
-        <Dialog
-          open={Boolean(courseDialog)}
-          onOpenChange={open => {
-            if (!open) {
-              setCourseDialog(null);
-            }
-          }}
-        >
-          <DialogContent className='sm:max-w-3xl'>
-            <DialogHeader className='space-y-2'>
-              <DialogTitle>
-                {courseDialog?.type === 'learning'
-                  ? tOperationsUsers('courseSummary.dialog.learningTitle')
-                  : tOperationsUsers('courseSummary.dialog.createdTitle')}
-              </DialogTitle>
-              <DialogDescription>
-                {tOperationsUsers('courseSummary.dialog.description', {
-                  user:
-                    courseDialog?.user.nickname ||
-                    defaultUserName ||
-                    courseDialog?.user.email ||
-                    courseDialog?.user.mobile ||
-                    courseDialog?.user.user_bid ||
-                    EMPTY_STATE_LABEL,
-                })}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className='rounded-lg border border-border'>
-              <div className='max-h-[60vh] overflow-auto'>
-                <Table className='table-fixed'>
-                  <colgroup>
-                    <col className='w-[34%]' />
-                    <col className='w-[46%]' />
-                    <col className='w-[20%]' />
-                  </colgroup>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                        {tOperationsUsers('courseSummary.dialog.courseName')}
-                      </TableHead>
-                      <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                        {tOperationsUsers('courseSummary.dialog.courseId')}
-                      </TableHead>
-                      <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                        {tOperationsUsers('courseSummary.dialog.status')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courseDialog?.courses?.length ? (
-                      courseDialog.courses.map(course => {
-                        const courseDetailUrl =
-                          buildAdminOperationsCourseDetailUrl(course.shifu_bid);
-                        return (
-                          <TableRow
-                            key={`${courseDialog.type}-${course.shifu_bid}`}
-                          >
-                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                              {courseDetailUrl ? (
-                                <Link
-                                  href={courseDetailUrl}
-                                  className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                                >
-                                  <OverflowTooltipText
-                                    text={course.course_name}
-                                  />
-                                </Link>
-                              ) : (
-                                <OverflowTooltipText
-                                  text={course.course_name}
-                                />
-                              )}
-                            </TableCell>
-                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                              <OverflowTooltipText text={course.shifu_bid} />
-                            </TableCell>
-                            <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
-                              <OverflowTooltipText
-                                text={resolveCourseStatusLabel(
-                                  course.course_status,
-                                )}
+                      {tOperationsUsers('table.userId')}
+                      {renderResizeHandle('userId')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('mobile')}
+                    >
+                      {contactColumnLabel}
+                      {renderResizeHandle('mobile')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('nickname')}
+                    >
+                      {tOperationsUsers('table.nickname')}
+                      {renderResizeHandle('nickname')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('status')}
+                    >
+                      {tOperationsUsers('table.status')}
+                      {renderResizeHandle('status')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('role')}
+                    >
+                      {tOperationsUsers('table.role')}
+                      {renderResizeHandle('role')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('loginMethods')}
+                    >
+                      {tOperationsUsers('table.loginMethods')}
+                      {renderResizeHandle('loginMethods')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('registrationSource')}
+                    >
+                      {tOperationsUsers('table.registrationSource')}
+                      {renderResizeHandle('registrationSource')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('learningCourses')}
+                    >
+                      {tOperationsUsers('table.learningCourses')}
+                      {renderResizeHandle('learningCourses')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('createdCourses')}
+                    >
+                      {tOperationsUsers('table.createdCourses')}
+                      {renderResizeHandle('createdCourses')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('totalPaidAmount')}
+                    >
+                      {tOperationsUsers('table.totalPaidAmount')}
+                      {renderResizeHandle('totalPaidAmount')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('lastLoginAt')}
+                    >
+                      {tOperationsUsers('table.lastLoginAt')}
+                      {renderResizeHandle('lastLoginAt')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('lastLearningAt')}
+                    >
+                      {tOperationsUsers('table.lastLearningAt')}
+                      {renderResizeHandle('lastLearningAt')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('createdAt')}
+                    >
+                      {tOperationsUsers('table.createdAt')}
+                      {renderResizeHandle('createdAt')}
+                    </TableHead>
+                    <TableHead
+                      className='relative sticky top-0 z-30 bg-muted text-center'
+                      style={getColumnStyle('updatedAt')}
+                    >
+                      {tOperationsUsers('table.updatedAt')}
+                      {renderResizeHandle('updatedAt')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableEmpty colSpan={14}>
+                      {tOperationsUsers('emptyList')}
+                    </TableEmpty>
+                  ) : null}
+                  {users.map(user => {
+                    const primaryContact =
+                      contactType === 'email'
+                        ? user.email || user.mobile || ''
+                        : user.mobile || user.email || '';
+                    const userDetailUrl = buildAdminOperationsUserDetailUrl(
+                      user.user_bid,
+                    );
+                    const loginMethods = user.login_methods.length
+                      ? user.login_methods
+                          .map(resolveLoginMethodLabel)
+                          .join(' / ')
+                      : EMPTY_STATE_LABEL;
+                    return (
+                      <TableRow key={user.user_bid}>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('userId')}
+                        >
+                          {userDetailUrl ? (
+                            <Link
+                              href={userDetailUrl}
+                              className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              <AdminTooltipText
+                                text={user.user_bid}
+                                emptyValue={EMPTY_STATE_LABEL}
                               />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    ) : (
-                      <TableEmpty colSpan={3}>
-                        {tOperationsUsers('courseSummary.empty')}
-                      </TableEmpty>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                            </Link>
+                          ) : (
+                            <AdminTooltipText
+                              text={user.user_bid}
+                              emptyValue={EMPTY_STATE_LABEL}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('mobile')}
+                        >
+                          {userDetailUrl && primaryContact ? (
+                            <Link
+                              href={userDetailUrl}
+                              className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              <AdminTooltipText
+                                text={primaryContact}
+                                emptyValue={EMPTY_STATE_LABEL}
+                              />
+                            </Link>
+                          ) : (
+                            <AdminTooltipText
+                              text={primaryContact}
+                              emptyValue={EMPTY_STATE_LABEL}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('nickname')}
+                        >
+                          <AdminTooltipText
+                            text={user.nickname || defaultUserName}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('status')}
+                        >
+                          <AdminTooltipText
+                            text={resolveStatusLabel(user.user_status)}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('role')}
+                        >
+                          <AdminTooltipText
+                            text={resolveRoleLabel(user.user_role)}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('loginMethods')}
+                        >
+                          <AdminTooltipText
+                            text={loginMethods}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('registrationSource')}
+                        >
+                          <AdminTooltipText
+                            text={resolveRegistrationSourceLabel(
+                              user.registration_source,
+                            )}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 align-top text-center'
+                          style={getColumnStyle('learningCourses')}
+                        >
+                          <CourseListPreview
+                            courses={user.learning_courses || []}
+                            emptyLabel={tOperationsUsers('courseSummary.empty')}
+                            ariaLabel={`${tOperationsUsers('table.learningCourses')} (${(user.learning_courses || []).length})`}
+                            onView={() =>
+                              setCourseDialog({
+                                user,
+                                courses: user.learning_courses || [],
+                                type: 'learning',
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 align-top text-center'
+                          style={getColumnStyle('createdCourses')}
+                        >
+                          <CourseListPreview
+                            courses={user.created_courses || []}
+                            emptyLabel={tOperationsUsers('courseSummary.empty')}
+                            ariaLabel={`${tOperationsUsers('table.createdCourses')} (${(user.created_courses || []).length})`}
+                            onView={() =>
+                              setCourseDialog({
+                                user,
+                                courses: user.created_courses || [],
+                                type: 'created',
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('totalPaidAmount')}
+                        >
+                          <AdminTooltipText
+                            text={`${currencySymbol}${user.total_paid_amount || '0'}`}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('lastLoginAt')}
+                        >
+                          <AdminTooltipText
+                            text={user.last_login_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('lastLearningAt')}
+                        >
+                          <AdminTooltipText
+                            text={user.last_learning_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('createdAt')}
+                        >
+                          <AdminTooltipText
+                            text={user.created_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('updatedAt')}
+                        >
+                          <AdminTooltipText
+                            text={user.updated_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {pageCount > 1 ? (
+            <div className='mt-4 mb-4 flex justify-end'>
+              <AdminPagination
+                pageIndex={pageIndex}
+                pageCount={pageCount}
+                onPageChange={handlePageChange}
+                prevLabel={t('module.order.paginationPrev', 'Previous')}
+                nextLabel={t('module.order.paginationNext', 'Next')}
+                prevAriaLabel={t(
+                  'module.order.paginationPrevAriaLabel',
+                  'Go to previous page',
+                )}
+                nextAriaLabel={t(
+                  'module.order.paginationNextAriaLabel',
+                  'Go to next page',
+                )}
+                className='justify-end w-auto mx-0'
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          ) : null}
+
+          <Dialog
+            open={Boolean(courseDialog)}
+            onOpenChange={open => {
+              if (!open) {
+                setCourseDialog(null);
+              }
+            }}
+          >
+            <DialogContent className='sm:max-w-3xl'>
+              <DialogHeader className='space-y-2'>
+                <DialogTitle>
+                  {courseDialog?.type === 'learning'
+                    ? tOperationsUsers('courseSummary.dialog.learningTitle')
+                    : tOperationsUsers('courseSummary.dialog.createdTitle')}
+                </DialogTitle>
+                <DialogDescription>
+                  {tOperationsUsers('courseSummary.dialog.description', {
+                    user:
+                      courseDialog?.user.nickname ||
+                      defaultUserName ||
+                      courseDialog?.user.email ||
+                      courseDialog?.user.mobile ||
+                      courseDialog?.user.user_bid ||
+                      EMPTY_STATE_LABEL,
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className='rounded-lg border border-border'>
+                <div className='max-h-[60vh] overflow-auto'>
+                  <Table className='table-fixed'>
+                    <colgroup>
+                      <col className='w-[34%]' />
+                      <col className='w-[46%]' />
+                      <col className='w-[20%]' />
+                    </colgroup>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                          {tOperationsUsers('courseSummary.dialog.courseName')}
+                        </TableHead>
+                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                          {tOperationsUsers('courseSummary.dialog.courseId')}
+                        </TableHead>
+                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                          {tOperationsUsers('courseSummary.dialog.status')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {courseDialog?.courses?.length ? (
+                        courseDialog.courses.map(course => {
+                          const courseDetailUrl =
+                            buildAdminOperationsCourseDetailUrl(
+                              course.shifu_bid,
+                            );
+                          return (
+                            <TableRow
+                              key={`${courseDialog.type}-${course.shifu_bid}`}
+                            >
+                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                {courseDetailUrl ? (
+                                  <Link
+                                    href={courseDetailUrl}
+                                    className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                                  >
+                                    <AdminTooltipText
+                                      text={course.course_name}
+                                      emptyValue={EMPTY_STATE_LABEL}
+                                    />
+                                  </Link>
+                                ) : (
+                                  <AdminTooltipText
+                                    text={course.course_name}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                <AdminTooltipText
+                                  text={course.shifu_bid}
+                                  emptyValue={EMPTY_STATE_LABEL}
+                                />
+                              </TableCell>
+                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
+                                <AdminTooltipText
+                                  text={resolveCourseStatusLabel(
+                                    course.course_status,
+                                  )}
+                                  emptyValue={EMPTY_STATE_LABEL}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableEmpty colSpan={3}>
+                          {tOperationsUsers('courseSummary.empty')}
+                        </TableEmpty>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </TooltipProvider>
     </div>
   );
 }

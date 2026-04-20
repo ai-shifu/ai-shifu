@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -51,12 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +110,7 @@ const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
+const EMPTY_STATE_LABEL = '--';
 
 type TransferContactType = 'email' | 'phone';
 
@@ -192,72 +189,11 @@ const loadStoredColumnWidthOverrides = (): Partial<ColumnWidthState> => {
 
 const renderTooltipText = (text?: string, className?: string) => {
   return (
-    <OverflowTooltipText
+    <AdminTooltipText
       text={text}
+      emptyValue={EMPTY_STATE_LABEL}
       className={className}
     />
-  );
-};
-
-const OverflowTooltipText = ({
-  text,
-  className,
-}: {
-  text?: string;
-  className?: string;
-}) => {
-  const value = text && text.trim().length > 0 ? text : '--';
-  const textRef = useRef<HTMLSpanElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflowState = () => {
-      setIsOverflowing(
-        element.scrollWidth > element.clientWidth ||
-          element.scrollHeight > element.clientHeight,
-      );
-    };
-
-    updateOverflowState();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        updateOverflowState();
-      });
-      observer.observe(element);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [value]);
-
-  const content = (
-    <span
-      ref={textRef}
-      className={cn(
-        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
-        className,
-      )}
-    >
-      {value}
-    </span>
-  );
-
-  if (!isOverflowing) {
-    return content;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side='top'>{value}</TooltipContent>
-    </Tooltip>
   );
 };
 
@@ -1316,11 +1252,13 @@ const OperationsPage = () => {
                         >
                           <button
                             type='button'
-                            className='max-w-full truncate text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none'
+                            className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
                             onClick={() => handleDetailClick(course)}
-                            title={course.course_name || '--'}
                           >
-                            {course.course_name || '--'}
+                            {renderTooltipText(
+                              course.course_name,
+                              'truncate text-left',
+                            )}
                           </button>
                         </TableCell>
                         <TableCell
