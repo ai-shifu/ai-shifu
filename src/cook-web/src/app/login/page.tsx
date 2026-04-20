@@ -23,7 +23,6 @@ import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
-import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
@@ -107,14 +106,18 @@ export default function AuthPage() {
   }, [initialLoginMethod]);
 
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
-    let redirect = searchParams.get('redirect');
+    const fallback = '/admin';
+    const redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/admin';
+      return fallback;
+    }
+    // Default to course tab rather than orders when no explicit redirect
+    if (redirect === '/admin/orders') {
+      return fallback;
     }
     return redirect;
   }, [searchParams]);

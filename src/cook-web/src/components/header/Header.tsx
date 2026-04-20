@@ -111,6 +111,9 @@ const Header = () => {
                   {t('component.header.readonly')}
                 </span>
               )}
+              {currentShifu?.archived && (
+                <span className={s.archived}>{t('common.core.archived')}</span>
+              )}
               <div className='ml-2'>
                 <ShifuSetting
                   shifuId={currentShifu?.bid || ''}

@@ -74,7 +74,7 @@ cp .env.example.full .env
 # 按需修改 .env（快速启动仅需填写 LLM Key）：
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
-# - REDIS_HOST：默认指向 docker 中的 Redis 服务
+# - REDIS_HOST：可选；如需 Redis 缓存/锁可配置外部 Redis（留空则禁用）
 # - SECRET_KEY：示例值，仅用于演示；生产环境请替换（生成：python -c "import secrets; print(secrets.token_urlsafe(32))"）
 # - UNIVERSAL_VERIFICATION_CODE：测试验证码（生产环境请清空/禁用）
 

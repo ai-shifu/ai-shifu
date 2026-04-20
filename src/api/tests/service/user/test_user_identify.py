@@ -44,3 +44,69 @@ def test_email_flow_sets_user_identify(app):
         entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
         assert entity is not None
         assert entity.user_identify == raw_email.lower()
+
+
+def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserVerifyCode
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        phone_flow.redis = _FakeRedis()
+
+        phone = "15500002222"
+        code = "1234"
+        record = UserVerifyCode(
+            phone=phone,
+            mail="",
+            verify_code=code,
+            verify_code_type=1,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code=code
+        )
+        assert token is not None
+
+        updated = UserVerifyCode.query.filter_by(id=record.id).first()
+        assert updated is not None
+        assert updated.verify_code_used == 1
+
+
+def test_email_flow_verifies_code_from_db_when_cache_missing(app):
+    import flaskr.service.user.email_flow as email_flow
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserVerifyCode
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        email_flow.redis = _FakeRedis()
+
+        email = "test.user@example.com"
+        code = "5678"
+        record = UserVerifyCode(
+            phone="",
+            mail=email,
+            verify_code=code,
+            verify_code_type=2,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        token, _created, _ctx = email_flow.verify_email_code(
+            app, user_id=None, email=email, code=code
+        )
+        assert token is not None
+
+        updated = UserVerifyCode.query.filter_by(id=record.id).first()
+        assert updated is not None
+        assert updated.verify_code_used == 1

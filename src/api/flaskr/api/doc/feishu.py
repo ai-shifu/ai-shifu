@@ -19,7 +19,7 @@ TIME_ZONE = pytz.timezone("Asia/Shanghai")
 
 
 def get_tenant_token(app: Flask, app_id=APPID, app_secret=APP_SECRET):
-    from ...dao import redis_client as redis
+    from flaskr.common.cache_provider import cache as redis
 
     token = redis.get(REDIS_KEY_PREFIX + app_id + "token")
     if token:

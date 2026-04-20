@@ -7,6 +7,7 @@
     "googleOAuthStateInvalid": "Google 登录状态已失效或无效，请重新尝试。",
     "ipBanned": "当前IP请求过于频繁，已暂时封禁",
     "languageNotFound": "语言配置错误",
+    "login": "登录",
     "mailCheckError": "邮件验证码错误",
     "mailSendExpired": "邮件验证码过期",
     "smsCheckError": "短信验证码错误",

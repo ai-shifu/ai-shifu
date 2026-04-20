@@ -1,6 +1,13 @@
-from objprint import op
 import pprint
 from typing import Any
+
+try:
+    from objprint import op
+except Exception:  # pragma: no cover - fallback for test environment
+
+    def op(data, depth=10, width=120, elements=100):
+        pp = pprint.PrettyPrinter(indent=2, depth=depth, width=width)
+        pp.pprint(data)
 
 
 # from .test_utils import dump

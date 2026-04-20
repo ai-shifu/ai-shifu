@@ -12,7 +12,8 @@ import json
 
 
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
-from flaskr.dao import db, redis_client
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
     get_outline_item_dto,
@@ -44,6 +45,7 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = True,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -110,6 +112,7 @@ def run_script_inner(
                 outline_item_info=outline_item_info,
                 user_info=user_info,
                 is_paid=is_paid,
+                listen=listen,
                 preview_mode=preview_mode,
             )
 
@@ -155,6 +158,7 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = True,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
@@ -168,7 +172,7 @@ def run_script(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(
+    lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
     if lock.acquire(blocking=True):
@@ -190,6 +194,7 @@ def run_script(
             input=input,
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
+            listen=listen,
             preview_mode=preview_mode,
             stop_event=stop_event,
         )
@@ -397,7 +402,7 @@ def get_run_status(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(lock_key, timeout=300, blocking_timeout=0)
+    lock = cache_provider.lock(lock_key, timeout=300, blocking_timeout=0)
     if lock.acquire(blocking=False):
         # Lock acquired successfully, so no other process is running
         lock.release()

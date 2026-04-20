@@ -38,6 +38,7 @@ const loadRuntimeConfig = async () => {
     updateCurrencySymbol,
     updateStripePublishableKey,
     updateStripeEnabled,
+    updatePayOrderExpireSeconds,
     updatePaymentChannels,
     updateLoginMethodsEnabled,
     updateDefaultLoginMethod,
@@ -185,6 +186,13 @@ const loadRuntimeConfig = async () => {
       ? runtimeConfig.stripeEnabled.toString()
       : 'false',
   );
+  if (
+    typeof runtimeConfig?.payOrderExpireSeconds === 'number' &&
+    Number.isFinite(runtimeConfig.payOrderExpireSeconds) &&
+    runtimeConfig.payOrderExpireSeconds > 0
+  ) {
+    await updatePayOrderExpireSeconds(runtimeConfig.payOrderExpireSeconds);
+  }
   await updatePaymentChannels(paymentChannels);
   await updateLoginMethodsEnabled(loginMethods);
   await updateDefaultLoginMethod(

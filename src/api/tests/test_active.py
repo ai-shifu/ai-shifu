@@ -1,44 +1,67 @@
-def test_create_active(app):
-    from flaskr.service.active.funcs import create_active
+from datetime import datetime, timedelta
+from decimal import Decimal
+import pytz
+
+
+def test_save_active_creates_record(app):
+    from flaskr.dao import db
+    from flaskr.service.active.funcs import save_active
     from flaskr.service.active.models import Active
-    from flaskr.service.lesson.models import AICourse
 
     with app.app_context():
-        course = AICourse.query.first()
-        course_id = course.course_id
-        active_name = "早鸟价格立减"
-        active_desc = "早鸟活动"
-        active = Active.query.filter(Active.active_name == active_name).first()
-        if active:
-            app.logger.info("活动已存在")
-            return
-        active_id = create_active(
-            app, course_id, active_name, active_desc, "2024-01-1", "2024-9-1", 100
+        active_id = save_active(
+            app,
+            user_id="user-1",
+            active_course="course-1",
+            active_name="Early Bird",
+            active_desc="Early bird discount",
+            active_start_time="2025-01-01 00:00:00",
+            active_end_time="2025-12-31 23:59:59",
+            active_price=Decimal("9.99"),
+            active_status=1,
         )
-        assert active_id is not None
+
+        saved = Active.query.filter(Active.active_id == active_id).first()
+        assert saved is not None
+        assert saved.active_course == "course-1"
+        db.session.delete(saved)
+        db.session.commit()
 
 
-def test_create_order_with_active(app):
-    from flaskr.service.lesson.models import AICourse
-    from flaskr.service.order import init_buy_record
-    from flaskr.service.user.user import generate_temp_user
-    from flaskr.util import generate_id
-    from flaskr.service.order.models import DiscountRecord
-    from flaskr.service.order.discount import use_discount_code
+def test_query_and_join_active_creates_user_record(app):
+    from flaskr.dao import db
+    from flaskr.service.active.consts import (
+        ACTIVE_JOIN_STATUS_ENABLE,
+        ACTIVE_JOIN_TYPE_AUTO,
+    )
+    from flaskr.service.active.funcs import query_and_join_active
+    from flaskr.service.active.models import Active, ActiveUserRecord
+
+    now = datetime.now(pytz.timezone("Asia/Shanghai"))
 
     with app.app_context():
-        user = generate_temp_user(app, generate_id(app), str(123456))
-        user_id = user.userInfo.user_id
-        course = AICourse.query.first()
-        course_id = course.course_id
-        order = init_buy_record(app, user_id, course_id)
-
-        discount_record = DiscountRecord.query.filter(
-            DiscountRecord.status == 902, DiscountRecord.discount_value == 200
-        ).first()
-        # assert order_id is not None
-
-        order = use_discount_code(
-            app, user_id, discount_record.discount_code, order.order_id
+        active = Active(
+            active_id="active-1",
+            active_name="Auto Join",
+            active_desc="Auto join active",
+            active_status=1,
+            active_start_time=now - timedelta(days=1),
+            active_end_time=now + timedelta(days=1),
+            active_price=Decimal("5.00"),
+            active_course="course-1",
+            active_join_type=ACTIVE_JOIN_TYPE_AUTO,
         )
-        app.logger.info("order: {}".format(order.__json__()))
+        db.session.add(active)
+        db.session.commit()
+
+        records = query_and_join_active(app, "course-1", "user-1", "order-1")
+
+        assert len(records) == 1
+        assert records[0].status == ACTIVE_JOIN_STATUS_ENABLE
+        leftover = ActiveUserRecord.query.filter_by(
+            user_id="user-1", order_id="order-1"
+        ).all()
+        for record in leftover:
+            db.session.delete(record)
+        db.session.delete(active)
+        db.session.commit()

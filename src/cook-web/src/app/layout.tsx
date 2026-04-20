@@ -31,9 +31,12 @@ export default function RootLayout({
     <html lang='en'>
       <head></head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen overflow-x-hidden overscroll-none`}
       >
-        <div id='root'>
+        <div
+          id='root'
+          className='min-h-screen'
+        >
           <ConfigProvider>
             <RuntimeConfigInitializer />
             <UmamiLoader />

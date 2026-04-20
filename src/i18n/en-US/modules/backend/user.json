@@ -7,6 +7,7 @@
     "googleOAuthStateInvalid": "Google login has expired or is invalid, please try again.",
     "ipBanned": "Requests from this IP are temporarily blocked",
     "languageNotFound": "Language Not Found",
+    "login": "Login",
     "mailCheckError": "Email verification code error",
     "mailSendExpired": "Email verification code expired",
     "smsCheckError": "SMS Verification Code Error",

@@ -12,9 +12,10 @@ import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
+import { MdfConvertDialog } from '@/components/mdf-convert';
 import Header from '../header';
 // import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
-import { UploadProps, EditMode } from 'markdown-flow-ui';
+import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -23,7 +24,7 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 
 const MarkdownFlowEditor = dynamic(
-  () => import('markdown-flow-ui').then(mod => mod.MarkdownFlowEditor),
+  () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
   {
     ssr: false,
     loading: () => (
@@ -46,6 +47,7 @@ import { LessonCreationSettings } from '@/types/shifu';
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
+const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 
@@ -72,6 +74,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
@@ -79,6 +83,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -89,6 +94,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     isLoading,
     variables,
     systemVariables,
+    hiddenVariables,
+    unusedVariables,
+    hideUnusedMode,
     currentShifu,
     currentNode,
   } = useShifu();
@@ -105,6 +113,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     persistVariables,
     onVariableChange,
     variables: previewVariables,
+    requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -184,22 +193,57 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    if (isGuest) {
+      const currentPath = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
+      window.location.href = `/login?redirect=${currentPath}`;
+      return;
+    }
+
     actions.loadModels();
     if (id) {
       actions.loadChapters(id);
     }
-  }, [id]);
+  }, [id, isGuest, isInitialized]);
 
   const handleTogglePreviewPanel = () => {
-    setIsPreviewPanelOpen(prev => {
-      const next = !prev;
-      if (!next) {
-        stopPreview();
-        resetPreview();
-      }
-      return next;
-    });
+    setIsPreviewPanelOpen(prev => !prev);
   };
+
+  const handleHideUnusedVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.hideUnusedVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to hide unused variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
+  const handleRestoreHiddenVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.restoreHiddenVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to restore hidden variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
+  const handleHideSingleVariable = useCallback(
+    async (name: string) => {
+      if (!currentShifu?.bid) return;
+      try {
+        await actions.hideVariableByKey(currentShifu.bid, name);
+      } catch (error) {
+        console.error('Failed to hide variable', error);
+      }
+    },
+    [actions, currentShifu?.bid],
+  );
 
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
@@ -250,7 +294,38 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
+        allVariableKeys,
+        unusedKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+
+      if (hideUnusedMode) {
+        // In "hide unused" mode, refresh hidden list from full-course usage.
+        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        if (outlineChanged()) {
+          return;
+        }
+      } else {
+        // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
+        const parsedVariableKeys =
+          allVariableKeys || Object.keys(parsedVariablesMap || {});
+        const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
+        const usedHiddenKeys = hiddenVariables.filter(
+          key =>
+            parsedVariableKeys.includes(key) && mdflowVariableNames.has(key),
+        );
+        if (usedHiddenKeys.length) {
+          try {
+            await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+            if (outlineChanged()) {
+              return;
+            }
+            // refresh local visible/hidden lists to reflect the change
+            await actions.refreshProfileDefinitions(targetShifu);
+          } catch (unhideError) {
+            console.error('Failed to auto-unhide variables:', unhideError);
+          }
+        }
+      }
       if (outlineChanged()) {
         return;
       }
@@ -282,6 +357,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
     () => extractVariableNames(mdflow),
     [mdflow],
   );
+
+  const resolvedPreviewVariables = useMemo(() => {
+    const candidates = [previewVariables, previewItems[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }, [previewItems, previewVariables]);
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -312,20 +397,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [mdflowVariableNames]);
 
   const variablesList = useMemo(() => {
-    const merged = new Map<string, { name: string }>();
-    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
-    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
-      variableName => {
-        if (!variableName) {
-          return;
-        }
-        if (!merged.has(variableName)) {
-          merged.set(variableName, { name: variableName });
-        }
-      },
-    );
-    return Array.from(merged.values());
-  }, [recentVariables, mdflowVariableNames, variables]);
+    return (variables || []).map(name => ({ name }));
+  }, [variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -340,6 +413,46 @@ const ScriptEditor = ({ id }: { id: string }) => {
       ...variablesList.map(variable => variable.name),
     ];
   }, [systemVariablesList, variablesList]);
+
+  // Course-level visible variables (system + custom, excluding hidden)
+  const courseVisibleVariableKeys = useMemo(() => {
+    const systemSet = systemVariablesList.map(item => item.name);
+    const customVisible = (variables || []).filter(
+      key => !hiddenVariables.includes(key),
+    );
+    return [...systemSet, ...customVisible];
+  }, [hiddenVariables, systemVariablesList, variables]);
+
+  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
+  const mergedPreviewVariables = useMemo(() => {
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
+    courseVisibleVariableKeys.forEach(key => {
+      if (!(key in base)) {
+        base[key] = '';
+      }
+    });
+    return base;
+  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+
+  const unusedVisibleVariables = useMemo(() => {
+    const hiddenSet = new Set(hiddenVariables);
+    return (unusedVariables || []).filter(key => !hiddenSet.has(key));
+  }, [hiddenVariables, unusedVariables]);
+
+  const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
+
+  const hasHiddenVariables = hiddenVariables.length > 0;
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+    ? 'hide'
+    : hasHiddenVariables
+      ? 'restore'
+      : 'hide';
+  const hideRestoreActionDisabled =
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -361,6 +474,46 @@ const ScriptEditor = ({ id }: { id: string }) => {
       },
     };
   }, [token, baseURL]);
+
+  // Handle applying MDF converted content to editor
+  const handleApplyMdfContent = useCallback(
+    (contentPrompt: string) => {
+      actions.setCurrentMdflow(contentPrompt);
+      actions.autoSaveBlocks({
+        shifu_bid: currentShifu?.bid || '',
+        outline_bid: currentNode?.bid || '',
+        data: contentPrompt,
+      });
+    },
+    [actions, currentShifu?.bid, currentNode?.bid],
+  );
+
+  // Toolbar actions for MDF conversion
+  const toolbarActionsRight = useMemo(
+    () => [
+      {
+        key: 'mdfConvert',
+        label: '',
+        icon: (
+          <svg
+            aria-hidden='true'
+            viewBox='0 0 1024 1024'
+            width={TOOLBAR_ICON_SIZE}
+            height={TOOLBAR_ICON_SIZE}
+            className='fill-foreground'
+          >
+            <path d='M633.6 358.4l-473.6 460.8c0 12.8 6.4 19.2 12.8 19.2l51.2 51.2c6.4 6.4 12.8 6.4 19.2 12.8L704 441.6 633.6 358.4zM780.8 384c0 6.4 6.4 6.4 0 0l6.4 6.4h12.8l121.6-121.6c12.8-12.8 12.8-44.8-12.8-64l-51.2-51.2c-19.2-19.2-51.2-25.6-64-12.8l-121.6 121.6-6.4 6.4c0 6.4 0 6.4 6.4 6.4L780.8 384zM313.6 224l64 25.6c6.4 0 6.4 6.4 12.8 19.2l25.6 57.6h12.8l25.6-57.6c0-6.4 6.4-12.8 12.8-12.8l57.6-25.6v-6.4-6.4l-57.6-32c-6.4 0-12.8-6.4-12.8-12.8l-25.6-64h-12.8l-25.6 64c-6.4 6.4-6.4 12.8-19.2 12.8l-57.6 25.6-6.4 6.4 6.4 6.4zM166.4 531.2s6.4 0 0 0c6.4 0 6.4-6.4 0 0l25.6-51.2c0-6.4 6.4-12.8 12.8-12.8l44.8-19.2v-6.4l-44.8-19.2-12.8-12.8-19.2-44.8h-6.4l-19.2 44.8c0 6.4-6.4 12.8-12.8 12.8l-44.8 19.2 44.8 19.2c6.4 0 6.4 6.4 12.8 12.8l19.2 57.6c0-6.4 0 0 0 0zM934.4 774.4l-89.6-38.4c-12.8-6.4-19.2-12.8-25.6-25.6l-38.4-83.2s0-6.4-6.4-6.4H768s-6.4 0-6.4 6.4l-38.4 83.2c-6.4 12.8-12.8 19.2-19.2 25.6l-83.2 38.4h-6.4v12.8h6.4l83.2 38.4c12.8 6.4 19.2 12.8 25.6 25.6l38.4 83.2s0 6.4 6.4 6.4h6.4s6.4 0 6.4-6.4l38.4-83.2c6.4-12.8 12.8-19.2 19.2-25.6l83.2-38.4h6.4c6.4 0 6.4-6.4 0-12.8 6.4 6.4 6.4 6.4 0 0z' />
+          </svg>
+        ),
+        tooltip: t('component.mdfConvert.dialogTitle'),
+        onClick: () => {
+          trackEvent('creator_mdf_dialog_open', {});
+          setIsMdfConvertDialogOpen(true);
+        },
+      },
+    ],
+    [t, trackEvent],
+  );
 
   const canPreview = Boolean(
     currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
@@ -607,6 +760,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onChange={onChangeMdflow}
                       editMode={editMode}
                       uploadProps={uploadProps}
+                      toolbarActionsRight={toolbarActionsRight}
                     />
                   )}
                 </>
@@ -636,18 +790,36 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
-                  variables={previewVariables}
+                  variables={mergedPreviewVariables}
+                  hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
+                  onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
+                  customVariableKeys={variables}
+                  unusedVariableKeys={unusedVisibleVariables}
+                  onHideVariable={handleHideSingleVariable}
+                  onHideOrRestore={
+                    hideRestoreActionType === 'hide'
+                      ? handleHideUnusedVariables
+                      : handleRestoreHiddenVariables
+                  }
+                  actionType={hideRestoreActionType}
+                  actionDisabled={hideRestoreActionDisabled}
                 />
               </div>
             </div>
           ) : null}
         </div>
+
+        <MdfConvertDialog
+          open={isMdfConvertDialogOpen}
+          onOpenChange={setIsMdfConvertDialogOpen}
+          onApplyContent={handleApplyMdfContent}
+        />
       </div>
     </div>
   );

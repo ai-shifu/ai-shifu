@@ -68,3 +68,49 @@ The script provides helpful output:
 2. Copy `docker/.env.example.full` to `docker/.env`.
 3. Edit `.env` and configure at least one LLM API key plus any other secrets you need.
 4. Never commit `.env` to version control.
+
+## ark_cache_token_probe.py
+
+Compares Volcengine Ark (Doubao/Ark) prompt caching usage fields between:
+
+- Direct HTTP call to Ark's OpenAI-compatible `/chat/completions` endpoint
+- LiteLLM call using the same `api_base` + `api_key`
+
+This is useful to verify whether "cached tokens" are missing from the provider response
+or being dropped/normalized by LiteLLM.
+
+### Usage
+
+From the `src/api` directory:
+
+```bash
+ARK_API_KEY=... python scripts/ark_cache_token_probe.py --model ep-xxxx
+```
+
+Notes:
+
+- The script runs both non-stream and stream(+`stream_options.include_usage`) requests.
+- Use `--system-chars` to increase the stable prompt prefix if caching does not trigger.
+
+## test_litellm_responses_providers.py
+
+Smoke tests LiteLLM Responses API across all configured providers.
+
+This validates that the backend can call `litellm.responses(...)` for every
+enabled provider (either via native upstream `/responses` or LiteLLM's
+Responses->ChatCompletions transformation for providers that only support
+`/chat/completions`).
+
+### Usage
+
+From the `src/api` directory:
+
+```bash
+python scripts/test_litellm_responses_providers.py --per-provider 1 --timeout 60
+```
+
+Notes:
+
+- Exits non-zero if any provider fails.
+- Use `--providers qwen,ark` to test a subset.
+- Use `--all-models` carefully; it can be slow and expensive.

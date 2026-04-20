@@ -47,6 +47,9 @@ export const useEnvStore = create<EnvStoreState>(set => ({
     set({ stripePublishableKey }),
   stripeEnabled: environment.stripeEnabled.toString(),
   updateStripeEnabled: async (stripeEnabled: string) => set({ stripeEnabled }),
+  payOrderExpireSeconds: 600,
+  updatePayOrderExpireSeconds: async (payOrderExpireSeconds: number) =>
+    set({ payOrderExpireSeconds }),
   paymentChannels: environment.paymentChannels,
   updatePaymentChannels: async (paymentChannels: string[]) =>
     set({ paymentChannels }),
