@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-import importlib.util
-from pathlib import Path
-import sys
-import types
 
 from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
@@ -18,27 +15,6 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.dtos import RuntimeBillingContextDTO, RuntimeConfigDTO
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
 from flaskr.service.billing.runtime_config import build_runtime_billing_context
-
-_API_ROOT = Path(__file__).resolve().parents[3]
-_ROUTE_PACKAGE = types.ModuleType("flaskr.route")
-_ROUTE_PACKAGE.__path__ = [str(_API_ROOT / "flaskr/route")]
-sys.modules.setdefault("flaskr.route", _ROUTE_PACKAGE)
-_COMMON_ROUTE_SPEC = importlib.util.spec_from_file_location(
-    "flaskr.route.common",
-    _API_ROOT / "flaskr/route/common.py",
-)
-assert _COMMON_ROUTE_SPEC and _COMMON_ROUTE_SPEC.loader
-common_route = importlib.util.module_from_spec(_COMMON_ROUTE_SPEC)
-sys.modules["flaskr.route.common"] = common_route
-_COMMON_ROUTE_SPEC.loader.exec_module(common_route)
-_CONFIG_ROUTE_SPEC = importlib.util.spec_from_file_location(
-    "flaskr.route.config",
-    _API_ROOT / "flaskr/route/config.py",
-)
-assert _CONFIG_ROUTE_SPEC and _CONFIG_ROUTE_SPEC.loader
-config_route = importlib.util.module_from_spec(_CONFIG_ROUTE_SPEC)
-sys.modules["flaskr.route.config"] = config_route
-_CONFIG_ROUTE_SPEC.loader.exec_module(config_route)
 
 
 @pytest.fixture

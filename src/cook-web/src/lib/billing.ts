@@ -3,12 +3,10 @@ import type {
   BillingCapabilityStatus,
   BillingBucketCategory,
   BillingBucketSourceType,
-  BillingBucketStatus,
   BillingCheckoutResult,
   BillingLedgerEntryType,
   BillingLedgerItem,
   BillingMetricName,
-  BillingPaymentMode,
   BillingOrderStatus,
   BillingOrderType,
   BillingPingxxChannel,
@@ -18,8 +16,6 @@ import type {
   BillingRenewalEventStatus,
   BillingRenewalEventSummary,
   BillingRenewalEventType,
-  BillingSubscriptionProduct,
-  BillingSubscription,
   BillingSubscriptionStatus,
   BillingTrialOffer,
   BillingTopupProduct,
@@ -182,13 +178,6 @@ const BILLING_BUCKET_SOURCE_KEYS: Record<BillingBucketSourceType, string> = {
   usage: 'module.billing.ledger.source.usage',
 };
 
-const BILLING_BUCKET_STATUS_KEYS: Record<BillingBucketStatus, string> = {
-  active: 'module.billing.ledger.bucketStatus.active',
-  exhausted: 'module.billing.ledger.bucketStatus.exhausted',
-  expired: 'module.billing.ledger.bucketStatus.expired',
-  canceled: 'module.billing.ledger.bucketStatus.canceled',
-};
-
 const BILLING_LEDGER_ENTRY_KEYS: Record<BillingLedgerEntryType, string> = {
   grant: 'module.billing.ledger.entryType.grant',
   consume: 'module.billing.ledger.entryType.consume',
@@ -235,11 +224,6 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   pingxx: 'module.billing.catalog.labels.providerPingxx',
 };
 
-const BILLING_PAYMENT_MODE_KEYS: Record<BillingPaymentMode, string> = {
-  subscription: 'module.billing.orders.paymentMode.subscription',
-  one_time: 'module.billing.orders.paymentMode.oneTime',
-};
-
 const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
   {
     renewal: 'module.billing.renewal.eventType.renewal',
@@ -282,10 +266,6 @@ function normalizeBillingCreditPrecision(value?: number | null): number {
 
 export function setBillingCreditPrecision(value?: number | null): void {
   billingCreditPrecision = normalizeBillingCreditPrecision(value);
-}
-
-export function getBillingCreditPrecision(): number {
-  return billingCreditPrecision;
 }
 
 export function formatBillingCredits(
@@ -358,27 +338,6 @@ export function resolveBillingProductTitle(
   return t(product.display_name);
 }
 
-const SUBSCRIPTION_PRODUCT_CODE_TITLE_KEYS: Record<string, string> = {
-  'creator-plan-monthly': 'module.billing.catalog.plans.creatorMonthly.title',
-  'creator-plan-monthly-pro':
-    'module.billing.catalog.plans.creatorMonthlyPro.title',
-  'creator-plan-yearly': 'module.billing.catalog.plans.creatorYearly.title',
-  'creator-plan-yearly-lite':
-    'module.billing.catalog.plans.creatorYearlyLite.title',
-  'creator-plan-yearly-premium':
-    'module.billing.catalog.plans.creatorYearlyPremium.title',
-};
-
-export function resolveSubscriptionProductName(
-  t: BillingTranslator,
-  productCode?: string | null,
-  fallback = '',
-): string {
-  if (!productCode) return fallback;
-  const key = SUBSCRIPTION_PRODUCT_CODE_TITLE_KEYS[productCode];
-  return key ? t(key) : fallback;
-}
-
 export function resolveBillingProductDescription(
   t: BillingTranslator,
   product?: BillingPlan | BillingTopupProduct | BillingTrialOffer | null,
@@ -400,23 +359,6 @@ export function buildBillingStripeResultUrls(origin: string): {
     successUrl: base,
     cancelUrl: `${base}?canceled=1`,
   };
-}
-
-export function resolveBillingNextActionLabel(
-  t: BillingTranslator,
-  subscription: BillingSubscription | null,
-  availableCredits: number,
-): string {
-  if (!subscription) {
-    return t('module.billing.overview.actions.choosePlan');
-  }
-  if (availableCredits <= 0) {
-    return t('module.billing.overview.actions.topupCredits');
-  }
-  if (subscription.cancel_at_period_end) {
-    return t('module.billing.overview.actions.watchRenewal');
-  }
-  return t('module.billing.overview.actions.managePlan');
 }
 
 export function buildBillingSwrKey(
@@ -560,19 +502,6 @@ export function resolveBillingPlanValidityLabel(
   );
 }
 
-export function resolveBillingSubscriptionProductCreditsLabel(
-  t: BillingTranslator,
-  product: BillingSubscriptionProduct,
-  locale: string,
-): string {
-  if ('billing_interval' in product) {
-    return resolveBillingPlanCreditsLabel(t, product, locale);
-  }
-  return t('module.billing.package.free.creditSummary', {
-    credits: formatBillingCredits(product.credit_amount, locale),
-  });
-}
-
 export function resolveBillingBucketCategoryLabel(
   t: BillingTranslator,
   category: BillingBucketCategory,
@@ -585,13 +514,6 @@ export function resolveBillingBucketSourceLabel(
   sourceType: BillingBucketSourceType,
 ): string {
   return t(BILLING_BUCKET_SOURCE_KEYS[sourceType]);
-}
-
-export function resolveBillingBucketStatusLabel(
-  t: BillingTranslator,
-  status: BillingBucketStatus,
-): string {
-  return t(BILLING_BUCKET_STATUS_KEYS[status]);
 }
 
 export function resolveBillingLedgerEntryLabel(
@@ -743,13 +665,6 @@ export function resolveBillingProviderLabel(
   return t(BILLING_PROVIDER_KEYS[provider]);
 }
 
-export function resolveBillingPaymentModeLabel(
-  t: BillingTranslator,
-  paymentMode: BillingPaymentMode,
-): string {
-  return t(BILLING_PAYMENT_MODE_KEYS[paymentMode]);
-}
-
 export function resolveBillingRenewalEventTypeLabel(
   t: BillingTranslator,
   eventType: BillingRenewalEventType,
@@ -797,14 +712,6 @@ export function openBillingCheckoutUrl(url: string): void {
   window.location.assign(url);
 }
 
-export function openBillingPaymentWindow(url: string): boolean {
-  if (!url || typeof window === 'undefined') {
-    return false;
-  }
-  const paymentWindow = window.open(url, '_blank', 'noopener,noreferrer');
-  return paymentWindow !== null;
-}
-
 export function resolveBillingPingxxChannelLabel(
   t: BillingTranslator,
   channel: BillingPingxxChannel,
@@ -840,13 +747,6 @@ export function extractBillingPingxxQrCode(
   }
 
   return null;
-}
-
-export function extractBillingPingxxQrUrl(
-  result: BillingCheckoutResult,
-  preferredChannel: BillingPingxxChannel = 'wx_pub_qr',
-): string {
-  return extractBillingPingxxQrCode(result, preferredChannel)?.url || '';
 }
 
 export function registerBillingTranslationUsage(t: BillingTranslator): void {
@@ -1036,10 +936,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.entitlements.support.priority'),
     t('module.billing.entitlements.support.selfServe'),
     t('module.billing.ledger.bucketDescription'),
-    t('module.billing.ledger.bucketStatus.active'),
-    t('module.billing.ledger.bucketStatus.canceled'),
-    t('module.billing.ledger.bucketStatus.exhausted'),
-    t('module.billing.ledger.bucketStatus.expired'),
     t('module.billing.ledger.category.subscription'),
     t('module.billing.ledger.category.topup'),
     t('module.billing.ledger.entryType.adjustment'),
@@ -1088,8 +984,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.sidebar.subscriptionPending'),
     t('module.billing.sidebar.subscriptionStatusLabel'),
     t('module.billing.sidebar.yearlyTitle'),
-    t('module.billing.orders.paymentMode.oneTime'),
-    t('module.billing.orders.paymentMode.subscription'),
     t('module.billing.orders.type.manual'),
     t('module.billing.orders.type.refund'),
     t('module.billing.orders.type.subscriptionRenewal'),

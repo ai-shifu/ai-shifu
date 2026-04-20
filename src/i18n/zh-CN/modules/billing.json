@@ -410,12 +410,6 @@
   },
   "ledger": {
     "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
-    "bucketStatus": {
-      "active": "生效中",
-      "canceled": "已取消",
-      "exhausted": "已耗尽",
-      "expired": "已过期"
-    },
     "category": {
       "subscription": "套餐积分",
       "topup": "积分包"
@@ -470,10 +464,6 @@
     }
   },
   "orders": {
-    "paymentMode": {
-      "oneTime": "一次性支付",
-      "subscription": "订阅支付"
-    },
     "status": {
       "canceled": "已取消",
       "failed": "失败",
@@ -493,12 +483,6 @@
     }
   },
   "overview": {
-    "actions": {
-      "choosePlan": "选择套餐",
-      "managePlan": "管理当前套餐",
-      "topupCredits": "购买充值包",
-      "watchRenewal": "关注续费状态"
-    },
     "availableCreditsLabel": "可用积分",
     "feedback": {
       "cancelSuccess": "当前订阅将在本周期结束后取消。",

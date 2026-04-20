@@ -35,3 +35,22 @@ behavior.
 - Frontend type-check and lint.
 - Shared translation validation and targeted pre-commit checks on touched
   files.
+
+## Second Pass Cleanup
+
+This second pass remains scoped to the committed diff between `upstream/main`
+and the current branch. It still excludes the dirty worktree, untracked files,
+local diagnostics helpers, screenshots, logs, spreadsheets, and ad hoc docs.
+
+The goal for this pass is to tighten internal branch-only surfaces that remain
+redundant after the first cleanup round:
+
+- Shrink `src/api/flaskr/service/billing/__init__.py` back to a minimal package
+  marker instead of a broad compatibility re-export surface.
+- Remove duplicated billing test route-loader bootstrapping from
+  `test_runtime_config_billing.py` and `test_billing_callbacks.py`.
+- Remove frontend billing helpers that are no longer consumed by production
+  code, together with their dead tests and dead translation pre-registration.
+- Consolidate the repeated paged admin billing table boilerplate into a shared
+  hook and shared pager component without changing the rendered billing
+  surfaces or the request/response contracts.

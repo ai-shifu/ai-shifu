@@ -1,7 +1,6 @@
 import {
   formatBillingCredits,
   formatBillingPlanInterval,
-  getBillingCreditPrecision,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
@@ -50,7 +49,6 @@ describe('resolveBillingPlanCreditsLabel', () => {
   });
 
   test('formats credits with fixed two-decimal precision by default', () => {
-    expect(getBillingCreditPrecision()).toBe(2);
     expect(formatBillingCredits(5, 'en-US')).toBe('5.00');
     expect(formatBillingCredits(1.25, 'en-US')).toBe('1.25');
     expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.00');

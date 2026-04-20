@@ -6,10 +6,7 @@ import { toast } from '@/hooks/useToast';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import useSWR, { mutate as mutateSWRCache } from 'swr';
-import {
-  openBillingCheckoutUrl,
-  openBillingPaymentWindow,
-} from '@/lib/billing';
+import { openBillingCheckoutUrl } from '@/lib/billing';
 import { BillingOverviewTab } from './BillingOverviewTab';
 
 const mockEnvState = {
@@ -78,7 +75,6 @@ jest.mock('@/lib/billing', () => {
   return {
     ...actual,
     openBillingCheckoutUrl: jest.fn(),
-    openBillingPaymentWindow: jest.fn(),
   };
 });
 
@@ -120,7 +116,6 @@ const mockSyncBillingOrder = api.syncBillingOrder as jest.Mock;
 const mockRememberStripeCheckoutSession =
   rememberStripeCheckoutSession as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
-const mockOpenBillingPaymentWindow = openBillingPaymentWindow as jest.Mock;
 const mockToast = toast as jest.Mock;
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockUseSWR = useSWR as jest.Mock;
@@ -336,7 +331,6 @@ describe('BillingOverviewTab', () => {
     mockSyncBillingOrder.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
-    mockOpenBillingPaymentWindow.mockReset();
     mockToast.mockReset();
     mockUseBillingOverview.mockReset();
     mockUseSWR.mockReset();
@@ -1021,7 +1015,6 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
-    expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
 
     await act(async () => {
       await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
@@ -1090,7 +1083,6 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
-    expect(mockOpenBillingPaymentWindow).not.toHaveBeenCalled();
   });
 
   test('polls pending Pingxx checkout and closes the QR dialog after payment', async () => {

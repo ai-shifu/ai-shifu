@@ -130,7 +130,7 @@ export function BillingPingxxQrDialog({
             <Checkbox
               id='billing-pingxx-agreement'
               checked={agreed}
-              onCheckedChange={(checked) => setAgreed(checked === true)}
+              onCheckedChange={checked => setAgreed(checked === true)}
             />
             <label
               htmlFor='billing-pingxx-agreement'
@@ -142,7 +142,7 @@ export function BillingPingxxQrDialog({
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary underline underline-offset-2'
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
               >
                 {t('module.billing.checkout.agreementLink')}
               </a>

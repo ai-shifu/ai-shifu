@@ -185,7 +185,9 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     const domain = getHostDomain();
     if (domain) {
-      setCourseCreatorUrl(`https://${domain}/educators.html#course-creator-skill`);
+      setCourseCreatorUrl(
+        `https://${domain}/educators.html#course-creator-skill`,
+      );
     }
   }, []);
 

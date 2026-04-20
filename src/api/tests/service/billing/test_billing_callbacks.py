@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
-import importlib.util
-from pathlib import Path
-import sys
-import types
 
 from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+from flaskr.route.callback import register_callback_handler
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
@@ -26,30 +23,6 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE
 from flaskr.service.order.models import Order, PingxxOrder
 from tests.common.fixtures.billing_products import build_billing_products
 
-_ROUTE_DIR = Path(__file__).resolve().parents[3] / "flaskr" / "route"
-
-
-def _load_route_module(module_name: str):
-    package_name = "flaskr.route"
-    if package_name not in sys.modules:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(_ROUTE_DIR)]
-        sys.modules[package_name] = package
-
-    full_name = f"{package_name}.{module_name}"
-    if full_name in sys.modules:
-        return sys.modules[full_name]
-
-    spec = importlib.util.spec_from_file_location(
-        full_name,
-        _ROUTE_DIR / f"{module_name}.py",
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[full_name] = module
-    spec.loader.exec_module(module)
-    return module
-
 
 @pytest.fixture
 def billing_callback_app():
@@ -65,7 +38,7 @@ def billing_callback_app():
         TZ="UTC",
     )
     dao.db.init_app(app)
-    _load_route_module("callback").register_callback_handler(app, "/api/callback")
+    register_callback_handler(app, "/api/callback")
     with app.app_context():
         dao.db.create_all()
         dao.db.session.add_all(build_billing_products())

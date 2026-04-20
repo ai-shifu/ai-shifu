@@ -410,12 +410,6 @@
   },
   "ledger": {
     "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
-    "bucketStatus": {
-      "active": "Active",
-      "canceled": "Canceled",
-      "exhausted": "Exhausted",
-      "expired": "Expired"
-    },
     "category": {
       "subscription": "Plan credits",
       "topup": "Credit pack"
@@ -470,10 +464,6 @@
     }
   },
   "orders": {
-    "paymentMode": {
-      "oneTime": "One-time payment",
-      "subscription": "Subscription"
-    },
     "status": {
       "canceled": "Canceled",
       "failed": "Failed",
@@ -493,12 +483,6 @@
     }
   },
   "overview": {
-    "actions": {
-      "choosePlan": "Choose a plan",
-      "managePlan": "Manage your plan",
-      "topupCredits": "Top up credits",
-      "watchRenewal": "Watch upcoming renewal"
-    },
     "availableCreditsLabel": "Available credits",
     "feedback": {
       "cancelSuccess": "Subscription will cancel at the end of the current period.",

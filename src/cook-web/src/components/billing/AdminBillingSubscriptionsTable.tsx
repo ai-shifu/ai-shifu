@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
-import useSWR from 'swr';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import {
   Card,
   CardContent,
@@ -22,12 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import { useBillingAdminPagedQuery } from '@/hooks/useBillingAdminPagedQuery';
 import type {
   AdminBillingSubscriptionItem,
   BillingPagedResponse,
 } from '@/types/billing';
 import {
-  buildBillingSwrKey,
   buildBillingRenewalContextLabel,
   formatBillingCredits,
   formatBillingDateTime,
@@ -37,38 +34,33 @@ import {
   resolveBillingRenewalEventTypeLabel,
   resolveBillingProviderLabel,
   resolveBillingSubscriptionStatusLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
+import { AdminBillingPager } from './AdminBillingPager';
 
 const ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE = 10;
 
 export function AdminBillingSubscriptionsTable() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
-  const [pageIndex, setPageIndex] = useState(1);
-  const { data, error, isLoading } = useSWR<
-    BillingPagedResponse<AdminBillingSubscriptionItem>
-  >(
-    buildBillingSwrKey('admin-billing-subscriptions', timezone, pageIndex),
-    async () =>
-      (await api.getAdminBillingSubscriptions({
-        ...withBillingTimezone(
-          {
-            page_index: pageIndex,
-            page_size: ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE,
-          },
-          timezone,
-        ),
-      })) as BillingPagedResponse<AdminBillingSubscriptionItem>,
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
-  const items = data?.items || [];
-  const canGoPrev = pageIndex > 1;
-  const canGoNext = pageIndex < Number(data?.page_count || 1);
+  const {
+    error,
+    isLoading,
+    items,
+    page,
+    pageCount,
+    total,
+    canGoNext,
+    canGoPrev,
+    goNext,
+    goPrev,
+  } = useBillingAdminPagedQuery<AdminBillingSubscriptionItem>({
+    queryKey: 'admin-billing-subscriptions',
+    pageSize: ADMIN_BILLING_SUBSCRIPTIONS_PAGE_SIZE,
+    fetchPage: async params =>
+      (await api.getAdminBillingSubscriptions(
+        params,
+      )) as BillingPagedResponse<AdminBillingSubscriptionItem>,
+  });
 
   return (
     <Card className='border-slate-200 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)]'>
@@ -231,31 +223,15 @@ export function AdminBillingSubscriptionsTable() {
           )}
         </div>
 
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div className='text-sm text-slate-500'>
-            {t('module.billing.admin.pagination.page', {
-              page: data?.page || pageIndex,
-              pageCount: data?.page_count || 1,
-              total: data?.total || 0,
-            })}
-          </div>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              disabled={!canGoPrev}
-              onClick={() => setPageIndex(current => Math.max(1, current - 1))}
-            >
-              {t('common.page.previous')}
-            </Button>
-            <Button
-              variant='outline'
-              disabled={!canGoNext}
-              onClick={() => setPageIndex(current => current + 1)}
-            >
-              {t('common.page.next')}
-            </Button>
-          </div>
-        </div>
+        <AdminBillingPager
+          canGoNext={canGoNext}
+          canGoPrev={canGoPrev}
+          onNext={goNext}
+          onPrev={goPrev}
+          page={page}
+          pageCount={pageCount}
+          total={total}
+        />
       </CardContent>
     </Card>
   );
