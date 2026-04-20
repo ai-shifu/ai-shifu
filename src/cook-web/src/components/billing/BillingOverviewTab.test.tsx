@@ -124,7 +124,7 @@ const mockMutateOverview = jest.fn();
 const DEFAULT_TRIAL_OFFER = {
   enabled: true,
   status: 'ineligible' as const,
-  product_bid: 'billing-product-plan-trial',
+  product_bid: 'bill-product-plan-trial',
   product_code: 'creator-plan-trial',
   display_name: 'module.billing.package.free.title',
   description: 'module.billing.package.free.description',
@@ -144,7 +144,7 @@ const DEFAULT_TRIAL_OFFER = {
 const CATALOG_RESPONSE = {
   plans: [
     {
-      product_bid: 'billing-product-plan-monthly',
+      product_bid: 'bill-product-plan-monthly',
       product_code: 'creator-plan-monthly',
       product_type: 'plan' as const,
       display_name: 'module.billing.catalog.plans.creatorMonthly.title',
@@ -161,7 +161,7 @@ const CATALOG_RESPONSE = {
       ],
     },
     {
-      product_bid: 'billing-product-plan-monthly-pro',
+      product_bid: 'bill-product-plan-monthly-pro',
       product_code: 'creator-plan-monthly-pro',
       product_type: 'plan' as const,
       display_name: 'module.billing.catalog.plans.creatorMonthlyPro.title',
@@ -180,7 +180,7 @@ const CATALOG_RESPONSE = {
       status_badge_key: 'module.billing.catalog.badges.recommended',
     },
     {
-      product_bid: 'billing-product-plan-yearly-lite',
+      product_bid: 'bill-product-plan-yearly-lite',
       product_code: 'creator-plan-yearly-lite',
       product_type: 'plan' as const,
       display_name: 'module.billing.catalog.plans.creatorYearlyLite.title',
@@ -197,7 +197,7 @@ const CATALOG_RESPONSE = {
       ],
     },
     {
-      product_bid: 'billing-product-plan-yearly',
+      product_bid: 'bill-product-plan-yearly',
       product_code: 'creator-plan-yearly',
       product_type: 'plan' as const,
       display_name: 'module.billing.catalog.plans.creatorYearly.title',
@@ -217,7 +217,7 @@ const CATALOG_RESPONSE = {
       ],
     },
     {
-      product_bid: 'billing-product-plan-yearly-premium',
+      product_bid: 'bill-product-plan-yearly-premium',
       product_code: 'creator-plan-yearly-premium',
       product_type: 'plan' as const,
       display_name: 'module.billing.catalog.plans.creatorYearlyPremium.title',
@@ -241,7 +241,7 @@ const CATALOG_RESPONSE = {
   ],
   topups: [
     {
-      product_bid: 'billing-product-topup-small',
+      product_bid: 'bill-product-topup-small',
       product_code: 'creator-topup-small',
       product_type: 'topup' as const,
       display_name: 'module.billing.catalog.topups.creatorSmall.title',
@@ -251,7 +251,7 @@ const CATALOG_RESPONSE = {
       credit_amount: 20,
     },
     {
-      product_bid: 'billing-product-topup-medium',
+      product_bid: 'bill-product-topup-medium',
       product_code: 'creator-topup-medium',
       product_type: 'topup' as const,
       display_name: 'module.billing.catalog.topups.creatorMedium.title',
@@ -261,7 +261,7 @@ const CATALOG_RESPONSE = {
       credit_amount: 50,
     },
     {
-      product_bid: 'billing-product-topup-large',
+      product_bid: 'bill-product-topup-large',
       product_code: 'creator-topup-large',
       product_type: 'topup' as const,
       display_name: 'module.billing.catalog.topups.creatorLarge.title',
@@ -271,7 +271,7 @@ const CATALOG_RESPONSE = {
       credit_amount: 120,
     },
     {
-      product_bid: 'billing-product-topup-xlarge',
+      product_bid: 'bill-product-topup-xlarge',
       product_code: 'creator-topup-xlarge',
       product_type: 'topup' as const,
       display_name: 'module.billing.catalog.topups.creatorXLarge.title',
@@ -285,7 +285,7 @@ const CATALOG_RESPONSE = {
 };
 
 const DAILY_PLAN = {
-  product_bid: 'billing-product-plan-daily',
+  product_bid: 'bill-product-plan-daily',
   product_code: 'creator-plan-daily',
   product_type: 'plan' as const,
   display_name: 'module.billing.catalog.plans.creatorMonthly.title',
@@ -348,7 +348,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: {
           subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly',
+          product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
           billing_provider: 'stripe',
@@ -375,7 +375,7 @@ describe('BillingOverviewTab', () => {
       isLoading: false,
     });
     mockSyncBillingOrder.mockResolvedValue({
-      billing_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-1',
       status: 'pending',
     });
   });
@@ -411,13 +411,13 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toHaveAttribute('data-featured', 'true');
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-monthly-pro'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-pro'),
     ).toBeInTheDocument();
 
     await act(async () => {
@@ -432,15 +432,13 @@ describe('BillingOverviewTab', () => {
       'xl:grid-cols-3',
     );
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-yearly-lite'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-yearly-lite'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-yearly'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-yearly'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId(
-        'billing-plan-card-billing-product-plan-yearly-premium',
-      ),
+      screen.getByTestId('billing-plan-card-bill-product-plan-yearly-premium'),
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId('billing-plan-card-free'),
@@ -461,7 +459,7 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(
-      screen.getByTestId('billing-topup-card-billing-product-topup-small'),
+      screen.getByTestId('billing-topup-card-bill-product-topup-small'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
     expect(
@@ -474,13 +472,13 @@ describe('BillingOverviewTab', () => {
       screen.getByText('module.billing.package.topup.noteFrozen'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-topup-card-billing-product-topup-medium'),
+      screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-topup-card-billing-product-topup-large'),
+      screen.getByTestId('billing-topup-card-bill-product-topup-large'),
     ).toBeInTheDocument();
     expect(
-      screen.getByTestId('billing-topup-card-billing-product-topup-xlarge'),
+      screen.getByTestId('billing-topup-card-bill-product-topup-xlarge'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-grid')).toHaveClass(
       '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
@@ -538,7 +536,7 @@ describe('BillingOverviewTab', () => {
       }),
     ).toHaveAttribute('data-state', 'active');
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-daily'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-daily'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.creditSummary.days'),
@@ -615,7 +613,7 @@ describe('BillingOverviewTab', () => {
       'true',
     );
     expect(
-      screen.getByTestId('billing-plan-card-billing-product-plan-monthly'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toHaveAttribute('data-featured', 'false');
     expect(
       screen.getAllByText('module.billing.package.validity.monthly').length,
@@ -674,7 +672,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: {
           subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly-pro',
+          product_bid: 'bill-product-plan-monthly-pro',
           product_code: 'creator-plan-monthly-pro',
           status: 'active',
           billing_provider: 'stripe',
@@ -697,20 +695,16 @@ describe('BillingOverviewTab', () => {
     renderOverviewTab();
 
     expect(
-      screen.getByTestId(
-        'billing-plan-card-billing-product-plan-monthly-action',
-      ),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
     ).toBeDisabled();
     expect(
-      screen.getByTestId(
-        'billing-plan-card-billing-product-plan-monthly-action',
-      ),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
     ).toHaveTextContent('module.billing.package.actions.downgradeDisabled');
 
     await act(async () => {
       await user.hover(
         screen.getByTestId(
-          'billing-plan-card-billing-product-plan-monthly-action-trigger',
+          'billing-plan-card-bill-product-plan-monthly-action-trigger',
         ),
       );
     });
@@ -732,7 +726,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: {
           subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly',
+          product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'active',
           billing_provider: 'stripe',
@@ -789,7 +783,7 @@ describe('BillingOverviewTab', () => {
         },
         subscription: {
           subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly',
+          product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'cancel_scheduled',
           billing_provider: 'stripe',
@@ -817,7 +811,7 @@ describe('BillingOverviewTab', () => {
     });
     mockResumeBillingSubscription.mockResolvedValue({
       subscription_bid: 'sub-1',
-      product_bid: 'billing-product-plan-monthly',
+      product_bid: 'bill-product-plan-monthly',
       product_code: 'creator-plan-monthly',
       status: 'active',
       billing_provider: 'stripe',
@@ -874,7 +868,7 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      billing_order_bid: 'order-plan-1',
+      bill_order_bid: 'order-plan-1',
       provider: 'stripe',
       payment_mode: 'subscription',
       status: 'pending',
@@ -894,9 +888,7 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        screen.getByTestId(
-          'billing-plan-card-billing-product-plan-yearly-action',
-        ),
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
       );
     });
 
@@ -918,7 +910,7 @@ describe('BillingOverviewTab', () => {
       expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
         expect.objectContaining({
           payment_provider: 'stripe',
-          product_bid: 'billing-product-plan-yearly',
+          product_bid: 'bill-product-plan-yearly',
         }),
       );
     });
@@ -954,7 +946,7 @@ describe('BillingOverviewTab', () => {
       mutate: mockMutateOverview,
     });
     mockCheckoutBillingSubscription.mockResolvedValue({
-      billing_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
@@ -965,7 +957,7 @@ describe('BillingOverviewTab', () => {
       },
     });
     mockCheckoutBillingOrder.mockResolvedValue({
-      billing_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
@@ -988,9 +980,7 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        screen.getByTestId(
-          'billing-plan-card-billing-product-plan-yearly-action',
-        ),
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
       );
     });
 
@@ -1009,7 +999,7 @@ describe('BillingOverviewTab', () => {
         expect.objectContaining({
           channel: 'wx_pub_qr',
           payment_provider: 'pingxx',
-          product_bid: 'billing-product-plan-yearly',
+          product_bid: 'bill-product-plan-yearly',
         }),
       );
     });
@@ -1022,7 +1012,7 @@ describe('BillingOverviewTab', () => {
 
     await waitFor(() => {
       expect(mockCheckoutBillingOrder).toHaveBeenCalledWith({
-        billing_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-pingxx-1',
         channel: 'alipay_qr',
       });
     });
@@ -1033,7 +1023,7 @@ describe('BillingOverviewTab', () => {
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
     mockCheckoutBillingTopup.mockResolvedValue({
-      billing_order_bid: 'order-topup-1',
+      bill_order_bid: 'order-topup-1',
       provider: 'pingxx',
       payment_mode: 'one_time',
       status: 'pending',
@@ -1057,7 +1047,7 @@ describe('BillingOverviewTab', () => {
     await act(async () => {
       await user.click(
         screen.getByTestId(
-          'billing-topup-card-billing-product-topup-small-action',
+          'billing-topup-card-bill-product-topup-small-action',
         ),
       );
     });
@@ -1077,7 +1067,7 @@ describe('BillingOverviewTab', () => {
         expect.objectContaining({
           channel: 'wx_pub_qr',
           payment_provider: 'pingxx',
-          product_bid: 'billing-product-topup-small',
+          product_bid: 'bill-product-topup-small',
         }),
       );
     });
@@ -1093,7 +1083,7 @@ describe('BillingOverviewTab', () => {
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
     mockCheckoutBillingSubscription.mockResolvedValue({
-      billing_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
@@ -1104,7 +1094,7 @@ describe('BillingOverviewTab', () => {
       },
     });
     mockSyncBillingOrder.mockResolvedValueOnce({
-      billing_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-1',
       status: 'paid',
     });
 
@@ -1120,9 +1110,7 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        screen.getByTestId(
-          'billing-plan-card-billing-product-plan-yearly-action',
-        ),
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
       );
     });
 
@@ -1144,7 +1132,7 @@ describe('BillingOverviewTab', () => {
 
     await waitFor(() => {
       expect(mockSyncBillingOrder).toHaveBeenCalledWith({
-        billing_order_bid: 'order-plan-pingxx-1',
+        bill_order_bid: 'order-plan-pingxx-1',
       });
     });
     await waitFor(() => {

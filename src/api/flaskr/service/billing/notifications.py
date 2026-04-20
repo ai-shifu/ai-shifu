@@ -42,7 +42,7 @@ _SUPPORTED_ORDER_TYPES = {
 def _build_result(
     status: str,
     *,
-    billing_order_bid: str | None = None,
+    bill_order_bid: str | None = None,
     creator_bid: str | None = None,
     mobile: str | None = None,
     product: str | None = None,
@@ -53,7 +53,7 @@ def _build_result(
 ) -> dict[str, Any]:
     payload = {
         "status": status,
-        "billing_order_bid": billing_order_bid,
+        "bill_order_bid": bill_order_bid,
         "creator_bid": creator_bid,
         "mobile": mobile,
         "product": product,
@@ -134,14 +134,14 @@ def stage_subscription_purchase_sms_for_paid_order(
 def enqueue_subscription_purchase_sms(
     app: Flask,
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
 ) -> dict[str, Any]:
     """Enqueue the subscription purchase SMS worker after commit."""
 
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
-    if not normalized_billing_order_bid:
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_bill_order_bid:
         return _build_result(
-            "invalid_billing_order_bid",
+            "invalid_bill_order_bid",
             enqueued=False,
         )
 
@@ -152,32 +152,32 @@ def enqueue_subscription_purchase_sms(
         task = celery_app.tasks.get(TASK_NAME)
         if task is None:
             app.logger.warning(
-                "%s is unavailable for billing_order_bid=%s",
+                "%s is unavailable for bill_order_bid=%s",
                 TASK_NAME,
-                normalized_billing_order_bid,
+                normalized_bill_order_bid,
             )
             return _build_result(
                 "task_unavailable",
-                billing_order_bid=normalized_billing_order_bid,
+                bill_order_bid=normalized_bill_order_bid,
                 enqueued=False,
             )
-        task.apply_async(kwargs={"billing_order_bid": normalized_billing_order_bid})
+        task.apply_async(kwargs={"bill_order_bid": normalized_bill_order_bid})
         return _build_result(
             "enqueued",
-            billing_order_bid=normalized_billing_order_bid,
+            bill_order_bid=normalized_bill_order_bid,
             enqueued=True,
         )
     except Exception as exc:
         app.logger.error(
-            "Failed to enqueue %s for billing_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s: %s",
             TASK_NAME,
-            normalized_billing_order_bid,
+            normalized_bill_order_bid,
             exc,
             exc_info=True,
         )
         return _build_result(
             "enqueue_failed",
-            billing_order_bid=normalized_billing_order_bid,
+            bill_order_bid=normalized_bill_order_bid,
             message=str(exc),
             enqueued=False,
         )
@@ -186,19 +186,19 @@ def enqueue_subscription_purchase_sms(
 def requeue_subscription_purchase_sms(
     app: Flask,
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
 ) -> dict[str, Any]:
     """Re-enqueue one pending or provider-failed subscription purchase SMS."""
 
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
-    if not normalized_billing_order_bid:
-        return _build_result("invalid_billing_order_bid", enqueued=False)
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_bill_order_bid:
+        return _build_result("invalid_bill_order_bid", enqueued=False)
 
     with app.app_context():
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
-                BillingOrder.billing_order_bid == normalized_billing_order_bid,
+                BillingOrder.bill_order_bid == normalized_bill_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -206,7 +206,7 @@ def requeue_subscription_purchase_sms(
         if order is None:
             return _build_result(
                 "not_found",
-                billing_order_bid=normalized_billing_order_bid,
+                bill_order_bid=normalized_bill_order_bid,
                 enqueued=False,
             )
 
@@ -215,7 +215,7 @@ def requeue_subscription_purchase_sms(
         if notification_status not in _PROCESSABLE_STATUSES:
             return _build_result(
                 "not_requeueable",
-                billing_order_bid=normalized_billing_order_bid,
+                bill_order_bid=normalized_bill_order_bid,
                 creator_bid=order.creator_bid,
                 notification_status=notification_status or None,
                 enqueued=False,
@@ -223,7 +223,7 @@ def requeue_subscription_purchase_sms(
 
     result = enqueue_subscription_purchase_sms(
         app,
-        billing_order_bid=normalized_billing_order_bid,
+        bill_order_bid=normalized_bill_order_bid,
     )
     result["creator_bid"] = order.creator_bid
     result["notification_status"] = notification_status
@@ -231,12 +231,12 @@ def requeue_subscription_purchase_sms(
 
 
 def _resolve_notification_order(
-    billing_order_bid: str,
+    bill_order_bid: str,
 ) -> BillingOrder | None:
     return (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
-            BillingOrder.billing_order_bid == billing_order_bid,
+            BillingOrder.bill_order_bid == bill_order_bid,
         )
         .order_by(BillingOrder.id.desc())
         .with_for_update()
@@ -258,9 +258,7 @@ def _resolve_notification_product_name(
         .first()
     )
     if product is None:
-        return _normalize_bid(order.product_bid) or _normalize_bid(
-            order.billing_order_bid
-        )
+        return _normalize_bid(order.product_bid) or _normalize_bid(order.bill_order_bid)
 
     display_name_key = _normalize_bid(product.display_name_i18n_key)
     original_language = get_current_language()
@@ -332,20 +330,20 @@ def _finalize_notification(
 def deliver_subscription_purchase_sms(
     app: Flask,
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
 ) -> dict[str, Any]:
     """Send one subscription purchase SMS if the billing order is pending."""
 
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
-    if not normalized_billing_order_bid:
-        return _build_result("invalid_billing_order_bid")
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_bill_order_bid:
+        return _build_result("invalid_bill_order_bid")
 
     with app.app_context():
-        order = _resolve_notification_order(normalized_billing_order_bid)
+        order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_result(
                 "not_found",
-                billing_order_bid=normalized_billing_order_bid,
+                bill_order_bid=normalized_bill_order_bid,
             )
 
         payload = _read_notification_payload(order)
@@ -353,7 +351,7 @@ def deliver_subscription_purchase_sms(
         if notification_status not in _PROCESSABLE_STATUSES:
             return _build_result(
                 "noop",
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 creator_bid=order.creator_bid,
                 notification_status=notification_status or None,
             )
@@ -377,7 +375,7 @@ def deliver_subscription_purchase_sms(
             db.session.commit()
             return _build_result(
                 "skipped_no_mobile",
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 creator_bid=order.creator_bid,
                 product=product_name,
                 notification_status="skipped_no_mobile",
@@ -395,7 +393,7 @@ def deliver_subscription_purchase_sms(
             db.session.commit()
             return _build_result(
                 "failed_missing_date",
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 creator_bid=order.creator_bid,
                 mobile=mobile,
                 product=product_name,
@@ -424,18 +422,18 @@ def deliver_subscription_purchase_sms(
     except Exception as exc:  # pragma: no cover - guarded by send_sms_ali
         provider_error_message = str(exc)
         app.logger.error(
-            "Subscription purchase SMS provider failed for billing_order_bid=%s: %s",
-            normalized_billing_order_bid,
+            "Subscription purchase SMS provider failed for bill_order_bid=%s: %s",
+            normalized_bill_order_bid,
             exc,
             exc_info=True,
         )
 
     with app.app_context():
-        order = _resolve_notification_order(normalized_billing_order_bid)
+        order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_result(
                 "not_found",
-                billing_order_bid=normalized_billing_order_bid,
+                bill_order_bid=normalized_bill_order_bid,
                 mobile=mobile or None,
                 product=product_name,
                 date=date_text,
@@ -448,7 +446,7 @@ def deliver_subscription_purchase_sms(
             db.session.commit()
             return _build_result(
                 "sent",
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 creator_bid=order.creator_bid,
                 mobile=mobile,
                 product=product_name,
@@ -470,7 +468,7 @@ def deliver_subscription_purchase_sms(
         db.session.commit()
         return _build_result(
             "failed_provider",
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
             creator_bid=order.creator_bid,
             mobile=mobile,
             product=product_name,

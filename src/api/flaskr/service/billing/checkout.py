@@ -106,7 +106,7 @@ _CHECKOUT_PLAN_SUBJECT_PREFIX_KEYS = {
 class ProviderReferenceReconcileResult:
     status: str
     creator_bid: str | None
-    billing_order_bid: str | None
+    bill_order_bid: str | None
     provider_reference_id: str | None
     payment_provider: str | None
 
@@ -114,7 +114,7 @@ class ProviderReferenceReconcileResult:
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
-            "billing_order_bid": self.billing_order_bid,
+            "bill_order_bid": self.bill_order_bid,
             "provider_reference_id": self.provider_reference_id,
             "payment_provider": self.payment_provider,
         }
@@ -148,14 +148,14 @@ class StripeLineItemPayload:
 
 @dataclass(slots=True, frozen=True)
 class RefundProviderMetadata:
-    billing_order_bid: str
+    bill_order_bid: str
     creator_bid: str
     payment_intent_id: str | None = None
     charge_id: str | None = None
 
     def to_provider_payload(self) -> dict[str, Any]:
         payload = {
-            "billing_order_bid": self.billing_order_bid,
+            "bill_order_bid": self.bill_order_bid,
             "creator_bid": self.creator_bid,
         }
         if self.payment_intent_id:
@@ -206,7 +206,7 @@ def create_billing_subscription_checkout(
         db.session.flush()
 
         order = BillingOrder(
-            billing_order_bid=generate_id(app),
+            bill_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid=product.product_bid,
@@ -259,7 +259,7 @@ def create_billing_topup_checkout(
         if _load_effective_topup_subscription(normalized_creator_bid) is None:
             raise_error("server.billing.subscriptionInactive")
         order = BillingOrder(
-            billing_order_bid=generate_id(app),
+            bill_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
             order_type=BILLING_ORDER_TYPE_TOPUP,
             product_bid=product.product_bid,
@@ -294,13 +294,13 @@ def create_billing_topup_checkout(
 def create_billing_order_checkout(
     app: Flask,
     creator_bid: str,
-    billing_order_bid: str,
+    bill_order_bid: str,
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create or refresh a Pingxx charge for one existing pending billing order."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(billing_order_bid)
+    normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
 
     with app.app_context():
@@ -308,7 +308,7 @@ def create_billing_order_checkout(
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
                 BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.billing_order_bid == normalized_order_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -350,13 +350,13 @@ def create_billing_order_checkout(
 def refund_billing_order(
     app: Flask,
     creator_bid: str,
-    billing_order_bid: str,
+    bill_order_bid: str,
     payload: dict[str, Any],
 ) -> BillingRefundResultDTO:
     """Refund a paid billing order through the shared provider adapter."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(billing_order_bid)
+    normalized_order_bid = _normalize_bid(bill_order_bid)
     refund_reason = _normalize_bid(payload.get("reason"))
     refund_amount_value = payload.get("amount")
     refund_amount = None
@@ -368,7 +368,7 @@ def refund_billing_order(
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
                 BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.billing_order_bid == normalized_order_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -378,14 +378,14 @@ def refund_billing_order(
 
         if order.payment_provider == "pingxx":
             return BillingRefundResultDTO(
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 provider=order.payment_provider,
                 status="unsupported",
             )
 
         if order.status == BILLING_ORDER_STATUS_REFUNDED:
             return BillingRefundResultDTO(
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 provider=order.payment_provider,
                 status="refunded",
             )
@@ -404,7 +404,7 @@ def refund_billing_order(
         )
         refund_result = provider.refund_payment(
             request=PaymentRefundRequest(
-                order_bid=order.billing_order_bid,
+                order_bid=order.bill_order_bid,
                 amount=refund_amount,
                 reason=refund_reason or None,
                 metadata=_build_refund_provider_metadata(order).to_provider_payload(),
@@ -468,7 +468,7 @@ def refund_billing_order(
                 amount=refund_credit_amount,
                 refund_bid=refund_reference_id,
                 metadata={
-                    "billing_order_bid": order.billing_order_bid,
+                    "bill_order_bid": order.bill_order_bid,
                     "product_bid": order.product_bid,
                     "refund_reason": refund_reason,
                 },
@@ -477,7 +477,7 @@ def refund_billing_order(
 
         db.session.commit()
         return BillingRefundResultDTO(
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
             provider=order.payment_provider,
             status="refunded",
             refund_reference_id=refund_result.provider_reference,
@@ -487,13 +487,13 @@ def refund_billing_order(
 def sync_billing_order(
     app: Flask,
     creator_bid: str,
-    billing_order_bid: str,
+    bill_order_bid: str,
     payload: dict[str, Any],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(billing_order_bid)
+    normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
 
     with app.app_context():
@@ -501,7 +501,7 @@ def sync_billing_order(
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
                 BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.billing_order_bid == normalized_order_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -532,17 +532,17 @@ def sync_billing_order(
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
                 app,
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
             )
 
         if order.status == BILLING_ORDER_STATUS_PAID:
             return BillingOrderSyncResultDTO(
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 status="paid",
             )
         if order.status == BILLING_ORDER_STATUS_PENDING:
             return BillingOrderSyncResultDTO(
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
                 status="pending",
             )
         raise_error("server.order.orderStatusError")
@@ -554,7 +554,7 @@ def reconcile_billing_provider_reference(
     creator_bid: str = "",
     payment_provider: str = "",
     provider_reference_id: str = "",
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     session_id: str = "",
 ) -> ProviderReferenceReconcileResult:
     """Reconcile a provider reference back into one billing order state."""
@@ -562,16 +562,16 @@ def reconcile_billing_provider_reference(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     normalized_session_id = _normalize_bid(session_id)
 
     with app.app_context():
         query = BillingOrder.query.filter(BillingOrder.deleted == 0)
         if normalized_creator_bid:
             query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
-        if normalized_billing_order_bid:
+        if normalized_bill_order_bid:
             query = query.filter(
-                BillingOrder.billing_order_bid == normalized_billing_order_bid
+                BillingOrder.bill_order_bid == normalized_bill_order_bid
             )
         elif normalized_provider_reference_id:
             query = query.filter(
@@ -581,7 +581,7 @@ def reconcile_billing_provider_reference(
             return ProviderReferenceReconcileResult(
                 status="order_not_found",
                 creator_bid=normalized_creator_bid or None,
-                billing_order_bid=normalized_billing_order_bid or None,
+                bill_order_bid=normalized_bill_order_bid or None,
                 provider_reference_id=normalized_provider_reference_id or None,
                 payment_provider=normalized_payment_provider or None,
             )
@@ -594,7 +594,7 @@ def reconcile_billing_provider_reference(
             return ProviderReferenceReconcileResult(
                 status="order_not_found",
                 creator_bid=normalized_creator_bid or None,
-                billing_order_bid=normalized_billing_order_bid or None,
+                bill_order_bid=normalized_bill_order_bid or None,
                 provider_reference_id=normalized_provider_reference_id or None,
                 payment_provider=normalized_payment_provider or None,
             )
@@ -608,13 +608,13 @@ def reconcile_billing_provider_reference(
     payload = sync_billing_order(
         app,
         order.creator_bid,
-        order.billing_order_bid,
+        order.bill_order_bid,
         sync_payload,
     )
     return ProviderReferenceReconcileResult(
         status=payload.status,
         creator_bid=order.creator_bid,
-        billing_order_bid=order.billing_order_bid,
+        bill_order_bid=order.bill_order_bid,
         provider_reference_id=(
             normalized_provider_reference_id or order.provider_reference_id or None
         ),
@@ -717,7 +717,7 @@ def _create_provider_checkout(
     product_name = _resolve_checkout_product_name(product)
     subject = product_name
     metadata = {
-        "billing_order_bid": order.billing_order_bid,
+        "bill_order_bid": order.bill_order_bid,
         "creator_bid": creator_bid,
         "product_bid": product.product_bid,
     }
@@ -727,11 +727,11 @@ def _create_provider_checkout(
         provider_options["mode"] = "checkout_session"
         provider_options["success_url"] = _inject_billing_query(
             success_url or "",
-            order.billing_order_bid,
+            order.bill_order_bid,
         )
         provider_options["cancel_url"] = _inject_billing_query(
             cancel_url or success_url or "",
-            order.billing_order_bid,
+            order.bill_order_bid,
         )
         provider_options["session_params"] = {
             "mode": "subscription" if payment_mode == "subscription" else "payment",
@@ -757,7 +757,7 @@ def _create_provider_checkout(
         )
 
     payment_request = PaymentRequest(
-        order_bid=order.billing_order_bid,
+        order_bid=order.bill_order_bid,
         user_bid=creator_bid,
         shifu_bid="",
         amount=int(order.payable_amount or 0),
@@ -802,7 +802,7 @@ def _create_provider_checkout(
     )
 
     response: dict[str, Any] = {
-        "billing_order_bid": order.billing_order_bid,
+        "bill_order_bid": order.bill_order_bid,
         "provider": payment_provider,
         "payment_mode": payment_mode,
         "status": "pending",
@@ -912,7 +912,7 @@ def _persist_billing_stripe_raw_snapshot(
     )
     existing = (
         billing_stripe_snapshot_query()
-        .filter(StripeOrder.billing_order_bid == order.billing_order_bid)
+        .filter(StripeOrder.bill_order_bid == order.bill_order_bid)
         .order_by(StripeOrder.id.desc())
         .first()
     )
@@ -920,7 +920,7 @@ def _persist_billing_stripe_raw_snapshot(
         return
 
     snapshot = upsert_billing_stripe_snapshot(
-        billing_order_bid=order.billing_order_bid,
+        bill_order_bid=order.bill_order_bid,
         creator_bid=order.creator_bid,
         amount=int(order.payable_amount or 0),
         currency=str(order.currency or "usd").lower(),
@@ -956,7 +956,7 @@ def _persist_billing_pingxx_raw_snapshot(
     )
     existing = (
         billing_pingxx_snapshot_query()
-        .filter(PingxxOrder.billing_order_bid == order.billing_order_bid)
+        .filter(PingxxOrder.bill_order_bid == order.bill_order_bid)
         .order_by(PingxxOrder.id.desc())
         .first()
     )
@@ -964,7 +964,7 @@ def _persist_billing_pingxx_raw_snapshot(
         return
 
     snapshot = upsert_billing_pingxx_snapshot(
-        billing_order_bid=order.billing_order_bid,
+        bill_order_bid=order.bill_order_bid,
         creator_bid=order.creator_bid,
         amount=int(order.payable_amount or 0),
         currency=str(order.currency or "CNY"),
@@ -1036,12 +1036,12 @@ def _resolve_checkout_product_name(product: BillingProduct) -> str:
     return product_name
 
 
-def _inject_billing_query(url: str, billing_order_bid: str) -> str:
+def _inject_billing_query(url: str, bill_order_bid: str) -> str:
     if not url:
         return url
     parsed = urlsplit(url)
     query_items = dict(parse_qsl(parsed.query, keep_blank_values=True))
-    query_items.setdefault("billing_order_bid", billing_order_bid)
+    query_items.setdefault("bill_order_bid", bill_order_bid)
     new_query = urlencode(query_items, doseq=True)
     return urlunsplit(
         (
@@ -1073,7 +1073,7 @@ def _build_refund_provider_metadata(order: BillingOrder) -> RefundProviderMetada
     charge_id = charge_id or _normalize_bid(payment_intent_payload.get("latest_charge"))
 
     return RefundProviderMetadata(
-        billing_order_bid=order.billing_order_bid,
+        bill_order_bid=order.bill_order_bid,
         creator_bid=order.creator_bid,
         payment_intent_id=payment_intent_id or None,
         charge_id=charge_id or None,
@@ -1279,13 +1279,13 @@ def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
 
 def _load_billing_order_for_stripe_event(
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     data_object: dict[str, Any],
 ) -> BillingOrder | None:
     query = BillingOrder.query.filter(BillingOrder.deleted == 0)
-    if billing_order_bid:
+    if bill_order_bid:
         return (
-            query.filter(BillingOrder.billing_order_bid == billing_order_bid)
+            query.filter(BillingOrder.bill_order_bid == bill_order_bid)
             .order_by(BillingOrder.id.desc())
             .first()
         )
@@ -1361,7 +1361,7 @@ def _load_billing_order_for_pingxx_event(
             return order
     if order_no:
         return (
-            query.filter(BillingOrder.billing_order_bid == order_no)
+            query.filter(BillingOrder.bill_order_bid == order_no)
             .order_by(BillingOrder.id.desc())
             .first()
         )

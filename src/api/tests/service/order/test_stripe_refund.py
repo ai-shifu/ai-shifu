@@ -78,7 +78,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
                 order_bid=order.order_bid,
                 stripe_order_bid="billing-stripe-order",
                 biz_domain="billing",
-                billing_order_bid="billing-order-refund-1",
+                bill_order_bid="bill-order-refund-1",
                 creator_bid="creator-1",
                 user_bid="",
                 shifu_bid="",
@@ -124,7 +124,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
             .first()
         )
         billing_snapshot = StripeOrder.query.filter(
-            StripeOrder.billing_order_bid == "billing-order-refund-1",
+            StripeOrder.bill_order_bid == "bill-order-refund-1",
             StripeOrder.biz_domain == "billing",
         ).first()
         assert refreshed_order.status == ORDER_STATUS_REFUND
@@ -162,7 +162,7 @@ def test_get_payment_details_returns_stripe_payload(app):
                 order_bid=order.order_bid,
                 stripe_order_bid="billing-stripe-order",
                 biz_domain="billing",
-                billing_order_bid="billing-order-details-1",
+                bill_order_bid="bill-order-details-1",
                 creator_bid="creator-1",
                 user_bid="",
                 shifu_bid="",

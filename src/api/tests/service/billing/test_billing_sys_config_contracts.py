@@ -2,21 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from flaskr.service.billing.consts import BILL_SYS_CONFIG_SEEDS
+
 _API_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_billing_sys_config_migration_seeds_required_keys() -> None:
-    source = (
+def test_billing_sys_config_bootstrap_moves_out_of_alembic() -> None:
+    migration_source = (
         _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
-    precision_source = (
-        _API_ROOT
-        / "migrations/versions/e5c6f7a8b9d0_add_billing_credit_precision_config.py"
-    ).read_text(encoding="utf-8")
+    cli_source = (_API_ROOT / "flaskr/service/billing/cli.py").read_text(
+        encoding="utf-8"
+    )
 
-    assert '"key": "BILLING_ENABLED"' in source
-    assert '"key": "BILLING_LOW_BALANCE_THRESHOLD"' in source
-    assert '"key": "BILLING_RENEWAL_TASK_CONFIG"' in source
-    assert '"key": "BILLING_RATE_VERSION"' in source
-    assert "op.bulk_insert(config_table, list(_BILLING_SYS_CONFIG_SEEDS))" in source
-    assert '"key": "BILLING_CREDIT_PRECISION"' in precision_source
+    assert "op.bulk_insert(" not in migration_source
+    assert "seed-bootstrap-data" in cli_source
+    assert "BILL_SYS_CONFIG_SEEDS" in cli_source
+    assert "seed_billing_bootstrap_data" in cli_source
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5

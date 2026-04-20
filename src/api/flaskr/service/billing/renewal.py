@@ -90,7 +90,7 @@ class RenewalEventResult:
     renewal_event_bid: str | None = None
     subscription_bid: str | None = None
     creator_bid: str | None = None
-    billing_order_bid: str | None = None
+    bill_order_bid: str | None = None
     subscription_status: str | None = None
     product_bid: str | None = None
     message: str | None = None
@@ -108,8 +108,8 @@ class RenewalEventResult:
                     "creator_bid": self.creator_bid,
                 }
             )
-        if self.billing_order_bid is not None:
-            payload["billing_order_bid"] = self.billing_order_bid
+        if self.bill_order_bid is not None:
+            payload["bill_order_bid"] = self.bill_order_bid
         if self.subscription_status is not None:
             payload["subscription_status"] = self.subscription_status
         if self.product_bid is not None:
@@ -214,7 +214,7 @@ def retry_billing_renewal_event(
     renewal_event_bid: str = "",
     subscription_bid: str = "",
     creator_bid: str = "",
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     provider_reference_id: str = "",
     payment_provider: str = "",
 ) -> RenewalEventResult:
@@ -230,7 +230,7 @@ def retry_billing_renewal_event(
         )
         order = _resolve_retry_target_order(
             event=event,
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             subscription_bid=subscription_bid,
         )
         if order is None:
@@ -241,7 +241,7 @@ def retry_billing_renewal_event(
                 or (event.subscription_bid if event is not None else None),
                 creator_bid=_normalize_bid(creator_bid)
                 or (event.creator_bid if event is not None else None),
-                billing_order_bid=_normalize_bid(billing_order_bid) or None,
+                bill_order_bid=_normalize_bid(bill_order_bid) or None,
             )
 
     return _sync_billing_renewal_order(app, order=order, event=event)
@@ -340,7 +340,7 @@ def _execute_expire_subscription(
         return _result_from_event(
             "applied",
             event,
-            billing_order_bid=paid_renewal_order.billing_order_bid,
+            bill_order_bid=paid_renewal_order.bill_order_bid,
             subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
                 int(subscription.status or 0),
                 "active",
@@ -423,7 +423,7 @@ def _execute_subscription_renewal(
     payload_json = (
         dict(event.payload_json) if isinstance(event.payload_json, dict) else {}
     )
-    payload_json["billing_order_bid"] = order.billing_order_bid
+    payload_json["bill_order_bid"] = order.bill_order_bid
     event.payload_json = payload_json
     db.session.add(event)
 
@@ -433,7 +433,7 @@ def _execute_subscription_renewal(
         return _result_from_event(
             "queued_for_reconcile",
             event,
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
         )
 
     result = _sync_billing_renewal_order(app, order=order, event=event)
@@ -444,7 +444,7 @@ def _execute_subscription_renewal(
         return _result_from_event(
             "applied",
             event,
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
         )
     if sync_status == "pending":
         _complete_renewal_event(event, now=now)
@@ -452,7 +452,7 @@ def _execute_subscription_renewal(
         return _result_from_event(
             "queued_for_reconcile",
             event,
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
         )
 
     _fail_renewal_event(
@@ -461,9 +461,7 @@ def _execute_subscription_renewal(
         error=str(result.message or sync_status or "renewal_sync_failed"),
     )
     db.session.commit()
-    return _result_from_event(
-        "failed", event, billing_order_bid=order.billing_order_bid
-    )
+    return _result_from_event("failed", event, bill_order_bid=order.bill_order_bid)
 
 
 def _execute_retry_or_reconcile(
@@ -499,27 +497,27 @@ def _execute_retry_or_reconcile(
 def _resolve_retry_target_order(
     *,
     event: BillingRenewalEvent | None,
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     subscription_bid: str = "",
 ) -> BillingOrder | None:
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
-    if normalized_billing_order_bid:
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
+    if normalized_bill_order_bid:
         return (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
-                BillingOrder.billing_order_bid == normalized_billing_order_bid,
+                BillingOrder.bill_order_bid == normalized_bill_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
         )
 
     if event is not None and isinstance(event.payload_json, dict):
-        payload_order_bid = _normalize_bid(event.payload_json.get("billing_order_bid"))
+        payload_order_bid = _normalize_bid(event.payload_json.get("bill_order_bid"))
         if payload_order_bid:
             return (
                 BillingOrder.query.filter(
                     BillingOrder.deleted == 0,
-                    BillingOrder.billing_order_bid == payload_order_bid,
+                    BillingOrder.bill_order_bid == payload_order_bid,
                 )
                 .order_by(BillingOrder.id.desc())
                 .first()
@@ -543,18 +541,18 @@ def _sync_billing_renewal_order(
     order: BillingOrder,
     event: BillingRenewalEvent | None,
 ) -> RenewalEventResult:
-    billing_order_bid = str(order.billing_order_bid or "")
+    bill_order_bid = str(order.bill_order_bid or "")
     if order.payment_provider == "pingxx" and not order.provider_reference_id:
         return RenewalEventResult(
             status="pending",
-            billing_order_bid=billing_order_bid or None,
+            bill_order_bid=bill_order_bid or None,
             renewal_event_bid=event.renewal_event_bid if event is not None else None,
         )
     try:
         payload = sync_billing_order(
             app,
             order.creator_bid,
-            billing_order_bid,
+            bill_order_bid,
             {},
         )
     except Exception as exc:
@@ -562,7 +560,7 @@ def _sync_billing_renewal_order(
         refreshed_order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
-                BillingOrder.billing_order_bid == billing_order_bid,
+                BillingOrder.bill_order_bid == bill_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -570,7 +568,7 @@ def _sync_billing_renewal_order(
         return RenewalEventResult(
             status="failed",
             message=str(exc),
-            billing_order_bid=billing_order_bid or None,
+            bill_order_bid=bill_order_bid or None,
             renewal_event_bid=event.renewal_event_bid if event is not None else None,
             order_status=(
                 int(refreshed_order.status or 0)
@@ -581,7 +579,7 @@ def _sync_billing_renewal_order(
     return RenewalEventResult(
         status=payload["status"] if isinstance(payload, dict) else payload.status,
         renewal_event_bid=event.renewal_event_bid if event is not None else None,
-        billing_order_bid=billing_order_bid or None,
+        bill_order_bid=bill_order_bid or None,
     )
 
 
@@ -724,7 +722,7 @@ def _result_from_event(
     status: str,
     event: BillingRenewalEvent,
     *,
-    billing_order_bid: str | None = None,
+    bill_order_bid: str | None = None,
     subscription_status: str | None = None,
     product_bid: str | None = None,
     message: str | None = None,
@@ -733,7 +731,7 @@ def _result_from_event(
     return RenewalEventResult(
         status=status,
         event=_serialize_renewal_event(event),
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         subscription_status=subscription_status,
         product_bid=product_bid,
         message=message,

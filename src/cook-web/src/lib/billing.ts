@@ -248,18 +248,18 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 const BILLING_OFFSETLESS_DATETIME_RE =
   /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
 const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
-const DEFAULT_BILLING_CREDIT_PRECISION = 2;
-const MAX_BILLING_CREDIT_PRECISION = 10;
+const DEFAULT_BILL_CREDIT_PRECISION = 2;
+const MAX_BILL_CREDIT_PRECISION = 10;
 
-let billingCreditPrecision = DEFAULT_BILLING_CREDIT_PRECISION;
+let billingCreditPrecision = DEFAULT_BILL_CREDIT_PRECISION;
 
 function normalizeBillingCreditPrecision(value?: number | null): number {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
-    return DEFAULT_BILLING_CREDIT_PRECISION;
+    return DEFAULT_BILL_CREDIT_PRECISION;
   }
   return Math.min(
-    MAX_BILLING_CREDIT_PRECISION,
+    MAX_BILL_CREDIT_PRECISION,
     Math.max(0, Math.trunc(numericValue)),
   );
 }

@@ -31,7 +31,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
-from tests.common.fixtures.billing_products import build_billing_product
+from tests.common.fixtures.bill_products import build_billing_product
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 
@@ -58,24 +58,19 @@ def billing_v11_upgrade_app() -> Flask:
 
 
 def test_billing_v11_upgrade_migration_chain_extends_v1_schema() -> None:
-    core_source = (
+    source = (
         _API_ROOT / "migrations/versions/b114d7f5e2c1_add_billing_core_phase.py"
     ).read_text(encoding="utf-8")
-    extension_source = (
-        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
-    ).read_text(encoding="utf-8")
 
-    assert 'revision = "b114d7f5e2c1"' in core_source
-    assert 'revision = "c225e8a6f3d2"' in extension_source
-    assert 'down_revision = "b114d7f5e2c1"' in extension_source
-    assert 'op.create_table(\n        "billing_entitlements",' in extension_source
-    assert 'op.create_table(\n        "billing_domain_bindings",' in extension_source
-    assert (
-        'op.create_table(\n        "billing_daily_usage_metrics",' in extension_source
-    )
-    assert (
-        'op.create_table(\n        "billing_daily_ledger_summary",' in extension_source
-    )
+    assert 'revision = "b114d7f5e2c1"' in source
+    assert 'down_revision = "1c8f4b7a9d2e"' in source
+    assert 'op.create_table(\n        "bill_entitlements",' in source
+    assert 'op.create_table(\n        "bill_domain_bindings",' in source
+    assert 'op.create_table(\n        "bill_daily_usage_metrics",' in source
+    assert 'op.create_table(\n        "bill_daily_ledger_summary",' in source
+    assert not (
+        _API_ROOT / "migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py"
+    ).exists()
 
 
 def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
@@ -94,7 +89,7 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
             BillingSubscription(
                 subscription_bid="sub-upgrade-1",
                 creator_bid="creator-upgrade-1",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 current_period_start_at=now - timedelta(days=5),
                 current_period_end_at=now + timedelta(days=25),
@@ -163,7 +158,7 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
 
 def _seed_yearly_plan_product() -> BillingProduct:
     return build_billing_product(
-        "billing-product-plan-yearly",
+        "bill-product-plan-yearly",
         overrides={
             "entitlement_payload": {
                 "branding_enabled": True,

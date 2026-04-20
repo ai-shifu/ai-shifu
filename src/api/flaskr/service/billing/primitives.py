@@ -17,7 +17,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.util.timezone import serialize_with_app_timezone
 
-from .consts import BILLING_CONFIG_KEY_CREDIT_PRECISION, BILLING_CONFIG_KEY_ENABLED
+from .consts import BILL_CONFIG_KEY_CREDIT_PRECISION, BILL_CONFIG_KEY_ENABLED
 from .value_objects import JsonObjectMap
 
 _USAGE_SCENE_LABELS = {
@@ -25,9 +25,9 @@ _USAGE_SCENE_LABELS = {
     BILL_USAGE_SCENE_PREVIEW: "preview",
     BILL_USAGE_SCENE_PROD: "production",
 }
-DEFAULT_BILLING_CREDIT_PRECISION = 2
-MAX_BILLING_CREDIT_PRECISION = 10
-DEFAULT_BILLING_ENABLED = True
+DEFAULT_BILL_CREDIT_PRECISION = 2
+MAX_BILL_CREDIT_PRECISION = 10
+DEFAULT_BILL_ENABLED = True
 
 
 def normalize_bid(value: Any) -> str:
@@ -52,38 +52,38 @@ def safe_int(value: Any) -> int | None:
 def clamp_billing_credit_precision(
     value: Any,
     *,
-    default: int = DEFAULT_BILLING_CREDIT_PRECISION,
+    default: int = DEFAULT_BILL_CREDIT_PRECISION,
 ) -> int:
     candidate = safe_int(value)
     if candidate is None:
         candidate = default
-    return max(0, min(int(candidate), MAX_BILLING_CREDIT_PRECISION))
+    return max(0, min(int(candidate), MAX_BILL_CREDIT_PRECISION))
 
 
 def get_billing_credit_precision(
     *,
-    default: int = DEFAULT_BILLING_CREDIT_PRECISION,
+    default: int = DEFAULT_BILL_CREDIT_PRECISION,
 ) -> int:
     normalized_default = clamp_billing_credit_precision(default, default=default)
     if not has_app_context():
         return normalized_default
     return clamp_billing_credit_precision(
-        get_config(BILLING_CONFIG_KEY_CREDIT_PRECISION, normalized_default),
+        get_config(BILL_CONFIG_KEY_CREDIT_PRECISION, normalized_default),
         default=normalized_default,
     )
 
 
-def is_billing_enabled(*, default: bool = DEFAULT_BILLING_ENABLED) -> bool:
+def is_billing_enabled(*, default: bool = DEFAULT_BILL_ENABLED) -> bool:
     if not has_app_context():
         return default
     try:
         raw_value = get_config(
-            BILLING_CONFIG_KEY_ENABLED,
+            BILL_CONFIG_KEY_ENABLED,
             "1" if default else "0",
         )
     except (KeyError, RuntimeError):
         raw_value = get_common_config(
-            BILLING_CONFIG_KEY_ENABLED,
+            BILL_CONFIG_KEY_ENABLED,
             "1" if default else "0",
         )
     return coerce_bool(raw_value, default=default)

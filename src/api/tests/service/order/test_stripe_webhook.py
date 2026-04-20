@@ -30,7 +30,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE
 from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 _ROUTE_DIR = Path(__file__).resolve().parents[3] / "flaskr" / "route"
 
@@ -83,7 +83,7 @@ def stripe_webhook_app():
     _load_route_module("order").register_order_handler(app, "/api/order")
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
@@ -110,7 +110,7 @@ def _ensure_billing_subscription(status, subscription_bid):
         subscription = BillingSubscription(
             subscription_bid=subscription_bid,
             creator_bid="creator-1",
-            product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-monthly",
             status=status,
             billing_provider="stripe",
             provider_subscription_id="",
@@ -126,16 +126,16 @@ def _ensure_billing_subscription(status, subscription_bid):
     return subscription
 
 
-def _ensure_billing_order(status, billing_order_bid, subscription_bid):
+def _ensure_billing_order(status, bill_order_bid, subscription_bid):
     order = BillingOrder.query.filter(
-        BillingOrder.billing_order_bid == billing_order_bid
+        BillingOrder.bill_order_bid == bill_order_bid
     ).first()
     if not order:
         order = BillingOrder(
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             creator_bid="creator-1",
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-            product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-monthly",
             subscription_bid=subscription_bid,
             currency="CNY",
             payable_amount=9900,
@@ -157,16 +157,16 @@ def _ensure_billing_order(status, billing_order_bid, subscription_bid):
     return order
 
 
-def _ensure_billing_stripe_raw_snapshot(billing_order_bid):
+def _ensure_billing_stripe_raw_snapshot(bill_order_bid):
     raw_order = StripeOrder.query.filter(
-        StripeOrder.billing_order_bid == billing_order_bid,
+        StripeOrder.bill_order_bid == bill_order_bid,
         StripeOrder.biz_domain == "billing",
     ).first()
     if not raw_order:
         raw_order = StripeOrder(
-            stripe_order_bid=billing_order_bid,
+            stripe_order_bid=bill_order_bid,
             biz_domain="billing",
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             creator_bid="creator-1",
             user_bid="",
             shifu_bid="",
@@ -340,7 +340,7 @@ def test_stripe_webhook_route_marks_legacy_order_paid(stripe_webhook_app, monkey
         assert refreshed_stripe_order.status == 1
 
 
-def test_handle_stripe_webhook_routes_billing_orders_without_regression(
+def test_handle_stripe_webhook_routes_bill_orders_without_regression(
     stripe_webhook_app, monkeypatch
 ):
     with stripe_webhook_app.app_context():
@@ -350,13 +350,13 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
         )
         _ensure_billing_order(
             BILLING_ORDER_STATUS_PENDING,
-            "billing-order-webhook-1",
+            "bill-order-webhook-1",
             subscription.subscription_bid,
         )
-        _ensure_billing_stripe_raw_snapshot("billing-order-webhook-1")
+        _ensure_billing_stripe_raw_snapshot("bill-order-webhook-1")
 
     success_notification = PaymentNotificationResult(
-        order_bid="billing-order-webhook-1",
+        order_bid="bill-order-webhook-1",
         status="checkout.session.completed",
         provider_payload={
             "type": "checkout.session.completed",
@@ -368,8 +368,8 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
                     "customer": "cus_provider_1",
                     "payment_status": "paid",
                     "metadata": {
-                        "billing_order_bid": "billing-order-webhook-1",
-                        "order_bid": "billing-order-webhook-1",
+                        "bill_order_bid": "bill-order-webhook-1",
+                        "order_bid": "bill-order-webhook-1",
                     },
                 }
             },
@@ -386,7 +386,7 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
     assert payload["status"] == "paid"
 
     failed_notification = PaymentNotificationResult(
-        order_bid="billing-order-webhook-1",
+        order_bid="bill-order-webhook-1",
         status="payment_intent.payment_failed",
         provider_payload={
             "type": "payment_intent.payment_failed",
@@ -395,8 +395,8 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
                 "object": {
                     "id": "pi_billing_failed",
                     "metadata": {
-                        "billing_order_bid": "billing-order-webhook-1",
-                        "order_bid": "billing-order-webhook-1",
+                        "bill_order_bid": "bill-order-webhook-1",
+                        "order_bid": "bill-order-webhook-1",
                     },
                     "last_payment_error": {
                         "code": "card_declined",
@@ -414,27 +414,27 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
 
     assert status_code == 200
-    assert payload["billing_order_bid"] == "billing-order-webhook-1"
+    assert payload["bill_order_bid"] == "bill-order-webhook-1"
 
     with stripe_webhook_app.app_context():
         refreshed_order = BillingOrder.query.filter(
-            BillingOrder.billing_order_bid == "billing-order-webhook-1"
+            BillingOrder.bill_order_bid == "bill-order-webhook-1"
         ).one()
         refreshed_subscription = BillingSubscription.query.filter(
             BillingSubscription.subscription_bid == "billing-subscription-1"
         ).one()
         refreshed_raw_order = StripeOrder.query.filter(
-            StripeOrder.billing_order_bid == "billing-order-webhook-1",
+            StripeOrder.bill_order_bid == "bill-order-webhook-1",
             StripeOrder.biz_domain == "billing",
         ).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         buckets = CreditWalletBucket.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-order-webhook-1",
+            source_bid="bill-order-webhook-1",
         ).all()
         ledgers = CreditLedgerEntry.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-order-webhook-1",
+            source_bid="bill-order-webhook-1",
         ).all()
         assert refreshed_order.status == BILLING_ORDER_STATUS_PAID
         assert refreshed_order.paid_at is not None
@@ -448,7 +448,7 @@ def test_handle_stripe_webhook_routes_billing_orders_without_regression(
         assert len(ledgers) == 1
 
 
-def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monkeypatch):
+def test_stripe_webhook_route_delegates_bill_orders(stripe_webhook_app, monkeypatch):
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -456,13 +456,13 @@ def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monke
         )
         _ensure_billing_order(
             BILLING_ORDER_STATUS_PENDING,
-            "billing-order-route-1",
+            "bill-order-route-1",
             subscription.subscription_bid,
         )
-        _ensure_billing_stripe_raw_snapshot("billing-order-route-1")
+        _ensure_billing_stripe_raw_snapshot("bill-order-route-1")
 
     notification = PaymentNotificationResult(
-        order_bid="billing-order-route-1",
+        order_bid="bill-order-route-1",
         status="checkout.session.completed",
         provider_payload={
             "type": "checkout.session.completed",
@@ -474,8 +474,8 @@ def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monke
                     "customer": "cus_provider_route_1",
                     "payment_status": "paid",
                     "metadata": {
-                        "billing_order_bid": "billing-order-route-1",
-                        "order_bid": "billing-order-route-1",
+                        "bill_order_bid": "bill-order-route-1",
+                        "order_bid": "bill-order-route-1",
                     },
                 }
             },
@@ -496,24 +496,24 @@ def test_stripe_webhook_route_delegates_billing_orders(stripe_webhook_app, monke
 
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload["data"]["billing_order_bid"] == "billing-order-route-1"
+    assert payload["data"]["bill_order_bid"] == "bill-order-route-1"
     assert payload["data"]["status"] == "paid"
 
     with stripe_webhook_app.app_context():
         refreshed_order = BillingOrder.query.filter(
-            BillingOrder.billing_order_bid == "billing-order-route-1"
+            BillingOrder.bill_order_bid == "bill-order-route-1"
         ).one()
         refreshed_subscription = BillingSubscription.query.filter(
             BillingSubscription.subscription_bid == "billing-subscription-route-1"
         ).one()
         refreshed_raw_order = StripeOrder.query.filter(
-            StripeOrder.billing_order_bid == "billing-order-route-1",
+            StripeOrder.bill_order_bid == "bill-order-route-1",
             StripeOrder.biz_domain == "billing",
         ).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         ledgers = CreditLedgerEntry.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-order-route-1",
+            source_bid="bill-order-route-1",
         ).all()
 
         assert refreshed_order.status == BILLING_ORDER_STATUS_PAID
@@ -534,12 +534,12 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
         )
         _ensure_billing_order(
             BILLING_ORDER_STATUS_PENDING,
-            "billing-order-idempotent-1",
+            "bill-order-idempotent-1",
             subscription.subscription_bid,
         )
 
     notification = PaymentNotificationResult(
-        order_bid="billing-order-idempotent-1",
+        order_bid="bill-order-idempotent-1",
         status="checkout.session.completed",
         provider_payload={
             "type": "checkout.session.completed",
@@ -551,8 +551,8 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
                     "customer": "cus_provider_idempotent_1",
                     "payment_status": "paid",
                     "metadata": {
-                        "billing_order_bid": "billing-order-idempotent-1",
-                        "order_bid": "billing-order-idempotent-1",
+                        "bill_order_bid": "bill-order-idempotent-1",
+                        "order_bid": "bill-order-idempotent-1",
                     },
                 }
             },
@@ -578,16 +578,16 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
 
     with stripe_webhook_app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-order-idempotent-1"
+            bill_order_bid="bill-order-idempotent-1"
         ).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         buckets = CreditWalletBucket.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-order-idempotent-1",
+            source_bid="bill-order-idempotent-1",
         ).all()
         ledgers = CreditLedgerEntry.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-order-idempotent-1",
+            source_bid="bill-order-idempotent-1",
         ).all()
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert wallet.available_credits == 5
@@ -613,7 +613,7 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
 
         _ensure_billing_order(
             BILLING_ORDER_STATUS_PAID,
-            "billing-order-webhook-2",
+            "bill-order-webhook-2",
             subscription.subscription_bid,
         )
 
@@ -668,8 +668,8 @@ def test_handle_stripe_webhook_ignores_orphan_billing_event(
                     "customer": "cus_orphan_test",
                     "payment_status": "paid",
                     "metadata": {
-                        "billing_order_bid": "billing-order-orphan-1",
-                        "order_bid": "billing-order-orphan-1",
+                        "bill_order_bid": "bill-order-orphan-1",
+                        "order_bid": "bill-order-orphan-1",
                     },
                 }
             },
@@ -685,7 +685,7 @@ def test_handle_stripe_webhook_ignores_orphan_billing_event(
 
     assert status_code == 202
     assert payload["status"] == "ignored"
-    assert payload["billing_order_bid"] == "billing-order-orphan-1"
+    assert payload["bill_order_bid"] == "bill-order-orphan-1"
 
     with stripe_webhook_app.app_context():
         assert CreditWallet.query.count() == 0

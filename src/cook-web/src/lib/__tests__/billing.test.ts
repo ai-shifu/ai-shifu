@@ -11,7 +11,7 @@ import {
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 
 const monthlyPlan: BillingPlan = {
-  product_bid: 'billing-product-plan-monthly',
+  product_bid: 'bill-product-plan-monthly',
   product_code: 'creator-plan-monthly',
   product_type: 'plan',
   display_name: 'module.billing.catalog.plans.creatorMonthly.title',
@@ -26,7 +26,7 @@ const monthlyPlan: BillingPlan = {
 
 const yearlyPlan: BillingPlan = {
   ...monthlyPlan,
-  product_bid: 'billing-product-plan-yearly',
+  product_bid: 'bill-product-plan-yearly',
   product_code: 'creator-plan-yearly',
   billing_interval: 'year',
   credit_amount: 10000,
@@ -35,7 +35,7 @@ const yearlyPlan: BillingPlan = {
 
 const dailyPlan: BillingPlan = {
   ...monthlyPlan,
-  product_bid: 'billing-product-plan-daily',
+  product_bid: 'bill-product-plan-daily',
   product_code: 'creator-plan-daily',
   billing_interval: 'day',
   billing_interval_count: 7,

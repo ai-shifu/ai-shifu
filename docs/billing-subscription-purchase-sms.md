@@ -38,7 +38,7 @@ The route layer and payment provider adapters must not send SMS directly.
 
 ### Billing orchestration
 
-- Add a billing helper to mark `billing_orders.metadata` with
+- Add a billing helper to mark `bill_orders.metadata` with
   `notifications.subscription_purchase_sms`.
 - The helper records a pending notification state inside the same DB
   transaction that marks the order paid.
@@ -58,7 +58,7 @@ The route layer and payment provider adapters must not send SMS directly.
   - date: `BillingSubscription.current_period_end_at`, with renewal metadata
     fallback when needed
 - Format `date` as an absolute timestamp in the app timezone.
-- Persist a terminal notification state back into `billing_orders.metadata`.
+- Persist a terminal notification state back into `bill_orders.metadata`.
 
 ## Failure Model
 

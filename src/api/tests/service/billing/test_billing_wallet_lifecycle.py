@@ -248,10 +248,10 @@ def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(
     with billing_wallet_lifecycle_app.app_context():
         dao.db.session.add(
             BillingOrder(
-                billing_order_bid="order-topup-refund-1",
+                bill_order_bid="order-topup-refund-1",
                 creator_bid="creator-topup-refund-1",
                 order_type=BILLING_ORDER_TYPE_TOPUP,
-                product_bid="billing-product-topup-small",
+                product_bid="bill-product-topup-small",
             )
         )
         dao.db.session.commit()
@@ -261,7 +261,7 @@ def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(
             creator_bid="creator-topup-refund-1",
             amount=Decimal("2.0000000000"),
             refund_bid="refund-topup-refund-1",
-            metadata={"billing_order_bid": "order-topup-refund-1"},
+            metadata={"bill_order_bid": "order-topup-refund-1"},
         )
 
         bucket = CreditWalletBucket.query.filter_by(

@@ -23,7 +23,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")
 
@@ -63,7 +63,7 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield {"app": app, "sync_state": sync_state}
         dao.db.session.remove()
@@ -79,7 +79,7 @@ def _create_subscription(
     return BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid="creator-1",
-        product_bid="billing-product-plan-monthly",
+        product_bid="bill-product-plan-monthly",
         status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
         billing_provider="stripe",
         provider_subscription_id=provider_subscription_id,
@@ -98,12 +98,12 @@ def _create_subscription(
 def _create_renewal_order(
     subscription: BillingSubscription,
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     cycle_start_at: datetime,
     cycle_end_at: datetime,
 ) -> BillingOrder:
     return BillingOrder(
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         creator_bid=subscription.creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         product_bid=subscription.product_bid,
@@ -139,7 +139,7 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
         )
         order = _create_renewal_order(
             subscription,
-            billing_order_bid="billing-renewal-sync-1",
+            bill_order_bid="bill-renewal-sync-1",
             cycle_start_at=cycle_start_at,
             cycle_end_at=cycle_end_at,
         )
@@ -159,27 +159,25 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
     payload = sync_billing_order(
         app,
         "creator-1",
-        "billing-renewal-sync-1",
+        "bill-renewal-sync-1",
         {},
     )
 
     assert payload.status == "paid"
 
     with app.app_context():
-        order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-renewal-sync-1"
-        ).one()
+        order = BillingOrder.query.filter_by(bill_order_bid="bill-renewal-sync-1").one()
         subscription = BillingSubscription.query.filter_by(
             subscription_bid="sub-sync-1"
         ).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         bucket = CreditWalletBucket.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-renewal-sync-1",
+            source_bid="bill-renewal-sync-1",
         ).one()
         ledger = CreditLedgerEntry.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-renewal-sync-1",
+            source_bid="bill-renewal-sync-1",
         ).one()
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert subscription.current_period_start_at == cycle_start_at
@@ -205,7 +203,7 @@ def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
         )
         order = _create_renewal_order(
             subscription,
-            billing_order_bid="billing-renewal-webhook-1",
+            bill_order_bid="bill-renewal-webhook-1",
             cycle_start_at=cycle_start_at,
             cycle_end_at=cycle_end_at,
         )
@@ -239,16 +237,16 @@ def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
 
     assert status_code == 200
     assert payload["status"] == "paid"
-    assert payload["billing_order_bid"] == "billing-renewal-webhook-1"
+    assert payload["bill_order_bid"] == "bill-renewal-webhook-1"
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-renewal-webhook-1"
+            bill_order_bid="bill-renewal-webhook-1"
         ).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         ledgers = CreditLedgerEntry.query.filter_by(
             creator_bid="creator-1",
-            source_bid="billing-renewal-webhook-1",
+            source_bid="bill-renewal-webhook-1",
         ).all()
         assert order.status == BILLING_ORDER_STATUS_PAID
         assert wallet.available_credits == _MONTHLY_PLAN_CREDITS

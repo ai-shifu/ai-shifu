@@ -34,7 +34,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
 )
 from flaskr.service.shifu.models import PublishedShifu
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def billing_admission_app():
     dao.db.init_app(app)
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
@@ -414,7 +414,7 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
             BillingSubscription(
                 subscription_bid="subscription-repair-cycle-1",
                 creator_bid="creator-repair-cycle-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="pingxx",
                 provider_subscription_id="",
@@ -430,10 +430,10 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
         )
         dao.db.session.add(
             BillingOrder(
-                billing_order_bid="billing-order-repair-cycle-1",
+                bill_order_bid="bill-order-repair-cycle-1",
                 creator_bid="creator-repair-cycle-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 subscription_bid="subscription-repair-cycle-1",
                 currency="CNY",
                 payable_amount=990,
@@ -454,7 +454,7 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
                 effective_from=paid_at,
                 effective_to=cycle_end_at,
                 source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-                source_bid="billing-order-repair-cycle-1",
+                source_bid="bill-order-repair-cycle-1",
             )
         )
         dao.db.session.commit()

@@ -237,7 +237,7 @@ export function AdminBillingExceptionsPanel({
             <div className='grid gap-3 md:grid-cols-2'>
               {orderItems.map(item => (
                 <div
-                  key={item.billing_order_bid}
+                  key={item.bill_order_bid}
                   className='rounded-2xl border border-slate-200 bg-slate-50/80 p-4'
                 >
                   <div className='mb-3 flex items-start justify-between gap-3'>

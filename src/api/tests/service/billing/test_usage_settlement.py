@@ -315,7 +315,7 @@ def test_settle_usage_rounds_consumption_before_persisting(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
-        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+        lambda key, default=None: 2 if key == "BILL_CREDIT_PRECISION" else default,
     )
 
     with billing_settlement_app.app_context():
@@ -380,7 +380,7 @@ def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
-        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+        lambda key, default=None: 2 if key == "BILL_CREDIT_PRECISION" else default,
     )
 
     with billing_settlement_app.app_context():

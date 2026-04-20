@@ -325,7 +325,7 @@ class BillingRenewalEventDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingOrderSummaryDTO(BillingBaseDTO):
-    billing_order_bid: str
+    bill_order_bid: str
     creator_bid: str
     product_bid: str
     subscription_bid: str | None = None
@@ -361,7 +361,7 @@ class BillingOrdersPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingCheckoutResultDTO(BillingBaseDTO):
-    billing_order_bid: str
+    bill_order_bid: str
     provider: str
     payment_mode: str
     status: str
@@ -372,13 +372,13 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingOrderSyncResultDTO(BillingBaseDTO):
-    billing_order_bid: str
+    bill_order_bid: str
     status: str
 
 
 @register_schema_to_swagger
 class BillingRefundResultDTO(BillingBaseDTO):
-    billing_order_bid: str
+    bill_order_bid: str
     provider: str
     status: str
     refund_reference_id: str | None = None

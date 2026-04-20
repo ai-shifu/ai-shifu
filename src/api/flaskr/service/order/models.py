@@ -99,9 +99,9 @@ class PingxxOrder(db.Model):
             "order_bid",
         ),
         Index(
-            "ix_order_pingxx_orders_biz_domain_billing_order_bid",
+            "ix_order_pingxx_orders_biz_domain_bill_order_bid",
             "biz_domain",
-            "billing_order_bid",
+            "bill_order_bid",
         ),
         {"comment": "Order pingxx orders"},
     )
@@ -120,7 +120,7 @@ class PingxxOrder(db.Model):
         default="order",
         comment="Business domain",
     )
-    billing_order_bid = Column(
+    bill_order_bid = Column(
         String(36),
         index=True,
         nullable=False,
@@ -242,9 +242,9 @@ class StripeOrder(db.Model):
             "order_bid",
         ),
         Index(
-            "ix_order_stripe_orders_biz_domain_billing_order_bid",
+            "ix_order_stripe_orders_biz_domain_bill_order_bid",
             "biz_domain",
-            "billing_order_bid",
+            "bill_order_bid",
         ),
         {"comment": "Order stripe orders"},
     )
@@ -263,7 +263,7 @@ class StripeOrder(db.Model):
         default="order",
         comment="Business domain",
     )
-    billing_order_bid = Column(
+    bill_order_bid = Column(
         String(36),
         index=True,
         nullable=False,

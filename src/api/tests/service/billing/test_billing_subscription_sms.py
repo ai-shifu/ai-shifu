@@ -32,7 +32,7 @@ from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity, upsert_credential
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def billing_subscription_sms_app(tmp_path):
     with app.app_context():
         load_translations(app)
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
@@ -112,7 +112,7 @@ def _create_subscription(
     *,
     subscription_bid: str,
     creator_bid: str = "creator-1",
-    product_bid: str = "billing-product-plan-monthly",
+    product_bid: str = "bill-product-plan-monthly",
     current_period_start_at: datetime,
     current_period_end_at: datetime | None,
 ) -> BillingSubscription:
@@ -136,17 +136,17 @@ def _create_subscription(
 
 def _create_renewal_order(
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     subscription_bid: str,
     creator_bid: str = "creator-1",
     cycle_start_at: datetime,
     cycle_end_at: datetime,
 ) -> BillingOrder:
     return BillingOrder(
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-        product_bid="billing-product-plan-monthly",
+        product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
         currency="CNY",
         payable_amount=990,
@@ -165,17 +165,17 @@ def _create_renewal_order(
 
 def _create_paid_start_order(
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     subscription_bid: str,
     creator_bid: str = "creator-1",
     paid_at: datetime,
     metadata_json: dict | None = None,
 ) -> BillingOrder:
     return BillingOrder(
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-        product_bid="billing-product-plan-monthly",
+        product_bid="bill-product-plan-monthly",
         subscription_bid=subscription_bid,
         currency="CNY",
         payable_amount=990,
@@ -223,8 +223,8 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.checkout._enqueue_subscription_purchase_sms",
-        lambda app, *, billing_order_bid: (
-            enqueued.append(billing_order_bid) or {"status": "enqueued"}
+        lambda app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
 
@@ -235,7 +235,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
             current_period_end_at=cycle_start_at,
         )
         order = _create_renewal_order(
-            billing_order_bid="billing-sync-sms-1",
+            bill_order_bid="billing-sync-sms-1",
             subscription_bid=subscription.subscription_bid,
             cycle_start_at=cycle_start_at,
             cycle_end_at=cycle_end_at,
@@ -262,9 +262,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
     assert enqueued == ["billing-sync-sms-1"]
 
     with app.app_context():
-        order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-sync-sms-1"
-        ).one()
+        order = BillingOrder.query.filter_by(bill_order_bid="billing-sync-sms-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "pending"
         assert notification["requested_at"] is not None
@@ -281,8 +279,8 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.webhooks._enqueue_subscription_purchase_sms",
-        lambda app, *, billing_order_bid: (
-            enqueued.append(billing_order_bid) or {"status": "enqueued"}
+        lambda app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
 
@@ -293,7 +291,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
             current_period_end_at=cycle_start_at,
         )
         order = _create_renewal_order(
-            billing_order_bid="billing-webhook-sms-1",
+            bill_order_bid="billing-webhook-sms-1",
             subscription_bid=subscription.subscription_bid,
             cycle_start_at=cycle_start_at,
             cycle_end_at=cycle_end_at,
@@ -334,7 +332,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-webhook-sms-1"
+            bill_order_bid="billing-webhook-sms-1"
         ).one()
         notification_payload = order.metadata_json["notifications"][
             "subscription_purchase_sms"
@@ -373,7 +371,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
             current_period_end_at=cycle_end_at,
         )
         order = _create_paid_start_order(
-            billing_order_bid="billing-task-sent-1",
+            bill_order_bid="billing-task-sent-1",
             subscription_bid=subscription.subscription_bid,
             paid_at=cycle_start_at,
         )
@@ -383,11 +381,11 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
 
     first_payload = deliver_subscription_purchase_sms(
         app,
-        billing_order_bid="billing-task-sent-1",
+        bill_order_bid="billing-task-sent-1",
     )
     second_payload = deliver_subscription_purchase_sms(
         app,
-        billing_order_bid="billing-task-sent-1",
+        bill_order_bid="billing-task-sent-1",
     )
 
     assert first_payload["status"] == "sent"
@@ -399,9 +397,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     assert captured[0]["template_params"]["date"] == "2026-05-20 00:00 UTC"
 
     with app.app_context():
-        order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-task-sent-1"
-        ).one()
+        order = BillingOrder.query.filter_by(bill_order_bid="billing-task-sent-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "sent"
         assert notification["sent_at"] is not None
@@ -423,7 +419,7 @@ def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
             current_period_end_at=cycle_end_at,
         )
         order = _create_paid_start_order(
-            billing_order_bid="billing-task-no-mobile-1",
+            bill_order_bid="billing-task-no-mobile-1",
             subscription_bid=subscription.subscription_bid,
             creator_bid="creator-no-mobile",
             paid_at=cycle_start_at,
@@ -434,14 +430,14 @@ def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
 
     payload = deliver_subscription_purchase_sms(
         app,
-        billing_order_bid="billing-task-no-mobile-1",
+        bill_order_bid="billing-task-no-mobile-1",
     )
 
     assert payload["status"] == "skipped_no_mobile"
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-task-no-mobile-1"
+            bill_order_bid="billing-task-no-mobile-1"
         ).one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "skipped_no_mobile"
@@ -463,7 +459,7 @@ def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
             current_period_end_at=None,
         )
         order = _create_paid_start_order(
-            billing_order_bid="billing-task-missing-date-1",
+            bill_order_bid="billing-task-missing-date-1",
             subscription_bid=subscription.subscription_bid,
             creator_bid="creator-missing-date",
             paid_at=cycle_start_at,
@@ -474,14 +470,14 @@ def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
 
     payload = deliver_subscription_purchase_sms(
         app,
-        billing_order_bid="billing-task-missing-date-1",
+        bill_order_bid="billing-task-missing-date-1",
     )
 
     assert payload["status"] == "failed_missing_date"
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-task-missing-date-1"
+            bill_order_bid="billing-task-missing-date-1"
         ).one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "failed_missing_date"
@@ -505,7 +501,7 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
             current_period_end_at=cycle_end_at,
         )
         order = _create_paid_start_order(
-            billing_order_bid="billing-task-provider-failure-1",
+            bill_order_bid="billing-task-provider-failure-1",
             subscription_bid=subscription.subscription_bid,
             creator_bid="creator-provider-failure",
             paid_at=cycle_start_at,
@@ -526,12 +522,12 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
 
     with pytest.raises(SubscriptionPurchaseSmsRetryableError):
         send_subscription_purchase_sms_task(
-            billing_order_bid="billing-task-provider-failure-1"
+            bill_order_bid="billing-task-provider-failure-1"
         )
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid="billing-task-provider-failure-1"
+            bill_order_bid="billing-task-provider-failure-1"
         ).one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "failed_provider"
@@ -564,7 +560,7 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
             current_period_end_at=cycle_end_at,
         )
         order = _create_paid_start_order(
-            billing_order_bid="billing-task-requeue-1",
+            bill_order_bid="billing-task-requeue-1",
             subscription_bid=subscription.subscription_bid,
             paid_at=cycle_start_at,
             metadata_json=_notification_payload(status="failed_provider"),
@@ -575,9 +571,9 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
 
     payload = requeue_subscription_purchase_sms(
         app,
-        billing_order_bid="billing-task-requeue-1",
+        bill_order_bid="billing-task-requeue-1",
     )
 
     assert payload["status"] == "enqueued"
     assert payload["notification_status"] == "failed_provider"
-    assert captured_kwargs == [{"billing_order_bid": "billing-task-requeue-1"}]
+    assert captured_kwargs == [{"bill_order_bid": "billing-task-requeue-1"}]

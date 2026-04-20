@@ -8,11 +8,11 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
-    BILLING_CONFIG_KEY_CREDIT_PRECISION,
-    BILLING_CONFIG_KEY_ENABLED,
-    BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
-    BILLING_CONFIG_KEY_RATE_VERSION,
-    BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+    BILL_CONFIG_KEY_CREDIT_PRECISION,
+    BILL_CONFIG_KEY_ENABLED,
+    BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+    BILL_CONFIG_KEY_RATE_VERSION,
+    BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_TRIAL_PRODUCT_BID,
     BILLING_TRIAL_PRODUCT_CODE,
@@ -23,7 +23,7 @@ from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
-    BILLING_SYS_CONFIG_SEEDS,
+    BILL_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.models import BillingProduct, CreditUsageRate
@@ -37,18 +37,18 @@ from flaskr.service.user import consts as user_consts
 def test_billing_models_register_core_tables() -> None:
     tables = db.metadata.tables
 
-    assert "billing_products" in tables
-    assert "billing_subscriptions" in tables
-    assert "billing_orders" in tables
+    assert "bill_products" in tables
+    assert "bill_subscriptions" in tables
+    assert "bill_orders" in tables
     assert "credit_wallets" in tables
     assert "credit_wallet_buckets" in tables
     assert "credit_ledger_entries" in tables
 
-    billing_products = tables["billing_products"]
-    assert "product_code" in billing_products.c
-    assert "credit_amount" in billing_products.c
-    assert billing_products.c.credit_amount.type.precision == 20
-    assert billing_products.c.credit_amount.type.scale == 10
+    bill_products = tables["bill_products"]
+    assert "product_code" in bill_products.c
+    assert "credit_amount" in bill_products.c
+    assert bill_products.c.credit_amount.type.precision == 20
+    assert bill_products.c.credit_amount.type.scale == 10
 
     credit_ledger_entries = tables["credit_ledger_entries"]
     assert "wallet_bucket_bid" in credit_ledger_entries.c
@@ -58,7 +58,7 @@ def test_billing_models_register_core_tables() -> None:
 
 
 def test_billing_trial_constants_remain_stable() -> None:
-    assert BILLING_TRIAL_PRODUCT_BID == "billing-product-plan-trial"
+    assert BILLING_TRIAL_PRODUCT_BID == "bill-product-plan-trial"
     assert BILLING_TRIAL_PRODUCT_CODE == "creator-plan-trial"
     assert BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG == "public_trial_offer"
     assert BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS == "trial_valid_days"
@@ -87,7 +87,7 @@ def test_credit_usage_rate_seeds_cover_all_scenes_with_bootstrap_defaults() -> N
 
 
 def test_billing_product_model_uses_catalog_table_name() -> None:
-    assert BillingProduct.__tablename__ == "billing_products"
+    assert BillingProduct.__tablename__ == "bill_products"
 
 
 def test_calculate_billing_cycle_end_supports_day_month_and_year_intervals() -> None:
@@ -140,15 +140,15 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILLING_SYS_CONFIG_SEEDS) == 5
-    assert {row["key"] for row in BILLING_SYS_CONFIG_SEEDS} == {
-        BILLING_CONFIG_KEY_CREDIT_PRECISION,
-        BILLING_CONFIG_KEY_ENABLED,
-        BILLING_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
-        BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
-        BILLING_CONFIG_KEY_RATE_VERSION,
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5
+    assert {row["key"] for row in BILL_SYS_CONFIG_SEEDS} == {
+        BILL_CONFIG_KEY_CREDIT_PRECISION,
+        BILL_CONFIG_KEY_ENABLED,
+        BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
+        BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+        BILL_CONFIG_KEY_RATE_VERSION,
     }
-    assert all(row["is_encrypted"] == 0 for row in BILLING_SYS_CONFIG_SEEDS)
+    assert all(row["is_encrypted"] == 0 for row in BILL_SYS_CONFIG_SEEDS)
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

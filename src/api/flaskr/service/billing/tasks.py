@@ -12,7 +12,7 @@ from flaskr.service.config import get_config
 
 from .checkout import reconcile_billing_provider_reference
 from .consts import (
-    BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG,
+    BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
 )
 from .daily_aggregates import (
@@ -115,7 +115,7 @@ def _load_renewal_task_config() -> dict[str, Any]:
         "lookahead_minutes": 60,
         "queue": "billing-renewal",
     }
-    raw_config = get_config(BILLING_CONFIG_KEY_RENEWAL_TASK_CONFIG, "") or ""
+    raw_config = get_config(BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG, "") or ""
     try:
         parsed = json.loads(str(raw_config))
     except (TypeError, ValueError):
@@ -199,13 +199,13 @@ def _run_reconcile_provider_reference(
     creator_bid: str = "",
     payment_provider: str = "",
     provider_reference_id: str = "",
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     session_id: str = "",
 ):
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)
-    normalized_billing_order_bid = _normalize_bid(billing_order_bid)
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     normalized_session_id = _normalize_bid(session_id)
 
     return reconcile_billing_provider_reference(
@@ -213,7 +213,7 @@ def _run_reconcile_provider_reference(
         creator_bid=normalized_creator_bid,
         payment_provider=normalized_payment_provider,
         provider_reference_id=normalized_provider_reference_id,
-        billing_order_bid=normalized_billing_order_bid,
+        bill_order_bid=normalized_bill_order_bid,
         session_id=normalized_session_id,
     )
 
@@ -297,7 +297,7 @@ def reconcile_provider_reference_task(
     *,
     payment_provider: str = "",
     provider_reference_id: str = "",
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     creator_bid: str = "",
     session_id: str = "",
 ) -> dict[str, Any]:
@@ -309,7 +309,7 @@ def reconcile_provider_reference_task(
         creator_bid=creator_bid,
         payment_provider=payment_provider,
         provider_reference_id=provider_reference_id,
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         session_id=session_id,
     )
     payload = _serialize_task_payload(payload)
@@ -386,14 +386,14 @@ def send_low_balance_alert_task(
 )
 def send_subscription_purchase_sms_task(
     *,
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
 ) -> dict[str, Any]:
     """Deliver one pending subscription purchase SMS notification."""
 
     app = _create_task_app()
     payload = _deliver_subscription_purchase_sms(
         app,
-        billing_order_bid=_normalize_bid(billing_order_bid),
+        bill_order_bid=_normalize_bid(bill_order_bid),
     )
     payload = _serialize_task_payload(payload)
     payload["task_name"] = _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME
@@ -444,7 +444,7 @@ def run_renewal_event_task(
 def retry_failed_renewal_task(
     *,
     renewal_event_bid: str = "",
-    billing_order_bid: str = "",
+    bill_order_bid: str = "",
     provider_reference_id: str = "",
     payment_provider: str = "",
     creator_bid: str = "",
@@ -452,13 +452,13 @@ def retry_failed_renewal_task(
     """Retry a failed renewal using the same provider reference contract."""
 
     app = _create_task_app()
-    if _normalize_bid(billing_order_bid) or _normalize_bid(provider_reference_id):
+    if _normalize_bid(bill_order_bid) or _normalize_bid(provider_reference_id):
         payload = _run_reconcile_provider_reference(
             app,
             creator_bid=creator_bid,
             payment_provider=payment_provider,
             provider_reference_id=provider_reference_id,
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             session_id=provider_reference_id,
         )
         payload = _serialize_task_payload(payload)
@@ -471,7 +471,7 @@ def retry_failed_renewal_task(
         renewal_event_bid=renewal_event_bid,
         subscription_bid="",
         creator_bid=creator_bid,
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         provider_reference_id=provider_reference_id,
         payment_provider=payment_provider,
     )

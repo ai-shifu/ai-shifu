@@ -28,7 +28,7 @@ from flaskr.service.billing.models import (
     BillingEntitlement,
     BillingSubscription,
 )
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -53,9 +53,9 @@ def billing_entitlement_app() -> Flask:
 
 
 def _seed_products_with_yearly_entitlements():
-    return build_billing_products(
+    return build_bill_products(
         overrides_by_bid={
-            "billing-product-plan-yearly": {
+            "bill-product-plan-yearly": {
                 "entitlement_payload": {
                     "branding_enabled": True,
                     "custom_domain_enabled": False,
@@ -79,7 +79,7 @@ def test_resolve_creator_entitlement_state_prefers_latest_active_snapshot(
             BillingSubscription(
                 subscription_bid="sub-snapshot-1",
                 creator_bid="creator-snapshot-1",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 current_period_start_at=now - timedelta(days=7),
                 current_period_end_at=now + timedelta(days=23),
@@ -150,7 +150,7 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
             BillingSubscription(
                 subscription_bid="sub-product-1",
                 creator_bid="creator-product-1",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 current_period_start_at=now - timedelta(days=5),
                 current_period_end_at=now + timedelta(days=25),
@@ -170,7 +170,7 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
     assert product_state["source_kind"] == "product_payload"
     assert product_state["source_type"] == "subscription"
     assert product_state["source_bid"] == "sub-product-1"
-    assert product_state["product_bid"] == "billing-product-plan-yearly"
+    assert product_state["product_bid"] == "bill-product-plan-yearly"
     assert product_state["feature_payload"] == {"report_export": True}
     assert serialize_creator_entitlements(product_state) == {
         "branding_enabled": True,
@@ -197,7 +197,7 @@ def test_primary_active_subscription_prefers_higher_sort_order_paid_plan_over_tr
 ) -> None:
     now = datetime.now()
     with billing_entitlement_app.app_context():
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.add_all(
             [
                 BillingSubscription(
@@ -213,7 +213,7 @@ def test_primary_active_subscription_prefers_higher_sort_order_paid_plan_over_tr
                 BillingSubscription(
                     subscription_bid="sub-paid-overlap",
                     creator_bid="creator-overlap-1",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     current_period_start_at=now - timedelta(hours=6),
                     current_period_end_at=now + timedelta(days=1),
@@ -242,7 +242,7 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
     now = datetime(2026, 4, 8, 12, 0, 0)
     with billing_entitlement_app.app_context():
         dao.db.session.add_all(
-            build_billing_products(
+            build_bill_products(
                 overrides_by_bid={
                     BILLING_TRIAL_PRODUCT_BID: {
                         "entitlement_payload": {
@@ -251,7 +251,7 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
                             "support_tier": "self_serve",
                         }
                     },
-                    "billing-product-plan-monthly": {
+                    "bill-product-plan-monthly": {
                         "entitlement_payload": {
                             "branding_enabled": True,
                             "priority_class": BILLING_ENTITLEMENT_PRIORITY_CLASS_PRIORITY,
@@ -278,7 +278,7 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
                 BillingSubscription(
                     subscription_bid="sub-paid-entitlement",
                     creator_bid="creator-overlap-2",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     current_period_start_at=now - timedelta(hours=6),
                     current_period_end_at=now + timedelta(days=1),
@@ -296,5 +296,5 @@ def test_resolve_creator_entitlement_state_prefers_paid_plan_over_longer_trial(
 
     assert state["source_kind"] == "product_payload"
     assert state["source_bid"] == "sub-paid-entitlement"
-    assert state["product_bid"] == "billing-product-plan-monthly"
+    assert state["product_bid"] == "bill-product-plan-monthly"
     assert state["feature_payload"] == {"paid_plan": True}

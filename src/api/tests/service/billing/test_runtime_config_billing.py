@@ -36,8 +36,8 @@ def runtime_config_client(monkeypatch):
         "DEFAULT_COURSE_ID": "global-course-1",
         "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
-        "BILLING_ENABLED": True,
-        "BILLING_CREDIT_PRECISION": 4,
+        "BILL_ENABLED": True,
+        "BILL_CREDIT_PRECISION": 4,
         "STRIPE_PUBLISHABLE_KEY": "pk_test_global",
         "STRIPE_ENABLED": True,
         "PAYMENT_CHANNELS_ENABLED": "pingxx,stripe",
@@ -285,11 +285,11 @@ def test_runtime_config_reports_disabled_billing_flag(
     monkeypatch.setattr(
         config_route,
         "get_config",
-        lambda key, default="": False if key == "BILLING_ENABLED" else default,
+        lambda key, default="": False if key == "BILL_ENABLED" else default,
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
-        lambda key, default="": False if key == "BILLING_ENABLED" else default,
+        lambda key, default="": False if key == "BILL_ENABLED" else default,
     )
 
     response = runtime_config_client.get("/api/runtime-config")

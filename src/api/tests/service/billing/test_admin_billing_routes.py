@@ -36,12 +36,12 @@ from flaskr.service.billing.dtos import (
 )
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
-    build_admin_billing_daily_ledger_summary_page,
-    build_admin_billing_daily_usage_metrics_page,
+    build_admin_bill_daily_ledger_summary_page,
+    build_admin_bill_daily_usage_metrics_page,
     build_admin_billing_domain_audits_page,
-    build_admin_billing_entitlements_page,
-    build_admin_billing_orders_page,
-    build_admin_billing_subscriptions_page,
+    build_admin_bill_entitlements_page,
+    build_admin_bill_orders_page,
+    build_admin_bill_subscriptions_page,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -52,7 +52,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import AppException
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import load_register_billing_routes
 
 register_billing_routes = load_register_billing_routes()
@@ -92,7 +92,7 @@ def admin_billing_client():
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.add_all(
             [
                 CreditWallet(
@@ -118,7 +118,7 @@ def admin_billing_client():
                 BillingSubscription(
                     subscription_bid="sub-active",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_active",
@@ -131,7 +131,7 @@ def admin_billing_client():
                 BillingSubscription(
                     subscription_bid="sub-past-due",
                     creator_bid="creator-2",
-                    product_bid="billing-product-plan-yearly",
+                    product_bid="bill-product-plan-yearly",
                     status=BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_past_due",
@@ -155,17 +155,17 @@ def admin_billing_client():
                 status=BILLING_RENEWAL_EVENT_STATUS_FAILED,
                 attempt_count=2,
                 last_error="card_declined",
-                payload_json={"billing_order_bid": "order-failed"},
+                payload_json={"bill_order_bid": "order-failed"},
                 processed_at=datetime(2026, 4, 3, 8, 5, 0),
             )
         )
         dao.db.session.add_all(
             [
                 BillingOrder(
-                    billing_order_bid="order-paid",
+                    bill_order_bid="order-paid",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
-                    product_bid="billing-product-topup-small",
+                    product_bid="bill-product-topup-small",
                     subscription_bid="",
                     currency="CNY",
                     payable_amount=19900,
@@ -178,10 +178,10 @@ def admin_billing_client():
                     created_at=datetime(2026, 4, 4, 8, 0, 0),
                 ),
                 BillingOrder(
-                    billing_order_bid="order-failed",
+                    bill_order_bid="order-failed",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                    product_bid="billing-product-plan-yearly",
+                    product_bid="bill-product-plan-yearly",
                     subscription_bid="sub-past-due",
                     currency="CNY",
                     payable_amount=99900,
@@ -245,7 +245,7 @@ def admin_billing_client():
 
 
 class TestAdminBillingRoutes:
-    def test_admin_billing_subscriptions_returns_wallet_and_renewal_context(
+    def test_admin_bill_subscriptions_returns_wallet_and_renewal_context(
         self, admin_billing_client
     ) -> None:
         client = admin_billing_client["client"]
@@ -267,7 +267,7 @@ class TestAdminBillingRoutes:
         assert first_item["latest_renewal_event"]["status"] == "failed"
         assert first_item["latest_renewal_event"]["last_error"] == "card_declined"
 
-    def test_admin_billing_orders_support_creator_and_status_filters(
+    def test_admin_bill_orders_support_creator_and_status_filters(
         self, admin_billing_client
     ) -> None:
         client = admin_billing_client["client"]
@@ -280,7 +280,7 @@ class TestAdminBillingRoutes:
         assert payload["code"] == 0
         assert payload["data"]["total"] == 1
         item = payload["data"]["items"][0]
-        assert item["billing_order_bid"] == "order-failed"
+        assert item["bill_order_bid"] == "order-failed"
         assert item["creator_bid"] == "creator-2"
         assert item["status"] == "failed"
         assert item["failure_code"] == "card_declined"
@@ -402,12 +402,12 @@ class TestAdminBillingRoutes:
         app = admin_billing_client["app"]
 
         results = {
-            "subscriptions": build_admin_billing_subscriptions_page(app),
+            "subscriptions": build_admin_bill_subscriptions_page(app),
             "domain_audits": build_admin_billing_domain_audits_page(app),
-            "entitlements": build_admin_billing_entitlements_page(app),
-            "orders": build_admin_billing_orders_page(app),
-            "usage_daily": build_admin_billing_daily_usage_metrics_page(app),
-            "ledger_daily": build_admin_billing_daily_ledger_summary_page(app),
+            "entitlements": build_admin_bill_entitlements_page(app),
+            "orders": build_admin_bill_orders_page(app),
+            "usage_daily": build_admin_bill_daily_usage_metrics_page(app),
+            "ledger_daily": build_admin_bill_daily_ledger_summary_page(app),
             "adjust": adjust_admin_billing_ledger(
                 app,
                 operator_user_bid="admin-creator",

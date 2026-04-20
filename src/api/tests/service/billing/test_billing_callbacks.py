@@ -21,7 +21,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order, PingxxOrder
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -41,21 +41,19 @@ def billing_callback_app():
     register_callback_handler(app, "/api/callback")
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
 
 
-def _create_pingxx_billing_order(
-    billing_order_bid: str, charge_id: str
-) -> BillingOrder:
+def _create_pingxx_billing_order(bill_order_bid: str, charge_id: str) -> BillingOrder:
     return BillingOrder(
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         creator_bid="creator-1",
         order_type=BILLING_ORDER_TYPE_TOPUP,
-        product_bid="billing-product-topup-small",
+        product_bid="bill-product-topup-small",
         subscription_bid="",
         currency="CNY",
         payable_amount=19900,
@@ -71,17 +69,17 @@ def _create_pingxx_billing_order(
 
 
 def _create_billing_pingxx_raw_snapshot(
-    billing_order_bid: str, charge_id: str
+    bill_order_bid: str, charge_id: str
 ) -> PingxxOrder:
     return PingxxOrder(
-        pingxx_order_bid=billing_order_bid,
+        pingxx_order_bid=bill_order_bid,
         biz_domain="billing",
-        billing_order_bid=billing_order_bid,
+        bill_order_bid=bill_order_bid,
         creator_bid="creator-1",
         user_bid="",
         shifu_bid="",
         order_bid="",
-        transaction_no=billing_order_bid,
+        transaction_no=bill_order_bid,
         app_id="app_billing_test",
         channel="alipay_qr",
         amount=19900,
@@ -141,11 +139,11 @@ class TestBillingPingxxCallbacks:
     ) -> None:
         with billing_callback_app.app_context():
             dao.db.session.add(
-                _create_pingxx_billing_order("billing-pingxx-1", "ch_billing_pingxx_1")
+                _create_pingxx_billing_order("bill-pingxx-1", "ch_billing_pingxx_1")
             )
             dao.db.session.add(
                 _create_billing_pingxx_raw_snapshot(
-                    "billing-pingxx-1",
+                    "bill-pingxx-1",
                     "ch_billing_pingxx_1",
                 )
             )
@@ -156,7 +154,7 @@ class TestBillingPingxxCallbacks:
                 "data": {
                     "object": {
                         "id": "ch_billing_pingxx_1",
-                        "order_no": "billing-pingxx-1",
+                        "order_no": "bill-pingxx-1",
                         "paid": True,
                         "time_paid": 1712577600,
                     }
@@ -176,21 +174,19 @@ class TestBillingPingxxCallbacks:
             assert duplicate_status == 200
             assert duplicate_payload["matched"] is True
 
-            order = BillingOrder.query.filter_by(
-                billing_order_bid="billing-pingxx-1"
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid="bill-pingxx-1").one()
             raw_order = PingxxOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid="billing-pingxx-1",
+                bill_order_bid="bill-pingxx-1",
             ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid="billing-pingxx-1",
+                source_bid="bill-pingxx-1",
             ).one()
             ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
-                source_bid="billing-pingxx-1",
+                source_bid="bill-pingxx-1",
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
@@ -242,13 +238,13 @@ class TestBillingPingxxCallbacks:
         with billing_callback_app.app_context():
             dao.db.session.add(
                 _create_pingxx_billing_order(
-                    "billing-pingxx-route-1",
+                    "bill-pingxx-route-1",
                     "ch_billing_pingxx_route_1",
                 )
             )
             dao.db.session.add(
                 _create_billing_pingxx_raw_snapshot(
-                    "billing-pingxx-route-1",
+                    "bill-pingxx-route-1",
                     "ch_billing_pingxx_route_1",
                 )
             )
@@ -268,7 +264,7 @@ class TestBillingPingxxCallbacks:
                     "data": {
                         "object": {
                             "id": "ch_billing_pingxx_route_1",
-                            "order_no": "billing-pingxx-route-1",
+                            "order_no": "bill-pingxx-route-1",
                             "paid": True,
                             "time_paid": 1712577600,
                         }
@@ -297,11 +293,11 @@ class TestBillingPingxxCallbacks:
 
         with billing_callback_app.app_context():
             billing_order = BillingOrder.query.filter_by(
-                billing_order_bid="billing-pingxx-route-1"
+                bill_order_bid="bill-pingxx-route-1"
             ).one()
             billing_raw = PingxxOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid="billing-pingxx-route-1",
+                bill_order_bid="bill-pingxx-route-1",
             ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             legacy_order = Order.query.filter_by(

@@ -123,7 +123,7 @@ describe('AdminBillingConsolePage', () => {
         {
           subscription_bid: 'sub-past-due',
           creator_bid: 'creator-2',
-          product_bid: 'billing-product-plan-yearly',
+          product_bid: 'bill-product-plan-yearly',
           product_code: 'creator-plan-yearly',
           status: 'past_due',
           billing_provider: 'stripe',
@@ -150,7 +150,7 @@ describe('AdminBillingConsolePage', () => {
             attempt_count: 2,
             last_error: 'card_declined',
             payload: {
-              billing_order_bid: 'order-1',
+              bill_order_bid: 'order-1',
             },
           },
           has_attention: true,
@@ -164,9 +164,9 @@ describe('AdminBillingConsolePage', () => {
     mockGetAdminBillingOrders.mockResolvedValue({
       items: [
         {
-          billing_order_bid: 'order-1',
+          bill_order_bid: 'order-1',
           creator_bid: 'creator-2',
-          product_bid: 'billing-product-plan-yearly',
+          product_bid: 'bill-product-plan-yearly',
           subscription_bid: 'sub-past-due',
           order_type: 'subscription_renewal',
           status: 'failed',

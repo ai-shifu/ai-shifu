@@ -36,7 +36,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
         ),
         subscription=BillingSubscriptionDTO(
             subscription_bid="sub-1",
-            product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-monthly",
             product_code="plan-monthly",
             status="active",
             billing_provider="stripe",
@@ -61,7 +61,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
         trial_offer=BillingTrialOfferDTO(
             enabled=True,
             status="granted",
-            product_bid="billing-product-plan-trial",
+            product_bid="bill-product-plan-trial",
             product_code="creator-plan-trial",
             display_name="module.billing.package.free.title",
             description="module.billing.package.free.description",

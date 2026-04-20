@@ -30,7 +30,7 @@ export default function StripeBillingResultPage() {
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncAttemptedRef = useRef<string | null>(null);
-  const providedBillingOrderBid = searchParams.get('billing_order_bid') || '';
+  const providedBillingOrderBid = searchParams.get('bill_order_bid') || '';
   const sessionId = searchParams.get('session_id') || '';
   const missingOrderMessage = t('module.billing.result.missingOrder');
   const processingMessage = t('module.billing.result.processing');

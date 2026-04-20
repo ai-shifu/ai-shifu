@@ -28,8 +28,8 @@ v1.1 再补充下列扩展能力：
 
 - 计费主体固定为 `creator_bid`
 - 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
-- 商品目录统一使用 `billing_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
-- 支付持久化统一以 `billing_orders` 为业务真相源；provider 最新摘要保留在 `billing_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders` 并通过 `biz_domain`、`billing_order_bid`、`creator_bid` 隔离
+- 商品目录统一使用 `bill_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
+- 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders` 并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
 - 钱包/余额桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费余额桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
 - 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
@@ -43,7 +43,7 @@ v1.1 再补充下列扩展能力：
 - 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
 - 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口；业务状态不复用旧 `order_orders`，provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
 - Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 支持 topup checkout，以及由平台自管的 subscription start / renewal 补单链路，不依赖 provider-managed recurring
-- 支付成功后必须真实写入 `billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
+- 支付成功后必须真实写入 `bill_orders`、`bill_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
 - 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
 - 以上暂缓能力仍属于完整 v1 / v1.1 目标，继续保留在本文后续章节和任务清单中
 
@@ -64,8 +64,8 @@ v1.1 再补充下列扩展能力：
 | `admin_domains` | `active` | `GET /api/admin/billing/domain-audits` | on | 是 | admin 域名审核当前正式可达 |
 | `admin_reports` | `active` | `GET /api/admin/billing/reports/*` | on | 是 | admin usage/ledger 报表当前正式可达 |
 | `runtime_billing_extensions` | `active` | `GET /api/config/runtime-config` | on | 否 | runtime config 已返回 billing entitlement/domain 扩展 |
-| `billing_feature_flag` | `default_disabled` | `BILLING_ENABLED` | off | 否 | feature flag seed 默认关闭，代码能力存在 |
-| `renewal_task_queue` | `default_disabled` | `BILLING_RENEWAL_TASK_CONFIG.enabled` | off | 否 | renewal worker 默认配置关闭 |
+| `billing_feature_flag` | `default_disabled` | `BILL_ENABLED` | off | 否 | feature flag seed 默认关闭，代码能力存在 |
+| `renewal_task_queue` | `default_disabled` | `BILL_RENEWAL_TASK_CONFIG.enabled` | off | 否 | renewal worker 默认配置关闭 |
 | `usage_settlement` | `internal_only` | task/CLI | on | 否 | usage settlement 只供内部任务和补偿使用 |
 | `renewal_compensation` | `internal_only` | task/CLI | on | 否 | renewal/retry 补偿链路只供内部执行 |
 | `provider_reconcile` | `internal_only` | task/CLI | on | 否 | provider reconcile 只作为内部修复面保留 |
@@ -184,7 +184,7 @@ v1.1 再补充下列扩展能力：
 
 ## 3. v1 核心表
 
-### 3.1 `billing_products`
+### 3.1 `bill_products`
 
 角色：目录真相源；不是账务真相源；不是报表表。
 
@@ -216,9 +216,9 @@ v1.1 再补充下列扩展能力：
 
 与其他表关系：
 
-- `billing_subscriptions.product_bid`
-- `billing_subscriptions.next_product_bid`
-- `billing_orders.product_bid`
+- `bill_subscriptions.product_bid`
+- `bill_subscriptions.next_product_bid`
+- `bill_orders.product_bid`
 
 本表职责与边界：
 
@@ -228,13 +228,13 @@ v1.1 再补充下列扩展能力：
 
 v1 冻结业务规则：
 
-- 面向 creator 的公开自助目录继续由 `billing_products` 驱动，但 API 仍只把付费 plan/topup 投影到 `GET /billing/catalog` 的 `plans[]` / `topups[]`
-- `creator-plan-trial` 是一个正式 `billing_products` 记录：`product_type=plan`、`billing_mode=manual`、`price_amount=0`、`credit_amount=100`、`auto_renew_enabled=0`
+- 面向 creator 的公开自助目录继续由 `bill_products` 驱动，但 API 仍只把付费 plan/topup 投影到 `GET /billing/catalog` 的 `plans[]` / `topups[]`
+- `creator-plan-trial` 是一个正式 `bill_products` 记录：`product_type=plan`、`billing_mode=manual`、`price_amount=0`、`credit_amount=100`、`auto_renew_enabled=0`
 - public trial product 不进入 creator 自助 checkout；它只用于 `GET /billing/overview` 的免费试用卡片，以及 post-auth 自动开通
 - `gift` 积分不作为 creator 自助购买商品；赠送积分和后台正向补偿仍走运营或人工 grant 流程
 - `product_type=grant` 与 `product_type=custom` 仅保留给运营投放、后台人工赠送和未来定制方案，不纳入当前 creator 自助购买入口
 
-### 3.2 `billing_subscriptions`
+### 3.2 `bill_subscriptions`
 
 角色：订阅真相源；不是账本真相源；不是报表表。
 
@@ -266,8 +266,8 @@ v1 冻结业务规则：
 
 与其他表关系：
 
-- 引用 `billing_products.product_bid`
-- 被 `billing_orders.subscription_bid`、`billing_renewal_events.subscription_bid` 关联
+- 引用 `bill_products.product_bid`
+- 被 `bill_orders.subscription_bid`、`bill_renewal_events.subscription_bid` 关联
 
 本表职责与边界：
 
@@ -276,7 +276,7 @@ v1 冻结业务规则：
 - `next_product_bid` 只用于未来生效的套餐切换，不立即替换 `product_bid`
 - provider 订阅事件可直接推进 `status`、`current_period_*`、`last_failed_at` 等字段
 - `past_due` 时必须回填 `grace_period_end_at`，并把续费排期切换为 retry
-- `billing_renewal_events` 需要跟随订阅状态维护 `renewal/retry/cancel_effective/downgrade_effective`
+- `bill_renewal_events` 需要跟随订阅状态维护 `renewal/retry/cancel_effective/downgrade_effective`
 - v1 不新增独立的 subscription webhook 存储层
 
 v1 冻结 subscription lifecycle 规则：
@@ -289,16 +289,16 @@ v1 冻结 subscription lifecycle 规则：
 - `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
-- 退款规则固定为：`POST /billing/orders/{billing_order_bid}/refund` 当前只支持 Stripe 已支付订单，Pingxx 必须返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期
+- 退款规则固定为：`POST /billing/orders/{bill_order_bid}/refund` 当前只支持 Stripe 已支付订单，Pingxx 必须返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期
 - refund 造成的积分返还不恢复原 subscription/topup bucket；如需返还 credit，一律按上一节的 `refund return -> free bucket` 规则执行
 
-### 3.3 `billing_orders`
+### 3.3 `bill_orders`
 
 角色：支付动作真相源，同时承载 webhook / sync 驱动的状态推进；不是报表表。
 
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
-| `billing_order_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing order business identifier` | 支付动作单业务 ID |
+| `bill_order_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing order business identifier` | 支付动作单业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `order_type` | `SmallInteger` | `not null, index=True` | `7301=subscription_start; 7302=subscription_upgrade; 7303=subscription_renewal; 7304=topup; 7305=manual; 7306=refund` | `Billing order type code` | 支付动作类型 |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 对应商品 ID | `Billing product business identifier` | 商品业务 ID |
@@ -320,23 +320,23 @@ v1 冻结 subscription lifecycle 规则：
 主键 / 唯一索引 / 关键索引：
 
 - 主键：`id`
-- 唯一索引：`billing_order_bid`
-- 关键索引：`billing_order_bid`、`creator_bid + status`、`provider_reference_id`
+- 唯一索引：`bill_order_bid`
+- 关键索引：`bill_order_bid`、`creator_bid + status`、`provider_reference_id`
 
 与其他表关系：
 
-- 关联 `billing_products.product_bid`
-- 关联 `billing_subscriptions.subscription_bid`
+- 关联 `bill_products.product_bid`
+- 关联 `bill_subscriptions.subscription_bid`
 - 被 `credit_ledger_entries.source_bid` 使用
 
 本表职责与边界：
 
-- 一次 checkout、一笔续费、一笔 topup、一笔退款，各自对应一条 `billing_orders`
-- v1 不引入 `payment_attempts` 子表；支付重试通过创建新的 `billing_orders` 完成
-- `billing_orders` 通过 `provider_reference_id`、当前状态和单向状态推进规则承担 webhook 幂等
-- 订单级 webhook 直接推进 `billing_orders` 状态，并覆盖写入最近一次 provider payload 到 `metadata`
-- 订阅级 provider 事件优先回填同 `subscription_bid` 最近一笔 `billing_orders.metadata`，并更新关联 provider raw snapshot；如找不到关联订单，则只推进状态或忽略，不额外补 raw snapshot
-- 找不到关联订单的孤儿 webhook 直接忽略，后续依赖 `POST /billing/orders/{billing_order_bid}/sync` 或 reconcile 补偿
+- 一次 checkout、一笔续费、一笔 topup、一笔退款，各自对应一条 `bill_orders`
+- v1 不引入 `payment_attempts` 子表；支付重试通过创建新的 `bill_orders` 完成
+- `bill_orders` 通过 `provider_reference_id`、当前状态和单向状态推进规则承担 webhook 幂等
+- 订单级 webhook 直接推进 `bill_orders` 状态，并覆盖写入最近一次 provider payload 到 `metadata`
+- 订阅级 provider 事件优先回填同 `subscription_bid` 最近一笔 `bill_orders.metadata`，并更新关联 provider raw snapshot；如找不到关联订单，则只推进状态或忽略，不额外补 raw snapshot
+- 找不到关联订单的孤儿 webhook 直接忽略，后续依赖 `POST /billing/orders/{bill_order_bid}/sync` 或 reconcile 补偿
 
 ### 3.4 `credit_wallets`
 
@@ -460,7 +460,7 @@ v1 冻结 bucket 规则：
 
 - 关联 `credit_wallets.wallet_bid`
 - 关联 `credit_wallet_buckets.wallet_bucket_bid`
-- `source_bid` 可对应 `billing_orders`、`billing_subscriptions` 或 `bill_usage.usage_bid`
+- `source_bid` 可对应 `bill_orders`、`bill_subscriptions` 或 `bill_usage.usage_bid`
 
 本表职责与边界：
 
@@ -527,7 +527,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
   - TTS：每个 scene 1 条 `tts_request_count` 的 `*/*` 默认 rate
 - v1 允许按 provider/model 增加精确覆盖费率，但不新增 scene 级特殊结算逻辑；`production`、`preview`、`debug` 仅通过 `credit_usage_rates` 配置差异体现成本差异
 
-### 3.8 `billing_renewal_events`
+### 3.8 `bill_renewal_events`
 
 角色：续费排期真相源；不是支付真相源；不是报表表。
 
@@ -553,8 +553,8 @@ v1 冻结 scene/provider/model/metric 矩阵：
 
 与其他表关系：
 
-- 关联 `billing_subscriptions.subscription_bid`
-- 成功执行后通常会生成新的 `billing_orders`
+- 关联 `bill_subscriptions.subscription_bid`
+- 成功执行后通常会生成新的 `bill_orders`
 
 本表职责与边界：
 
@@ -563,7 +563,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 
 ## 4. v1.1 扩展表
 
-### 4.1 `billing_entitlements`
+### 4.1 `bill_entitlements`
 
 角色：权益快照；不是账本真相源；不是报表表；v1.1 才引入。
 
@@ -589,14 +589,14 @@ v1 冻结 scene/provider/model/metric 矩阵：
 
 与其他表关系：
 
-- 来源于 `billing_products` 的 entitlement payload 或后台人工调整
+- 来源于 `bill_products` 的 entitlement payload 或后台人工调整
 
 本表职责与边界：
 
 - 只在 v1.1 引入
 - 如果 v1 只做计费闭环，可直接由套餐商品推导默认权益而不落这张表
 
-### 4.2 `billing_domain_bindings`
+### 4.2 `bill_domain_bindings`
 
 角色：域名绑定真相源；不是账务真相源；不是报表表；v1.1 才引入。
 
@@ -620,14 +620,14 @@ v1 冻结 scene/provider/model/metric 矩阵：
 
 与其他表关系：
 
-- 与 `billing_entitlements` 联动，只有启用自定义域名权益的 creator 才允许生效
+- 与 `bill_entitlements` 联动，只有启用自定义域名权益的 creator 才允许生效
 
 本表职责与边界：
 
 - 只在 v1.1 引入
 - v1 阶段不应让主链路依赖它
 
-### 4.3 `billing_daily_usage_metrics`
+### 4.3 `bill_daily_usage_metrics`
 
 角色：usage 日报表聚合；只用于报表；v1.1 才引入。
 
@@ -662,7 +662,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 - 只用于 dashboard、运营分析和快查
 - 如与账本不一致，以账本和原始 usage 为准并触发 rebuild
 
-### 4.4 `billing_daily_ledger_summary`
+### 4.4 `bill_daily_ledger_summary`
 
 角色：账本日报表聚合；只用于报表；v1.1 才引入。
 
@@ -730,7 +730,7 @@ v1 的改造要求：
 当前批次最小实现要求：
 
 - 先落 `models.py`、`consts.py`、`routes.py` 和迁移脚本，再把 creator billing 的查询、checkout、sync、webhook 和 paid success 入账拆到各自模块
-- 当前实现中，`billing_products`、`billing_subscriptions`、`billing_orders`、`credit_usage_rates`、`billing_renewal_events`、核心唯一约束、bootstrap `credit_usage_rates` seed、billing `sys_configs` seed 以及 provider raw table 的 billing bridge columns，已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
+- 当前实现中，`bill_products`、`bill_subscriptions`、`bill_orders`、`credit_usage_rates`、`bill_renewal_events`、核心唯一约束、bootstrap `credit_usage_rates` seed、billing `sys_configs` seed 以及 provider raw table 的 billing bridge columns，已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
 - 当前实现中，`src/api/flaskr/common/celery_app.py` 已提供共享 Celery app factory，`src/api/celery_app.py` 作为 worker / beat 入口统一复用 `app.py:create_app()`
 - 当前实现中，`src/api/flaskr/common/config.py` 已注册 `CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`、`CELERY_TASK_ALWAYS_EAGER`，并同步刷新 `docker/.env.example.full`
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
@@ -738,19 +738,19 @@ v1 的改造要求：
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，上线顺序、迁移、backfill、监控和回滚操作已整理到 [billing-rollout-runbook.md](./billing-rollout-runbook.md)
-- 当前实现中，v1.1 的 `billing_entitlements`、`billing_domain_bindings`、`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已统一收敛到 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py`
-- 当前实现中，trial 产品化与 legacy trial sys-config 移除最初落在 `src/api/migrations/versions/d2b9a5c4f8e1_productize_creator_trial_plan.py`；后续完整 billing 产品目录的数据库真源规范化，已收敛到 `src/api/migrations/versions/9a6b3c2d1e4f_canonicalize_billing_product_catalog.py`
+- 当前实现中，billing v1.1 的所有表结构已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
+- 当前实现中，`credit_usage_rates` 与 billing `sys_configs` 的 bootstrap 已移出 Alembic，改由 `flask console billing seed-bootstrap-data` 手工执行；付费 plan/topup/custom SKU 改由 `flask console billing upsert-product` 手工录入，不再在 migration 中写死产品目录
 - 当前实现中，creator 侧 entitlement/domain/report 的底层表、resolver、聚合任务与 runtime-config 扩展已落地；但 creator 运行时 `/admin/billing` 仍只保留 `packages` / `details` 两个 tab，不额外暴露独立 entitlements/domains/reports 接口
 - 当前实现中，learn / preview / debug 的 runtime admission 仅校验 subscription / credits 可用性；不再做 `creator_bid` 维度的 runtime slot 并发限流
 - 当前实现中，admin 域名面已收敛为 `GET /admin/billing/domain-audits` 审核视图；creator 自助 bind / verify / disable 不属于当前 active surface
 - 当前实现中，`billing.verify_domain_binding` task 已复用 `src/api/flaskr/service/billing/domains.py` 的既有 verify flow：可按 `domain_binding_bid` 或 `host` 加载 binding，并在未显式传 `verification_token` 时回退到绑定上已有 token 做后台刷新
-- 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `billing_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
+- 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `bill_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
-- 当前实现中，`billing_daily_usage_metrics`、`billing_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/c225e8a6f3d2_add_billing_extension_phase.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `billing_daily_ledger_summary` 本身不含 `shifu_bid` 维度
-- 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`billing_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `billing_subscriptions` 并把事件标记为 `succeeded`
-- 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `billing_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{billing_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
+- 当前实现中，`bill_daily_usage_metrics`、`bill_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `bill_daily_ledger_summary` 本身不含 `shifu_bid` 维度
+- 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`bill_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `bill_subscriptions` 并把事件标记为 `succeeded`
+- 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `bill_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{bill_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排已分别落在 `src/api/flaskr/service/billing/checkout.py`、`src/api/flaskr/service/billing/webhooks.py`、`src/api/flaskr/service/billing/provider_state.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx；`src/api/flaskr/service/billing/funcs.py` 仅保留兼容导出层
-- 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `billing_subscriptions` 周期字段，并同步维护 `billing_renewal_events`
+- 当前实现中，subscription lifecycle 已由 `src/api/flaskr/service/billing/subscriptions.py` 维护：`subscription_start/subscription_upgrade/subscription_renewal` 的 paid apply 会推进 `bill_subscriptions` 周期字段，并同步维护 `bill_renewal_events`
 - 当前实现中，`bill_usage -> credit_ledger_entries` 的多维度结算 helper 已由 `src/api/flaskr/service/billing/settlement.py` 落地；`billing.settle_usage` task entrypoint 已由 `src/api/flaskr/service/billing/tasks.py` 提供，`record_llm_usage` / `record_tts_usage` 会在 billable 的 root usage 落库后投递该异步入口，Celery app factory、worker/beat 基础设施和 creator 维度串行化仍留在后续任务
 - 当前实现中，`credit_wallet_buckets` 已承担 source bucket snapshot：paid grant 会按 order type 创建 `subscription` / `topup` bucket，wallet 总余额与冻结余额会从 bucket 表重算，consume 结算会把扣空 bucket 推进到 `exhausted`
 - 当前实现中，creator 在有效套餐期内购买 topup 时，grant 会把 topup bucket / ledger 的过期时间对齐到当前套餐 `current_period_end_at`，避免 topup 积分无限期保留
@@ -899,16 +899,16 @@ v1 需要补充以下环境变量和配置项：
 
 同时在 `sys_configs` 预置以下 billing bootstrap 配置：
 
-- `BILLING_ENABLED=1`
-- `BILLING_LOW_BALANCE_THRESHOLD=0.0000000000`
-- `BILLING_RENEWAL_TASK_CONFIG={"enabled":0,"batch_size":100,"lookahead_minutes":60,"queue":"billing-renewal"}`
-- `BILLING_RATE_VERSION=bootstrap-v1`
+- `BILL_ENABLED=1`
+- `BILL_LOW_BALANCE_THRESHOLD=0.0000000000`
+- `BILL_RENEWAL_TASK_CONFIG={"enabled":0,"batch_size":100,"lookahead_minutes":60,"queue":"billing-renewal"}`
+- `BILL_RATE_VERSION=bootstrap-v1`
 
 v1 冻结低余额阈值、告警与错误码规则：
 
-- `BILLING_LOW_BALANCE_THRESHOLD` 在当前批次固定为 `0.0000000000` credits；也就是只有当 `wallet.available_credits <= 0` 时才触发低余额告警，不额外引入“剩余 10%”或“剩余 N credits”之类的第二阈值
+- `BILL_LOW_BALANCE_THRESHOLD` 在当前批次固定为 `0.0000000000` credits；也就是只有当 `wallet.available_credits <= 0` 时才触发低余额告警，不额外引入“剩余 10%”或“剩余 N credits”之类的第二阈值
 - `GET /billing/overview` 的 `billing_alerts` 只冻结 3 类 code：
-  - `low_balance`：`severity=warning`，触发条件为 `available_credits <= BILLING_LOW_BALANCE_THRESHOLD`，`action_type=checkout_topup`
+  - `low_balance`：`severity=warning`，触发条件为 `available_credits <= BILL_LOW_BALANCE_THRESHOLD`，`action_type=checkout_topup`
   - `subscription_past_due`：`severity=error`，触发条件为订阅状态 `past_due`，`action_type=open_orders`
   - `subscription_cancel_scheduled`：`severity=info`，触发条件为 `cancel_at_period_end=1`，`action_type=resume_subscription`
 - `billing_alerts` 一律通过 `message_key + message_params` 渲染，不在接口里返回拼接好的自然语言；v1 固定使用：
@@ -937,8 +937,8 @@ v1 冻结低余额阈值、告警与错误码规则：
 | --- | --- | --- |
 | `billing.settle_usage` | 异步串行执行单条 usage 的积分扣减 | `creator_bid`, `usage_bid` |
 | `billing.run_renewal_event` | 执行一次续费排期事件 | `renewal_event_bid`, `subscription_bid`, `creator_bid` |
-| `billing.retry_failed_renewal` | 对失败续费进行重试 | `renewal_event_bid`, `billing_order_bid`, `provider_reference_id` |
-| `billing.reconcile_provider_reference` | 对账或补偿同步 provider 状态 | `payment_provider`, `provider_reference_id`, `billing_order_bid` |
+| `billing.retry_failed_renewal` | 对失败续费进行重试 | `renewal_event_bid`, `bill_order_bid`, `provider_reference_id` |
+| `billing.reconcile_provider_reference` | 对账或补偿同步 provider 状态 | `payment_provider`, `provider_reference_id`, `bill_order_bid` |
 | `billing.replay_usage_settlement` | 重放 usage 结算 | `creator_bid`, `usage_bid` 或 `usage_id_start/usage_id_end` |
 | `billing.expire_wallet_buckets` | 扫描到期余额桶并写入过期账本 | `creator_bid` 或批量扫描窗口 |
 | `billing.send_low_balance_alert` | 扫描并通知低余额 creator | `creator_bid` 或批量扫描窗口 |
@@ -992,19 +992,19 @@ v1 需要新增：
 
 ### 7.1 支付与订阅
 
-- `GET /billing/catalog` 读取 `billing_products`，但 API 返回仍按 `plans[]` / `topups[]` 投影
+- `GET /billing/catalog` 读取 `bill_products`，但 API 返回仍按 `plans[]` / `topups[]` 投影
 - `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
 - `POST /billing/topups/checkout` 只能购买 `product_type=topup`，且 creator 当前必须处于有效套餐周期内
 - public trial plan 不允许通过 creator 自助 checkout；只允许 post-auth bootstrap 以 `manual` provider 自动创建
-- `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
-- webhook 不单独落事件表；直接按 `billing_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
-- 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
+- `bill_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
+- webhook 不单独落事件表；直接按 `bill_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
+- 自动续费和失败重试由 `bill_renewal_events` 驱动，成功后生成新的 `bill_orders`
 - 当前批次 provider 能力矩阵固定为：
   - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、`refund_payment`、paid success grant
   - Pingxx：支持 `topup` checkout、`subscription_start` checkout、webhook、sync，以及通过本地 renewal order 继续支付；`refund_payment` 继续显式返回 `unsupported`
-- `POST /billing/orders/{billing_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
+- `POST /billing/orders/{bill_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
 - 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
-- 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `billing_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `billing_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
+- 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `bill_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `bill_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
 - 当前实现中，Stripe subscription `past_due` 会回填 `grace_period_end_at`，取消或退款后会取消待执行的 renewal event
 - 当前实现中，trial bootstrap 会创建一笔 `payment_provider='manual'`、金额为 `0` 的 `subscription_start` 订单和对应 subscription，并复用 paid-order grant helper 写入 wallet bucket、ledger 与 subscription 生命周期
 - 当前实现中，active 的非自动续费 subscription 只要存在 `current_period_end_at`，都会同步生成 `expire` renewal event；因此 manual trial 会在 15 天后进入 `expired`
@@ -1050,7 +1050,7 @@ v1 需要新增：
 ```ts
 interface BillingPaymentProviderAdapter {
   create_checkout(input: {
-    billing_order_bid: string;
+    bill_order_bid: string;
     creator_bid: string;
     product_bid: string;
     payment_provider: string;
@@ -1060,7 +1060,7 @@ interface BillingPaymentProviderAdapter {
   }): Promise<ProviderCheckoutResult>;
 
   create_recurring_subscription(input: {
-    billing_order_bid: string;
+    bill_order_bid: string;
     creator_bid: string;
     subscription_bid: string;
     product_bid: string;
@@ -1077,7 +1077,7 @@ interface BillingPaymentProviderAdapter {
   }): Promise<ProviderSubscriptionResult>;
 
   refund_payment(input: {
-    billing_order_bid: string;
+    bill_order_bid: string;
     provider_reference_id: string;
     amount?: number;
   }): Promise<ProviderRefundResult>;
@@ -1094,7 +1094,7 @@ interface BillingPaymentProviderAdapter {
 }
 ```
 
-- `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `billing_orders` / `billing_subscriptions`
+- `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `bill_orders` / `bill_subscriptions`
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
 - 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，但 provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
 
@@ -1209,8 +1209,8 @@ v1 前端方案：
 - 新增 `src/cook-web/src/app/payment/stripe/billing-result/page.tsx`
 - billing checkout 的 `success_url` / `cancel_url` 指向新的 billing result 页
 - billing result 页职责：
-  - 从 query 读取 `billing_order_bid` / `session_id`
-  - 先调用 `POST /billing/orders/{billing_order_bid}/sync`
+  - 从 query 读取 `bill_order_bid` / `session_id`
+  - 先调用 `POST /billing/orders/{bill_order_bid}/sync`
   - 必要时允许用户重试 sync，并在成功后回跳 `/admin/billing`
   - 成功后跳回 `/admin/billing`
   - 待支付或失败时展示明确状态和重试入口
@@ -1266,9 +1266,9 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `GET /billing/overview`
 - `GET /billing/wallet-buckets`
 - `GET /billing/ledger`
-- `POST /billing/orders/{billing_order_bid}/sync`
-- `POST /billing/orders/{billing_order_bid}/checkout`
-- `POST /billing/orders/{billing_order_bid}/refund`
+- `POST /billing/orders/{bill_order_bid}/sync`
+- `POST /billing/orders/{bill_order_bid}/checkout`
+- `POST /billing/orders/{bill_order_bid}/refund`
 - `POST /billing/subscriptions/checkout`
 - `POST /billing/subscriptions/cancel`
 - `POST /billing/subscriptions/resume`
@@ -1281,19 +1281,19 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 核心接口说明：
 
-- `GET /billing/catalog`：读取 `billing_products`，输出 `plans[]` 与 `topups[]`
+- `GET /billing/catalog`：读取 `bill_products`，输出 `plans[]` 与 `topups[]`
 - `GET /billing/overview`：返回 `wallet`、`subscription`、`billing_alerts`、`trial_offer`，同时支撑 sidebar 会员卡、Billing Center 顶部 summary 和免费试用卡片
 - `GET /billing/wallet-buckets`：按 creator 返回积分来源 bucket 列表，字段至少包括 `category`、`source_type`、`source_bid`、`available_credits`、`effective_from`、`effective_to`、`priority`、`status`，默认按实际扣减顺序排序
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
-- `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
-- `POST /billing/orders/{billing_order_bid}/checkout`：对已创建的待支付订单继续发起 provider checkout
-- `POST /billing/orders/{billing_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
+- `POST /billing/orders/{bill_order_bid}/sync`：按 `bill_order_bid` 和 provider reference 主动同步支付状态
+- `POST /billing/orders/{bill_order_bid}/checkout`：对已创建的待支付订单继续发起 provider checkout
+- `POST /billing/orders/{bill_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
 - `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性充值支付
-- checkout 接口统一返回 `billing_order_bid`、`provider`、`payment_mode`、`status`
+- checkout 接口统一返回 `bill_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 和 subscription order 都返回一次性 charge 所需 payload
-- `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `billing_orders`、推进 `billing_subscriptions`，把最近摘要覆盖写入关联 `billing_orders.metadata`，并更新关联 provider raw snapshot
+- `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `bill_orders`、推进 `bill_subscriptions`，把最近摘要覆盖写入关联 `bill_orders.metadata`，并更新关联 provider raw snapshot
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
 
@@ -1316,11 +1316,11 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 说明：
 
-- `BillingPlan` 和 `BillingTopupProduct` 是 `billing_products` 的展示层投影，不是底层独立表
-- `BillingTrialOffer` 也是 `billing_products` 的展示层投影，但只用于 overview 免费卡片，不进入自助购买 catalog
+- `BillingPlan` 和 `BillingTopupProduct` 是 `bill_products` 的展示层投影，不是底层独立表
+- `BillingTrialOffer` 也是 `bill_products` 的展示层投影，但只用于 overview 免费卡片，不进入自助购买 catalog
 - v1 的 `CreatorBillingOverview` 返回钱包、订阅、告警和 `trial_offer`
 - `BillingWalletBucket` 是 `credit_wallet_buckets` 的只读投影，不并入 `CreatorBillingOverview`
-- billing order DTO 如需暴露 provider 调试信息，优先读取 `billing_orders.metadata` 的最近一次摘要；更完整的 provider 原始对象从 `order_pingxx_orders` / `order_stripe_orders` 的 billing raw snapshot 查看，不设计 append-only 事件历史
+- billing order DTO 如需暴露 provider 调试信息，优先读取 `bill_orders.metadata` 的最近一次摘要；更完整的 provider 原始对象从 `order_pingxx_orders` / `order_stripe_orders` 的 billing raw snapshot 查看，不设计 append-only 事件历史
 - `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
 - `usage_type` / `usage_scene` 的数值来源于 `metering.consts`
 - billing 相关状态、类型、metric 的数值来源于未来的 `service/billing/consts.py`
@@ -1426,7 +1426,7 @@ type CreatorBillingOverview = {
 };
 
 type BillingCheckoutResult = {
-  billing_order_bid: string;
+  bill_order_bid: string;
   provider: 'stripe' | 'pingxx';
   payment_mode: 'subscription' | 'one_time';
   status: 'init' | 'pending' | 'paid' | 'failed' | 'unsupported';
@@ -1458,9 +1458,9 @@ type CreatorBrandingConfig = {
 - `/admin` 是否按 Figma `方案1` 浅色稿补齐会员卡和 `会员与积分` 导航
 - `/admin/billing` 三个 tab 是否能按真实接口加载和切换
 - `GET /billing/overview` 是否同时满足 sidebar 会员卡和 Billing Center summary
-- Stripe 套餐 checkout、Stripe topup checkout 成功后，`billing_orders`、`billing_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 是否同步更新
+- Stripe 套餐 checkout、Stripe topup checkout 成功后，`bill_orders`、`bill_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries` 是否同步更新
 - Pingxx topup 与 subscription_start / renewal order 是否可正常 checkout / sync / webhook，并保持周期推进与 grant 幂等
-- `POST /billing/orders/{billing_order_bid}/sync` 和 webhook 重复调用时，是否不会重复 grant 积分
+- `POST /billing/orders/{bill_order_bid}/sync` 和 webhook 重复调用时，是否不会重复 grant 积分
 - 继续复用 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 后，billing 分流和 legacy `/order` 支付回调是否都通过 route 级回归
 - `GET /billing/wallet-buckets`、`GET /billing/ledger`、`GET /billing/orders` 的排序、分页和 DTO 字段是否与前端类型一致
 - `/payment/stripe/billing-result` 是否先 sync 再回跳 `/admin/billing`
@@ -1477,7 +1477,7 @@ type CreatorBrandingConfig = {
 - LLM `input/cache/output` 三维扣分是否准确
 - TTS `按次` 与 `按字数` 两种 metric 是否准确
 - webhook 幂等、乱序到达、sync 补偿、防重复发放或重复扣分
-- 最近一次 provider 摘要是否只覆盖写入关联 `billing_orders.metadata`，同时同步更新 provider raw snapshot
+- 最近一次 provider 摘要是否只覆盖写入关联 `bill_orders.metadata`，同时同步更新 provider raw snapshot
 - 找不到关联订单的 webhook 是否按 ignore 处理且不落库存档
 - bucket 过期后是否停止参与 admission / settlement，并生成 `expire` ledger
 - `credit_wallets`、`credit_wallet_buckets` 与 `credit_ledger_entries` 三者是否保持一致

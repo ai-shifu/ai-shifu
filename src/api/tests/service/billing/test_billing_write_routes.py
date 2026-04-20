@@ -74,7 +74,7 @@ from flaskr.service.order.payment_providers import (
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -98,7 +98,7 @@ def _add_active_subscription(
             BillingSubscription(
                 subscription_bid=subscription_bid,
                 creator_bid=creator_bid,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id=f"provider-{subscription_bid}",
@@ -303,7 +303,7 @@ def billing_write_client(monkeypatch):
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
 
         with app.test_client() as client:
@@ -334,7 +334,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -363,7 +363,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
@@ -383,7 +383,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -433,7 +433,7 @@ class TestBillingWriteRoutes:
         with app.app_context():
             dao.db.session.add(
                 BillingProduct(
-                    product_bid="billing-product-plan-daily",
+                    product_bid="bill-product-plan-daily",
                     product_code="creator-plan-daily",
                     product_type=BILLING_PRODUCT_TYPE_PLAN,
                     billing_mode=BILLING_MODE_RECURRING,
@@ -461,7 +461,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-daily",
+                "product_bid": "bill-product-plan-daily",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -487,7 +487,7 @@ class TestBillingWriteRoutes:
                 BillingSubscription(
                     subscription_bid="sub-monthly-pro",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly-pro",
+                    product_bid="bill-product-plan-monthly-pro",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_monthly_pro",
@@ -506,7 +506,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -539,7 +539,7 @@ class TestBillingWriteRoutes:
                 BillingSubscription(
                     subscription_bid="sub-monthly",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_monthly",
@@ -558,7 +558,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly-pro",
+                "product_bid": "bill-product-plan-monthly-pro",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -582,7 +582,7 @@ class TestBillingWriteRoutes:
                 BillingSubscription(
                     subscription_bid="sub-active-monthly-pro",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly-pro",
+                    product_bid="bill-product-plan-monthly-pro",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_active_monthly_pro",
@@ -600,7 +600,7 @@ class TestBillingWriteRoutes:
                 BillingSubscription(
                     subscription_bid="sub-draft-newer",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
                     billing_provider="stripe",
                     provider_subscription_id="",
@@ -619,7 +619,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -662,7 +662,7 @@ class TestBillingWriteRoutes:
                     BillingSubscription(
                         subscription_bid="sub-paid-overlap-pro",
                         creator_bid="creator-1",
-                        product_bid="billing-product-plan-monthly-pro",
+                        product_bid="bill-product-plan-monthly-pro",
                         status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                         billing_provider="stripe",
                         provider_subscription_id="sub_provider_paid_overlap_pro",
@@ -682,7 +682,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
@@ -705,12 +705,12 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
         assert checkout["code"] == 0
         assert checkout["data"]["provider"] == "pingxx"
@@ -723,15 +723,13 @@ class TestBillingWriteRoutes:
         assert billing_write_client["pingxx_requests"][0]["body"] == "月套餐·轻量版"
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
             raw_order = PingxxOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
@@ -741,16 +739,14 @@ class TestBillingWriteRoutes:
             assert raw_order.order_bid == ""
             assert raw_order.creator_bid == "creator-1"
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["code"] == 0
         assert sync["data"]["status"] == "paid"
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
@@ -760,11 +756,11 @@ class TestBillingWriteRoutes:
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             raw_order = PingxxOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             renewal_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid=subscription.subscription_bid,
@@ -792,7 +788,7 @@ class TestBillingWriteRoutes:
             assert (
                 PingxxOrder.query.filter_by(
                     biz_domain="billing",
-                    billing_order_bid=billing_order_bid,
+                    bill_order_bid=bill_order_bid,
                 ).count()
                 == 1
             )
@@ -809,15 +805,15 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
         refreshed = client.post(
-            f"/api/billing/orders/{billing_order_bid}/checkout",
+            f"/api/billing/orders/{bill_order_bid}/checkout",
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
 
@@ -829,9 +825,7 @@ class TestBillingWriteRoutes:
             "https://pingxx.test/qr"
         )
         assert len(billing_write_client["pingxx_requests"]) == 2
-        assert (
-            billing_write_client["pingxx_requests"][1]["order_bid"] == billing_order_bid
-        )
+        assert billing_write_client["pingxx_requests"][1]["order_bid"] == bill_order_bid
         assert billing_write_client["pingxx_requests"][1]["subject"] == "月套餐·轻量版"
         assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
 
@@ -853,7 +847,7 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "pingxx",
                 "channel": "wx_pub_qr",
             },
@@ -864,7 +858,7 @@ class TestBillingWriteRoutes:
         assert request["channel"] == "wx_pub_qr"
         assert request["extra"]["app_id"] == "app_billing_test"
         assert request["extra"]["charge_extra"] == {
-            "product_id": "billing-product-plan-monthly"
+            "product_id": "bill-product-plan-monthly"
         }
 
     def test_topup_checkout_and_sync_mark_order_paid(
@@ -877,13 +871,13 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
             headers={"X-Language": "zh-CN"},
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
         assert checkout["data"]["status"] == "pending"
         assert checkout["data"]["payment_payload"]["credential"]["alipay_qr"] == (
@@ -892,28 +886,26 @@ class TestBillingWriteRoutes:
         assert billing_write_client["pingxx_requests"][0]["subject"] == "20 积分包"
         assert billing_write_client["pingxx_requests"][0]["body"] == "20 积分包"
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["code"] == 0
         assert sync["data"]["status"] == "paid"
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             raw_order = PingxxOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
             assert order.paid_at is not None
@@ -930,7 +922,7 @@ class TestBillingWriteRoutes:
             assert (
                 PingxxOrder.query.filter_by(
                     biz_domain="billing",
-                    billing_order_bid=billing_order_bid,
+                    bill_order_bid=bill_order_bid,
                 ).count()
                 == 1
             )
@@ -953,14 +945,14 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["code"] == 0
@@ -969,11 +961,11 @@ class TestBillingWriteRoutes:
         with app.app_context():
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             assert bucket.effective_to == current_period_end_at
             assert ledger.expires_at == current_period_end_at
@@ -991,18 +983,18 @@ class TestBillingWriteRoutes:
         paid_checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "pingxx",
             },
         ).get_json(force=True)
-        paid_order_bid = paid_checkout["data"]["billing_order_bid"]
+        paid_order_bid = paid_checkout["data"]["bill_order_bid"]
         paid_sync = client.post(f"/api/billing/orders/{paid_order_bid}/sync").get_json(
             force=True
         )
         with app.app_context():
             paid_subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
             ).one()
             paid_subscription.current_period_end_at = (
                 paid_subscription.current_period_start_at + timedelta(days=1)
@@ -1012,12 +1004,12 @@ class TestBillingWriteRoutes:
         topup_checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
-        topup_order_bid = topup_checkout["data"]["billing_order_bid"]
+        topup_order_bid = topup_checkout["data"]["bill_order_bid"]
         topup_sync = client.post(
             f"/api/billing/orders/{topup_order_bid}/sync"
         ).get_json(force=True)
@@ -1030,7 +1022,7 @@ class TestBillingWriteRoutes:
         with app.app_context():
             paid_subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
             ).one()
             trial_subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1",
@@ -1060,7 +1052,7 @@ class TestBillingWriteRoutes:
         )
         assert (
             overview["data"]["subscription"]["product_bid"]
-            == "billing-product-plan-monthly"
+            == "bill-product-plan-monthly"
         )
 
     def test_trial_then_topup_then_paid_realigns_existing_topup_expiry(
@@ -1081,12 +1073,12 @@ class TestBillingWriteRoutes:
         topup_checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
-        topup_order_bid = topup_checkout["data"]["billing_order_bid"]
+        topup_order_bid = topup_checkout["data"]["bill_order_bid"]
         topup_sync = client.post(
             f"/api/billing/orders/{topup_order_bid}/sync"
         ).get_json(force=True)
@@ -1108,7 +1100,7 @@ class TestBillingWriteRoutes:
         paid_checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": ("https://example.com/payment/stripe/billing-result"),
                 "cancel_url": (
@@ -1116,7 +1108,7 @@ class TestBillingWriteRoutes:
                 ),
             },
         ).get_json(force=True)
-        paid_order_bid = paid_checkout["data"]["billing_order_bid"]
+        paid_order_bid = paid_checkout["data"]["bill_order_bid"]
         paid_sync = client.post(f"/api/billing/orders/{paid_order_bid}/sync").get_json(
             force=True
         )
@@ -1126,7 +1118,7 @@ class TestBillingWriteRoutes:
         with app.app_context():
             paid_subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
             ).one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
@@ -1150,7 +1142,7 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
@@ -1202,7 +1194,7 @@ class TestBillingWriteRoutes:
                     BillingSubscription(
                         subscription_bid="sub-paid-repair",
                         creator_bid="creator-1",
-                        product_bid="billing-product-plan-monthly",
+                        product_bid="bill-product-plan-monthly",
                         status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                         billing_provider="stripe",
                         provider_subscription_id="sub_provider_repair",
@@ -1216,10 +1208,10 @@ class TestBillingWriteRoutes:
                         updated_at=now,
                     ),
                     BillingOrder(
-                        billing_order_bid="billing-topup-repair-1",
+                        bill_order_bid="bill-topup-repair-1",
                         creator_bid="creator-1",
                         order_type=BILLING_ORDER_TYPE_TOPUP,
-                        product_bid="billing-product-topup-small",
+                        product_bid="bill-product-topup-small",
                         subscription_bid="",
                         currency="CNY",
                         payable_amount=5000,
@@ -1239,7 +1231,7 @@ class TestBillingWriteRoutes:
                         creator_bid="creator-1",
                         bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
                         source_type=CREDIT_SOURCE_TYPE_TOPUP,
-                        source_bid="billing-topup-repair-1",
+                        source_bid="bill-topup-repair-1",
                         priority=30,
                         original_credits=Decimal("20.0000000000"),
                         available_credits=Decimal("20.0000000000"),
@@ -1249,7 +1241,7 @@ class TestBillingWriteRoutes:
                         effective_from=topup_paid_at,
                         effective_to=trial_end,
                         status=CREDIT_BUCKET_STATUS_ACTIVE,
-                        metadata_json={"billing_order_bid": "billing-topup-repair-1"},
+                        metadata_json={"bill_order_bid": "bill-topup-repair-1"},
                         created_at=topup_paid_at,
                         updated_at=topup_paid_at,
                     ),
@@ -1260,13 +1252,13 @@ class TestBillingWriteRoutes:
                         wallet_bucket_bid="bucket-topup-repair-1",
                         entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
                         source_type=CREDIT_SOURCE_TYPE_TOPUP,
-                        source_bid="billing-topup-repair-1",
-                        idempotency_key="grant:billing-topup-repair-1",
+                        source_bid="bill-topup-repair-1",
+                        idempotency_key="grant:bill-topup-repair-1",
                         amount=Decimal("20.0000000000"),
                         balance_after=Decimal("20.0000000000"),
                         expires_at=trial_end,
                         consumable_from=topup_paid_at,
-                        metadata_json={"billing_order_bid": "billing-topup-repair-1"},
+                        metadata_json={"bill_order_bid": "bill-topup-repair-1"},
                         created_at=topup_paid_at,
                         updated_at=topup_paid_at,
                     ),
@@ -1315,7 +1307,7 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
             },
         ).get_json(force=True)
 
@@ -1376,15 +1368,15 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["code"] == 0
@@ -1394,11 +1386,11 @@ class TestBillingWriteRoutes:
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             new_bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             raw_order = StripeOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             assert wallet.available_credits == Decimal("120.0000000000")
             assert wallet.reserved_credits == Decimal("0E-10")
@@ -1418,39 +1410,37 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/subscriptions/checkout",
             json={
-                "product_bid": "billing-product-plan-monthly",
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
                 "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["code"] == 0
         assert sync["data"]["status"] == "paid"
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             subscription = BillingSubscription.query.filter_by(
                 creator_bid="creator-1"
             ).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
-                source_bid=billing_order_bid,
+                source_bid=bill_order_bid,
             ).one()
             raw_order = StripeOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             renewal_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid=subscription.subscription_bid,
@@ -1471,7 +1461,7 @@ class TestBillingWriteRoutes:
             assert (
                 StripeOrder.query.filter_by(
                     biz_domain="billing",
-                    billing_order_bid=billing_order_bid,
+                    bill_order_bid=bill_order_bid,
                 ).count()
                 == 1
             )
@@ -1489,7 +1479,7 @@ class TestBillingWriteRoutes:
                 BillingSubscription(
                     subscription_bid="sub-active",
                     creator_bid="creator-1",
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_1",
@@ -1553,7 +1543,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-past-due",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id="sub_provider_retry",
@@ -1612,7 +1602,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-downgrade",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id="sub_provider_yearly",
@@ -1620,7 +1610,7 @@ class TestBillingWriteRoutes:
                 current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
                 current_period_end_at=datetime(2027, 1, 1, 0, 0, 0),
                 cancel_at_period_end=0,
-                next_product_bid="billing-product-plan-monthly",
+                next_product_bid="bill-product-plan-monthly",
                 metadata_json={},
                 created_at=datetime(2026, 1, 1, 0, 0, 0),
                 updated_at=datetime(2026, 1, 1, 0, 0, 0),
@@ -1662,7 +1652,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-upgrade",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id="sub_provider_upgrade",
@@ -1670,7 +1660,7 @@ class TestBillingWriteRoutes:
                 current_period_start_at=current_cycle_start,
                 current_period_end_at=current_cycle_end,
                 cancel_at_period_end=0,
-                next_product_bid="billing-product-plan-monthly",
+                next_product_bid="bill-product-plan-monthly",
                 metadata_json={},
                 created_at=current_cycle_start,
                 updated_at=current_cycle_start,
@@ -1681,7 +1671,7 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
                 source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-                source_bid="billing-start-1",
+                source_bid="bill-start-1",
                 priority=20,
                 original_credits=Decimal("5.0000000000"),
                 available_credits=Decimal("3.0000000000"),
@@ -1692,8 +1682,8 @@ class TestBillingWriteRoutes:
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
                 metadata_json={
-                    "billing_order_bid": "billing-start-1",
-                    "product_bid": "billing-product-plan-monthly",
+                    "bill_order_bid": "bill-start-1",
+                    "product_bid": "bill-product-plan-monthly",
                     "payment_provider": "stripe",
                 },
                 created_at=current_cycle_start,
@@ -1706,16 +1696,16 @@ class TestBillingWriteRoutes:
                 wallet_bucket_bid=existing_bucket.wallet_bucket_bid,
                 entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
                 source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-                source_bid="billing-start-1",
-                idempotency_key="grant:billing-start-1",
+                source_bid="bill-start-1",
+                idempotency_key="grant:bill-start-1",
                 amount=Decimal("5.0000000000"),
                 balance_after=Decimal("5.0000000000"),
                 expires_at=current_cycle_end,
                 consumable_from=current_cycle_start,
                 metadata_json={
-                    "billing_order_bid": "billing-start-1",
+                    "bill_order_bid": "bill-start-1",
                     "subscription_bid": "sub-upgrade",
-                    "product_bid": "billing-product-plan-monthly",
+                    "product_bid": "bill-product-plan-monthly",
                     "payment_provider": "stripe",
                     "grant_reason": "subscription",
                 },
@@ -1723,10 +1713,10 @@ class TestBillingWriteRoutes:
                 updated_at=current_cycle_start,
             )
             order = BillingOrder(
-                billing_order_bid="billing-upgrade-1",
+                bill_order_bid="billing-upgrade-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 subscription_bid="sub-upgrade",
                 currency="CNY",
                 payable_amount=99900,
@@ -1764,7 +1754,7 @@ class TestBillingWriteRoutes:
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
             ).one()
             assert granted is True
-            assert subscription.product_bid == "billing-product-plan-yearly"
+            assert subscription.product_bid == "bill-product-plan-yearly"
             assert subscription.next_product_bid == ""
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.cancel_at_period_end == 0
@@ -1785,7 +1775,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-renewal",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id="sub_provider_renewal",
@@ -1793,16 +1783,16 @@ class TestBillingWriteRoutes:
                 current_period_start_at=datetime(2026, 1, 1, 0, 0, 0),
                 current_period_end_at=datetime(2027, 1, 1, 0, 0, 0),
                 cancel_at_period_end=0,
-                next_product_bid="billing-product-plan-monthly",
+                next_product_bid="bill-product-plan-monthly",
                 metadata_json={},
                 created_at=datetime(2026, 1, 1, 0, 0, 0),
                 updated_at=datetime(2026, 1, 1, 0, 0, 0),
             )
             order = BillingOrder(
-                billing_order_bid="billing-renewal-1",
+                bill_order_bid="bill-renewal-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-renewal",
                 currency="CNY",
                 payable_amount=9900,
@@ -1826,7 +1816,7 @@ class TestBillingWriteRoutes:
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
             ).one()
             assert granted is True
-            assert subscription.product_bid == "billing-product-plan-monthly"
+            assert subscription.product_bid == "bill-product-plan-monthly"
             assert subscription.next_product_bid == ""
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
             assert renewal_event.scheduled_at == subscription.current_period_end_at
@@ -1843,7 +1833,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-pingxx-early-renewal",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="pingxx",
                 provider_subscription_id="",
@@ -1857,10 +1847,10 @@ class TestBillingWriteRoutes:
                 updated_at=current_cycle_start,
             )
             order = BillingOrder(
-                billing_order_bid="billing-pingxx-renewal-early-1",
+                bill_order_bid="bill-pingxx-renewal-early-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-pingxx-early-renewal",
                 currency="CNY",
                 payable_amount=9900,
@@ -1885,7 +1875,7 @@ class TestBillingWriteRoutes:
 
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid="billing-pingxx-renewal-early-1",
+                source_bid="bill-pingxx-renewal-early-1",
             ).one()
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-pingxx-early-renewal"
@@ -1910,7 +1900,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-pingxx-late-renewal",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_EXPIRED,
                 billing_provider="pingxx",
                 provider_subscription_id="",
@@ -1924,10 +1914,10 @@ class TestBillingWriteRoutes:
                 updated_at=datetime(2026, 6, 1, 0, 0, 0),
             )
             order = BillingOrder(
-                billing_order_bid="billing-pingxx-renewal-late-1",
+                bill_order_bid="bill-pingxx-renewal-late-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-pingxx-late-renewal",
                 currency="CNY",
                 payable_amount=9900,
@@ -1952,10 +1942,10 @@ class TestBillingWriteRoutes:
 
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid="billing-pingxx-renewal-late-1",
+                source_bid="bill-pingxx-renewal-late-1",
             ).one()
             order = BillingOrder.query.filter_by(
-                billing_order_bid="billing-pingxx-renewal-late-1"
+                bill_order_bid="bill-pingxx-renewal-late-1"
             ).one()
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-pingxx-late-renewal"
@@ -1985,7 +1975,7 @@ class TestBillingWriteRoutes:
             subscription = BillingSubscription(
                 subscription_bid="sub-pingxx-start-repair-1",
                 creator_bid="creator-1",
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
                 billing_provider="pingxx",
                 provider_subscription_id="",
@@ -1999,10 +1989,10 @@ class TestBillingWriteRoutes:
                 updated_at=paid_at,
             )
             order = BillingOrder(
-                billing_order_bid="billing-pingxx-start-repair-1",
+                bill_order_bid="bill-pingxx-start-repair-1",
                 creator_bid="creator-1",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                product_bid="billing-product-plan-monthly",
+                product_bid="bill-product-plan-monthly",
                 subscription_bid="sub-pingxx-start-repair-1",
                 currency="CNY",
                 payable_amount=990,
@@ -2029,11 +2019,11 @@ class TestBillingWriteRoutes:
             dao.db.session.commit()
 
             product = BillingProduct.query.filter_by(
-                product_bid="billing-product-plan-monthly"
+                product_bid="bill-product-plan-monthly"
             ).one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_bid="billing-pingxx-start-repair-1",
+                source_bid="bill-pingxx-start-repair-1",
             ).one()
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-pingxx-start-repair-1"
@@ -2060,20 +2050,20 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
                 "success_url": "https://example.com/payment/stripe/billing-result",
             },
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["data"]["status"] == "paid"
 
         refund = client.post(
-            f"/api/billing/orders/{billing_order_bid}/refund",
+            f"/api/billing/orders/{bill_order_bid}/refund",
             json={"reason": "requested_by_creator"},
         ).get_json(force=True)
 
@@ -2086,9 +2076,7 @@ class TestBillingWriteRoutes:
         )
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             refund_bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
@@ -2102,7 +2090,7 @@ class TestBillingWriteRoutes:
             ).one()
             raw_order = StripeOrder.query.filter_by(
                 biz_domain="billing",
-                billing_order_bid=billing_order_bid,
+                bill_order_bid=bill_order_bid,
             ).one()
             assert order.status == BILLING_ORDER_STATUS_REFUNDED
             assert order.refunded_at is not None
@@ -2110,7 +2098,7 @@ class TestBillingWriteRoutes:
             assert wallet.available_credits == 40
             assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
             assert refund_bucket.available_credits == 20
-            assert refund_bucket.metadata_json["billing_order_bid"] == billing_order_bid
+            assert refund_bucket.metadata_json["bill_order_bid"] == bill_order_bid
             assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
             assert refund_ledger.amount == 20
             assert raw_order.status == 2
@@ -2118,7 +2106,7 @@ class TestBillingWriteRoutes:
             assert (
                 StripeOrder.query.filter_by(
                     biz_domain="billing",
-                    billing_order_bid=billing_order_bid,
+                    bill_order_bid=bill_order_bid,
                 ).count()
                 == 1
             )
@@ -2133,20 +2121,20 @@ class TestBillingWriteRoutes:
         checkout = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
                 "channel": "alipay_qr",
             },
         ).get_json(force=True)
-        billing_order_bid = checkout["data"]["billing_order_bid"]
+        bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        sync = client.post(f"/api/billing/orders/{billing_order_bid}/sync").get_json(
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
             force=True
         )
         assert sync["data"]["status"] == "paid"
 
         refund = client.post(
-            f"/api/billing/orders/{billing_order_bid}/refund",
+            f"/api/billing/orders/{bill_order_bid}/refund",
         ).get_json(force=True)
 
         assert refund["code"] == 0
@@ -2154,9 +2142,7 @@ class TestBillingWriteRoutes:
         assert billing_write_client["refund_requests"] == []
 
         with app.app_context():
-            order = BillingOrder.query.filter_by(
-                billing_order_bid=billing_order_bid
-            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
 
     def test_write_routes_require_creator(self, billing_write_client) -> None:
@@ -2164,7 +2150,7 @@ class TestBillingWriteRoutes:
         response = client.post(
             "/api/billing/topups/checkout",
             json={
-                "product_bid": "billing-product-topup-small",
+                "product_bid": "bill-product-topup-small",
                 "payment_provider": "pingxx",
             },
             headers={"X-Creator": "0"},

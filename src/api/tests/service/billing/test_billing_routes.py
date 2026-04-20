@@ -68,7 +68,7 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -79,9 +79,9 @@ billing_routes_module = load_billing_routes_module()
 
 
 def _seed_products_with_yearly_entitlements():
-    return build_billing_products(
+    return build_bill_products(
         overrides_by_bid={
-            "billing-product-plan-yearly": {
+            "bill-product-plan-yearly": {
                 "entitlement_payload": {
                     "branding_enabled": True,
                     "custom_domain_enabled": True,
@@ -181,7 +181,7 @@ def billing_test_client():
         subscription = BillingSubscription(
             subscription_bid="sub-1",
             creator_bid="creator-1",
-            product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-monthly",
             status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
             billing_provider="stripe",
             provider_subscription_id="sub_stripe_1",
@@ -202,7 +202,7 @@ def billing_test_client():
             BillingSubscription(
                 subscription_bid="sub-creator-3",
                 creator_bid="creator-3",
-                product_bid="billing-product-plan-yearly",
+                product_bid="bill-product-plan-yearly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
                 billing_provider="stripe",
                 provider_subscription_id="sub_stripe_3",
@@ -401,10 +401,10 @@ def billing_test_client():
         dao.db.session.add_all(
             [
                 BillingOrder(
-                    billing_order_bid="order-1",
+                    bill_order_bid="order-1",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                    product_bid="billing-product-plan-monthly",
+                    product_bid="bill-product-plan-monthly",
                     subscription_bid="sub-1",
                     currency="CNY",
                     payable_amount=9900,
@@ -423,10 +423,10 @@ def billing_test_client():
                     updated_at=datetime(2026, 4, 5, 12, 5, 0),
                 ),
                 BillingOrder(
-                    billing_order_bid="order-2",
+                    bill_order_bid="order-2",
                     creator_bid="creator-1",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
-                    product_bid="billing-product-topup-small",
+                    product_bid="bill-product-topup-small",
                     subscription_bid="",
                     currency="CNY",
                     payable_amount=19900,
@@ -445,10 +445,10 @@ def billing_test_client():
                     updated_at=datetime(2026, 4, 6, 11, 5, 0),
                 ),
                 BillingOrder(
-                    billing_order_bid="order-other",
+                    bill_order_bid="order-other",
                     creator_bid="creator-2",
                     order_type=BILLING_ORDER_TYPE_TOPUP,
-                    product_bid="billing-product-topup-large",
+                    product_bid="bill-product-topup-large",
                     subscription_bid="",
                     currency="CNY",
                     payable_amount=69900,
@@ -609,11 +609,11 @@ class TestBillingRoutes:
         } in payload["data"]["creator_routes"]
         assert {
             "method": "POST",
-            "path": "/api/billing/orders/{billing_order_bid}/sync",
+            "path": "/api/billing/orders/{bill_order_bid}/sync",
         } in payload["data"]["creator_routes"]
         assert {
             "method": "POST",
-            "path": "/api/billing/orders/{billing_order_bid}/checkout",
+            "path": "/api/billing/orders/{bill_order_bid}/checkout",
         } in payload["data"]["creator_routes"]
         assert {
             "method": "GET",
@@ -652,14 +652,14 @@ class TestBillingRoutes:
         topup_map = {
             item["product_bid"]: item for item in catalog_payload["data"]["topups"]
         }
-        assert plan_map["billing-product-plan-monthly-pro"]["status_badge_key"] == (
+        assert plan_map["bill-product-plan-monthly-pro"]["status_badge_key"] == (
             "module.billing.catalog.badges.recommended"
         )
         assert (
-            plan_map["billing-product-plan-yearly-premium"]["status_badge_key"]
+            plan_map["bill-product-plan-yearly-premium"]["status_badge_key"]
             == "module.billing.catalog.badges.bestValue"
         )
-        assert topup_map["billing-product-topup-xlarge"]["status_badge_key"] == (
+        assert topup_map["bill-product-topup-xlarge"]["status_badge_key"] == (
             "module.billing.catalog.badges.bestValue"
         )
 
@@ -674,7 +674,7 @@ class TestBillingRoutes:
         assert overview_payload["data"]["trial_offer"] == {
             "enabled": True,
             "status": "ineligible",
-            "product_bid": "billing-product-plan-trial",
+            "product_bid": "bill-product-plan-trial",
             "product_code": "creator-plan-trial",
             "display_name": "module.billing.package.free.title",
             "description": "module.billing.package.free.description",
@@ -711,7 +711,7 @@ class TestBillingRoutes:
         with app.app_context():
             dao.db.session.add(
                 BillingProduct(
-                    product_bid="billing-product-plan-daily",
+                    product_bid="bill-product-plan-daily",
                     product_code="creator-plan-daily",
                     product_type=BILLING_PRODUCT_TYPE_PLAN,
                     billing_mode=BILLING_MODE_RECURRING,
@@ -745,7 +745,7 @@ class TestBillingRoutes:
         daily_plan = next(
             item
             for item in payload["data"]["plans"]
-            if item["product_bid"] == "billing-product-plan-daily"
+            if item["product_bid"] == "bill-product-plan-daily"
         )
 
         assert daily_plan["billing_interval"] == "day"
@@ -904,7 +904,7 @@ class TestBillingRoutes:
             "source_kind": "product_payload",
             "source_type": "subscription",
             "source_bid": "sub-creator-3",
-            "product_bid": "billing-product-plan-yearly",
+            "product_bid": "bill-product-plan-yearly",
             "branding_enabled": True,
             "custom_domain_enabled": True,
             "priority_class": "vip",

@@ -410,7 +410,7 @@ def test_aggregate_daily_usage_metrics_quantizes_consumed_credits_with_configure
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
-        lambda key, default=None: 2 if key == "BILLING_CREDIT_PRECISION" else default,
+        lambda key, default=None: 2 if key == "BILL_CREDIT_PRECISION" else default,
     )
 
     with billing_daily_usage_app.app_context():

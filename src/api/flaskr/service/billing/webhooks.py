@@ -62,7 +62,7 @@ class BillingWebhookResult:
     message: str | None = None
     matched: bool | None = None
     event_type: str | None = None
-    billing_order_bid: str | None = None
+    bill_order_bid: str | None = None
     subscription_bid: str | None = None
     charge_id: str | None = None
     order_no: str | None = None
@@ -71,7 +71,7 @@ class BillingWebhookResult:
         payload = {
             "status": self.status,
             "event_type": self.event_type,
-            "billing_order_bid": self.billing_order_bid,
+            "bill_order_bid": self.bill_order_bid,
             "subscription_bid": self.subscription_bid,
             "matched": self.matched,
             "charge_id": self.charge_id,
@@ -124,15 +124,15 @@ def apply_billing_stripe_notification(
     event_type = str(notification.status or event.get("type") or "")
     data_object = event.get("data", {}).get("object", {}) or {}
     metadata = data_object.get("metadata", {}) or {}
-    billing_order_bid = _normalize_bid(
-        metadata.get("billing_order_bid")
+    bill_order_bid = _normalize_bid(
+        metadata.get("bill_order_bid")
         or notification.order_bid
         or metadata.get("order_bid")
     )
 
     with app.app_context():
         order = _load_billing_order_for_stripe_event(
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             data_object=data_object,
         )
         subscription = _load_billing_subscription_for_stripe_event(
@@ -153,14 +153,14 @@ def apply_billing_stripe_notification(
 
         if order is None and subscription is None:
             app.logger.warning(
-                "Billing Stripe webhook ignored. event_type=%s billing_order_bid=%s",
+                "Billing Stripe webhook ignored. event_type=%s bill_order_bid=%s",
                 event_type,
-                billing_order_bid,
+                bill_order_bid,
             )
             return BillingWebhookResult(
                 status="ignored",
                 event_type=event_type,
-                billing_order_bid=billing_order_bid or None,
+                bill_order_bid=bill_order_bid or None,
                 status_code=202,
             )
 
@@ -274,12 +274,12 @@ def apply_billing_stripe_notification(
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
                 app,
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
             )
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
-            billing_order_bid=order.billing_order_bid if order else None,
+            bill_order_bid=order.bill_order_bid if order else None,
             subscription_bid=subscription.subscription_bid if subscription else None,
             status_code=200,
         )
@@ -355,7 +355,7 @@ def handle_billing_pingxx_webhook(
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
                 app,
-                billing_order_bid=order.billing_order_bid,
+                bill_order_bid=order.bill_order_bid,
             )
         return BillingWebhookResult(
             status="paid"
@@ -363,6 +363,6 @@ def handle_billing_pingxx_webhook(
             else "acknowledged",
             matched=True,
             event_type=event_type or None,
-            billing_order_bid=order.billing_order_bid,
+            bill_order_bid=order.bill_order_bid,
             status_code=200,
         )

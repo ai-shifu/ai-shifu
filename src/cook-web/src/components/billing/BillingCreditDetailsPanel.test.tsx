@@ -44,7 +44,7 @@ describe('BillingCreditDetailsPanel', () => {
         trial_offer: {
           enabled: true,
           status: 'ineligible',
-          product_bid: 'billing-product-plan-trial',
+          product_bid: 'bill-product-plan-trial',
           product_code: 'creator-plan-trial',
           display_name: 'module.billing.package.free.title',
           description: 'module.billing.package.free.description',

@@ -56,7 +56,7 @@ describe('StripeBillingResultPage', () => {
 
   test('syncs the billing order and redirects to billing center on success', async () => {
     jest.useFakeTimers();
-    mockSearchParams.set('billing_order_bid', 'billing-order-1');
+    mockSearchParams.set('bill_order_bid', 'bill-order-1');
     mockSearchParams.set('session_id', 'sess-1');
     mockRequestPost.mockResolvedValue({ status: 'paid' });
 
@@ -64,7 +64,7 @@ describe('StripeBillingResultPage', () => {
 
     await waitFor(() => {
       expect(mockRequestPost).toHaveBeenCalledWith(
-        '/api/billing/orders/billing-order-1/sync',
+        '/api/billing/orders/bill-order-1/sync',
         {
           session_id: 'sess-1',
         },
@@ -96,7 +96,7 @@ describe('StripeBillingResultPage', () => {
   });
 
   test('allows retry when sync returns pending', async () => {
-    mockSearchParams.set('billing_order_bid', 'billing-order-2');
+    mockSearchParams.set('bill_order_bid', 'bill-order-2');
     mockRequestPost.mockResolvedValue({ status: 'pending' });
 
     render(<StripeBillingResultPage />);

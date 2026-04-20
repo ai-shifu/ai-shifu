@@ -39,7 +39,7 @@ def billing_pingxx_snapshot_query():
 
 def upsert_billing_stripe_snapshot(
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     creator_bid: str,
     amount: int,
     currency: str,
@@ -55,15 +55,15 @@ def upsert_billing_stripe_snapshot(
 ) -> StripeOrder:
     snapshot = (
         billing_stripe_snapshot_query()
-        .filter(StripeOrder.billing_order_bid == billing_order_bid)
+        .filter(StripeOrder.bill_order_bid == bill_order_bid)
         .order_by(StripeOrder.id.desc())
         .first()
     )
     if snapshot is None:
         snapshot = StripeOrder(
-            stripe_order_bid=billing_order_bid,
+            stripe_order_bid=bill_order_bid,
             biz_domain=RAW_BIZ_DOMAIN_BILLING,
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             creator_bid=creator_bid,
             user_bid="",
             shifu_bid="",
@@ -74,8 +74,8 @@ def upsert_billing_stripe_snapshot(
         )
 
     snapshot.biz_domain = RAW_BIZ_DOMAIN_BILLING
-    snapshot.stripe_order_bid = billing_order_bid
-    snapshot.billing_order_bid = billing_order_bid
+    snapshot.stripe_order_bid = bill_order_bid
+    snapshot.bill_order_bid = bill_order_bid
     snapshot.creator_bid = creator_bid
     snapshot.order_bid = ""
     snapshot.user_bid = ""
@@ -126,7 +126,7 @@ def upsert_billing_stripe_snapshot(
 
 def upsert_billing_pingxx_snapshot(
     *,
-    billing_order_bid: str,
+    bill_order_bid: str,
     creator_bid: str,
     amount: int,
     currency: str,
@@ -143,15 +143,15 @@ def upsert_billing_pingxx_snapshot(
 ) -> PingxxOrder:
     snapshot = (
         billing_pingxx_snapshot_query()
-        .filter(PingxxOrder.billing_order_bid == billing_order_bid)
+        .filter(PingxxOrder.bill_order_bid == bill_order_bid)
         .order_by(PingxxOrder.id.desc())
         .first()
     )
     if snapshot is None:
         snapshot = PingxxOrder(
-            pingxx_order_bid=billing_order_bid,
+            pingxx_order_bid=bill_order_bid,
             biz_domain=RAW_BIZ_DOMAIN_BILLING,
-            billing_order_bid=billing_order_bid,
+            bill_order_bid=bill_order_bid,
             creator_bid=creator_bid,
             user_bid="",
             shifu_bid="",
@@ -162,8 +162,8 @@ def upsert_billing_pingxx_snapshot(
 
     payload_charge_id = _extract_object_id(charge_object, prefix="ch_")
     snapshot.biz_domain = RAW_BIZ_DOMAIN_BILLING
-    snapshot.pingxx_order_bid = billing_order_bid
-    snapshot.billing_order_bid = billing_order_bid
+    snapshot.pingxx_order_bid = bill_order_bid
+    snapshot.bill_order_bid = bill_order_bid
     snapshot.creator_bid = creator_bid
     snapshot.order_bid = ""
     snapshot.user_bid = ""
@@ -176,7 +176,7 @@ def upsert_billing_pingxx_snapshot(
         transaction_no
         or _extract_order_no(charge_object)
         or snapshot.transaction_no
-        or billing_order_bid
+        or bill_order_bid
     )
     snapshot.app_id = app_id or _extract_pingxx_app_id(charge_object) or snapshot.app_id
     snapshot.channel = (

@@ -112,7 +112,7 @@ class CreditGrantContext:
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairRecord:
     wallet_bucket_bid: str
-    billing_order_bid: str | None
+    bill_order_bid: str | None
     previous_effective_to: datetime | None
     effective_to: datetime
     ledger_bids: tuple[str, ...] = ()
@@ -120,7 +120,7 @@ class TopupExpiryRepairRecord:
     def to_payload(self) -> dict[str, Any]:
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
-            "billing_order_bid": self.billing_order_bid,
+            "bill_order_bid": self.bill_order_bid,
             "previous_effective_to": self.previous_effective_to,
             "effective_to": self.effective_to,
             "ledger_bids": list(self.ledger_bids),
@@ -156,7 +156,7 @@ class TopupExpiryRepairResult:
 class SubscriptionCycleRepairRecord:
     subscription_bid: str
     creator_bid: str
-    billing_order_bid: str | None
+    bill_order_bid: str | None
     wallet_bucket_bid: str | None
     previous_current_period_start_at: datetime | None
     previous_current_period_end_at: datetime | None
@@ -168,7 +168,7 @@ class SubscriptionCycleRepairRecord:
         return {
             "subscription_bid": self.subscription_bid,
             "creator_bid": self.creator_bid,
-            "billing_order_bid": self.billing_order_bid,
+            "bill_order_bid": self.bill_order_bid,
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "previous_current_period_start_at": self.previous_current_period_start_at,
             "previous_current_period_end_at": self.previous_current_period_end_at,
@@ -207,7 +207,7 @@ class SubscriptionCycleRepairResult:
 class _SubscriptionCycleEvidence:
     effective_from: datetime | None
     effective_to: datetime | None
-    billing_order_bid: str | None
+    bill_order_bid: str | None
     wallet_bucket_bid: str | None
     reason: str
     is_current_window: bool = False
@@ -474,7 +474,7 @@ def ensure_subscription_renewal_order(
 
     if order is None:
         order = BillingOrder(
-            billing_order_bid=generate_id(app),
+            bill_order_bid=generate_id(app),
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=product.product_bid,
@@ -785,7 +785,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     if amount <= 0:
         return False
 
-    idempotency_key = f"grant:{order.billing_order_bid}"
+    idempotency_key = f"grant:{order.bill_order_bid}"
     existing_entry = (
         CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
@@ -816,7 +816,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         creator_bid=order.creator_bid,
         bucket_category=grant_context.bucket_category,
         source_type=grant_context.source_type,
-        source_bid=order.billing_order_bid,
+        source_bid=order.bill_order_bid,
         priority=grant_context.priority,
         original_credits=amount,
         available_credits=amount,
@@ -828,7 +828,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         status=CREDIT_BUCKET_STATUS_ACTIVE,
         metadata_json=_normalize_json_object(
             {
-                "billing_order_bid": order.billing_order_bid,
+                "bill_order_bid": order.bill_order_bid,
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
             }
@@ -849,7 +849,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         wallet_bucket_bid=bucket.wallet_bucket_bid,
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
         source_type=grant_context.source_type,
-        source_bid=order.billing_order_bid,
+        source_bid=order.bill_order_bid,
         idempotency_key=idempotency_key,
         amount=amount,
         balance_after=balance_after,
@@ -857,7 +857,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         consumable_from=effective_from,
         metadata_json=_normalize_json_object(
             {
-                "billing_order_bid": order.billing_order_bid,
+                "bill_order_bid": order.bill_order_bid,
                 "subscription_bid": order.subscription_bid or None,
                 "product_bid": order.product_bid,
                 "payment_provider": order.payment_provider,
@@ -1055,7 +1055,7 @@ def repair_topup_grant_expiries(
                 BillingOrder.query.filter(
                     BillingOrder.deleted == 0,
                     BillingOrder.creator_bid == normalized_creator_bid,
-                    BillingOrder.billing_order_bid == _normalize_bid(bucket.source_bid),
+                    BillingOrder.bill_order_bid == _normalize_bid(bucket.source_bid),
                     BillingOrder.order_type == BILLING_ORDER_TYPE_TOPUP,
                 )
                 .order_by(BillingOrder.id.desc())
@@ -1082,7 +1082,7 @@ def repair_topup_grant_expiries(
                 BillingOrder.query.filter(
                     BillingOrder.deleted == 0,
                     BillingOrder.creator_bid == normalized_creator_bid,
-                    BillingOrder.billing_order_bid == _normalize_bid(bucket.source_bid),
+                    BillingOrder.bill_order_bid == _normalize_bid(bucket.source_bid),
                     BillingOrder.order_type == BILLING_ORDER_TYPE_TOPUP,
                 )
                 .order_by(BillingOrder.id.desc())
@@ -1128,9 +1128,7 @@ def repair_topup_grant_expiries(
             repaired_records.append(
                 TopupExpiryRepairRecord(
                     wallet_bucket_bid=bucket.wallet_bucket_bid,
-                    billing_order_bid=order.billing_order_bid
-                    if order is not None
-                    else None,
+                    bill_order_bid=order.bill_order_bid if order is not None else None,
                     previous_effective_to=previous_effective_to,
                     effective_to=expected_effective_to,
                     ledger_bids=tuple(updated_ledger_bids),
@@ -1236,7 +1234,7 @@ def repair_subscription_cycle_mismatches(
                 SubscriptionCycleRepairRecord(
                     subscription_bid=subscription.subscription_bid,
                     creator_bid=subscription.creator_bid,
-                    billing_order_bid=evidence.billing_order_bid,
+                    bill_order_bid=evidence.bill_order_bid,
                     wallet_bucket_bid=evidence.wallet_bucket_bid,
                     previous_current_period_start_at=current_start_at,
                     previous_current_period_end_at=current_end_at,
@@ -1292,9 +1290,9 @@ def _select_subscription_cycle_repair_evidence(
         return None
 
     order_map = {
-        order.billing_order_bid: order
+        order.bill_order_bid: order
         for order in paid_orders
-        if str(order.billing_order_bid or "").strip()
+        if str(order.bill_order_bid or "").strip()
     }
     if order_map:
         grant_buckets = (
@@ -1324,7 +1322,7 @@ def _select_subscription_cycle_repair_evidence(
             return _SubscriptionCycleEvidence(
                 effective_from=bucket.effective_from,
                 effective_to=bucket.effective_to,
-                billing_order_bid=bucket.source_bid or None,
+                bill_order_bid=bucket.source_bid or None,
                 wallet_bucket_bid=bucket.wallet_bucket_bid,
                 reason="current_subscription_bucket",
                 is_current_window=True,
@@ -1333,7 +1331,7 @@ def _select_subscription_cycle_repair_evidence(
             return _SubscriptionCycleEvidence(
                 effective_from=bucket.effective_from,
                 effective_to=bucket.effective_to,
-                billing_order_bid=bucket.source_bid or None,
+                bill_order_bid=bucket.source_bid or None,
                 wallet_bucket_bid=bucket.wallet_bucket_bid,
                 reason="latest_subscription_bucket",
                 is_current_window=False,
@@ -1358,7 +1356,7 @@ def _select_subscription_cycle_repair_evidence(
     return _SubscriptionCycleEvidence(
         effective_from=effective_from,
         effective_to=effective_to,
-        billing_order_bid=latest_paid_order.billing_order_bid,
+        bill_order_bid=latest_paid_order.bill_order_bid,
         wallet_bucket_bid=None,
         reason="latest_paid_subscription_order",
         is_current_window=(effective_from is None or effective_from <= as_of)

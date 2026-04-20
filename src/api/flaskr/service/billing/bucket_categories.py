@@ -134,11 +134,11 @@ def build_wallet_bucket_runtime_sort_key(
     )
 
 
-def load_billing_order_type_by_bid(billing_order_bid: str) -> int | None:
+def load_billing_order_type_by_bid(bill_order_bid: str) -> int | None:
     order = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
-            BillingOrder.billing_order_bid == str(billing_order_bid or "").strip(),
+            BillingOrder.bill_order_bid == str(bill_order_bid or "").strip(),
         )
         .order_by(BillingOrder.id.desc())
         .first()
@@ -195,9 +195,9 @@ def _resolve_origin_order_type(
     load_order_type: OrderTypeLoader | None = None,
 ) -> int | None:
     metadata_map = _normalize_json_object(metadata)
-    billing_order_bid = _normalize_bid(metadata_map.get("billing_order_bid"))
-    if billing_order_bid and load_order_type is not None:
-        resolved_order_type = load_order_type(billing_order_bid)
+    bill_order_bid = _normalize_bid(metadata_map.get("bill_order_bid"))
+    if bill_order_bid and load_order_type is not None:
+        resolved_order_type = load_order_type(bill_order_bid)
         if resolved_order_type is not None:
             return int(resolved_order_type)
 

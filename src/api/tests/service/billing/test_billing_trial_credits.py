@@ -34,7 +34,7 @@ from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.common.models import AppException
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import load_register_billing_routes
 
 register_billing_routes = load_register_billing_routes()
@@ -87,7 +87,7 @@ def trial_billing_client():
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
 
     return app.test_client()
@@ -167,13 +167,13 @@ def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once
 
         assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
         assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
-        assert bucket.source_bid == order.billing_order_bid
+        assert bucket.source_bid == order.bill_order_bid
         assert bucket.available_credits == Decimal("100.0000000000")
 
         assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
         assert ledger.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
-        assert ledger.source_bid == order.billing_order_bid
-        assert ledger.idempotency_key == f"grant:{order.billing_order_bid}"
+        assert ledger.source_bid == order.bill_order_bid
+        assert ledger.idempotency_key == f"grant:{order.bill_order_bid}"
 
         assert order.product_bid == BILLING_TRIAL_PRODUCT_BID
         assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
@@ -364,7 +364,7 @@ def test_trial_welcome_ack_route_falls_back_to_order_metadata(
         paid_at = datetime(2026, 4, 9, 12, 0, 0)
         dao.db.session.add(
             BillingOrder(
-                billing_order_bid="billing-trial-order-only",
+                bill_order_bid="bill-trial-order-only",
                 creator_bid="creator-trial",
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 product_bid=BILLING_TRIAL_PRODUCT_BID,
@@ -393,7 +393,7 @@ def test_trial_welcome_ack_route_falls_back_to_order_metadata(
     with app.app_context():
         order = BillingOrder.query.filter_by(
             creator_bid="creator-trial",
-            billing_order_bid="billing-trial-order-only",
+            bill_order_bid="bill-trial-order-only",
         ).one()
         assert order.metadata_json["welcome_trial_dialog_acknowledged_at"] is not None
 

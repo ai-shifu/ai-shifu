@@ -41,7 +41,7 @@ def test_credit_schema_models_define_wallet_ledger_rate_and_renewal_tables() -> 
     assert rate_table.c["credits_per_unit"].type.precision == 20
     assert rate_table.c["credits_per_unit"].type.scale == 10
 
-    assert BillingRenewalEvent.__tablename__ == "billing_renewal_events"
+    assert BillingRenewalEvent.__tablename__ == "bill_renewal_events"
     assert "renewal_event_bid" in renewal_table.c
     assert "event_type" in renewal_table.c
     assert "scheduled_at" in renewal_table.c
@@ -54,8 +54,8 @@ def test_billing_rate_and_renewal_migration_creates_missing_schema_tables() -> N
 
     assert 'revision = "b114d7f5e2c1"' in source
     assert 'op.create_table(\n        "credit_usage_rates",' in source
-    assert 'op.create_table(\n        "billing_renewal_events",' in source
+    assert 'op.create_table(\n        "bill_renewal_events",' in source
     assert "sa.Numeric(precision=20, scale=10)" in source
     assert "ix_credit_usage_rates_lookup" in source
-    assert "ix_billing_renewal_events_status_scheduled" in source
-    assert "ix_billing_renewal_events_subscription_event_scheduled" in source
+    assert "ix_bill_renewal_events_status_scheduled" in source
+    assert "ix_bill_renewal_events_subscription_event_scheduled" in source

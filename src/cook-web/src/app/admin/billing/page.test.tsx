@@ -153,7 +153,7 @@ describe('AdminBillingPage', () => {
     mockGetBillingCatalog.mockResolvedValue({
       plans: [
         {
-          product_bid: 'billing-product-plan-monthly',
+          product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           product_type: 'plan',
           display_name: 'module.billing.catalog.plans.creatorMonthly.title',
@@ -167,7 +167,7 @@ describe('AdminBillingPage', () => {
           auto_renew_enabled: true,
         },
         {
-          product_bid: 'billing-product-plan-yearly',
+          product_bid: 'bill-product-plan-yearly',
           product_code: 'creator-plan-yearly',
           product_type: 'plan',
           display_name: 'module.billing.catalog.plans.creatorYearly.title',
@@ -182,7 +182,7 @@ describe('AdminBillingPage', () => {
       ],
       topups: [
         {
-          product_bid: 'billing-product-topup-small',
+          product_bid: 'bill-product-topup-small',
           product_code: 'creator-topup-small',
           product_type: 'topup',
           display_name: 'module.billing.catalog.topups.creatorSmall.title',
@@ -258,7 +258,7 @@ describe('AdminBillingPage', () => {
         trial_offer: {
           enabled: true,
           status: 'ineligible',
-          product_bid: 'billing-product-plan-trial',
+          product_bid: 'bill-product-plan-trial',
           product_code: 'creator-plan-trial',
           display_name: 'module.billing.package.free.title',
           description: 'module.billing.package.free.description',
@@ -340,7 +340,7 @@ describe('AdminBillingPage', () => {
         },
         subscription: {
           subscription_bid: 'sub-1',
-          product_bid: 'billing-product-plan-monthly',
+          product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           status: 'past_due',
           billing_provider: 'stripe',
@@ -366,7 +366,7 @@ describe('AdminBillingPage', () => {
         trial_offer: {
           enabled: true,
           status: 'ineligible',
-          product_bid: 'billing-product-plan-trial',
+          product_bid: 'bill-product-plan-trial',
           product_code: 'creator-plan-trial',
           display_name: 'module.billing.package.free.title',
           description: 'module.billing.package.free.description',

@@ -69,9 +69,9 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         user_visible=True,
         default_enabled=True,
         route_entries=(
-            ("POST", "/orders/{billing_order_bid}/sync"),
-            ("POST", "/orders/{billing_order_bid}/checkout"),
-            ("POST", "/orders/{billing_order_bid}/refund"),
+            ("POST", "/orders/{bill_order_bid}/sync"),
+            ("POST", "/orders/{bill_order_bid}/checkout"),
+            ("POST", "/orders/{bill_order_bid}/refund"),
             ("POST", "/topups/checkout"),
         ),
         notes=("Creator sync, refund, and topup flows stay enabled.",),
@@ -150,7 +150,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="ops",
         user_visible=False,
         default_enabled=True,
-        config_entries=("BILLING_ENABLED",),
+        config_entries=("BILL_ENABLED",),
         notes=("The billing feature flag seed defaults to enabled.",),
     ),
     BillingCapabilityDefinition(
@@ -159,7 +159,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         audience="ops",
         user_visible=False,
         default_enabled=False,
-        config_entries=("BILLING_RENEWAL_TASK_CONFIG.enabled",),
+        config_entries=("BILL_RENEWAL_TASK_CONFIG.enabled",),
         notes=("Renewal background execution seed defaults to disabled.",),
     ),
     BillingCapabilityDefinition(

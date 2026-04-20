@@ -342,14 +342,14 @@ def _set_trial_welcome_acknowledged_at(
 def _build_trial_subscription_bid(creator_bid: str) -> str:
     return uuid.uuid5(
         uuid.NAMESPACE_DNS,
-        f"billing-trial-subscription:{creator_bid}",
+        f"bill-trial-subscription:{creator_bid}",
     ).hex
 
 
 def _build_trial_order_bid(creator_bid: str) -> str:
     return uuid.uuid5(
         uuid.NAMESPACE_DNS,
-        f"billing-trial-order:{creator_bid}",
+        f"bill-trial-order:{creator_bid}",
     ).hex
 
 
@@ -415,7 +415,7 @@ def _bootstrap_trial_subscription(
         metadata_json=subscription_metadata,
     )
     order = BillingOrder(
-        billing_order_bid=_build_trial_order_bid(creator_bid),
+        bill_order_bid=_build_trial_order_bid(creator_bid),
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid=product_bid,

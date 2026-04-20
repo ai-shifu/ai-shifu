@@ -332,7 +332,7 @@ export type CreatorBillingOverview = {
 };
 
 export type BillingOrderSummary = {
-  billing_order_bid: string;
+  bill_order_bid: string;
   creator_bid: string;
   product_bid: string;
   subscription_bid: string | null;
@@ -350,7 +350,7 @@ export type BillingOrderSummary = {
 };
 
 export type BillingCheckoutResult = {
-  billing_order_bid: string;
+  bill_order_bid: string;
   provider: BillingProvider;
   payment_mode: BillingPaymentMode;
   status: 'init' | 'pending' | 'paid' | 'failed' | 'unsupported';
@@ -360,7 +360,7 @@ export type BillingCheckoutResult = {
 };
 
 export type BillingSyncResult = {
-  billing_order_bid: string;
+  bill_order_bid: string;
   status: BillingOrderStatus;
 };
 

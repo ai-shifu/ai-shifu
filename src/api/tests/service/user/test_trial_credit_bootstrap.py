@@ -36,7 +36,7 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.token_store import token_store
 from flaskr.service.user.utils import generate_token
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
 _API_ROOT = Path(__file__).resolve().parents[3]
@@ -139,7 +139,7 @@ def user_trial_client(monkeypatch, tmp_path):
 
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
 
     return app.test_client()

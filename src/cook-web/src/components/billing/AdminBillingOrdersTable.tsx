@@ -119,7 +119,7 @@ export function AdminBillingOrdersTable() {
                   </TableEmpty>
                 ) : (
                   items.map(item => (
-                    <TableRow key={item.billing_order_bid}>
+                    <TableRow key={item.bill_order_bid}>
                       <TableCell className='min-w-[180px]'>
                         <div className='space-y-1'>
                           <div className='flex items-center gap-2'>
@@ -136,7 +136,7 @@ export function AdminBillingOrdersTable() {
                             ) : null}
                           </div>
                           <div className='text-xs text-slate-500'>
-                            {item.billing_order_bid}
+                            {item.bill_order_bid}
                           </div>
                         </div>
                       </TableCell>

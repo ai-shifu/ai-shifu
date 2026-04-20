@@ -738,16 +738,16 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
         creator_bid="",
         payment_provider="",
         provider_reference_id="",
-        billing_order_bid="",
+        bill_order_bid="",
         session_id="",
     ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider
         captured["provider_reference_id"] = provider_reference_id
-        captured["billing_order_bid"] = billing_order_bid
+        captured["bill_order_bid"] = bill_order_bid
         captured["session_id"] = session_id
-        return {"status": "paid", "billing_order_bid": billing_order_bid}
+        return {"status": "paid", "bill_order_bid": bill_order_bid}
 
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._run_reconcile_provider_reference",
@@ -758,7 +758,7 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
         creator_bid="creator-task-reconcile",
         payment_provider="stripe",
         provider_reference_id="cs_task_reconcile",
-        billing_order_bid="billing-order-task-reconcile",
+        bill_order_bid="bill-order-task-reconcile",
         session_id="cs_task_reconcile",
     )
 
@@ -767,7 +767,7 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
         "creator_bid": "creator-task-reconcile",
         "payment_provider": "stripe",
         "provider_reference_id": "cs_task_reconcile",
-        "billing_order_bid": "billing-order-task-reconcile",
+        "bill_order_bid": "bill-order-task-reconcile",
         "session_id": "cs_task_reconcile",
     }
     assert payload["status"] == "paid"
@@ -1025,7 +1025,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
         "flaskr.service.billing.tasks._run_reconcile_provider_reference",
         lambda app, **kwargs: {
             "status": "paid",
-            "billing_order_bid": kwargs.get("billing_order_bid"),
+            "bill_order_bid": kwargs.get("bill_order_bid"),
         },
     )
 
@@ -1039,7 +1039,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
             creator_bid="creator-json-1",
             payment_provider="stripe",
             provider_reference_id="cs_json_1",
-            billing_order_bid="billing-order-json-1",
+            bill_order_bid="bill-order-json-1",
             session_id="cs_json_1",
         ),
     ]
@@ -1088,16 +1088,16 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
         creator_bid="",
         payment_provider="",
         provider_reference_id="",
-        billing_order_bid="",
+        bill_order_bid="",
         session_id="",
     ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider
         captured["provider_reference_id"] = provider_reference_id
-        captured["billing_order_bid"] = billing_order_bid
+        captured["bill_order_bid"] = bill_order_bid
         captured["session_id"] = session_id
-        return {"status": "paid", "billing_order_bid": billing_order_bid}
+        return {"status": "paid", "bill_order_bid": bill_order_bid}
 
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._run_reconcile_provider_reference",
@@ -1106,7 +1106,7 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
 
     payload = retry_failed_renewal_task(
         renewal_event_bid="renewal-task-retry",
-        billing_order_bid="billing-order-retry",
+        bill_order_bid="bill-order-retry",
         provider_reference_id="cs_retry_task",
         payment_provider="stripe",
         creator_bid="creator-task-retry",
@@ -1117,7 +1117,7 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
         "creator_bid": "creator-task-retry",
         "payment_provider": "stripe",
         "provider_reference_id": "cs_retry_task",
-        "billing_order_bid": "billing-order-retry",
+        "bill_order_bid": "bill-order-retry",
         "session_id": "cs_retry_task",
     }
     assert payload["status"] == "paid"
@@ -1134,7 +1134,7 @@ def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference
         "flaskr.service.billing.tasks.retry_billing_renewal_event",
         lambda app, **kwargs: {
             "status": "paid",
-            "billing_order_bid": "billing-order-task-retry-auto",
+            "bill_order_bid": "bill-order-task-retry-auto",
             "renewal_event_bid": kwargs["renewal_event_bid"],
         },
     )
@@ -1145,6 +1145,6 @@ def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference
     )
 
     assert payload["status"] == "paid"
-    assert payload["billing_order_bid"] == "billing-order-task-retry-auto"
+    assert payload["bill_order_bid"] == "bill-order-task-retry-auto"
     assert payload["renewal_event_bid"] == "renewal-task-retry-auto"
     assert payload["task_name"] == "billing.retry_failed_renewal"

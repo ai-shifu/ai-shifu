@@ -51,7 +51,7 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.service.billing.subscriptions import sync_subscription_lifecycle_events
-from tests.common.fixtures.billing_products import build_billing_products
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ def billing_renewal_app() -> Flask:
     dao.db.init_app(app)
     with app.app_context():
         dao.db.create_all()
-        dao.db.session.add_all(build_billing_products())
+        dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
         yield app
         dao.db.session.remove()
@@ -81,7 +81,7 @@ def _create_subscription(
     subscription_bid: str,
     *,
     creator_bid: str = "creator-renewal-1",
-    product_bid: str = "billing-product-plan-monthly",
+    product_bid: str = "bill-product-plan-monthly",
     next_product_bid: str = "",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     current_period_end_at: datetime | None = None,
@@ -488,8 +488,8 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
     with billing_renewal_app.app_context():
         subscription = _create_subscription(
             "sub-downgrade-1",
-            product_bid="billing-product-plan-yearly",
-            next_product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-yearly",
+            next_product_bid="bill-product-plan-monthly",
             current_period_end_at=next_period_end,
         )
         event = _create_renewal_event(
@@ -508,7 +508,7 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
     )
 
     assert payload["status"] == "applied"
-    assert payload["product_bid"] == "billing-product-plan-monthly"
+    assert payload["product_bid"] == "bill-product-plan-monthly"
     assert payload["event_status"] == "succeeded"
 
     with billing_renewal_app.app_context():
@@ -519,7 +519,7 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
             subscription_bid="sub-downgrade-1",
             event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
         ).one()
-        assert subscription.product_bid == "billing-product-plan-monthly"
+        assert subscription.product_bid == "bill-product-plan-monthly"
         assert subscription.next_product_bid == ""
         assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
         assert renewal_event.scheduled_at == next_period_end
@@ -565,10 +565,10 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",
-        lambda app, creator_bid, billing_order_bid, payload: {
+        lambda app, creator_bid, bill_order_bid, payload: {
             "status": "pending",
             "creator_bid": creator_bid,
-            "billing_order_bid": billing_order_bid,
+            "bill_order_bid": bill_order_bid,
         },
     )
 
@@ -593,14 +593,14 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
 
     assert payload["status"] == "queued_for_reconcile"
     assert payload["event_status"] == "succeeded"
-    assert payload["billing_order_bid"]
+    assert payload["bill_order_bid"]
 
     with billing_renewal_app.app_context():
         event = BillingRenewalEvent.query.filter_by(
             renewal_event_bid="renewal-unsupported-1"
         ).one()
         order = BillingOrder.query.filter_by(
-            billing_order_bid=payload["billing_order_bid"]
+            bill_order_bid=payload["bill_order_bid"]
         ).one()
         assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
         assert order.subscription_bid == subscription_bid
@@ -640,7 +640,7 @@ def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
 
     with billing_renewal_app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid=payload["billing_order_bid"]
+            bill_order_bid=payload["bill_order_bid"]
         ).one()
         assert order.payment_provider == "pingxx"
         assert order.provider_reference_id == ""
@@ -657,7 +657,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
     with billing_renewal_app.app_context():
         dao.db.session.add(
             BillingProduct(
-                product_bid="billing-product-plan-daily",
+                product_bid="bill-product-plan-daily",
                 product_code="creator-plan-daily",
                 product_type=BILLING_PRODUCT_TYPE_PLAN,
                 billing_mode=BILLING_MODE_RECURRING,
@@ -682,7 +682,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
         )
         subscription = _create_subscription(
             "sub-daily-renewal-1",
-            product_bid="billing-product-plan-daily",
+            product_bid="bill-product-plan-daily",
             current_period_end_at=cycle_end,
             billing_provider="pingxx",
             provider_subscription_id="",
@@ -707,7 +707,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
 
     with billing_renewal_app.app_context():
         order = BillingOrder.query.filter_by(
-            billing_order_bid=payload["billing_order_bid"]
+            bill_order_bid=payload["bill_order_bid"]
         ).one()
         assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
         assert (
@@ -727,7 +727,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
         subscription = BillingSubscription(
             subscription_bid="sub-pingxx-expire-paid",
             creator_bid="creator-renewal-1",
-            product_bid="billing-product-plan-monthly",
+            product_bid="bill-product-plan-monthly",
             status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
             billing_provider="pingxx",
             provider_subscription_id="",
@@ -741,7 +741,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
             updated_at=current_cycle_start,
         )
         order = BillingOrder(
-            billing_order_bid="billing-pingxx-expire-paid-1",
+            bill_order_bid="bill-pingxx-expire-paid-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,
@@ -817,7 +817,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
 
     assert payload["status"] == "applied"
     assert payload["subscription_status"] == "active"
-    assert payload["billing_order_bid"] == "billing-pingxx-expire-paid-1"
+    assert payload["bill_order_bid"] == "bill-pingxx-expire-paid-1"
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription.query.filter_by(
@@ -849,10 +849,10 @@ def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",
-        lambda app, creator_bid, billing_order_bid, payload: {
+        lambda app, creator_bid, bill_order_bid, payload: {
             "status": "paid",
             "creator_bid": creator_bid,
-            "billing_order_bid": billing_order_bid,
+            "bill_order_bid": bill_order_bid,
         },
     )
 
@@ -865,7 +865,7 @@ def test_run_billing_renewal_event_retries_latest_failed_renewal_order(
         )
         subscription.provider_subscription_id = "sub_provider_retry_1"
         renewal_order = BillingOrder(
-            billing_order_bid="billing-renewal-retry-1",
+            bill_order_bid="bill-renewal-retry-1",
             creator_bid=subscription.creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
             product_bid=subscription.product_bid,

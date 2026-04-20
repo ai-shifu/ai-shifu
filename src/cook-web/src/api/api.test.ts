@@ -11,10 +11,10 @@ describe('billing api definitions', () => {
     expect(api.getBillingWalletBuckets).toBe('GET /billing/wallet-buckets');
     expect(api.getBillingLedger).toBe('GET /billing/ledger');
     expect(api.checkoutBillingOrder).toBe(
-      'POST /billing/orders/{billing_order_bid}/checkout',
+      'POST /billing/orders/{bill_order_bid}/checkout',
     );
     expect(api.syncBillingOrder).toBe(
-      'POST /billing/orders/{billing_order_bid}/sync',
+      'POST /billing/orders/{bill_order_bid}/sync',
     );
     expect(api.checkoutBillingSubscription).toBe(
       'POST /billing/subscriptions/checkout',

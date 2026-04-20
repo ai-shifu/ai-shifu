@@ -8,10 +8,6 @@ Create Date: 2026-04-09 20:00:00.000000
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
-import json
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
@@ -23,455 +19,9 @@ branch_labels = None
 depends_on = None
 
 
-_PRODUCT_SEEDS = (
-    {
-        "product_bid": "billing-product-plan-monthly",
-        "product_code": "creator-plan-monthly",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7132,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorMonthly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorMonthly.description",
-        "currency": "CNY",
-        "price_amount": 9900,
-        "credit_amount": Decimal("300000.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": 7151,
-        "sort_order": 10,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-plan-yearly",
-        "product_code": "creator-plan-yearly",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7133,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearly.description",
-        "currency": "CNY",
-        "price_amount": 99900,
-        "credit_amount": Decimal("3600000.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {"badge": "recommended"},
-        "status": 7151,
-        "sort_order": 20,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-small",
-        "product_code": "creator-topup-small",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorSmall.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorSmall.description",
-        "currency": "CNY",
-        "price_amount": 19900,
-        "credit_amount": Decimal("500000.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": 7151,
-        "sort_order": 30,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-large",
-        "product_code": "creator-topup-large",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorLarge.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorLarge.description",
-        "currency": "CNY",
-        "price_amount": 69900,
-        "credit_amount": Decimal("2000000.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": {"badge": "best_value"},
-        "status": 7151,
-        "sort_order": 40,
-        "deleted": 0,
-    },
-)
-
-_PRODUCT_TABLE = sa.table(
-    "billing_products",
-    sa.column("product_bid", sa.String(length=36)),
-    sa.column("product_code", sa.String(length=64)),
-    sa.column("product_type", sa.SmallInteger()),
-    sa.column("billing_mode", sa.SmallInteger()),
-    sa.column("billing_interval", sa.SmallInteger()),
-    sa.column("billing_interval_count", sa.Integer()),
-    sa.column("display_name_i18n_key", sa.String(length=128)),
-    sa.column("description_i18n_key", sa.String(length=128)),
-    sa.column("currency", sa.String(length=16)),
-    sa.column("price_amount", sa.BigInteger()),
-    sa.column("credit_amount", sa.Numeric(precision=20, scale=10)),
-    sa.column("allocation_interval", sa.SmallInteger()),
-    sa.column("auto_renew_enabled", sa.SmallInteger()),
-    sa.column("entitlement_payload", sa.JSON()),
-    sa.column("metadata", sa.JSON()),
-    sa.column("status", sa.SmallInteger()),
-    sa.column("sort_order", sa.Integer()),
-    sa.column("deleted", sa.SmallInteger()),
-    sa.column("created_at", sa.DateTime()),
-    sa.column("updated_at", sa.DateTime()),
-)
-
-_TARGET_PRODUCT_SEEDS = (
-    {
-        "product_bid": "billing-product-plan-monthly",
-        "product_code": "creator-plan-monthly",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7132,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorMonthly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorMonthly.description",
-        "currency": "CNY",
-        "price_amount": 990,
-        "credit_amount": Decimal("5.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.monthly.publish",
-                "module.billing.package.features.monthly.preview",
-            ]
-        },
-        "status": 7151,
-        "sort_order": 10,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-plan-monthly-pro",
-        "product_code": "creator-plan-monthly-pro",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7132,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorMonthlyPro.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorMonthlyPro.description",
-        "currency": "CNY",
-        "price_amount": 19900,
-        "credit_amount": Decimal("100.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "badge": "recommended",
-            "highlights": [
-                "module.billing.package.features.monthly.publish",
-                "module.billing.package.features.monthly.preview",
-                "module.billing.package.features.monthly.support",
-            ],
-        },
-        "status": 7151,
-        "sort_order": 20,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-plan-yearly-lite",
-        "product_code": "creator-plan-yearly-lite",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7133,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearlyLite.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearlyLite.description",
-        "currency": "CNY",
-        "price_amount": 800000,
-        "credit_amount": Decimal("5000.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.yearly.lite.ops",
-                "module.billing.package.features.yearly.lite.publish",
-            ]
-        },
-        "status": 7151,
-        "sort_order": 30,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-plan-yearly",
-        "product_code": "creator-plan-yearly",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7133,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearly.description",
-        "currency": "CNY",
-        "price_amount": 1500000,
-        "credit_amount": Decimal("10000.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.yearly.pro.branding",
-                "module.billing.package.features.yearly.pro.domain",
-                "module.billing.package.features.yearly.pro.priority",
-                "module.billing.package.features.yearly.pro.analytics",
-                "module.billing.package.features.yearly.pro.support",
-            ]
-        },
-        "status": 7151,
-        "sort_order": 40,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-plan-yearly-premium",
-        "product_code": "creator-plan-yearly-premium",
-        "product_type": 7111,
-        "billing_mode": 7121,
-        "billing_interval": 7133,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearlyPremium.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearlyPremium.description",
-        "currency": "CNY",
-        "price_amount": 3000000,
-        "credit_amount": Decimal("22000.0000000000"),
-        "allocation_interval": 7141,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "badge": "best_value",
-            "highlights": [
-                "module.billing.package.features.yearly.premium.branding",
-                "module.billing.package.features.yearly.premium.domain",
-                "module.billing.package.features.yearly.premium.priority",
-                "module.billing.package.features.yearly.premium.analytics",
-                "module.billing.package.features.yearly.premium.support",
-            ],
-        },
-        "status": 7151,
-        "sort_order": 50,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-small",
-        "product_code": "creator-topup-small",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorSmall.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorSmall.description",
-        "currency": "CNY",
-        "price_amount": 5000,
-        "credit_amount": Decimal("20.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": 7151,
-        "sort_order": 60,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-medium",
-        "product_code": "creator-topup-medium",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorMedium.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorMedium.description",
-        "currency": "CNY",
-        "price_amount": 9900,
-        "credit_amount": Decimal("50.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": 7151,
-        "sort_order": 70,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-large",
-        "product_code": "creator-topup-large",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorLarge.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorLarge.description",
-        "currency": "CNY",
-        "price_amount": 19900,
-        "credit_amount": Decimal("120.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": 7151,
-        "sort_order": 80,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "billing-product-topup-xlarge",
-        "product_code": "creator-topup-xlarge",
-        "product_type": 7112,
-        "billing_mode": 7122,
-        "billing_interval": 7131,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorXLarge.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorXLarge.description",
-        "currency": "CNY",
-        "price_amount": 49900,
-        "credit_amount": Decimal("320.0000000000"),
-        "allocation_interval": 7142,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": {"badge": "best_value"},
-        "status": 7151,
-        "sort_order": 90,
-        "deleted": 0,
-    },
-)
-
-_BILLING_SYS_CONFIG_SEEDS = (
-    {
-        "config_bid": "billing-config-enabled",
-        "key": "BILLING_ENABLED",
-        "value": "1",
-        "is_encrypted": 0,
-        "remark": "Creator billing feature flag",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-    {
-        "config_bid": "billing-config-low-balance-threshold",
-        "key": "BILLING_LOW_BALANCE_THRESHOLD",
-        "value": "0.0000000000",
-        "is_encrypted": 0,
-        "remark": "Low balance alert threshold in credits",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-    {
-        "config_bid": "billing-config-renewal-task-config",
-        "key": "BILLING_RENEWAL_TASK_CONFIG",
-        "value": json.dumps(
-            {
-                "enabled": 0,
-                "batch_size": 100,
-                "lookahead_minutes": 60,
-                "queue": "billing-renewal",
-            },
-            separators=(",", ":"),
-            sort_keys=True,
-        ),
-        "is_encrypted": 0,
-        "remark": "Renewal task bootstrap config",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-    {
-        "config_bid": "billing-config-rate-version",
-        "key": "BILLING_RATE_VERSION",
-        "value": "bootstrap-v1",
-        "is_encrypted": 0,
-        "remark": "Billing rate version bootstrap marker",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-)
-
-
-def _build_usage_rate_seeds() -> tuple[dict[str, object], ...]:
-    seeds: list[dict[str, object]] = []
-    effective_from = datetime(2026, 1, 1, 0, 0, 0)
-    scene_specs = (
-        ("debug", 1201),
-        ("preview", 1202),
-        ("production", 1203),
-    )
-    llm_metrics = (
-        ("input", 7451),
-        ("cache", 7452),
-        ("output", 7453),
-    )
-    for scene_name, usage_scene in scene_specs:
-        for metric_name, billing_metric in llm_metrics:
-            seeds.append(
-                {
-                    "rate_bid": f"credit-rate-llm-{scene_name}-{metric_name}-default",
-                    "usage_type": 1101,
-                    "provider": "*",
-                    "model": "*",
-                    "usage_scene": usage_scene,
-                    "billing_metric": billing_metric,
-                    "unit_size": 1000,
-                    "credits_per_unit": Decimal("0.0000000000"),
-                    "rounding_mode": 7421,
-                    "effective_from": effective_from,
-                    "effective_to": None,
-                    "status": 7151,
-                    "deleted": 0,
-                }
-            )
-        seeds.append(
-            {
-                "rate_bid": f"credit-rate-tts-{scene_name}-request-default",
-                "usage_type": 1102,
-                "provider": "*",
-                "model": "*",
-                "usage_scene": usage_scene,
-                "billing_metric": 7454,
-                "unit_size": 1,
-                "credits_per_unit": Decimal("0.0000000000"),
-                "rounding_mode": 7421,
-                "effective_from": effective_from,
-                "effective_to": None,
-                "status": 7151,
-                "deleted": 0,
-            }
-        )
-    return tuple(seeds)
-
-
-_USAGE_RATE_SEEDS = _build_usage_rate_seeds()
-
-
-def _upsert_products(rows: tuple[dict[str, object], ...]) -> None:
-    bind = op.get_bind()
-    now = datetime.utcnow()
-
-    for row in rows:
-        payload = dict(row)
-        payload["updated_at"] = now
-        result = bind.execute(
-            _PRODUCT_TABLE.update()
-            .where(_PRODUCT_TABLE.c.product_bid == payload["product_bid"])
-            .values(**payload)
-        )
-        if result.rowcount == 0:
-            insert_payload = dict(payload)
-            insert_payload["created_at"] = now
-            bind.execute(_PRODUCT_TABLE.insert().values(**insert_payload))
-
-
 def upgrade():
     op.create_table(
-        "billing_products",
+        "bill_products",
         sa.Column(
             "id",
             mysql.BIGINT(),
@@ -495,19 +45,19 @@ def upgrade():
             "product_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing product type code",
+            comment="Billing product type: 7111=plan, 7112=topup, 7113=grant, 7114=custom",
         ),
         sa.Column(
             "billing_mode",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing mode code",
+            comment="Billing mode: 7121=recurring, 7122=one_time, 7123=manual",
         ),
         sa.Column(
             "billing_interval",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing interval code",
+            comment="Billing interval: 7131=none, 7132=month, 7133=year, 7134=day",
         ),
         sa.Column(
             "billing_interval_count",
@@ -546,13 +96,13 @@ def upgrade():
             "allocation_interval",
             sa.SmallInteger(),
             nullable=False,
-            comment="Credit allocation interval code",
+            comment="Credit allocation interval: 7141=per_cycle, 7142=one_time, 7143=manual",
         ),
         sa.Column(
             "auto_renew_enabled",
             sa.SmallInteger(),
             nullable=False,
-            comment="Auto renew enabled flag",
+            comment="Auto renew enabled flag: 0=disabled, 1=enabled",
         ),
         sa.Column(
             "entitlement_payload",
@@ -567,11 +117,14 @@ def upgrade():
             "status",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing product status code",
+            comment="Billing product status: 7151=active, 7152=inactive",
         ),
         sa.Column("sort_order", sa.Integer(), nullable=False, comment="Sort order"),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -591,29 +144,29 @@ def upgrade():
         sa.UniqueConstraint("product_code"),
         comment="Billing product catalog",
     )
-    with op.batch_alter_table("billing_products", schema=None) as batch_op:
+    with op.batch_alter_table("bill_products", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_billing_products_deleted"), ["deleted"], unique=False
+            batch_op.f("ix_bill_products_deleted"), ["deleted"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_products_product_bid"), ["product_bid"], unique=False
+            batch_op.f("ix_bill_products_product_bid"), ["product_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_products_product_type"),
+            batch_op.f("ix_bill_products_product_type"),
             ["product_type"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_products_status"), ["status"], unique=False
+            batch_op.f("ix_bill_products_status"), ["status"], unique=False
         )
         batch_op.create_index(
-            "ix_billing_products_product_type_status",
+            "ix_bill_products_product_type_status",
             ["product_type", "status"],
             unique=False,
         )
 
     op.create_table(
-        "billing_subscriptions",
+        "bill_subscriptions",
         sa.Column(
             "id",
             mysql.BIGINT(),
@@ -643,7 +196,7 @@ def upgrade():
             "status",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing subscription status code",
+            comment="Billing subscription status: 7201=draft, 7202=active, 7203=past_due, 7204=paused, 7205=cancel_scheduled, 7206=canceled, 7207=expired",
         ),
         sa.Column(
             "billing_provider",
@@ -691,7 +244,7 @@ def upgrade():
             "cancel_at_period_end",
             sa.SmallInteger(),
             nullable=False,
-            comment="Cancel at period end flag",
+            comment="Cancel at period end flag: 0=no, 1=yes",
         ),
         sa.Column(
             "next_product_bid",
@@ -718,7 +271,10 @@ def upgrade():
             comment="Billing subscription metadata",
         ),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -737,46 +293,46 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         comment="Billing subscriptions",
     )
-    with op.batch_alter_table("billing_subscriptions", schema=None) as batch_op:
+    with op.batch_alter_table("bill_subscriptions", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_billing_provider"),
+            batch_op.f("ix_bill_subscriptions_billing_provider"),
             ["billing_provider"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_creator_bid"),
+            batch_op.f("ix_bill_subscriptions_creator_bid"),
             ["creator_bid"],
             unique=False,
         )
         batch_op.create_index(
-            "ix_billing_subscriptions_creator_status",
+            "ix_bill_subscriptions_creator_status",
             ["creator_bid", "status"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_deleted"), ["deleted"], unique=False
+            batch_op.f("ix_bill_subscriptions_deleted"), ["deleted"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_next_product_bid"),
+            batch_op.f("ix_bill_subscriptions_next_product_bid"),
             ["next_product_bid"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_product_bid"),
+            batch_op.f("ix_bill_subscriptions_product_bid"),
             ["product_bid"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_status"), ["status"], unique=False
+            batch_op.f("ix_bill_subscriptions_status"), ["status"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_subscriptions_subscription_bid"),
+            batch_op.f("ix_bill_subscriptions_subscription_bid"),
             ["subscription_bid"],
             unique=False,
         )
 
     op.create_table(
-        "billing_orders",
+        "bill_orders",
         sa.Column(
             "id",
             mysql.BIGINT(),
@@ -785,7 +341,7 @@ def upgrade():
             comment="Primary key",
         ),
         sa.Column(
-            "billing_order_bid",
+            "bill_order_bid",
             sa.String(length=36),
             nullable=False,
             comment="Billing order business identifier",
@@ -800,7 +356,7 @@ def upgrade():
             "order_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing order type code",
+            comment="Billing order type: 7301=subscription_start, 7302=subscription_upgrade, 7303=subscription_renewal, 7304=topup, 7305=manual, 7306=refund",
         ),
         sa.Column(
             "product_bid",
@@ -840,7 +396,7 @@ def upgrade():
             "status",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing order status code",
+            comment="Billing order status: 7311=init, 7312=pending, 7313=paid, 7314=failed, 7315=refunded, 7316=canceled, 7317=timeout",
         ),
         sa.Column("paid_at", sa.DateTime(), nullable=True, comment="Paid timestamp"),
         sa.Column(
@@ -865,7 +421,10 @@ def upgrade():
             "metadata", sa.JSON(), nullable=True, comment="Billing order metadata"
         ),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -884,42 +443,42 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         comment="Billing orders",
     )
-    with op.batch_alter_table("billing_orders", schema=None) as batch_op:
+    with op.batch_alter_table("bill_orders", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_billing_order_bid"),
-            ["billing_order_bid"],
+            batch_op.f("ix_bill_orders_bill_order_bid"),
+            ["bill_order_bid"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_creator_bid"), ["creator_bid"], unique=False
+            batch_op.f("ix_bill_orders_creator_bid"), ["creator_bid"], unique=False
         )
         batch_op.create_index(
-            "ix_billing_orders_creator_status", ["creator_bid", "status"], unique=False
+            "ix_bill_orders_creator_status", ["creator_bid", "status"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_deleted"), ["deleted"], unique=False
+            batch_op.f("ix_bill_orders_deleted"), ["deleted"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_order_type"), ["order_type"], unique=False
+            batch_op.f("ix_bill_orders_order_type"), ["order_type"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_payment_provider"),
+            batch_op.f("ix_bill_orders_payment_provider"),
             ["payment_provider"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_product_bid"), ["product_bid"], unique=False
+            batch_op.f("ix_bill_orders_product_bid"), ["product_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_provider_reference_id"),
+            batch_op.f("ix_bill_orders_provider_reference_id"),
             ["provider_reference_id"],
             unique=False,
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_status"), ["status"], unique=False
+            batch_op.f("ix_bill_orders_status"), ["status"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_orders_subscription_bid"),
+            batch_op.f("ix_bill_orders_subscription_bid"),
             ["subscription_bid"],
             unique=False,
         )
@@ -977,7 +536,10 @@ def upgrade():
         ),
         sa.Column("version", sa.Integer(), nullable=False, comment="Wallet version"),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -1041,13 +603,13 @@ def upgrade():
             "bucket_category",
             sa.SmallInteger(),
             nullable=False,
-            comment="Credit bucket category code",
+            comment="Credit bucket category: 7431=free, 7432=subscription, 7433=topup",
         ),
         sa.Column(
             "source_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing ledger source type code",
+            comment="Billing ledger source type: 7411=subscription, 7412=topup, 7413=gift, 7414=usage, 7415=refund, 7416=manual",
         ),
         sa.Column(
             "source_bid",
@@ -1107,7 +669,7 @@ def upgrade():
             "status",
             sa.SmallInteger(),
             nullable=False,
-            comment="Credit bucket status code",
+            comment="Credit bucket status: 7441=active, 7442=exhausted, 7443=expired, 7444=canceled",
         ),
         sa.Column(
             "metadata",
@@ -1116,7 +678,10 @@ def upgrade():
             comment="Credit wallet bucket metadata",
         ),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -1238,13 +803,13 @@ def upgrade():
             "entry_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing ledger entry type code",
+            comment="Billing ledger entry type: 7401=grant, 7402=consume, 7403=refund, 7404=expire, 7405=adjustment, 7406=hold, 7407=release",
         ),
         sa.Column(
             "source_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Billing ledger source type code",
+            comment="Billing ledger source type: 7411=subscription, 7412=topup, 7413=gift, 7414=usage, 7415=refund, 7416=manual",
         ),
         sa.Column(
             "source_bid",
@@ -1286,7 +851,10 @@ def upgrade():
             "metadata", sa.JSON(), nullable=True, comment="Billing ledger metadata"
         ),
         sa.Column(
-            "deleted", sa.SmallInteger(), nullable=False, comment="Deletion flag"
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(
             "created_at",
@@ -1370,9 +938,6 @@ def upgrade():
             unique=False,
         )
 
-    op.bulk_insert(_PRODUCT_TABLE, list(_PRODUCT_SEEDS))
-    _upsert_products(_TARGET_PRODUCT_SEEDS)
-
     op.create_table(
         "credit_usage_rates",
         sa.Column(
@@ -1382,34 +947,97 @@ def upgrade():
             nullable=False,
             comment="Primary key",
         ),
-        sa.Column("rate_bid", sa.String(length=36), nullable=False),
-        sa.Column("usage_type", sa.SmallInteger(), nullable=False),
-        sa.Column("provider", sa.String(length=32), nullable=False),
-        sa.Column("model", sa.String(length=100), nullable=False),
-        sa.Column("usage_scene", sa.SmallInteger(), nullable=False),
-        sa.Column("billing_metric", sa.SmallInteger(), nullable=False),
-        sa.Column("unit_size", sa.Integer(), nullable=False),
+        sa.Column(
+            "rate_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Credit usage rate business identifier",
+        ),
+        sa.Column(
+            "usage_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Usage type: 1101=LLM, 1102=TTS",
+        ),
+        sa.Column(
+            "provider",
+            sa.String(length=32),
+            nullable=False,
+            comment="Provider name",
+        ),
+        sa.Column(
+            "model",
+            sa.String(length=100),
+            nullable=False,
+            comment="Provider model",
+        ),
+        sa.Column(
+            "usage_scene",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Usage scene: 1201=debug, 1202=preview, 1203=production",
+        ),
+        sa.Column(
+            "billing_metric",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing metric: 7451=llm_input_tokens, 7452=llm_cache_tokens, 7453=llm_output_tokens, 7454=tts_request_count, 7455=tts_output_chars, 7456=tts_input_chars",
+        ),
+        sa.Column(
+            "unit_size",
+            sa.Integer(),
+            nullable=False,
+            comment="Billing unit size",
+        ),
         sa.Column(
             "credits_per_unit",
             sa.Numeric(precision=20, scale=10),
             nullable=False,
+            comment="Credits per unit",
         ),
-        sa.Column("rounding_mode", sa.SmallInteger(), nullable=False),
-        sa.Column("effective_from", sa.DateTime(), nullable=False),
-        sa.Column("effective_to", sa.DateTime(), nullable=True),
-        sa.Column("status", sa.SmallInteger(), nullable=False),
-        sa.Column("deleted", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "rounding_mode",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Rounding mode: 7421=ceil, 7422=floor, 7423=round",
+        ),
+        sa.Column(
+            "effective_from",
+            sa.DateTime(),
+            nullable=False,
+            comment="Effective from timestamp",
+        ),
+        sa.Column(
+            "effective_to",
+            sa.DateTime(),
+            nullable=True,
+            comment="Effective to timestamp",
+        ),
+        sa.Column(
+            "status",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Credit usage rate status: 7151=active, 7152=inactive",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(),
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
         ),
         sa.PrimaryKeyConstraint("id"),
         comment="Credit usage rates",
@@ -1439,7 +1067,7 @@ def upgrade():
         )
 
     op.create_table(
-        "billing_renewal_events",
+        "bill_renewal_events",
         sa.Column(
             "id",
             mysql.BIGINT(),
@@ -1447,60 +1075,650 @@ def upgrade():
             nullable=False,
             comment="Primary key",
         ),
-        sa.Column("renewal_event_bid", sa.String(length=36), nullable=False),
-        sa.Column("subscription_bid", sa.String(length=36), nullable=False),
-        sa.Column("creator_bid", sa.String(length=36), nullable=False),
-        sa.Column("event_type", sa.SmallInteger(), nullable=False),
-        sa.Column("scheduled_at", sa.DateTime(), nullable=False),
-        sa.Column("status", sa.SmallInteger(), nullable=False),
-        sa.Column("attempt_count", sa.Integer(), nullable=False),
-        sa.Column("last_error", sa.String(length=255), nullable=False),
-        sa.Column("payload", sa.JSON(), nullable=True),
-        sa.Column("processed_at", sa.DateTime(), nullable=True),
-        sa.Column("deleted", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "renewal_event_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Billing renewal event business identifier",
+        ),
+        sa.Column(
+            "subscription_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Billing subscription business identifier",
+        ),
+        sa.Column(
+            "creator_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Creator business identifier",
+        ),
+        sa.Column(
+            "event_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing renewal event type: 7501=renewal, 7502=retry, 7503=cancel_effective, 7504=downgrade_effective, 7505=expire, 7506=reconcile",
+        ),
+        sa.Column(
+            "scheduled_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Scheduled timestamp",
+        ),
+        sa.Column(
+            "status",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing renewal event status: 7511=pending, 7512=processing, 7513=succeeded, 7514=failed, 7515=canceled",
+        ),
+        sa.Column(
+            "attempt_count",
+            sa.Integer(),
+            nullable=False,
+            comment="Attempt count",
+        ),
+        sa.Column(
+            "last_error",
+            sa.String(length=255),
+            nullable=False,
+            comment="Last error message",
+        ),
+        sa.Column(
+            "payload",
+            sa.JSON(),
+            nullable=True,
+            comment="Renewal event payload",
+        ),
+        sa.Column(
+            "processed_at",
+            sa.DateTime(),
+            nullable=True,
+            comment="Processed timestamp",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(),
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(),
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
         ),
         sa.PrimaryKeyConstraint("id"),
         comment="Billing renewal events",
     )
-    with op.batch_alter_table("billing_renewal_events", schema=None) as batch_op:
+    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
         batch_op.create_index(
-            "ix_billing_renewal_events_status_scheduled",
+            "ix_bill_renewal_events_status_scheduled",
             ["status", "scheduled_at"],
             unique=False,
         )
         batch_op.create_index(
-            "ix_billing_renewal_events_subscription_event_scheduled",
+            "ix_bill_renewal_events_subscription_event_scheduled",
             ["subscription_bid", "event_type", "scheduled_at"],
             unique=False,
         )
 
-    with op.batch_alter_table("billing_products", schema=None) as batch_op:
+    op.create_table(
+        "bill_entitlements",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column(
+            "entitlement_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Billing entitlement business identifier",
+        ),
+        sa.Column(
+            "creator_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Creator business identifier",
+        ),
+        sa.Column(
+            "source_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Entitlement source type: 7411=subscription, 7412=topup, 7413=gift, 7414=usage, 7415=refund, 7416=manual",
+        ),
+        sa.Column(
+            "source_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Entitlement source business identifier",
+        ),
+        sa.Column(
+            "branding_enabled",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Branding enabled flag: 0=disabled, 1=enabled",
+        ),
+        sa.Column(
+            "custom_domain_enabled",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Custom domain enabled flag: 0=disabled, 1=enabled",
+        ),
+        sa.Column(
+            "priority_class",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Priority class: 7701=standard, 7702=priority, 7703=vip",
+        ),
+        sa.Column(
+            "analytics_tier",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Analytics tier: 7711=basic, 7712=advanced, 7713=enterprise",
+        ),
+        sa.Column(
+            "support_tier",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Support tier: 7721=self_serve, 7722=business_hours, 7723=priority",
+        ),
+        sa.Column(
+            "feature_payload",
+            sa.JSON(),
+            nullable=True,
+            comment="Entitlement feature payload",
+        ),
+        sa.Column(
+            "effective_from",
+            sa.DateTime(),
+            nullable=False,
+            comment="Effective from timestamp",
+        ),
+        sa.Column(
+            "effective_to",
+            sa.DateTime(),
+            nullable=True,
+            comment="Effective to timestamp",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "entitlement_bid",
+            name="uq_bill_entitlements_entitlement_bid",
+        ),
+        comment="Billing entitlements",
+    )
+    with op.batch_alter_table("bill_entitlements", schema=None) as batch_op:
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_creator_bid"),
+            ["creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_bill_entitlements_creator_effective_to",
+            ["creator_bid", "effective_to"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_deleted"),
+            ["deleted"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_effective_from"),
+            ["effective_from"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_effective_to"),
+            ["effective_to"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_entitlement_bid"),
+            ["entitlement_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_source_bid"),
+            ["source_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_entitlements_source_type"),
+            ["source_type"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_bill_entitlements_source_type_source_bid",
+            ["source_type", "source_bid"],
+            unique=False,
+        )
+
+    op.create_table(
+        "bill_domain_bindings",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column(
+            "domain_binding_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Billing domain binding business identifier",
+        ),
+        sa.Column(
+            "creator_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Creator business identifier",
+        ),
+        sa.Column(
+            "host",
+            sa.String(length=255),
+            nullable=False,
+            comment="Custom domain host",
+        ),
+        sa.Column(
+            "status",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Domain binding status: 7601=pending, 7602=verified, 7603=failed, 7604=disabled",
+        ),
+        sa.Column(
+            "verification_method",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Verification method: 7611=dns_txt, 7612=cname, 7613=file",
+        ),
+        sa.Column(
+            "verification_token",
+            sa.String(length=255),
+            nullable=False,
+            comment="Verification token",
+        ),
+        sa.Column(
+            "last_verified_at",
+            sa.DateTime(),
+            nullable=True,
+            comment="Last verified timestamp",
+        ),
+        sa.Column(
+            "ssl_status",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="SSL status: 7621=not_requested, 7622=provisioning, 7623=active, 7624=failed",
+        ),
+        sa.Column(
+            "metadata",
+            sa.JSON(),
+            nullable=True,
+            comment="Domain binding metadata",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "domain_binding_bid",
+            name="uq_bill_domain_bindings_domain_binding_bid",
+        ),
+        sa.UniqueConstraint(
+            "host",
+            name="uq_bill_domain_bindings_host",
+        ),
+        comment="Billing domain bindings",
+    )
+    with op.batch_alter_table("bill_domain_bindings", schema=None) as batch_op:
+        batch_op.create_index(
+            batch_op.f("ix_bill_domain_bindings_creator_bid"),
+            ["creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_bill_domain_bindings_creator_status",
+            ["creator_bid", "status"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_domain_bindings_deleted"),
+            ["deleted"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_domain_bindings_domain_binding_bid"),
+            ["domain_binding_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_domain_bindings_host"),
+            ["host"],
+            unique=True,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_bill_domain_bindings_status"),
+            ["status"],
+            unique=False,
+        )
+
+    op.create_table(
+        "bill_daily_usage_metrics",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column(
+            "daily_usage_metric_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Daily usage metric business identifier",
+        ),
+        sa.Column(
+            "stat_date",
+            sa.String(length=10),
+            nullable=False,
+            comment="Statistic date",
+        ),
+        sa.Column(
+            "creator_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Creator business identifier",
+        ),
+        sa.Column(
+            "shifu_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Shifu business identifier",
+        ),
+        sa.Column(
+            "usage_scene",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Usage scene: 1201=debug, 1202=preview, 1203=production",
+        ),
+        sa.Column(
+            "usage_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Usage type: 1101=LLM, 1102=TTS",
+        ),
+        sa.Column(
+            "provider",
+            sa.String(length=32),
+            nullable=False,
+            comment="Provider name",
+        ),
+        sa.Column(
+            "model",
+            sa.String(length=100),
+            nullable=False,
+            comment="Provider model",
+        ),
+        sa.Column(
+            "billing_metric",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing metric: 7451=llm_input_tokens, 7452=llm_cache_tokens, 7453=llm_output_tokens, 7454=tts_request_count, 7455=tts_output_chars, 7456=tts_input_chars",
+        ),
+        sa.Column(
+            "raw_amount",
+            mysql.BIGINT(),
+            nullable=False,
+            comment="Raw amount",
+        ),
+        sa.Column(
+            "record_count",
+            mysql.BIGINT(),
+            nullable=False,
+            comment="Record count",
+        ),
+        sa.Column(
+            "consumed_credits",
+            sa.Numeric(precision=20, scale=10),
+            nullable=False,
+            comment="Consumed credits",
+        ),
+        sa.Column(
+            "window_started_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Window start timestamp",
+        ),
+        sa.Column(
+            "window_ended_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Window end timestamp",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "daily_usage_metric_bid",
+            name="uq_bill_daily_usage_metrics_daily_usage_metric_bid",
+        ),
+        sa.UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "shifu_bid",
+            "usage_scene",
+            "usage_type",
+            "provider",
+            "model",
+            "billing_metric",
+            name="uq_bill_daily_usage_metrics_lookup",
+        ),
+        comment="Billing daily usage metrics",
+    )
+    with op.batch_alter_table("bill_daily_usage_metrics", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_bill_daily_usage_metrics_stat_creator",
+            ["stat_date", "creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_bill_daily_usage_metrics_billing_metric",
+            ["billing_metric"],
+            unique=False,
+        )
+
+    op.create_table(
+        "bill_daily_ledger_summary",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column(
+            "daily_ledger_summary_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Daily ledger summary business identifier",
+        ),
+        sa.Column(
+            "stat_date",
+            sa.String(length=10),
+            nullable=False,
+            comment="Statistic date",
+        ),
+        sa.Column(
+            "creator_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Creator business identifier",
+        ),
+        sa.Column(
+            "entry_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing ledger entry type: 7401=grant, 7402=consume, 7403=refund, 7404=expire, 7405=adjustment, 7406=hold, 7407=release",
+        ),
+        sa.Column(
+            "source_type",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Billing ledger source type: 7411=subscription, 7412=topup, 7413=gift, 7414=usage, 7415=refund, 7416=manual",
+        ),
+        sa.Column(
+            "amount",
+            sa.Numeric(precision=20, scale=10),
+            nullable=False,
+            comment="Ledger amount total",
+        ),
+        sa.Column(
+            "entry_count",
+            mysql.BIGINT(),
+            nullable=False,
+            comment="Ledger entry count",
+        ),
+        sa.Column(
+            "window_started_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Window start timestamp",
+        ),
+        sa.Column(
+            "window_ended_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Window end timestamp",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Creation timestamp",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            comment="Last update timestamp",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "daily_ledger_summary_bid",
+            name="uq_bill_daily_ledger_summary_daily_ledger_summary_bid",
+        ),
+        sa.UniqueConstraint(
+            "stat_date",
+            "creator_bid",
+            "entry_type",
+            "source_type",
+            name="uq_bill_daily_ledger_summary_lookup",
+        ),
+        comment="Billing daily ledger summary",
+    )
+    with op.batch_alter_table("bill_daily_ledger_summary", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_bill_daily_ledger_summary_stat_creator",
+            ["stat_date", "creator_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            "ix_bill_daily_ledger_summary_source_type",
+            ["source_type"],
+            unique=False,
+        )
+
+    with op.batch_alter_table("bill_products", schema=None) as batch_op:
         batch_op.create_unique_constraint(
-            "uq_billing_products_product_bid",
+            "uq_bill_products_product_bid",
             ["product_bid"],
         )
 
-    with op.batch_alter_table("billing_subscriptions", schema=None) as batch_op:
+    with op.batch_alter_table("bill_subscriptions", schema=None) as batch_op:
         batch_op.create_unique_constraint(
-            "uq_billing_subscriptions_subscription_bid",
+            "uq_bill_subscriptions_subscription_bid",
             ["subscription_bid"],
         )
 
-    with op.batch_alter_table("billing_orders", schema=None) as batch_op:
+    with op.batch_alter_table("bill_orders", schema=None) as batch_op:
         batch_op.create_unique_constraint(
-            "uq_billing_orders_billing_order_bid",
-            ["billing_order_bid"],
+            "uq_bill_orders_bill_order_bid",
+            ["bill_order_bid"],
         )
 
     with op.batch_alter_table("credit_wallets", schema=None) as batch_op:
@@ -1538,45 +1756,15 @@ def upgrade():
             ],
         )
 
-    with op.batch_alter_table("billing_renewal_events", schema=None) as batch_op:
+    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
         batch_op.create_unique_constraint(
-            "uq_billing_renewal_events_renewal_event_bid",
+            "uq_bill_renewal_events_renewal_event_bid",
             ["renewal_event_bid"],
         )
         batch_op.create_unique_constraint(
-            "uq_billing_renewal_events_subscription_event_scheduled",
+            "uq_bill_renewal_events_subscription_event_scheduled",
             ["subscription_bid", "event_type", "scheduled_at"],
         )
-
-    rate_table = sa.table(
-        "credit_usage_rates",
-        sa.column("rate_bid", sa.String(length=36)),
-        sa.column("usage_type", sa.SmallInteger()),
-        sa.column("provider", sa.String(length=32)),
-        sa.column("model", sa.String(length=100)),
-        sa.column("usage_scene", sa.SmallInteger()),
-        sa.column("billing_metric", sa.SmallInteger()),
-        sa.column("unit_size", sa.Integer()),
-        sa.column("credits_per_unit", sa.Numeric(precision=20, scale=10)),
-        sa.column("rounding_mode", sa.SmallInteger()),
-        sa.column("effective_from", sa.DateTime()),
-        sa.column("effective_to", sa.DateTime()),
-        sa.column("status", sa.SmallInteger()),
-        sa.column("deleted", sa.SmallInteger()),
-    )
-    op.bulk_insert(rate_table, list(_USAGE_RATE_SEEDS))
-
-    config_table = sa.table(
-        "sys_configs",
-        sa.column("config_bid", sa.String(length=36)),
-        sa.column("key", sa.String(length=255)),
-        sa.column("value", sa.Text()),
-        sa.column("is_encrypted", sa.SmallInteger()),
-        sa.column("remark", sa.Text()),
-        sa.column("deleted", sa.SmallInteger()),
-        sa.column("updated_by", sa.String(length=36)),
-    )
-    op.bulk_insert(config_table, list(_BILLING_SYS_CONFIG_SEEDS))
 
     with op.batch_alter_table("order_pingxx_orders", schema=None) as batch_op:
         batch_op.add_column(
@@ -1585,12 +1773,12 @@ def upgrade():
                 sa.String(length=16),
                 nullable=False,
                 server_default=sa.text("'order'"),
-                comment="Business domain",
+                comment="Business domain: order=legacy learner order, billing=creator billing",
             )
         )
         batch_op.add_column(
             sa.Column(
-                "billing_order_bid",
+                "bill_order_bid",
                 sa.String(length=36),
                 nullable=False,
                 server_default=sa.text("''"),
@@ -1610,8 +1798,8 @@ def upgrade():
             "ix_order_pingxx_orders_biz_domain", ["biz_domain"], unique=False
         )
         batch_op.create_index(
-            "ix_order_pingxx_orders_billing_order_bid",
-            ["billing_order_bid"],
+            "ix_order_pingxx_orders_bill_order_bid",
+            ["bill_order_bid"],
             unique=False,
         )
         batch_op.create_index(
@@ -1625,8 +1813,8 @@ def upgrade():
             unique=False,
         )
         batch_op.create_index(
-            "ix_order_pingxx_orders_biz_domain_billing_order_bid",
-            ["biz_domain", "billing_order_bid"],
+            "ix_order_pingxx_orders_biz_domain_bill_order_bid",
+            ["biz_domain", "bill_order_bid"],
             unique=False,
         )
 
@@ -1637,12 +1825,12 @@ def upgrade():
                 sa.String(length=16),
                 nullable=False,
                 server_default=sa.text("'order'"),
-                comment="Business domain",
+                comment="Business domain: order=legacy learner order, billing=creator billing",
             )
         )
         batch_op.add_column(
             sa.Column(
-                "billing_order_bid",
+                "bill_order_bid",
                 sa.String(length=36),
                 nullable=False,
                 server_default=sa.text("''"),
@@ -1662,8 +1850,8 @@ def upgrade():
             "ix_order_stripe_orders_biz_domain", ["biz_domain"], unique=False
         )
         batch_op.create_index(
-            "ix_order_stripe_orders_billing_order_bid",
-            ["billing_order_bid"],
+            "ix_order_stripe_orders_bill_order_bid",
+            ["bill_order_bid"],
             unique=False,
         )
         batch_op.create_index(
@@ -1677,56 +1865,40 @@ def upgrade():
             unique=False,
         )
         batch_op.create_index(
-            "ix_order_stripe_orders_biz_domain_billing_order_bid",
-            ["biz_domain", "billing_order_bid"],
+            "ix_order_stripe_orders_biz_domain_bill_order_bid",
+            ["biz_domain", "bill_order_bid"],
             unique=False,
         )
 
 
 def downgrade():
     with op.batch_alter_table("order_stripe_orders", schema=None) as batch_op:
-        batch_op.drop_index("ix_order_stripe_orders_biz_domain_billing_order_bid")
+        batch_op.drop_index("ix_order_stripe_orders_biz_domain_bill_order_bid")
         batch_op.drop_index("ix_order_stripe_orders_biz_domain_order_bid")
         batch_op.drop_index("ix_order_stripe_orders_creator_bid")
-        batch_op.drop_index("ix_order_stripe_orders_billing_order_bid")
+        batch_op.drop_index("ix_order_stripe_orders_bill_order_bid")
         batch_op.drop_index("ix_order_stripe_orders_biz_domain")
         batch_op.drop_column("creator_bid")
-        batch_op.drop_column("billing_order_bid")
+        batch_op.drop_column("bill_order_bid")
         batch_op.drop_column("biz_domain")
 
     with op.batch_alter_table("order_pingxx_orders", schema=None) as batch_op:
-        batch_op.drop_index("ix_order_pingxx_orders_biz_domain_billing_order_bid")
+        batch_op.drop_index("ix_order_pingxx_orders_biz_domain_bill_order_bid")
         batch_op.drop_index("ix_order_pingxx_orders_biz_domain_order_bid")
         batch_op.drop_index("ix_order_pingxx_orders_creator_bid")
-        batch_op.drop_index("ix_order_pingxx_orders_billing_order_bid")
+        batch_op.drop_index("ix_order_pingxx_orders_bill_order_bid")
         batch_op.drop_index("ix_order_pingxx_orders_biz_domain")
         batch_op.drop_column("creator_bid")
-        batch_op.drop_column("billing_order_bid")
+        batch_op.drop_column("bill_order_bid")
         batch_op.drop_column("biz_domain")
 
-    config_table = sa.table("sys_configs", sa.column("key", sa.String(length=255)))
-    op.execute(
-        config_table.delete().where(
-            config_table.c.key.in_([row["key"] for row in _BILLING_SYS_CONFIG_SEEDS])
-        )
-    )
-
-    rate_table = sa.table(
-        "credit_usage_rates", sa.column("rate_bid", sa.String(length=36))
-    )
-    op.execute(
-        rate_table.delete().where(
-            rate_table.c.rate_bid.in_([row["rate_bid"] for row in _USAGE_RATE_SEEDS])
-        )
-    )
-
-    with op.batch_alter_table("billing_renewal_events", schema=None) as batch_op:
+    with op.batch_alter_table("bill_renewal_events", schema=None) as batch_op:
         batch_op.drop_constraint(
-            "uq_billing_renewal_events_subscription_event_scheduled",
+            "uq_bill_renewal_events_subscription_event_scheduled",
             type_="unique",
         )
         batch_op.drop_constraint(
-            "uq_billing_renewal_events_renewal_event_bid",
+            "uq_bill_renewal_events_renewal_event_bid",
             type_="unique",
         )
 
@@ -1746,23 +1918,27 @@ def downgrade():
     with op.batch_alter_table("credit_wallets", schema=None) as batch_op:
         batch_op.drop_constraint("uq_credit_wallets_wallet_bid", type_="unique")
 
-    with op.batch_alter_table("billing_orders", schema=None) as batch_op:
-        batch_op.drop_constraint("uq_billing_orders_billing_order_bid", type_="unique")
+    with op.batch_alter_table("bill_orders", schema=None) as batch_op:
+        batch_op.drop_constraint("uq_bill_orders_bill_order_bid", type_="unique")
 
-    with op.batch_alter_table("billing_subscriptions", schema=None) as batch_op:
+    with op.batch_alter_table("bill_subscriptions", schema=None) as batch_op:
         batch_op.drop_constraint(
-            "uq_billing_subscriptions_subscription_bid",
+            "uq_bill_subscriptions_subscription_bid",
             type_="unique",
         )
 
-    with op.batch_alter_table("billing_products", schema=None) as batch_op:
-        batch_op.drop_constraint("uq_billing_products_product_bid", type_="unique")
+    with op.batch_alter_table("bill_products", schema=None) as batch_op:
+        batch_op.drop_constraint("uq_bill_products_product_bid", type_="unique")
 
-    op.drop_table("billing_renewal_events")
+    op.drop_table("bill_daily_ledger_summary")
+    op.drop_table("bill_daily_usage_metrics")
+    op.drop_table("bill_domain_bindings")
+    op.drop_table("bill_entitlements")
+    op.drop_table("bill_renewal_events")
     op.drop_table("credit_usage_rates")
     op.drop_table("credit_ledger_entries")
     op.drop_table("credit_wallet_buckets")
     op.drop_table("credit_wallets")
-    op.drop_table("billing_orders")
-    op.drop_table("billing_subscriptions")
-    op.drop_table("billing_products")
+    op.drop_table("bill_orders")
+    op.drop_table("bill_subscriptions")
+    op.drop_table("bill_products")

@@ -247,7 +247,7 @@ export function BillingOverviewTab({
         if (result.checkout_session_id) {
           rememberStripeCheckoutSession(
             result.checkout_session_id,
-            result.billing_order_bid,
+            result.bill_order_bid,
           );
         }
         setCheckoutTarget(null);
@@ -270,7 +270,7 @@ export function BillingOverviewTab({
 
         setPingxxCheckout({
           amountInMinor: checkoutTarget.product.price_amount,
-          billingOrderBid: result.billing_order_bid,
+          billingOrderBid: result.bill_order_bid,
           currency: checkoutTarget.product.currency,
           description: t(
             checkoutTarget.kind === 'plan'
@@ -304,7 +304,7 @@ export function BillingOverviewTab({
     );
     try {
       const result = (await api.checkoutBillingOrder({
-        billing_order_bid: pingxxCheckout.billingOrderBid,
+        bill_order_bid: pingxxCheckout.billingOrderBid,
         channel,
       })) as BillingCheckoutResult;
       const qrCode = extractBillingPingxxQrCode(result, channel);

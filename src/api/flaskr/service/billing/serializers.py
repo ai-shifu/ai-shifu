@@ -640,7 +640,7 @@ def serialize_order_summary(
     payment_mode = _resolve_billing_order_payment_mode(row)
 
     return BillingOrderSummaryDTO(
-        billing_order_bid=row.billing_order_bid,
+        bill_order_bid=row.bill_order_bid,
         creator_bid=row.creator_bid,
         product_bid=row.product_bid,
         subscription_bid=subscription_bid or None,

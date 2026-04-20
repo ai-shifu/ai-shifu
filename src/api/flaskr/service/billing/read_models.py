@@ -319,7 +319,7 @@ def build_billing_overview(
         )
 
 
-def build_billing_entitlements(app: Flask, creator_bid: str) -> BillingEntitlementsDTO:
+def build_bill_entitlements(app: Flask, creator_bid: str) -> BillingEntitlementsDTO:
     """Return the creator entitlement snapshot for v1.1 surfaces."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -328,7 +328,7 @@ def build_billing_entitlements(app: Flask, creator_bid: str) -> BillingEntitleme
         return serialize_creator_entitlements(state)
 
 
-def build_billing_daily_usage_metrics_page(
+def build_bill_daily_usage_metrics_page(
     app: Flask,
     creator_bid: str,
     *,
@@ -384,7 +384,7 @@ def build_billing_daily_usage_metrics_page(
         return BillingDailyUsageMetricsPageDTO(**payload.to_dto_kwargs())
 
 
-def build_billing_daily_ledger_summary_page(
+def build_bill_daily_ledger_summary_page(
     app: Flask,
     creator_bid: str,
     *,
@@ -540,7 +540,7 @@ def build_billing_ledger_page(
         )
 
 
-def build_billing_orders_page(
+def build_bill_orders_page(
     app: Flask,
     creator_bid: str,
     *,
@@ -570,7 +570,7 @@ def build_billing_orders_page(
         return BillingOrdersPageDTO(**payload.to_dto_kwargs())
 
 
-def build_admin_billing_subscriptions_page(
+def build_admin_bill_subscriptions_page(
     app: Flask,
     *,
     page_index: int = DEFAULT_PAGE_INDEX,
@@ -662,7 +662,7 @@ def build_admin_billing_subscriptions_page(
         )
 
 
-def build_admin_billing_entitlements_page(
+def build_admin_bill_entitlements_page(
     app: Flask,
     *,
     page_index: int = DEFAULT_PAGE_INDEX,
@@ -788,7 +788,7 @@ def build_admin_billing_domain_audits_page(
         )
 
 
-def build_admin_billing_orders_page(
+def build_admin_bill_orders_page(
     app: Flask,
     *,
     page_index: int = DEFAULT_PAGE_INDEX,
@@ -834,7 +834,7 @@ def build_admin_billing_orders_page(
         return AdminBillingOrdersPageDTO(**payload.to_dto_kwargs())
 
 
-def build_admin_billing_daily_usage_metrics_page(
+def build_admin_bill_daily_usage_metrics_page(
     app: Flask,
     *,
     page_index: int = DEFAULT_PAGE_INDEX,
@@ -894,7 +894,7 @@ def build_admin_billing_daily_usage_metrics_page(
         return AdminBillingDailyUsageMetricsPageDTO(**payload.to_dto_kwargs())
 
 
-def build_admin_billing_daily_ledger_summary_page(
+def build_admin_bill_daily_ledger_summary_page(
     app: Flask,
     *,
     page_index: int = DEFAULT_PAGE_INDEX,
@@ -956,20 +956,20 @@ def build_admin_billing_daily_ledger_summary_page(
 def build_billing_order_detail(
     app: Flask,
     creator_bid: str,
-    billing_order_bid: str,
+    bill_order_bid: str,
     *,
     timezone_name: str | None = None,
 ) -> BillingOrderDetailDTO:
     """Return a single billing order detail for the current creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(billing_order_bid)
+    normalized_order_bid = _normalize_bid(bill_order_bid)
     with app.app_context():
         row = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
                 BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.billing_order_bid == normalized_order_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
             )
             .order_by(BillingOrder.id.desc())
             .first()
@@ -995,7 +995,7 @@ def build_billing_order_detail(
         )
 
 
-def build_admin_billing_domain_bindings(
+def build_admin_bill_domain_bindings(
     app: Flask,
     *,
     creator_bid: str,

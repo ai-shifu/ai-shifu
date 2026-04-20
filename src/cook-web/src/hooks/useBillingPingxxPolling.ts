@@ -45,7 +45,7 @@ export function useBillingPingxxPolling({
       inFlightRef.current = true;
       try {
         const result = (await api.syncBillingOrder({
-          billing_order_bid: billingOrderBid,
+          bill_order_bid: billingOrderBid,
         })) as BillingSyncResult;
         if (!cancelled && BILLING_PINGXX_TERMINAL_STATUSES.has(result.status)) {
           await onResolvedRef.current?.(result);

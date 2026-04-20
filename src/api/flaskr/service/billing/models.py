@@ -65,14 +65,14 @@ class BillingTableMixin:
 
 
 class BillingProduct(BillingTableMixin, db.Model):
-    __tablename__ = "billing_products"
+    __tablename__ = "bill_products"
     __table_args__ = (
         UniqueConstraint(
             "product_bid",
-            name="uq_billing_products_product_bid",
+            name="uq_bill_products_product_bid",
         ),
         Index(
-            "ix_billing_products_product_type_status",
+            "ix_bill_products_product_type_status",
             "product_type",
             "status",
         ),
@@ -186,14 +186,14 @@ class BillingProduct(BillingTableMixin, db.Model):
 
 
 class BillingSubscription(BillingTableMixin, db.Model):
-    __tablename__ = "billing_subscriptions"
+    __tablename__ = "bill_subscriptions"
     __table_args__ = (
         UniqueConstraint(
             "subscription_bid",
-            name="uq_billing_subscriptions_subscription_bid",
+            name="uq_bill_subscriptions_subscription_bid",
         ),
         Index(
-            "ix_billing_subscriptions_creator_status",
+            "ix_bill_subscriptions_creator_status",
             "creator_bid",
             "status",
         ),
@@ -299,17 +299,17 @@ class BillingSubscription(BillingTableMixin, db.Model):
 
 
 class BillingOrder(BillingTableMixin, db.Model):
-    __tablename__ = "billing_orders"
+    __tablename__ = "bill_orders"
     __table_args__ = (
         UniqueConstraint(
-            "billing_order_bid",
-            name="uq_billing_orders_billing_order_bid",
+            "bill_order_bid",
+            name="uq_bill_orders_bill_order_bid",
         ),
-        Index("ix_billing_orders_creator_status", "creator_bid", "status"),
+        Index("ix_bill_orders_creator_status", "creator_bid", "status"),
         {"comment": "Billing orders"},
     )
 
-    billing_order_bid = Column(
+    bill_order_bid = Column(
         String(36),
         nullable=False,
         default="",
@@ -836,26 +836,26 @@ class CreditUsageRate(BillingTableMixin, db.Model):
 
 
 class BillingRenewalEvent(BillingTableMixin, db.Model):
-    __tablename__ = "billing_renewal_events"
+    __tablename__ = "bill_renewal_events"
     __table_args__ = (
         UniqueConstraint(
             "renewal_event_bid",
-            name="uq_billing_renewal_events_renewal_event_bid",
+            name="uq_bill_renewal_events_renewal_event_bid",
         ),
         UniqueConstraint(
             "subscription_bid",
             "event_type",
             "scheduled_at",
-            name="uq_billing_renewal_events_subscription_event_scheduled",
+            name="uq_bill_renewal_events_subscription_event_scheduled",
         ),
         Index(
-            "ix_billing_renewal_events_subscription_event_scheduled",
+            "ix_bill_renewal_events_subscription_event_scheduled",
             "subscription_bid",
             "event_type",
             "scheduled_at",
         ),
         Index(
-            "ix_billing_renewal_events_status_scheduled",
+            "ix_bill_renewal_events_status_scheduled",
             "status",
             "scheduled_at",
         ),
@@ -928,19 +928,19 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
 
 
 class BillingEntitlement(BillingTableMixin, db.Model):
-    __tablename__ = "billing_entitlements"
+    __tablename__ = "bill_entitlements"
     __table_args__ = (
         UniqueConstraint(
             "entitlement_bid",
-            name="uq_billing_entitlements_entitlement_bid",
+            name="uq_bill_entitlements_entitlement_bid",
         ),
         Index(
-            "ix_billing_entitlements_creator_effective_to",
+            "ix_bill_entitlements_creator_effective_to",
             "creator_bid",
             "effective_to",
         ),
         Index(
-            "ix_billing_entitlements_source_type_source_bid",
+            "ix_bill_entitlements_source_type_source_bid",
             "source_type",
             "source_bid",
         ),
@@ -1024,18 +1024,18 @@ class BillingEntitlement(BillingTableMixin, db.Model):
 
 
 class BillingDomainBinding(BillingTableMixin, db.Model):
-    __tablename__ = "billing_domain_bindings"
+    __tablename__ = "bill_domain_bindings"
     __table_args__ = (
         UniqueConstraint(
             "domain_binding_bid",
-            name="uq_billing_domain_bindings_domain_binding_bid",
+            name="uq_bill_domain_bindings_domain_binding_bid",
         ),
         UniqueConstraint(
             "host",
-            name="uq_billing_domain_bindings_host",
+            name="uq_bill_domain_bindings_host",
         ),
         Index(
-            "ix_billing_domain_bindings_creator_status",
+            "ix_bill_domain_bindings_creator_status",
             "creator_bid",
             "status",
         ),
@@ -1102,11 +1102,11 @@ class BillingDomainBinding(BillingTableMixin, db.Model):
 
 
 class BillingDailyUsageMetric(BillingTableMixin, db.Model):
-    __tablename__ = "billing_daily_usage_metrics"
+    __tablename__ = "bill_daily_usage_metrics"
     __table_args__ = (
         UniqueConstraint(
             "daily_usage_metric_bid",
-            name="uq_billing_daily_usage_metrics_daily_usage_metric_bid",
+            name="uq_bill_daily_usage_metrics_daily_usage_metric_bid",
         ),
         UniqueConstraint(
             "stat_date",
@@ -1117,10 +1117,10 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
             "provider",
             "model",
             "billing_metric",
-            name="uq_billing_daily_usage_metrics_lookup",
+            name="uq_bill_daily_usage_metrics_lookup",
         ),
         Index(
-            "ix_billing_daily_usage_metrics_stat_creator",
+            "ix_bill_daily_usage_metrics_stat_creator",
             "stat_date",
             "creator_bid",
         ),
@@ -1218,21 +1218,21 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
 
 
 class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
-    __tablename__ = "billing_daily_ledger_summary"
+    __tablename__ = "bill_daily_ledger_summary"
     __table_args__ = (
         UniqueConstraint(
             "daily_ledger_summary_bid",
-            name="uq_billing_daily_ledger_summary_daily_ledger_summary_bid",
+            name="uq_bill_daily_ledger_summary_daily_ledger_summary_bid",
         ),
         UniqueConstraint(
             "stat_date",
             "creator_bid",
             "entry_type",
             "source_type",
-            name="uq_billing_daily_ledger_summary_lookup",
+            name="uq_bill_daily_ledger_summary_lookup",
         ),
         Index(
-            "ix_billing_daily_ledger_summary_stat_creator",
+            "ix_bill_daily_ledger_summary_stat_creator",
             "stat_date",
             "creator_bid",
         ),
