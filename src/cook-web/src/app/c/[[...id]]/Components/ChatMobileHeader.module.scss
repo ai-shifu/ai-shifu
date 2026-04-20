@@ -6,18 +6,18 @@
   flex-shrink: 0;
   min-height: var(--mobile-chat-header-height, 44px);
   max-height: var(--mobile-chat-header-height, 44px);
-  background: #fff;
+  background: var(--base-background, #fff);
   padding: 6px 20px;
   height: var(--mobile-chat-header-height, 44px);
   width: 100%;
   box-sizing: border-box;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--base-border, #e5e5e5);
 
   .actionGroup {
     display: inline-flex;
     align-items: center;
-    margin-left: 24px;
-    gap: 20px;
+    margin-left: 12px;
+    gap: 12px;
     flex-shrink: 0;
   }
 
@@ -30,7 +30,13 @@
     padding: 0;
     border: 0;
     background: transparent;
+    color: var(--base-muted-foreground, #737373);
     cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary, #0f63ee);
+      outline-offset: 2px;
+    }
   }
 }
 

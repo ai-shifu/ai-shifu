@@ -1,0 +1,56 @@
+.learningModeSwitch {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 24px;
+  background: var(--base-secondary, #f5f5f5);
+  box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+    var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+    var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+.learningModeSwitch:focus-visible {
+  outline: 2px solid var(--primary, #0f63ee);
+  outline-offset: 2px;
+}
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 3px 10px;
+  gap: 4px;
+  border: 0.8px solid rgba(0, 0, 0, 0);
+  border-radius: 32px;
+  background: rgba(0, 0, 0, 0);
+  color: var(--base-muted-foreground, #737373);
+  font-size: var(--text-xs-font-size, 12px);
+  font-weight: var(--font-weight-normal, 400);
+  line-height: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.segmentDesktop {
+  height: 32px;
+  padding: 4px 14px;
+  gap: 6px;
+  font-size: 16px;
+  line-height: 16px;
+}
+.segmentActive {
+  border-color: var(--base-border, #e5e5e5);
+  background: var(--custom-background-dark-input-30, #fff);
+  color: var(--base-foreground, #0a0a0a);
+  box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+    var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+    var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+}
+.segmentLabel {
+  line-height: inherit;
+}
+.betaBadge {
+  margin-left: 1px;
+}

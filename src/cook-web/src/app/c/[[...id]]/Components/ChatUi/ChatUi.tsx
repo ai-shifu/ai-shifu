@@ -4,17 +4,16 @@ import { memo, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Headphones } from 'lucide-react';
 
 import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useUiLayoutStore } from '@/c-store';
+import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
-import { getLearningModeLabel } from '../learningModeOptions';
-import HeaderBetaBadge from '../HeaderBetaBadge';
+import CourseHeaderSummary from '../CourseHeaderSummary';
+import LearningModeSwitch from '../LearningModeSwitch';
 
 interface ChatUiProps {
   chapterId: string;
@@ -59,18 +58,18 @@ export const ChatUi = ({
 }: ChatUiProps) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
-  const {
-    previewMode,
-    learningMode,
-    updateLearningMode,
-    showLearningModeToggle,
-  } = useSystemStore(
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
+    })),
+  );
+  const { previewMode, learningMode, showLearningModeToggle } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
       previewMode: state.previewMode,
       learningMode: state.learningMode,
-      updateLearningMode: state.updateLearningMode,
       showLearningModeToggle: state.showLearningModeToggle,
     })),
   );
@@ -106,38 +105,17 @@ export const ChatUi = ({
       {
         showHeader ? (
           <div className={styles.header}>
+            <div className={styles.headerContent}>
+              <CourseHeaderSummary
+                courseAvatar={courseAvatar}
+                courseName={courseName}
+                className={styles.courseSummary}
+                titleClassName={styles.courseSummaryTitle}
+              />
+            </div>
             {showModeToggle ? (
               <div className={styles.headerActions}>
-                <button
-                  type='button'
-                  className={cn(
-                    styles.modeButton,
-                    'relative overflow-visible',
-                    learningMode === 'listen' ? styles.modeButtonActive : '',
-                  )}
-                  onClick={() => updateLearningMode('listen')}
-                >
-                  <HeaderBetaBadge />
-                  <Headphones
-                    size={16}
-                    strokeWidth={2}
-                  />
-                  <span>{getLearningModeLabel(t, 'listen')}</span>
-                </button>
-                <button
-                  type='button'
-                  className={cn(
-                    styles.modeButton,
-                    learningMode === 'read' ? styles.modeButtonActive : '',
-                  )}
-                  onClick={() => updateLearningMode('read')}
-                >
-                  <BookOpen
-                    size={16}
-                    strokeWidth={2}
-                  />
-                  <span>{getLearningModeLabel(t, 'read')}</span>
-                </button>
+                <LearningModeSwitch size='desktop' />
               </div>
             ) : null}
           </div>
