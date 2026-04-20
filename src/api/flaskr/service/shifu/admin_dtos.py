@@ -204,7 +204,7 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
     order_count: int = Field(..., description="Successful order count", required=False)
     order_amount: str = Field(
         ...,
-        description="Collected amount including full coupon and promo redemptions",
+        description="Collected amount for successful orders using paid price when present, otherwise payable price",
         required=False,
     )
     follow_up_count: int = Field(
