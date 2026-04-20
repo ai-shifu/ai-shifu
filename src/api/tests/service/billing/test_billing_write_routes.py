@@ -63,7 +63,6 @@ from flaskr.service.billing.subscriptions import (
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
-from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_providers import (
@@ -127,6 +126,130 @@ def _seed_creator_user(app: Flask, *, creator_bid: str = "creator-1") -> None:
             state=USER_STATE_REGISTERED,
         )
         entity.is_creator = 1
+        dao.db.session.commit()
+
+
+def _add_trial_subscription_state(
+    app: Flask,
+    *,
+    creator_bid: str = "creator-1",
+    subscription_bid: str = "sub-trial-default",
+    bill_order_bid: str = "bill-trial-default",
+    wallet_bid: str = "wallet-trial-default",
+    wallet_bucket_bid: str = "bucket-trial-default",
+    ledger_bid: str = "ledger-trial-default",
+    current_period_start_at: datetime | None = None,
+    current_period_end_at: datetime | None = None,
+    credit_amount: Decimal = Decimal("100.0000000000"),
+) -> None:
+    now = datetime.now()
+    trial_start = current_period_start_at or now - timedelta(minutes=5)
+    trial_end = current_period_end_at or now + timedelta(days=15)
+    with app.app_context():
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid=subscription_bid,
+                creator_bid=creator_bid,
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=trial_start,
+                current_period_end_at=trial_end,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={"trial_bootstrap": True},
+                created_at=trial_start,
+                updated_at=trial_start,
+            )
+        )
+        dao.db.session.add(
+            CreditWallet(
+                wallet_bid=wallet_bid,
+                creator_bid=creator_bid,
+                available_credits=credit_amount,
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=credit_amount,
+                lifetime_consumed_credits=Decimal("0"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=trial_start,
+                updated_at=trial_start,
+            )
+        )
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid=bill_order_bid,
+                creator_bid=creator_bid,
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                subscription_bid=subscription_bid,
+                currency="CNY",
+                payable_amount=0,
+                paid_amount=0,
+                payment_provider="manual",
+                channel="manual",
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=trial_start,
+                metadata_json={"checkout_type": "trial_bootstrap"},
+                created_at=trial_start,
+                updated_at=trial_start,
+            )
+        )
+        dao.db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid=wallet_bucket_bid,
+                wallet_bid=wallet_bid,
+                creator_bid=creator_bid,
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=bill_order_bid,
+                priority=20,
+                original_credits=credit_amount,
+                available_credits=credit_amount,
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=trial_start,
+                effective_to=trial_end,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "bill_order_bid": bill_order_bid,
+                    "product_bid": BILLING_TRIAL_PRODUCT_BID,
+                    "subscription_bid": subscription_bid,
+                    "payment_provider": "manual",
+                },
+                created_at=trial_start,
+                updated_at=trial_start,
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid=ledger_bid,
+                creator_bid=creator_bid,
+                wallet_bid=wallet_bid,
+                wallet_bucket_bid=wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=bill_order_bid,
+                idempotency_key=f"grant:{bill_order_bid}",
+                amount=credit_amount,
+                balance_after=credit_amount,
+                expires_at=trial_end,
+                consumable_from=trial_start,
+                metadata_json={
+                    "bill_order_bid": bill_order_bid,
+                    "product_bid": BILLING_TRIAL_PRODUCT_BID,
+                    "subscription_bid": subscription_bid,
+                    "payment_provider": "manual",
+                    "grant_reason": "subscription",
+                },
+                created_at=trial_start,
+                updated_at=trial_start,
+            )
+        )
         dao.db.session.commit()
 
 
@@ -574,6 +697,17 @@ class TestBillingWriteRoutes:
         assert payload["code"] == 0
         assert payload["data"]["provider"] == "stripe"
         assert payload["data"]["status"] == "pending"
+
+        with app.app_context():
+            subscriptions = BillingSubscription.query.filter_by(
+                creator_bid="creator-1"
+            ).all()
+            order = BillingOrder.query.filter_by(creator_bid="creator-1").one()
+
+            assert len(subscriptions) == 1
+            assert subscriptions[0].subscription_bid == "sub-monthly"
+            assert order.subscription_bid == "sub-monthly"
+            assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
     def test_subscription_checkout_rejects_lower_tier_even_with_newer_draft(
         self, billing_write_client
@@ -1050,8 +1184,14 @@ class TestBillingWriteRoutes:
         app = billing_write_client["app"]
 
         _seed_creator_user(app, creator_bid="creator-1")
-        with app.app_context():
-            bootstrap_new_creator_trial_credits(app, "creator-1")
+        _add_trial_subscription_state(
+            app,
+            subscription_bid="sub-trial-paid-then-topup",
+            bill_order_bid="bill-trial-paid-then-topup",
+            wallet_bid="wallet-trial-paid-then-topup",
+            wallet_bucket_bid="bucket-trial-paid-then-topup",
+            ledger_bid="ledger-trial-paid-then-topup",
+        )
 
         paid_checkout = client.post(
             "/api/billing/subscriptions/checkout",
@@ -1097,6 +1237,10 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 product_bid="bill-product-plan-monthly",
             ).one()
+            subscription_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            ).all()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
                 source_bid=topup_order_bid,
@@ -1107,6 +1251,15 @@ class TestBillingWriteRoutes:
             ).one()
 
             assert paid_subscription.current_period_end_at is not None
+            assert (
+                BillingSubscription.query.filter_by(creator_bid="creator-1").count()
+                == 1
+            )
+            assert len(subscription_buckets) == 1
+            assert subscription_buckets[0].source_bid == paid_order_bid
+            assert subscription_buckets[0].available_credits == Decimal(
+                "105.0000000000"
+            )
             assert bucket.effective_to == paid_subscription.current_period_end_at
             assert ledger.expires_at == paid_subscription.current_period_end_at
 
@@ -1126,14 +1279,18 @@ class TestBillingWriteRoutes:
         app = billing_write_client["app"]
 
         _seed_creator_user(app, creator_bid="creator-1")
+        _add_trial_subscription_state(
+            app,
+            subscription_bid="sub-trial-topup-then-paid",
+            bill_order_bid="bill-trial-topup-then-paid",
+            wallet_bid="wallet-trial-topup-then-paid",
+            wallet_bucket_bid="bucket-trial-topup-then-paid",
+            ledger_bid="ledger-trial-topup-then-paid",
+        )
         with app.app_context():
-            bootstrap_new_creator_trial_credits(app, "creator-1")
-            trial_subscription = (
-                BillingSubscription.query.filter_by(creator_bid="creator-1")
-                .order_by(BillingSubscription.current_period_end_at.desc())
-                .first()
-            )
-            assert trial_subscription is not None
+            trial_subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-trial-topup-then-paid"
+            ).one()
             trial_end = trial_subscription.current_period_end_at
 
         topup_checkout = client.post(
@@ -1186,6 +1343,10 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 product_bid="bill-product-plan-monthly",
             ).one()
+            subscription_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            ).all()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
                 source_bid=topup_order_bid,
@@ -1196,6 +1357,15 @@ class TestBillingWriteRoutes:
             ).one()
 
             assert paid_subscription.current_period_end_at is not None
+            assert (
+                BillingSubscription.query.filter_by(creator_bid="creator-1").count()
+                == 1
+            )
+            assert len(subscription_buckets) == 1
+            assert subscription_buckets[0].source_bid == paid_order_bid
+            assert subscription_buckets[0].available_credits == Decimal(
+                "105.0000000000"
+            )
             assert bucket.effective_to == paid_subscription.current_period_end_at
             assert ledger.expires_at == paid_subscription.current_period_end_at
             assert bucket.effective_to != trial_end

@@ -42,6 +42,7 @@ from .consts import (
     BILLING_ORDER_TYPE_LABELS,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_CODE,
@@ -190,25 +191,45 @@ def create_billing_subscription_checkout(
         if payment_provider == "stripe":
             channel = "checkout_session"
 
-        subscription = BillingSubscription(
-            subscription_bid=generate_id(app),
-            creator_bid=normalized_creator_bid,
-            product_bid=product.product_bid,
-            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
-            billing_provider=payment_provider,
-            provider_subscription_id="",
-            provider_customer_id="",
-            cancel_at_period_end=0,
-            next_product_bid="",
-            metadata_json={"checkout_started": True},
+        current_subscription = _load_primary_active_subscription(
+            normalized_creator_bid,
+            as_of=datetime.now(),
         )
+        if current_subscription is None:
+            subscription = BillingSubscription(
+                subscription_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                product_bid=product.product_bid,
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider=payment_provider,
+                provider_subscription_id="",
+                provider_customer_id="",
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={"checkout_started": True},
+            )
+            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
+        else:
+            subscription = current_subscription
+            subscription.metadata_json = _normalize_json_object(
+                {
+                    **(
+                        subscription.metadata_json
+                        if isinstance(subscription.metadata_json, dict)
+                        else {}
+                    ),
+                    "checkout_started": True,
+                }
+            ).to_metadata_json()
+            subscription.updated_at = datetime.now()
+            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
         db.session.add(subscription)
         db.session.flush()
 
         order = BillingOrder(
             bill_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            order_type=order_type,
             product_bid=product.product_bid,
             subscription_bid=subscription.subscription_bid,
             currency=product.currency,
@@ -321,6 +342,7 @@ def create_billing_order_checkout(
             raise_error("server.order.orderStatusError")
         if order.order_type not in {
             BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
             BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
         }:
             raise_error("server.order.orderStatusError")
