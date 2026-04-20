@@ -103,9 +103,12 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    get_operator_user_detail,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
+    get_operator_course_users,
     list_operator_courses,
+    list_operator_users,
     transfer_operator_course_creator,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
@@ -248,6 +251,24 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
         except ValueError:
             continue
     raise_param_error("datetime format invalid")
+
+
+def _parse_positive_query_int(
+    raw_value: object,
+    *,
+    field_name: str,
+    default: int,
+    minimum: int = 1,
+) -> int:
+    if raw_value is None:
+        return default
+    try:
+        parsed_value = int(raw_value)
+    except (TypeError, ValueError):
+        raise_param_error(field_name)
+    if parsed_value < minimum:
+        raise_param_error(field_name)
+    return parsed_value
 
 
 @inject
@@ -551,6 +572,117 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_courses(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
+    def admin_operations_users():
+        """
+        Operator user list
+        ---
+        tags:
+            - User
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: user_bid
+              type: string
+              required: false
+            - name: identifier
+              type: string
+              required: false
+              description: User phone, email, identify, or user_bid keyword
+            - name: mobile
+              type: string
+              required: false
+              description: Deprecated alias for identifier
+            - name: nickname
+              type: string
+              required: false
+            - name: user_status
+              type: string
+              required: false
+              description: unregistered, registered, or paid
+            - name: user_role
+              type: string
+              required: false
+              description: regular, creator, learner, or operator
+            - name: start_time
+              type: string
+              required: false
+              description: User created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: User created end date (YYYY-MM-DD)
+        responses:
+            200:
+                description: List active users for operators
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/PageNationDTO"
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "user_bid": request.args.get("user_bid", ""),
+            "identifier": request.args.get("identifier", ""),
+            "mobile": request.args.get("mobile", ""),
+            "nickname": request.args.get("nickname", ""),
+            "user_status": request.args.get("user_status", ""),
+            "user_role": request.args.get("user_role", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_users(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
+    )
+    def admin_operation_user_detail(user_bid: str):
+        """
+        Get operator user detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        responses:
+            200:
+                description: Operator user detail
+        """
+        _require_operator()
+        return make_common_response(get_operator_user_detail(app, user_bid))
+
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
     )
@@ -630,6 +762,82 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_item_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/users", methods=["GET"]
+    )
+    def admin_operation_course_users(shifu_bid: str):
+        """
+        Get operator course users
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: user_role
+              in: query
+              type: string
+              required: false
+              description: User role filter
+            - name: learning_status
+              in: query
+              type: string
+              required: false
+              description: Learning status filter
+            - name: payment_status
+              in: query
+              type: string
+              required: false
+              description: Payment status filter
+        responses:
+            200:
+                description: Operator course user list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "user_role": request.args.get("user_role", ""),
+            "learning_status": request.args.get("learning_status", ""),
+            "payment_status": request.args.get("payment_status", ""),
+        }
+        return make_common_response(
+            get_operator_course_users(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
             )
         )
 

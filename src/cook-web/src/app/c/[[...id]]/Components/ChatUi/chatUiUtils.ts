@@ -8,6 +8,7 @@ type LegacyBlockCompatItem = {
   parent_element_bid?: string;
   parent_block_bid?: string;
   ask_list?: LegacyBlockCompatItem[];
+  type?: string;
 };
 
 export const appendCustomButtonAfterContent = (
@@ -33,17 +34,59 @@ export const appendCustomButtonAfterContent = (
   return baseContent + needsLineBreak + buttonMarkup;
 };
 
+export const hasCustomButtonAfterContent = (
+  content?: string | null,
+): boolean => {
+  return Boolean(content?.includes(CUSTOM_BUTTON_AFTER_CONTENT_TAG));
+};
+
 export const stripCustomButtonAfterContent = (
   content?: string | null,
 ): string | null | undefined => {
   if (!content) {
     return content;
   }
-  if (!content.includes(CUSTOM_BUTTON_AFTER_CONTENT_TAG)) {
+  if (!hasCustomButtonAfterContent(content)) {
     return content;
   }
   // Remove ask button markup from listen mode content.
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
+};
+
+export const syncCustomButtonAfterContent = ({
+  content,
+  buttonMarkup,
+  shouldShowButton,
+}: {
+  content?: string | null;
+  buttonMarkup: string;
+  shouldShowButton: boolean;
+}): string => {
+  const baseContent = content ?? '';
+
+  if (shouldShowButton) {
+    return appendCustomButtonAfterContent(baseContent, buttonMarkup);
+  }
+
+  return stripCustomButtonAfterContent(baseContent) ?? '';
+};
+
+export const inheritCustomButtonAfterContent = ({
+  nextContent,
+  previousContent,
+  buttonMarkup,
+}: {
+  nextContent?: string | null;
+  previousContent?: string | null;
+  buttonMarkup: string;
+}): string => {
+  const resolvedNextContent = nextContent ?? '';
+
+  if (!hasCustomButtonAfterContent(previousContent)) {
+    return resolvedNextContent;
+  }
+
+  return appendCustomButtonAfterContent(resolvedNextContent, buttonMarkup);
 };
 
 export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(

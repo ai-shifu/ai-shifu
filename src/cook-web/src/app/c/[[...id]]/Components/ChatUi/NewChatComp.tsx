@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, X } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -22,6 +22,7 @@ import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -37,7 +38,8 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { stripCustomButtonAfterContent } from './chatUiUtils';
+import { ELEMENT_TYPE } from '@/c-api/studyV2';
+import { syncCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +52,9 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -169,6 +174,27 @@ const buildReadModeItemsWithAskState = ({
   return nextItems;
 };
 
+const getFirstHistoryTextContentItem = (items: ChatContentItem[]) =>
+  items.find(
+    item =>
+      item.isHistory === true &&
+      item.type === ChatContentItemType.CONTENT &&
+      item.element_type === ELEMENT_TYPE.TEXT,
+  );
+
+const hasItemAudio = (item?: ChatContentItem) =>
+  Boolean(item?.audio_url?.trim() || item?.audioUrl?.trim());
+
+const shouldBlockListenModeForLegacyHistory = (items: ChatContentItem[]) => {
+  const firstTextContentItem = getFirstHistoryTextContentItem(items);
+
+  if (!firstTextContentItem) {
+    return false;
+  }
+
+  return !hasItemAudio(firstTextContentItem);
+};
+
 export const NewChatComponents = ({
   className,
   lessonUpdate,
@@ -192,6 +218,23 @@ export const NewChatComponents = ({
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
+  const askButtonMarkup = useMemo(
+    () =>
+      `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+    [t],
+  );
+  const listenModeUpgradeDialogTitle = t(
+    'module.chat.listenModeUpgradeDialogTitle',
+  );
+  const listenModeUpgradeDialogDescription = t(
+    'module.chat.listenModeUpgradeDialogDescription',
+  );
+  const listenModeUpgradeDialogRedo = t(
+    'module.chat.listenModeUpgradeDialogRedo',
+  );
+  const listenModeUpgradeDialogReadLegacy = t(
+    'module.chat.listenModeUpgradeDialogReadLegacy',
+  );
   const chatBoxBottomRef = useRef<HTMLDivElement | null>(null);
   const showOutputInProgressToast = useCallback(() => {
     toast({
@@ -238,6 +281,8 @@ export const NewChatComponents = ({
     isAudioSequenceActive: false,
   });
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
+  const [showListenModeUpgradeDialog, setShowListenModeUpgradeDialog] =
+    useState(false);
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -287,25 +332,47 @@ export const NewChatComponents = ({
     });
   }, [isNearBottom, mobileStyle]);
 
-  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        openPayModal: state.openPayModal,
-        payModalResult: state.payModalResult,
-        resetedLessonId: state.resetedLessonId,
-        resettingLessonId: state.resettingLessonId,
-      })),
-    );
+  const {
+    openPayModal,
+    payModalResult,
+    resetChapter,
+    resetedLessonId,
+    resettingLessonId,
+  } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+      payModalResult: state.payModalResult,
+      resetChapter: state.resetChapter,
+      resetedLessonId: state.resetedLessonId,
+      resettingLessonId: state.resettingLessonId,
+    })),
+  );
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
-  const learningMode = useSystemStore(state => state.learningMode);
+  const { learningMode, showLearningModeToggle, updateLearningMode } =
+    useSystemStore(
+      useShallow(state => ({
+        learningMode: state.learningMode,
+        showLearningModeToggle: state.showLearningModeToggle,
+        updateLearningMode: state.updateLearningMode,
+      })),
+    );
   const isListenMode = learningMode === 'listen';
+  const previousLearningModeRef = useRef(learningMode);
+  const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
+  const pendingListenAfterResetLessonIdRef = useRef<string | null>(null);
+  const listenModeRestoreReadyRef = useRef(false);
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
-  const isListenModeActive = isListenMode && isListenModeAvailable;
+  const isListenModeActive = getIsListenModeActive({
+    learningMode,
+    courseTtsEnabled,
+  });
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const isListenModeResetting =
+    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
@@ -410,6 +477,7 @@ export const NewChatComponents = ({
     updateSelectedLesson,
     getNextLessonId,
     scrollToLesson,
+    listenRequestEnabled: showLearningModeToggle,
     shouldPromptLessonFeedback:
       isPromptContextSettled &&
       (isListenModeActive ? isListenFeedbackReady : isAtBottom),
@@ -460,6 +528,65 @@ export const NewChatComponents = ({
   }, [isListenModeActive, lessonId]);
 
   useEffect(() => {
+    if (learningMode !== 'read') {
+      return;
+    }
+
+    lastReadModeItemsRef.current = items;
+  }, [items, learningMode]);
+
+  useEffect(() => {
+    const previousLearningMode = previousLearningModeRef.current;
+    previousLearningModeRef.current = learningMode;
+
+    if (previousLearningMode !== 'read' || learningMode !== 'listen') {
+      return;
+    }
+
+    const sourceItems = lastReadModeItemsRef.current.length
+      ? lastReadModeItemsRef.current
+      : items;
+
+    if (!shouldBlockListenModeForLegacyHistory(sourceItems)) {
+      return;
+    }
+
+    setShowListenModeUpgradeDialog(true);
+    updateLearningMode('read');
+  }, [items, learningMode, updateLearningMode]);
+
+  useEffect(() => {
+    const pendingLessonId = pendingListenAfterResetLessonIdRef.current;
+
+    if (!pendingLessonId || pendingLessonId !== resolvedLessonId) {
+      return;
+    }
+
+    if (resetedLessonId === resolvedLessonId) {
+      listenModeRestoreReadyRef.current = true;
+      return;
+    }
+
+    if (
+      !listenModeRestoreReadyRef.current ||
+      isLoading ||
+      resettingLessonId === resolvedLessonId
+    ) {
+      return;
+    }
+
+    pendingListenAfterResetLessonIdRef.current = null;
+    listenModeRestoreReadyRef.current = false;
+    updateLearningMode('listen');
+  }, [
+    isLoading,
+    resetedLessonId,
+    resettingLessonId,
+    resolvedLessonId,
+    updateLearningMode,
+  ]);
+
+  useEffect(() => {
     setIsListenFeedbackReady(false);
     setSettledPromptContextKey(promptContextKey);
   }, [promptContextKey]);
@@ -502,7 +629,11 @@ export const NewChatComponents = ({
       if (item.type !== ChatContentItemType.CONTENT) {
         return item;
       }
-      const sanitizedContent = stripCustomButtonAfterContent(item.content);
+      const sanitizedContent = syncCustomButtonAfterContent({
+        content: item.content,
+        buttonMarkup: askButtonMarkup,
+        shouldShowButton: false,
+      });
       if (sanitizedContent === item.content) {
         return item;
       }
@@ -513,7 +644,7 @@ export const NewChatComponents = ({
       };
     });
     return hasChanges ? nextItems : items;
-  }, [isListenModeActive, items, mobileStyle]);
+  }, [askButtonMarkup, isListenModeActive, items, mobileStyle]);
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -739,6 +870,40 @@ export const NewChatComponents = ({
       toggleAskExpanded(blockBid);
     },
     [toggleAskExpanded],
+  );
+
+  const handleReadLegacyMode = useCallback(() => {
+    if (isListenModeResetting) {
+      return;
+    }
+
+    stopActiveLessonStream(resolvedLessonId);
+    pendingListenAfterResetLessonIdRef.current = null;
+    listenModeRestoreReadyRef.current = false;
+    updateLearningMode('read');
+    setShowListenModeUpgradeDialog(false);
+  }, [isListenModeResetting, resolvedLessonId, updateLearningMode]);
+
+  const handleResetChapterForListenMode = useSingleFlight(async () => {
+    if (!resolvedLessonId) {
+      return;
+    }
+
+    stopActiveLessonStream(resolvedLessonId);
+    pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
+    listenModeRestoreReadyRef.current = false;
+    updateLearningMode('read');
+    await resetChapter(resolvedLessonId);
+    setShowListenModeUpgradeDialog(false);
+  });
+
+  const handleListenModeUpgradeDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleReadLegacyMode();
+      }
+    },
+    [handleReadLegacyMode],
   );
 
   useEffect(() => {
@@ -1174,6 +1339,55 @@ export const NewChatComponents = ({
               className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
             >
               {t('common.core.ok')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={showListenModeUpgradeDialog}
+        onOpenChange={handleListenModeUpgradeDialogOpenChange}
+      >
+        <DialogContent
+          className='sm:max-w-md'
+          showClose={!isListenModeResetting}
+          onEscapeKeyDown={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDownOutside={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{listenModeUpgradeDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {listenModeUpgradeDialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className='flex gap-2 sm:gap-2'>
+            <button
+              type='button'
+              onClick={() => {
+                void handleResetChapterForListenMode();
+              }}
+              disabled={isListenModeResetting}
+              className='cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter disabled:cursor-not-allowed disabled:bg-primary/60'
+            >
+              {isListenModeResetting ? (
+                <Loader2 className='mr-2 inline h-4 w-4 animate-spin' />
+              ) : null}
+              {listenModeUpgradeDialogRedo}
+            </button>
+            <button
+              type='button'
+              onClick={handleReadLegacyMode}
+              disabled={isListenModeResetting}
+              className='cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400'
+            >
+              {listenModeUpgradeDialogReadLegacy}
             </button>
           </DialogFooter>
         </DialogContent>

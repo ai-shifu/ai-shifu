@@ -67,6 +67,8 @@ import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import {
   appendCustomButtonAfterContent,
+  hasCustomButtonAfterContent,
+  inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
 } from './chatUiUtils';
 
@@ -138,6 +140,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
+  listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, elementBid: string) => void;
@@ -198,6 +201,7 @@ function useChatLogicHook({
   chapterId,
   previewMode,
   isListenMode = false,
+  listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
   chatBoxBottomRef,
@@ -479,7 +483,7 @@ function useChatLogicHook({
         mobileStyle &&
         !isListenMode &&
         targetItem.type === ChatContentItemType.CONTENT &&
-        !targetItem.content?.includes(`<custom-button-after-content>`)
+        !hasCustomButtonAfterContent(targetItem.content)
       ) {
         nextItems[targetIndex] = {
           ...targetItem,
@@ -745,13 +749,18 @@ function useChatLogicHook({
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
       const rawContent = record.content ?? '';
-      const content =
+      const contentWithAskButton =
         options?.appendAskButton &&
         mobileStyle &&
         !isListenMode &&
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
+      const content = inheritCustomButtonAfterContent({
+        nextContent: contentWithAskButton,
+        previousContent: options?.previousItem?.content,
+        buttonMarkup: getAskButtonMarkup(),
+      });
 
       return {
         ...options?.previousItem,
@@ -765,7 +774,7 @@ function useChatLogicHook({
           options?.previousItem?.user_input ??
           '',
         readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory,
+        isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -1105,6 +1114,44 @@ function useChatLogicHook({
     [lessonUpdate, updateSelectedLesson],
   );
 
+  const stopActiveRunStream = useCallback(() => {
+    if (sseRef.current) {
+      try {
+        sseRef.current.close();
+      } catch {
+      } finally {
+        sseRef.current = null;
+      }
+    }
+
+    isStreamingRef.current = false;
+
+    const completedElementBid = currentBlockIdRef.current || '';
+    setTrackedContentList(prevState => {
+      let nextList = prevState.filter(item => item.element_bid !== 'loading');
+      if (completedElementBid) {
+        nextList = finalizeElementOutputInList(nextList, completedElementBid);
+      }
+      return nextList.map(item =>
+        item.isAudioStreaming
+          ? {
+              ...item,
+              isAudioStreaming: false,
+            }
+          : item,
+      );
+    });
+
+    currentBlockIdRef.current = null;
+    currentContentRef.current = '';
+    setCurrentStreamingElementBid('');
+
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, [finalizeElementOutputInList, setTrackedContentList]);
+
   /**
    * Starts the SSE request and streams content into the chat list.
    */
@@ -1159,7 +1206,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: isListenMode },
+        { ...sseParams, listen: listenRequestEnabled },
         async response => {
           if (
             sseRef.current !== source ||
@@ -1242,13 +1289,15 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-              if (isEnd) {
-                return;
-              }
-
               const elementRecord = response.content as StudyRecordItem;
               const itemBid = resolveElementItemBid(elementRecord);
               const elementType = resolveRecordElementType(elementRecord);
+
+              // Lesson completion updates can be emitted before the trailing
+              // interaction controls, so keep those final interaction markers.
+              if (isEnd && elementType !== ELEMENT_TYPE.INTERACTION) {
+                return;
+              }
 
               if (!itemBid) {
                 return;
@@ -1414,7 +1463,11 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: displayText,
+                        content: inheritCustomButtonAfterContent({
+                          nextContent: displayText,
+                          previousContent: item.content,
+                          buttonMarkup: getAskButtonMarkup(),
+                        }),
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??
@@ -1642,6 +1695,7 @@ function useChatLogicHook({
       chapterUpdate,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -1675,6 +1729,32 @@ function useChatLogicHook({
       isStreamingRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const handleStopActiveLessonStream = (
+      event: Event | CustomEvent<{ lessonId: string }>,
+    ) => {
+      const targetLessonId =
+        'detail' in event ? event.detail?.lessonId || '' : '';
+      if (!targetLessonId || targetLessonId !== outlineBid) {
+        return;
+      }
+
+      stopActiveRunStream();
+    };
+
+    events.addEventListener(
+      BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+      handleStopActiveLessonStream as EventListener,
+    );
+
+    return () => {
+      events.removeEventListener(
+        BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+        handleStopActiveLessonStream as EventListener,
+      );
+    };
+  }, [outlineBid, stopActiveRunStream]);
 
   useEffect(() => {
     runRef.current = run;
@@ -2586,7 +2666,7 @@ function useChatLogicHook({
           shifu_bid: shifuBid,
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
-          listen: isListenMode,
+          listen: listenRequestEnabled,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
@@ -2645,6 +2725,7 @@ function useChatLogicHook({
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,
+      listenRequestEnabled,
       matchItemBid,
       resolveSourceGeneratedBlockBid,
       setTrackedContentList,

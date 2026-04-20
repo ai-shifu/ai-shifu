@@ -1,24 +1,16 @@
 import styles from './ChatMobileHeader.module.scss';
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/Popover';
-import IconButton from './IconButton/IconButton';
-import moeIcon from './IconButton/icon16-more2x.png';
-import closeIcon from './IconButton/close-2x.png';
-
-import { Button } from '@/components/ui/Button';
-import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
-
+import { useShallow } from 'zustand/react/shallow';
+import { useSystemStore } from '@/c-store/useSystemStore';
+import { Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
-import LogoWithText from '@/c-components/logo/LogoWithText';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
+import CourseHeaderSummary from './CourseHeaderSummary';
+import LearningModeSwitch from './LearningModeSwitch';
 
 export const ChatMobileHeader = ({
   className,
@@ -26,21 +18,24 @@ export const ChatMobileHeader = ({
   navOpen,
   iconPopoverPayload,
 }) => {
-  const {
-    open: iconPopoverOpen,
-    onOpen: onIconPopoverOpen,
-    onClose: onIconPopoverClose,
-  } = useDisclosure();
+  const { t } = useTranslation();
+  const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
+    useDisclosure();
 
   const hasPopoverContentControl = shifu.hasControl(
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
-  const popoverVisible = iconPopoverOpen && hasPopoverContentControl;
+  const { showLearningModeToggle } = useSystemStore(
+    useShallow(state => ({
+      showLearningModeToggle: state.showLearningModeToggle,
+    })),
+  );
+  const MenuIcon = navOpen ? X : Menu;
 
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
-      {iconPopoverPayload && (
+      {iconPopoverPayload && hasPopoverContentControl ? (
         <div
           className='hidden'
           style={{ display: 'none' }}
@@ -51,30 +46,29 @@ export const ChatMobileHeader = ({
             onClose={onIconPopoverClose}
           />
         </div>
-      )}
-      <LogoWithText
-        direction='row'
-        size={30}
-      />
-      <Popover
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        content={
-          <MobileHeaderIconPopover
-            payload={iconPopoverPayload}
-            onClose={onIconPopoverClose}
-            onOpen={onIconPopoverOpen}
-          />
-        }
-        className={styles.iconButtonPopover}
-        visible={iconPopoverOpen && hasPopoverContentControl}
-        placement='bottom-end'
-      >
-        <IconButton
-          icon={navOpen ? closeIcon.src : moeIcon.src}
+      ) : null}
+      <CourseHeaderSummary />
+
+      <div className={styles.actionGroup}>
+        {showLearningModeToggle ? <LearningModeSwitch /> : null}
+
+        <button
+          type='button'
+          aria-label={
+            navOpen
+              ? t('module.chat.closeCatalog')
+              : t('module.chat.openCatalog')
+          }
+          className={styles.iconButton}
           onClick={onSettingClick}
-        />
-      </Popover>
+        >
+          <MenuIcon
+            size={20}
+            strokeWidth={2}
+            className='text-neutral-500'
+          />
+        </button>
+      </div>
     </div>
   );
 };

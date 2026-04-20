@@ -105,7 +105,7 @@ const MainInterface = ({
         />
       ) : null}
       <div className='flex h-screen bg-stone-50'>
-        <div className='w-[280px]'>
+        <div className='w-[280px] shrink-0'>
           <SidebarContent
             menuItems={menuItems}
             loading={!menuReady}

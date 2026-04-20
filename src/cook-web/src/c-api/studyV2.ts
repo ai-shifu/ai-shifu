@@ -269,7 +269,7 @@ export const getRunMessage = (
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
-  payload.listen = getListenFlagFromPageUrl();
+  payload.listen = Boolean(body.listen);
 
   const baseURL = getResolvedBaseURL();
 

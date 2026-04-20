@@ -38,6 +38,7 @@ export type AdminOperationCourseDetailBasicInfo = {
 };
 
 export type AdminOperationCourseDetailMetrics = {
+  visit_count_30d: number;
   learner_count: number;
   order_count: number;
   order_amount: string;
@@ -76,4 +77,41 @@ export type AdminOperationCourseDetailResponse = {
   basic_info: AdminOperationCourseDetailBasicInfo;
   metrics: AdminOperationCourseDetailMetrics;
   chapters: AdminOperationCourseDetailChapter[];
+};
+
+export type AdminOperationCourseUserRole =
+  | 'operator'
+  | 'creator'
+  | 'student'
+  | 'normal'
+  | LooseString;
+
+export type AdminOperationCourseUserLearningStatus =
+  | 'not_started'
+  | 'learning'
+  | 'completed'
+  | LooseString;
+
+export type AdminOperationCourseUserItem = {
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  user_role: AdminOperationCourseUserRole;
+  learned_lesson_count: number;
+  total_lesson_count: number;
+  learning_status: AdminOperationCourseUserLearningStatus;
+  is_paid: boolean;
+  total_paid_amount: string;
+  last_learning_at: string;
+  joined_at: string;
+  last_login_at: string;
+};
+
+export type AdminOperationCourseUsersResponse = {
+  items: AdminOperationCourseUserItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
 };

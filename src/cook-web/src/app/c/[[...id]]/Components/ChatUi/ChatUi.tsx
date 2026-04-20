@@ -4,16 +4,16 @@ import { memo, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Headphones } from 'lucide-react';
 
 import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
-import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
+import CourseHeaderSummary from '../CourseHeaderSummary';
+import LearningModeSwitch from '../LearningModeSwitch';
 
 interface ChatUiProps {
   chapterId: string;
@@ -49,7 +49,6 @@ export const ChatUi = ({
   showUserSettings = true,
   userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
-  onMobileSettingClick = () => {},
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
@@ -59,27 +58,27 @@ export const ChatUi = ({
 }: ChatUiProps) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
-  const {
-    previewMode,
-    learningMode,
-    updateLearningMode,
-    showLearningModeToggle,
-  } = useSystemStore(
+  const { courseAvatar, courseName } = useCourseStore(
+    useShallow(state => ({
+      courseAvatar: state.courseAvatar,
+      courseName: state.courseName,
+    })),
+  );
+  const { previewMode, learningMode, showLearningModeToggle } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
       previewMode: state.previewMode,
       learningMode: state.learningMode,
-      updateLearningMode: state.updateLearningMode,
       showLearningModeToggle: state.showLearningModeToggle,
     })),
   );
 
-  const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
   const isListenMode = learningMode === 'listen';
+  const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
 
   useEffect(() => {
@@ -106,36 +105,17 @@ export const ChatUi = ({
       {
         showHeader ? (
           <div className={styles.header}>
+            <div className={styles.headerContent}>
+              <CourseHeaderSummary
+                courseAvatar={courseAvatar}
+                courseName={courseName}
+                className={styles.courseSummary}
+                titleClassName={styles.courseSummaryTitle}
+              />
+            </div>
             {showModeToggle ? (
               <div className={styles.headerActions}>
-                <button
-                  type='button'
-                  className={cn(
-                    styles.modeButton,
-                    learningMode === 'listen' ? styles.modeButtonActive : '',
-                  )}
-                  onClick={() => updateLearningMode('listen')}
-                >
-                  <Headphones
-                    size={16}
-                    strokeWidth={2}
-                  />
-                  <span>听课</span>
-                </button>
-                <button
-                  type='button'
-                  className={cn(
-                    styles.modeButton,
-                    learningMode === 'read' ? styles.modeButtonActive : '',
-                  )}
-                  onClick={() => updateLearningMode('read')}
-                >
-                  <BookOpen
-                    size={16}
-                    strokeWidth={2}
-                  />
-                  <span>阅读</span>
-                </button>
+                <LearningModeSwitch size='desktop' />
               </div>
             ) : null}
           </div>
@@ -183,7 +163,7 @@ export const ChatUi = ({
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}
           </span>
-          <span className={styles.separator}>|</span>
+          <span className={styles.separator}>{footerSeparator}</span>
           <span className={styles.footerText}>
             <MarkdownFlowLink
               prefix={t('module.chat.poweredByPrefix')}

@@ -127,6 +127,8 @@ describe('SidebarContent', () => {
   const t = (key: string) => key;
   const findOperationsCourseLink = () =>
     screen.queryByRole('link', { name: 'common.core.courseManagement' });
+  const findOperationsUserLink = () =>
+    screen.queryByRole('link', { name: 'common.core.userManagement' });
   const baseProps = {
     footerRef: { current: null },
     userMenuOpen: false,
@@ -161,6 +163,10 @@ describe('SidebarContent', () => {
     expect(courseLink).toBeDefined();
     expect(courseLink).toHaveAttribute('href', '/admin/operations');
     expect(courseLink).toHaveAttribute('aria-current', 'page');
+    expect(findOperationsUserLink()).toHaveAttribute(
+      'href',
+      '/admin/operations/users',
+    );
   });
 
   test('toggles the operations submenu open and closed', () => {
@@ -185,6 +191,10 @@ describe('SidebarContent', () => {
     expect(findOperationsCourseLink()).toHaveAttribute(
       'href',
       '/admin/operations',
+    );
+    expect(findOperationsUserLink()).toHaveAttribute(
+      'href',
+      '/admin/operations/users',
     );
 
     fireEvent.click(operationsButton);
@@ -236,6 +246,22 @@ describe('SidebarContent', () => {
     expect(
       screen.queryByTestId('admin-billing-sidebar-card'),
     ).not.toBeInTheDocument();
+  });
+
+  test('does not render operations submenu items for non-operators', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        menuItems={buildAdminMenuItems({ t, isOperator: false })}
+        activePath='/admin'
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'common.core.operations' }),
+    ).toBeNull();
+    expect(findOperationsCourseLink()).toBeNull();
+    expect(findOperationsUserLink()).toBeNull();
   });
 });
 
