@@ -314,6 +314,14 @@ function renderOverviewTab(
   return render(<BillingOverviewTab {...props} />);
 }
 
+async function acceptBillingAgreement(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await act(async () => {
+    await user.click(screen.getByRole('checkbox'));
+  });
+}
+
 describe('BillingOverviewTab', () => {
   beforeEach(() => {
     mockEnvState.paymentChannels = ['stripe', 'pingxx'];
@@ -902,6 +910,8 @@ describe('BillingOverviewTab', () => {
       screen.getByText('module.billing.checkout.title'),
     ).toBeInTheDocument();
 
+    await acceptBillingAgreement(user);
+
     await act(async () => {
       await user.click(
         screen.getByRole('button', {
@@ -990,6 +1000,8 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    await acceptBillingAgreement(user);
+
     await act(async () => {
       await user.click(
         screen.getByRole('button', {
@@ -1057,6 +1069,8 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    await acceptBillingAgreement(user);
+
     await act(async () => {
       await user.click(
         screen.getByRole('button', {
@@ -1119,6 +1133,8 @@ describe('BillingOverviewTab', () => {
         ),
       );
     });
+
+    await acceptBillingAgreement(user);
 
     await act(async () => {
       await user.click(
