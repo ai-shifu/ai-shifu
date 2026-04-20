@@ -8,6 +8,7 @@ from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+from flaskr.service.billing import notifications as billing_notifications
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -421,8 +422,29 @@ def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
 
 def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
     billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = billing_cli_db_app.test_cli_runner()
+    enqueue_calls: list[str] = []
+
+    def _fake_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            notification_payload = order.metadata_json["notifications"][
+                "subscription_purchase_sms"
+            ]
+            assert notification_payload["status"] == "pending"
+        enqueue_calls.append(bill_order_bid)
+        return {
+            "status": "enqueued",
+            "bill_order_bid": bill_order_bid,
+            "enqueued": True,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        _fake_enqueue,
+    )
 
     with billing_cli_db_app.app_context():
         dao.db.session.add_all(
@@ -458,6 +480,9 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
     assert payload["creator_role_granted"] is True
     assert payload["product_code"] == "creator-plan-monthly"
     assert payload["mobile"] == "13800138000"
+    assert payload["sms_enqueue_status"] == "enqueued"
+    assert payload["sms_enqueued"] is True
+    assert enqueue_calls == [payload["bill_order_bid"]]
 
     with billing_cli_db_app.app_context():
         aggregate = load_user_aggregate_by_identifier("13800138000")
@@ -480,6 +505,10 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert order.paid_amount == 0
         assert order.metadata_json["checkout_type"] == "manual_grant"
         assert order.metadata_json["note"] == "ops grant"
+        assert (
+            order.metadata_json["notifications"]["subscription_purchase_sms"]["status"]
+            == "pending"
+        )
         assert subscription.billing_provider == "manual"
         assert subscription.current_period_start_at is not None
         assert subscription.current_period_end_at is not None
@@ -490,9 +519,19 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
 
 def test_billing_grant_plan_cli_accepts_explicit_effective_to(
     billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = billing_cli_db_app.test_cli_runner()
     expected_effective_to = "2030-05-01T12:30:00"
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        lambda app, *, bill_order_bid: {
+            "status": "enqueued",
+            "bill_order_bid": bill_order_bid,
+            "enqueued": True,
+        },
+    )
 
     with billing_cli_db_app.app_context():
         dao.db.session.add_all(
@@ -542,15 +581,92 @@ def test_billing_grant_plan_cli_accepts_explicit_effective_to(
             expected_effective_to
         )
         assert order.metadata_json["effective_to"] == expected_effective_to
+        assert billing_notifications._resolve_notification_date_text(
+            billing_cli_db_app,
+            order,
+        ).startswith("2030-05-01 12:30")
         assert expire_event.scheduled_at == datetime.fromisoformat(
             expected_effective_to
         )
 
 
-def test_billing_grant_plan_cli_rejects_when_active_subscription_exists(
+def test_billing_grant_plan_cli_returns_noop_for_same_active_plan_without_sms(
     billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = billing_cli_db_app.test_cli_runner()
+
+    def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
+        raise AssertionError(f"unexpected enqueue for {bill_order_bid}")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        _unexpected_enqueue,
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-noop",
+            identify="creator-cli-noop@example.com",
+            email="creator-cli-noop@example.com",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-noop-1",
+                creator_bid="creator-cli-noop",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_noop_1",
+                provider_customer_id="cus_provider_noop_1",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "creator-cli-noop@example.com",
+            "--product-code",
+            "creator-plan-monthly",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "noop_active"
+    assert payload["bill_order_bid"] is None
+
+    with billing_cli_db_app.app_context():
+        assert BillingOrder.query.filter_by(creator_bid="creator-cli-noop").count() == 0
+
+
+def test_billing_grant_plan_cli_rejects_when_active_subscription_exists(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
+        raise AssertionError(f"unexpected enqueue for {bill_order_bid}")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        _unexpected_enqueue,
+    )
 
     with billing_cli_db_app.app_context():
         dao.db.session.add_all(

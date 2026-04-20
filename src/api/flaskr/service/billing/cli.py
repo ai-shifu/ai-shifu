@@ -61,7 +61,11 @@ from .models import (
     BillingSubscription,
     CreditUsageRate,
 )
-from .notifications import requeue_subscription_purchase_sms
+from .notifications import (
+    enqueue_subscription_purchase_sms,
+    requeue_subscription_purchase_sms,
+    stage_subscription_purchase_sms_for_paid_order,
+)
 from .primitives import coerce_datetime
 from .queries import calculate_billing_cycle_end, load_primary_active_subscription
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
@@ -835,10 +839,16 @@ def grant_billing_plan_by_identify(
                 "Manual plan grant did not create a new credit grant."
             )
 
+        should_enqueue_subscription_purchase_sms = (
+            stage_subscription_purchase_sms_for_paid_order(
+                order,
+                previous_status=None,
+            )
+        )
         _enforce_manual_subscription_expire_event(subscription)
         db.session.commit()
 
-        return {
+        payload = {
             "status": "granted",
             "identify": normalized_identify,
             "creator_bid": aggregate.user_bid,
@@ -853,6 +863,14 @@ def grant_billing_plan_by_identify(
             "email": aggregate.email,
             "mobile": aggregate.mobile,
         }
+        if should_enqueue_subscription_purchase_sms:
+            sms_payload = enqueue_subscription_purchase_sms(
+                current_app,
+                bill_order_bid=order.bill_order_bid,
+            )
+            payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
+            payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
+        return payload
     except Exception:
         db.session.rollback()
         raise
