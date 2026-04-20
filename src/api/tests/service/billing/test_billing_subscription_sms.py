@@ -394,7 +394,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     assert captured[0]["template_code"] == "TPL-SUB-001"
     assert captured[0]["mobile"] == "13800000000"
     assert captured[0]["template_params"]["product"] == "轻量版"
-    assert captured[0]["template_params"]["date"] == "2026-05-20 00:00 UTC"
+    assert captured[0]["template_params"]["date"] == "2026-05-20 00:00:00"
 
     with app.app_context():
         order = BillingOrder.query.filter_by(bill_order_bid="billing-task-sent-1").one()

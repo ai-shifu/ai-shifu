@@ -8,6 +8,14 @@ from alibabacloud_tea_util.client import Client as UtilClient
 from flask import Flask
 
 
+def _body_value(
+    response: dysmsapi_20170525_models.SendSmsResponse | None,
+    field_name: str,
+) -> str:
+    body = getattr(response, "body", None)
+    return str(getattr(body, field_name, "") or "").strip()
+
+
 def send_sms_ali(
     app: Flask,
     mobile: str,
@@ -52,11 +60,26 @@ def send_sms_ali(
     runtime = util_models.RuntimeOptions()
     try:
         res = client.send_sms_with_options(send_sms_request, runtime)
+        response_code = _body_value(res, "code")
+        if response_code != "OK":
+            app.logger.error(
+                "Aliyun SMS send failed for mobile=%s template_code=%s code=%s "
+                "message=%s request_id=%s biz_id=%s",
+                mobile,
+                resolved_template_code,
+                response_code or "<empty>",
+                _body_value(res, "message") or "<empty>",
+                _body_value(res, "request_id") or "<empty>",
+                _body_value(res, "biz_id") or "<empty>",
+            )
+            return None
         return res
     except Exception as error:
-        app.logger.error(error.message)
-        app.logger.error(error.data.get("Recommend"))
-        UtilClient.assert_as_string(error.message)
+        error_message = getattr(error, "message", str(error))
+        error_data = getattr(error, "data", {}) or {}
+        app.logger.error(error_message)
+        app.logger.error(error_data.get("Recommend"))
+        UtilClient.assert_as_string(error_message)
     return None
 
 

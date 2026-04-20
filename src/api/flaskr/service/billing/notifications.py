@@ -297,7 +297,7 @@ def _resolve_notification_date_text(
         format_with_app_timezone(
             app,
             expiry_at,
-            "%Y-%m-%d %H:%M %Z",
+            "%Y-%m-%d %H:%M:%S",
         )
         or ""
     )
