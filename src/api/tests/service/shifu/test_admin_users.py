@@ -172,12 +172,16 @@ def _seed_success_order(
     shifu_bid: str,
     user_bid: str,
     created_at: datetime,
+    paid_price: str = "0.00",
+    payable_price: str = "0.00",
 ):
     order = Order(
         order_bid=order_bid,
         shifu_bid=shifu_bid,
         user_bid=user_bid,
         status=ORDER_STATUS_SUCCESS,
+        paid_price=Decimal(paid_price),
+        payable_price=Decimal(payable_price),
     )
     order.created_at = created_at
     order.updated_at = created_at
@@ -615,10 +619,9 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
             shifu_bid="course-rich-1",
             user_bid="user-profile-rich",
             created_at=datetime(2026, 4, 10, 9, 0, 0),
+            paid_price="88.50",
+            payable_price="88.50",
         )
-        paid_order = Order.query.filter(Order.order_bid == "order-rich-1").first()
-        paid_order.paid_price = Decimal("88.50")
-        db.session.commit()
         _seed_learn_progress(
             shifu_bid="course-rich-1",
             outline_item_bid="lesson-rich-1",
@@ -633,6 +636,60 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
     assert item.last_login_at == "2026-04-10 08:00:00"
     assert item.total_paid_amount == "88.50"
     assert item.last_learning_at == "2026-04-11 10:00:00"
+
+
+def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-redeem",
+            identify="redeem@example.com",
+            nickname="Redeem User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "redeem@example.com")],
+        )
+        _seed_success_order(
+            order_bid="order-redeem-1",
+            shifu_bid="course-redeem-1",
+            user_bid="user-redeem",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+            paid_price="0.00",
+            payable_price="66.00",
+        )
+
+        result = list_operator_users(app, 1, 20, {"identifier": "redeem@"})
+
+    assert result.total == 1
+    assert result.data[0].user_bid == "user-redeem"
+    assert result.data[0].total_paid_amount == "66"
+
+
+def test_get_operator_user_detail_counts_redeem_orders_in_total_paid_amount(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-profile-redeem",
+            identify="profile-redeem@example.com",
+            nickname="Profile Redeem User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "profile-redeem@example.com")],
+        )
+        _seed_success_order(
+            order_bid="order-profile-redeem-1",
+            shifu_bid="course-redeem-1",
+            user_bid="user-profile-redeem",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+            paid_price="0.00",
+            payable_price="66.00",
+        )
+
+        item = get_operator_user_detail(app, "user-profile-redeem")
+
+    assert item.total_paid_amount == "66"
 
 
 def test_get_operator_user_detail_returns_learning_progress_for_learning_courses(app):
