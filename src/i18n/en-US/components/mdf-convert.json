@@ -1,0 +1,23 @@
+{
+  "__namespace__": "component.mdfConvert",
+  "applyButton": "Apply",
+  "applySuccess": "Content applied to editor",
+  "backButton": "Back",
+  "cancelButton": "Cancel",
+  "configWarningMessage": "You haven't configured the API service for AI MarkdownFlow generation. Please contact the AI-Shifu team for support at ",
+  "confirmApplyButton": "Confirm",
+  "confirmApplyDescription": "This will overwrite the current content in the editor. Do you want to proceed?",
+  "confirmApplyTitle": "Confirm Apply",
+  "contentPromptTitle": "Conversion Result",
+  "convertButton": "Start Converting",
+  "convertSuccess": "Conversion successful!",
+  "converting": "Converting...",
+  "copied": "Copied",
+  "copyButton": "Copy",
+  "copyError": "Copy failed",
+  "dialogTitle": "AI Conversion",
+  "inputLabel": "Content to Convert",
+  "inputPlaceholder": "Enter the complete article content, AI will intelligently convert it to Markdown Flow format",
+  "textTooLong": "Text too long, please limit to 10,000 characters",
+  "textTooShort": "Please enter content"
+}

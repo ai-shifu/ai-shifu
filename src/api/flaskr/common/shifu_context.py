@@ -84,10 +84,9 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
         return None
 
     try:
-        from flaskr.dao import redis_client  # type: ignore
+        from flaskr.common.cache_provider import cache as cache_provider  # type: ignore
         from flaskr.service.shifu.utils import get_shifu_creator_bid
     except Exception:
-        # Fallback to direct lookup if Redis or utils cannot be imported here.
         try:
             from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
         except Exception:
@@ -97,21 +96,21 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
     try:
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
         cache_key = f"{prefix}:shifu_creator:{shifu_bid}"
-        raw = redis_client.get(cache_key)
+        raw = cache_provider.get(cache_key)
         if raw is not None:
             if isinstance(raw, bytes):
                 raw = raw.decode("utf-8")
             return raw or None
 
         lock_key = f"{cache_key}:lock"
-        lock = redis_client.lock(lock_key, timeout=5, blocking_timeout=1)
+        lock = cache_provider.lock(lock_key, timeout=5, blocking_timeout=1)
         if lock is None:
             creator_bid = get_shifu_creator_bid(app, shifu_bid)
             return creator_bid
 
         acquired = lock.acquire(blocking=True)
         try:
-            raw = redis_client.get(cache_key)
+            raw = cache_provider.get(cache_key)
             if raw is not None:
                 if isinstance(raw, bytes):
                     raw = raw.decode("utf-8")
@@ -120,7 +119,7 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
             creator_bid = get_shifu_creator_bid(app, shifu_bid)
             value = creator_bid or ""
             # Cache for 1 day as this mapping is effectively immutable
-            redis_client.setex(cache_key, 86400, value)
+            cache_provider.setex(cache_key, 86400, value)
             return creator_bid
         finally:
             if acquired:

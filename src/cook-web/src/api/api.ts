@@ -17,11 +17,17 @@ const api = {
 
   // auth
   sendSmsCode: 'POST /user/send_sms_code',
+  sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
   verifySmsCode: 'POST /user/verify_sms_code',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  ensureAdminCreator: 'POST /user/ensure_admin_creator',
+  loginPassword: 'POST /user/login_password',
+  setPassword: 'POST /user/set_password',
+  changePassword: 'POST /user/change_password',
+  resetPassword: 'POST /user/reset_password',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -30,6 +36,11 @@ const api = {
   saveShifuDetail: 'POST /shifu/shifus/{shifu_bid}/detail',
   publishShifu: 'POST /shifu/shifus/{shifu_bid}/publish',
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
+  archiveShifu: 'POST /shifu/shifus/{shifu_bid}/archive',
+  unarchiveShifu: 'POST /shifu/shifus/{shifu_bid}/unarchive',
+  listShifuPermissions: 'GET /shifu/shifus/{shifu_bid}/permissions',
+  grantShifuPermissions: 'POST /shifu/shifus/{shifu_bid}/permissions/grant',
+  removeShifuPermission: 'POST /shifu/shifus/{shifu_bid}/permissions/remove',
   previewOutlineBlock: 'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
@@ -74,11 +85,27 @@ const api = {
   upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
 
+  // TTS api
+  ttsPreview: 'POST /shifu/tts/preview',
+  ttsConfig: 'GET /shifu/tts/config',
+  // admin order api
+  getAdminOrders: 'GET /order/admin/orders',
+  getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
+  getAdminOrderShifus: 'GET /order/admin/orders/shifus',
+  importActivationOrder: 'POST /order/admin/orders/import-activation',
+
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
   getProfileList: 'GET /profiles/get-profile-item-definitions',
+  hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
+  getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
+  updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',
+
+  // MDF Conversion
+  genMdfConvert: 'POST /gen_mdf/convert',
+  genMdfConfigStatus: 'GET /gen_mdf/config-status',
 };
 
 export default api;

@@ -23,6 +23,10 @@ export interface Shifu {
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;
+  archived?: boolean;
+  created_user_bid?: string;
+  can_manage_archive?: boolean;
+  canPublish?: boolean;
 }
 
 export interface Outline {
@@ -39,6 +43,7 @@ export interface Outline {
   is_hidden?: boolean;
   type?: LearningPermission;
   system_prompt?: string;
+  collapsed?: boolean;
 }
 
 export interface LessonCreationSettings {
@@ -62,13 +67,17 @@ export interface ColorSetting {
 }
 
 export interface ProfileItem {
+  profile_id?: string;
   profile_key: string;
   color_setting: ColorSetting;
   profile_type: string;
   profile_scope?: string;
+  profile_scope_str?: string;
+  profile_remark?: string;
+  is_hidden?: boolean;
 }
 
-export interface ProfileItemDefination {
+export interface ProfileItemDefinition {
   profile_id: string;
   profile_key: string;
   value: string;
@@ -98,7 +107,10 @@ export interface ShifuState {
   models: ModelOption[];
   mdflow: string;
   variables: string[];
+  hiddenVariables: string[];
   systemVariables: Record<string, string>[];
+  unusedVariables: string[];
+  hideUnusedMode: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -204,7 +216,29 @@ export interface ShifuActions {
     variables: PreviewVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
+    allVariableKeys?: string[];
+    unusedKeys?: string[];
   }>;
+  hideUnusedVariables: (shifuId: string) => Promise<void>;
+  restoreHiddenVariables: (shifuId: string) => Promise<void>;
+  hideVariableByKey: (shifuId: string, key: string) => Promise<void>;
+  unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
+  refreshProfileDefinitions: (
+    shifuId: string,
+    options?: { forceRefresh?: boolean },
+  ) => Promise<{
+    list: ProfileItem[];
+    systemVariableKeys: string[];
+    unusedKeys?: string[];
+  }>;
+  refreshVariableUsage: (shifuId: string) => Promise<{
+    used_keys?: string[];
+    unused_keys?: string[];
+  } | null>;
+  syncHiddenVariablesToUsage: (
+    shifuId: string,
+    options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
+  ) => Promise<void>;
   insertPlaceholderChapter: () => void;
   insertPlaceholderLesson: (parent: Outline) => void;
   removePlaceholderOutline: (outline: Outline) => void;

@@ -23,6 +23,16 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+)
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 
 
 @extensible_generic
@@ -48,7 +58,18 @@ def handle_input_ask(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
     )
 
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        usage_scene=usage_scene,
+    )
+
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
+    chapter_title = outline_item_info.title
+    ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
 
     raw_ask_max_history_len = app.config.get("ASK_MAX_HISTORY_LEN", 10)
     try:
@@ -87,6 +108,11 @@ def handle_input_ask(
     system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", system_prompt if system_prompt else ""
     )
+    # Append language instruction if use_learner_language is enabled
+    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
+    if use_learner_language:
+        output_language = get_markdownflow_output_language()
+        system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
     messages.append({"role": "system", "content": system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
@@ -101,10 +127,16 @@ def handle_input_ask(
 
     # RAG retrieval has been removed from this system
 
+    # Append language instruction to user input if use_learner_language is enabled
+    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
+    user_content = input
+    if use_learner_language:
+        output_language = get_markdownflow_output_language()
+        user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
     messages.append(
         {
             "role": "user",
-            "content": input,
+            "content": user_content,
         }
     )
     app.logger.info(f"messages: {messages}")
@@ -132,24 +164,30 @@ def handle_input_ask(
     db.session.add(log_script)
 
     # Create trace span
-    span = trace.span(name="user_follow_up", input=input)
+    span = trace.span(
+        name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
+        input=input,
+    )
 
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
     res = check_text_with_llm_response(
         app,
-        user_info,
-        log_script,
-        input,
-        span,
-        outline_item_info.bid,
-        outline_item_info.position,
-        outline_item_info.shifu_bid,
-        LLMSettings(
+        user_info=user_info,
+        log_script=log_script,
+        input=input,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
             model=follow_up_model,
             temperature=follow_up_info.model_args["temperature"],
         ),
-        attend_id,
-        follow_up_info.ask_prompt,
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
+        chapter_title=chapter_title,
+        scene=ask_scene,
     )
     has_content = False
     for i in res:
@@ -180,6 +218,11 @@ def handle_input_ask(
         return
 
     # Call LLM to generate response
+    generation_name = build_langfuse_generation_name(
+        chapter_title,
+        ask_scene,
+        "user_follow_ask",
+    )
     resp = chat_llm(
         app,
         user_info.user_id,
@@ -190,11 +233,10 @@ def handle_input_ask(
         temperature=follow_up_info.model_args[
             "temperature"
         ],  # Use configured temperature parameter
-        generation_name="user_follow_ask_"  # Generation task name
-        + str(outline_item_info.bid)
-        + "_"
-        + str(outline_item_info.position),
+        generation_name=generation_name,
         messages=messages,  # Pass complete conversation history
+        usage_context=usage_context,
+        usage_scene=usage_scene,
     )
 
     response_text = ""  # Store complete response text

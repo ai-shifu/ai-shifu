@@ -110,6 +110,35 @@ LANGUAGE_NAME_MAP = {
     "bn": "বাংলা",
 }
 
+_LANGUAGE_CODE_LOOKUP = {code.lower(): name for code, name in LANGUAGE_NAME_MAP.items()}
+_LANGUAGE_NAME_LOOKUP = {name.casefold(): name for name in LANGUAGE_NAME_MAP.values()}
+
+
+def _resolve_output_language(language: str) -> str:
+    raw_language = (language or "").strip()
+    if not raw_language:
+        return "English"
+
+    normalized = raw_language.replace("_", "-")
+    direct_match = LANGUAGE_NAME_MAP.get(normalized)
+    if direct_match:
+        return direct_match
+
+    lookup_match = _LANGUAGE_CODE_LOOKUP.get(normalized.lower())
+    if lookup_match:
+        return lookup_match
+
+    base_code = normalized.split("-")[0].lower()
+    base_match = _LANGUAGE_CODE_LOOKUP.get(base_code)
+    if base_match:
+        return base_match
+
+    name_match = _LANGUAGE_NAME_LOOKUP.get(raw_language.casefold())
+    if name_match:
+        return name_match
+
+    return raw_language
+
 
 def get_markdownflow_output_language() -> str:
     """
@@ -118,7 +147,6 @@ def get_markdownflow_output_language() -> str:
     Returns:
         str: The full language name for MarkdownFlow output in native form.
              Examples: "简体中文" for zh-CN, "English" for en-US.
-             Defaults to "English" if language not found.
+             Defaults to "English" if language not found, otherwise returns the input.
     """
-    current_language = get_current_language()
-    return LANGUAGE_NAME_MAP.get(current_language, "English")
+    return _resolve_output_language(get_current_language())

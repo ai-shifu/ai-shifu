@@ -149,11 +149,14 @@ class TestConfigurationValidation:
         llm_keys = [
             "OPENAI_API_KEY",
             "ERNIE_API_KEY",
+            "VOLCENGINE_API_KEY",
             "ARK_API_KEY",
             "SILICON_API_KEY",
+            "ZAI_API_KEY",
             "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
+            "DASHSCOPE_API_KEY",
             "QWEN_API_KEY",
             "BIGMODEL_API_KEY",
         ]
@@ -337,7 +340,6 @@ class TestErrorHandling:
         # Should list all missing required variables
         assert "SQLALCHEMY_DATABASE_URI" in error_msg
         assert "SECRET_KEY" in error_msg
-        assert "UNIVERSAL_VERIFICATION_CODE" in error_msg
         # Should include descriptions
         assert "database" in error_msg.lower() or "MySQL" in error_msg
 
@@ -391,7 +393,7 @@ class TestBackwardCompatibility:
             # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
             monkeypatch.delenv("REDIS_HOST", raising=False)
             value = get_config("REDIS_HOST")
-            assert value == "ai-shifu-redis"  # Default value from ENV_VARS
+            assert value == ""  # Default value from ENV_VARS
         finally:
             config_module.__INSTANCE__ = original_instance
 

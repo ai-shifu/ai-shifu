@@ -1,5 +1,10 @@
 from types import SimpleNamespace
+
+import pytest
+
 from flaskr.api import llm
+
+pytestmark = pytest.mark.no_mock_llm
 
 
 class DummySpan:

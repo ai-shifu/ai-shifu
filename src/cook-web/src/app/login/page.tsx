@@ -21,15 +21,15 @@ import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { PasswordLogin } from '@/components/auth/PasswordLogin';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
-import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 
-type LoginMethod = 'phone' | 'email' | 'google';
+type LoginMethod = 'phone' | 'email' | 'google' | 'password';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -80,14 +80,16 @@ export default function AuthPage() {
   const isPhoneEnabled = normalizedMethods.includes('phone');
   const isEmailEnabled = normalizedMethods.includes('email');
   const isGoogleEnabled = normalizedMethods.includes('google');
+  const isPasswordEnabled = normalizedMethods.includes('password');
 
   const availableMethods = useMemo<LoginMethod[]>(() => {
     const methods: LoginMethod[] = [];
     if (isPhoneEnabled) methods.push('phone');
     if (isEmailEnabled) methods.push('email');
     if (isGoogleEnabled) methods.push('google');
+    if (isPasswordEnabled) methods.push('password');
     return methods;
-  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled]);
+  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled, isPasswordEnabled]);
 
   const initialLoginMethod = useMemo<LoginMethod>(() => {
     const normalizedDefault = defaultMethod as LoginMethod;
@@ -107,14 +109,18 @@ export default function AuthPage() {
   }, [initialLoginMethod]);
 
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
-    let redirect = searchParams.get('redirect');
+    const fallback = '/admin';
+    const redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/admin';
+      return fallback;
+    }
+    // Default to course tab rather than orders when no explicit redirect
+    if (redirect === '/admin/orders') {
+      return fallback;
     }
     return redirect;
   }, [searchParams]);
@@ -325,6 +331,13 @@ export default function AuthPage() {
               />
             </div>
           );
+        case 'password':
+          return (
+            <PasswordLogin
+              onLoginSuccess={handleAuthSuccess}
+              loginContext={loginContext}
+            />
+          );
         default:
           return null;
       }
@@ -440,7 +453,9 @@ export default function AuthPage() {
                                 ? t('module.auth.phone')
                                 : method === 'email'
                                   ? t('module.auth.email')
-                                  : t('module.auth.googleTab')}
+                                  : method === 'password'
+                                    ? t('module.auth.passwordTab')
+                                    : t('module.auth.googleTab')}
                             </TabsTrigger>
                           ))}
                         </TabsList>

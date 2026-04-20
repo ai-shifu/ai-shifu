@@ -57,6 +57,7 @@ class ShifuInfoDto(BaseModel):
     avatar: str
     price: Decimal
     outline_items: List["ShifuOutlineItemDto"]
+    use_learner_language: bool = False
 
     def __json__(self):
         return self.model_dump_json(exclude_none=True)
@@ -140,6 +141,7 @@ def get_shifu_outline_tree(
             avatar=get_shifu_res_url(shifu.avatar_res_bid),
             price=shifu.price,
             outline_items=[],
+            use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
         )
 
         def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
@@ -207,6 +209,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
+        use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 
 
@@ -241,6 +244,7 @@ def get_default_shifu_dto(app: Flask, is_preview: bool = False) -> ShifuInfoDto:
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
+        use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 
 

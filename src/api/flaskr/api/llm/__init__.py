@@ -1,19 +1,21 @@
 import asyncio
 import os
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
 import logging
 import requests
 import litellm
-from flask import Flask, current_app
+from flask import Flask, current_app, request
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
-from ..ark.sign import request
+from flaskr.service.metering import UsageContext, record_llm_usage
+from flaskr.service.metering.consts import normalize_usage_scene
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,8 @@ class ProviderConfig:
     key: str
     api_key_env: str
     base_url_env: str | None = None
+    legacy_api_key_envs: Tuple[str, ...] = ()
+    legacy_base_url_envs: Tuple[str, ...] = ()
     default_base_url: str | None = None
     prefix: str = ""
     fetch_models: bool = True
@@ -84,6 +88,7 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+_LEGACY_MODEL_WARNING_CACHE: set[Tuple[str, str]] = set()
 
 
 def _log(level: str, message: str) -> None:
@@ -99,6 +104,46 @@ def _log_info(message: str) -> None:
 
 def _log_warning(message: str) -> None:
     _log("warning", message)
+
+
+def _extract_usage_value(usage: Any, key: str) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        return int(usage.get(key) or 0)
+    return int(getattr(usage, key, 0) or 0)
+
+
+def _extract_input_cache(usage: Any) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        if "input_cache" in usage:
+            return int(usage.get("input_cache") or 0)
+        details = usage.get("input_tokens_details") or usage.get(
+            "prompt_tokens_details"
+        )
+        if isinstance(details, dict):
+            return int(details.get("cached_tokens") or 0)
+        return 0
+    value = getattr(usage, "input_cache", None)
+    if value is not None:
+        return int(value or 0)
+    details = getattr(usage, "input_tokens_details", None) or getattr(
+        usage, "prompt_tokens_details", None
+    )
+    if isinstance(details, dict):
+        return int(details.get("cached_tokens") or 0)
+    if details is not None:
+        return int(getattr(details, "cached_tokens", 0) or 0)
+    return 0
+
+
+def _get_request_id() -> str:
+    try:
+        return request.headers.get("X-Request-ID", "") or ""
+    except RuntimeError:
+        return ""
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -169,7 +214,11 @@ def _register_provider_models(
         if display in seen:
             continue
         seen.add(display)
-        MODEL_ALIAS_MAP[display] = (config.key, actual_model or model_name)
+        resolved_model = actual_model or model_name
+        MODEL_ALIAS_MAP[display] = (config.key, resolved_model)
+        for legacy_alias in _build_legacy_aliases_for_display_model(display):
+            if legacy_alias and legacy_alias not in MODEL_ALIAS_MAP:
+                MODEL_ALIAS_MAP[legacy_alias] = (config.key, resolved_model)
         if actual_model and actual_model not in MODEL_ALIAS_MAP:
             MODEL_ALIAS_MAP[actual_model] = (config.key, actual_model)
         display_models.append(display)
@@ -177,7 +226,16 @@ def _register_provider_models(
 
 
 def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
-    api_key = get_config(config.api_key_env)
+    api_key = None
+    api_key_source = None
+    for api_key_env in (config.api_key_env, *config.legacy_api_key_envs):
+        candidate = get_config(api_key_env)
+        if isinstance(candidate, str):
+            candidate = candidate.strip()
+        if candidate:
+            api_key = candidate
+            api_key_source = api_key_env
+            break
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
         return ProviderState(
@@ -188,9 +246,33 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             config.wildcard_prefixes,
             config.reload_params,
         )
+    if api_key_source and api_key_source != config.api_key_env:
+        _log_warning(
+            f"{config.key} provider is using legacy env key {api_key_source}; "
+            f"please migrate to {config.api_key_env}"
+        )
     base_url = None
-    if config.base_url_env:
-        base_url = get_config(config.base_url_env)
+    base_url_source = None
+    for base_url_env in (
+        *(tuple([config.base_url_env]) if config.base_url_env else tuple()),
+        *config.legacy_base_url_envs,
+    ):
+        candidate = get_config(base_url_env)
+        if isinstance(candidate, str):
+            candidate = candidate.strip()
+        if candidate:
+            base_url = candidate
+            base_url_source = base_url_env
+            break
+    if (
+        config.base_url_env
+        and base_url_source
+        and base_url_source != config.base_url_env
+    ):
+        _log_warning(
+            f"{config.key} provider is using legacy env key {base_url_source}; "
+            f"please migrate to {config.base_url_env}"
+        )
     if not base_url:
         base_url = config.default_base_url
     if config.key == "gemini" and base_url:
@@ -291,43 +373,44 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
     return None, model
 
 
-def _load_ark_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    access_key = get_config("ARK_ACCESS_KEY_ID")
-    secret_key = get_config("ARK_SECRET_ACCESS_KEY")
-    if not access_key or not secret_key:
-        _log_warning("ARK credentials not fully configured")
-        return []
-    try:
-        ark_list_endpoints = request(
-            "POST",
-            datetime.now(),
-            {},
-            {},
-            access_key,
-            secret_key,
-            "ListEndpoints",
-            None,
-        )
-        _log_info(str(ark_list_endpoints))
-        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
-        models: List[Tuple[str, str]] = []
-        if ark_endpoints:
-            for endpoint in ark_endpoints:
-                endpoint_id = endpoint.get("Id")
-                model_name = (
-                    endpoint.get("ModelReference", {})
-                    .get("FoundationModel", {})
-                    .get("Name", "")
+def _normalize_requested_model(model: str) -> str:
+    normalized = (model or "").strip()
+    if not normalized:
+        return normalized
+    for legacy_prefix, canonical_prefix in LEGACY_MODEL_PREFIXES:
+        if normalized.startswith(legacy_prefix):
+            canonical_model = canonical_prefix + normalized[len(legacy_prefix) :]
+            warning_key = (normalized, canonical_model)
+            if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+                _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+                _log_warning(
+                    f"Legacy model id {normalized} is deprecated; "
+                    f"use {canonical_model} instead"
                 )
-                _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-                if endpoint_id and model_name:
-                    models.append((model_name, endpoint_id))
-        return models
-    except Exception as exc:
-        _log_warning(f"load ark models error: {exc}")
-        return []
+            return canonical_model
+    if "/" in normalized:
+        return normalized
+    if normalized.startswith("deepseek"):
+        canonical_model = f"{DEEPSEEK_PREFIX}{normalized}"
+        warning_key = (normalized, canonical_model)
+        if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+            _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+            _log_warning(
+                f"Legacy model id {normalized} is deprecated; "
+                f"use {canonical_model} instead"
+            )
+        return canonical_model
+    if normalized.startswith("gemini-"):
+        canonical_model = f"{GEMINI_PREFIX}{normalized}"
+        warning_key = (normalized, canonical_model)
+        if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+            _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+            _log_warning(
+                f"Legacy model id {normalized} is deprecated; "
+                f"use {canonical_model} instead"
+            )
+        return canonical_model
+    return normalized
 
 
 def _load_gemini_models(
@@ -367,12 +450,39 @@ def _load_gemini_models(
     return models
 
 
-QWEN_PREFIX = "qwen/"
+DASHSCOPE_PREFIX = "dashscope/"
 ERNIE_V2_PREFIX = "ernie/"
-GLM_PREFIX = "glm/"
+ZAI_PREFIX = "zai/"
 SILICON_PREFIX = "silicon/"
-GEMINI_PREFIX = ""
+GEMINI_PREFIX = "gemini/"
+DEEPSEEK_PREFIX = "deepseek/"
+VOLCENGINE_PREFIX = "volcengine/"
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
+LEGACY_MODEL_PREFIXES: Tuple[Tuple[str, str], ...] = (
+    ("qwen/", DASHSCOPE_PREFIX),
+    ("glm/", ZAI_PREFIX),
+    ("ark/", VOLCENGINE_PREFIX),
+)
+CANONICAL_TO_LEGACY_PREFIXES: Tuple[Tuple[str, str], ...] = tuple(
+    (canonical, legacy) for legacy, canonical in LEGACY_MODEL_PREFIXES
+)
+
+
+def _build_legacy_aliases_for_display_model(display_model: str) -> List[str]:
+    aliases: List[str] = []
+    for canonical_prefix, legacy_prefix in CANONICAL_TO_LEGACY_PREFIXES:
+        if display_model.startswith(canonical_prefix):
+            aliases.append(legacy_prefix + display_model[len(canonical_prefix) :])
+            break
+    if display_model.startswith(DEEPSEEK_PREFIX):
+        bare_model = display_model[len(DEEPSEEK_PREFIX) :]
+        if bare_model:
+            aliases.append(bare_model)
+    if display_model.startswith(GEMINI_PREFIX):
+        bare_model = display_model[len(GEMINI_PREFIX) :]
+        if bare_model:
+            aliases.append(bare_model)
+    return aliases
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
@@ -402,6 +512,8 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith(GEMINI_PREFIX):
+        model_id = model_id[len(GEMINI_PREFIX) :]
     if model_id.startswith("gemini-2.5-pro"):
         return {
             "reasoning_effort": "low",
@@ -422,6 +534,28 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    # doubao-seed models support thinking parameter, pass via extra_body for LiteLLM
+    return {
+        "temperature": temperature,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
+    }
+
+
+def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -435,14 +569,17 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         reload_params=_reload_openai_params,
     ),
     ProviderConfig(
-        key="qwen",
-        api_key_env="QWEN_API_KEY",
-        base_url_env="QWEN_API_URL",
+        key="dashscope",
+        api_key_env="DASHSCOPE_API_KEY",
+        base_url_env="DASHSCOPE_API_BASE",
+        legacy_api_key_envs=("QWEN_API_KEY",),
+        legacy_base_url_envs=("QWEN_API_URL",),
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        prefix=QWEN_PREFIX,
+        prefix=DASHSCOPE_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
-        config_hint="QWEN_API_KEY,QWEN_API_URL",
+        config_hint="DASHSCOPE_API_KEY,DASHSCOPE_API_BASE",
         custom_llm_provider="openai",
+        reload_params=_reload_qwen_params,
     ),
     ProviderConfig(
         key="ernie_v2",
@@ -455,10 +592,12 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="deepseek",
         api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
+        base_url_env="DEEPSEEK_API_BASE",
+        legacy_base_url_envs=("DEEPSEEK_API_URL",),
         default_base_url="https://api.deepseek.com",
+        prefix=DEEPSEEK_PREFIX,
         extra_models=DEEPSEEK_EXTRA_MODELS,
-        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_BASE",
         custom_llm_provider="openai",
     ),
     ProviderConfig(
@@ -468,18 +607,20 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url=None,
         prefix=GEMINI_PREFIX,
         fetch_models=False,
-        wildcard_prefixes=("gemini-",),
+        wildcard_prefixes=(GEMINI_PREFIX, "gemini-"),
         config_hint="GEMINI_API_KEY,GEMINI_API_URL",
         custom_llm_provider="gemini",
         model_loader=_load_gemini_models,
         reload_params=_reload_gemini_params,
     ),
     ProviderConfig(
-        key="glm",
-        api_key_env="BIGMODEL_API_KEY",
-        default_base_url="https://open.bigmodel.cn/api/paas/v4",
-        prefix=GLM_PREFIX,
-        config_hint="BIGMODEL_API_KEY",
+        key="zai",
+        api_key_env="ZAI_API_KEY",
+        base_url_env="ZAI_API_BASE",
+        legacy_api_key_envs=("BIGMODEL_API_KEY", "GLM_API_KEY"),
+        default_base_url="https://api.z.ai/api/paas/v4",
+        prefix=ZAI_PREFIX,
+        config_hint="ZAI_API_KEY,ZAI_API_BASE",
         custom_llm_provider="openai",
     ),
     ProviderConfig(
@@ -489,16 +630,18 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
-        key="ark",
-        api_key_env="ARK_API_KEY",
+        key="volcengine",
+        api_key_env="VOLCENGINE_API_KEY",
+        base_url_env="VOLCENGINE_API_BASE",
+        legacy_api_key_envs=("ARK_API_KEY",),
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
-        prefix="ark/",
-        config_hint="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+        prefix=VOLCENGINE_PREFIX,
+        config_hint="VOLCENGINE_API_KEY,VOLCENGINE_API_BASE",
         custom_llm_provider="openai",
-        fetch_models=False,
-        model_loader=_load_ark_models,
+        reload_params=_reload_ark_params,
     ),
 ]
 
@@ -517,7 +660,7 @@ DIFY_MODELS = []
 if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
     DIFY_MODELS = ["dify"]
 else:
-    current_app.logger.warning("DIFY_API_KEY and DIFY_URL not configured")
+    _log_warning("DIFY_API_KEY and DIFY_URL not configured")
 
 
 class LLMStreamaUsage:
@@ -539,8 +682,9 @@ class LLMStreamResponse:
 
 
 def get_litellm_params_and_model(model: str):
-    requested_model = model
-    provider_key, invoke_model = _resolve_provider_for_model(model)
+    requested_model = (model or "").strip()
+    normalized_model = _normalize_requested_model(requested_model)
+    provider_key, invoke_model = _resolve_provider_for_model(normalized_model)
     if provider_key:
         state = PROVIDER_STATES.get(provider_key)
         params = state.params if state else None
@@ -554,7 +698,7 @@ def get_litellm_params_and_model(model: str):
                 ),
             )
         return params, invoke_model, reload_params
-    return None, model, None
+    return None, normalized_model, None
 
 
 def invoke_llm(
@@ -566,9 +710,23 @@ def invoke_llm(
     system: str = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
+    usage_context: Optional[UsageContext] = None,
+    usage_scene: Optional[Union[str, int]] = None,
+    billable: Optional[int] = None,
+    request_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    usage_metadata: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
+    stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
+    usage_scene = (
+        usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
+    )
+    billable = billable if billable is not None else kwargs.pop("billable", None)
+    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
+    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = []
     if system:
@@ -579,9 +737,16 @@ def invoke_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
+    provider_name = ""
+    start_time = time.monotonic()
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
+        provider_key, _normalized = _resolve_provider_for_model(
+            _normalize_requested_model(model)
+        )
+        provider_name = provider_key or ""
         messages = []
         if system:
             messages.append({"content": system, "role": "system"})
@@ -620,6 +785,7 @@ def invoke_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -627,6 +793,7 @@ def invoke_llm(
                     total=res_usage.total_tokens,
                 )
     elif model in DIFY_MODELS:
+        provider_name = "dify"
         response = dify_chat_message(app, message, user_id)
         for res in response:
             if start_completion_time is None:
@@ -648,7 +815,65 @@ def invoke_llm(
         )
 
     app.logger.info(f"invoke_llm response: {response_text} ")
-    app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    if usage is None:
+        app.logger.info("invoke_llm usage: None")
+    else:
+        app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
+    if usage_context is None:
+        usage_context = UsageContext(
+            user_bid=user_id or "",
+            request_id=request_id or "",
+            trace_id=trace_id or "",
+            usage_scene=resolved_usage_scene,
+            billable=billable,
+        )
+    else:
+        usage_context = replace(
+            usage_context,
+            request_id=request_id or usage_context.request_id,
+            trace_id=trace_id or usage_context.trace_id,
+            usage_scene=resolved_usage_scene,
+            billable=billable if billable is not None else usage_context.billable,
+        )
+    usage_metadata.setdefault("generation_name", generation_name)
+    if "temperature" in kwargs:
+        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    if usage is None:
+        usage_metadata.setdefault("usage_source", "missing")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=0,
+            input_cache=input_cache_tokens,
+            output=0,
+            total=0,
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
+    else:
+        usage_metadata.setdefault("usage_source", "litellm")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=_extract_usage_value(usage, "input"),
+            input_cache=input_cache_tokens,
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
     generation.end(
         input=generation_input,
         output=response_text,
@@ -667,10 +892,24 @@ def chat_llm(
     messages: list,
     json: bool = False,
     generation_name: str = "user_follow_ask",
+    usage_context: Optional[UsageContext] = None,
+    usage_scene: Optional[Union[str, int]] = None,
+    billable: Optional[int] = None,
+    request_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    usage_metadata: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
+    stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
+    usage_scene = (
+        usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
+    )
+    billable = billable if billable is not None else kwargs.pop("billable", None)
+    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
+    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = messages
     generation = span.generation(
@@ -678,9 +917,16 @@ def chat_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
+    provider_name = ""
+    start_time = time.monotonic()
     start_completion_time = None
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     if params:
+        provider_key, _normalized = _resolve_provider_for_model(
+            _normalize_requested_model(model)
+        )
+        provider_name = provider_key or ""
         if reload_params:
             kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
         else:
@@ -689,6 +935,7 @@ def chat_llm(
                     "temperature": float(kwargs.get("temperature", 0.3)),
                 }
             )
+        kwargs["stream_options"] = {"include_usage": True}
         response = _stream_litellm_completion(
             app,
             invoke_model,
@@ -711,6 +958,7 @@ def chat_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -718,6 +966,7 @@ def chat_llm(
                     total=res_usage.total_tokens,
                 )
     elif model in DIFY_MODELS:
+        provider_name = "dify"
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
             dify_chat_message(app, messages[-1]["content"], user_id)
         )
@@ -740,8 +989,66 @@ def chat_llm(
             model=model,
         )
 
-    app.logger.info(f"invoke_llm response: {response_text} ")
-    app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    app.logger.info(f"chat_llm response: {response_text} ")
+    if usage is None:
+        app.logger.info("chat_llm usage: None")
+    else:
+        app.logger.info(f"chat_llm usage: {usage.__str__()}")
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
+    if usage_context is None:
+        usage_context = UsageContext(
+            user_bid=user_id or "",
+            request_id=request_id or "",
+            trace_id=trace_id or "",
+            usage_scene=resolved_usage_scene,
+            billable=billable,
+        )
+    else:
+        usage_context = replace(
+            usage_context,
+            request_id=request_id or usage_context.request_id,
+            trace_id=trace_id or usage_context.trace_id,
+            usage_scene=resolved_usage_scene,
+            billable=billable if billable is not None else usage_context.billable,
+        )
+    usage_metadata.setdefault("generation_name", generation_name)
+    if "temperature" in kwargs:
+        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    if usage is None:
+        usage_metadata.setdefault("usage_source", "missing")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=0,
+            input_cache=input_cache_tokens,
+            output=0,
+            total=0,
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
+    else:
+        usage_metadata.setdefault("usage_source", "litellm")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=_extract_usage_value(usage, "input"),
+            input_cache=input_cache_tokens,
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
     generation.end(
         input=generation_input,
         output=response_text,
@@ -755,13 +1062,30 @@ def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, str]]:
     allowed, display_names = _resolve_allowed_model_config()
+    display_names_enabled = bool(allowed) and len(display_names) == len(allowed)
+    if display_names and not display_names_enabled:
+        _log_warning(
+            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
+            "LLM_ALLOWED_MODELS"
+        )
 
-    if not allowed:
+    normalized_allowed: list[str] = []
+    normalized_display_map: dict[str, str] = {}
+    for index, model in enumerate(allowed):
+        normalized_model = _normalize_requested_model(model)
+        if not normalized_model:
+            continue
+        if normalized_model not in normalized_allowed:
+            normalized_allowed.append(normalized_model)
+        if display_names_enabled and normalized_model not in normalized_display_map:
+            normalized_display_map[normalized_model] = display_names[index]
+
+    if not normalized_allowed:
         return [{"model": model, "display_name": model} for model in available_models]
 
     available_set = set(available_models)
     filtered_models: list[str] = []
-    for model in allowed:
+    for model in normalized_allowed:
         if model in available_set and model not in filtered_models:
             filtered_models.append(model)
 
@@ -771,20 +1095,10 @@ def _build_model_options(
         )
         return []
 
-    display_names_enabled = allowed and len(display_names) == len(allowed)
-    if display_names and not display_names_enabled:
-        _log_warning(
-            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
-            "LLM_ALLOWED_MODELS"
-        )
-    display_map: dict[str, str] = (
-        dict(zip(allowed, display_names)) if display_names_enabled else {}
-    )
-
     return [
         {
             "model": model,
-            "display_name": display_map.get(model, model),
+            "display_name": normalized_display_map.get(model, model),
         }
         for model in filtered_models
     ]
