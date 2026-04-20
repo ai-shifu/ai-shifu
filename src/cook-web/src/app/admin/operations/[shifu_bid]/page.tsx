@@ -6,9 +6,18 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/app/admin/components/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
-import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
@@ -25,7 +34,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
@@ -38,10 +46,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
+import { cn } from '@/lib/utils';
 import type {
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
@@ -92,8 +100,6 @@ const CHAPTER_COLUMN_DEFAULT_WIDTHS = {
 } as const;
 
 type ChapterColumnKey = keyof typeof CHAPTER_COLUMN_DEFAULT_WIDTHS;
-type ChapterColumnWidthState = Record<ChapterColumnKey, number>;
-
 const CHAPTER_COLUMN_KEYS = Object.keys(
   CHAPTER_COLUMN_DEFAULT_WIDTHS,
 ) as ChapterColumnKey[];
@@ -116,8 +122,6 @@ const USER_COLUMN_DEFAULT_WIDTHS = {
 } as const;
 
 type UserColumnKey = keyof typeof USER_COLUMN_DEFAULT_WIDTHS;
-type UserColumnWidthState = Record<UserColumnKey, number>;
-
 const USER_COLUMN_KEYS = Object.keys(
   USER_COLUMN_DEFAULT_WIDTHS,
 ) as UserColumnKey[];
@@ -130,152 +134,6 @@ const EMPTY_COURSE_USERS_RESPONSE: AdminOperationCourseUsersResponse = {
   page_count: 0,
   page_size: USER_PAGE_SIZE,
   total: 0,
-};
-
-const clampChapterWidth = (value: number): number =>
-  Math.min(CHAPTER_COLUMN_MAX_WIDTH, Math.max(CHAPTER_COLUMN_MIN_WIDTH, value));
-
-const clampUserWidth = (value: number): number =>
-  Math.min(USER_COLUMN_MAX_WIDTH, Math.max(USER_COLUMN_MIN_WIDTH, value));
-
-const createChapterColumnWidthState = (
-  overrides?: Partial<ChapterColumnWidthState>,
-): ChapterColumnWidthState => {
-  const widths: ChapterColumnWidthState = { ...CHAPTER_COLUMN_DEFAULT_WIDTHS };
-  CHAPTER_COLUMN_KEYS.forEach(key => {
-    const nextValue = overrides?.[key];
-    if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-      widths[key] = clampChapterWidth(nextValue);
-    } else {
-      widths[key] = clampChapterWidth(widths[key]);
-    }
-  });
-  return widths;
-};
-
-const loadStoredChapterColumnWidthOverrides =
-  (): Partial<ChapterColumnWidthState> => {
-    if (typeof window === 'undefined') {
-      return {};
-    }
-    try {
-      const serialized = window.localStorage.getItem(
-        CHAPTER_COLUMN_WIDTH_STORAGE_KEY,
-      );
-      if (!serialized) {
-        return {};
-      }
-      const parsed = JSON.parse(serialized) as Partial<ChapterColumnWidthState>;
-      const overrides: Partial<ChapterColumnWidthState> = {};
-      CHAPTER_COLUMN_KEYS.forEach(key => {
-        const nextValue = parsed?.[key];
-        if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-          overrides[key] = clampChapterWidth(nextValue);
-        }
-      });
-      return overrides;
-    } catch {
-      return {};
-    }
-  };
-
-const persistManualChapterColumnWidths = (
-  chapterColumnWidths: ChapterColumnWidthState,
-  manualResizeMap: Record<ChapterColumnKey, boolean>,
-): void => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    const manualOverrides = CHAPTER_COLUMN_KEYS.reduce<
-      Partial<ChapterColumnWidthState>
-    >((acc, key) => {
-      if (manualResizeMap[key]) {
-        acc[key] = chapterColumnWidths[key];
-      }
-      return acc;
-    }, {});
-    if (Object.keys(manualOverrides).length === 0) {
-      window.localStorage.removeItem(CHAPTER_COLUMN_WIDTH_STORAGE_KEY);
-      return;
-    }
-    window.localStorage.setItem(
-      CHAPTER_COLUMN_WIDTH_STORAGE_KEY,
-      JSON.stringify(manualOverrides),
-    );
-  } catch {
-    // Ignore storage errors.
-  }
-};
-
-const createUserColumnWidthState = (
-  overrides?: Partial<UserColumnWidthState>,
-): UserColumnWidthState => {
-  const widths: UserColumnWidthState = { ...USER_COLUMN_DEFAULT_WIDTHS };
-  USER_COLUMN_KEYS.forEach(key => {
-    const nextValue = overrides?.[key];
-    if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-      widths[key] = clampUserWidth(nextValue);
-    } else {
-      widths[key] = clampUserWidth(widths[key]);
-    }
-  });
-  return widths;
-};
-
-const loadStoredUserColumnWidthOverrides =
-  (): Partial<UserColumnWidthState> => {
-    if (typeof window === 'undefined') {
-      return {};
-    }
-    try {
-      const serialized = window.localStorage.getItem(
-        USER_COLUMN_WIDTH_STORAGE_KEY,
-      );
-      if (!serialized) {
-        return {};
-      }
-      const parsed = JSON.parse(serialized) as Partial<UserColumnWidthState>;
-      const overrides: Partial<UserColumnWidthState> = {};
-      USER_COLUMN_KEYS.forEach(key => {
-        const nextValue = parsed?.[key];
-        if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-          overrides[key] = clampUserWidth(nextValue);
-        }
-      });
-      return overrides;
-    } catch {
-      return {};
-    }
-  };
-
-const persistManualUserColumnWidths = (
-  userColumnWidths: UserColumnWidthState,
-  manualResizeMap: Record<UserColumnKey, boolean>,
-): void => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  try {
-    const manualOverrides = USER_COLUMN_KEYS.reduce<
-      Partial<UserColumnWidthState>
-    >((acc, key) => {
-      if (manualResizeMap[key]) {
-        acc[key] = userColumnWidths[key];
-      }
-      return acc;
-    }, {});
-    if (Object.keys(manualOverrides).length === 0) {
-      window.localStorage.removeItem(USER_COLUMN_WIDTH_STORAGE_KEY);
-      return;
-    }
-    window.localStorage.setItem(
-      USER_COLUMN_WIDTH_STORAGE_KEY,
-      JSON.stringify(manualOverrides),
-    );
-  } catch {
-    // Ignore storage errors.
-  }
 };
 
 const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
@@ -465,12 +323,6 @@ export default function AdminOperationCourseDetailPage() {
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '');
-  const storedChapterManualWidthsRef = useRef<Partial<ChapterColumnWidthState>>(
-    loadStoredChapterColumnWidthOverrides(),
-  );
-  const storedUserManualWidthsRef = useRef<Partial<UserColumnWidthState>>(
-    loadStoredUserColumnWidthOverrides(),
-  );
 
   const [detail, setDetail] =
     useState<AdminOperationCourseDetailResponse>(EMPTY_DETAIL);
@@ -481,14 +333,6 @@ export default function AdminOperationCourseDetailPage() {
   const [selectedChapterDetail, setSelectedChapterDetail] =
     useState<AdminOperationCourseChapterDetailResponse>(EMPTY_CHAPTER_DETAIL);
   const [chapterDetailLoading, setChapterDetailLoading] = useState(false);
-  const [chapterColumnWidths, setChapterColumnWidths] =
-    useState<ChapterColumnWidthState>(() =>
-      createChapterColumnWidthState(storedChapterManualWidthsRef.current),
-    );
-  const [userColumnWidths, setUserColumnWidths] =
-    useState<UserColumnWidthState>(() =>
-      createUserColumnWidthState(storedUserManualWidthsRef.current),
-    );
   const [courseUserFiltersDraft, setCourseUserFiltersDraft] =
     useState<CourseUserFilters>(createCourseUserFilters);
   const [courseUserFilters, setCourseUserFilters] = useState<CourseUserFilters>(
@@ -501,37 +345,31 @@ export default function AdminOperationCourseDetailPage() {
     null,
   );
   const [courseUserPage, setCourseUserPage] = useState(1);
-  const chapterColumnWidthsRef = useRef(chapterColumnWidths);
-  const userColumnWidthsRef = useRef(userColumnWidths);
   const courseUsersRequestIdRef = useRef(0);
-  const chapterColumnResizeRef = useRef<{
-    key: ChapterColumnKey;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-  const userColumnResizeRef = useRef<{
-    key: UserColumnKey;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-  const manualChapterResizeRef = useRef<Record<ChapterColumnKey, boolean>>(
-    CHAPTER_COLUMN_KEYS.reduce(
-      (acc, key) => ({
-        ...acc,
-        [key]: typeof storedChapterManualWidthsRef.current[key] === 'number',
-      }),
-      {} as Record<ChapterColumnKey, boolean>,
-    ),
-  );
-  const manualUserResizeRef = useRef<Record<UserColumnKey, boolean>>(
-    USER_COLUMN_KEYS.reduce(
-      (acc, key) => ({
-        ...acc,
-        [key]: typeof storedUserManualWidthsRef.current[key] === 'number',
-      }),
-      {} as Record<UserColumnKey, boolean>,
-    ),
-  );
+  const {
+    setColumnWidths: setChapterColumnWidths,
+    getColumnStyle: getChapterColumnStyle,
+    getResizeHandleProps: getChapterResizeHandleProps,
+    isManualColumn: isManualChapterColumn,
+    clampWidth: clampChapterWidth,
+  } = useAdminResizableColumns<ChapterColumnKey>({
+    storageKey: CHAPTER_COLUMN_WIDTH_STORAGE_KEY,
+    defaultWidths: CHAPTER_COLUMN_DEFAULT_WIDTHS,
+    minWidth: CHAPTER_COLUMN_MIN_WIDTH,
+    maxWidth: CHAPTER_COLUMN_MAX_WIDTH,
+  });
+  const {
+    setColumnWidths: setUserColumnWidths,
+    getColumnStyle: getUserColumnStyle,
+    getResizeHandleProps: getUserResizeHandleProps,
+    isManualColumn: isManualUserColumn,
+    clampWidth: clampUserWidth,
+  } = useAdminResizableColumns<UserColumnKey>({
+    storageKey: USER_COLUMN_WIDTH_STORAGE_KEY,
+    defaultWidths: USER_COLUMN_DEFAULT_WIDTHS,
+    minWidth: USER_COLUMN_MIN_WIDTH,
+    maxWidth: USER_COLUMN_MAX_WIDTH,
+  });
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -653,14 +491,6 @@ export default function AdminOperationCourseDetailPage() {
     }
     fetchCourseUsers(courseUserPage, courseUserFilters);
   }, [courseUserFilters, courseUserPage, fetchCourseUsers, isReady]);
-
-  useEffect(() => {
-    chapterColumnWidthsRef.current = chapterColumnWidths;
-  }, [chapterColumnWidths]);
-
-  useEffect(() => {
-    userColumnWidthsRef.current = userColumnWidths;
-  }, [userColumnWidths]);
 
   const formatUnknownEnumLabel = useCallback(
     (labelKey: string, rawValue?: string) => {
@@ -1083,108 +913,6 @@ export default function AdminOperationCourseDetailPage() {
     };
   }, [selectedChapter?.outline_item_bid, shifuBid, t]);
 
-  const startChapterColumnResize = useCallback(
-    (key: ChapterColumnKey, clientX: number) => {
-      chapterColumnResizeRef.current = {
-        key,
-        startX: clientX,
-        startWidth: chapterColumnWidths[key],
-      };
-      manualChapterResizeRef.current[key] = true;
-    },
-    [chapterColumnWidths],
-  );
-
-  const startUserColumnResize = useCallback(
-    (key: UserColumnKey, clientX: number) => {
-      userColumnResizeRef.current = {
-        key,
-        startX: clientX,
-        startWidth: userColumnWidths[key],
-      };
-      manualUserResizeRef.current[key] = true;
-    },
-    [userColumnWidths],
-  );
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const chapterInfo = chapterColumnResizeRef.current;
-      if (chapterInfo) {
-        const delta = event.clientX - chapterInfo.startX;
-        const nextWidth = clampChapterWidth(chapterInfo.startWidth + delta);
-        setChapterColumnWidths(prev => {
-          if (Math.abs(prev[chapterInfo.key] - nextWidth) < 0.5) {
-            return prev;
-          }
-          return { ...prev, [chapterInfo.key]: nextWidth };
-        });
-      }
-
-      const userInfo = userColumnResizeRef.current;
-      if (!userInfo) {
-        return;
-      }
-      const delta = event.clientX - userInfo.startX;
-      const nextWidth = clampUserWidth(userInfo.startWidth + delta);
-      setUserColumnWidths(prev => {
-        if (Math.abs(prev[userInfo.key] - nextWidth) < 0.5) {
-          return prev;
-        }
-        return { ...prev, [userInfo.key]: nextWidth };
-      });
-    };
-
-    const handleMouseUp = () => {
-      if (chapterColumnResizeRef.current) {
-        persistManualChapterColumnWidths(
-          chapterColumnWidthsRef.current,
-          manualChapterResizeRef.current,
-        );
-      }
-      chapterColumnResizeRef.current = null;
-
-      if (userColumnResizeRef.current) {
-        persistManualUserColumnWidths(
-          userColumnWidthsRef.current,
-          manualUserResizeRef.current,
-        );
-      }
-      userColumnResizeRef.current = null;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const getChapterColumnStyle = useCallback(
-    (key: ChapterColumnKey) => {
-      const width = chapterColumnWidths[key];
-      return {
-        width,
-        minWidth: width,
-        maxWidth: width,
-      };
-    },
-    [chapterColumnWidths],
-  );
-
-  const getUserColumnStyle = useCallback(
-    (key: UserColumnKey) => {
-      const width = userColumnWidths[key];
-      return {
-        width,
-        minWidth: width,
-        maxWidth: width,
-      };
-    },
-    [userColumnWidths],
-  );
-
   const estimateChapterColumnWidth = useCallback(
     (text: string, multiplier = 7) => {
       if (!text) {
@@ -1211,14 +939,11 @@ export default function AdminOperationCourseDetailPage() {
         setChapterColumnWidths(prev => {
           const next = { ...prev };
           CHAPTER_COLUMN_KEYS.forEach(key => {
-            if (!manualChapterResizeRef.current[key]) {
+            if (!isManualChapterColumn(key)) {
               next[key] = CHAPTER_COLUMN_DEFAULT_WIDTHS[key];
             }
           });
-          const changed = CHAPTER_COLUMN_KEYS.some(
-            key => Math.abs(next[key] - prev[key]) > 0.5,
-          );
-          return changed ? next : prev;
+          return next;
         });
         return;
       }
@@ -1296,36 +1021,25 @@ export default function AdminOperationCourseDetailPage() {
       setChapterColumnWidths(prev => {
         const next = { ...prev };
         CHAPTER_COLUMN_KEYS.forEach(key => {
-          if (!manualChapterResizeRef.current[key]) {
+          if (!isManualChapterColumn(key)) {
             next[key] = clampChapterWidth(
               nextWidths[key] ?? CHAPTER_COLUMN_DEFAULT_WIDTHS[key],
             );
           }
         });
-        const changed = CHAPTER_COLUMN_KEYS.some(
-          key => Math.abs(next[key] - prev[key]) > 0.5,
-        );
-        return changed ? next : prev;
+        return next;
       });
     },
     [
+      clampChapterWidth,
       estimateChapterColumnWidth,
+      isManualChapterColumn,
       resolveContentStatusLabel,
       resolveLearningPermissionLabel,
       resolveModifierDisplay,
+      setChapterColumnWidths,
       tOperations,
     ],
-  );
-
-  const renderChapterResizeHandle = (key: ChapterColumnKey) => (
-    <span
-      className='absolute right-0 top-0 h-full w-2 cursor-col-resize select-none'
-      onMouseDown={event => {
-        event.preventDefault();
-        startChapterColumnResize(key, event.clientX);
-      }}
-      aria-hidden='true'
-    />
   );
 
   const autoAdjustUserColumns = useCallback(
@@ -1334,14 +1048,11 @@ export default function AdminOperationCourseDetailPage() {
         setUserColumnWidths(prev => {
           const next = { ...prev };
           USER_COLUMN_KEYS.forEach(key => {
-            if (!manualUserResizeRef.current[key]) {
+            if (!isManualUserColumn(key)) {
               next[key] = USER_COLUMN_DEFAULT_WIDTHS[key];
             }
           });
-          const changed = USER_COLUMN_KEYS.some(
-            key => Math.abs(next[key] - prev[key]) > 0.5,
-          );
-          return changed ? next : prev;
+          return next;
         });
         return;
       }
@@ -1417,38 +1128,41 @@ export default function AdminOperationCourseDetailPage() {
       setUserColumnWidths(prev => {
         const next = { ...prev };
         USER_COLUMN_KEYS.forEach(key => {
-          if (!manualUserResizeRef.current[key]) {
+          if (!isManualUserColumn(key)) {
             next[key] = clampUserWidth(
               nextWidths[key] ?? USER_COLUMN_DEFAULT_WIDTHS[key],
             );
           }
         });
-        const changed = USER_COLUMN_KEYS.some(
-          key => Math.abs(next[key] - prev[key]) > 0.5,
-        );
-        return changed ? next : prev;
+        return next;
       });
     },
     [
+      clampUserWidth,
       defaultUserName,
       emptyValue,
       estimateUserColumnWidth,
+      isManualUserColumn,
       resolveCourseUserAccount,
       resolveCourseUserLearningStatusLabel,
       resolveCourseUserPaidAmountDisplay,
       resolveCourseUserRoleLabel,
+      setUserColumnWidths,
       tOperations,
     ],
   );
 
+  const renderChapterResizeHandle = (key: ChapterColumnKey) => (
+    <span
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getChapterResizeHandleProps(key)}
+    />
+  );
+
   const renderUserResizeHandle = (key: UserColumnKey) => (
     <span
-      className='absolute right-0 top-0 h-full w-2 cursor-col-resize select-none'
-      onMouseDown={event => {
-        event.preventDefault();
-        startUserColumnResize(key, event.clientX);
-      }}
-      aria-hidden='true'
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getUserResizeHandleProps(key)}
     />
   );
 
@@ -1610,34 +1324,52 @@ export default function AdminOperationCourseDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className='pt-0'>
-                <div className='overflow-auto rounded-xl border border-border bg-white shadow-sm'>
-                  <TooltipProvider delayDuration={150}>
+                <AdminTableShell
+                  loading={false}
+                  isEmpty={chapterRows.length === 0}
+                  emptyContent={tOperations('detail.chaptersTable.empty')}
+                  emptyColSpan={11}
+                  withTooltipProvider
+                  tableWrapperClassName='overflow-auto'
+                  table={emptyRow => (
                     <Table className='table-auto'>
                       <TableHeader>
                         <TableRow>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('position')}
                           >
                             {tOperations('detail.chaptersTable.position')}
                             {renderChapterResizeHandle('position')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('name')}
                           >
                             {tOperations('detail.chaptersTable.name')}
                             {renderChapterResizeHandle('name')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('chapterId')}
                           >
                             {tOperations('detail.chaptersTable.chapterId')}
                             {renderChapterResizeHandle('chapterId')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('learningPermission')}
                           >
                             {tOperations(
@@ -1646,49 +1378,70 @@ export default function AdminOperationCourseDetailPage() {
                             {renderChapterResizeHandle('learningPermission')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('visibility')}
                           >
                             {tOperations('detail.chaptersTable.visibility')}
                             {renderChapterResizeHandle('visibility')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('contentStatus')}
                           >
                             {tOperations('detail.chaptersTable.contentStatus')}
                             {renderChapterResizeHandle('contentStatus')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('contentDetail')}
                           >
                             {tOperations('detail.chaptersTable.contentDetail')}
                             {renderChapterResizeHandle('contentDetail')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('modifier')}
                           >
                             {tOperations('detail.chaptersTable.modifier')}
                             {renderChapterResizeHandle('modifier')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('updatedAt')}
                           >
                             {tOperations('detail.chaptersTable.updatedAt')}
                             {renderChapterResizeHandle('updatedAt')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap border-l-2 border-l-border/80 bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('followUpCount')}
                           >
                             {tOperations('detail.chaptersTable.followUpCount')}
                             {renderChapterResizeHandle('followUpCount')}
                           </TableHead>
                           <TableHead
-                            className='relative h-10 whitespace-nowrap bg-muted/80 text-center text-xs font-medium text-muted-foreground'
+                            className={cn(
+                              ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
+                              'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                            )}
                             style={getChapterColumnStyle('ratingCount')}
                           >
                             {tOperations('detail.chaptersTable.ratingCount')}
@@ -1697,151 +1450,142 @@ export default function AdminOperationCourseDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {chapterRows.length === 0 ? (
-                          <TableEmpty colSpan={11}>
-                            {tOperations('detail.chaptersTable.empty')}
-                          </TableEmpty>
-                        ) : (
-                          chapterRows.map(chapter => {
-                            const {
-                              primary: modifierPrimary,
-                              secondary: modifierSecondary,
-                            } = resolveModifierDisplay(chapter);
+                        {emptyRow}
+                        {chapterRows.map(chapter => {
+                          const {
+                            primary: modifierPrimary,
+                            secondary: modifierSecondary,
+                          } = resolveModifierDisplay(chapter);
 
-                            return (
-                              <TableRow key={chapter.outline_item_bid}>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/80 last:border-r-0'
-                                  style={getChapterColumnStyle('position')}
+                          return (
+                            <TableRow key={chapter.outline_item_bid}>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/80 last:border-r-0'
+                                style={getChapterColumnStyle('position')}
+                              >
+                                {chapter.position || emptyValue}
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 border-r border-border last:border-r-0'
+                                style={getChapterColumnStyle('name')}
+                              >
+                                <div
+                                  className='flex min-w-0 items-center justify-center gap-2'
+                                  style={{
+                                    paddingLeft: `${chapter.depth * 20}px`,
+                                  }}
                                 >
-                                  {chapter.position || emptyValue}
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 border-r border-border last:border-r-0'
-                                  style={getChapterColumnStyle('name')}
-                                >
-                                  <div
-                                    className='flex min-w-0 items-center justify-center gap-2'
-                                    style={{
-                                      paddingLeft: `${chapter.depth * 20}px`,
-                                    }}
+                                  <Badge
+                                    variant='outline'
+                                    className='shrink-0 rounded-full border-border/60 bg-background px-1.5 py-0 text-[10px] font-medium text-muted-foreground'
                                   >
-                                    <Badge
-                                      variant='outline'
-                                      className='shrink-0 rounded-full border-border/60 bg-background px-1.5 py-0 text-[10px] font-medium text-muted-foreground'
-                                    >
-                                      {resolveChapterTypeLabel(
-                                        chapter.node_type,
-                                      )}
-                                    </Badge>
-                                    <AdminTooltipText
-                                      text={chapter.title || emptyValue}
-                                      emptyValue={emptyValue}
-                                      className='text-center text-sm font-medium text-foreground'
-                                    />
-                                  </div>
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle('chapterId')}
-                                >
+                                    {resolveChapterTypeLabel(chapter.node_type)}
+                                  </Badge>
                                   <AdminTooltipText
-                                    text={
-                                      chapter.outline_item_bid || emptyValue
-                                    }
+                                    text={chapter.title || emptyValue}
                                     emptyValue={emptyValue}
-                                    className='mx-auto block max-w-[240px] font-mono text-[11px] text-muted-foreground/65'
+                                    className='text-center text-sm font-medium text-foreground'
                                   />
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle(
-                                    'learningPermission',
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle('chapterId')}
+                              >
+                                <AdminTooltipText
+                                  text={chapter.outline_item_bid || emptyValue}
+                                  emptyValue={emptyValue}
+                                  className='mx-auto block max-w-[240px] font-mono text-[11px] text-muted-foreground/65'
+                                />
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle(
+                                  'learningPermission',
+                                )}
+                              >
+                                {resolveLearningPermissionLabel(
+                                  chapter.learning_permission,
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle('visibility')}
+                              >
+                                {chapter.is_visible
+                                  ? tOperations('detail.visibility.visible')
+                                  : tOperations('detail.visibility.hidden')}
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle('contentStatus')}
+                              >
+                                {resolveContentStatusLabel(
+                                  chapter.content_status,
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center last:border-r-0'
+                                style={getChapterColumnStyle('contentDetail')}
+                              >
+                                <button
+                                  type='button'
+                                  className='text-sm text-primary transition-colors hover:text-primary/80'
+                                  onClick={() => setSelectedChapter(chapter)}
+                                >
+                                  {tOperations(
+                                    'detail.chaptersTable.detailAction',
                                   )}
-                                >
-                                  {resolveLearningPermissionLabel(
-                                    chapter.learning_permission,
-                                  )}
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle('visibility')}
-                                >
-                                  {chapter.is_visible
-                                    ? tOperations('detail.visibility.visible')
-                                    : tOperations('detail.visibility.hidden')}
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle('contentStatus')}
-                                >
-                                  {resolveContentStatusLabel(
-                                    chapter.content_status,
-                                  )}
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center last:border-r-0'
-                                  style={getChapterColumnStyle('contentDetail')}
-                                >
-                                  <button
-                                    type='button'
-                                    className='text-sm text-primary transition-colors hover:text-primary/80'
-                                    onClick={() => setSelectedChapter(chapter)}
-                                  >
-                                    {tOperations(
-                                      'detail.chaptersTable.detailAction',
-                                    )}
-                                  </button>
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 border-r border-border text-center last:border-r-0'
-                                  style={getChapterColumnStyle('modifier')}
-                                >
-                                  <div className='flex flex-col gap-0.5 leading-tight'>
-                                    <AdminTooltipText
-                                      text={modifierPrimary}
-                                      emptyValue={emptyValue}
-                                      className='text-sm text-foreground'
-                                    />
-                                    {modifierSecondary ? (
-                                      <AdminTooltipText
-                                        text={modifierSecondary}
-                                        emptyValue={emptyValue}
-                                        className='text-xs text-muted-foreground'
-                                      />
-                                    ) : null}
-                                  </div>
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle('updatedAt')}
-                                >
+                                </button>
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 border-r border-border text-center last:border-r-0'
+                                style={getChapterColumnStyle('modifier')}
+                              >
+                                <div className='flex flex-col gap-0.5 leading-tight'>
                                   <AdminTooltipText
-                                    text={chapter.updated_at || emptyValue}
+                                    text={modifierPrimary}
                                     emptyValue={emptyValue}
-                                    className='mx-auto block max-w-full'
+                                    className='text-sm text-foreground'
                                   />
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                  style={getChapterColumnStyle('followUpCount')}
-                                >
-                                  {formatCount(chapter.follow_up_count)}
-                                </TableCell>
-                                <TableCell
-                                  className='py-2.5 whitespace-nowrap text-center text-sm text-muted-foreground/75'
-                                  style={getChapterColumnStyle('ratingCount')}
-                                >
-                                  {formatCount(chapter.rating_count)}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
-                        )}
+                                  {modifierSecondary ? (
+                                    <AdminTooltipText
+                                      text={modifierSecondary}
+                                      emptyValue={emptyValue}
+                                      className='text-xs text-muted-foreground'
+                                    />
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle('updatedAt')}
+                              >
+                                <AdminTooltipText
+                                  text={chapter.updated_at || emptyValue}
+                                  emptyValue={emptyValue}
+                                  className='mx-auto block max-w-full'
+                                />
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
+                                style={getChapterColumnStyle('followUpCount')}
+                              >
+                                {formatCount(chapter.follow_up_count)}
+                              </TableCell>
+                              <TableCell
+                                className='py-2.5 whitespace-nowrap text-center text-sm text-muted-foreground/75'
+                                style={getChapterColumnStyle('ratingCount')}
+                              >
+                                {formatCount(chapter.rating_count)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
-                  </TooltipProvider>
-                </div>
+                  )}
+                />
               </CardContent>
             </Card>
 
@@ -2006,124 +1750,185 @@ export default function AdminOperationCourseDetailPage() {
                   </div>
                 </form>
 
-                <div className='overflow-auto rounded-xl border border-border bg-white shadow-sm'>
-                  {courseUsersLoading ? (
-                    <div className='flex min-h-[240px] items-center justify-center'>
-                      <Loading />
-                    </div>
-                  ) : courseUsersError ? (
-                    <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
-                      <div className='space-y-2'>
-                        <div className='text-sm font-medium text-destructive'>
-                          {courseUsersError.message}
-                        </div>
-                        {typeof courseUsersError.code === 'number' ? (
-                          <div className='text-xs text-muted-foreground'>
-                            {courseUsersError.code}
+                <AdminTableShell
+                  loading={courseUsersLoading}
+                  isEmpty={!courseUsersError && courseUserRows.length === 0}
+                  emptyContent={tOperations('detail.usersTable.empty')}
+                  emptyColSpan={12}
+                  withTooltipProvider={!courseUsersError}
+                  tableWrapperClassName='overflow-auto'
+                  loadingClassName='min-h-[240px]'
+                  footer={
+                    courseUserPageCount > 1 ? (
+                      <AdminPagination
+                        pageIndex={currentCourseUserPage}
+                        pageCount={courseUserPageCount}
+                        onPageChange={handleCourseUserPageChange}
+                        prevLabel={t('module.order.paginationPrev', 'Previous')}
+                        nextLabel={t('module.order.paginationNext', 'Next')}
+                        prevAriaLabel={t(
+                          'module.order.paginationPrevAriaLabel',
+                          'Go to previous page',
+                        )}
+                        nextAriaLabel={t(
+                          'module.order.paginationNextAriaLabel',
+                          'Go to next page',
+                        )}
+                        className='mx-0 w-auto justify-end'
+                      />
+                    ) : null
+                  }
+                  table={
+                    courseUsersError ? (
+                      <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
+                        <div className='space-y-2'>
+                          <div className='text-sm font-medium text-destructive'>
+                            {courseUsersError.message}
                           </div>
-                        ) : null}
+                          {typeof courseUsersError.code === 'number' ? (
+                            <div className='text-xs text-muted-foreground'>
+                              {courseUsersError.code}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <TooltipProvider delayDuration={150}>
-                      <Table className='table-auto'>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('userId')}
-                            >
-                              {tOperations('detail.usersTable.userId')}
-                              {renderUserResizeHandle('userId')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('account')}
-                            >
-                              {courseUserAccountLabel}
-                              {renderUserResizeHandle('account')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('nickname')}
-                            >
-                              {tOperations('detail.usersTable.nickname')}
-                              {renderUserResizeHandle('nickname')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('userRole')}
-                            >
-                              {tOperations('detail.usersTable.userRole')}
-                              {renderUserResizeHandle('userRole')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('learningProgress')}
-                            >
-                              {tOperations(
-                                'detail.usersTable.learningProgress',
-                              )}
-                              {renderUserResizeHandle('learningProgress')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('learningStatus')}
-                            >
-                              {tOperations('detail.usersTable.learningStatus')}
-                              {renderUserResizeHandle('learningStatus')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('isPaid')}
-                            >
-                              {tOperations('detail.usersTable.isPaid')}
-                              {renderUserResizeHandle('isPaid')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('totalPaidAmount')}
-                            >
-                              {tOperations('detail.usersTable.totalPaidAmount')}
-                              {renderUserResizeHandle('totalPaidAmount')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('lastLearnedAt')}
-                            >
-                              {tOperations('detail.usersTable.lastLearnedAt')}
-                              {renderUserResizeHandle('lastLearnedAt')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('joinedAt')}
-                            >
-                              {tOperations('detail.usersTable.joinedAt')}
-                              {renderUserResizeHandle('joinedAt')}
-                            </TableHead>
-                            <TableHead
-                              className='relative h-10 whitespace-nowrap border-r border-border bg-muted/80 text-center text-xs font-medium text-muted-foreground last:border-r-0'
-                              style={getUserColumnStyle('lastLoginAt')}
-                            >
-                              {tOperations('detail.usersTable.lastLoginAt')}
-                              {renderUserResizeHandle('lastLoginAt')}
-                            </TableHead>
-                            <TableHead
-                              className='sticky right-0 z-10 h-10 whitespace-nowrap bg-muted text-center text-xs font-medium text-muted-foreground shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border before:content-[""]'
-                              style={getUserColumnStyle('action')}
-                            >
-                              {tOperations('detail.usersTable.action')}
-                              {renderUserResizeHandle('action')}
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {courseUserRows.length === 0 ? (
-                            <TableEmpty colSpan={12}>
-                              {tOperations('detail.usersTable.empty')}
-                            </TableEmpty>
-                          ) : (
-                            courseUserRows.map(row => (
+                    ) : (
+                      emptyRow => (
+                        <Table className='table-auto'>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('userId')}
+                              >
+                                {tOperations('detail.usersTable.userId')}
+                                {renderUserResizeHandle('userId')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('account')}
+                              >
+                                {courseUserAccountLabel}
+                                {renderUserResizeHandle('account')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('nickname')}
+                              >
+                                {tOperations('detail.usersTable.nickname')}
+                                {renderUserResizeHandle('nickname')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('userRole')}
+                              >
+                                {tOperations('detail.usersTable.userRole')}
+                                {renderUserResizeHandle('userRole')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('learningProgress')}
+                              >
+                                {tOperations(
+                                  'detail.usersTable.learningProgress',
+                                )}
+                                {renderUserResizeHandle('learningProgress')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('learningStatus')}
+                              >
+                                {tOperations(
+                                  'detail.usersTable.learningStatus',
+                                )}
+                                {renderUserResizeHandle('learningStatus')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('isPaid')}
+                              >
+                                {tOperations('detail.usersTable.isPaid')}
+                                {renderUserResizeHandle('isPaid')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('totalPaidAmount')}
+                              >
+                                {tOperations(
+                                  'detail.usersTable.totalPaidAmount',
+                                )}
+                                {renderUserResizeHandle('totalPaidAmount')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('lastLearnedAt')}
+                              >
+                                {tOperations('detail.usersTable.lastLearnedAt')}
+                                {renderUserResizeHandle('lastLearnedAt')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('joinedAt')}
+                              >
+                                {tOperations('detail.usersTable.joinedAt')}
+                                {renderUserResizeHandle('joinedAt')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                                )}
+                                style={getUserColumnStyle('lastLoginAt')}
+                              >
+                                {tOperations('detail.usersTable.lastLoginAt')}
+                                {renderUserResizeHandle('lastLoginAt')}
+                              </TableHead>
+                              <TableHead
+                                className={cn(
+                                  getAdminStickyRightHeaderClass(
+                                    'h-10 whitespace-nowrap text-center text-xs',
+                                  ),
+                                )}
+                                style={getUserColumnStyle('action')}
+                              >
+                                {tOperations('detail.usersTable.action')}
+                                {renderUserResizeHandle('action')}
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {emptyRow}
+                            {courseUserRows.map(row => (
                               <TableRow key={row.user_bid}>
                                 <TableCell
                                   className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
@@ -2237,40 +2042,21 @@ export default function AdminOperationCourseDetailPage() {
                                   />
                                 </TableCell>
                                 <TableCell
-                                  className='sticky right-0 z-[1] bg-white py-2.5 text-center text-sm text-muted-foreground/80 shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border before:content-[""]'
+                                  className={getAdminStickyRightCellClass(
+                                    'py-2.5 text-center text-sm text-muted-foreground/80',
+                                  )}
                                   style={getUserColumnStyle('action')}
                                 >
                                   {emptyValue}
                                 </TableCell>
                               </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TooltipProvider>
-                  )}
-                </div>
-
-                {courseUserPageCount > 1 ? (
-                  <div className='mb-4 mt-4 flex justify-end'>
-                    <AdminPagination
-                      pageIndex={currentCourseUserPage}
-                      pageCount={courseUserPageCount}
-                      onPageChange={handleCourseUserPageChange}
-                      prevLabel={t('module.order.paginationPrev', 'Previous')}
-                      nextLabel={t('module.order.paginationNext', 'Next')}
-                      prevAriaLabel={t(
-                        'module.order.paginationPrevAriaLabel',
-                        'Go to previous page',
-                      )}
-                      nextAriaLabel={t(
-                        'module.order.paginationNextAriaLabel',
-                        'Go to next page',
-                      )}
-                      className='mx-0 w-auto justify-end'
-                    />
-                  </div>
-                ) : null}
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )
+                    )
+                  }
+                />
               </CardContent>
             </Card>
           </div>
