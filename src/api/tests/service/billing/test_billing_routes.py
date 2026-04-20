@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
-import sys
 from types import SimpleNamespace
-import types
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, jsonify, request
@@ -73,44 +69,13 @@ from flaskr.service.metering.consts import (
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
 from tests.common.fixtures.billing_products import build_billing_products
+from tests.service.billing.route_loader import (
+    load_billing_routes_module,
+    load_register_billing_routes,
+)
 
-_API_ROOT = Path(__file__).resolve().parents[3]
-_ROUTE_DIR = _API_ROOT / "flaskr" / "route"
-_BILLING_ROUTE_FILE = _API_ROOT / "flaskr" / "service" / "billing" / "routes.py"
-
-
-def _load_register_billing_routes():
-    package_name = "flaskr.route"
-    if package_name not in sys.modules:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(_ROUTE_DIR)]
-        sys.modules[package_name] = package
-
-    common_name = f"{package_name}.common"
-    if common_name not in sys.modules:
-        common_spec = importlib.util.spec_from_file_location(
-            common_name,
-            _ROUTE_DIR / "common.py",
-        )
-        assert common_spec is not None and common_spec.loader is not None
-        common_module = importlib.util.module_from_spec(common_spec)
-        sys.modules[common_name] = common_module
-        common_spec.loader.exec_module(common_module)
-
-    full_name = "flaskr.service.billing.routes"
-    if full_name in sys.modules:
-        return sys.modules[full_name].register_billing_routes
-
-    spec = importlib.util.spec_from_file_location(full_name, _BILLING_ROUTE_FILE)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[full_name] = module
-    spec.loader.exec_module(module)
-    return module.register_billing_routes
-
-
-register_billing_routes = _load_register_billing_routes()
-billing_routes_module = sys.modules["flaskr.service.billing.routes"]
+register_billing_routes = load_register_billing_routes()
+billing_routes_module = load_billing_routes_module()
 
 
 def _seed_products_with_yearly_entitlements():

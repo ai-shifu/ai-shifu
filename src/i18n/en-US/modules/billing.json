@@ -420,20 +420,6 @@
       "subscription": "Plan credits",
       "topup": "Credit pack"
     },
-    "detail": {
-      "balanceAfter": "Balance after",
-      "billingMetric": "Billing metric",
-      "consumedCredits": "Consumed credits",
-      "creditsPerUnit": "Credits per unit",
-      "emptyBreakdown": "No metric breakdown is attached to this ledger entry.",
-      "rawAmount": "Raw amount",
-      "roundingMode": "Rounding mode",
-      "scene": "Reason",
-      "sourceBid": "Source reference",
-      "title": "Usage details",
-      "unitSize": "Unit size",
-      "usageBid": "Usage bid"
-    },
     "empty": "No wallet buckets yet. Credits will appear here after your first grant.",
     "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
     "entriesTitle": "Ledger entries",

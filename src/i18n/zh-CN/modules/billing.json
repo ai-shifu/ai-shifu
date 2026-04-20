@@ -420,20 +420,6 @@
       "subscription": "套餐积分",
       "topup": "积分包"
     },
-    "detail": {
-      "balanceAfter": "扣减后余额",
-      "billingMetric": "计费指标",
-      "consumedCredits": "消耗积分",
-      "creditsPerUnit": "每单位积分",
-      "emptyBreakdown": "当前账本项没有附带计费拆解。",
-      "rawAmount": "原始用量",
-      "roundingMode": "取整方式",
-      "scene": "变动原因",
-      "sourceBid": "来源引用",
-      "title": "用量明细",
-      "unitSize": "计费单位",
-      "usageBid": "用量单号"
-    },
     "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
     "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
     "entriesTitle": "账本流水",
