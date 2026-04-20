@@ -1,11 +1,27 @@
 .chatComponents {
   width: 100%;
+  min-width: 0;
   height: 100%;
   position: relative;
   box-sizing: border-box;
 }
+.chatComponents.mobile {
+  min-height: 0;
+}
 .chatComponents :global(.content-render-theme) {
   position: relative;
+  min-width: 0;
+}
+.chatComponents :global(.content-render-theme) .content-render,
+.chatComponents
+  :global(.content-render-theme)
+  .content-render
+  .content-render-svg-scroll,
+.chatComponents
+  :global(.content-render-theme)
+  .content-render
+  .content-render-svg {
+  min-width: 0;
 }
 .chatComponents :global(.long-press-overlay) {
   position: absolute;
@@ -13,7 +29,6 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(148, 163, 184, 0.12);
   pointer-events: none;
   z-index: 1;
 }
@@ -204,7 +219,9 @@
   -webkit-touch-callout: none;
 }
 .chatComponents.mobile .scrollToBottom {
-  bottom: 200px;
+  position: fixed;
+  bottom: 60px;
+  z-index: 50;
 }
 .chatComponents .messageContentOperation {
   display: flex;
@@ -243,7 +260,7 @@
   font-size: 24px;
   color: rgba(0, 0, 0, 0.45);
 }
-.chatComponents .scrollToBottom {
+.scrollToBottom {
   position: absolute;
   bottom: 90px;
   left: 50%;
@@ -263,13 +280,21 @@
   transition: all 0.3s ease;
   opacity: 0;
   visibility: hidden;
+  pointer-events: auto;
 }
-.chatComponents .scrollToBottom.visible {
+.scrollToBottom.visible {
   opacity: 1;
   visibility: visible;
 }
-.chatComponents .scrollToBottom:hover {
+.scrollToBottom:hover {
   background-color: #f9f9f9;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   color: #333;
+}
+.scrollToBottom.mobileScrollBtn {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
 }

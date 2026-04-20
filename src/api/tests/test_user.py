@@ -1,19 +1,19 @@
-from tests.common import print_json
+from flaskr.dao import db
+from flaskr.service.profile.funcs import get_user_profiles
+from flaskr.service.user.models import UserInfo
 
 
-def test_get_user_profile(app):
-    from flaskr.service.profile.funcs import get_user_profile_labels
-    from flaskr.service.profile.funcs import update_user_profile
-
+def test_get_user_profiles_uses_user_fallbacks(app):
     with app.app_context():
-        resp = get_user_profile_labels(app, "42e03ab0a33d4904bf84793d5fc1f71b")
-        print_json(resp)
+        user = UserInfo(
+            user_bid="user-profile-1",
+            user_identify="user-profile@example.com",
+            nickname="Tester",
+            language="zh-CN",
+        )
+        db.session.add(user)
+        db.session.commit()
 
-        for item in resp:
-            if item["label"] == "性别":
-                item["value"] = "男"
-                update_user_profile(app, "42e03ab0a33d4904bf84793d5fc1f71b", resp)
-            if item["label"] == "用户操作系统":
-                item["value"] = "MacOS"
-                update_user_profile(app, "42e03ab0a33d4904bf84793d5fc1f71b", resp)
-        print_json(resp)
+        profiles = get_user_profiles(app, "user-profile-1", "course-1")
+        assert profiles["sys_user_language"] == "zh-CN"
+        assert profiles["sys_user_nickname"] == "Tester"

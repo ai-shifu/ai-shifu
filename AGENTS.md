@@ -70,6 +70,7 @@ The project follows a microservices architecture with 2 main components:
   - `service/profile/`: User profile and preferences
   - `service/lesson/`: Lesson content management
   - `service/llm/`: LLM integration layer
+  - `service/gen_mdf/`: MDF (Markdown Flow) conversion proxy service
 - Database migrations managed with Alembic (`migrations/`)
 - Internationalization support with separate locale files (`i18n/`)
 
@@ -78,6 +79,17 @@ The project follows a microservices architecture with 2 main components:
 - All server-side LLM calls are routed through [LiteLLM](https://github.com/BerriAI/litellm) inside `src/api/flaskr/api/llm/__init__.py`, which proxies OpenAI-compatible providers (OpenAI, DeepSeek, Qwen, GLM, SiliconFlow, Ark, etc.) while keeping custom HTTP flows (ERNIE legacy/Dify).
 - Provider credentials continue to live in `.env` via the existing keys (`OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `QWEN_API_KEY`, `BIGMODEL_API_KEY`, ...). When the API key + base URL are set, LiteLLM automatically registers the provider and its models.
 - When adding a new provider, prefer exposing an OpenAI-compatible HTTP endpoint so the LiteLLM wrapper can just receive `api_key` + `api_base`. For incompatible providers, follow the ERNIE/Dify helper patterns.
+
+#### MDF Conversion Service
+
+The MDF conversion feature proxies external MDF API calls through our backend:
+
+- **Backend endpoint**: `POST /api/gen_mdf/convert`
+- **Configuration**: Set `GEN_MDF_API_URL` in backend `.env` to the external MDF API URL
+- **Frontend**: Calls backend proxy (not external API directly) via `api.genMdfConvert()`
+- **Security**: External API URL is hidden from frontend, preventing exposure in browser
+- **Error handling**: Comprehensive error messages with i18n support (Chinese & English)
+- **Request validation**: Text length (max 10,000 chars), language (Chinese/English), timeout (60s)
 
 ### Frontend
 

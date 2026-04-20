@@ -63,6 +63,28 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
   };
 
+  // Normalize OTP to prevent iOS Safari double-paste (e.g., 12341234)
+  const normalizeOtp = (rawValue: string) => {
+    const digits = rawValue.replace(/\D/g, '');
+    if (!digits) {
+      return '';
+    }
+    const maxLength = 4;
+    const capped = digits.slice(0, maxLength * 2);
+    const primary = capped.slice(0, maxLength);
+    if (capped.length > maxLength) {
+      const duplicateCandidate = capped.slice(maxLength, maxLength * 2);
+      if (duplicateCandidate === primary) {
+        return primary;
+      }
+    }
+    return primary;
+  };
+
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhoneOtp(normalizeOtp(e.target.value));
+  };
+
   const doSendSmsCode = async () => {
     try {
       setIsLoading(true);
@@ -184,11 +206,17 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
           <div className='flex-1'>
             <Input
               id='otp'
+              type='text'
               placeholder={t('module.auth.otpPlaceholder')}
               value={phoneOtp}
-              onChange={e => setPhoneOtp(e.target.value)}
+              onChange={handleOtpChange}
               onKeyDown={handleOtpKeyDown}
               disabled={isLoading || !showOtpInput}
+              inputMode='numeric'
+              autoComplete='one-time-code'
+              name='one-time-code'
+              pattern='[0-9]*'
+              enterKeyHint='done'
               className='text-base sm:text-sm'
             />
           </div>

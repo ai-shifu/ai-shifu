@@ -5,6 +5,19 @@ ROLE_UI = 3
 
 ROLE_VALUES = {ROLE_TEACHER: "老师", ROLE_STUDENT: "学生", ROLE_UI: "UI"}
 
+# Re-export learn status constants for backward compatibility with tests and callers.
+from flaskr.service.order.consts import (  # noqa: F401, E402
+    LEARN_STATUS_BRANCH,
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_EXIST,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_REFUND,
+    LEARN_STATUS_RESET,
+    LEARN_STATUS_UNAVAILABLE,
+)
+
 INPUT_TYPE_TEXT = "text"
 INPUT_TYPE_CONTINUE = "continue"
 INPUT_TYPE_START = "start"

@@ -22,6 +22,7 @@ BACKEND_PATTERNS = [
     re.compile(r"_\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"raise_error\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"raise_error_with_args\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"raise_param_error\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"ERROR_CODE\\\[\"([A-Za-z0-9_.-]+)\"\\\]"),
 ]
 

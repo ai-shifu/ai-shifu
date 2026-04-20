@@ -3,7 +3,7 @@
 
 import random
 import string
-from flask import Flask
+from flask import Flask, has_app_context
 
 from typing import Optional
 
@@ -13,7 +13,8 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.i18n import get_i18n_list
 from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
-from ...dao import redis_client as redis, db
+from flaskr.common.cache_provider import cache as redis
+from ...dao import db
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (
@@ -25,6 +26,7 @@ from .repository import (
 )
 from ..profile.funcs import save_user_profiles
 from ..profile.dtos import ProfileToSave
+from .token_store import token_store
 
 
 def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
@@ -35,7 +37,7 @@ def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
-    with app.app_context():
+    def _validate() -> UserInfo:
         if not token:
             raise_error("server.user.userNotLogin")
         try:
@@ -48,24 +50,25 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 app.logger.info("user_id:" + user_id)
 
             app.logger.info("user_id:" + user_id)
-            redis_user_id = redis.getex(
-                app.config["REDIS_KEY_PREFIX_USER"] + token,
-                ex=app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7),
+            ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
+            lookup = token_store.get_and_refresh(
+                app,
+                token=token,
+                expected_user_id=user_id,
+                ttl_seconds=ttl_seconds,
             )
-            if redis_user_id is None:
+            if lookup is None:
                 raise_error("server.user.userTokenExpired")
-            set_user_id = str(
-                redis_user_id,
-                encoding="utf-8",
-            )
-            if set_user_id == user_id:
-                return _load_user_info(app, user_id)
-            else:
-                raise_error("server.user.userTokenExpired")
+            return _load_user_info(app, lookup.user_id)
         except jwt.exceptions.ExpiredSignatureError:
             raise_error("server.user.userTokenExpired")
         except jwt.exceptions.DecodeError:
             raise_error("server.user.userNotFound")
+
+    if has_app_context():
+        return _validate()
+    with app.app_context():
+        return _validate()
 
 
 def update_user_info(

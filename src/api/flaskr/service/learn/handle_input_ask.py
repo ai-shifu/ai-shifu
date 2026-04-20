@@ -23,6 +23,12 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 
 
 @extensible_generic
@@ -46,6 +52,15 @@ def handle_input_ask(
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
+    )
+
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        usage_scene=usage_scene,
     )
 
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
@@ -87,6 +102,11 @@ def handle_input_ask(
     system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", system_prompt if system_prompt else ""
     )
+    # Append language instruction if use_learner_language is enabled
+    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
+    if use_learner_language:
+        output_language = get_markdownflow_output_language()
+        system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
     messages.append({"role": "system", "content": system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
@@ -137,19 +157,20 @@ def handle_input_ask(
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
     res = check_text_with_llm_response(
         app,
-        user_info,
-        log_script,
-        input,
-        span,
-        outline_item_info.bid,
-        outline_item_info.position,
-        outline_item_info.shifu_bid,
-        LLMSettings(
+        user_info=user_info,
+        log_script=log_script,
+        input=input,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
             model=follow_up_model,
             temperature=follow_up_info.model_args["temperature"],
         ),
-        attend_id,
-        follow_up_info.ask_prompt,
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
     )
     has_content = False
     for i in res:
@@ -195,6 +216,8 @@ def handle_input_ask(
         + "_"
         + str(outline_item_info.position),
         messages=messages,  # Pass complete conversation history
+        usage_context=usage_context,
+        usage_scene=usage_scene,
     )
 
     response_text = ""  # Store complete response text

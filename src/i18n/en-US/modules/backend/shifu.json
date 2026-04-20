@@ -10,6 +10,7 @@
     "outlineNameTooLong": "Outline name is too long",
     "outlineNotFound": "Outline not found",
     "parentOutlineNotFound": "Parent outline not found",
+    "permissionContactLimit": "Shared permissions exceed the limit ({count})",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
     "shifuNameAlreadyExists": "Course name already exists",
     "shifuNameRequired": "Course name is required",
@@ -17,6 +18,7 @@
     "shifuNotFound": "Course not found",
     "shifuPriceTooLow": "Course price is too low (min {min_shifu_price})",
     "shifuStructNotFound": "Course structure not found",
+    "ttsNotEnabled": "Text-to-Speech is not enabled",
     "unitNameTooLong": "Unit name is too long",
     "unitNotFound": "Unit not found"
   }

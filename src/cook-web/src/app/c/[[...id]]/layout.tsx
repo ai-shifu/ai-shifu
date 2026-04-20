@@ -40,8 +40,12 @@ export default function ChatLayout({
     updateWechatCode,
     setShowVip,
     updateLanguage,
+    previewMode,
+    skip,
     updatePreviewMode,
     updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
   } = useSystemStore() as SystemStoreState;
 
   // Use the original browser language without conversion
@@ -57,12 +61,14 @@ export default function ChatLayout({
     (state: EnvStoreState) => state.enableWxcode,
   );
 
-  const { updateCourseName, updateCourseAvatar } = useCourseStore(
-    useShallow((state: CourseStoreState) => ({
-      updateCourseName: state.updateCourseName,
-      updateCourseAvatar: state.updateCourseAvatar,
-    })),
-  );
+  const { updateCourseName, updateCourseAvatar, updateCourseTtsEnabled } =
+    useCourseStore(
+      useShallow((state: CourseStoreState) => ({
+        updateCourseName: state.updateCourseName,
+        updateCourseAvatar: state.updateCourseAvatar,
+        updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      })),
+    );
 
   const { userInfo, initUser } = useUserStore();
 
@@ -82,9 +88,22 @@ export default function ChatLayout({
     ? params.preview.toLowerCase() === 'true'
     : false;
   const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
+  const listenModeEnabled = params.listen
+    ? params.listen.toLowerCase() === 'true'
+    : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
+  }
+
+  // Apply preview/skip flags eagerly so child components (and their effects) see
+  // the correct mode on the first render.
+  if (previewMode !== isPreviewMode) {
+    updatePreviewMode(isPreviewMode);
+  }
+
+  if (skip !== isSkipMode) {
+    updateSkip(isSkipMode);
   }
 
   useEffect(() => {
@@ -137,7 +156,17 @@ export default function ChatLayout({
   useEffect(() => {
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
-  }, [isPreviewMode, isSkipMode, updatePreviewMode, updateSkip]);
+    updateShowLearningModeToggle(listenModeEnabled);
+    updateLearningMode(listenModeEnabled ? 'listen' : 'read');
+  }, [
+    isPreviewMode,
+    isSkipMode,
+    listenModeEnabled,
+    updatePreviewMode,
+    updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
+  ]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -149,6 +178,7 @@ export default function ChatLayout({
             setShowVip(resp.course_price > 0);
             updateCourseName(resp.course_name);
             updateCourseAvatar(resp.course_avatar);
+            updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
             document.title = resp.course_name + ' - AI 师傅';
             const metaDescription = document.querySelector(
               'meta[name="description"]',
@@ -186,6 +216,8 @@ export default function ChatLayout({
     envDataInitialized,
     setShowVip,
     updateCourseName,
+    updateCourseAvatar,
+    updateCourseTtsEnabled,
     isPreviewMode,
   ]);
 

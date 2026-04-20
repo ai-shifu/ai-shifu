@@ -34,6 +34,12 @@ FROM python:3.11-slim
 
 ENV SHARED_I18N_ROOT=/app/i18n
 
+# Install FFmpeg for audio processing (pydub dependency)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=base /usr/local/bin/flask /usr/local/bin/flask
 COPY --from=base /usr/local/bin/gunicorn /usr/local/bin/gunicorn

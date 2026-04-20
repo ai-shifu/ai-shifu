@@ -10,6 +10,7 @@
     "outlineNameTooLong": "大纲名称过长",
     "outlineNotFound": "大纲不存在",
     "parentOutlineNotFound": "父级大纲不存在",
+    "permissionContactLimit": "共享权限最多支持{count}个用户",
     "shifuDescriptionTooLong": "课程描述不能超过500个字符",
     "shifuNameAlreadyExists": "同名课程已存在",
     "shifuNameRequired": "请输入课程名称",
@@ -17,6 +18,7 @@
     "shifuNotFound": "课程不存在",
     "shifuPriceTooLow": "课程价格不能低于{min_shifu_price}元",
     "shifuStructNotFound": "课程结构不存在",
+    "ttsNotEnabled": "语音合成未开启",
     "unitNameTooLong": "单元名称过长",
     "unitNotFound": "单元不存在"
   }

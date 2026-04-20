@@ -25,12 +25,12 @@
   "stripeResultMissingOrder": "未找到对应订单，请重新进入课程或联系支持。",
   "stripeResultPending": "Stripe 仍在处理，我们会尽快同步订单状态。",
   "stripeResultPendingTitle": "支付处理中",
-  "stripeResultRedirectCountDown": "将在 {{seconds}} 秒后返回课程...",
+  "stripeResultRedirectCountDown": "将在 {seconds} 秒后返回课程...",
   "stripeResultSuccessTitle": "支付已确认",
   "title": "支付",
   "userPrivacyPolicy": "用户隐私协议",
   "virtualProductDesc": "说明：",
-  "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
+  "virtualProductPoint1": "1. 购买即表示已阅读并同意<modelServiceAgreement>{modelServiceAgreement}</modelServiceAgreement>和<userPrivacyPolicy>{userPrivacyPolicy}</userPrivacyPolicy>。",
   "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。",
   "wechatPay": "微信支付"
 }
