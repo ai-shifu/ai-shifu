@@ -79,15 +79,22 @@ def billing_task_integration_app(tmp_path):
         dao.db.drop_all()
 
 
+def _install_fake_app_module(
+    monkeypatch: pytest.MonkeyPatch,
+    app,
+) -> None:
+    monkeypatch.setitem(
+        sys.modules,
+        "app",
+        types.SimpleNamespace(create_app=lambda: app),
+    )
+
+
 def test_settle_usage_task_calls_settlement_engine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -122,11 +129,8 @@ def test_settle_usage_task_calls_settlement_engine(
 def test_settle_usage_task_normalizes_empty_creator_bid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: object()),
-    )
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
         lambda app, *, usage_bid="": {"status": "noop", "usage_bid": usage_bid},
@@ -143,11 +147,7 @@ def test_aggregate_daily_usage_metrics_task_calls_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -194,11 +194,7 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -245,11 +241,7 @@ def test_rebuild_daily_aggregates_task_calls_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -301,11 +293,7 @@ def test_verify_domain_binding_task_calls_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -433,11 +421,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
                 second_attempted=self.second_attempted,
             )
 
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: billing_task_integration_app),
-    )
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
         lambda app, usage: "creator-concurrent-1",
@@ -666,11 +650,7 @@ def test_replay_usage_settlement_task_calls_replay_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = object()
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -717,11 +697,7 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -752,11 +728,7 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -806,11 +778,7 @@ def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.build_billing_overview",
         lambda app, creator_bid, timezone_name=None: {
@@ -839,11 +807,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
     billing_task_integration_app,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: billing_task_integration_app),
-    )
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
         lambda key, default="": json.dumps(
@@ -880,11 +844,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
     billing_task_integration_app,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: billing_task_integration_app),
-    )
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
         lambda key, default="": json.dumps(
@@ -1044,11 +1004,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
         lambda app, *, usage_bid="": {
@@ -1096,11 +1052,7 @@ def test_run_renewal_event_task_delegates_to_renewal_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.run_billing_renewal_event",
         lambda app, **kwargs: {
@@ -1126,11 +1078,7 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
 
     captured: dict[str, object] = {}
 
@@ -1181,11 +1129,7 @@ def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
-    monkeypatch.setitem(
-        sys.modules,
-        "app",
-        types.SimpleNamespace(create_app=lambda: fake_app),
-    )
+    _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.retry_billing_renewal_event",
         lambda app, **kwargs: {

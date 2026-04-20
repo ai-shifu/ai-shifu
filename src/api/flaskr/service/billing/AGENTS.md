@@ -15,7 +15,7 @@ module-specific ownership and risk points.
   `src/api/flaskr/service/billing/consts.py`,
   `src/api/flaskr/service/billing/models.py`,
   `src/api/flaskr/service/billing/routes.py`,
-  `src/api/flaskr/service/billing/funcs.py`
+  `src/api/flaskr/service/billing/tasks.py`
 
 - Keep creator billing isolated from the legacy learner `/order` domain and
   `order_orders` business state unless the design doc explicitly says to reuse
