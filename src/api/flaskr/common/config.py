@@ -824,6 +824,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Alibaba Cloud SMS template code",
         group="alibaba_cloud",
     ),
+    "ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE": EnvVar(
+        name="ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE",
+        default="",
+        description="Alibaba Cloud SMS template code for billing subscription success notifications",
+        group="alibaba_cloud",
+    ),
     "ALIBABA_CLOUD_OSS_ACCESS_KEY_ID": EnvVar(
         name="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID",
         default="",

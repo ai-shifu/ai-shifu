@@ -16,6 +16,7 @@ from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,
 )
+from .notifications import requeue_subscription_purchase_sms
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
 from .subscriptions import (
@@ -311,6 +312,25 @@ def register_billing_commands(console) -> None:
             renewal_event_bid=renewal_event_bid,
             subscription_bid=subscription_bid,
             creator_bid=creator_bid,
+            billing_order_bid=billing_order_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="requeue-subscription-purchase-sms")
+    @click.option("--billing-order-bid", default="", help="Billing order bid.")
+    @with_appcontext
+    def requeue_subscription_purchase_sms_command(
+        billing_order_bid: str,
+    ) -> None:
+        """Re-enqueue one pending or provider-failed subscription purchase SMS."""
+
+        if not str(billing_order_bid or "").strip():
+            raise click.ClickException(
+                "Pass --billing-order-bid for subscription purchase SMS requeue."
+            )
+
+        payload = requeue_subscription_purchase_sms(
+            current_app,
             billing_order_bid=billing_order_bid,
         )
         _echo_payload(payload)

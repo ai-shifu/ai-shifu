@@ -57,6 +57,10 @@ from .dtos import (
     BillingRefundResultDTO,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
+from .notifications import (
+    enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+    stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
+)
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
     apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
@@ -504,6 +508,7 @@ def sync_billing_order(
         )
         if order is None:
             raise_error("server.order.orderNotFound")
+        previous_status = int(order.status or 0)
 
         if order.payment_provider == "stripe":
             _sync_stripe_order(app, order, session_id=session_id)
@@ -512,11 +517,23 @@ def sync_billing_order(
         else:
             raise_error("server.pay.payChannelNotSupport")
 
+        should_enqueue_subscription_purchase_sms = False
         if order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
+            should_enqueue_subscription_purchase_sms = (
+                _stage_subscription_purchase_sms_for_paid_order(
+                    order,
+                    previous_status=previous_status,
+                )
+            )
 
         db.session.add(order)
         db.session.commit()
+        if should_enqueue_subscription_purchase_sms:
+            _enqueue_subscription_purchase_sms(
+                app,
+                billing_order_bid=order.billing_order_bid,
+            )
 
         if order.status == BILLING_ORDER_STATUS_PAID:
             return BillingOrderSyncResultDTO(

@@ -26,6 +26,10 @@ from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
 )
+from .notifications import (
+    enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+    stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
+)
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
     apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
@@ -145,6 +149,7 @@ def apply_billing_stripe_notification(
             order = _load_latest_billing_order_by_subscription(
                 subscription.subscription_bid
             )
+        order_previous_status = int(order.status or 0) if order is not None else None
 
         if order is None and subscription is None:
             app.logger.warning(
@@ -255,10 +260,22 @@ def apply_billing_stripe_notification(
                     payload=event,
                 )
 
+        should_enqueue_subscription_purchase_sms = False
         if order is not None and order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
+            should_enqueue_subscription_purchase_sms = (
+                _stage_subscription_purchase_sms_for_paid_order(
+                    order,
+                    previous_status=order_previous_status,
+                )
+            )
 
         db.session.commit()
+        if should_enqueue_subscription_purchase_sms:
+            _enqueue_subscription_purchase_sms(
+                app,
+                billing_order_bid=order.billing_order_bid,
+            )
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
@@ -297,6 +314,7 @@ def handle_billing_pingxx_webhook(
         target_status = None
         if event_type == "charge.succeeded":
             target_status = BILLING_ORDER_STATUS_PAID
+        order_previous_status = int(order.status or 0)
 
         _apply_billing_order_provider_update(
             order,
@@ -324,9 +342,21 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
+        should_enqueue_subscription_purchase_sms = False
         if order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
+            should_enqueue_subscription_purchase_sms = (
+                _stage_subscription_purchase_sms_for_paid_order(
+                    order,
+                    previous_status=order_previous_status,
+                )
+            )
         db.session.commit()
+        if should_enqueue_subscription_purchase_sms:
+            _enqueue_subscription_purchase_sms(
+                app,
+                billing_order_bid=order.billing_order_bid,
+            )
         return BillingWebhookResult(
             status="paid"
             if target_status == BILLING_ORDER_STATUS_PAID

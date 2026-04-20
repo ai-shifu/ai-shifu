@@ -22,6 +22,10 @@ from .daily_aggregates import (
 )
 from .domains import verify_domain_binding
 from .models import BillingRenewalEvent, BillingSubscription, CreditWallet
+from .notifications import (
+    TASK_NAME as _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME,
+    deliver_subscription_purchase_sms as _deliver_subscription_purchase_sms,
+)
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
@@ -39,6 +43,10 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
             return func
 
         return decorator
+
+
+class SubscriptionPurchaseSmsRetryableError(RuntimeError):
+    """Raised when the SMS worker should use Celery autoretry."""
 
 
 def _create_task_app():
@@ -368,6 +376,36 @@ def send_low_balance_alert_task(
         creators=creators,
     )
     return result.to_task_payload()
+
+
+@shared_task(
+    name="billing.send_subscription_purchase_sms",
+    autoretry_for=(SubscriptionPurchaseSmsRetryableError,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+)
+def send_subscription_purchase_sms_task(
+    *,
+    billing_order_bid: str = "",
+) -> dict[str, Any]:
+    """Deliver one pending subscription purchase SMS notification."""
+
+    app = _create_task_app()
+    payload = _deliver_subscription_purchase_sms(
+        app,
+        billing_order_bid=_normalize_bid(billing_order_bid),
+    )
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME
+    if payload.get("status") == "failed_provider":
+        raise SubscriptionPurchaseSmsRetryableError(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                default=str,
+            )
+        )
+    return payload
 
 
 @shared_task(name="billing.dispatch_due_renewal_events")

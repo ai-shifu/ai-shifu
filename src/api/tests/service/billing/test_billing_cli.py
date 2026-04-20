@@ -238,6 +238,36 @@ def test_billing_retry_renewal_cli_prints_helper_payload(
     assert payload["renewal_event_bid"] == "renewal-event-cli-1"
 
 
+def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.requeue_subscription_purchase_sms",
+        lambda app, **kwargs: {
+            "status": "enqueued",
+            "billing_order_bid": kwargs.get("billing_order_bid"),
+            "enqueued": True,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "requeue-subscription-purchase-sms",
+            "--billing-order-bid",
+            "billing-order-cli-sms-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "enqueued"
+    assert payload["billing_order_bid"] == "billing-order-cli-sms-1"
+    assert payload["enqueued"] is True
+
+
 def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:
