@@ -107,6 +107,13 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="The count of history messages to append to LLM's context in ask",
         group="app",
     ),
+    "MAX_PARALLEL_ASK_COUNT": EnvVar(
+        name="MAX_PARALLEL_ASK_COUNT",
+        default=3,
+        type=int,
+        description="Maximum concurrent follow-up (ask) requests per (user, outline) that can run alongside the main lesson stream.",
+        group="app",
+    ),
     "SHIFU_PERMISSION_CACHE_EXPIRE": EnvVar(
         name="SHIFU_PERMISSION_CACHE_EXPIRE",
         default=300,

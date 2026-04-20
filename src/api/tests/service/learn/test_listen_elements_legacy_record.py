@@ -343,3 +343,110 @@ class TestBuildListenElementsFromLegacyRecord:
             None,
             "audio-skip-blank-1",
         ]
+
+    def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(self):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import (
+            BlockType,
+            ElementType,
+            LikeStatus,
+        )
+        from flaskr.service.learn.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
+        )
+        from flaskr.service.learn.listen_elements import (
+            build_listen_elements_from_legacy_record,
+        )
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.commit()
+
+        legacy_record = LegacyLearnRecord(
+            records=[
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid="generated-content-anchor",
+                    content="Teacher intro",
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.CONTENT,
+                    user_input="",
+                ),
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid="generated-ask-1",
+                    content="你好",
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.ASK,
+                    user_input="",
+                ),
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid="generated-answer-1",
+                    content="Hi there",
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.ANSWER,
+                    user_input="",
+                ),
+            ]
+        )
+
+        result = build_listen_elements_from_legacy_record(self.app, legacy_record)
+
+        assert [element.element_type for element in result.elements] == [
+            ElementType.TEXT,
+            ElementType.ASK,
+            ElementType.ANSWER,
+        ]
+        assert [element.role for element in result.elements] == [
+            "teacher",
+            "student",
+            "teacher",
+        ]
+        assert [element.content_text for element in result.elements] == [
+            "Teacher intro",
+            "你好",
+            "Hi there",
+        ]
+        anchor_bid = result.elements[0].element_bid
+        assert result.elements[1].payload.anchor_element_bid == anchor_bid
+        assert result.elements[2].payload.anchor_element_bid == anchor_bid
+
+    def test_drops_follow_up_blocks_without_any_prior_anchor(self):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import (
+            BlockType,
+            LikeStatus,
+        )
+        from flaskr.service.learn.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
+        )
+        from flaskr.service.learn.listen_elements import (
+            build_listen_elements_from_legacy_record,
+        )
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.commit()
+
+        legacy_record = LegacyLearnRecord(
+            records=[
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid="orphan-ask",
+                    content="你好",
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.ASK,
+                    user_input="",
+                ),
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid="orphan-answer",
+                    content="Hi",
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.ANSWER,
+                    user_input="",
+                ),
+            ]
+        )
+
+        result = build_listen_elements_from_legacy_record(self.app, legacy_record)
+
+        assert result.elements == []
