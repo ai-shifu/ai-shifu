@@ -110,6 +110,7 @@ const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
+const EMPTY_STATE_LABEL = '--';
 
 type TransferContactType = 'email' | 'phone';
 
@@ -190,6 +191,7 @@ const renderTooltipText = (text?: string, className?: string) => {
   return (
     <AdminTooltipText
       text={text}
+      emptyValue={EMPTY_STATE_LABEL}
       className={className}
     />
   );

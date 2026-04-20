@@ -1736,6 +1736,7 @@ export default function AdminOperationCourseDetailPage() {
                                     </Badge>
                                     <AdminTooltipText
                                       text={chapter.title || emptyValue}
+                                      emptyValue={emptyValue}
                                       className='text-center text-sm font-medium text-foreground'
                                     />
                                   </div>
@@ -1748,6 +1749,7 @@ export default function AdminOperationCourseDetailPage() {
                                     text={
                                       chapter.outline_item_bid || emptyValue
                                     }
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[240px] font-mono text-[11px] text-muted-foreground/65'
                                   />
                                 </TableCell>
@@ -1798,11 +1800,13 @@ export default function AdminOperationCourseDetailPage() {
                                   <div className='flex flex-col gap-0.5 leading-tight'>
                                     <AdminTooltipText
                                       text={modifierPrimary}
+                                      emptyValue={emptyValue}
                                       className='text-sm text-foreground'
                                     />
                                     {modifierSecondary ? (
                                       <AdminTooltipText
                                         text={modifierSecondary}
+                                        emptyValue={emptyValue}
                                         className='text-xs text-muted-foreground'
                                       />
                                     ) : null}
@@ -1814,6 +1818,7 @@ export default function AdminOperationCourseDetailPage() {
                                 >
                                   <AdminTooltipText
                                     text={chapter.updated_at || emptyValue}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-full'
                                   />
                                 </TableCell>
@@ -2126,6 +2131,7 @@ export default function AdminOperationCourseDetailPage() {
                                 >
                                   <AdminTooltipText
                                     text={row.user_bid}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[180px] font-mono text-[11px] text-muted-foreground/65'
                                   />
                                 </TableCell>
@@ -2135,6 +2141,7 @@ export default function AdminOperationCourseDetailPage() {
                                 >
                                   <AdminTooltipText
                                     text={resolveCourseUserAccount(row)}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[180px] font-semibold text-foreground'
                                   />
                                 </TableCell>
@@ -2144,6 +2151,7 @@ export default function AdminOperationCourseDetailPage() {
                                 >
                                   <AdminTooltipText
                                     text={row.nickname || defaultUserName}
+                                    emptyValue={emptyValue}
                                     className='mx-auto block max-w-[140px]'
                                   />
                                 </TableCell>

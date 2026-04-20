@@ -991,10 +991,16 @@ export default function AdminOperationUsersPage() {
                               href={userDetailUrl}
                               className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
-                              <AdminTooltipText text={user.user_bid} />
+                              <AdminTooltipText
+                                text={user.user_bid}
+                                emptyValue={EMPTY_STATE_LABEL}
+                              />
                             </Link>
                           ) : (
-                            <AdminTooltipText text={user.user_bid} />
+                            <AdminTooltipText
+                              text={user.user_bid}
+                              emptyValue={EMPTY_STATE_LABEL}
+                            />
                           )}
                         </TableCell>
                         <TableCell
@@ -1006,10 +1012,16 @@ export default function AdminOperationUsersPage() {
                               href={userDetailUrl}
                               className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
-                              <AdminTooltipText text={primaryContact} />
+                              <AdminTooltipText
+                                text={primaryContact}
+                                emptyValue={EMPTY_STATE_LABEL}
+                              />
                             </Link>
                           ) : (
-                            <AdminTooltipText text={primaryContact} />
+                            <AdminTooltipText
+                              text={primaryContact}
+                              emptyValue={EMPTY_STATE_LABEL}
+                            />
                           )}
                         </TableCell>
                         <TableCell
@@ -1018,6 +1030,7 @@ export default function AdminOperationUsersPage() {
                         >
                           <AdminTooltipText
                             text={user.nickname || defaultUserName}
+                            emptyValue={EMPTY_STATE_LABEL}
                           />
                         </TableCell>
                         <TableCell
@@ -1026,6 +1039,7 @@ export default function AdminOperationUsersPage() {
                         >
                           <AdminTooltipText
                             text={resolveStatusLabel(user.user_status)}
+                            emptyValue={EMPTY_STATE_LABEL}
                           />
                         </TableCell>
                         <TableCell
@@ -1034,13 +1048,17 @@ export default function AdminOperationUsersPage() {
                         >
                           <AdminTooltipText
                             text={resolveRoleLabel(user.user_role)}
+                            emptyValue={EMPTY_STATE_LABEL}
                           />
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('loginMethods')}
                         >
-                          <AdminTooltipText text={loginMethods} />
+                          <AdminTooltipText
+                            text={loginMethods}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
@@ -1050,6 +1068,7 @@ export default function AdminOperationUsersPage() {
                             text={resolveRegistrationSourceLabel(
                               user.registration_source,
                             )}
+                            emptyValue={EMPTY_STATE_LABEL}
                           />
                         </TableCell>
                         <TableCell
@@ -1092,31 +1111,44 @@ export default function AdminOperationUsersPage() {
                         >
                           <AdminTooltipText
                             text={`${currencySymbol}${user.total_paid_amount || '0'}`}
+                            emptyValue={EMPTY_STATE_LABEL}
                           />
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLoginAt')}
                         >
-                          <AdminTooltipText text={user.last_login_at} />
+                          <AdminTooltipText
+                            text={user.last_login_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLearningAt')}
                         >
-                          <AdminTooltipText text={user.last_learning_at} />
+                          <AdminTooltipText
+                            text={user.last_learning_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('createdAt')}
                         >
-                          <AdminTooltipText text={user.created_at} />
+                          <AdminTooltipText
+                            text={user.created_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
                         </TableCell>
                         <TableCell
                           className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('updatedAt')}
                         >
-                          <AdminTooltipText text={user.updated_at} />
+                          <AdminTooltipText
+                            text={user.updated_at}
+                            emptyValue={EMPTY_STATE_LABEL}
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -1215,20 +1247,28 @@ export default function AdminOperationUsersPage() {
                                   >
                                     <AdminTooltipText
                                       text={course.course_name}
+                                      emptyValue={EMPTY_STATE_LABEL}
                                     />
                                   </Link>
                                 ) : (
-                                  <AdminTooltipText text={course.course_name} />
+                                  <AdminTooltipText
+                                    text={course.course_name}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
                                 )}
                               </TableCell>
                               <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                                <AdminTooltipText text={course.shifu_bid} />
+                                <AdminTooltipText
+                                  text={course.shifu_bid}
+                                  emptyValue={EMPTY_STATE_LABEL}
+                                />
                               </TableCell>
                               <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
                                 <AdminTooltipText
                                   text={resolveCourseStatusLabel(
                                     course.course_status,
                                   )}
+                                  emptyValue={EMPTY_STATE_LABEL}
                                 />
                               </TableCell>
                             </TableRow>
