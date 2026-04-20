@@ -43,12 +43,14 @@ describe('useAdminResizableColumns', () => {
       } as any);
     });
 
-    const moveListener = getListenerCalls(addEventListenerSpy, 'mousemove')[0]?.[1] as
-      | ((event: MouseEvent) => void)
-      | undefined;
-    const upListener = getListenerCalls(addEventListenerSpy, 'mouseup')[0]?.[1] as
-      | (() => void)
-      | undefined;
+    const moveListener = getListenerCalls(
+      addEventListenerSpy,
+      'mousemove',
+    )[0]?.[1] as ((event: MouseEvent) => void) | undefined;
+    const upListener = getListenerCalls(
+      addEventListenerSpy,
+      'mouseup',
+    )[0]?.[1] as (() => void) | undefined;
 
     expect(moveListener).toBeDefined();
     expect(upListener).toBeDefined();
