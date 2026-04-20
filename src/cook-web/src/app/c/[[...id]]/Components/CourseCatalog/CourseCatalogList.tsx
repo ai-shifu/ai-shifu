@@ -1,12 +1,12 @@
 // Course catalog
-import { memo, useCallback, useState, useEffect, useContext } from 'react';
+import { memo, useState, useEffect } from 'react';
 import styles from './CourseCatalogList.module.scss';
 import { cn } from '@/lib/utils';
 import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
-import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import CourseHeaderSummary from '../CourseHeaderSummary';
 export const CourseCatalogList = ({
   courseName = '',
   courseAvatar = '',
@@ -17,7 +17,6 @@ export const CourseCatalogList = ({
   onLessonSelect,
   onTryLessonSelect,
   selectedLessonId = '',
-  bannerInfo = null,
   hideCourseHeader = false,
 }) => {
   const [trialNodePosition, setTrialNodePosition] = useState(
@@ -41,14 +40,11 @@ export const CourseCatalogList = ({
       <div className={styles.courseCatalogList}>
         {!hideCourseHeader ? (
           <div className={styles.titleRow}>
-            <div className={styles.titleArea}>
-              {courseAvatar && (
-                <Avatar className='w-8 h-8 mr-3'>
-                  <AvatarImage src={courseAvatar} />
-                </Avatar>
-              )}
-              <div className={styles.titleName}>{courseName}</div>
-            </div>
+            <CourseHeaderSummary
+              courseAvatar={courseAvatar}
+              courseName={courseName}
+              className={styles.titleArea}
+            />
           </div>
         ) : null}
         <div
