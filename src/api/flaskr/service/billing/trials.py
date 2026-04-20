@@ -12,6 +12,7 @@ from flask import Flask
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
 
 from .consts import (
@@ -441,6 +442,207 @@ def _bootstrap_trial_subscription(
         raise RuntimeError("trial_order_credit_grant_failed")
 
 
+def _resolve_trial_bootstrap_status(
+    creator_bid: str,
+    *,
+    creator: UserEntity | None = None,
+    product_ref: BillingProduct | dict[str, Any] | None = None,
+) -> tuple[str, BillingProduct | dict[str, Any] | None]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return "invalid_creator_bid", None
+    if not _is_billing_enabled():
+        return "billing_disabled", None
+
+    resolved_creator = creator or get_user_entity_by_bid(normalized_creator_bid)
+    if resolved_creator is None:
+        return "creator_not_found", None
+    if not bool(resolved_creator.is_creator):
+        return "not_creator", None
+
+    resolved_product_ref = product_ref or _resolve_trial_product_reference()
+    if resolved_product_ref is None:
+        return "trial_product_missing", None
+    if not _trial_product_public_enabled(resolved_product_ref):
+        return "trial_product_not_public", resolved_product_ref
+
+    if _load_active_creator_subscription(normalized_creator_bid) is not None:
+        return "active_subscription_exists", resolved_product_ref
+    if _load_trial_subscription(normalized_creator_bid) is not None:
+        return "trial_subscription_exists", resolved_product_ref
+    if _load_trial_order(normalized_creator_bid) is not None:
+        return "trial_order_exists", resolved_product_ref
+    if _load_legacy_trial_entry(normalized_creator_bid) is not None:
+        return "legacy_trial_exists", resolved_product_ref
+
+    return "grantable", resolved_product_ref
+
+
+def _backfill_missing_creator_trial_credits(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    limit: int | None = None,
+) -> dict[str, Any]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
+
+    with app.app_context():
+        if not _is_billing_enabled():
+            return {
+                "status": "noop",
+                "reason": "billing_disabled",
+                "creator_bid": normalized_creator_bid or None,
+                "limit": normalized_limit,
+                "creator_count": 0,
+                "granted_count": 0,
+                "skipped_count": 0,
+                "records": [],
+            }
+
+        product_ref = _resolve_trial_product_reference()
+        if product_ref is None:
+            return {
+                "status": "noop",
+                "reason": "trial_product_missing",
+                "creator_bid": normalized_creator_bid or None,
+                "limit": normalized_limit,
+                "creator_count": 0,
+                "granted_count": 0,
+                "skipped_count": 0,
+                "records": [],
+            }
+        if not _trial_product_public_enabled(product_ref):
+            return {
+                "status": "noop",
+                "reason": "trial_product_not_public",
+                "creator_bid": normalized_creator_bid or None,
+                "limit": normalized_limit,
+                "creator_count": 0,
+                "granted_count": 0,
+                "skipped_count": 0,
+                "records": [],
+            }
+
+        creators: list[UserEntity] = []
+        if normalized_creator_bid:
+            creator = get_user_entity_by_bid(normalized_creator_bid)
+            if creator is None:
+                return {
+                    "status": "completed",
+                    "reason": None,
+                    "creator_bid": normalized_creator_bid,
+                    "limit": normalized_limit,
+                    "trial_product_bid": str(
+                        _trial_product_field(
+                            product_ref,
+                            "product_bid",
+                            BILLING_TRIAL_PRODUCT_BID,
+                        )
+                    ),
+                    "trial_product_code": str(
+                        _trial_product_field(
+                            product_ref,
+                            "product_code",
+                            BILLING_TRIAL_PRODUCT_CODE,
+                        )
+                    ),
+                    "creator_count": 1,
+                    "granted_count": 0,
+                    "skipped_count": 1,
+                    "records": [
+                        {
+                            "creator_bid": normalized_creator_bid,
+                            "status": "skipped",
+                            "reason": "creator_not_found",
+                        }
+                    ],
+                }
+            creators = [creator]
+        else:
+            creator_query = UserEntity.query.filter(
+                UserEntity.deleted == 0,
+                UserEntity.is_creator == 1,
+            ).order_by(UserEntity.id.asc())
+            if normalized_limit is not None:
+                creator_query = creator_query.limit(normalized_limit)
+            creators = creator_query.all()
+
+        records: list[dict[str, Any]] = []
+        granted_count = 0
+        skipped_count = 0
+        trial_product_bid = str(
+            _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
+        )
+        trial_product_code = str(
+            _trial_product_field(
+                product_ref,
+                "product_code",
+                BILLING_TRIAL_PRODUCT_CODE,
+            )
+        )
+
+        for creator in creators:
+            current_creator_bid = _normalize_bid(getattr(creator, "user_bid", ""))
+            status, resolved_product_ref = _resolve_trial_bootstrap_status(
+                current_creator_bid,
+                creator=creator,
+                product_ref=product_ref,
+            )
+            if status != "grantable" or resolved_product_ref is None:
+                records.append(
+                    {
+                        "creator_bid": current_creator_bid or None,
+                        "status": "skipped",
+                        "reason": status,
+                    }
+                )
+                skipped_count += 1
+                continue
+
+            try:
+                _bootstrap_trial_subscription(
+                    app,
+                    creator_bid=current_creator_bid,
+                    product_ref=resolved_product_ref,
+                    trigger="cli_backfill_missing_creator_trial",
+                )
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                records.append(
+                    {
+                        "creator_bid": current_creator_bid,
+                        "status": "skipped",
+                        "reason": "integrity_conflict",
+                    }
+                )
+                skipped_count += 1
+                continue
+
+            records.append(
+                {
+                    "creator_bid": current_creator_bid,
+                    "status": "granted",
+                    "reason": None,
+                }
+            )
+            granted_count += 1
+
+        return {
+            "status": "completed",
+            "reason": None,
+            "creator_bid": normalized_creator_bid or None,
+            "limit": normalized_limit,
+            "trial_product_bid": trial_product_bid,
+            "trial_product_code": trial_product_code,
+            "creator_count": len(creators) if not normalized_creator_bid else 1,
+            "granted_count": granted_count,
+            "skipped_count": skipped_count,
+            "records": records,
+        }
+
+
 def _resolve_new_creator_trial_offer(
     app: Flask,
     creator_bid: str,
@@ -605,25 +807,10 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return
-    if not _is_billing_enabled():
-        return
 
     with app.app_context():
-        creator = get_user_entity_by_bid(normalized_creator_bid)
-        if creator is None or not bool(creator.is_creator):
-            return
-
-        product_ref = _resolve_trial_product_reference()
-        if not product_ref or not _trial_product_public_enabled(product_ref):
-            return
-
-        if _load_active_creator_subscription(normalized_creator_bid) is not None:
-            return
-        if _load_trial_subscription(normalized_creator_bid) is not None:
-            return
-        if _load_trial_order(normalized_creator_bid) is not None:
-            return
-        if _load_legacy_trial_entry(normalized_creator_bid) is not None:
+        status, product_ref = _resolve_trial_bootstrap_status(normalized_creator_bid)
+        if status != "grantable" or product_ref is None:
             return
 
         try:
@@ -644,3 +831,4 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
 resolve_new_creator_trial_offer = _resolve_new_creator_trial_offer
 bootstrap_new_creator_trial_credits = _bootstrap_new_creator_trial_credits
 acknowledge_trial_welcome_dialog = _acknowledge_trial_welcome_dialog
+backfill_missing_creator_trial_credits = _backfill_missing_creator_trial_credits

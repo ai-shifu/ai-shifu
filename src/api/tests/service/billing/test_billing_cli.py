@@ -15,7 +15,9 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILL_SYS_CONFIG_SEEDS,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.cli import register_billing_commands
@@ -167,6 +169,48 @@ def test_billing_backfill_settlement_cli_prints_helper_payload(
     assert payload["processed_count"] == 2
     assert payload["kwargs"]["usage_id_start"] == 10
     assert payload["kwargs"]["usage_id_end"] == 12
+
+
+def test_billing_backfill_trial_plans_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "backfill-trial-plans"]
+    )
+
+    assert result.exit_code != 0
+    assert "Pass --creator-bid or --all for trial plan backfill." in result.output
+
+
+def test_billing_backfill_trial_plans_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.backfill_missing_creator_trial_credits",
+        lambda app, **kwargs: {
+            "status": "completed",
+            "granted_count": 2,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-trial-plans",
+            "--all",
+            "--limit",
+            "3",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["granted_count"] == 2
+    assert payload["kwargs"]["limit"] == 3
 
 
 def test_billing_rebuild_wallets_cli_prints_helper_payload(
@@ -516,6 +560,129 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert subscription.current_period_end_at > subscription.current_period_start_at
         assert len(pending_events) == 1
         assert pending_events[0].event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
+
+
+def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-trial",
+                    "bill-product-plan-monthly",
+                ]
+            )
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-trial-missing",
+            identify="creator-cli-trial-missing@example.com",
+            email="creator-cli-trial-missing@example.com",
+            is_creator=True,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-trial-existing",
+            identify="creator-cli-trial-existing@example.com",
+            email="creator-cli-trial-existing@example.com",
+            is_creator=True,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-trial-paid",
+            identify="creator-cli-trial-paid@example.com",
+            email="creator-cli-trial-paid@example.com",
+            is_creator=True,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-non-creator",
+            identify="creator-cli-non-creator@example.com",
+            email="creator-cli-non-creator@example.com",
+            is_creator=False,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-trial-existing",
+                creator_bid="creator-cli-trial-existing",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=14),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={"trial_bootstrap": True},
+            )
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-trial-paid",
+                creator_bid="creator-cli-trial-paid",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_cli_trial_paid",
+                provider_customer_id="cus_provider_cli_trial_paid",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(args=["console", "billing", "backfill-trial-plans", "--all"])
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["creator_count"] == 3
+    assert payload["granted_count"] == 1
+    assert payload["skipped_count"] == 2
+
+    records_by_bid = {item["creator_bid"]: item for item in payload["records"]}
+    assert records_by_bid["creator-cli-trial-missing"]["status"] == "granted"
+    assert records_by_bid["creator-cli-trial-existing"]["reason"] == (
+        "trial_subscription_exists"
+    )
+    assert records_by_bid["creator-cli-trial-paid"]["reason"] == (
+        "active_subscription_exists"
+    )
+
+    with billing_cli_db_app.app_context():
+        granted_subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-trial-missing"
+        ).one()
+        granted_order = BillingOrder.query.filter_by(
+            creator_bid="creator-cli-trial-missing"
+        ).one()
+        granted_wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-cli-trial-missing"
+        ).one()
+
+        assert granted_subscription.product_bid == BILLING_TRIAL_PRODUCT_BID
+        assert granted_subscription.billing_provider == "manual"
+        assert granted_order.product_bid == BILLING_TRIAL_PRODUCT_BID
+        assert granted_order.payment_provider == "manual"
+        assert granted_wallet.available_credits == Decimal("100.0000000000")
+        assert (
+            BillingSubscription.query.filter_by(
+                creator_bid="creator-cli-non-creator"
+            ).count()
+            == 0
+        )
 
 
 def test_billing_grant_plan_cli_accepts_explicit_effective_to(
