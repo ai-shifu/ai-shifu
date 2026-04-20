@@ -11,8 +11,6 @@ type LegacyBlockCompatItem = {
   type?: string;
 };
 
-type ReadModeAskButtonCandidate = LegacyBlockCompatItem;
-
 export const appendCustomButtonAfterContent = (
   content: string | undefined,
   buttonMarkup: string,
@@ -36,13 +34,19 @@ export const appendCustomButtonAfterContent = (
   return baseContent + needsLineBreak + buttonMarkup;
 };
 
+export const hasCustomButtonAfterContent = (
+  content?: string | null,
+): boolean => {
+  return Boolean(content?.includes(CUSTOM_BUTTON_AFTER_CONTENT_TAG));
+};
+
 export const stripCustomButtonAfterContent = (
   content?: string | null,
 ): string | null | undefined => {
   if (!content) {
     return content;
   }
-  if (!content.includes(CUSTOM_BUTTON_AFTER_CONTENT_TAG)) {
+  if (!hasCustomButtonAfterContent(content)) {
     return content;
   }
   // Remove ask button markup from listen mode content.
@@ -65,6 +69,24 @@ export const syncCustomButtonAfterContent = ({
   }
 
   return stripCustomButtonAfterContent(baseContent) ?? '';
+};
+
+export const inheritCustomButtonAfterContent = ({
+  nextContent,
+  previousContent,
+  buttonMarkup,
+}: {
+  nextContent?: string | null;
+  previousContent?: string | null;
+  buttonMarkup: string;
+}): string => {
+  const resolvedNextContent = nextContent ?? '';
+
+  if (!hasCustomButtonAfterContent(previousContent)) {
+    return resolvedNextContent;
+  }
+
+  return appendCustomButtonAfterContent(resolvedNextContent, buttonMarkup);
 };
 
 export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
@@ -103,50 +125,3 @@ export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
 export const normalizeLegacyBlockCompatList = <T extends LegacyBlockCompatItem>(
   items: T[],
 ): T[] => items.map(normalizeLegacyBlockCompatItem);
-
-export const resolvePreviousActionableItem = <
-  T extends ReadModeAskButtonCandidate,
->(
-  items: T[],
-  currentIndex: number,
-): T | undefined => {
-  for (let index = currentIndex - 1; index >= 0; index -= 1) {
-    const candidate = items[index];
-
-    if (!candidate) {
-      continue;
-    }
-
-    if (candidate.element_bid === 'loading') {
-      continue;
-    }
-
-    if (candidate.type === 'ask' || candidate.type === 'likeStatus') {
-      continue;
-    }
-
-    return candidate;
-  }
-
-  return undefined;
-};
-
-export const shouldShowMobileAskButtonForReadContent = <
-  T extends ReadModeAskButtonCandidate,
->({
-  item,
-  previousActionableItem,
-}: {
-  item: T;
-  previousActionableItem?: T;
-}): boolean => {
-  if (item.type !== 'content') {
-    return false;
-  }
-
-  if (!item.element_bid || item.element_bid === 'loading') {
-    return false;
-  }
-
-  return previousActionableItem?.type !== 'interaction';
-};
