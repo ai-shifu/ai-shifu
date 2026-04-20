@@ -34,6 +34,7 @@ from .consts import (
     BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_STATUS_INACTIVE,
     BILLING_PRODUCT_TYPE_CUSTOM,
@@ -731,6 +732,7 @@ def grant_billing_plan_by_identify(
             aggregate.user_bid,
             as_of=datetime.now(),
         )
+        order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
         if existing_subscription is not None:
             if (
                 str(existing_subscription.product_bid or "").strip()
@@ -754,10 +756,27 @@ def grant_billing_plan_by_identify(
                     "email": aggregate.email,
                     "mobile": aggregate.mobile,
                 }
-            raise click.ClickException(
-                "User already has an active subscription. "
-                "Cancel or let the current cycle expire before using manual grant."
+            current_product = _load_plan_product_by_bid(
+                existing_subscription.product_bid
             )
+            if (
+                str(existing_subscription.billing_provider or "").strip().lower()
+                != "manual"
+            ):
+                raise click.ClickException(
+                    "User already has an active provider-managed subscription. "
+                    "Use the normal checkout upgrade flow or wait for the current cycle to expire."
+                )
+            if current_product is None:
+                raise click.ClickException(
+                    "Active billing plan not found for the current subscription."
+                )
+            if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
+                raise click.ClickException(
+                    "The current manual subscription is still active. "
+                    "Manual grant only supports upgrades to a higher-tier plan."
+                )
+            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
         granted_at = datetime.now()
         cycle_end_at = (
@@ -790,34 +809,47 @@ def grant_billing_plan_by_identify(
         }
         if normalized_effective_to:
             order_metadata["effective_to"] = cycle_end_at.isoformat()
+            order_metadata["applied_cycle_end_at"] = cycle_end_at.isoformat()
         if normalized_note:
             order_metadata["note"] = normalized_note
 
-        subscription = BillingSubscription(
-            subscription_bid=generate_id(current_app),
-            creator_bid=aggregate.user_bid,
-            product_bid=product.product_bid,
-            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
-            billing_provider="manual",
-            provider_subscription_id="",
-            provider_customer_id="",
-            billing_anchor_at=granted_at,
-            current_period_start_at=granted_at,
-            current_period_end_at=cycle_end_at,
-            grace_period_end_at=None,
-            cancel_at_period_end=0,
-            next_product_bid="",
-            last_renewed_at=None,
-            last_failed_at=None,
-            metadata_json=subscription_metadata,
-        )
+        if existing_subscription is None:
+            subscription = BillingSubscription(
+                subscription_bid=generate_id(current_app),
+                creator_bid=aggregate.user_bid,
+                product_bid=product.product_bid,
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                billing_anchor_at=granted_at,
+                current_period_start_at=granted_at,
+                current_period_end_at=cycle_end_at,
+                grace_period_end_at=None,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                last_renewed_at=None,
+                last_failed_at=None,
+                metadata_json=subscription_metadata,
+            )
+        else:
+            subscription = existing_subscription
+            subscription.metadata_json = {
+                **(
+                    subscription.metadata_json
+                    if isinstance(subscription.metadata_json, dict)
+                    else {}
+                ),
+                **subscription_metadata,
+            }
+            subscription.updated_at = granted_at
         db.session.add(subscription)
         db.session.flush()
 
         order = BillingOrder(
             bill_order_bid=generate_id(current_app),
             creator_bid=aggregate.user_bid,
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            order_type=order_type,
             product_bid=product.product_bid,
             subscription_bid=subscription.subscription_bid,
             currency=product.currency,
@@ -956,6 +988,22 @@ def _load_active_plan_product(
         return None
 
     return query.order_by(BillingProduct.id.desc()).first()
+
+
+def _load_plan_product_by_bid(product_bid: str) -> BillingProduct | None:
+    normalized_product_bid = str(product_bid or "").strip()
+    if not normalized_product_bid:
+        return None
+
+    return (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == normalized_product_bid,
+            BillingProduct.product_type == BILLING_PRODUCT_TYPE_PLAN,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
 
 
 def _parse_effective_to_option(raw_value: str) -> datetime:
