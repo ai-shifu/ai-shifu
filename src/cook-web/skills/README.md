@@ -6,6 +6,7 @@
 - `chat-element-streaming`
 - `chat-actionbar-ask-placement`
 - `listen-mode-audio-streaming`
+- `async-confirm-dialog-loading`
 - `markdownflow-controlled-sync`
 - `next-build-node-runtime`
 - `module-augmentation-guardrails`
