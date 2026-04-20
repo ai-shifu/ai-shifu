@@ -7,18 +7,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useCourseStore } from '@/c-store';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
-import { BookOpen, Check, Headphones, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
 import {
-  getLearningModeLabel,
+  getLearningModeShortLabel,
   LEARNING_MODE_OPTIONS,
 } from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
@@ -86,56 +80,40 @@ export const ChatMobileHeader = ({
 
       <div className={styles.actionGroup}>
         {showLearningModeToggle ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-label={t('module.chat.learningModeToggle')}
-                className={cn(styles.iconButton, 'relative overflow-visible')}
-              >
-                <BookOpen
-                  size={20}
-                  strokeWidth={2}
-                  className='text-neutral-500'
-                />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align='end'
-              sideOffset={8}
-              className='min-w-[120px] rounded-xl border-border bg-white p-1 shadow-lg'
-            >
-              {LEARNING_MODE_OPTIONS.map(option => {
-                const ItemIcon =
-                  option.mode === 'listen' ? Headphones : BookOpen;
+          <button
+            type='button'
+            aria-label={t('module.chat.learningModeToggle')}
+            aria-pressed={learningMode === 'listen'}
+            className={styles.learningModeSwitch}
+            onClick={() =>
+              updateLearningMode(learningMode === 'listen' ? 'read' : 'listen')
+            }
+          >
+            {LEARNING_MODE_OPTIONS.map(option => {
+              const isActive = learningMode === option.mode;
+              const isListenOption = option.mode === 'listen';
 
-                return (
-                  <DropdownMenuItem
-                    key={option.mode}
-                    className='rounded-lg px-3 py-2 text-[14px] font-medium text-black/80'
-                    onSelect={() => updateLearningMode(option.mode)}
-                  >
-                    <ItemIcon
-                      size={18}
-                      strokeWidth={2}
-                      className='text-neutral-500'
+              return (
+                <span
+                  key={option.mode}
+                  className={cn(
+                    styles.learningModeSwitchButton,
+                    isActive ? styles.learningModeSwitchButtonActive : '',
+                  )}
+                >
+                  <span className={styles.learningModeSwitchLabel}>
+                    {getLearningModeShortLabel(t, option.mode)}
+                  </span>
+                  {isListenOption ? (
+                    <HeaderBetaBadge
+                      variant='inline'
+                      className={styles.learningModeBetaBadge}
                     />
-                    <span>{getLearningModeLabel(t, option.mode)}</span>
-                    {option.mode === 'listen' ? (
-                      <HeaderBetaBadge variant='inline' />
-                    ) : null}
-                    {learningMode === option.mode ? (
-                      <Check
-                        size={16}
-                        strokeWidth={2}
-                        className='ml-auto text-black'
-                      />
-                    ) : null}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  ) : null}
+                </span>
+              );
+            })}
+          </button>
         ) : null}
 
         <button
