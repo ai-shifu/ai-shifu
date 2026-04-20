@@ -54,6 +54,7 @@ import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -875,17 +876,19 @@ export const NewChatComponents = ({
       return;
     }
 
+    stopActiveLessonStream(resolvedLessonId);
     pendingListenAfterResetLessonIdRef.current = null;
     listenModeRestoreReadyRef.current = false;
     updateLearningMode('read');
     setShowListenModeUpgradeDialog(false);
-  }, [isListenModeResetting, updateLearningMode]);
+  }, [isListenModeResetting, resolvedLessonId, updateLearningMode]);
 
   const handleResetChapterForListenMode = useSingleFlight(async () => {
     if (!resolvedLessonId) {
       return;
     }
 
+    stopActiveLessonStream(resolvedLessonId);
     pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
     listenModeRestoreReadyRef.current = false;
     updateLearningMode('read');

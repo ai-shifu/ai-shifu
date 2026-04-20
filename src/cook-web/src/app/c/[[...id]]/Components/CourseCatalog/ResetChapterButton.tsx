@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 
 export const ResetChapterButton = ({
   className,
@@ -80,6 +81,7 @@ export const ResetChapterButton = ({
       return;
     }
 
+    stopActiveLessonStream(lessonId);
     await resetChapter(lessonId);
     updateLessonId(lessonId);
 
