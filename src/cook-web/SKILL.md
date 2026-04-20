@@ -27,6 +27,7 @@
 - `skills/listen-mode-audio-streaming/SKILL.md`
 - `skills/listen-mode-slide-mobile-integration/SKILL.md`
 - `skills/fullscreen-dialog-portal/SKILL.md`
+- `skills/async-confirm-dialog-loading/SKILL.md`
 - `skills/markdownflow-controlled-sync/SKILL.md`
 - `skills/next-build-node-runtime/SKILL.md`
 - `skills/module-augmentation-guardrails/SKILL.md`

@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, X } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -53,6 +53,7 @@ import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -369,6 +370,8 @@ export const NewChatComponents = ({
   });
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const isListenModeResetting =
+    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
@@ -868,24 +871,36 @@ export const NewChatComponents = ({
   );
 
   const handleReadLegacyMode = useCallback(() => {
+    if (isListenModeResetting) {
+      return;
+    }
+
     pendingListenAfterResetLessonIdRef.current = null;
     listenModeRestoreReadyRef.current = false;
     updateLearningMode('read');
     setShowListenModeUpgradeDialog(false);
-  }, [updateLearningMode]);
+  }, [isListenModeResetting, updateLearningMode]);
 
-  const handleResetChapterForListenMode = useCallback(() => {
-    pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
-    listenModeRestoreReadyRef.current = false;
-    updateLearningMode('read');
-    setShowListenModeUpgradeDialog(false);
-
+  const handleResetChapterForListenMode = useSingleFlight(async () => {
     if (!resolvedLessonId) {
       return;
     }
 
-    void resetChapter(resolvedLessonId);
-  }, [resetChapter, resolvedLessonId, updateLearningMode]);
+    pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
+    listenModeRestoreReadyRef.current = false;
+    updateLearningMode('read');
+    await resetChapter(resolvedLessonId);
+    setShowListenModeUpgradeDialog(false);
+  });
+
+  const handleListenModeUpgradeDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleReadLegacyMode();
+      }
+    },
+    [handleReadLegacyMode],
+  );
 
   useEffect(() => {
     const container = chatRef.current;
@@ -1324,13 +1339,22 @@ export const NewChatComponents = ({
       </Dialog>
       <Dialog
         open={showListenModeUpgradeDialog}
-        onOpenChange={open => {
-          if (!open) {
-            handleReadLegacyMode();
-          }
-        }}
+        onOpenChange={handleListenModeUpgradeDialogOpenChange}
       >
-        <DialogContent className='sm:max-w-md'>
+        <DialogContent
+          className='sm:max-w-md'
+          showClose={!isListenModeResetting}
+          onEscapeKeyDown={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDownOutside={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{listenModeUpgradeDialogTitle}</DialogTitle>
             <DialogDescription>
@@ -1340,15 +1364,21 @@ export const NewChatComponents = ({
           <DialogFooter className='flex gap-2 sm:gap-2'>
             <button
               type='button'
-              onClick={handleResetChapterForListenMode}
-              disabled={resettingLessonId === resolvedLessonId}
+              onClick={() => {
+                void handleResetChapterForListenMode();
+              }}
+              disabled={isListenModeResetting}
               className='cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter disabled:cursor-not-allowed disabled:bg-primary/60'
             >
+              {isListenModeResetting ? (
+                <Loader2 className='mr-2 inline h-4 w-4 animate-spin' />
+              ) : null}
               {listenModeUpgradeDialogRedo}
             </button>
             <button
               type='button'
               onClick={handleReadLegacyMode}
+              disabled={isListenModeResetting}
               className='cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
             >
               {listenModeUpgradeDialogReadLegacy}
