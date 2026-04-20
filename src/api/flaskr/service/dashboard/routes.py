@@ -1,0 +1,63 @@
+"""Dashboard routes (teacher-facing analytics)."""
+
+from __future__ import annotations
+
+from flask import Flask, request
+
+from flaskr.framework.plugin.inject import inject
+from flaskr.route.common import make_common_response
+from flaskr.service.common.models import raise_param_error
+from flaskr.service.dashboard.funcs import (
+    build_dashboard_course_detail,
+    build_dashboard_entry,
+)
+
+
+@inject
+def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -> None:
+    """Register dashboard routes."""
+    app.logger.info("register dashboard routes %s", path_prefix)
+
+    @app.route(path_prefix + "/entry", methods=["GET"])
+    def dashboard_entry_api():
+        user_id = request.user.user_id
+        page_index_raw = request.args.get("page_index", "1")
+        page_size_raw = request.args.get("page_size", "20")
+        timezone_name = (request.args.get("timezone", "") or "").strip() or None
+        if timezone_name and len(timezone_name) > 100:
+            raise_param_error("timezone")
+        try:
+            page_index = int(page_index_raw)
+            page_size = int(page_size_raw)
+        except ValueError:
+            page_index = 1
+            page_size = 20
+        return make_common_response(
+            build_dashboard_entry(
+                app,
+                user_id,
+                start_date=request.args.get("start_date"),
+                end_date=request.args.get("end_date"),
+                keyword=request.args.get("keyword"),
+                page_index=page_index,
+                page_size=page_size,
+                timezone_name=timezone_name,
+            )
+        )
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
+    def dashboard_course_detail_api(shifu_bid: str):
+        user_id = request.user.user_id
+        timezone_name = (request.args.get("timezone", "") or "").strip() or None
+        if timezone_name and len(timezone_name) > 100:
+            raise_param_error("timezone")
+        return make_common_response(
+            build_dashboard_course_detail(
+                app,
+                user_id,
+                shifu_bid,
+                timezone_name=timezone_name,
+            )
+        )
+
+    return None

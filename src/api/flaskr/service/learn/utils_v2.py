@@ -5,6 +5,7 @@ from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct, HistoryI
 from flaskr.service.shifu.models import PublishedOutlineItem, DraftOutlineItem
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
+from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
 from ...service.profile.funcs import get_user_profiles
 import re
 from typing import Union
@@ -22,6 +23,7 @@ class FollowUpInfo:
     ask_limit_count: int
     model_args: dict
     ask_mode: int
+    ask_provider_config: dict
 
     def __init__(
         self,
@@ -31,6 +33,7 @@ class FollowUpInfo:
         ask_limit_count,
         model_args,
         ask_mode,
+        ask_provider_config=None,
     ):
         self.ask_model = ask_model
         self.ask_prompt = ask_prompt
@@ -38,6 +41,7 @@ class FollowUpInfo:
         self.ask_limit_count = ask_limit_count
         self.model_args = model_args
         self.ask_mode = ask_mode
+        self.ask_provider_config = ask_provider_config or {}
 
     def __json__(self):
         return {
@@ -47,6 +51,7 @@ class FollowUpInfo:
             "ask_limit_count": self.ask_limit_count,
             "model_args": self.model_args,
             "ask_mode": self.ask_mode,
+            "ask_provider_config": self.ask_provider_config,
         }
 
 
@@ -187,6 +192,7 @@ def get_follow_up_info_v2(
             ask_limit_count=10,
             model_args={"temperature": 0.0},
             ask_mode=ASK_MODE_DISABLE,
+            ask_provider_config=normalize_ask_provider_config({}),
         )
     path = list(reversed(path))
     path: list[HistoryItem] = [p for p in path if p.type == "outline"]
@@ -209,6 +215,9 @@ def get_follow_up_info_v2(
         .order_by(shifu_model.id.desc())
         .first()
     )
+    shifu_ask_provider_config = normalize_ask_provider_config(
+        getattr(shifu_info, "ask_provider_config", "{}")
+    )
     ask_model = shifu_info.ask_llm if shifu_info.ask_llm else shifu_info.llm
 
     for p in path:
@@ -224,6 +233,7 @@ def get_follow_up_info_v2(
                     ask_limit_count=10,
                     model_args={"temperature": outline_info.ask_llm_temperature},
                     ask_mode=outline_info.ask_enabled_status,
+                    ask_provider_config=shifu_ask_provider_config,
                 )
 
     ask_prompt = shifu_info.ask_llm_system_prompt
@@ -237,4 +247,5 @@ def get_follow_up_info_v2(
         ask_limit_count,
         model_args,
         shifu_info.ask_enabled_status,
+        shifu_ask_provider_config,
     )

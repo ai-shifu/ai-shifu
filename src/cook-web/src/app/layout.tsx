@@ -1,4 +1,3 @@
-import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/Toaster';
 import { AlertProvider } from '@/components/ui/UseAlert';
 import './globals.css';
@@ -9,18 +8,9 @@ import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+export { metadata, viewport } from './metadata';
 // fix: dont't use, it will cause logo in dark mode is not blue
 // import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export default function RootLayout({
   children,
@@ -29,11 +19,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <head></head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}
-      >
-        <div id='root'>
+      <body className='min-h-screen overflow-x-hidden overscroll-none'>
+        <div
+          id='root'
+          className='min-h-screen'
+        >
           <ConfigProvider>
             <RuntimeConfigInitializer />
             <UmamiLoader />

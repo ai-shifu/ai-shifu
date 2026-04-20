@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.learn_dtos import BlockType, LikeStatus
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_BREAK_VALUE,
+    BLOCK_TYPE_BUTTON_VALUE,
+    BLOCK_TYPE_CHECKCODE_VALUE,
+    BLOCK_TYPE_CONTENT_VALUE,
+    BLOCK_TYPE_GOTO_VALUE,
+    BLOCK_TYPE_INPUT_VALUE,
+    BLOCK_TYPE_LOGIN_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_OPTIONS_VALUE,
+    BLOCK_TYPE_PAYMENT_VALUE,
+    BLOCK_TYPE_PHONE_VALUE,
+)
+
+BLOCK_TYPE_MAP = {
+    BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
+    BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
+    BLOCK_TYPE_MDASK_VALUE: BlockType.ASK,
+    BLOCK_TYPE_MDANSWER_VALUE: BlockType.ANSWER,
+    BLOCK_TYPE_CONTENT_VALUE: BlockType.CONTENT,
+    BLOCK_TYPE_BUTTON_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_INPUT_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_OPTIONS_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_GOTO_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_PAYMENT_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_LOGIN_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_BREAK_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_PHONE_VALUE: BlockType.INTERACTION,
+    BLOCK_TYPE_CHECKCODE_VALUE: BlockType.INTERACTION,
+}
+
+CONTENT_LIKE_BLOCK_TYPES = {
+    BlockType.CONTENT,
+    BlockType.ASK,
+    BlockType.ANSWER,
+    BlockType.ERROR_MESSAGE,
+}
+
+LIKE_STATUS_MAP = {
+    1: LikeStatus.LIKE,
+    -1: LikeStatus.DISLIKE,
+    0: LikeStatus.NONE,
+}
+
+
+def map_generated_block_type(block_type_value: int, role_value: int) -> BlockType:
+    block_type = BLOCK_TYPE_MAP.get(block_type_value, BlockType.CONTENT)
+    if block_type == BlockType.ASK and role_value == ROLE_TEACHER:
+        return BlockType.ANSWER
+    return block_type

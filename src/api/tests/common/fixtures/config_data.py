@@ -81,7 +81,7 @@ FULL_TEST_ENV_VARS = {
     # String with default
     "REDIS_HOST": EnvVar(
         name="REDIS_HOST",
-        default="ai-shifu-redis",
+        default="",
         description="Redis server host",
         group="redis",
     ),

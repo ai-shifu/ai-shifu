@@ -57,6 +57,7 @@ class ShifuInfoDto(BaseModel):
     avatar: str
     price: Decimal
     outline_items: List["ShifuOutlineItemDto"]
+    use_learner_language: bool = False
 
     def __json__(self):
         return self.model_dump_json(exclude_none=True)
@@ -140,6 +141,7 @@ def get_shifu_outline_tree(
             avatar=get_shifu_res_url(shifu.avatar_res_bid),
             price=shifu.price,
             outline_items=[],
+            use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
         )
 
         def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
@@ -207,6 +209,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
+        use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 
 
@@ -241,6 +244,7 @@ def get_default_shifu_dto(app: Flask, is_preview: bool = False) -> ShifuInfoDto:
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
+        use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 
 
@@ -295,7 +299,10 @@ class OutlineItemDtoWithMdflow(BaseModel):
 
 
 def get_outline_item_dto_with_mdflow(
-    app: Flask, outline_item_bid: str, is_preview: bool = False
+    app: Flask,
+    outline_item_bid: str,
+    is_preview: bool = False,
+    outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
     """
     Get outline item dto with mdflow
@@ -304,16 +311,40 @@ def get_outline_item_dto_with_mdflow(
         outline_item_model = DraftOutlineItem
     else:
         outline_item_model = PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
-        outline_item_model.query.filter(
-            outline_item_model.outline_item_bid == outline_item_bid,
-            outline_item_model.deleted == 0,
+    outline_item: Union[DraftOutlineItem, PublishedOutlineItem, None] = None
+    if outline_item_id:
+        outline_item = (
+            outline_item_model.query.filter(
+                outline_item_model.id == int(outline_item_id),
+                outline_item_model.deleted == 0,
+            )
+            .order_by(
+                outline_item_model.id.desc(),
+            )
+            .first()
         )
-        .order_by(
-            outline_item_model.id.desc(),
+        if (
+            outline_item is not None
+            and outline_item.outline_item_bid != outline_item_bid
+        ):
+            app.logger.warning(
+                "Outline row mismatch for bid %s: row_id=%s actual_bid=%s",
+                outline_item_bid,
+                outline_item_id,
+                outline_item.outline_item_bid,
+            )
+            outline_item = None
+    if outline_item is None:
+        outline_item = (
+            outline_item_model.query.filter(
+                outline_item_model.outline_item_bid == outline_item_bid,
+                outline_item_model.deleted == 0,
+            )
+            .order_by(
+                outline_item_model.id.desc(),
+            )
+            .first()
         )
-        .first()
-    )
     if not outline_item:
         raise_error("server.shifu.outlineItemNotFound")
 

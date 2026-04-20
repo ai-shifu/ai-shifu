@@ -10,6 +10,11 @@
   "server.user.smsSendExpired": 1013,
   "server.user.smsCheckError": 1014,
   "server.user.googleOAuthStateInvalid": 1015,
+  "server.user.invalidCredentials": 1016,
+  "server.user.passwordAlreadySet": 1017,
+  "server.user.passwordTooShort": 1018,
+  "server.user.passwordNeedsLetter": 1019,
+  "server.user.passwordNeedsDigit": 1020,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,
@@ -44,6 +49,8 @@
   "server.shifu.lessonNotFound": 4003,
   "server.shifu.lessonNotFoundInCourse": 4004,
   "server.shifu.shifuPriceTooLow": 4005,
+  "server.shifu.ttsNotEnabled": 4006,
+  "server.shifu.draftConflict": 4007,
   "server.pay.payChannelNotSupport": 5001,
 
   "server.file.fileUploadError": 6001,

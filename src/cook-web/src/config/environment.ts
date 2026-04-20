@@ -274,6 +274,16 @@ function getDebugErudaEnabled(): boolean {
  * Gets enabled login methods
  */
 function getLoginMethodsEnabled(): string[] {
+  const envValue =
+    getRuntimeEnv('LOGIN_METHODS_ENABLED') ||
+    process.env.NEXT_PUBLIC_LOGIN_METHODS_ENABLED;
+  if (envValue) {
+    const methods = envValue
+      .split(',')
+      .map(m => m.trim())
+      .filter(Boolean);
+    if (methods.length > 0) return methods;
+  }
   return ['phone'];
 }
 
@@ -294,7 +304,7 @@ function getDefaultLoginMethod(): string {
  * Gets home URL
  */
 function getHomeUrl(): string {
-  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/';
 }
 
 /**

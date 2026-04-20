@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, datetime
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -23,6 +24,8 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
+
+logger = logging.getLogger(__name__)
 
 STATE_MAPPING = {
     USER_STATE_UNREGISTERED: USER_STATE_UNREGISTERED,
@@ -260,33 +263,39 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     birthday: Optional[date] = None
 
     try:
-        from flaskr.service.profile.models import UserProfile  # type: ignore
+        from flaskr.service.profile.models import VariableValue  # type: ignore
     except ImportError:  # pragma: no cover - defensive fallback
-        UserProfile = None  # type: ignore[assignment]
+        VariableValue = None  # type: ignore[assignment]
 
-    if UserProfile is not None:
-        profile_rows = (
-            UserProfile.query.filter(
-                UserProfile.user_id == user_bid,
-                UserProfile.status == 1,
-                UserProfile.profile_key.in_(
-                    ["sys_user_nickname", "avatar", "language", "birth"]
-                ),
+    rows = []
+    if VariableValue is not None:
+        try:
+            rows = (
+                VariableValue.query.filter(
+                    VariableValue.user_bid == user_bid,
+                    VariableValue.deleted == 0,
+                    VariableValue.shifu_bid == "",
+                    VariableValue.key.in_(
+                        ["sys_user_nickname", "avatar", "language", "birth"]
+                    ),
+                )
+                .order_by(VariableValue.id.desc())
+                .all()
             )
-            .order_by(UserProfile.id.desc())
-            .all()
-        )
-        for row in profile_rows:
-            value = (row.profile_value or "").strip()
+        except Exception as exc:  # pragma: no cover - mixed migration envs
+            logger.warning("Failed to query var_variable_values: %s", exc)
+            rows = []
+        for row in rows:
+            value = (row.value or "").strip()
             if not value:
                 continue
-            if row.profile_key == "sys_user_nickname":
+            if row.key == "sys_user_nickname" and not nickname:
                 nickname = value
-            elif row.profile_key == "avatar" and not avatar:
+            elif row.key == "avatar" and not avatar:
                 avatar = value
-            elif row.profile_key == "language" and not language:
+            elif row.key == "language" and not language:
                 language = value
-            elif row.profile_key == "birth" and not birthday:
+            elif row.key == "birth" and not birthday:
                 try:
                     birthday = date.fromisoformat(value)
                 except ValueError:
@@ -629,6 +638,31 @@ def deserialize_raw_profile(record: AuthCredential) -> Dict[str, Optional[str]]:
         return payload.get("metadata", {}) if isinstance(payload, dict) else {}
     except json.JSONDecodeError:
         return {}
+
+
+def get_password_hash(credential: AuthCredential) -> str:
+    """Read password_hash from raw_profile JSON (top-level key, never in metadata)."""
+    if not credential.raw_profile:
+        return ""
+    try:
+        payload = json.loads(credential.raw_profile)
+        return payload.get("password_hash", "") if isinstance(payload, dict) else ""
+    except json.JSONDecodeError:
+        return ""
+
+
+def set_password_hash(credential: AuthCredential, password_hash: str) -> None:
+    """Write password_hash into raw_profile JSON, preserving other fields."""
+    payload: Dict[str, Any] = {}
+    if credential.raw_profile:
+        try:
+            payload = json.loads(credential.raw_profile)
+            if not isinstance(payload, dict):
+                payload = {}
+        except json.JSONDecodeError:
+            payload = {}
+    payload["password_hash"] = password_hash
+    credential.raw_profile = json.dumps(payload, ensure_ascii=False)
 
 
 def upsert_credential(

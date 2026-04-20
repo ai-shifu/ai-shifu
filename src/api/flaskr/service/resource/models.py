@@ -11,7 +11,7 @@ class Resource(db.Model):
     name = Column(String(255), nullable=False, comment="Resource name")
     type = Column(Integer, nullable=False, comment="Resource type")
     oss_bucket = Column(String(255), nullable=False, comment="OSS bucket")
-    oss_name = Column(String(255), nullable=False, comment="OSS name")
+    oss_name = Column(String(255), nullable=False, comment="OSS object key")
     url = Column(String(255), nullable=False, comment="Resource URL")
     status = Column(Integer, nullable=False, comment="Resource status")
     is_deleted = Column(Integer, nullable=False, comment="Is deleted")
