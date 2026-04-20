@@ -647,7 +647,7 @@ BILL_SYS_CONFIG_SEEDS = (
     {
         "config_bid": "bill-config-enabled",
         "key": BILL_CONFIG_KEY_ENABLED,
-        "value": "1",
+        "value": "0",
         "is_encrypted": 0,
         "remark": "Creator billing feature flag",
         "deleted": 0,

@@ -146,12 +146,12 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
     ),
     BillingCapabilityDefinition(
         key="billing_feature_flag",
-        status="active",
+        status="default_disabled",
         audience="ops",
         user_visible=False,
-        default_enabled=True,
+        default_enabled=False,
         config_entries=("BILL_ENABLED",),
-        notes=("The billing feature flag seed defaults to enabled.",),
+        notes=("The billing feature flag seed defaults to disabled.",),
     ),
     BillingCapabilityDefinition(
         key="renewal_task_queue",

@@ -899,7 +899,7 @@ v1 需要补充以下环境变量和配置项：
 
 同时在 `sys_configs` 预置以下 billing bootstrap 配置：
 
-- `BILL_ENABLED=1`
+- `BILL_ENABLED=0`
 - `BILL_LOW_BALANCE_THRESHOLD=0.0000000000`
 - `BILL_RENEWAL_TASK_CONFIG={"enabled":0,"batch_size":100,"lookahead_minutes":60,"queue":"billing-renewal"}`
 - `BILL_RATE_VERSION=bootstrap-v1`
