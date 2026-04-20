@@ -39,9 +39,7 @@ import {
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
-import {
-  syncCustomButtonAfterContent,
-} from './chatUiUtils';
+import { syncCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
