@@ -75,6 +75,7 @@ from .subscriptions import (
     repair_subscription_cycle_mismatches,
     repair_topup_grant_expiries,
 )
+from .trials import backfill_missing_creator_trial_credits
 from .wallets import rebuild_credit_wallet_snapshots
 
 _PRODUCT_TYPE_LABELS = {
@@ -283,6 +284,40 @@ def register_billing_commands(console) -> None:
             product_code=product_code,
             effective_to=effective_to,
             note=note,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="backfill-trial-plans")
+    @click.option("--creator-bid", default="", help="Grant one creator only.")
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum creator rows to scan when used with --all.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help="Scan creator users and grant the missing public trial plan.",
+    )
+    @with_appcontext
+    def backfill_trial_plans_command(
+        creator_bid: str,
+        limit: int | None,
+        process_all: bool,
+    ) -> None:
+        """Grant the configured public trial plan to creators who still miss it."""
+
+        if not str(creator_bid or "").strip() and not process_all:
+            raise click.ClickException(
+                "Pass --creator-bid or --all for trial plan backfill."
+            )
+
+        payload = backfill_missing_creator_trial_credits(
+            current_app,
+            creator_bid=creator_bid,
+            limit=limit if process_all else None,
         )
         _echo_payload(payload)
 
