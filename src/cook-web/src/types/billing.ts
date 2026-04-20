@@ -251,6 +251,7 @@ export type BillingBucketBreakdownItem = {
 
 export type BillingLedgerMetadata = {
   usage_bid?: string;
+  usage_type?: BillingUsageType | number | null;
   usage_scene?: BillingUsageScene;
   course_name?: string;
   user_identify?: string;

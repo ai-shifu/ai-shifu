@@ -3,6 +3,7 @@ import {
   formatBillingPlanInterval,
   getBillingCreditPrecision,
   parseBillingDateValue,
+  resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
   resolveBillingPlanValidityLabel,
@@ -127,6 +128,7 @@ describe('resolveBillingLedgerReasonLabel', () => {
       metadata: {
         usage_bid: `usage-${usageScene}`,
         usage_scene: usageScene,
+        usage_type: 1101,
         course_name: `${usageScene} course`,
         user_identify: 'learner@example.com',
       },
@@ -151,6 +153,20 @@ describe('resolveBillingLedgerReasonLabel', () => {
     );
   });
 
+  test('shows a TTS prefix for TTS usage entries', () => {
+    expect(
+      resolveBillingLedgerReasonLabel(t, {
+        ...buildUsageItem('production'),
+        metadata: {
+          ...buildUsageItem('production').metadata,
+          usage_type: 1102,
+        },
+      }),
+    ).toBe(
+      'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - production course - learner@example.com',
+    );
+  });
+
   test('shows expire label for expired ledger entries', () => {
     expect(
       resolveBillingLedgerReasonLabel(t, {
@@ -168,6 +184,30 @@ describe('resolveBillingLedgerReasonLabel', () => {
         created_at: '2026-04-06T10:00:00Z',
       }),
     ).toBe('module.billing.ledger.entryType.expire');
+  });
+});
+
+describe('resolveBillingLedgerUsageType', () => {
+  test('maps backend numeric usage_type codes', () => {
+    expect(resolveBillingLedgerUsageType({ usage_type: 1102 })).toBe('tts');
+    expect(resolveBillingLedgerUsageType({ usage_type: 1101 })).toBe('llm');
+  });
+
+  test('falls back to metric breakdown when usage_type is missing', () => {
+    expect(
+      resolveBillingLedgerUsageType({
+        metric_breakdown: [
+          {
+            billing_metric: 'tts_request_count',
+            raw_amount: 1,
+            unit_size: 1,
+            credits_per_unit: 0.01,
+            rounding_mode: 'ceil',
+            consumed_credits: 0.01,
+          },
+        ],
+      }),
+    ).toBe('tts');
   });
 });
 

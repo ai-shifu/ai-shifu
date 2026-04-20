@@ -205,6 +205,11 @@ const BILLING_USAGE_SCENE_KEYS: Record<BillingUsageScene, string> = {
   production: 'module.billing.ledger.usageScene.production',
 };
 
+const BILLING_USAGE_TYPE_CODE_MAP: Record<number, BillingUsageType> = {
+  1101: 'llm',
+  1102: 'tts',
+};
+
 const BILLING_ORDER_STATUS_KEYS: Record<BillingOrderStatus, string> = {
   init: 'module.billing.orders.status.init',
   pending: 'module.billing.orders.status.pending',
@@ -598,7 +603,8 @@ export function resolveBillingLedgerEntryLabel(
 
 export function resolveBillingLedgerReasonLabel(
   t: BillingTranslator,
-  item: Pick<BillingLedgerItem, 'entry_type' | 'source_type' | 'metadata'>,
+  item: Pick<BillingLedgerItem, 'entry_type' | 'source_type' | 'metadata'> &
+    Partial<BillingLedgerItem>,
 ): string {
   if (item.entry_type === 'expire') {
     return resolveBillingLedgerEntryLabel(t, item.entry_type);
@@ -609,12 +615,16 @@ export function resolveBillingLedgerReasonLabel(
   }
 
   if (item.source_type === 'usage') {
+    const usageType = resolveBillingLedgerUsageType(item.metadata);
     const usageSceneLabel = resolveBillingUsageSceneLabel(
       t,
       item.metadata?.usage_scene,
     );
     if (usageSceneLabel) {
-      const reasonParts = [usageSceneLabel];
+      const reasonParts =
+        usageType === 'tts'
+          ? [resolveBillingUsageTypeLabel(t, usageType), usageSceneLabel]
+          : [usageSceneLabel];
       const courseName = String(item.metadata?.course_name || '').trim();
       const userIdentify = String(item.metadata?.user_identify || '').trim();
 
@@ -625,6 +635,9 @@ export function resolveBillingLedgerReasonLabel(
         reasonParts.push(userIdentify);
       }
       return reasonParts.join(' - ');
+    }
+    if (usageType === 'tts') {
+      return resolveBillingUsageTypeLabel(t, usageType);
     }
   }
 
@@ -644,6 +657,37 @@ export function resolveBillingUsageSceneLabel(
     return '';
   }
   return t(BILLING_USAGE_SCENE_KEYS[scene]);
+}
+
+export function resolveBillingLedgerUsageType(
+  metadata?: BillingLedgerItem['metadata'] | null,
+): BillingUsageType | null {
+  const rawUsageType = metadata?.usage_type;
+  if (rawUsageType === 'llm' || rawUsageType === 'tts') {
+    return rawUsageType;
+  }
+
+  const numericUsageType = Number(rawUsageType);
+  if (Number.isFinite(numericUsageType)) {
+    return BILLING_USAGE_TYPE_CODE_MAP[numericUsageType] || null;
+  }
+
+  const metricBreakdown = metadata?.metric_breakdown || [];
+  if (
+    metricBreakdown.some(item =>
+      String(item.billing_metric || '').startsWith('tts_'),
+    )
+  ) {
+    return 'tts';
+  }
+  if (
+    metricBreakdown.some(item =>
+      String(item.billing_metric || '').startsWith('llm_'),
+    )
+  ) {
+    return 'llm';
+  }
+  return null;
 }
 
 export function resolveBillingUsageTypeLabel(

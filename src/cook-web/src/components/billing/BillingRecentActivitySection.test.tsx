@@ -85,17 +85,18 @@ describe('BillingRecentActivitySection', () => {
             consumable_from: null,
             metadata: {
               usage_bid: 'usage-1',
+              usage_type: 1102,
               usage_scene: 'production',
               course_name: 'Published Course 1',
               user_identify: 'learner@example.com',
               metric_breakdown: [
                 {
-                  billing_metric: 'llm_output_tokens',
-                  raw_amount: 1234,
-                  unit_size: 1000,
-                  credits_per_unit: 1.25,
+                  billing_metric: 'tts_request_count',
+                  raw_amount: 1,
+                  unit_size: 1,
+                  credits_per_unit: 0.01,
                   rounding_mode: 'ceil',
-                  consumed_credits: 2.5,
+                  consumed_credits: 0.01,
                 },
               ],
             },
@@ -128,7 +129,7 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
     expect(
       await screen.findByText(
-        'module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+        'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
@@ -149,7 +150,7 @@ describe('BillingRecentActivitySection', () => {
 
     expect(
       await screen.findByText(
-        'module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+        'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
 
