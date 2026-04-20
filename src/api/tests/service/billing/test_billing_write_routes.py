@@ -1063,6 +1063,85 @@ class TestBillingWriteRoutes:
             == "billing-product-plan-monthly"
         )
 
+    def test_trial_then_topup_then_paid_realigns_existing_topup_expiry(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        _seed_creator_user(app, creator_bid="creator-1")
+        with app.app_context():
+            bootstrap_new_creator_trial_credits(app, "creator-1")
+            trial_subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+            ).one()
+            trial_end = trial_subscription.current_period_end_at
+
+        topup_checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "billing-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        topup_order_bid = topup_checkout["data"]["billing_order_bid"]
+        topup_sync = client.post(
+            f"/api/billing/orders/{topup_order_bid}/sync"
+        ).get_json(force=True)
+
+        assert topup_sync["code"] == 0
+
+        with app.app_context():
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+            assert bucket.effective_to == trial_end
+            assert ledger.expires_at == trial_end
+
+        paid_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "billing-product-plan-monthly",
+                "payment_provider": "stripe",
+                "success_url": ("https://example.com/payment/stripe/billing-result"),
+                "cancel_url": (
+                    "https://example.com/payment/stripe/billing-result?canceled=1"
+                ),
+            },
+        ).get_json(force=True)
+        paid_order_bid = paid_checkout["data"]["billing_order_bid"]
+        paid_sync = client.post(f"/api/billing/orders/{paid_order_bid}/sync").get_json(
+            force=True
+        )
+
+        assert paid_sync["code"] == 0
+
+        with app.app_context():
+            paid_subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                product_bid="billing-product-plan-monthly",
+            ).one()
+            bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=topup_order_bid,
+            ).one()
+
+            assert paid_subscription.current_period_end_at is not None
+            assert bucket.effective_to == paid_subscription.current_period_end_at
+            assert ledger.expires_at == paid_subscription.current_period_end_at
+            assert bucket.effective_to != trial_end
+
     def test_topup_checkout_rejects_without_active_subscription(
         self, billing_write_client
     ) -> None:

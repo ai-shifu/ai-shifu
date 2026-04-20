@@ -28,6 +28,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -787,6 +788,25 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
                 created_at=current_cycle_start,
             )
         )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-pingxx-expire-paid-1",
+                creator_bid=subscription.creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid="bucket-pingxx-expire-paid-1",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                source_bid="order-topup-pingxx-expire-paid-1",
+                idempotency_key="grant:order-topup-pingxx-expire-paid-1",
+                amount=Decimal("4.0000000000"),
+                balance_after=Decimal("4.0000000000"),
+                expires_at=current_cycle_end,
+                consumable_from=current_cycle_start,
+                metadata_json={},
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
+        )
         dao.db.session.add(event)
         dao.db.session.commit()
 
@@ -806,6 +826,9 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
         bucket = CreditWalletBucket.query.filter_by(
             wallet_bucket_bid="bucket-pingxx-expire-paid-1"
         ).one()
+        grant_entry = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-pingxx-expire-paid-1"
+        ).one()
         expire_entries = CreditLedgerEntry.query.filter_by(
             creator_bid=subscription.creator_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -815,6 +838,8 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
         assert subscription.current_period_end_at == next_cycle_end
         assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
         assert bucket.available_credits == Decimal("4.0000000000")
+        assert bucket.effective_to == next_cycle_end
+        assert grant_entry.expires_at == next_cycle_end
         assert expire_entries == []
 
 

@@ -237,6 +237,55 @@ def load_effective_topup_subscription(
     return _load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
+def _load_topup_expiry_subscription_for_bucket(
+    creator_bid: str,
+    *,
+    bucket_effective_from: datetime,
+    bucket_effective_to: datetime | None,
+) -> BillingSubscription | None:
+    rows = BillingSubscription.query.filter(
+        BillingSubscription.deleted == 0,
+        BillingSubscription.creator_bid == creator_bid,
+        BillingSubscription.status.in_(
+            (
+                BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+                BILLING_SUBSCRIPTION_STATUS_PAUSED,
+                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+            )
+        ),
+        BillingSubscription.current_period_end_at.isnot(None),
+        BillingSubscription.current_period_end_at > bucket_effective_from,
+    )
+    if bucket_effective_to is not None:
+        rows = rows.filter(
+            (BillingSubscription.current_period_start_at.is_(None))
+            | (BillingSubscription.current_period_start_at <= bucket_effective_to)
+        )
+
+    subscriptions = rows.order_by(
+        BillingSubscription.created_at.asc(),
+        BillingSubscription.id.asc(),
+    ).all()
+    if not subscriptions:
+        return None
+
+    def _sort_key(
+        row: BillingSubscription,
+    ) -> tuple[int, datetime, datetime, datetime, int]:
+        product = _load_billing_product_by_bid(row.product_bid)
+        product_sort_order = int(product.sort_order) if product is not None else -1
+        return (
+            product_sort_order,
+            row.current_period_start_at or datetime.min,
+            row.current_period_end_at or datetime.min,
+            row.created_at or datetime.min,
+            int(row.id or 0),
+        )
+
+    return max(subscriptions, key=_sort_key)
+
+
 def _merge_provider_metadata(
     *,
     existing: Any,
@@ -611,6 +660,11 @@ def _activate_subscription_for_paid_order(
         subscription.current_period_start_at = effective_from
         subscription.current_period_end_at = effective_to
         subscription.last_renewed_at = effective_from
+        _realign_active_topup_bucket_effective_to(
+            creator_bid=order.creator_bid,
+            effective_from=effective_from,
+            effective_to=effective_to,
+        )
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE:
             _realign_active_subscription_bucket_effective_to(
                 creator_bid=order.creator_bid,
@@ -637,6 +691,38 @@ def _realign_active_subscription_bucket_effective_to(
     effective_from: datetime,
     effective_to: datetime | None,
 ) -> None:
+    _realign_active_credit_bucket_effective_to(
+        creator_bid=creator_bid,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        include_effective_to_boundary=False,
+    )
+
+
+def _realign_active_topup_bucket_effective_to(
+    *,
+    creator_bid: str,
+    effective_from: datetime,
+    effective_to: datetime | None,
+) -> None:
+    _realign_active_credit_bucket_effective_to(
+        creator_bid=creator_bid,
+        source_type=CREDIT_SOURCE_TYPE_TOPUP,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        include_effective_to_boundary=True,
+    )
+
+
+def _realign_active_credit_bucket_effective_to(
+    *,
+    creator_bid: str,
+    source_type: int,
+    effective_from: datetime,
+    effective_to: datetime | None,
+    include_effective_to_boundary: bool,
+) -> None:
     if effective_to is None:
         return
 
@@ -645,7 +731,7 @@ def _realign_active_subscription_bucket_effective_to(
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
             CreditWalletBucket.creator_bid == creator_bid,
-            CreditWalletBucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CreditWalletBucket.source_type == source_type,
             CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
         )
         .order_by(CreditWalletBucket.id.asc())
@@ -657,8 +743,12 @@ def _realign_active_subscription_bucket_effective_to(
             continue
         if bucket.effective_from is not None and bucket.effective_from > effective_from:
             continue
-        if bucket.effective_to is not None and bucket.effective_to <= effective_from:
-            continue
+        if bucket.effective_to is not None:
+            if include_effective_to_boundary:
+                if bucket.effective_to < effective_from:
+                    continue
+            elif bucket.effective_to <= effective_from:
+                continue
         if bucket.effective_to == effective_to:
             continue
 
@@ -956,6 +1046,38 @@ def repair_topup_grant_expiries(
         repaired_ledger_count = 0
 
         for bucket in buckets:
+            available = _to_decimal(bucket.available_credits)
+            if available <= 0:
+                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
+                continue
+
+            reference_effective_from = bucket.effective_from or (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == normalized_creator_bid,
+                    BillingOrder.billing_order_bid == _normalize_bid(bucket.source_bid),
+                    BillingOrder.order_type == BILLING_ORDER_TYPE_TOPUP,
+                )
+                .order_by(BillingOrder.id.desc())
+                .with_entities(BillingOrder.paid_at)
+                .scalar()
+            )
+            if reference_effective_from is None:
+                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
+                continue
+
+            candidate_subscription = _load_topup_expiry_subscription_for_bucket(
+                normalized_creator_bid,
+                bucket_effective_from=reference_effective_from,
+                bucket_effective_to=bucket.effective_to,
+            )
+            if (
+                candidate_subscription is None
+                or candidate_subscription.current_period_end_at is None
+            ):
+                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
+                continue
+
             order = (
                 BillingOrder.query.filter(
                     BillingOrder.deleted == 0,
@@ -966,22 +1088,7 @@ def repair_topup_grant_expiries(
                 .order_by(BillingOrder.id.desc())
                 .first()
             )
-            reference_effective_from = (
-                order.paid_at
-                if order is not None and order.paid_at is not None
-                else None
-            ) or bucket.effective_from
-            if reference_effective_from is None:
-                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
-                continue
-
-            expected_effective_to = _resolve_topup_bucket_effective_to(
-                creator_bid=normalized_creator_bid,
-                effective_from=reference_effective_from,
-            )
-            if expected_effective_to is None:
-                skipped_bucket_bids.append(bucket.wallet_bucket_bid)
-                continue
+            expected_effective_to = candidate_subscription.current_period_end_at
 
             grant_entries = (
                 CreditLedgerEntry.query.filter(
