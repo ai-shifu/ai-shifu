@@ -46,20 +46,16 @@ export default function AdminTableShell({
   footerClassName,
 }: AdminTableShellProps) {
   const emptyRow =
-    isEmpty && emptyContent && emptyColSpan
-      ? (
-          <TableEmpty colSpan={emptyColSpan}>
-            {emptyContent}
-          </TableEmpty>
-        )
-      : null;
+    isEmpty && emptyContent && emptyColSpan ? (
+      <TableEmpty colSpan={emptyColSpan}>{emptyContent}</TableEmpty>
+    ) : null;
 
   const tableContent = renderTableContent(table, emptyRow);
-  const wrappedTableContent = withTooltipProvider
-    ? (
-        <TooltipProvider delayDuration={150}>{tableContent}</TooltipProvider>
-      )
-    : tableContent;
+  const wrappedTableContent = withTooltipProvider ? (
+    <TooltipProvider delayDuration={150}>{tableContent}</TooltipProvider>
+  ) : (
+    tableContent
+  );
 
   return (
     <div className={cn('flex min-h-0 flex-col', containerClassName)}>

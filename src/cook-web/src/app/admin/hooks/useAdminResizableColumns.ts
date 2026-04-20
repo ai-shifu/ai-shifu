@@ -57,7 +57,9 @@ export function useAdminResizableColumns<Key extends string>({
     [clampWidth, columnKeys, defaultWidths],
   );
 
-  const loadStoredManualWidths = useCallback((): Partial<ColumnWidthState<Key>> => {
+  const loadStoredManualWidths = useCallback((): Partial<
+    ColumnWidthState<Key>
+  > => {
     if (typeof window === 'undefined') {
       return {};
     }
@@ -144,7 +146,9 @@ export function useAdminResizableColumns<Key extends string>({
         return;
       }
 
-      const nextWidth = clampWidth(info.startWidth + event.clientX - info.startX);
+      const nextWidth = clampWidth(
+        info.startWidth + event.clientX - info.startX,
+      );
       setColumnWidthsState(prev => {
         if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
           return prev;
