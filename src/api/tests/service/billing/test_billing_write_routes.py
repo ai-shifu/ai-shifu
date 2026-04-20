@@ -1745,10 +1745,14 @@ class TestBillingWriteRoutes:
             existing_ledger = CreditLedgerEntry.query.filter_by(
                 ledger_bid="ledger-upgrade-existing"
             ).one()
-            upgrade_bucket = CreditWalletBucket.query.filter_by(
+            upgrade_ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
                 source_bid="billing-upgrade-1",
             ).one()
+            subscription_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            ).all()
             upgrade_event = BillingRenewalEvent.query.filter_by(
                 subscription_bid="sub-upgrade",
                 event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
@@ -1761,9 +1765,17 @@ class TestBillingWriteRoutes:
             assert subscription.current_period_start_at == upgrade_paid_at
             assert subscription.current_period_end_at == upgraded_cycle_end
             assert wallet.available_credits == 10003
+            assert len(subscription_buckets) == 1
+            assert existing_bucket.source_bid == "billing-upgrade-1"
+            assert existing_bucket.original_credits == 10005
+            assert existing_bucket.available_credits == 10003
+            assert existing_bucket.effective_from == upgrade_paid_at
             assert existing_bucket.effective_to == upgraded_cycle_end
             assert existing_ledger.expires_at == upgraded_cycle_end
-            assert upgrade_bucket.effective_to == upgraded_cycle_end
+            assert upgrade_ledger.wallet_bucket_bid == existing_bucket.wallet_bucket_bid
+            assert upgrade_ledger.amount == 10000
+            assert upgrade_ledger.expires_at == upgraded_cycle_end
+            assert upgrade_ledger.consumable_from == upgrade_paid_at
             assert upgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
 
     def test_paid_renewal_order_applies_scheduled_next_product(

@@ -771,6 +771,73 @@ def _realign_active_credit_bucket_effective_to(
             db.session.add(entry)
 
 
+def _load_subscription_upgrade_merge_bucket(
+    *,
+    creator_bid: str,
+    effective_from: datetime,
+) -> CreditWalletBucket | None:
+    buckets = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == creator_bid,
+            CreditWalletBucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CreditWalletBucket.status.in_(
+                (
+                    CREDIT_BUCKET_STATUS_ACTIVE,
+                    CREDIT_BUCKET_STATUS_EXHAUSTED,
+                )
+            ),
+        )
+        .order_by(
+            CreditWalletBucket.effective_from.desc(),
+            CreditWalletBucket.created_at.desc(),
+            CreditWalletBucket.id.desc(),
+        )
+        .all()
+    )
+    for bucket in buckets:
+        if bucket.effective_from is not None and bucket.effective_from > effective_from:
+            continue
+        if bucket.effective_to is not None and bucket.effective_to <= effective_from:
+            continue
+        return bucket
+    return None
+
+
+def _merge_subscription_upgrade_credits_into_bucket(
+    *,
+    bucket: CreditWalletBucket,
+    order: BillingOrder,
+    amount: Decimal,
+    effective_from: datetime,
+    grant_context: CreditGrantContext,
+) -> CreditWalletBucket:
+    bucket.original_credits = _quantize_credit_amount(
+        _to_decimal(bucket.original_credits) + amount
+    )
+    bucket.available_credits = _quantize_credit_amount(
+        _to_decimal(bucket.available_credits) + amount
+    )
+    bucket.bucket_category = grant_context.bucket_category
+    bucket.priority = grant_context.priority
+    bucket.source_type = grant_context.source_type
+    bucket.source_bid = order.bill_order_bid
+    bucket.effective_from = effective_from
+    bucket.metadata_json = _normalize_json_object(
+        {
+            **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+            "bill_order_bid": order.bill_order_bid,
+            "subscription_bid": order.subscription_bid or None,
+            "product_bid": order.product_bid,
+            "payment_provider": order.payment_provider,
+        }
+    ).to_metadata_json()
+    bucket.updated_at = datetime.now()
+    sync_credit_bucket_status(bucket)
+    db.session.add(bucket)
+    return bucket
+
+
 def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     grant_context = _resolve_credit_grant_context(order)
     if grant_context is None:
@@ -810,33 +877,75 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         effective_from=effective_from,
     )
 
-    bucket = CreditWalletBucket(
-        wallet_bucket_bid=generate_id(app),
-        wallet_bid=wallet.wallet_bid,
-        creator_bid=order.creator_bid,
-        bucket_category=grant_context.bucket_category,
-        source_type=grant_context.source_type,
-        source_bid=order.bill_order_bid,
-        priority=grant_context.priority,
-        original_credits=amount,
-        available_credits=amount,
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
-        effective_from=effective_from,
-        effective_to=effective_to,
-        status=CREDIT_BUCKET_STATUS_ACTIVE,
-        metadata_json=_normalize_json_object(
-            {
-                "bill_order_bid": order.bill_order_bid,
-                "product_bid": order.product_bid,
-                "payment_provider": order.payment_provider,
-            }
-        ).to_metadata_json(),
-    )
+    bucket: CreditWalletBucket
+    if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE:
+        merge_bucket = _load_subscription_upgrade_merge_bucket(
+            creator_bid=order.creator_bid,
+            effective_from=effective_from,
+        )
+        if merge_bucket is not None:
+            bucket = _merge_subscription_upgrade_credits_into_bucket(
+                bucket=merge_bucket,
+                order=order,
+                amount=amount,
+                effective_from=effective_from,
+                grant_context=grant_context,
+            )
+        else:
+            bucket = CreditWalletBucket(
+                wallet_bucket_bid=generate_id(app),
+                wallet_bid=wallet.wallet_bid,
+                creator_bid=order.creator_bid,
+                bucket_category=grant_context.bucket_category,
+                source_type=grant_context.source_type,
+                source_bid=order.bill_order_bid,
+                priority=grant_context.priority,
+                original_credits=amount,
+                available_credits=amount,
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=effective_from,
+                effective_to=effective_to,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json=_normalize_json_object(
+                    {
+                        "bill_order_bid": order.bill_order_bid,
+                        "product_bid": order.product_bid,
+                        "payment_provider": order.payment_provider,
+                    }
+                ).to_metadata_json(),
+            )
+            db.session.add(bucket)
+            sync_credit_bucket_status(bucket)
+    else:
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=generate_id(app),
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=order.creator_bid,
+            bucket_category=grant_context.bucket_category,
+            source_type=grant_context.source_type,
+            source_bid=order.bill_order_bid,
+            priority=grant_context.priority,
+            original_credits=amount,
+            available_credits=amount,
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=effective_from,
+            effective_to=effective_to,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json=_normalize_json_object(
+                {
+                    "bill_order_bid": order.bill_order_bid,
+                    "product_bid": order.product_bid,
+                    "payment_provider": order.payment_provider,
+                }
+            ).to_metadata_json(),
+        )
+        db.session.add(bucket)
+        sync_credit_bucket_status(bucket)
 
-    db.session.add(bucket)
-    sync_credit_bucket_status(bucket)
     refresh_credit_wallet_snapshot(wallet)
     balance_after = _quantize_credit_amount(wallet.available_credits)
     next_lifetime_granted = _quantize_credit_amount(
