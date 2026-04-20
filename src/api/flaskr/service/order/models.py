@@ -6,6 +6,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     DateTime,
+    Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -91,7 +92,19 @@ class PingxxOrder(db.Model):
     """
 
     __tablename__ = "order_pingxx_orders"
-    __table_args__ = {"comment": "Order pingxx orders"}
+    __table_args__ = (
+        Index(
+            "ix_order_pingxx_orders_biz_domain_order_bid",
+            "biz_domain",
+            "order_bid",
+        ),
+        Index(
+            "ix_order_pingxx_orders_biz_domain_bill_order_bid",
+            "biz_domain",
+            "bill_order_bid",
+        ),
+        {"comment": "Order pingxx orders"},
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     pingxx_order_bid = Column(
         String(36),
@@ -99,6 +112,27 @@ class PingxxOrder(db.Model):
         nullable=False,
         default="",
         comment="Pingxx order business identifier",
+    )
+    biz_domain = Column(
+        String(16),
+        index=True,
+        nullable=False,
+        default="order",
+        comment="Business domain",
+    )
+    bill_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Billing order business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Creator business identifier",
     )
     user_bid = Column(
         String(36),
@@ -201,7 +235,19 @@ class StripeOrder(db.Model):
     """
 
     __tablename__ = "order_stripe_orders"
-    __table_args__ = {"comment": "Order stripe orders"}
+    __table_args__ = (
+        Index(
+            "ix_order_stripe_orders_biz_domain_order_bid",
+            "biz_domain",
+            "order_bid",
+        ),
+        Index(
+            "ix_order_stripe_orders_biz_domain_bill_order_bid",
+            "biz_domain",
+            "bill_order_bid",
+        ),
+        {"comment": "Order stripe orders"},
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     stripe_order_bid = Column(
         String(36),
@@ -209,6 +255,27 @@ class StripeOrder(db.Model):
         nullable=False,
         default="",
         comment="Stripe order business identifier",
+    )
+    biz_domain = Column(
+        String(16),
+        index=True,
+        nullable=False,
+        default="order",
+        comment="Business domain",
+    )
+    bill_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Billing order business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Creator business identifier",
     )
     user_bid = Column(
         String(36),

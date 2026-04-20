@@ -55,7 +55,10 @@ class TestResolvePaymentChannel:
                 return "stripe"
             return default
 
-        monkeypatch.setattr("flaskr.service.order.funs.get_config", fake_get_config)
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
 
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint=None,
@@ -72,7 +75,10 @@ class TestResolvePaymentChannel:
                 return "stripe"
             return default
 
-        monkeypatch.setattr("flaskr.service.order.funs.get_config", fake_get_config)
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
 
         with pytest.raises(AppException):
             _resolve_payment_channel(

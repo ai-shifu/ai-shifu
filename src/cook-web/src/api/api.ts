@@ -129,6 +129,29 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+
+  // billing creator api
+  getBillingBootstrap: 'GET /billing',
+  getBillingCatalog: 'GET /billing/catalog',
+  getBillingOverview: 'GET /billing/overview',
+  acknowledgeBillingTrialWelcome: 'POST /billing/trial-offer/welcome/ack',
+  getBillingWalletBuckets: 'GET /billing/wallet-buckets',
+  getBillingLedger: 'GET /billing/ledger',
+  checkoutBillingOrder: 'POST /billing/orders/{bill_order_bid}/checkout',
+  syncBillingOrder: 'POST /billing/orders/{bill_order_bid}/sync',
+  checkoutBillingSubscription: 'POST /billing/subscriptions/checkout',
+  cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
+  resumeBillingSubscription: 'POST /billing/subscriptions/resume',
+  checkoutBillingTopup: 'POST /billing/topups/checkout',
+
+  // billing admin api
+  getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
+  getAdminBillingOrders: 'GET /admin/billing/orders',
+  getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
+  getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
+  getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
+  getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
+  adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };
 
 export default api;

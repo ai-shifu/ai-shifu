@@ -54,6 +54,13 @@
   "server.shifu.shifuNotFound": 4008,
   "server.shifu.outlineItemNotFound": 4009,
   "server.pay.payChannelNotSupport": 5001,
+  "server.billing.creditInsufficient": 7101,
+  "server.billing.subscriptionInactive": 7102,
+  "server.billing.disabled": 7103,
+  "server.billing.customDomainDisabled": 7104,
+  "server.billing.domainHostConflict": 7105,
+  "server.billing.domainBindingNotFound": 7106,
+  "server.billing.subscriptionUpgradeOnly": 7107,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

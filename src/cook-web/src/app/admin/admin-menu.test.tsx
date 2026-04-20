@@ -10,6 +10,7 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/billing',
     ]);
   });
 
@@ -20,6 +21,7 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/billing',
       undefined,
     ]);
     expect(menuItems.at(-1)).toMatchObject({

@@ -6,12 +6,65 @@ services:
     command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
+    environment:
+      REDIS_HOST: ai-shifu-redis
+      REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
+      CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/app/i18n/
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
+      - ai-shifu-redis
+
+  ai-shifu-celery-worker-dev:
+    container_name: ai-shifu-celery-worker-dev
+    image: ai-shifu-api-dev:latest
+    command:
+      - sh
+      - -c
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app worker --loglevel info
+    env_file:
+      - ./.env
+    environment:
+      REDIS_HOST: ai-shifu-redis
+      REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
+      CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
+    depends_on:
+      - ai-shifu-mysql
+      - ai-shifu-redis
+    volumes:
+      - ../src/api/:/app/
+      - ../src/i18n/:/app/i18n/
+      - ./storage:/app/storage
+
+  ai-shifu-celery-beat-dev:
+    container_name: ai-shifu-celery-beat-dev
+    image: ai-shifu-api-dev:latest
+    command:
+      - sh
+      - -c
+      - until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && cd /app && exec python -m celery -A celery_app:celery_app beat --loglevel info
+    env_file:
+      - ./.env
+    environment:
+      REDIS_HOST: ai-shifu-redis
+      REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
+      CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
+    depends_on:
+      - ai-shifu-mysql
+      - ai-shifu-redis
+    volumes:
+      - ../src/api/:/app/
+      - ../src/i18n/:/app/i18n/
+      - ./storage:/app/storage
 
   ai-shifu-cook-web-dev:
     container_name: ai-shifu-cook-web-dev
@@ -57,3 +110,11 @@ services:
       - "127.0.0.1:3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
+  ai-shifu-redis:
+    container_name: ai-shifu-redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./redis_data:/data
