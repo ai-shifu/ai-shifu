@@ -298,7 +298,7 @@ def test_create_celery_app_uses_default_billing_beat_crons() -> None:
     )
     _assert_cron_schedule(
         beat_schedule["billing.expire_wallet_buckets.schedule"]["schedule"],
-        minute="*/10",
+        minute="*",
         hour="*",
     )
     _assert_cron_schedule(

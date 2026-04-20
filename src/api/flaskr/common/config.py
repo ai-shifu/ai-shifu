@@ -552,7 +552,7 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     ),
     "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
         name="BILLING_BUCKET_EXPIRE_CRON",
-        default="*/10 * * * *",
+        default="* * * * *",
         description="Cron expression for scanning expired billing wallet buckets.",
         group="celery",
     ),

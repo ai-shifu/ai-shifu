@@ -20,5 +20,5 @@ def test_env_example_exports_celery_variables() -> None:
     assert 'CELERY_RESULT_BACKEND="redis://localhost:6379/1"' in output
     assert 'CELERY_TASK_ALWAYS_EAGER="False"' in output
     assert 'BILLING_RENEWAL_CRON="* * * * *"' in output
-    assert 'BILLING_BUCKET_EXPIRE_CRON="*/10 * * * *"' in output
+    assert 'BILLING_BUCKET_EXPIRE_CRON="* * * * *"' in output
     assert 'BILLING_LOW_BALANCE_CRON="0 * * * *"' in output

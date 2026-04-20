@@ -12,7 +12,7 @@ from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
-_DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "*/10 * * * *"
+_DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 
 __CELERY_APP__: Celery | None = None
