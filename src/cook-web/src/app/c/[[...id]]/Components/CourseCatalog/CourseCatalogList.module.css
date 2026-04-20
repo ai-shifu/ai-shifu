@@ -1,1 +1,31 @@
-.courseCatalogList{height:100%;display:flex;padding:0px 20px 10px 20px;flex-flow:column nowrap;box-sizing:border-box;position:relative}.courseCatalogList .titleRow{flex:0 0 auto;display:flex;flex-flow:row nowrap;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--base-border, #e5e5e5)}.courseCatalogList .titleRow .titleArea{flex:1 1 0;overflow:hidden}.courseCatalogList .titleRow .chapterCount{font-size:var(--font-size-5);color:var(--color-8)}.courseCatalogList .listRow{margin-top:12px}.courseCatalogList .listRowWithoutHeader{margin-top:0}
+.courseCatalogList {
+  height: 100%;
+  display: flex;
+  padding: 0px 20px 10px 20px;
+  flex-flow: column nowrap;
+  box-sizing: border-box;
+  position: relative;
+}
+.courseCatalogList .titleRow {
+  flex: 0 0 auto;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--base-border, #e5e5e5);
+}
+.courseCatalogList .titleRow .titleArea {
+  flex: 1 1 0;
+  overflow: hidden;
+}
+.courseCatalogList .titleRow .chapterCount {
+  font-size: var(--font-size-5);
+  color: var(--color-8);
+}
+.courseCatalogList .listRow {
+  margin-top: 12px;
+}
+.courseCatalogList .listRowWithoutHeader {
+  margin-top: 0;
+}
