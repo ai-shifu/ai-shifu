@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -17,15 +18,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -144,112 +136,6 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
-
-const renderPagination = (
-  pageIndex: number,
-  pageCount: number,
-  onPageChange: (page: number) => void,
-) => {
-  const items: React.ReactElement[] = [];
-  const maxVisiblePages = 5;
-
-  if (pageCount <= maxVisiblePages + 2) {
-    for (let index = 1; index <= pageCount; index += 1) {
-      items.push(
-        <PaginationItem key={index}>
-          <PaginationLink
-            href='#'
-            isActive={pageIndex === index}
-            onClick={event => {
-              event.preventDefault();
-              onPageChange(index);
-            }}
-          >
-            {index}
-          </PaginationLink>
-        </PaginationItem>,
-      );
-    }
-    return items;
-  }
-
-  items.push(
-    <PaginationItem key={1}>
-      <PaginationLink
-        href='#'
-        isActive={pageIndex === 1}
-        onClick={event => {
-          event.preventDefault();
-          onPageChange(1);
-        }}
-      >
-        {1}
-      </PaginationLink>
-    </PaginationItem>,
-  );
-
-  if (pageIndex > 3) {
-    items.push(
-      <PaginationItem key='start-ellipsis'>
-        <PaginationEllipsis />
-      </PaginationItem>,
-    );
-  }
-
-  let rangeStart = Math.max(2, pageIndex - 1);
-  let rangeEnd = Math.min(pageCount - 1, pageIndex + 1);
-
-  if (pageIndex <= 3) {
-    rangeStart = 2;
-    rangeEnd = Math.min(4, pageCount - 1);
-  }
-  if (pageIndex >= pageCount - 2) {
-    rangeStart = Math.max(2, pageCount - 3);
-    rangeEnd = pageCount - 1;
-  }
-
-  for (let index = rangeStart; index <= rangeEnd; index += 1) {
-    items.push(
-      <PaginationItem key={index}>
-        <PaginationLink
-          href='#'
-          isActive={pageIndex === index}
-          onClick={event => {
-            event.preventDefault();
-            onPageChange(index);
-          }}
-        >
-          {index}
-        </PaginationLink>
-      </PaginationItem>,
-    );
-  }
-
-  if (pageIndex < pageCount - 2) {
-    items.push(
-      <PaginationItem key='end-ellipsis'>
-        <PaginationEllipsis />
-      </PaginationItem>,
-    );
-  }
-
-  items.push(
-    <PaginationItem key={pageCount}>
-      <PaginationLink
-        href='#'
-        isActive={pageIndex === pageCount}
-        onClick={event => {
-          event.preventDefault();
-          onPageChange(pageCount);
-        }}
-      >
-        {pageCount}
-      </PaginationLink>
-    </PaginationItem>,
-  );
-
-  return items;
-};
 
 const OverflowTooltipText = ({
   text,
@@ -1295,47 +1181,22 @@ export default function AdminOperationUsersPage() {
 
         {pageCount > 1 ? (
           <div className='mt-4 mb-4 flex justify-end'>
-            <Pagination className='justify-end w-auto mx-0'>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href='#'
-                    onClick={event => {
-                      event.preventDefault();
-                      if (pageIndex > 1) {
-                        handlePageChange(pageIndex - 1);
-                      }
-                    }}
-                    aria-disabled={pageIndex <= 1}
-                    className={
-                      pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
-                    }
-                  >
-                    {t('module.order.paginationPrev', 'Previous')}
-                  </PaginationPrevious>
-                </PaginationItem>
-                {renderPagination(pageIndex, pageCount, handlePageChange)}
-                <PaginationItem>
-                  <PaginationNext
-                    href='#'
-                    onClick={event => {
-                      event.preventDefault();
-                      if (pageIndex < pageCount) {
-                        handlePageChange(pageIndex + 1);
-                      }
-                    }}
-                    aria-disabled={pageIndex >= pageCount}
-                    className={
-                      pageIndex >= pageCount
-                        ? 'pointer-events-none opacity-50'
-                        : ''
-                    }
-                  >
-                    {t('module.order.paginationNext', 'Next')}
-                  </PaginationNext>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+            <AdminPagination
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              onPageChange={handlePageChange}
+              prevLabel={t('module.order.paginationPrev', 'Previous')}
+              nextLabel={t('module.order.paginationNext', 'Next')}
+              prevAriaLabel={t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              )}
+              nextAriaLabel={t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              )}
+              className='justify-end w-auto mx-0'
+            />
           </div>
         ) : null}
 

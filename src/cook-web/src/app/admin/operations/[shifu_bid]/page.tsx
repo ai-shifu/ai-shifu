@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -36,15 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
 import {
   Tooltip,
   TooltipContent,
@@ -337,117 +329,6 @@ const createCourseUserFilters = (): CourseUserFilters => ({
   learningStatus: FILTER_ALL_OPTION,
   paymentStatus: FILTER_ALL_OPTION,
 });
-
-const renderPaginationItems = (
-  pageIndex: number,
-  pageCount: number,
-  onPageChange: (page: number) => void,
-) => {
-  if (pageCount <= 1) {
-    return [];
-  }
-
-  const items: JSX.Element[] = [];
-  const maxVisiblePages = 5;
-
-  if (pageCount <= maxVisiblePages + 2) {
-    for (let index = 1; index <= pageCount; index += 1) {
-      items.push(
-        <PaginationItem key={index}>
-          <PaginationLink
-            href='#'
-            isActive={pageIndex === index}
-            onClick={event => {
-              event.preventDefault();
-              onPageChange(index);
-            }}
-          >
-            {index}
-          </PaginationLink>
-        </PaginationItem>,
-      );
-    }
-    return items;
-  }
-
-  items.push(
-    <PaginationItem key={1}>
-      <PaginationLink
-        href='#'
-        isActive={pageIndex === 1}
-        onClick={event => {
-          event.preventDefault();
-          onPageChange(1);
-        }}
-      >
-        {1}
-      </PaginationLink>
-    </PaginationItem>,
-  );
-
-  if (pageIndex > 3) {
-    items.push(
-      <PaginationItem key='start-ellipsis'>
-        <PaginationEllipsis />
-      </PaginationItem>,
-    );
-  }
-
-  let rangeStart = Math.max(2, pageIndex - 1);
-  let rangeEnd = Math.min(pageCount - 1, pageIndex + 1);
-
-  if (pageIndex <= 3) {
-    rangeStart = 2;
-    rangeEnd = 4;
-  }
-
-  if (pageIndex >= pageCount - 2) {
-    rangeStart = pageCount - 3;
-    rangeEnd = pageCount - 1;
-  }
-
-  for (let index = rangeStart; index <= rangeEnd; index += 1) {
-    items.push(
-      <PaginationItem key={index}>
-        <PaginationLink
-          href='#'
-          isActive={pageIndex === index}
-          onClick={event => {
-            event.preventDefault();
-            onPageChange(index);
-          }}
-        >
-          {index}
-        </PaginationLink>
-      </PaginationItem>,
-    );
-  }
-
-  if (pageIndex < pageCount - 2) {
-    items.push(
-      <PaginationItem key='end-ellipsis'>
-        <PaginationEllipsis />
-      </PaginationItem>,
-    );
-  }
-
-  items.push(
-    <PaginationItem key={pageCount}>
-      <PaginationLink
-        href='#'
-        isActive={pageIndex === pageCount}
-        onClick={event => {
-          event.preventDefault();
-          onPageChange(pageCount);
-        }}
-      >
-        {pageCount}
-      </PaginationLink>
-    </PaginationItem>,
-  );
-
-  return items;
-};
 
 function ClearableTextInput({
   value,
@@ -2421,61 +2302,22 @@ export default function AdminOperationCourseDetailPage() {
 
                 {courseUserPageCount > 1 ? (
                   <div className='mb-4 mt-4 flex justify-end'>
-                    <Pagination className='mx-0 w-auto justify-end'>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              if (currentCourseUserPage > 1) {
-                                handleCourseUserPageChange(
-                                  currentCourseUserPage - 1,
-                                );
-                              }
-                            }}
-                            aria-disabled={currentCourseUserPage <= 1}
-                            className={
-                              currentCourseUserPage <= 1
-                                ? 'pointer-events-none opacity-50'
-                                : ''
-                            }
-                          >
-                            {t('module.order.paginationPrev', 'Previous')}
-                          </PaginationPrevious>
-                        </PaginationItem>
-
-                        {renderPaginationItems(
-                          currentCourseUserPage,
-                          courseUserPageCount,
-                          handleCourseUserPageChange,
-                        )}
-
-                        <PaginationItem>
-                          <PaginationNext
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              if (currentCourseUserPage < courseUserPageCount) {
-                                handleCourseUserPageChange(
-                                  currentCourseUserPage + 1,
-                                );
-                              }
-                            }}
-                            aria-disabled={
-                              currentCourseUserPage >= courseUserPageCount
-                            }
-                            className={
-                              currentCourseUserPage >= courseUserPageCount
-                                ? 'pointer-events-none opacity-50'
-                                : ''
-                            }
-                          >
-                            {t('module.order.paginationNext', 'Next')}
-                          </PaginationNext>
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
+                    <AdminPagination
+                      pageIndex={currentCourseUserPage}
+                      pageCount={courseUserPageCount}
+                      onPageChange={handleCourseUserPageChange}
+                      prevLabel={t('module.order.paginationPrev', 'Previous')}
+                      nextLabel={t('module.order.paginationNext', 'Next')}
+                      prevAriaLabel={t(
+                        'module.order.paginationPrevAriaLabel',
+                        'Go to previous page',
+                      )}
+                      nextAriaLabel={t(
+                        'module.order.paginationNextAriaLabel',
+                        'Go to next page',
+                      )}
+                      className='mx-0 w-auto justify-end'
+                    />
                   </div>
                 ) : null}
               </CardContent>

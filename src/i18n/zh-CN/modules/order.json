@@ -98,7 +98,9 @@
     "title": "导入开通"
   },
   "paginationNext": "下一页",
+  "paginationNextAriaLabel": "前往下一页",
   "paginationPrev": "上一页",
+  "paginationPrevAriaLabel": "前往上一页",
   "paymentChannel": {
     "manual": "人工",
     "open_api": "Open API",
