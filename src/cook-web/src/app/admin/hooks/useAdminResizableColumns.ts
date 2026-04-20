@@ -1,0 +1,232 @@
+'use client';
+
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+type ColumnWidthState<Key extends string> = Record<Key, number>;
+
+type ColumnResizeState<Key extends string> = {
+  key: Key;
+  startX: number;
+  startWidth: number;
+};
+
+type UseAdminResizableColumnsOptions<Key extends string> = {
+  storageKey: string;
+  defaultWidths: ColumnWidthState<Key>;
+  minWidth?: number;
+  maxWidth?: number;
+};
+
+const hasOwn = <Key extends string>(
+  value: Partial<Record<Key, number>>,
+  key: Key,
+): boolean => Object.prototype.hasOwnProperty.call(value, key);
+
+export function useAdminResizableColumns<Key extends string>({
+  storageKey,
+  defaultWidths,
+  minWidth = 80,
+  maxWidth = 360,
+}: UseAdminResizableColumnsOptions<Key>) {
+  const columnKeys = useMemo(
+    () => Object.keys(defaultWidths) as Key[],
+    [defaultWidths],
+  );
+
+  const clampWidth = useCallback(
+    (value: number) => Math.min(maxWidth, Math.max(minWidth, value)),
+    [maxWidth, minWidth],
+  );
+
+  const createColumnWidthState = useCallback(
+    (overrides?: Partial<ColumnWidthState<Key>>) => {
+      const widths = {} as ColumnWidthState<Key>;
+
+      columnKeys.forEach(key => {
+        const nextValue = overrides?.[key];
+        const fallback = defaultWidths[key];
+        widths[key] =
+          typeof nextValue === 'number' && Number.isFinite(nextValue)
+            ? clampWidth(nextValue)
+            : clampWidth(fallback);
+      });
+
+      return widths;
+    },
+    [clampWidth, columnKeys, defaultWidths],
+  );
+
+  const loadStoredManualWidths = useCallback((): Partial<ColumnWidthState<Key>> => {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+
+    try {
+      const serialized = window.localStorage.getItem(storageKey);
+      if (!serialized) {
+        return {};
+      }
+
+      const parsed = JSON.parse(serialized) as Partial<ColumnWidthState<Key>>;
+      const overrides: Partial<ColumnWidthState<Key>> = {};
+
+      columnKeys.forEach(key => {
+        const nextValue = parsed?.[key];
+        if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
+          overrides[key] = clampWidth(nextValue);
+        }
+      });
+
+      return overrides;
+    } catch {
+      return {};
+    }
+  }, [clampWidth, columnKeys, storageKey]);
+
+  const storedManualWidthsRef = useRef<Partial<ColumnWidthState<Key>> | null>(
+    null,
+  );
+
+  if (storedManualWidthsRef.current === null) {
+    storedManualWidthsRef.current = loadStoredManualWidths();
+  }
+
+  const columnResizeRef = useRef<ColumnResizeState<Key> | null>(null);
+  const manualResizeRef = useRef<Record<Key, boolean>>(
+    columnKeys.reduce(
+      (acc, key) => ({
+        ...acc,
+        [key]: hasOwn(storedManualWidthsRef.current || {}, key),
+      }),
+      {} as Record<Key, boolean>,
+    ),
+  );
+
+  const [columnWidths, setColumnWidthsState] = useState<ColumnWidthState<Key>>(
+    () => createColumnWidthState(storedManualWidthsRef.current || {}),
+  );
+
+  const setColumnWidths = useCallback(
+    (
+      value:
+        | ColumnWidthState<Key>
+        | ((prev: ColumnWidthState<Key>) => ColumnWidthState<Key>),
+    ) => {
+      setColumnWidthsState(prev => {
+        const resolved = typeof value === 'function' ? value(prev) : value;
+        const next = createColumnWidthState(resolved);
+        const changed = columnKeys.some(
+          key => Math.abs(next[key] - prev[key]) > 0.5,
+        );
+        return changed ? next : prev;
+      });
+    },
+    [columnKeys, createColumnWidthState],
+  );
+
+  const startColumnResize = useCallback(
+    (key: Key, clientX: number) => {
+      columnResizeRef.current = {
+        key,
+        startX: clientX,
+        startWidth: columnWidths[key],
+      };
+      manualResizeRef.current[key] = true;
+    },
+    [columnWidths],
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      const info = columnResizeRef.current;
+      if (!info) {
+        return;
+      }
+
+      const nextWidth = clampWidth(info.startWidth + event.clientX - info.startX);
+      setColumnWidthsState(prev => {
+        if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
+          return prev;
+        }
+        return { ...prev, [info.key]: nextWidth };
+      });
+    };
+
+    const handleMouseUp = () => {
+      columnResizeRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [clampWidth]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const manualOverrides = columnKeys.reduce<Partial<ColumnWidthState<Key>>>(
+        (acc, key) => {
+          if (manualResizeRef.current[key]) {
+            acc[key] = columnWidths[key];
+          }
+          return acc;
+        },
+        {},
+      );
+
+      if (Object.keys(manualOverrides).length === 0) {
+        window.localStorage.removeItem(storageKey);
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, JSON.stringify(manualOverrides));
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [columnKeys, columnWidths, storageKey]);
+
+  const getColumnStyle = useCallback(
+    (key: Key) => {
+      const width = columnWidths[key];
+      return {
+        width,
+        minWidth: width,
+        maxWidth: width,
+      };
+    },
+    [columnWidths],
+  );
+
+  const getResizeHandleProps = useCallback(
+    (key: Key) => ({
+      onMouseDown: (event: ReactMouseEvent<HTMLElement>) => {
+        event.preventDefault();
+        startColumnResize(key, event.clientX);
+      },
+      'aria-hidden': 'true' as const,
+    }),
+    [startColumnResize],
+  );
+
+  const isManualColumn = useCallback(
+    (key: Key) => manualResizeRef.current[key],
+    [],
+  );
+
+  return {
+    columnWidths,
+    setColumnWidths,
+    getColumnStyle,
+    getResizeHandleProps,
+    isManualColumn,
+    clampWidth,
+  };
+}

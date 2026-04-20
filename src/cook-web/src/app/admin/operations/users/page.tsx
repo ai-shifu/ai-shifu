@@ -6,8 +6,15 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+} from '@/app/admin/components/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -86,49 +93,6 @@ const DEFAULT_COLUMN_WIDTHS = {
   updatedAt: 180,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
-type ColumnWidthState = Record<ColumnKey, number>;
-const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-const clampWidth = (value: number): number =>
-  Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
-
-const createColumnWidthState = (
-  overrides?: Partial<ColumnWidthState>,
-): ColumnWidthState => {
-  const widths: ColumnWidthState = { ...DEFAULT_COLUMN_WIDTHS };
-  COLUMN_KEYS.forEach(key => {
-    const nextValue = overrides?.[key];
-    if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-      widths[key] = clampWidth(nextValue);
-    } else {
-      widths[key] = clampWidth(widths[key]);
-    }
-  });
-  return widths;
-};
-
-const loadStoredColumnWidthOverrides = (): Partial<ColumnWidthState> => {
-  if (typeof window === 'undefined') {
-    return {};
-  }
-  try {
-    const serialized = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
-    if (!serialized) {
-      return {};
-    }
-    const parsed = JSON.parse(serialized) as Partial<ColumnWidthState>;
-    const overrides: Partial<ColumnWidthState> = {};
-    COLUMN_KEYS.forEach(key => {
-      const nextValue = parsed?.[key];
-      if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-        overrides[key] = clampWidth(nextValue);
-      }
-    });
-    return overrides;
-  } catch {
-    return {};
-  }
-};
-
 const createDefaultFilters = (): UserFilters => ({
   user_bid: '',
   identifier: '',
@@ -138,6 +102,16 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
+
+const renderTooltipText = (text?: string, className?: string) => {
+  return (
+    <AdminTooltipText
+      text={text}
+      emptyValue={EMPTY_STATE_LABEL}
+      className={className}
+    />
+  );
+};
 
 type ClearableTextInputProps = {
   value: string;
@@ -207,7 +181,7 @@ const CourseListPreview = ({
   return (
     <button
       type='button'
-      aria-label={ariaLabel}
+      aria-label={`${ariaLabel} (${courses.length})`}
       className='py-1 text-center text-sm font-semibold text-primary transition-colors hover:text-primary/80'
       onClick={onView}
     >
@@ -299,12 +273,6 @@ export default function AdminOperationUsersPage() {
   const [courseDialog, setCourseDialog] = useState<CourseDialogState | null>(
     null,
   );
-  const storedManualWidthsRef = useRef<Partial<ColumnWidthState>>(
-    loadStoredColumnWidthOverrides(),
-  );
-  const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
-    createColumnWidthState(storedManualWidthsRef.current),
-  );
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
   );
@@ -313,11 +281,13 @@ export default function AdminOperationUsersPage() {
   );
   const requestIdRef = useRef(0);
   const lastRequestedPageRef = useRef(1);
-  const columnResizeRef = useRef<{
-    key: ColumnKey;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
+  const { getColumnStyle, getResizeHandleProps } =
+    useAdminResizableColumns<ColumnKey>({
+      storageKey: COLUMN_WIDTH_STORAGE_KEY,
+      defaultWidths: DEFAULT_COLUMN_WIDTHS,
+      minWidth: COLUMN_MIN_WIDTH,
+      maxWidth: COLUMN_MAX_WIDTH,
+    });
 
   const resolveStatusLabel = useCallback(
     (status: string) => {
@@ -458,80 +428,10 @@ export default function AdminOperationUsersPage() {
     void fetchUsers(nextPage, appliedFilters);
   };
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      window.localStorage.setItem(
-        COLUMN_WIDTH_STORAGE_KEY,
-        JSON.stringify(columnWidths),
-      );
-    } catch {
-      // Ignore persistence failures so table interactions do not crash the page.
-    }
-  }, [columnWidths]);
-
-  const startColumnResize = useCallback(
-    (key: ColumnKey, clientX: number) => {
-      columnResizeRef.current = {
-        key,
-        startX: clientX,
-        startWidth: columnWidths[key],
-      };
-    },
-    [columnWidths],
-  );
-
-  React.useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const info = columnResizeRef.current;
-      if (!info) {
-        return;
-      }
-      const delta = event.clientX - info.startX;
-      const desiredWidth = info.startWidth + delta;
-      const nextWidth = clampWidth(desiredWidth);
-      setColumnWidths(prev => {
-        if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
-          return prev;
-        }
-        return { ...prev, [info.key]: nextWidth };
-      });
-    };
-
-    const handleMouseUp = () => {
-      columnResizeRef.current = null;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const getColumnStyle = useCallback(
-    (key: ColumnKey) => {
-      const width = columnWidths[key];
-      return {
-        width,
-        minWidth: width,
-        maxWidth: width,
-      };
-    },
-    [columnWidths],
-  );
-
   const renderResizeHandle = (key: ColumnKey) => (
     <span
-      className='absolute top-0 right-0 h-full w-2 cursor-col-resize select-none'
-      onMouseDown={event => {
-        event.preventDefault();
-        startColumnResize(key, event.clientX);
-      }}
-      aria-hidden='true'
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getResizeHandleProps(key)}
     />
   );
 
@@ -852,108 +752,109 @@ export default function AdminOperationUsersPage() {
             </div>
           </div>
 
-          <div className='max-h-[calc(100vh-18rem)] overflow-auto rounded-xl border border-border bg-white shadow-sm'>
-            {loading ? (
-              <div className='flex items-center justify-center h-40'>
-                <Loading />
-              </div>
-            ) : (
+          <AdminTableShell
+            loading={loading}
+            isEmpty={users.length === 0}
+            emptyContent={tOperationsUsers('emptyList')}
+            emptyColSpan={14}
+            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
+            table={emptyRow => (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('userId')}
                     >
                       {tOperationsUsers('table.userId')}
                       {renderResizeHandle('userId')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('mobile')}
                     >
                       {contactColumnLabel}
                       {renderResizeHandle('mobile')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('nickname')}
                     >
                       {tOperationsUsers('table.nickname')}
                       {renderResizeHandle('nickname')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('status')}
                     >
                       {tOperationsUsers('table.status')}
                       {renderResizeHandle('status')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('role')}
                     >
                       {tOperationsUsers('table.role')}
                       {renderResizeHandle('role')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('loginMethods')}
                     >
                       {tOperationsUsers('table.loginMethods')}
                       {renderResizeHandle('loginMethods')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('registrationSource')}
                     >
                       {tOperationsUsers('table.registrationSource')}
                       {renderResizeHandle('registrationSource')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('learningCourses')}
                     >
                       {tOperationsUsers('table.learningCourses')}
                       {renderResizeHandle('learningCourses')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('createdCourses')}
                     >
                       {tOperationsUsers('table.createdCourses')}
                       {renderResizeHandle('createdCourses')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('totalPaidAmount')}
                     >
                       {tOperationsUsers('table.totalPaidAmount')}
                       {renderResizeHandle('totalPaidAmount')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('lastLoginAt')}
                     >
                       {tOperationsUsers('table.lastLoginAt')}
                       {renderResizeHandle('lastLoginAt')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('lastLearningAt')}
                     >
                       {tOperationsUsers('table.lastLearningAt')}
                       {renderResizeHandle('lastLearningAt')}
                     </TableHead>
                     <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('createdAt')}
                     >
                       {tOperationsUsers('table.createdAt')}
                       {renderResizeHandle('createdAt')}
                     </TableHead>
                     <TableHead
-                      className='relative sticky top-0 z-30 bg-muted text-center'
+                      className={ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS}
                       style={getColumnStyle('updatedAt')}
                     >
                       {tOperationsUsers('table.updatedAt')}
@@ -962,11 +863,7 @@ export default function AdminOperationUsersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.length === 0 ? (
-                    <TableEmpty colSpan={14}>
-                      {tOperationsUsers('emptyList')}
-                    </TableEmpty>
-                  ) : null}
+                  {emptyRow}
                   {users.map(user => {
                     const primaryContact =
                       contactType === 'email'
@@ -980,175 +877,142 @@ export default function AdminOperationUsersPage() {
                           .map(resolveLoginMethodLabel)
                           .join(' / ')
                       : EMPTY_STATE_LABEL;
+                    const registrationSource = resolveRegistrationSourceLabel(
+                      user.registration_source,
+                    );
                     return (
                       <TableRow key={user.user_bid}>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('userId')}
                         >
                           {userDetailUrl ? (
                             <Link
                               href={userDetailUrl}
-                              className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                              className='text-primary transition-colors hover:text-primary/80'
                             >
-                              <AdminTooltipText
-                                text={user.user_bid}
-                                emptyValue={EMPTY_STATE_LABEL}
-                              />
+                              {renderTooltipText(user.user_bid)}
                             </Link>
                           ) : (
-                            <AdminTooltipText
-                              text={user.user_bid}
-                              emptyValue={EMPTY_STATE_LABEL}
-                            />
+                            renderTooltipText(user.user_bid)
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('mobile')}
                         >
                           {userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
-                              className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                              className='text-primary transition-colors hover:text-primary/80'
                             >
-                              <AdminTooltipText
-                                text={primaryContact}
-                                emptyValue={EMPTY_STATE_LABEL}
-                              />
+                              {renderTooltipText(primaryContact)}
                             </Link>
                           ) : (
-                            <AdminTooltipText
-                              text={primaryContact}
-                              emptyValue={EMPTY_STATE_LABEL}
-                            />
+                            renderTooltipText(
+                              primaryContact || EMPTY_STATE_LABEL,
+                            )
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('nickname')}
                         >
-                          <AdminTooltipText
-                            text={user.nickname || defaultUserName}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(user.nickname || defaultUserName)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('status')}
                         >
-                          <AdminTooltipText
-                            text={resolveStatusLabel(user.user_status)}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(
+                            resolveStatusLabel(user.user_status),
+                          )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('role')}
                         >
-                          <AdminTooltipText
-                            text={resolveRoleLabel(user.user_role)}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(resolveRoleLabel(user.user_role))}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('loginMethods')}
                         >
-                          <AdminTooltipText
-                            text={loginMethods}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(loginMethods)}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          style={getColumnStyle('registrationSource')}
+                        >
+                          {renderTooltipText(registrationSource)}
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
-                          style={getColumnStyle('registrationSource')}
-                        >
-                          <AdminTooltipText
-                            text={resolveRegistrationSourceLabel(
-                              user.registration_source,
-                            )}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 align-top text-center'
                           style={getColumnStyle('learningCourses')}
                         >
                           <CourseListPreview
-                            courses={user.learning_courses || []}
-                            emptyLabel={tOperationsUsers('courseSummary.empty')}
-                            ariaLabel={`${tOperationsUsers('table.learningCourses')} (${(user.learning_courses || []).length})`}
+                            courses={user.learning_courses}
+                            emptyLabel={EMPTY_STATE_LABEL}
+                            ariaLabel={tOperationsUsers(
+                              'table.learningCourses',
+                            )}
                             onView={() =>
                               setCourseDialog({
                                 user,
-                                courses: user.learning_courses || [],
+                                courses: user.learning_courses,
                                 type: 'learning',
                               })
                             }
                           />
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 align-top text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('createdCourses')}
                         >
                           <CourseListPreview
-                            courses={user.created_courses || []}
-                            emptyLabel={tOperationsUsers('courseSummary.empty')}
-                            ariaLabel={`${tOperationsUsers('table.createdCourses')} (${(user.created_courses || []).length})`}
+                            courses={user.created_courses}
+                            emptyLabel={EMPTY_STATE_LABEL}
+                            ariaLabel={tOperationsUsers('table.createdCourses')}
                             onView={() =>
                               setCourseDialog({
                                 user,
-                                courses: user.created_courses || [],
+                                courses: user.created_courses,
                                 type: 'created',
                               })
                             }
                           />
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('totalPaidAmount')}
                         >
-                          <AdminTooltipText
-                            text={`${currencySymbol}${user.total_paid_amount || '0'}`}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(
+                            `${currencySymbol}${user.total_paid_amount || '0'}`,
+                          )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('lastLoginAt')}
                         >
-                          <AdminTooltipText
-                            text={user.last_login_at}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(user.last_login_at)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('lastLearningAt')}
                         >
-                          <AdminTooltipText
-                            text={user.last_learning_at}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(user.last_learning_at)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('createdAt')}
                         >
-                          <AdminTooltipText
-                            text={user.created_at}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(user.created_at)}
                         </TableCell>
                         <TableCell
-                          className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          className='whitespace-nowrap overflow-hidden text-ellipsis'
                           style={getColumnStyle('updatedAt')}
                         >
-                          <AdminTooltipText
-                            text={user.updated_at}
-                            emptyValue={EMPTY_STATE_LABEL}
-                          />
+                          {renderTooltipText(user.updated_at)}
                         </TableCell>
                       </TableRow>
                     );
@@ -1156,10 +1020,7 @@ export default function AdminOperationUsersPage() {
                 </TableBody>
               </Table>
             )}
-          </div>
-
-          {pageCount > 1 ? (
-            <div className='mt-4 mb-4 flex justify-end'>
+            footer={
               <AdminPagination
                 pageIndex={pageIndex}
                 pageCount={pageCount}
@@ -1176,9 +1037,8 @@ export default function AdminOperationUsersPage() {
                 )}
                 className='justify-end w-auto mx-0'
               />
-            </div>
-          ) : null}
-
+            }
+          />
           <Dialog
             open={Boolean(courseDialog)}
             onOpenChange={open => {

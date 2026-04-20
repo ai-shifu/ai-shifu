@@ -12,8 +12,16 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/app/admin/components/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -47,12 +55,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,7 +111,6 @@ const DEFAULT_COLUMN_WIDTHS = {
   action: 115,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
-type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
@@ -124,9 +129,6 @@ const createDefaultFilters = (): CourseFilters => ({
   updated_start_time: '',
   updated_end_time: '',
 });
-
-const clampWidth = (value: number): number =>
-  Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
 
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
@@ -147,44 +149,6 @@ const isValidTransferIdentifier = (
     return isValidEmail(value);
   }
   return TRANSFER_PHONE_PATTERN.test(value);
-};
-
-const createColumnWidthState = (
-  overrides?: Partial<ColumnWidthState>,
-): ColumnWidthState => {
-  const widths: ColumnWidthState = { ...DEFAULT_COLUMN_WIDTHS };
-  COLUMN_KEYS.forEach(key => {
-    const nextValue = overrides?.[key];
-    if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-      widths[key] = clampWidth(nextValue);
-    } else {
-      widths[key] = clampWidth(widths[key]);
-    }
-  });
-  return widths;
-};
-
-const loadStoredColumnWidthOverrides = (): Partial<ColumnWidthState> => {
-  if (typeof window === 'undefined') {
-    return {};
-  }
-  try {
-    const serialized = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
-    if (!serialized) {
-      return {};
-    }
-    const parsed = JSON.parse(serialized) as Partial<ColumnWidthState>;
-    const overrides: Partial<ColumnWidthState> = {};
-    COLUMN_KEYS.forEach(key => {
-      const nextValue = parsed?.[key];
-      if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
-        overrides[key] = clampWidth(nextValue);
-      }
-    });
-    return overrides;
-  } catch {
-    return {};
-  }
 };
 
 const renderTooltipText = (text?: string, className?: string) => {
@@ -345,9 +309,6 @@ const OperationsPage = () => {
     () => t('module.chat.lessonFeedbackClearInput'),
     [t],
   );
-  const storedManualWidthsRef = useRef<Partial<ColumnWidthState>>(
-    loadStoredColumnWidthOverrides(),
-  );
   const statusOptions = useMemo(
     () => [
       {
@@ -369,9 +330,6 @@ const OperationsPage = () => {
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(1);
   const [expanded, setExpanded] = useState(false);
-  const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
-    createColumnWidthState(storedManualWidthsRef.current),
-  );
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
@@ -381,26 +339,24 @@ const OperationsPage = () => {
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferError, setTransferError] = useState('');
   const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
-  const columnResizeRef = useRef<{
-    key: ColumnKey;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-  const manualResizeRef = useRef<Record<ColumnKey, boolean>>(
-    COLUMN_KEYS.reduce(
-      (acc, key) => ({
-        ...acc,
-        [key]: typeof storedManualWidthsRef.current[key] === 'number',
-      }),
-      {} as Record<ColumnKey, boolean>,
-    ),
-  );
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
   const fetchCoursesRef = useRef<
     | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
     | undefined
   >(undefined);
+  const {
+    setColumnWidths,
+    getColumnStyle,
+    getResizeHandleProps,
+    isManualColumn,
+    clampWidth,
+  } = useAdminResizableColumns<ColumnKey>({
+    storageKey: COLUMN_WIDTH_STORAGE_KEY,
+    defaultWidths: DEFAULT_COLUMN_WIDTHS,
+    minWidth: COLUMN_MIN_WIDTH,
+    maxWidth: COLUMN_MAX_WIDTH,
+  });
 
   const formatMoney = useCallback(
     (value?: string) =>
@@ -409,36 +365,6 @@ const OperationsPage = () => {
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const displayStatusValue = filters.course_status || ALL_OPTION_VALUE;
-
-  useEffect(() => {
-    const hasManualResize = Object.values(manualResizeRef.current).some(
-      Boolean,
-    );
-    if (!hasManualResize || typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const manualOverrides = COLUMN_KEYS.reduce<Partial<ColumnWidthState>>(
-        (acc, key) => {
-          if (manualResizeRef.current[key]) {
-            acc[key] = columnWidths[key];
-          }
-          return acc;
-        },
-        {},
-      );
-      if (Object.keys(manualOverrides).length === 0) {
-        window.localStorage.removeItem(COLUMN_WIDTH_STORAGE_KEY);
-        return;
-      }
-      window.localStorage.setItem(
-        COLUMN_WIDTH_STORAGE_KEY,
-        JSON.stringify(manualOverrides),
-      );
-    } catch {
-      // Ignore storage errors.
-    }
-  }, [columnWidths]);
 
   const fetchCourses = useCallback(
     async (targetPage: number, nextFilters?: CourseFilters) => {
@@ -725,59 +651,6 @@ const OperationsPage = () => {
     transferTargetCourse,
   ]);
 
-  const startColumnResize = useCallback(
-    (key: ColumnKey, clientX: number) => {
-      columnResizeRef.current = {
-        key,
-        startX: clientX,
-        startWidth: columnWidths[key],
-      };
-      manualResizeRef.current[key] = true;
-    },
-    [columnWidths],
-  );
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const info = columnResizeRef.current;
-      if (!info) {
-        return;
-      }
-      const delta = event.clientX - info.startX;
-      const desiredWidth = info.startWidth + delta;
-      const nextWidth = clampWidth(desiredWidth);
-      setColumnWidths(prev => {
-        if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
-          return prev;
-        }
-        return { ...prev, [info.key]: nextWidth };
-      });
-    };
-
-    const handleMouseUp = () => {
-      columnResizeRef.current = null;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const getColumnStyle = useCallback(
-    (key: ColumnKey) => {
-      const width = columnWidths[key];
-      return {
-        width,
-        minWidth: width,
-        maxWidth: width,
-      };
-    },
-    [columnWidths],
-  );
-
   const estimateWidth = (text: string, multiplier = 7) => {
     if (!text) {
       return COLUMN_MIN_WIDTH;
@@ -908,7 +781,7 @@ const OperationsPage = () => {
         setColumnWidths(prev => {
           const next = { ...prev };
           COLUMN_KEYS.forEach(key => {
-            if (!manualResizeRef.current[key]) {
+            if (!isManualColumn(key)) {
               next[key] = DEFAULT_COLUMN_WIDTHS[key];
             }
           });
@@ -980,7 +853,7 @@ const OperationsPage = () => {
       setColumnWidths(prev => {
         const updated = { ...prev };
         COLUMN_KEYS.forEach(key => {
-          if (manualResizeRef.current[key]) {
+          if (isManualColumn(key)) {
             return;
           }
           const fallback = DEFAULT_COLUMN_WIDTHS[key];
@@ -996,17 +869,21 @@ const OperationsPage = () => {
         return updated;
       });
     },
-    [formatMoney, resolveActorDisplay, resolveCourseStatusLabel, t],
+    [
+      clampWidth,
+      formatMoney,
+      isManualColumn,
+      resolveActorDisplay,
+      resolveCourseStatusLabel,
+      setColumnWidths,
+      t,
+    ],
   );
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
-      className='absolute top-0 right-0 h-full w-2 cursor-col-resize select-none'
-      onMouseDown={event => {
-        event.preventDefault();
-        startColumnResize(key, event.clientX);
-      }}
-      aria-hidden='true'
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getResizeHandleProps(key)}
     />
   );
 
@@ -1147,220 +1024,229 @@ const OperationsPage = () => {
           </div>
         </div>
 
-        <div className='max-h-[calc(100vh-18rem)] overflow-auto rounded-xl border border-border bg-white shadow-sm'>
-          {loading ? (
-            <div className='flex items-center justify-center h-40'>
-              <Loading />
-            </div>
-          ) : (
-            <TooltipProvider delayDuration={150}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('courseId')}
-                    >
-                      {tOperations('table.courseId')}
-                      {renderResizeHandle('courseId')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('courseName')}
-                    >
-                      {tOperations('table.courseName')}
-                      {renderResizeHandle('courseName')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('price')}
-                    >
-                      {tOperations('table.price')}
-                      {renderResizeHandle('price')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('status')}
-                    >
-                      {tOperations('table.status')}
-                      {renderResizeHandle('status')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('creator')}
-                    >
-                      {tOperations('table.creator')}
-                      {renderResizeHandle('creator')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('modifier')}
-                    >
-                      {tOperations('table.modifier')}
-                      {renderResizeHandle('modifier')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('createdAt')}
-                    >
-                      {tOperations('table.createdAt')}
-                      {renderResizeHandle('createdAt')}
-                    </TableHead>
-                    <TableHead
-                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted text-center'
-                      style={getColumnStyle('updatedAt')}
-                    >
-                      {tOperations('table.updatedAt')}
-                      {renderResizeHandle('updatedAt')}
-                    </TableHead>
-                    <TableHead
-                      className='sticky right-0 top-0 z-40 bg-muted text-center shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border'
-                      style={getColumnStyle('action')}
-                    >
-                      {tOperations('table.action')}
-                      {renderResizeHandle('action')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {courses.length === 0 && (
-                    <TableEmpty colSpan={9}>
-                      {tOperations('emptyList')}
-                    </TableEmpty>
-                  )}
-                  {courses.map(course => {
-                    const creatorDisplay = resolveActorDisplay(
-                      course,
-                      'creator',
-                    );
-                    const updaterDisplay = resolveActorDisplay(
-                      course,
-                      'updater',
-                    );
+        <AdminTableShell
+          loading={loading}
+          isEmpty={courses.length === 0}
+          emptyContent={tOperations('emptyList')}
+          emptyColSpan={9}
+          withTooltipProvider
+          tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
+          table={emptyRow => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('courseId')}
+                  >
+                    {tOperations('table.courseId')}
+                    {renderResizeHandle('courseId')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('courseName')}
+                  >
+                    {tOperations('table.courseName')}
+                    {renderResizeHandle('courseName')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('price')}
+                  >
+                    {tOperations('table.price')}
+                    {renderResizeHandle('price')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('status')}
+                  >
+                    {tOperations('table.status')}
+                    {renderResizeHandle('status')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('creator')}
+                  >
+                    {tOperations('table.creator')}
+                    {renderResizeHandle('creator')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('modifier')}
+                  >
+                    {tOperations('table.modifier')}
+                    {renderResizeHandle('modifier')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('createdAt')}
+                  >
+                    {tOperations('table.createdAt')}
+                    {renderResizeHandle('createdAt')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('updatedAt')}
+                  >
+                    {tOperations('table.updatedAt')}
+                    {renderResizeHandle('updatedAt')}
+                  </TableHead>
+                  <TableHead
+                    className={getAdminStickyRightHeaderClass('text-center')}
+                    style={getColumnStyle('action')}
+                  >
+                    {tOperations('table.action')}
+                    {renderResizeHandle('action')}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emptyRow}
+                {courses.map(course => {
+                  const creatorDisplay = resolveActorDisplay(course, 'creator');
+                  const updaterDisplay = resolveActorDisplay(course, 'updater');
 
-                    return (
-                      <TableRow key={course.shifu_bid}>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('courseId')}
-                        >
-                          {renderTooltipText(course.shifu_bid)}
-                        </TableCell>
-                        <TableCell
-                          className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
-                          style={getColumnStyle('courseName')}
-                        >
-                          <button
-                            type='button'
-                            className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
-                            onClick={() => handleDetailClick(course)}
-                          >
-                            {renderTooltipText(
-                              course.course_name,
-                              'truncate text-left',
-                            )}
-                          </button>
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('price')}
+                  return (
+                    <TableRow key={course.shifu_bid}>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('courseId')}
+                      >
+                        {renderTooltipText(course.shifu_bid)}
+                      </TableCell>
+                      <TableCell
+                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                        style={getColumnStyle('courseName')}
+                      >
+                        <button
+                          type='button'
+                          className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
+                          onClick={() => handleDetailClick(course)}
                         >
                           {renderTooltipText(
-                            formatMoney(course.price),
-                            'text-foreground',
+                            course.course_name,
+                            'truncate text-left',
                           )}
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('status')}
-                        >
+                        </button>
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('price')}
+                      >
+                        {renderTooltipText(
+                          formatMoney(course.price),
+                          'text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('status')}
+                      >
+                        {renderTooltipText(
+                          resolveCourseStatusLabel(course.course_status),
+                          'text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('creator')}
+                      >
+                        <div className='flex flex-col gap-0.5 leading-tight'>
                           {renderTooltipText(
-                            resolveCourseStatusLabel(course.course_status),
-                            'text-foreground',
+                            creatorDisplay.primary,
+                            'text-foreground whitespace-nowrap',
                           )}
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('creator')}
-                        >
-                          <div className='flex flex-col gap-0.5 leading-tight'>
-                            {renderTooltipText(
-                              creatorDisplay.primary,
-                              'text-foreground whitespace-nowrap',
-                            )}
-                            {creatorDisplay.secondary
-                              ? renderTooltipText(
-                                  creatorDisplay.secondary,
-                                  'text-xs text-muted-foreground',
-                                )
-                              : null}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('modifier')}
-                        >
-                          <div className='flex flex-col gap-0.5 leading-tight'>
-                            {renderTooltipText(
-                              updaterDisplay.primary,
-                              'text-foreground whitespace-nowrap',
-                            )}
-                            {updaterDisplay.secondary
-                              ? renderTooltipText(
-                                  updaterDisplay.secondary,
-                                  'text-xs text-muted-foreground',
-                                )
-                              : null}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('createdAt')}
-                        >
-                          {renderTooltipText(course.created_at)}
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={getColumnStyle('updatedAt')}
-                        >
-                          {renderTooltipText(course.updated_at)}
-                        </TableCell>
-                        <TableCell
-                          className='sticky right-0 z-10 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap text-center'
-                          style={getColumnStyle('action')}
-                        >
-                          <div className='flex justify-center'>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type='button'
-                                  className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
-                                >
-                                  {t('common.core.more')}
-                                  <ChevronDown className='h-3.5 w-3.5' />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align='center'>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleTransferCreatorClick(course)
-                                  }
-                                >
-                                  {tOperations('actions.transferCreator')}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TooltipProvider>
+                          {creatorDisplay.secondary
+                            ? renderTooltipText(
+                                creatorDisplay.secondary,
+                                'text-xs text-muted-foreground',
+                              )
+                            : null}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('modifier')}
+                      >
+                        <div className='flex flex-col gap-0.5 leading-tight'>
+                          {renderTooltipText(
+                            updaterDisplay.primary,
+                            'text-foreground whitespace-nowrap',
+                          )}
+                          {updaterDisplay.secondary
+                            ? renderTooltipText(
+                                updaterDisplay.secondary,
+                                'text-xs text-muted-foreground',
+                              )
+                            : null}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('createdAt')}
+                      >
+                        {renderTooltipText(course.created_at)}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('updatedAt')}
+                      >
+                        {renderTooltipText(course.updated_at)}
+                      </TableCell>
+                      <TableCell
+                        className={getAdminStickyRightCellClass(
+                          'whitespace-nowrap text-center',
+                        )}
+                        style={getColumnStyle('action')}
+                      >
+                        <div className='flex justify-center'>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type='button'
+                                className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
+                              >
+                                {t('common.core.more')}
+                                <ChevronDown className='h-3.5 w-3.5' />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align='center'>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleTransferCreatorClick(course)
+                                }
+                              >
+                                {tOperations('actions.transferCreator')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
-        </div>
-
+          footer={
+            <AdminPagination
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              onPageChange={handlePageChange}
+              prevLabel={t('module.order.paginationPrev', 'Previous')}
+              nextLabel={t('module.order.paginationNext', 'Next')}
+              prevAriaLabel={t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              )}
+              nextAriaLabel={t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              )}
+              className='justify-end w-auto mx-0'
+            />
+          }
+        />
         <Dialog
           open={transferDialogOpen}
           onOpenChange={handleTransferDialogOpenChange}
@@ -1499,25 +1385,6 @@ const OperationsPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        <div className='mt-4 mb-4 flex justify-end'>
-          <AdminPagination
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            onPageChange={handlePageChange}
-            prevLabel={t('module.order.paginationPrev', 'Previous')}
-            nextLabel={t('module.order.paginationNext', 'Next')}
-            prevAriaLabel={t(
-              'module.order.paginationPrevAriaLabel',
-              'Go to previous page',
-            )}
-            nextAriaLabel={t(
-              'module.order.paginationNextAriaLabel',
-              'Go to next page',
-            )}
-            className='justify-end w-auto mx-0'
-          />
-        </div>
       </div>
     </div>
   );
