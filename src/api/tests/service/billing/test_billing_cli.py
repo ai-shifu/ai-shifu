@@ -11,6 +11,7 @@ import flaskr.dao as dao
 from flaskr.service.billing import notifications as billing_notifications
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -590,6 +591,116 @@ def test_billing_grant_plan_cli_accepts_explicit_effective_to(
         )
 
 
+def test_billing_grant_plan_cli_upgrades_active_manual_subscription(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    expected_effective_to = "2030-05-01T12:30:00"
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        lambda app, *, bill_order_bid: {
+            "status": "enqueued",
+            "bill_order_bid": bill_order_bid,
+            "enqueued": True,
+        },
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-trial",
+                    "bill-product-plan-yearly-premium",
+                ]
+            )
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-trial-upgrade",
+            identify="creator-cli-trial-upgrade@example.com",
+            email="creator-cli-trial-upgrade@example.com",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-trial-upgrade",
+                creator_bid="creator-cli-trial-upgrade",
+                product_bid="bill-product-plan-trial",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=14),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={"trial_bootstrap": True},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "creator-cli-trial-upgrade@example.com",
+            "--product-code",
+            "creator-plan-yearly-premium",
+            "--effective-to",
+            expected_effective_to,
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "granted"
+    assert payload["current_period_end_at"] == expected_effective_to
+
+    with billing_cli_db_app.app_context():
+        order = BillingOrder.query.filter_by(
+            creator_bid="creator-cli-trial-upgrade"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-trial-upgrade"
+        ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-cli-trial-upgrade"
+        ).one()
+        expire_event = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+        ).one()
+
+        assert (
+            BillingSubscription.query.filter_by(
+                creator_bid="creator-cli-trial-upgrade"
+            ).count()
+            == 1
+        )
+        assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        assert order.subscription_bid == "sub-cli-trial-upgrade"
+        assert order.metadata_json["effective_to"] == expected_effective_to
+        assert order.metadata_json["applied_cycle_end_at"] == expected_effective_to
+        assert subscription.subscription_bid == "sub-cli-trial-upgrade"
+        assert subscription.product_bid == "bill-product-plan-yearly-premium"
+        assert subscription.billing_provider == "manual"
+        assert subscription.current_period_end_at == datetime.fromisoformat(
+            expected_effective_to
+        )
+        assert wallet.available_credits == Decimal("22000.0000000000")
+        assert billing_notifications._resolve_notification_date_text(
+            billing_cli_db_app,
+            order,
+        ).startswith("2030-05-01 12:30")
+        assert expire_event.scheduled_at == datetime.fromisoformat(
+            expected_effective_to
+        )
+
+
 def test_billing_grant_plan_cli_returns_noop_for_same_active_plan_without_sms(
     billing_cli_db_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -654,7 +765,7 @@ def test_billing_grant_plan_cli_returns_noop_for_same_active_plan_without_sms(
         assert BillingOrder.query.filter_by(creator_bid="creator-cli-noop").count() == 0
 
 
-def test_billing_grant_plan_cli_rejects_when_active_subscription_exists(
+def test_billing_grant_plan_cli_rejects_when_provider_managed_subscription_exists(
     billing_cli_db_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -715,7 +826,7 @@ def test_billing_grant_plan_cli_rejects_when_active_subscription_exists(
     )
 
     assert result.exit_code != 0
-    assert "already has an active subscription" in result.output
+    assert "active provider-managed subscription" in result.output
 
     with billing_cli_db_app.app_context():
         assert (

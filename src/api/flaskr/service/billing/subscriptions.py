@@ -1210,11 +1210,10 @@ def _resolve_credit_bucket_effective_to(
             effective_from=effective_from,
         )
 
-    if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-        renewal_cycle_end_at = _extract_resolved_order_cycle_end_at(metadata)
-        if renewal_cycle_end_at is not None:
-            return renewal_cycle_end_at
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    resolved_cycle_end_at = _extract_resolved_order_cycle_end_at(metadata)
+    if resolved_cycle_end_at is not None:
+        return resolved_cycle_end_at
 
     if (
         order.subscription_bid
