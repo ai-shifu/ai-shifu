@@ -1,15 +1,38 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import json
+from decimal import Decimal
 
 from flask import Flask
 import pytest
 
 import flaskr.dao as dao
-from flaskr.service.billing.consts import BILL_SYS_CONFIG_SEEDS, CREDIT_USAGE_RATE_SEEDS
+from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILL_SYS_CONFIG_SEEDS,
+    CREDIT_USAGE_RATE_SEEDS,
+)
 from flaskr.service.billing.cli import register_billing_commands
-from flaskr.service.billing.models import BillingProduct, CreditUsageRate
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    BillingRenewalEvent,
+    BillingSubscription,
+    CreditUsageRate,
+    CreditWallet,
+)
 from flaskr.service.config.models import Config
+from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.repository import (
+    create_user_entity,
+    load_user_aggregate_by_identifier,
+    upsert_credential,
+)
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
@@ -53,6 +76,50 @@ def billing_cli_db_app():
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
+
+
+def _seed_billing_cli_user(
+    app: Flask,
+    *,
+    user_bid: str,
+    identify: str,
+    phone: str = "",
+    email: str = "",
+    is_creator: bool = False,
+) -> None:
+    entity = create_user_entity(
+        user_bid=user_bid,
+        identify=identify,
+        nickname="CLI User",
+        language="en-US",
+        avatar="",
+        state=USER_STATE_REGISTERED,
+    )
+    entity.is_creator = 1 if is_creator else 0
+
+    if phone:
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="phone",
+            subject_id=phone,
+            subject_format="phone",
+            identifier=phone,
+            metadata={},
+            verified=True,
+        )
+    if email:
+        normalized_email = email.lower()
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="email",
+            subject_id=normalized_email,
+            subject_format="email",
+            identifier=normalized_email,
+            metadata={},
+            verified=True,
+        )
 
 
 def test_billing_backfill_settlement_cli_requires_explicit_scope(
@@ -350,6 +417,194 @@ def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
     assert payload["kwargs"]["shifu_bid"] == "shifu-cli-1"
     assert payload["kwargs"]["date_from"] == "2026-04-08"
     assert payload["kwargs"]["date_to"] == "2026-04-10"
+
+
+def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-phone",
+            identify="creator-cli-phone",
+            phone="13800138000",
+            is_creator=False,
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "13800138000",
+            "--product-code",
+            "creator-plan-monthly",
+            "--note",
+            "ops grant",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "granted"
+    assert payload["creator_bid"] == "creator-cli-phone"
+    assert payload["creator_role_granted"] is True
+    assert payload["product_code"] == "creator-plan-monthly"
+    assert payload["mobile"] == "13800138000"
+
+    with billing_cli_db_app.app_context():
+        aggregate = load_user_aggregate_by_identifier("13800138000")
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-cli-phone").one()
+        order = BillingOrder.query.filter_by(creator_bid="creator-cli-phone").one()
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-phone"
+        ).one()
+        pending_events = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        ).all()
+
+        assert aggregate is not None
+        assert aggregate.is_creator is True
+        assert wallet.available_credits == Decimal("5.0000000000")
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert order.payment_provider == "manual"
+        assert order.payable_amount == 0
+        assert order.paid_amount == 0
+        assert order.metadata_json["checkout_type"] == "manual_grant"
+        assert order.metadata_json["note"] == "ops grant"
+        assert subscription.billing_provider == "manual"
+        assert subscription.current_period_start_at is not None
+        assert subscription.current_period_end_at is not None
+        assert subscription.current_period_end_at > subscription.current_period_start_at
+        assert len(pending_events) == 1
+        assert pending_events[0].event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
+
+
+def test_billing_grant_plan_cli_accepts_explicit_effective_to(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    expected_effective_to = "2030-05-01T12:30:00"
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-explicit-end",
+            identify="creator-cli-explicit-end@example.com",
+            email="creator-cli-explicit-end@example.com",
+            is_creator=True,
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "creator-cli-explicit-end@example.com",
+            "--product-code",
+            "creator-plan-monthly",
+            "--effective-to",
+            expected_effective_to,
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "granted"
+    assert payload["current_period_end_at"] == expected_effective_to
+
+    with billing_cli_db_app.app_context():
+        order = BillingOrder.query.filter_by(
+            creator_bid="creator-cli-explicit-end"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-explicit-end"
+        ).one()
+        expire_event = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+        ).one()
+
+        assert subscription.current_period_end_at == datetime.fromisoformat(
+            expected_effective_to
+        )
+        assert order.metadata_json["effective_to"] == expected_effective_to
+        assert expire_event.scheduled_at == datetime.fromisoformat(
+            expected_effective_to
+        )
+
+
+def test_billing_grant_plan_cli_rejects_when_active_subscription_exists(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-monthly",
+                    "bill-product-plan-yearly",
+                ]
+            )
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-email",
+            identify="creator-cli-email@example.com",
+            email="creator-cli-email@example.com",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-active-1",
+                creator_bid="creator-cli-email",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="stripe",
+                provider_subscription_id="sub_provider_active_1",
+                provider_customer_id="cus_provider_active_1",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "CREATOR-CLI-EMAIL@example.com",
+            "--product-bid",
+            "bill-product-plan-yearly",
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "already has an active subscription" in result.output
+
+    with billing_cli_db_app.app_context():
+        assert (
+            BillingOrder.query.filter_by(creator_bid="creator-cli-email").count() == 0
+        )
 
 
 def test_billing_seed_bootstrap_data_cli_is_idempotent(

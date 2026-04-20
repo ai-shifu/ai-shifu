@@ -13,6 +13,12 @@ from flask import current_app
 from flask.cli import with_appcontext
 from flaskr.dao import db
 from flaskr.service.config.models import Config
+from flaskr.service.user.repository import (
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    mark_user_roles,
+)
+from flaskr.util.uuid import generate_id
 
 from .checkout import reconcile_billing_provider_reference
 from .consts import (
@@ -26,12 +32,21 @@ from .consts import (
     BILLING_MODE_MANUAL,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_STATUS_INACTIVE,
     BILLING_PRODUCT_TYPE_CUSTOM,
     BILLING_PRODUCT_TYPE_GRANT,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+    BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+    BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILL_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
@@ -39,11 +54,20 @@ from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,
 )
-from .models import BillingProduct, CreditUsageRate
+from .models import (
+    BillingOrder,
+    BillingProduct,
+    BillingRenewalEvent,
+    BillingSubscription,
+    CreditUsageRate,
+)
 from .notifications import requeue_subscription_purchase_sms
+from .primitives import coerce_datetime
+from .queries import calculate_billing_cycle_end, load_primary_active_subscription
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
 from .subscriptions import (
+    grant_paid_order_credits,
     repair_subscription_cycle_mismatches,
     repair_topup_grant_expiries,
 )
@@ -222,6 +246,39 @@ def register_billing_commands(console) -> None:
             sort_order=sort_order,
             entitlement_json=entitlement_json,
             metadata_json=metadata_json,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="grant-plan")
+    @click.option(
+        "--identify",
+        required=True,
+        help="User identify value, usually phone or email.",
+    )
+    @click.option("--product-bid", default="", help="Billing plan bid.")
+    @click.option("--product-code", default="", help="Billing plan code.")
+    @click.option(
+        "--effective-to",
+        default="",
+        help="Optional end datetime (ISO-8601 or YYYY-MM-DD).",
+    )
+    @click.option("--note", default="", help="Optional audit note.")
+    @with_appcontext
+    def grant_plan_command(
+        identify: str,
+        product_bid: str,
+        product_code: str,
+        effective_to: str,
+        note: str,
+    ) -> None:
+        """Grant one billing plan to a user resolved by phone or email."""
+
+        payload = grant_billing_plan_by_identify(
+            identify=identify,
+            product_bid=product_bid,
+            product_code=product_code,
+            effective_to=effective_to,
+            note=note,
         )
         _echo_payload(payload)
 
@@ -622,6 +679,185 @@ def upsert_billing_product(
     }
 
 
+def grant_billing_plan_by_identify(
+    *,
+    identify: str,
+    product_bid: str = "",
+    product_code: str = "",
+    effective_to: str = "",
+    note: str = "",
+) -> dict[str, Any]:
+    normalized_identify = str(identify or "").strip()
+    if not normalized_identify:
+        raise click.ClickException("--identify is required.")
+
+    normalized_note = str(note or "").strip()
+    if len(normalized_note) > 255:
+        raise click.ClickException("--note must be 255 characters or fewer.")
+
+    normalized_product_bid = str(product_bid or "").strip()
+    normalized_product_code = str(product_code or "").strip()
+    if bool(normalized_product_bid) == bool(normalized_product_code):
+        raise click.ClickException(
+            "Pass exactly one of --product-bid or --product-code."
+        )
+    normalized_effective_to = str(effective_to or "").strip()
+
+    try:
+        aggregate = load_user_aggregate_by_identifier(normalized_identify)
+        if aggregate is None:
+            raise click.ClickException(
+                f"No user found for identify: {normalized_identify}"
+            )
+
+        product = _load_active_plan_product(
+            product_bid=normalized_product_bid,
+            product_code=normalized_product_code,
+        )
+        if product is None:
+            raise click.ClickException("Active billing plan not found.")
+
+        creator_role_granted = False
+        if not bool(getattr(aggregate, "is_creator", False)):
+            mark_user_roles(aggregate.user_bid, is_creator=True)
+            creator_role_granted = True
+            aggregate = load_user_aggregate(aggregate.user_bid) or aggregate
+
+        existing_subscription = load_primary_active_subscription(
+            aggregate.user_bid,
+            as_of=datetime.now(),
+        )
+        if existing_subscription is not None:
+            if (
+                str(existing_subscription.product_bid or "").strip()
+                == product.product_bid
+            ):
+                db.session.commit()
+                return {
+                    "status": "noop_active",
+                    "identify": normalized_identify,
+                    "creator_bid": aggregate.user_bid,
+                    "creator_role_granted": creator_role_granted,
+                    "product_bid": product.product_bid,
+                    "product_code": product.product_code,
+                    "subscription_bid": existing_subscription.subscription_bid,
+                    "bill_order_bid": None,
+                    "billing_provider": existing_subscription.billing_provider,
+                    "current_period_start_at": (
+                        existing_subscription.current_period_start_at
+                    ),
+                    "current_period_end_at": existing_subscription.current_period_end_at,
+                    "email": aggregate.email,
+                    "mobile": aggregate.mobile,
+                }
+            raise click.ClickException(
+                "User already has an active subscription. "
+                "Cancel or let the current cycle expire before using manual grant."
+            )
+
+        granted_at = datetime.now()
+        cycle_end_at = (
+            _parse_effective_to_option(normalized_effective_to)
+            if normalized_effective_to
+            else calculate_billing_cycle_end(product, cycle_start_at=granted_at)
+        )
+        if cycle_end_at is None:
+            raise click.ClickException(
+                "Target product does not support one-cycle manual activation."
+            )
+        if cycle_end_at <= granted_at:
+            raise click.ClickException("--effective-to must be later than now.")
+
+        subscription_metadata = {
+            "manual_grant": True,
+            "manual_grant_source": "cli",
+        }
+        if normalized_effective_to:
+            subscription_metadata["manual_grant_effective_to"] = (
+                cycle_end_at.isoformat()
+            )
+        if normalized_note:
+            subscription_metadata["manual_grant_note"] = normalized_note
+
+        order_metadata = {
+            "checkout_type": "manual_grant",
+            "manual_grant": True,
+            "manual_grant_source": "cli",
+        }
+        if normalized_effective_to:
+            order_metadata["effective_to"] = cycle_end_at.isoformat()
+        if normalized_note:
+            order_metadata["note"] = normalized_note
+
+        subscription = BillingSubscription(
+            subscription_bid=generate_id(current_app),
+            creator_bid=aggregate.user_bid,
+            product_bid=product.product_bid,
+            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            billing_provider="manual",
+            provider_subscription_id="",
+            provider_customer_id="",
+            billing_anchor_at=granted_at,
+            current_period_start_at=granted_at,
+            current_period_end_at=cycle_end_at,
+            grace_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            last_renewed_at=None,
+            last_failed_at=None,
+            metadata_json=subscription_metadata,
+        )
+        db.session.add(subscription)
+        db.session.flush()
+
+        order = BillingOrder(
+            bill_order_bid=generate_id(current_app),
+            creator_bid=aggregate.user_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=product.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            currency=product.currency,
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=granted_at,
+            metadata_json=order_metadata,
+        )
+        db.session.add(order)
+        db.session.flush()
+
+        granted = grant_paid_order_credits(current_app, order)
+        if not granted:
+            raise click.ClickException(
+                "Manual plan grant did not create a new credit grant."
+            )
+
+        _enforce_manual_subscription_expire_event(subscription)
+        db.session.commit()
+
+        return {
+            "status": "granted",
+            "identify": normalized_identify,
+            "creator_bid": aggregate.user_bid,
+            "creator_role_granted": creator_role_granted,
+            "product_bid": product.product_bid,
+            "product_code": product.product_code,
+            "subscription_bid": subscription.subscription_bid,
+            "bill_order_bid": order.bill_order_bid,
+            "billing_provider": subscription.billing_provider,
+            "current_period_start_at": subscription.current_period_start_at,
+            "current_period_end_at": subscription.current_period_end_at,
+            "email": aggregate.email,
+            "mobile": aggregate.mobile,
+        }
+    except Exception:
+        db.session.rollback()
+        raise
+
+
 def _upsert_bootstrap_rows(
     *,
     model,
@@ -679,6 +915,110 @@ def _parse_optional_json_object(
     if not isinstance(parsed, dict):
         raise click.ClickException(f"--{option_name} must decode to a JSON object.")
     return parsed
+
+
+def _load_active_plan_product(
+    *,
+    product_bid: str = "",
+    product_code: str = "",
+) -> BillingProduct | None:
+    normalized_product_bid = str(product_bid or "").strip()
+    normalized_product_code = str(product_code or "").strip()
+
+    query = BillingProduct.query.filter(
+        BillingProduct.deleted == 0,
+        BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
+        BillingProduct.product_type == BILLING_PRODUCT_TYPE_PLAN,
+    )
+    if normalized_product_bid:
+        query = query.filter(BillingProduct.product_bid == normalized_product_bid)
+    elif normalized_product_code:
+        query = query.filter(BillingProduct.product_code == normalized_product_code)
+    else:
+        return None
+
+    return query.order_by(BillingProduct.id.desc()).first()
+
+
+def _parse_effective_to_option(raw_value: str) -> datetime:
+    parsed = coerce_datetime(raw_value)
+    if parsed is None:
+        raise click.ClickException(
+            "--effective-to must be a valid ISO-8601 datetime or YYYY-MM-DD."
+        )
+    return parsed
+
+
+def _enforce_manual_subscription_expire_event(
+    subscription: BillingSubscription,
+) -> None:
+    scheduled_at = subscription.current_period_end_at
+    if scheduled_at is None:
+        return
+
+    pending_statuses = (
+        BILLING_RENEWAL_EVENT_STATUS_PENDING,
+        BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+        BILLING_RENEWAL_EVENT_STATUS_FAILED,
+    )
+    payload = {
+        "subscription_bid": subscription.subscription_bid,
+        "creator_bid": subscription.creator_bid,
+        "product_bid": subscription.product_bid,
+        "next_product_bid": str(subscription.next_product_bid or "").strip() or None,
+        "status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+            int(subscription.status or 0),
+            "active",
+        ),
+        "cancel_at_period_end": bool(subscription.cancel_at_period_end),
+        "manual_grant": True,
+    }
+    now = datetime.now()
+    expire_event: BillingRenewalEvent | None = None
+    rows = (
+        BillingRenewalEvent.query.filter(
+            BillingRenewalEvent.deleted == 0,
+            BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
+            BillingRenewalEvent.status.in_(pending_statuses),
+        )
+        .order_by(BillingRenewalEvent.id.desc())
+        .all()
+    )
+
+    for row in rows:
+        if (
+            row.event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
+            and row.scheduled_at == scheduled_at
+        ):
+            expire_event = row
+            continue
+        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
+        row.processed_at = now
+        row.updated_at = now
+        db.session.add(row)
+
+    if expire_event is None:
+        expire_event = BillingRenewalEvent(
+            renewal_event_bid=generate_id(current_app),
+            subscription_bid=subscription.subscription_bid,
+            creator_bid=subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=scheduled_at,
+            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            attempt_count=0,
+            last_error="",
+            payload_json=payload,
+            processed_at=None,
+        )
+    else:
+        expire_event.creator_bid = subscription.creator_bid
+        expire_event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
+        expire_event.last_error = ""
+        expire_event.payload_json = payload
+        expire_event.processed_at = None
+        expire_event.updated_at = now
+
+    db.session.add(expire_event)
 
 
 def _serialize_cli_payload(payload: Any) -> Any:
