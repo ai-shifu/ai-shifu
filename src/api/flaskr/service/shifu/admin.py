@@ -539,10 +539,11 @@ def _load_operator_user_total_paid_amount_map(
     if not normalized_user_bids:
         return {}
 
+    counted_order_amount_expr = _build_course_order_amount_expr()
     rows = (
         db.session.query(
             Order.user_bid,
-            db.func.coalesce(db.func.sum(Order.paid_price), 0).label(
+            db.func.coalesce(db.func.sum(counted_order_amount_expr), 0).label(
                 "total_paid_amount"
             ),
         )
