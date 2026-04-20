@@ -87,9 +87,11 @@ export function useAdminResizableColumns<Key extends string>({
   }, [clampWidth, columnKeys, storageKey]);
 
   const [hasLoadedStoredWidths, setHasLoadedStoredWidths] = useState(false);
-  const storedManualWidthsRef = useRef<Partial<ColumnWidthState<Key>>>({});
-
   const columnResizeRef = useRef<ColumnResizeState<Key> | null>(null);
+  const mouseMoveListenerRef = useRef<((event: MouseEvent) => void) | null>(
+    null,
+  );
+  const mouseUpListenerRef = useRef<(() => void) | null>(null);
   const manualResizeRef = useRef<Record<Key, boolean>>(
     columnKeys.reduce(
       (acc, key) => ({
@@ -133,7 +135,6 @@ export function useAdminResizableColumns<Key extends string>({
 
   useEffect(() => {
     const storedManualWidths = loadStoredManualWidths();
-    storedManualWidthsRef.current = storedManualWidths;
     manualResizeRef.current = columnKeys.reduce(
       (acc, key) => ({
         ...acc,
@@ -174,53 +175,78 @@ export function useAdminResizableColumns<Key extends string>({
     }
   }, [columnKeys, hasLoadedStoredWidths, storageKey]);
 
+  const removeWindowListeners = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (mouseMoveListenerRef.current) {
+      window.removeEventListener('mousemove', mouseMoveListenerRef.current);
+      mouseMoveListenerRef.current = null;
+    }
+
+    if (mouseUpListenerRef.current) {
+      window.removeEventListener('mouseup', mouseUpListenerRef.current);
+      mouseUpListenerRef.current = null;
+    }
+  }, []);
+
   const startColumnResize = useCallback(
     (key: Key, clientX: number) => {
+      removeWindowListeners();
       columnResizeRef.current = {
         key,
         startX: clientX,
-        startWidth: columnWidths[key],
+        startWidth: columnWidthsRef.current[key],
       };
       manualResizeRef.current[key] = true;
-    },
-    [columnWidths],
-  );
 
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      const info = columnResizeRef.current;
-      if (!info) {
+      if (typeof window === 'undefined') {
         return;
       }
 
-      const nextWidth = clampWidth(
-        info.startWidth + event.clientX - info.startX,
-      );
-      setColumnWidthsState(prev => {
-        if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
-          return prev;
+      const handleMouseMove = (event: MouseEvent) => {
+        const info = columnResizeRef.current;
+        if (!info) {
+          return;
         }
-        const next = { ...prev, [info.key]: nextWidth };
-        columnWidthsRef.current = next;
-        return next;
-      });
-    };
 
-    const handleMouseUp = () => {
-      if (columnResizeRef.current) {
-        persistManualWidths();
-      }
-      columnResizeRef.current = null;
-    };
+        const nextWidth = clampWidth(
+          info.startWidth + event.clientX - info.startX,
+        );
+        setColumnWidthsState(prev => {
+          if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
+            return prev;
+          }
+          const next = { ...prev, [info.key]: nextWidth };
+          columnWidthsRef.current = next;
+          return next;
+        });
+      };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+      const handleMouseUp = () => {
+        if (columnResizeRef.current) {
+          persistManualWidths();
+        }
+        columnResizeRef.current = null;
+        removeWindowListeners();
+      };
 
+      mouseMoveListenerRef.current = handleMouseMove;
+      mouseUpListenerRef.current = handleMouseUp;
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    [clampWidth, persistManualWidths, removeWindowListeners],
+  );
+
+  useEffect(() => {
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      columnResizeRef.current = null;
+      removeWindowListeners();
     };
-  }, [clampWidth, persistManualWidths]);
+  }, [removeWindowListeners]);
 
   const getColumnStyle = useCallback(
     (key: Key) => {
