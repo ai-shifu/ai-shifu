@@ -15,6 +15,7 @@ from flaskr.util.uuid import generate_id
 
 from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
@@ -24,12 +25,15 @@ from .consts import (
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
 )
 from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
     resolve_credit_bucket_priority,
     resolve_runtime_credit_bucket_category,
+    resolve_wallet_bucket_runtime_category,
 )
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
@@ -41,6 +45,10 @@ _ZERO = Decimal("0")
 _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
+}
+_SINGLE_BUCKET_CATEGORIES = {
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
 }
 
 
@@ -204,6 +212,127 @@ def persist_credit_wallet_snapshot(
     return wallet
 
 
+def resolve_bucket_source_type_for_category(bucket_category: int | None) -> int:
+    normalized_category = resolve_runtime_credit_bucket_category(
+        bucket_category=bucket_category
+    )
+    if normalized_category == CREDIT_BUCKET_CATEGORY_TOPUP:
+        return CREDIT_SOURCE_TYPE_TOPUP
+    return CREDIT_SOURCE_TYPE_SUBSCRIPTION
+
+
+def load_primary_credit_bucket_by_category(
+    creator_bid: str,
+    *,
+    bucket_category: int,
+) -> CreditWalletBucket | None:
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_category = resolve_runtime_credit_bucket_category(
+        bucket_category=bucket_category
+    )
+    if (
+        not normalized_creator_bid
+        or normalized_category not in _SINGLE_BUCKET_CATEGORIES
+    ):
+        return None
+
+    rows = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == normalized_creator_bid,
+        )
+        .order_by(
+            CreditWalletBucket.created_at.asc(),
+            CreditWalletBucket.id.asc(),
+        )
+        .all()
+    )
+    candidates = [
+        row
+        for row in rows
+        if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL
+        and resolve_wallet_bucket_runtime_category(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
+        )
+        == normalized_category
+    ]
+    if not candidates:
+        return None
+
+    def _sort_key(row: CreditWalletBucket) -> tuple[int, int, datetime, int]:
+        current_status = int(row.status or 0)
+        if current_status in (
+            CREDIT_BUCKET_STATUS_ACTIVE,
+            CREDIT_BUCKET_STATUS_EXHAUSTED,
+        ):
+            status_rank = 0
+        elif current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+            status_rank = 1
+        else:
+            status_rank = 2
+        has_balance_rank = (
+            0
+            if (
+                _to_decimal(row.available_credits) > _ZERO
+                or _to_decimal(row.reserved_credits) > _ZERO
+            )
+            else 1
+        )
+        return (
+            status_rank,
+            has_balance_rank,
+            row.created_at or datetime.min,
+            int(row.id or 0),
+        )
+
+    candidates.sort(key=_sort_key)
+    return candidates[0]
+
+
+def load_or_create_credit_bucket_by_category(
+    app: Flask,
+    *,
+    wallet: CreditWallet,
+    creator_bid: str,
+    bucket_category: int,
+    source_bid: str,
+    metadata: dict[str, Any] | None = None,
+    effective_from: datetime | None = None,
+    effective_to: datetime | None = None,
+) -> CreditWalletBucket:
+    normalized_category = resolve_runtime_credit_bucket_category(
+        bucket_category=bucket_category
+    )
+    bucket = load_primary_credit_bucket_by_category(
+        creator_bid,
+        bucket_category=normalized_category,
+    )
+    if bucket is not None:
+        return bucket
+
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=generate_id(app),
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=str(creator_bid or "").strip(),
+        bucket_category=normalized_category,
+        source_type=resolve_bucket_source_type_for_category(normalized_category),
+        source_bid=str(source_bid or "").strip(),
+        priority=resolve_credit_bucket_priority(normalized_category),
+        original_credits=_ZERO,
+        available_credits=_ZERO,
+        reserved_credits=_ZERO,
+        consumed_credits=_ZERO,
+        expired_credits=_ZERO,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        status=CREDIT_BUCKET_STATUS_EXHAUSTED,
+        metadata_json=dict(metadata or {}),
+    )
+    db.session.add(bucket)
+    return bucket
+
+
 def rebuild_credit_wallet_snapshots(
     app: Flask,
     *,
@@ -315,29 +444,60 @@ def grant_refund_return_credits(
             metadata=metadata,
             load_order_type=load_billing_order_type_by_bid,
         )
-        bucket = CreditWalletBucket(
-            wallet_bucket_bid=generate_id(app),
-            wallet_bid=wallet.wallet_bid,
+        resolved_effective_to = None
+        if bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP:
+            from .subscriptions import load_effective_topup_subscription
+
+            subscription = load_effective_topup_subscription(
+                normalized_creator_bid,
+                as_of=now,
+            )
+            if subscription is not None:
+                resolved_effective_to = subscription.current_period_end_at
+
+        bucket = load_or_create_credit_bucket_by_category(
+            app,
+            wallet=wallet,
             creator_bid=normalized_creator_bid,
             bucket_category=bucket_category,
-            source_type=CREDIT_SOURCE_TYPE_REFUND,
             source_bid=normalized_refund_bid,
-            priority=resolve_credit_bucket_priority(bucket_category),
-            original_credits=normalized_amount,
-            available_credits=normalized_amount,
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
-            effective_from=now,
-            effective_to=None,
-            status=CREDIT_BUCKET_STATUS_ACTIVE,
-            metadata_json={
+            metadata={
                 "refund_return": True,
                 **(metadata or {}),
             },
+            effective_from=now,
+            effective_to=resolved_effective_to,
         )
-        db.session.add(bucket)
+        current_available = _to_decimal(bucket.available_credits)
+        current_original = _to_decimal(bucket.original_credits)
+        current_reserved = _to_decimal(bucket.reserved_credits)
+        bucket.wallet_bid = wallet.wallet_bid
+        bucket.bucket_category = bucket_category
+        bucket.source_type = resolve_bucket_source_type_for_category(bucket_category)
+        bucket.source_bid = normalized_refund_bid
+        bucket.priority = resolve_credit_bucket_priority(bucket_category)
+        bucket.original_credits = _quantize_credit_amount(
+            current_original + normalized_amount
+        )
+        bucket.available_credits = _quantize_credit_amount(
+            current_available + normalized_amount
+        )
+        bucket.reserved_credits = _quantize_credit_amount(current_reserved)
+        if current_available > _ZERO or current_reserved > _ZERO:
+            if bucket.effective_from is None or bucket.effective_from > now:
+                bucket.effective_from = now
+        else:
+            bucket.effective_from = now
+        if resolved_effective_to is not None:
+            bucket.effective_to = resolved_effective_to
+        bucket.metadata_json = {
+            **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+            "refund_return": True,
+            **(metadata or {}),
+        }
+        bucket.updated_at = now
         sync_credit_bucket_status(bucket)
+        db.session.add(bucket)
         refresh_credit_wallet_snapshot(wallet)
         ledger_entry = CreditLedgerEntry(
             ledger_bid=generate_id(app),
@@ -622,7 +782,10 @@ def _expire_credit_wallet_buckets_in_session(
         bucket.expired_credits = _quantize_credit_amount(
             _to_decimal(bucket.expired_credits) + available
         )
-        bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
+        if _to_decimal(bucket.reserved_credits) > _ZERO:
+            sync_credit_bucket_status(bucket)
+        else:
+            bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
         db.session.add(bucket)
 
         refresh_credit_wallet_snapshot(wallet)

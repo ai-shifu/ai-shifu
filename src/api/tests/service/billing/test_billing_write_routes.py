@@ -975,6 +975,74 @@ class TestBillingWriteRoutes:
             assert bucket.effective_to == current_period_end_at
             assert ledger.expires_at == current_period_end_at
 
+    def test_repeated_topup_reuses_single_bucket_and_tracks_latest_source(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        current_period_end_at = datetime.now() + timedelta(days=30)
+        _add_active_subscription(
+            app,
+            subscription_bid="sub-topup-repeat-1",
+            current_period_end_at=current_period_end_at,
+        )
+
+        first_checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        first_order_bid = first_checkout["data"]["bill_order_bid"]
+        first_sync = client.post(
+            f"/api/billing/orders/{first_order_bid}/sync"
+        ).get_json(force=True)
+
+        with app.app_context():
+            initial_bucket = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=first_order_bid,
+            ).one()
+            initial_bucket_bid = initial_bucket.wallet_bucket_bid
+
+        second_checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "pingxx",
+                "channel": "alipay_qr",
+            },
+        ).get_json(force=True)
+        second_order_bid = second_checkout["data"]["bill_order_bid"]
+        second_sync = client.post(
+            f"/api/billing/orders/{second_order_bid}/sync"
+        ).get_json(force=True)
+
+        assert first_sync["code"] == 0
+        assert second_sync["code"] == 0
+
+        with app.app_context():
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            topup_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            ).all()
+            second_ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=second_order_bid,
+            ).one()
+
+            assert len(topup_buckets) == 1
+            assert topup_buckets[0].wallet_bucket_bid == initial_bucket_bid
+            assert topup_buckets[0].source_bid == second_order_bid
+            assert topup_buckets[0].available_credits == 40
+            assert topup_buckets[0].effective_to == current_period_end_at
+            assert wallet.available_credits == 40
+            assert second_ledger.wallet_bucket_bid == initial_bucket_bid
+            assert second_ledger.expires_at == current_period_end_at
+
     def test_trial_then_paid_then_topup_prefers_paid_subscription_for_overview_and_expiry(
         self, billing_write_client
     ) -> None:
@@ -1029,10 +1097,6 @@ class TestBillingWriteRoutes:
                 creator_bid="creator-1",
                 product_bid="bill-product-plan-monthly",
             ).one()
-            trial_subscription = BillingSubscription.query.filter_by(
-                creator_bid="creator-1",
-                product_bid=BILLING_TRIAL_PRODUCT_BID,
-            ).one()
             bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
                 source_bid=topup_order_bid,
@@ -1042,12 +1106,7 @@ class TestBillingWriteRoutes:
                 source_bid=topup_order_bid,
             ).one()
 
-            assert trial_subscription.current_period_end_at is not None
             assert paid_subscription.current_period_end_at is not None
-            assert (
-                trial_subscription.current_period_end_at
-                > paid_subscription.current_period_end_at
-            )
             assert bucket.effective_to == paid_subscription.current_period_end_at
             assert ledger.expires_at == paid_subscription.current_period_end_at
 
@@ -1069,10 +1128,12 @@ class TestBillingWriteRoutes:
         _seed_creator_user(app, creator_bid="creator-1")
         with app.app_context():
             bootstrap_new_creator_trial_credits(app, "creator-1")
-            trial_subscription = BillingSubscription.query.filter_by(
-                creator_bid="creator-1",
-                product_bid=BILLING_TRIAL_PRODUCT_BID,
-            ).one()
+            trial_subscription = (
+                BillingSubscription.query.filter_by(creator_bid="creator-1")
+                .order_by(BillingSubscription.current_period_end_at.desc())
+                .first()
+            )
+            assert trial_subscription is not None
             trial_end = trial_subscription.current_period_end_at
 
         topup_checkout = client.post(
@@ -1883,7 +1944,46 @@ class TestBillingWriteRoutes:
                     "renewal_cycle_end_at": renewal_cycle_end.isoformat(),
                 },
             )
+            wallet = CreditWallet(
+                wallet_bid="wallet-pingxx-early-renewal",
+                creator_bid="creator-1",
+                available_credits=Decimal("3.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("3.0000000000"),
+                lifetime_consumed_credits=Decimal("0"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
+            bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-pingxx-early-renewal",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="bill-pingxx-start-early-1",
+                priority=20,
+                original_credits=Decimal("3.0000000000"),
+                available_credits=Decimal("3.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=current_cycle_start,
+                effective_to=renewal_cycle_start,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "bill_order_bid": "bill-pingxx-start-early-1",
+                    "subscription_bid": "sub-pingxx-early-renewal",
+                    "product_bid": "bill-product-plan-monthly",
+                    "payment_provider": "pingxx",
+                },
+                created_at=current_cycle_start,
+                updated_at=current_cycle_start,
+            )
             dao.db.session.add(subscription)
+            dao.db.session.add(wallet)
+            dao.db.session.add(bucket)
             dao.db.session.add(order)
             dao.db.session.flush()
 
@@ -1891,16 +1991,35 @@ class TestBillingWriteRoutes:
             dao.db.session.commit()
 
             bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-pingxx-early-renewal",
+            ).one()
+            grant_ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
                 source_bid="bill-pingxx-renewal-early-1",
             ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-pingxx-early-renewal"
             ).one()
+            subscription_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            ).all()
 
             assert granted is True
-            assert bucket.effective_from == renewal_cycle_start
-            assert bucket.effective_to == renewal_cycle_end
+            assert len(subscription_buckets) == 1
+            assert bucket.source_bid == "bill-pingxx-renewal-early-1"
+            assert bucket.available_credits == Decimal("3.0000000000")
+            assert bucket.reserved_credits == Decimal("5.0000000000")
+            assert bucket.effective_from == current_cycle_start
+            assert bucket.effective_to == renewal_cycle_start
+            assert wallet.available_credits == Decimal("3.0000000000")
+            assert wallet.reserved_credits == Decimal("5.0000000000")
+            assert grant_ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+            assert grant_ledger.amount == Decimal("5.0000000000")
+            assert grant_ledger.expires_at == renewal_cycle_end
+            assert grant_ledger.consumable_from == renewal_cycle_start
+            assert grant_ledger.metadata_json["bucket_credit_state"] == "reserved"
             assert subscription.current_period_start_at == current_cycle_start
             assert subscription.current_period_end_at == renewal_cycle_start
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
@@ -2095,9 +2214,12 @@ class TestBillingWriteRoutes:
         with app.app_context():
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            topup_buckets = CreditWalletBucket.query.filter_by(
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            ).all()
             refund_bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
-                source_type=CREDIT_SOURCE_TYPE_REFUND,
                 source_bid="re_billing_test",
             ).one()
             refund_ledger = CreditLedgerEntry.query.filter_by(
@@ -2113,8 +2235,10 @@ class TestBillingWriteRoutes:
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
             assert wallet.available_credits == 40
+            assert len(topup_buckets) == 1
             assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
-            assert refund_bucket.available_credits == 20
+            assert refund_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
+            assert refund_bucket.available_credits == 40
             assert refund_bucket.metadata_json["bill_order_bid"] == bill_order_bid
             assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
             assert refund_ledger.amount == 20

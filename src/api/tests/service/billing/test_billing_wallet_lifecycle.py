@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -147,7 +148,7 @@ def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledg
 
         assert payload["status"] == "granted"
         assert bucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-        assert bucket.source_type == CREDIT_SOURCE_TYPE_REFUND
+        assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
         assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
         assert bucket.available_credits == Decimal("1.2500000000")
         assert bucket.metadata_json["refund_return"] is True
