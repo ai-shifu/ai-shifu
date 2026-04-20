@@ -52,26 +52,44 @@ function formatDetailWindow(value: string | null): string {
 function buildCategorySummary(
   buckets: BillingWalletBucket[],
 ): CategorySummaryRow[] {
-  return CATEGORY_ORDER.map(category => {
-    const activeBuckets = buckets
-      .filter(
-        bucket => bucket.category === category && bucket.status === 'active',
-      )
-      .sort((left, right) =>
-        String(left.effective_to || '').localeCompare(
-          String(right.effective_to || ''),
-        ),
-      );
+  return CATEGORY_ORDER.flatMap(category => {
+    const activeBuckets = buckets.filter(
+      bucket => bucket.category === category && bucket.status === 'active',
+    );
 
-    return {
-      category,
-      availableCredits: activeBuckets.reduce(
-        (sum, bucket) => sum + Number(bucket.available_credits || 0),
-        0,
+    if (activeBuckets.length === 0) {
+      return [
+        {
+          category,
+          availableCredits: 0,
+          effectiveTo: null,
+        },
+      ];
+    }
+
+    const grouped = new Map<string, CategorySummaryRow>();
+    activeBuckets.forEach(bucket => {
+      const effectiveTo = bucket.effective_to || null;
+      const groupKey = effectiveTo || '__never_expires__';
+      const existing = grouped.get(groupKey);
+
+      if (existing) {
+        existing.availableCredits += Number(bucket.available_credits || 0);
+        return;
+      }
+
+      grouped.set(groupKey, {
+        category,
+        availableCredits: Number(bucket.available_credits || 0),
+        effectiveTo,
+      });
+    });
+
+    return Array.from(grouped.values()).sort((left, right) =>
+      String(left.effectiveTo || '9999-12-31T23:59:59').localeCompare(
+        String(right.effectiveTo || '9999-12-31T23:59:59'),
       ),
-      effectiveTo:
-        activeBuckets.find(bucket => bucket.effective_to)?.effective_to || null,
-    };
+    );
   });
 }
 
@@ -173,7 +191,7 @@ export function BillingCreditDetailsPanel({
               <div>
                 {summaryRows.map(row => (
                   <div
-                    key={row.category}
+                    key={`${row.category}:${row.effectiveTo || 'never-expires'}`}
                     className='grid grid-cols-[1.4fr_0.7fr_0.9fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
                   >
                     <div className='px-[var(--spacing-2,8px)] py-4 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
