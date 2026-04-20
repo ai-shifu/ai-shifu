@@ -1,8 +1,12 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "askProviderTimeout": "The external knowledge service timed out. Please try again later.",
+    "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
-    "nextChapterButton": "Next"
+    "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",
+    "nextChapterButton": "Next",
+    "outputInProgress": "Content is still generating. Please wait before retrying."
   }
 }

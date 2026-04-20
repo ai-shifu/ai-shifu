@@ -52,8 +52,17 @@
     .leftSection {
       flex: 1 1 0;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+
+      .leftSectionText {
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
     }
     .rightSection {
       flex: 0 0 auto;

@@ -2,7 +2,7 @@
 
 import styles from './page.module.scss';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import {
   calcFrameLayout,
   FRAME_LAYOUT_MOBILE,
   inWechat,
+  inMiniProgram,
 } from '@/c-constants/uiConstants';
 import { EVENT_NAMES, events } from './events';
 
@@ -27,6 +28,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
+import { buildLoginRedirectPath } from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
@@ -35,9 +37,16 @@ import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
 import TrackingVisit from '@/c-components/TrackingVisit';
 import ChatUi from './Components/ChatUi/ChatUi';
 
+import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
-import PayModalM from './Components/Pay/PayModalM';
-import PayModal from './Components/Pay/PayModal';
+import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
+
+const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
+  ssr: false,
+});
+const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
+  ssr: false,
+});
 
 // import LoginModal from './Components/Login/LoginModal';
 
@@ -49,33 +58,45 @@ export default function ChatPage() {
    * User info and init part
    */
   const userInfo = useUserStore(state => state.userInfo);
-  const { isLoggedIn, initUser } = useUserStore(state => state);
-  const [initialized, setInitialized] = useState(false);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const isUserInitialized = useUserStore(state => state.isInitialized);
+  const initialized = isUserInitialized;
 
-  const { wechatCode, previewMode } = useSystemStore(
+  const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
       wechatCode: state.wechatCode,
       previewMode: state.previewMode,
+      learningMode: state.learningMode,
     })),
   );
-
-  const initAndCheckLogin = useCallback(async () => {
-    // Initialize user state (automatically handles guest or auth)
-    await initUser();
-
-    if (inWechat() && wechatCode && isLoggedIn) {
-      await updateWxcode({ wxcode: wechatCode });
-    }
-    setInitialized(true);
-  }, [wechatCode, isLoggedIn, initUser]);
+  const isListenMode = learningMode === 'listen';
 
   useEffect(() => {
-    initAndCheckLogin();
-  }, [initAndCheckLogin]);
+    if (!initialized) {
+      return;
+    }
+    if (!isLoggedIn) {
+      return;
+    }
+    if (!wechatCode || !inWechat()) {
+      return;
+    }
+
+    const token = useUserStore.getState().getToken();
+    if (!token) {
+      return;
+    }
+
+    void updateWxcode({ wxcode: wechatCode }).catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to update WeChat OpenID:', err);
+    });
+  }, [initialized, isLoggedIn, wechatCode]);
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+    const redirectPath = buildLoginRedirectPath(window.location.href);
+    window.location.href = `/login?redirect=${encodeURIComponent(redirectPath)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -85,6 +106,20 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const html = document.documentElement;
+    // Sync listen mode to global layout classes.
+    html.classList.toggle('listen-mode', isListenMode);
+    document.body.classList.toggle('listen-mode', isListenMode);
+    root?.classList.toggle('listen-mode', isListenMode);
+    return () => {
+      html.classList.remove('listen-mode');
+      document.body.classList.remove('listen-mode');
+      root?.classList.remove('listen-mode');
+    };
+  }, [isListenMode]);
 
   // check the frame layout
   useEffect(() => {
@@ -200,6 +235,37 @@ export default function ChatPage() {
       setLoadedChapterId(chapterId);
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
+
+  const resolvedLessonId = selectedLessonId || lessonId;
+  const currentLessonTitle = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return '';
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return lesson.name || '';
+      }
+    }
+    return '';
+  }, [resolvedLessonId, tree]);
+
+  const currentLessonStatus = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return '';
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return lesson.status_value || lesson.status || '';
+      }
+    }
+    return '';
+  }, [resolvedLessonId, tree]);
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -389,10 +455,26 @@ export default function ChatPage() {
   }, [gotoLogin, onGoChapter, reloadTree]);
 
   return (
-    <div className={clsx(styles.newChatPage)}>
+    <div
+      className={clsx(
+        styles.newChatPage,
+        isListenMode ? styles.listenMode : '',
+        mobileStyle ? 'flex-col' : 'h-screen flex-row',
+        'flex',
+      )}
+    >
       <AppContext.Provider
         value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
       >
+        {mobileStyle ? (
+          <ChatMobileHeader
+            navOpen={navOpen}
+            className={styles.chatMobileHeader}
+            iconPopoverPayload={tree?.bannerInfo}
+            onSettingClick={onNavToggle}
+          />
+        ) : null}
+
         {!initialized ? (
           <div className='flex flex-col space-y-6 p-6 container mx-auto'>
             <Skeleton className='h-[125px] rounded-xl' />
@@ -430,6 +512,8 @@ export default function ChatPage() {
           <ChatUi
             lessonId={lessonId}
             chapterId={chapterId}
+            lessonTitle={currentLessonTitle}
+            lessonStatus={currentLessonStatus}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}
@@ -454,7 +538,14 @@ export default function ChatPage() {
           />
         ) : null} */}
 
-        {payModalOpen && mobileStyle ? (
+        {payModalOpen && inMiniProgram() ? (
+          <MiniProgramPayGuide
+            open={payModalOpen}
+            onClose={_onPayModalCancel}
+          />
+        ) : null}
+
+        {payModalOpen && !inMiniProgram() && mobileStyle ? (
           <PayModalM
             open={payModalOpen}
             onCancel={_onPayModalCancel}
@@ -464,7 +555,7 @@ export default function ChatPage() {
           />
         ) : null}
 
-        {payModalOpen && !mobileStyle ? (
+        {payModalOpen && !inMiniProgram() && !mobileStyle ? (
           <PayModal
             open={payModalOpen}
             onCancel={_onPayModalCancel}
@@ -475,15 +566,6 @@ export default function ChatPage() {
         ) : null}
 
         {initialized ? <TrackingVisit /> : null}
-
-        {mobileStyle ? (
-          <ChatMobileHeader
-            navOpen={navOpen}
-            className={styles.chatMobileHeader}
-            iconPopoverPayload={tree?.bannerInfo}
-            onSettingClick={onNavToggle}
-          />
-        ) : null}
 
         <FeedbackModal
           open={feedbackModalOpen}

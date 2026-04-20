@@ -30,6 +30,7 @@ export interface EnvStoreState {
   currencySymbol: string;
   stripePublishableKey: string;
   stripeEnabled: string;
+  payOrderExpireSeconds: number;
   paymentChannels: string[];
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
@@ -53,6 +54,7 @@ export interface EnvStoreState {
   updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
+  updatePayOrderExpireSeconds: (seconds: number) => Promise<void>;
   updatePaymentChannels: (channels: string[]) => Promise<void>;
   updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
   updateDefaultLoginMethod: (method: string) => Promise<void>;
@@ -67,19 +69,25 @@ export interface SystemStoreState {
   showVip: boolean;
   previewMode: boolean;
   skip: boolean;
+  learningMode: 'listen' | 'read';
+  showLearningModeToggle: boolean;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
   updatePreviewMode: (mode: boolean) => void;
   updateSkip: (skip: boolean) => void;
+  updateLearningMode: (mode: 'listen' | 'read') => void;
+  updateShowLearningModeToggle: (show: boolean) => void;
 }
 
 export interface CourseStoreState {
   courseName: string;
   courseAvatar: string;
+  courseTtsEnabled: boolean | null;
   updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
+  updateCourseTtsEnabled: (enabled: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;

@@ -1,7 +1,8 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
-    "basicInfo": "User Info",
+    "adminConsole": "Admin Console",
+    "createCourse": "Create Course",
     "language": "Language",
     "personalInfo": "Personal Settings"
   }

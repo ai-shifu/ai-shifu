@@ -31,7 +31,17 @@ def create_app() -> Flask:
 
     pymysql.install_as_MySQLdb()
     app = Flask(__name__, instance_relative_config=True)
-    CORS(app, resources={r"/*": {"supports_credentials": True}})
+    CORS(
+        app,
+        resources={
+            r"/api/*": {
+                "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+                "allow_headers": "*",
+                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            }
+        },
+        supports_credentials=True,
+    )
     from flaskr.common import Config, init_log
 
     app.config = Config(app.config, app)

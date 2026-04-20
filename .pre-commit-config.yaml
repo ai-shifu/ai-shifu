@@ -16,13 +16,13 @@ repos:
     -   id: requirements-txt-fixer
         exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.4
+    rev: v0.15.5
     hooks:
     -   id: ruff-check
         args: [ --fix ]
     -   id: ruff-format
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.10.0  # use latest stable version
+    rev: v4.13.9  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
@@ -33,9 +33,9 @@ repos:
         name: Prettier cook-web files
         entry: prettier
         language: node
-        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|json)$
-        args: ['--write', '--config', 'src/cook-web/.prettierrc']
-        additional_dependencies: ['prettier@^3.5.3']
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|mdx|json)$
+        args: ['--write', '--config', 'src/cook-web/.prettierrc', '--ignore-path', 'src/cook-web/.prettierignore']
+        additional_dependencies: ['prettier@3.7.4']
 -   repo: local
     hooks:
     -   id: check-shared-translations

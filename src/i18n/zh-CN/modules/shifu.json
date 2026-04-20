@@ -7,6 +7,21 @@
     "modeText": "友好",
     "title": "授课提示词"
   },
+  "history": {
+    "collapse": "收起",
+    "confirmDescription": "确认恢复后，当前节内容将被该版本完整覆盖。",
+    "confirmLoadFailed": "加载版本内容失败，请稍后重试",
+    "confirmTitle": "确认恢复此版本",
+    "contentEmpty": "该版本内容为空",
+    "empty": "暂无历史记录",
+    "expand": "展开全文",
+    "loading": "加载中...",
+    "restore": "恢复此版本",
+    "restoreLessonDeleted": "该节已被其他编辑者删除，无法恢复，请刷新后重试",
+    "restoring": "恢复中...",
+    "title": "历史记录",
+    "unknownUser": "未知用户"
+  },
   "newChapter": "添加章",
   "previewArea": {
     "action": "调试",
@@ -19,9 +34,19 @@
     "title": "学习模拟",
     "variablesCollapse": "收起",
     "variablesDescription": "不同学习者会给变量不同的值，得到不同的课程效果",
+    "variablesEmpty": "暂无变量",
     "variablesExpand": "展开",
-    "variablesLearnMore": "了解更多",
+    "variablesHideSingleConfirmDesc": "隐藏“{name}”变量，隐藏后可以点击“显示全部”按钮恢复",
+    "variablesHideSingleConfirmTitle": "隐藏变量",
+    "variablesHideUnused": "隐藏未使用",
+    "variablesHideUnusedConfirmDesc": "隐藏整个课程里未使用的自建变量，隐藏后可以点击此按钮恢复显示。",
+    "variablesHideUnusedConfirmTitle": "隐藏未使用的自建变量",
+    "variablesHideUnusedTooltip": "隐藏课程里未使用的自建变量",
     "variablesPlaceholder": "UNKNOWN",
+    "variablesRestoreHidden": "显示全部",
+    "variablesRestoreHiddenConfirmDesc": "显示课程里的所有变量，显示后可点击此按钮隐藏未使用的自建变量。",
+    "variablesRestoreHiddenConfirmTitle": "显示所有变量",
+    "variablesRestoreHiddenTooltip": "显示课程里的所有变量",
     "variablesTitle": "变量"
   }
 }

@@ -12,6 +12,9 @@ export const useCourseStore = create<
     updateCourseName: courseName => set(() => ({ courseName })),
     courseAvatar: '',
     updateCourseAvatar: courseAvatar => set(() => ({ courseAvatar })),
+    courseTtsEnabled: null,
+    updateCourseTtsEnabled: courseTtsEnabled =>
+      set(() => ({ courseTtsEnabled })),
     lessonId: undefined,
     updateLessonId: lessonId => set(() => ({ lessonId })),
     chapterId: '',

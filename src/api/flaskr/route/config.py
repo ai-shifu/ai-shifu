@@ -31,6 +31,15 @@ def _to_list(value, default=None):
     return default
 
 
+def _to_int(value, default: int = 0) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
@@ -62,6 +71,10 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
                 ["pingxx", "stripe"],
             ),
+            "payOrderExpireSeconds": _to_int(
+                get_config("PAY_ORDER_EXPIRE_TIME", 600),
+                600,
+            ),
             # UI Configuration
             "alwaysShowLessonTree": _to_bool(
                 get_config("UI_ALWAYS_SHOW_LESSON_TREE", False),
@@ -92,10 +105,12 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "defaultLoginMethod": get_config("DEFAULT_LOGIN_METHOD", "phone"),
             "googleOauthRedirect": f"{origin}/login/google-callback",
             # Redirect Configuration
-            "homeUrl": get_config("HOME_URL", "/admin"),
+            "homeUrl": get_config("HOME_URL", "/"),
             "currencySymbol": get_config("CURRENCY_SYMBOL", "¥"),
             # Legal Documents Configuration
             "legalUrls": legal_urls,
+            # External API Configuration
+            "genMdfApiUrl": get_config("GEN_MDF_API_URL", ""),
         }
         return make_common_response(config)
 

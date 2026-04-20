@@ -1,8 +1,7 @@
 from flaskr.common.swagger import register_schema_to_swagger
 import json
 from flaskr.service.common.aidtos import AIDto
-from .models import ProfileItem
-from typing import List
+from typing import Any, List
 
 
 @register_schema_to_swagger
@@ -30,6 +29,7 @@ class ProfileItemDefinition:
     profile_scope: str  # the scope of the profile item, could be system or user
     profile_scope_str: str  # the string of the profile scope,could be in i18n
     profile_id: str  # the id of the profile item
+    is_hidden: bool  # hidden flag for custom variables
 
     def __init__(
         self,
@@ -41,6 +41,7 @@ class ProfileItemDefinition:
         profile_scope: str,
         profile_scope_str: str,
         profile_id: str,
+        is_hidden: bool = False,
     ):
         self.profile_key = profile_key
         self.color_setting = color_setting
@@ -50,6 +51,7 @@ class ProfileItemDefinition:
         self.profile_scope = profile_scope
         self.profile_scope_str = profile_scope_str
         self.profile_id = profile_id
+        self.is_hidden = is_hidden
 
     def __json__(self):
         return {
@@ -61,6 +63,7 @@ class ProfileItemDefinition:
             "profile_scope": self.profile_scope,
             "profile_scope_str": self.profile_scope_str,
             "profile_id": self.profile_id,
+            "is_hidden": self.is_hidden,
         }
 
     def __str__(self):
@@ -179,10 +182,10 @@ class SelectProfileDto:
 
 
 class ProfileOptionListDto:
-    info: ProfileItem
+    info: Any
     list: List[ProfileValueDto]
 
-    def __init__(self, info: ProfileItem, list: List[ProfileValueDto]):
+    def __init__(self, info: Any, list: List[ProfileValueDto]):
         self.info = info
         self.list = list
 

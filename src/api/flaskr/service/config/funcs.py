@@ -4,7 +4,8 @@ import base64
 import hashlib
 from flaskr.service.config.models import Config
 from flaskr.common.config import get_config as get_config_from_common
-from flaskr.dao import db, redis_client as redis
+from flaskr.common.cache_provider import cache as redis
+from flaskr.dao import db
 from flaskr.util import generate_id
 from pydantic import BaseModel, Field
 from flaskr.framework import extensible

@@ -11,12 +11,12 @@ import {
   ChatContentItem,
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import type { AudioCompleteData } from '@/c-api/studyV2';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { getAudioTrackByPosition } from '@/c-utils/audio-utils';
 import VariableList from './VariableList';
-import {
-  getStoredPreviewVariables,
-  type PreviewVariablesMap,
-} from './variableStorage';
+import { type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useAlert } from '@/components/ui/UseAlert';
 
 interface LessonPreviewProps {
   loading: boolean;
@@ -36,6 +37,11 @@ interface LessonPreviewProps {
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onRequestAudioForBlock?: (params: {
+    shifuBid: string;
+    blockId: string;
+    text: string;
+  }) => Promise<AudioCompleteData | null>;
   onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
   reGenerateConfirm?: {
@@ -43,6 +49,13 @@ interface LessonPreviewProps {
     onConfirm: () => void;
     onCancel: () => void;
   };
+  hiddenVariableKeys?: string[];
+  onHideOrRestore?: () => void;
+  actionType?: 'hide' | 'restore';
+  actionDisabled?: boolean;
+  customVariableKeys?: string[];
+  unusedVariableKeys?: string[];
+  onHideVariable?: (name: string) => void;
 }
 
 const noop = () => {};
@@ -54,9 +67,17 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   shifuBid,
   onRefresh,
   onSend,
+  onRequestAudioForBlock,
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
+  hiddenVariableKeys,
+  onHideOrRestore,
+  actionType,
+  actionDisabled,
+  customVariableKeys,
+  unusedVariableKeys,
+  onHideVariable,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -66,24 +87,77 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   const showEmpty = !loading && items.length === 0;
 
-  const fallbackVariables = React.useMemo(() => {
-    if (!shifuBid) return {} as PreviewVariablesMap;
-    const stored = getStoredPreviewVariables(shifuBid);
-    return {
-      ...(stored.system || {}),
-      ...(stored.custom || {}),
-    } as PreviewVariablesMap;
-  }, [shifuBid]);
-
   const resolvedVariables = React.useMemo(() => {
-    const candidates = [variables, items[0]?.variables];
-    for (const candidate of candidates) {
-      if (candidate && Object.keys(candidate).length) return candidate;
+    if (variables && Object.keys(variables).length) {
+      return variables;
     }
-    return Object.keys(fallbackVariables).length
-      ? fallbackVariables
-      : undefined;
-  }, [fallbackVariables, items, variables]);
+    return undefined;
+  }, [variables]);
+
+  const hiddenSet = React.useMemo(
+    () => new Set(hiddenVariableKeys || []),
+    [hiddenVariableKeys],
+  );
+
+  const visibleVariables = React.useMemo(() => {
+    if (!resolvedVariables) return undefined;
+    if (!hiddenSet.size) return resolvedVariables;
+    return Object.entries(resolvedVariables).reduce<PreviewVariablesMap>(
+      (acc, [key, value]) => {
+        if (hiddenSet.has(key)) {
+          return acc;
+        }
+        acc[key] = value;
+        return acc;
+      },
+      {},
+    );
+  }, [hiddenSet, resolvedVariables]);
+
+  const itemByGeneratedBid = React.useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
+
+  const { showAlert } = useAlert();
+
+  const handleActionConfirm = React.useCallback(() => {
+    if (!onHideOrRestore || !actionType) return;
+    const isHide = actionType === 'hide';
+    showAlert({
+      title: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+      description: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
+      confirmText: t('common.core.confirm'),
+      cancelText: t('common.core.cancel'),
+      onConfirm: () => onHideOrRestore(),
+    });
+  }, [actionType, onHideOrRestore, showAlert, t]);
+
+  const handleHideVariableConfirm = React.useCallback(
+    (name: string) => {
+      if (!onHideVariable) return;
+      showAlert({
+        title: t('module.shifu.previewArea.variablesHideSingleConfirmTitle'),
+        description: t(
+          'module.shifu.previewArea.variablesHideSingleConfirmDesc',
+          { name },
+        ),
+        confirmText: t('common.core.confirm'),
+        cancelText: t('common.core.cancel'),
+        onConfirm: () => onHideVariable(name),
+      });
+    },
+    [onHideVariable, showAlert, t],
+  );
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -103,11 +177,17 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
             <VariableList
-              variables={resolvedVariables}
+              variables={visibleVariables}
               collapsed={variablesCollapsed}
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
+              actionType={actionType}
+              onAction={handleActionConfirm}
+              actionDisabled={actionDisabled}
+              customVariableKeys={customVariableKeys}
+              unusedVariableKeys={unusedVariableKeys}
+              onHideVariable={handleHideVariableConfirm}
             />
           </div>
         )}
@@ -135,6 +215,13 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {!showEmpty &&
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem = parentBlockBid
+                  ? itemByGeneratedBid.get(parentBlockBid)
+                  : undefined;
+                const parentPrimaryTrack = getAudioTrackByPosition(
+                  parentContentItem?.audioTracks ?? [],
+                );
                 return (
                   <div
                     key={`${idx}-like`}
@@ -143,12 +230,34 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
+                      extraActions={
+                        <AudioPlayer
+                          audioUrl={parentPrimaryTrack?.audioUrl}
+                          streamingSegments={parentPrimaryTrack?.audioSegments}
+                          isStreaming={Boolean(
+                            parentPrimaryTrack?.isAudioStreaming,
+                          )}
+                          alwaysVisible={true}
+                          onRequestAudio={
+                            onRequestAudioForBlock
+                              ? () =>
+                                  onRequestAudioForBlock({
+                                    shifuBid,
+                                    blockId: parentBlockBid,
+                                    text: parentContentItem?.content || '',
+                                  })
+                              : undefined
+                          }
+                          className='interaction-icon-btn'
+                          size={16}
+                        />
+                      }
                     />
                   </div>
                 );

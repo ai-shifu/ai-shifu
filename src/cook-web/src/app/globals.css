@@ -1,18 +1,37 @@
+@import '@fontsource/inter/index.css';
 @import 'tailwindcss';
 @config "../../tailwind.config.ts";
 
 body,
 html {
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-geist-sans);
   font-size: 16px;
   -webkit-font-smoothing: subpixel-antialiased;
   -moz-osx-font-smoothing: auto;
 }
 
+/* Listen mode layout bounds live in global CSS to avoid CSS Modules purity errors */
+html.listen-mode,
+body.listen-mode {
+  height: 100%;
+  min-height: auto;
+}
+
+body.listen-mode #root {
+  height: 100dvh;
+  min-height: auto;
+}
+
 @layer base {
   :root {
+    --font-geist-sans:
+      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      'Roboto', 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans',
+      sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+      'Noto Color Emoji';
+    --font-geist-mono:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
     --background: #fefefe;
     --foreground: #030712;
     --card: #ffffff;
@@ -122,21 +141,11 @@ html {
     background-color: rgba(26, 104, 235, var(--tw-bg-opacity, 1));
     color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
   }
+}
 
-  &.mobile {
-    /* .custom-variable-container {
-      width: 100%;
-      > span {
-        width: 100%;
-      }
-    }
-    .content-render .input-container {
-      width: 100%;
-    }
-    .markdown-body textarea {
-      min-width: 0;
-      width: 100%;
-    } */
+.content-render-iframe-sandbox {
+  strong {
+    color: var(--primary);
   }
 }
 
@@ -159,4 +168,10 @@ html {
       color: var(--base-primary-foreground, #ffffff);
     }
   }
+}
+
+.reveal img,
+.reveal video,
+.reveal iframe {
+  max-width: 100% !important;
 }

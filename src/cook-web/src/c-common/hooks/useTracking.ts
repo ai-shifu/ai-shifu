@@ -25,7 +25,10 @@ export const useTracking = () => {
   }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
   const trackEvent = useCallback(
-    async (eventName, eventData) => {
+    async (
+      eventName: string,
+      eventData: Record<string, unknown> = {},
+    ): Promise<void> => {
       try {
         const basicData = getEventBasicData();
         const data = {
