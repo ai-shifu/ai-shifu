@@ -1918,7 +1918,6 @@ export default function AdminOperationCourseDetailPage() {
                                   getAdminStickyRightHeaderClass(
                                     'h-10 whitespace-nowrap text-center text-xs',
                                   ),
-                                  'bg-muted/80',
                                 )}
                                 style={getUserColumnStyle('action')}
                               >

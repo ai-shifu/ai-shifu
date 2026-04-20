@@ -883,13 +883,13 @@ export default function AdminOperationUsersPage() {
                     return (
                       <TableRow key={user.user_bid}>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('userId')}
                         >
                           {userDetailUrl ? (
                             <Link
                               href={userDetailUrl}
-                              className='text-primary transition-colors hover:text-primary/80'
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(user.user_bid)}
                             </Link>
@@ -898,13 +898,13 @@ export default function AdminOperationUsersPage() {
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('mobile')}
                         >
                           {userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
-                              className='text-primary transition-colors hover:text-primary/80'
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(primaryContact)}
                             </Link>
@@ -915,13 +915,13 @@ export default function AdminOperationUsersPage() {
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('nickname')}
                         >
                           {renderTooltipText(user.nickname || defaultUserName)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('status')}
                         >
                           {renderTooltipText(
@@ -929,19 +929,19 @@ export default function AdminOperationUsersPage() {
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('role')}
                         >
                           {renderTooltipText(resolveRoleLabel(user.user_role))}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('loginMethods')}
                         >
                           {renderTooltipText(loginMethods)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('registrationSource')}
                         >
                           {renderTooltipText(registrationSource)}
@@ -983,7 +983,7 @@ export default function AdminOperationUsersPage() {
                           />
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('totalPaidAmount')}
                         >
                           {renderTooltipText(
@@ -991,25 +991,25 @@ export default function AdminOperationUsersPage() {
                           )}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLoginAt')}
                         >
                           {renderTooltipText(user.last_login_at)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLearningAt')}
                         >
                           {renderTooltipText(user.last_learning_at)}
                         </TableCell>
                         <TableCell
-                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(user.created_at)}
                         </TableCell>
                         <TableCell
-                          className='whitespace-nowrap overflow-hidden text-ellipsis'
+                          className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('updatedAt')}
                         >
                           {renderTooltipText(user.updated_at)}

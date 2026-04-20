@@ -108,6 +108,7 @@ export function useAdminResizableColumns<Key extends string>({
   const [columnWidths, setColumnWidthsState] = useState<ColumnWidthState<Key>>(
     () => createColumnWidthState(storedManualWidthsRef.current || {}),
   );
+  const columnWidthsRef = useRef(columnWidths);
 
   const setColumnWidths = useCallback(
     (
@@ -121,11 +122,46 @@ export function useAdminResizableColumns<Key extends string>({
         const changed = columnKeys.some(
           key => Math.abs(next[key] - prev[key]) > 0.5,
         );
-        return changed ? next : prev;
+        if (!changed) {
+          return prev;
+        }
+        columnWidthsRef.current = next;
+        return next;
       });
     },
     [columnKeys, createColumnWidthState],
   );
+
+  useEffect(() => {
+    columnWidthsRef.current = columnWidths;
+  }, [columnWidths]);
+
+  const persistManualWidths = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const manualOverrides = columnKeys.reduce<Partial<ColumnWidthState<Key>>>(
+        (acc, key) => {
+          if (manualResizeRef.current[key]) {
+            acc[key] = columnWidthsRef.current[key];
+          }
+          return acc;
+        },
+        {},
+      );
+
+      if (Object.keys(manualOverrides).length === 0) {
+        window.localStorage.removeItem(storageKey);
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, JSON.stringify(manualOverrides));
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [columnKeys, storageKey]);
 
   const startColumnResize = useCallback(
     (key: Key, clientX: number) => {
@@ -153,11 +189,16 @@ export function useAdminResizableColumns<Key extends string>({
         if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
           return prev;
         }
-        return { ...prev, [info.key]: nextWidth };
+        const next = { ...prev, [info.key]: nextWidth };
+        columnWidthsRef.current = next;
+        return next;
       });
     };
 
     const handleMouseUp = () => {
+      if (columnResizeRef.current) {
+        persistManualWidths();
+      }
       columnResizeRef.current = null;
     };
 
@@ -168,34 +209,7 @@ export function useAdminResizableColumns<Key extends string>({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [clampWidth]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      const manualOverrides = columnKeys.reduce<Partial<ColumnWidthState<Key>>>(
-        (acc, key) => {
-          if (manualResizeRef.current[key]) {
-            acc[key] = columnWidths[key];
-          }
-          return acc;
-        },
-        {},
-      );
-
-      if (Object.keys(manualOverrides).length === 0) {
-        window.localStorage.removeItem(storageKey);
-        return;
-      }
-
-      window.localStorage.setItem(storageKey, JSON.stringify(manualOverrides));
-    } catch {
-      // Ignore storage errors.
-    }
-  }, [columnKeys, columnWidths, storageKey]);
+  }, [clampWidth, persistManualWidths]);
 
   const getColumnStyle = useCallback(
     (key: Key) => {
