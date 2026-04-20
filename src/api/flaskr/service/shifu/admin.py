@@ -317,6 +317,14 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
+def _build_course_order_amount_expr():
+    return case(
+        (Order.paid_price > 0, Order.paid_price),
+        (Order.payable_price > 0, Order.payable_price),
+        else_=0,
+    )
+
+
 def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
     normalized = _normalize_identifier(keyword)
     if not normalized:
@@ -1819,10 +1827,11 @@ def _load_course_user_paid_amount_map(
     if not normalized_user_bids:
         return {}
 
+    counted_order_amount_expr = _build_course_order_amount_expr()
     rows = (
         db.session.query(
             Order.user_bid,
-            db.func.coalesce(db.func.sum(Order.paid_price), 0).label(
+            db.func.coalesce(db.func.sum(counted_order_amount_expr), 0).label(
                 "total_paid_amount"
             ),
         )
@@ -2024,11 +2033,7 @@ def get_operator_course_detail(
             .scalar()
             or 0
         )
-        order_amount_expr = case(
-            (Order.paid_price > 0, Order.paid_price),
-            (Order.payable_price > 0, Order.payable_price),
-            else_=0,
-        )
+        order_amount_expr = _build_course_order_amount_expr()
         order_summary = (
             db.session.query(
                 db.func.count(Order.id).label("order_count"),

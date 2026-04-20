@@ -194,15 +194,17 @@ def _seed_paid_order(
     shifu_bid: str,
     user_bid: str,
     paid_price: str,
+    payable_price: str | None = None,
     created_at: datetime,
 ) -> None:
+    resolved_payable_price = payable_price if payable_price is not None else paid_price
     db.session.add(
         Order(
             order_bid=f"order-{user_bid}-{shifu_bid}",
             shifu_bid=shifu_bid,
             user_bid=user_bid,
             paid_price=Decimal(paid_price),
-            payable_price=Decimal(paid_price),
+            payable_price=Decimal(resolved_payable_price),
             status=ORDER_STATUS_SUCCESS,
             created_at=created_at,
             updated_at=created_at,
@@ -1331,6 +1333,79 @@ def test_admin_operation_course_users_route_applies_filters(
     item = payload["data"]["items"][0]
     assert item["user_bid"] == "student-1"
     assert item["total_paid_amount"] == "299"
+
+
+def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="redeem-user", phone="13900001235")
+        _seed_user(app, user_bid="zero-user", phone="13900001236")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=updated_at,
+        )
+        _seed_paid_order(
+            shifu_bid="course-detail",
+            user_bid="redeem-user",
+            paid_price="0.00",
+            payable_price="199.00",
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+        )
+        _seed_paid_order(
+            shifu_bid="course-detail",
+            user_bid="zero-user",
+            paid_price="0.00",
+            payable_price="0.00",
+            created_at=datetime(2026, 4, 5, 10, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+
+    items_by_user_bid = {item["user_bid"]: item for item in payload["data"]["items"]}
+    assert items_by_user_bid["redeem-user"]["is_paid"] is True
+    assert items_by_user_bid["redeem-user"]["total_paid_amount"] == "199"
+    assert items_by_user_bid["zero-user"]["is_paid"] is False
+    assert items_by_user_bid["zero-user"]["total_paid_amount"] == "0"
+
+    paid_only_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20"
+        "&payment_status=paid",
+        headers={"Token": "test-token"},
+    )
+    paid_only_payload = paid_only_response.get_json(force=True)
+
+    assert paid_only_response.status_code == 200
+    assert paid_only_payload["code"] == 0
+    assert paid_only_payload["data"]["total"] == 1
+    assert paid_only_payload["data"]["items"][0]["user_bid"] == "redeem-user"
 
 
 def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
