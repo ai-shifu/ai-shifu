@@ -1478,6 +1478,163 @@ def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
     assert payload["data"]["metrics"]["order_amount"] == "154"
 
 
+def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to_payable_price(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    created_at = datetime(2026, 4, 3, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        db.session.add_all(
+            [
+                Order(
+                    order_bid="order-direct-paid",
+                    shifu_bid="course-detail",
+                    user_bid="user-direct-paid",
+                    payable_price=Decimal("88.00"),
+                    paid_price=Decimal("88.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-partial-discount",
+                    shifu_bid="course-detail",
+                    user_bid="user-partial-discount",
+                    payable_price=Decimal("49.00"),
+                    paid_price=Decimal("19.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-external-paid",
+                    shifu_bid="course-detail",
+                    user_bid="user-external-paid",
+                    payable_price=Decimal("66.00"),
+                    paid_price=Decimal("0.00"),
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["metrics"]["order_count"] == 3
+    assert payload["data"]["metrics"]["order_amount"] == "173"
+
+
+def test_admin_operation_course_detail_metrics_include_successful_orders_across_channels(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    created_at = datetime(2026, 4, 4, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        db.session.add_all(
+            [
+                Order(
+                    order_bid="order-manual-paid",
+                    shifu_bid="course-detail",
+                    user_bid="user-manual-paid",
+                    payable_price=Decimal("88.00"),
+                    paid_price=Decimal("88.00"),
+                    payment_channel="manual",
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-manual-external-redeem",
+                    shifu_bid="course-detail",
+                    user_bid="user-manual-redeem",
+                    payable_price=Decimal("66.00"),
+                    paid_price=Decimal("0.00"),
+                    payment_channel="manual",
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-openapi-external-redeem",
+                    shifu_bid="course-detail",
+                    user_bid="user-openapi-redeem",
+                    payable_price=Decimal("99.00"),
+                    paid_price=Decimal("0.00"),
+                    payment_channel="open_api",
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+                Order(
+                    order_bid="order-activation-zero",
+                    shifu_bid="course-detail",
+                    user_bid="user-activation-zero",
+                    payable_price=Decimal("0.00"),
+                    paid_price=Decimal("0.00"),
+                    payment_channel="manual",
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=created_at,
+                    updated_at=created_at,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["metrics"]["order_count"] == 4
+    assert payload["data"]["metrics"]["order_amount"] == "253"
+
+
 @pytest.mark.parametrize(
     ("query_string", "expected_param"),
     [
