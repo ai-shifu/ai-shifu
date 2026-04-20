@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, case, or_
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
@@ -25,6 +25,11 @@ from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+)
+from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseChapterDetailDTO,
     AdminOperationCourseDetailBasicInfoDTO,
@@ -2024,12 +2029,43 @@ def get_operator_course_detail(
             .scalar()
             or 0
         )
+        redeemed_discount_order_bids = (
+            db.session.query(CouponUsage.order_bid.label("order_bid"))
+            .filter(
+                CouponUsage.shifu_bid == normalized_shifu_bid,
+                CouponUsage.deleted == 0,
+                CouponUsage.status == COUPON_STATUS_USED,
+            )
+            .union(
+                db.session.query(PromoRedemption.order_bid.label("order_bid")).filter(
+                    PromoRedemption.shifu_bid == normalized_shifu_bid,
+                    PromoRedemption.deleted == 0,
+                    PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                )
+            )
+            .subquery()
+        )
+        order_amount_expr = case(
+            (Order.paid_price > 0, Order.paid_price),
+            (
+                and_(
+                    redeemed_discount_order_bids.c.order_bid.isnot(None),
+                    Order.payable_price > 0,
+                ),
+                Order.payable_price,
+            ),
+            else_=0,
+        )
         order_summary = (
             db.session.query(
                 db.func.count(Order.id).label("order_count"),
-                db.func.coalesce(db.func.sum(Order.paid_price), 0).label(
+                db.func.coalesce(db.func.sum(order_amount_expr), 0).label(
                     "order_amount"
                 ),
+            )
+            .outerjoin(
+                redeemed_discount_order_bids,
+                redeemed_discount_order_bids.c.order_bid == Order.order_bid,
             )
             .filter(
                 Order.shifu_bid == normalized_shifu_bid,

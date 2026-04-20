@@ -79,6 +79,7 @@ class ListenElementRunAdapter(
         self._current_answer_element_bid: str | None = None
         self._ask_element_bid_by_block_bid: dict[str, str] = {}
         self._answer_element_bid_by_block_bid: dict[str, str] = {}
+        self._latest_element_snapshots: dict[str, object] = {}
 
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
