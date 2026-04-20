@@ -35,8 +35,12 @@ from flaskr.service.common.models import AppException
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 from tests.common.fixtures.bill_products import build_bill_products
-from tests.service.billing.route_loader import load_register_billing_routes
+from tests.service.billing.route_loader import (
+    load_billing_routes_module,
+    load_register_billing_routes,
+)
 
+billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
 
@@ -54,7 +58,7 @@ def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
 
 
 @pytest.fixture
-def trial_billing_client():
+def trial_billing_client(monkeypatch):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -82,6 +86,16 @@ def trial_billing_client():
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
         )
+
+    monkeypatch.setattr(
+        billing_routes_module,
+        "is_billing_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
 
     register_billing_routes(app=app)
 

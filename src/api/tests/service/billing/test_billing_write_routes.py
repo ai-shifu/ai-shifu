@@ -283,6 +283,11 @@ def billing_write_client(monkeypatch):
         "flaskr.service.billing.subscriptions.get_payment_provider",
         _fake_get_payment_provider,
     )
+    monkeypatch.setattr(
+        billing_write_routes_module,
+        "is_billing_enabled",
+        lambda: True,
+    )
 
     @app.errorhandler(AppException)
     def _handle_app_exception(error: AppException):

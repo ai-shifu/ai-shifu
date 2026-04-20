@@ -9,7 +9,6 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
     BILL_CONFIG_KEY_CREDIT_PRECISION,
-    BILL_CONFIG_KEY_ENABLED,
     BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILL_CONFIG_KEY_RATE_VERSION,
     BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
@@ -140,10 +139,9 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILL_SYS_CONFIG_SEEDS) == 5
+    assert len(BILL_SYS_CONFIG_SEEDS) == 4
     assert {row["key"] for row in BILL_SYS_CONFIG_SEEDS} == {
         BILL_CONFIG_KEY_CREDIT_PRECISION,
-        BILL_CONFIG_KEY_ENABLED,
         BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILL_CONFIG_KEY_RATE_VERSION,

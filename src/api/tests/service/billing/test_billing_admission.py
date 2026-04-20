@@ -38,7 +38,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
-def billing_admission_app():
+def billing_admission_app(monkeypatch):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -50,6 +50,10 @@ def billing_admission_app():
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         REDIS_KEY_PREFIX="billing-admission-test",
         TZ="UTC",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.admission.is_billing_enabled",
+        lambda: True,
     )
     dao.db.init_app(app)
     with app.app_context():

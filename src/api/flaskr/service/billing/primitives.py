@@ -74,18 +74,7 @@ def get_billing_credit_precision(
 
 
 def is_billing_enabled(*, default: bool = DEFAULT_BILL_ENABLED) -> bool:
-    if not has_app_context():
-        return default
-    try:
-        raw_value = get_config(
-            BILL_CONFIG_KEY_ENABLED,
-            "1" if default else "0",
-        )
-    except (KeyError, RuntimeError):
-        raw_value = get_common_config(
-            BILL_CONFIG_KEY_ENABLED,
-            "1" if default else "0",
-        )
+    raw_value = get_common_config(BILL_CONFIG_KEY_ENABLED, default)
     return coerce_bool(raw_value, default=default)
 
 

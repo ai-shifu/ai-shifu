@@ -70,6 +70,10 @@ def runtime_config_client(monkeypatch):
         lambda key, default="": config_values.get(key, default),
     )
     monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_common_config",
+        lambda key, default=None: config_values.get(key, default),
+    )
+    monkeypatch.setattr(
         "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
         lambda app, shifu_bid: "creator-1" if shifu_bid == "shifu-1" else None,
     )
@@ -290,6 +294,10 @@ def test_runtime_config_reports_disabled_billing_flag(
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
         lambda key, default="": False if key == "BILL_ENABLED" else default,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.get_common_config",
+        lambda key, default=None: False if key == "BILL_ENABLED" else default,
     )
 
     response = runtime_config_client.get("/api/runtime-config")

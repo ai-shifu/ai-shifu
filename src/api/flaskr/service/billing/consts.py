@@ -645,15 +645,6 @@ CREDIT_USAGE_RATE_SEEDS = _build_credit_usage_rate_seeds()
 
 BILL_SYS_CONFIG_SEEDS = (
     {
-        "config_bid": "bill-config-enabled",
-        "key": BILL_CONFIG_KEY_ENABLED,
-        "value": "0",
-        "is_encrypted": 0,
-        "remark": "Creator billing feature flag",
-        "deleted": 0,
-        "updated_by": "system",
-    },
-    {
         "config_bid": "bill-config-credit-precision",
         "key": BILL_CONFIG_KEY_CREDIT_PRECISION,
         "value": "2",

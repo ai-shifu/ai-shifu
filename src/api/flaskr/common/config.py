@@ -150,6 +150,13 @@ ENV_VARS: Dict[str, EnvVar] = {
         group="frontend",
         validator=lambda x: 0 <= int(x) <= 10,
     ),
+    "BILL_ENABLED": EnvVar(
+        name="BILL_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable the creator billing runtime surface (Cook Web /admin/billing and /api/billing/*). Leave off until billing is configured for the environment.",
+        group="frontend",
+    ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
         default="/",

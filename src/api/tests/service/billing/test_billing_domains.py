@@ -20,13 +20,17 @@ from flaskr.service.billing.domains import (
 )
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
 from flaskr.service.common.models import AppException
-from tests.service.billing.route_loader import load_register_billing_routes
+from tests.service.billing.route_loader import (
+    load_billing_routes_module,
+    load_register_billing_routes,
+)
 
+billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
 
 @pytest.fixture
-def billing_domain_client():
+def billing_domain_client(monkeypatch):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -59,6 +63,12 @@ def billing_domain_client():
     @with_shifu_context()
     def _domain_context():
         return jsonify({"creator_bid": get_shifu_creator_bid()})
+
+    monkeypatch.setattr(
+        billing_routes_module,
+        "is_billing_enabled",
+        lambda: True,
+    )
 
     register_billing_routes(app=app)
 

@@ -96,7 +96,7 @@ def _seed_products_with_yearly_entitlements():
 
 
 @pytest.fixture
-def billing_test_client():
+def billing_test_client(monkeypatch):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -125,6 +125,12 @@ def billing_test_client():
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
         )
+
+    monkeypatch.setattr(
+        billing_routes_module,
+        "is_billing_enabled",
+        lambda: True,
+    )
 
     register_billing_routes(app=app)
 
