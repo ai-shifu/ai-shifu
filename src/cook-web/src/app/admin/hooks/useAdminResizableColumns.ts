@@ -86,27 +86,22 @@ export function useAdminResizableColumns<Key extends string>({
     }
   }, [clampWidth, columnKeys, storageKey]);
 
-  const storedManualWidthsRef = useRef<Partial<ColumnWidthState<Key>> | null>(
-    null,
-  );
-
-  if (storedManualWidthsRef.current === null) {
-    storedManualWidthsRef.current = loadStoredManualWidths();
-  }
+  const [hasLoadedStoredWidths, setHasLoadedStoredWidths] = useState(false);
+  const storedManualWidthsRef = useRef<Partial<ColumnWidthState<Key>>>({});
 
   const columnResizeRef = useRef<ColumnResizeState<Key> | null>(null);
   const manualResizeRef = useRef<Record<Key, boolean>>(
     columnKeys.reduce(
       (acc, key) => ({
         ...acc,
-        [key]: hasOwn(storedManualWidthsRef.current || {}, key),
+        [key]: false,
       }),
       {} as Record<Key, boolean>,
     ),
   );
 
   const [columnWidths, setColumnWidthsState] = useState<ColumnWidthState<Key>>(
-    () => createColumnWidthState(storedManualWidthsRef.current || {}),
+    () => createColumnWidthState(),
   );
   const columnWidthsRef = useRef(columnWidths);
 
@@ -136,8 +131,24 @@ export function useAdminResizableColumns<Key extends string>({
     columnWidthsRef.current = columnWidths;
   }, [columnWidths]);
 
+  useEffect(() => {
+    const storedManualWidths = loadStoredManualWidths();
+    storedManualWidthsRef.current = storedManualWidths;
+    manualResizeRef.current = columnKeys.reduce(
+      (acc, key) => ({
+        ...acc,
+        [key]: hasOwn(storedManualWidths, key),
+      }),
+      {} as Record<Key, boolean>,
+    );
+    const nextColumnWidths = createColumnWidthState(storedManualWidths);
+    columnWidthsRef.current = nextColumnWidths;
+    setColumnWidthsState(nextColumnWidths);
+    setHasLoadedStoredWidths(true);
+  }, [columnKeys, createColumnWidthState, loadStoredManualWidths]);
+
   const persistManualWidths = useCallback(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !hasLoadedStoredWidths) {
       return;
     }
 
@@ -161,7 +172,7 @@ export function useAdminResizableColumns<Key extends string>({
     } catch {
       // Ignore storage errors.
     }
-  }, [columnKeys, storageKey]);
+  }, [columnKeys, hasLoadedStoredWidths, storageKey]);
 
   const startColumnResize = useCallback(
     (key: Key, clientX: number) => {

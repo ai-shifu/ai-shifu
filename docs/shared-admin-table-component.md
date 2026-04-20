@@ -21,14 +21,13 @@ The repeated patterns include:
 - repeated tooltip-based truncated text rendering
 - repeated pagination placement and composition
 
-Two prerequisite frontend refactors already exist as open PRs and should stay
-independent:
+Two prerequisite frontend refactors were delivered independently first:
 
 - PR `#1542`: shared admin pagination component
 - PR `#1545`: shared admin tooltip text component
 
-This design assumes those two PRs merge into `main` first, and then this branch
-builds the shared admin table layer on top of them.
+This shared table work builds on top of those merged utilities and reuses them
+as runtime dependencies in the migrated admin pages.
 
 ## Goals
 
@@ -220,31 +219,29 @@ Cell content remains page-owned:
 
 ## Rollout Plan
 
-### Phase 0: Wait For Prerequisites
+### Phase 0: Prerequisites Landed
 
-Before implementation on this branch:
+This rollout started after the shared admin pagination and shared admin tooltip
+refactors landed in `main`.
 
-- PR `#1542` must merge to `main`
-- PR `#1545` must merge to `main`
-
-Then:
+Branch preparation for this implementation:
 
 - update local `main`
 - rebase or recreate `refactor/shared-table-component` from the latest `main`
 
 ### Phase 1: Build Shared Capabilities
 
-Create:
+Implemented in this PR:
 
 - `AdminTableShell`
 - `useAdminResizableColumns`
 - sticky-right style helpers
 
-At this phase, do not migrate every page yet.
+These shared capabilities are now used by the migrated admin pages below.
 
 ### Phase 2: First Migration Targets
 
-Migrate first:
+Migrated first in this rollout:
 
 - `src/cook-web/src/app/admin/operations/page.tsx`
 - `src/cook-web/src/app/admin/orders/page.tsx`
@@ -259,7 +256,7 @@ Reasons:
 
 ### Phase 3: Secondary Migration
 
-Migrate next:
+Migrated next:
 
 - `src/cook-web/src/app/admin/operations/users/page.tsx`
 
@@ -267,11 +264,11 @@ This page is more complex but still follows the same list-page structure.
 
 ### Phase 4: Complex Page Migration
 
-Migrate last:
+Migrated last:
 
 - `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
 
-Reasons:
+Reasons this page was left for the final migration step:
 
 - it contains multiple tables
 - it mixes detail-page concerns with table concerns
@@ -284,10 +281,22 @@ For each migrated page:
 - run focused page tests first
 - then run broader frontend validation
 
-Required checks after meaningful implementation work:
+Required checks after meaningful frontend implementation work:
 
+- `cd src/cook-web && npm run type-check`
 - `cd src/cook-web && npm run lint`
 - `pre-commit run -a`
+
+For `src/cook-web/**/*.{js,ts,tsx,jsx}` changes, the frontend baseline remains:
+
+- `cd src/cook-web && npm run type-check && npm run lint`
+
+Current note for this branch:
+
+- `npm run type-check` still reports known unrelated failures outside this PR
+  under `src/cook-web/src/__tests__/...`,
+  `src/cook-web/src/app/c/[[...id]]/...`, and
+  `src/cook-web/src/components/shifu-edit/ShifuEdit.test.tsx`
 
 Likely focused tests during rollout:
 
