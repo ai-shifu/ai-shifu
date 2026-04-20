@@ -67,6 +67,8 @@ import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import {
   appendCustomButtonAfterContent,
+  hasCustomButtonAfterContent,
+  inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
 } from './chatUiUtils';
 
@@ -479,7 +481,7 @@ function useChatLogicHook({
         mobileStyle &&
         !isListenMode &&
         targetItem.type === ChatContentItemType.CONTENT &&
-        !targetItem.content?.includes(`<custom-button-after-content>`)
+        !hasCustomButtonAfterContent(targetItem.content)
       ) {
         nextItems[targetIndex] = {
           ...targetItem,
@@ -745,13 +747,18 @@ function useChatLogicHook({
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
       const rawContent = record.content ?? '';
-      const content =
+      const contentWithAskButton =
         options?.appendAskButton &&
         mobileStyle &&
         !isListenMode &&
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
+      const content = inheritCustomButtonAfterContent({
+        nextContent: contentWithAskButton,
+        previousContent: options?.previousItem?.content,
+        buttonMarkup: getAskButtonMarkup(),
+      });
 
       return {
         ...options?.previousItem,
@@ -765,7 +772,7 @@ function useChatLogicHook({
           options?.previousItem?.user_input ??
           '',
         readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory,
+        isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -1412,7 +1419,11 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: displayText,
+                        content: inheritCustomButtonAfterContent({
+                          nextContent: displayText,
+                          previousContent: item.content,
+                          buttonMarkup: getAskButtonMarkup(),
+                        }),
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??

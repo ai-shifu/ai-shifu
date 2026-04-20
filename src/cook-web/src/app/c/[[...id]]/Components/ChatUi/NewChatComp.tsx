@@ -40,8 +40,6 @@ import {
 } from '@/c-utils/audio-utils';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
 import {
-  resolvePreviousActionableItem,
-  shouldShowMobileAskButtonForReadContent,
   syncCustomButtonAfterContent,
 } from './chatUiUtils';
 import {
@@ -81,12 +79,10 @@ const buildReadModeItemsWithAskState = ({
   items,
   askListByAnchorElementBid,
   mobileStyle,
-  askButtonMarkup,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Record<string, AskMessage[]>;
   mobileStyle: boolean;
-  askButtonMarkup: string;
 }) => {
   const existingAskAnchorSet = new Set<string>();
   const likeStatusAnchorSet = new Set<string>();
@@ -107,24 +103,7 @@ const buildReadModeItemsWithAskState = ({
   const insertedAskAnchorSet = new Set<string>();
   const nextItems: ChatContentItem[] = [];
 
-  items.forEach((item, index) => {
-    const previousActionableItem = resolvePreviousActionableItem(items, index);
-    const shouldShowMobileAskButton = shouldShowMobileAskButtonForReadContent({
-      item,
-      previousActionableItem,
-    });
-    const nextItem =
-      mobileStyle && item.type === ChatContentItemType.CONTENT
-        ? ({
-            ...item,
-            content: syncCustomButtonAfterContent({
-              content: item.content,
-              buttonMarkup: askButtonMarkup,
-              shouldShowButton: shouldShowMobileAskButton,
-            }),
-          } satisfies ChatContentItem)
-        : item;
-
+  items.forEach(item => {
     if (item.type === ChatContentItemType.ASK) {
       const anchorElementBid = item.parent_element_bid || '';
       const storedAskList = anchorElementBid
@@ -147,12 +126,12 @@ const buildReadModeItemsWithAskState = ({
       return;
     }
 
-    nextItems.push(nextItem);
+    nextItems.push(item);
 
     const anchorElementBid =
-      nextItem.type === ChatContentItemType.LIKE_STATUS
-        ? nextItem.parent_element_bid || ''
-        : nextItem.element_bid || '';
+      item.type === ChatContentItemType.LIKE_STATUS
+        ? item.parent_element_bid || ''
+        : item.element_bid || '';
 
     if (
       !anchorElementBid ||
@@ -169,10 +148,10 @@ const buildReadModeItemsWithAskState = ({
     }
 
     const shouldInsertAfterCurrent =
-      nextItem.type === ChatContentItemType.LIKE_STATUS ||
+      item.type === ChatContentItemType.LIKE_STATUS ||
       (!likeStatusAnchorSet.has(anchorElementBid) &&
-        (nextItem.type === ChatContentItemType.CONTENT ||
-          nextItem.type === ChatContentItemType.INTERACTION));
+        (item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION));
 
     if (!shouldInsertAfterCurrent) {
       return;
@@ -521,9 +500,8 @@ export const NewChatComponents = ({
         items,
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
-        askButtonMarkup,
       }),
-    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
+    [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
 
   useEffect(() => {
