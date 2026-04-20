@@ -1112,6 +1112,44 @@ function useChatLogicHook({
     [lessonUpdate, updateSelectedLesson],
   );
 
+  const stopActiveRunStream = useCallback(() => {
+    if (sseRef.current) {
+      try {
+        sseRef.current.close();
+      } catch {
+      } finally {
+        sseRef.current = null;
+      }
+    }
+
+    isStreamingRef.current = false;
+
+    const completedElementBid = currentBlockIdRef.current || '';
+    setTrackedContentList(prevState => {
+      let nextList = prevState.filter(item => item.element_bid !== 'loading');
+      if (completedElementBid) {
+        nextList = finalizeElementOutputInList(nextList, completedElementBid);
+      }
+      return nextList.map(item =>
+        item.isAudioStreaming
+          ? {
+              ...item,
+              isAudioStreaming: false,
+            }
+          : item,
+      );
+    });
+
+    currentBlockIdRef.current = null;
+    currentContentRef.current = '';
+    setCurrentStreamingElementBid('');
+
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, [finalizeElementOutputInList, setTrackedContentList]);
+
   /**
    * Starts the SSE request and streams content into the chat list.
    */
@@ -1681,6 +1719,32 @@ function useChatLogicHook({
       sseRef.current?.close();
     };
   }, []);
+
+  useEffect(() => {
+    const handleStopActiveLessonStream = (
+      event: Event | CustomEvent<{ lessonId: string }>,
+    ) => {
+      const targetLessonId =
+        'detail' in event ? event.detail?.lessonId || '' : '';
+      if (!targetLessonId || targetLessonId !== outlineBid) {
+        return;
+      }
+
+      stopActiveRunStream();
+    };
+
+    events.addEventListener(
+      BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+      handleStopActiveLessonStream as EventListener,
+    );
+
+    return () => {
+      events.removeEventListener(
+        BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+        handleStopActiveLessonStream as EventListener,
+      );
+    };
+  }, [outlineBid, stopActiveRunStream]);
 
   useEffect(() => {
     runRef.current = run;
