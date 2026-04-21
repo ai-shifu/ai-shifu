@@ -60,6 +60,12 @@ from flaskr.service.tts.pipeline import (
     build_av_segmentation_contract,
     _find_next_av_boundary,
 )
+from flaskr.service.tts.minimax_run_tts import (
+    MinimaxRunTTSDisabled,
+    MinimaxRunTTSManager,
+    should_use_minimax_run_websocket,
+)
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -141,6 +147,7 @@ class StreamingTTSProcessor:
         stream_element_type: str | None = None,
         av_contract: Optional[Dict[str, Any]] = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
+        minimax_run_manager: Optional[MinimaxRunTTSManager] = None,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -170,6 +177,8 @@ class StreamingTTSProcessor:
         if emotion:
             self.voice_settings.emotion = emotion
         self.audio_settings = get_default_audio_settings(tts_provider)
+        self._minimax_run_manager = minimax_run_manager
+        self._owns_minimax_run_manager = False
 
         # State
         self._buffer = ""
@@ -205,6 +214,15 @@ class StreamingTTSProcessor:
             logger.warning(
                 f"TTS is not configured for provider '{tts_provider or '(unset)'}', streaming TTS disabled"
             )
+        elif self._minimax_run_manager is None and should_use_minimax_run_websocket(
+            tts_provider
+        ):
+            self._minimax_run_manager = MinimaxRunTTSManager(
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                model=self.tts_model,
+            )
+            self._owns_minimax_run_manager = True
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
@@ -311,6 +329,14 @@ class StreamingTTSProcessor:
 
     def _submit_tts_task(self, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
+        if (
+            self._minimax_run_manager is not None
+            and self._minimax_run_manager.is_disabled
+        ):
+            self._enabled = False
+            logger.warning("MiniMax RUN TTS disabled; skipping new TTS segment")
+            return
+
         with self._lock:
             segment_index = self._segment_index
             self._segment_index += 1
@@ -387,13 +413,16 @@ class StreamingTTSProcessor:
         with self.app.app_context():
             try:
                 segment_start = time.monotonic()
-                result = synthesize_text(
-                    text=segment.text,
-                    voice_settings=voice_settings,
-                    audio_settings=audio_settings,
-                    model=tts_model,
-                    provider_name=tts_provider,
-                )
+                if self._minimax_run_manager is not None:
+                    result = self._minimax_run_manager.synthesize(segment.text)
+                else:
+                    result = synthesize_text(
+                        text=segment.text,
+                        voice_settings=voice_settings,
+                        audio_settings=audio_settings,
+                        model=tts_model,
+                        provider_name=tts_provider,
+                    )
                 segment.audio_data = result.audio_data
                 segment.duration_ms = result.duration_ms
                 segment.word_count = int(result.word_count or 0)
@@ -427,6 +456,24 @@ class StreamingTTSProcessor:
                     f"TTS segment {segment.index} synthesized: "
                     f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
                 )
+            except TTSRpmQueueTimeout as e:
+                self._enabled = False
+                logger.warning(
+                    "TTS segment %s skipped after RPM queue timeout: %s",
+                    segment.index,
+                    e,
+                )
+                segment.error = str(e)
+                segment.is_ready = True
+            except MinimaxRunTTSDisabled as e:
+                self._enabled = False
+                logger.warning(
+                    "TTS segment %s skipped because MiniMax RUN TTS is disabled: %s",
+                    segment.index,
+                    e,
+                )
+                segment.error = str(e)
+                segment.is_ready = True
             except Exception as e:
                 logger.error(f"TTS segment {segment.index} failed: {e}")
                 segment.error = str(e)
@@ -507,6 +554,14 @@ class StreamingTTSProcessor:
                     time.sleep(0.1)  # 100ms delay between segment yields
                 segments_yielded += 1
 
+    def _close_owned_minimax_run_manager(self) -> None:
+        if not self._owns_minimax_run_manager or self._minimax_run_manager is None:
+            return
+        try:
+            self._minimax_run_manager.close()
+        finally:
+            self._owns_minimax_run_manager = False
+
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -530,12 +585,16 @@ class StreamingTTSProcessor:
             f"pending_futures={len(self._pending_futures)}, "
             f"all_audio_data={len(self._all_audio_data)}"
         )
-        if not self._enabled:
+        has_existing_work = bool(
+            self._pending_futures or self._completed_segments or self._all_audio_data
+        )
+        if not self._enabled and not has_existing_work:
             logger.debug("TTS finalize: TTS not enabled, returning early")
+            self._close_owned_minimax_run_manager()
             return
 
         # Submit any remaining buffer content in segments to avoid burst
-        if self._buffer:
+        if self._enabled and self._buffer:
             raw_remaining = self._buffer[self._raw_offset :]
             remaining_text = preprocess_for_tts(raw_remaining).strip()
             # Use segmented submission to maintain consistent pacing
@@ -567,6 +626,7 @@ class StreamingTTSProcessor:
                 f"next_yield_index={self._next_yield_index}, "
                 f"completed_segments keys={list(self._completed_segments.keys())}"
             )
+            self._close_owned_minimax_run_manager()
             return
 
         # Sort by index and concatenate
@@ -684,6 +744,8 @@ class StreamingTTSProcessor:
         except Exception as e:
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
 
+        self._close_owned_minimax_run_manager()
+
 
 class AVStreamingTTSProcessor:
     """
@@ -746,6 +808,22 @@ class AVStreamingTTSProcessor:
             None
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
+        self._minimax_run_manager: Optional[MinimaxRunTTSManager] = None
+        if should_use_minimax_run_websocket(tts_provider):
+            voice_settings = get_default_voice_settings(tts_provider)
+            if voice_id:
+                voice_settings.voice_id = voice_id
+            if speed is not None:
+                voice_settings.speed = float(speed)
+            if pitch is not None:
+                voice_settings.pitch = int(pitch)
+            if emotion:
+                voice_settings.emotion = emotion
+            self._minimax_run_manager = MinimaxRunTTSManager(
+                voice_settings=voice_settings,
+                audio_settings=get_default_audio_settings(tts_provider),
+                model=tts_model,
+            )
 
     def _update_av_contract(self):
         try:
@@ -775,6 +853,7 @@ class AVStreamingTTSProcessor:
             tts_model=self.tts_model,
             av_contract=self._av_contract,
             usage_scene=self.usage_scene,
+            minimax_run_manager=self._minimax_run_manager,
         )
         self._current_segment_has_speakable_text = False
         return self._current_processor
@@ -897,17 +976,21 @@ class AVStreamingTTSProcessor:
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        # Ignore any trailing non-speakable content if we are mid-boundary.
-        if self._skip_mode:
-            self._raw_buffer = ""
-            self._skip_mode = None
+        try:
+            # Ignore any trailing non-speakable content if we are mid-boundary.
+            if self._skip_mode:
+                self._raw_buffer = ""
+                self._skip_mode = None
 
-        if self._raw_buffer:
-            processor = self._ensure_processor()
-            yield from self._process_processor_chunk(processor, self._raw_buffer)
-            self._raw_buffer = ""
+            if self._raw_buffer:
+                processor = self._ensure_processor()
+                yield from self._process_processor_chunk(processor, self._raw_buffer)
+                self._raw_buffer = ""
 
-        yield from self._finalize_current(commit=commit)
+            yield from self._finalize_current(commit=commit)
 
-        # Refresh cursor from the full contract so next block can continue element index.
-        self._refresh_next_element_index_from_contract()
+            # Refresh cursor from the full contract so next block can continue element index.
+            self._refresh_next_element_index_from_contract()
+        finally:
+            if self._minimax_run_manager is not None:
+                self._minimax_run_manager.close()

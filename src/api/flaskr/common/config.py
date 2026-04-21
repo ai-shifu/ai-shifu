@@ -1133,6 +1133,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="TTS audio bitrate (32000-256000)",
         group="tts",
     ),
+    "MINIMAX_TTS_RPM_LIMIT": EnvVar(
+        name="MINIMAX_TTS_RPM_LIMIT",
+        default=0,
+        type=int,
+        description="MiniMax TTS RPM queue limit; 0 disables queue gating",
+        group="tts",
+    ),
+    "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS": EnvVar(
+        name="MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS",
+        default=10,
+        type=int,
+        description="Maximum seconds a MiniMax TTS request waits in the RPM queue",
+        group="tts",
+    ),
     # Volcengine TTS Configuration (shared by WebSocket + HTTP providers)
     "VOLCENGINE_TTS_APP_KEY": EnvVar(
         name="VOLCENGINE_TTS_APP_KEY",

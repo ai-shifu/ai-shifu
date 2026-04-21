@@ -54,6 +54,10 @@ class TestStreamingTtsSubtitles:
             lambda _provider: True,
         )
         monkeypatch.setattr(
+            "flaskr.service.tts.streaming_tts.should_use_minimax_run_websocket",
+            lambda _provider: False,
+        )
+        monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.synthesize_text",
             lambda **kwargs: SimpleNamespace(
                 audio_data=f"audio:{kwargs['text']}".encode("utf-8"),
