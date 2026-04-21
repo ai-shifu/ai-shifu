@@ -2,9 +2,9 @@
 Streaming TTS Processor with async synthesis.
 
 This module provides real-time TTS synthesis during content streaming.
-- Text is synthesized sentence-by-sentence as soon as sentence boundaries appear
-- Trailing text without sentence endings is synthesized during finalize()
-- TTS synthesis runs in background threads to avoid blocking content streaming
+- Generic providers synthesize sentence-by-sentence as boundaries appear
+- MiniMax RUN TTS sends one HTTP streaming request per mdflow text element
+- TTS synthesis runs in background threads where the provider path supports it
 """
 
 import base64
@@ -27,11 +27,12 @@ from flaskr.api.tts import (
     get_default_voice_settings,
     get_default_audio_settings,
 )
+from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
+    export_audio_range_best_effort,
     get_audio_duration_ms,
-    is_audio_processing_available,
 )
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.audio_record_utils import (
@@ -61,9 +62,7 @@ from flaskr.service.tts.pipeline import (
     _find_next_av_boundary,
 )
 from flaskr.service.tts.minimax_run_tts import (
-    MinimaxRunTTSDisabled,
-    MinimaxRunTTSManager,
-    should_use_minimax_run_websocket,
+    should_use_minimax_http_stream,
 )
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
 
@@ -104,6 +103,8 @@ _VISUAL_SKIP_KINDS = frozenset(
 # like `<div`, `<svg`, `![` or fenced code openers can span across chunks
 # without delaying speakable text submission more than necessary.
 _STREAM_BOUNDARY_GUARD_TAIL_CHARS = 12
+_MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS = 1500
+_MINIMAX_HTTP_STREAM_MAX_CHARS = 9500
 
 
 @dataclass
@@ -147,7 +148,6 @@ class StreamingTTSProcessor:
         stream_element_type: str | None = None,
         av_contract: Optional[Dict[str, Any]] = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
-        minimax_run_manager: Optional[MinimaxRunTTSManager] = None,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -177,8 +177,7 @@ class StreamingTTSProcessor:
         if emotion:
             self.voice_settings.emotion = emotion
         self.audio_settings = get_default_audio_settings(tts_provider)
-        self._minimax_run_manager = minimax_run_manager
-        self._owns_minimax_run_manager = False
+        self._use_minimax_http_stream = should_use_minimax_http_stream(tts_provider)
 
         # State
         self._buffer = ""
@@ -214,15 +213,6 @@ class StreamingTTSProcessor:
             logger.warning(
                 f"TTS is not configured for provider '{tts_provider or '(unset)'}', streaming TTS disabled"
             )
-        elif self._minimax_run_manager is None and should_use_minimax_run_websocket(
-            tts_provider
-        ):
-            self._minimax_run_manager = MinimaxRunTTSManager(
-                voice_settings=self.voice_settings,
-                audio_settings=self.audio_settings,
-                model=self.tts_model,
-            )
-            self._owns_minimax_run_manager = True
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
@@ -236,6 +226,10 @@ class StreamingTTSProcessor:
             return
 
         self._buffer += chunk
+        if self._use_minimax_http_stream:
+            # MiniMax HTTP streaming is request-scoped: we send one request for
+            # the whole mdflow text element when this processor is finalized.
+            return
 
         # Check if we should submit a new TTS task
         self._try_submit_tts_task()
@@ -329,14 +323,6 @@ class StreamingTTSProcessor:
 
     def _submit_tts_task(self, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
-        if (
-            self._minimax_run_manager is not None
-            and self._minimax_run_manager.is_disabled
-        ):
-            self._enabled = False
-            logger.warning("MiniMax RUN TTS disabled; skipping new TTS segment")
-            return
-
         with self._lock:
             segment_index = self._segment_index
             self._segment_index += 1
@@ -413,16 +399,13 @@ class StreamingTTSProcessor:
         with self.app.app_context():
             try:
                 segment_start = time.monotonic()
-                if self._minimax_run_manager is not None:
-                    result = self._minimax_run_manager.synthesize(segment.text)
-                else:
-                    result = synthesize_text(
-                        text=segment.text,
-                        voice_settings=voice_settings,
-                        audio_settings=audio_settings,
-                        model=tts_model,
-                        provider_name=tts_provider,
-                    )
+                result = synthesize_text(
+                    text=segment.text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=tts_model,
+                    provider_name=tts_provider,
+                )
                 segment.audio_data = result.audio_data
                 segment.duration_ms = result.duration_ms
                 segment.word_count = int(result.word_count or 0)
@@ -460,15 +443,6 @@ class StreamingTTSProcessor:
                 self._enabled = False
                 logger.warning(
                     "TTS segment %s skipped after RPM queue timeout: %s",
-                    segment.index,
-                    e,
-                )
-                segment.error = str(e)
-                segment.is_ready = True
-            except MinimaxRunTTSDisabled as e:
-                self._enabled = False
-                logger.warning(
-                    "TTS segment %s skipped because MiniMax RUN TTS is disabled: %s",
                     segment.index,
                     e,
                 )
@@ -554,13 +528,369 @@ class StreamingTTSProcessor:
                     time.sleep(0.1)  # 100ms delay between segment yields
                 segments_yielded += 1
 
-    def _close_owned_minimax_run_manager(self) -> None:
-        if not self._owns_minimax_run_manager or self._minimax_run_manager is None:
+    def _yield_audio_segment_event(
+        self,
+        *,
+        segment_index: int,
+        audio_data: bytes,
+        duration_ms: int,
+        is_final: bool = False,
+        subtitle_cues: Optional[list[dict[str, Any]]] = None,
+    ) -> RunMarkdownFlowDTO:
+        base64_audio = base64.b64encode(audio_data).decode("utf-8")
+        return RunMarkdownFlowDTO(
+            outline_bid=self.outline_bid,
+            generated_block_bid=self.generated_block_bid,
+            type=GeneratedType.AUDIO_SEGMENT,
+            content=AudioSegmentDTO(
+                segment_index=segment_index,
+                audio_data=base64_audio,
+                duration_ms=duration_ms,
+                is_final=is_final,
+                position=self.position,
+                stream_element_number=self.stream_element_number,
+                stream_element_type=self.stream_element_type,
+                av_contract=self.av_contract,
+                subtitle_cues=normalize_subtitle_cues(subtitle_cues or []),
+            ),
+        )
+
+    def _build_segment_subtitle_cues(
+        self, all_segments: list[tuple]
+    ) -> list[dict[str, Any]]:
+        subtitle_cues: list[dict[str, Any]] = []
+        for segment_index, _audio_data, duration_ms, segment_text in all_segments:
+            append_subtitle_cue(
+                subtitle_cues,
+                text=str(segment_text or ""),
+                duration_ms=int(duration_ms or 0),
+                segment_index=int(segment_index or 0),
+                position=self.position,
+            )
+        return subtitle_cues
+
+    def _sentence_units_for_tts(self, text: str) -> list[str]:
+        units: list[str] = []
+        cursor = 0
+        for match in SENTENCE_ENDINGS.finditer(text or ""):
+            split_pos = match.end()
+            unit = text[cursor:split_pos].strip()
+            if unit:
+                units.append(unit)
+            cursor = split_pos
+        tail = (text or "")[cursor:].strip()
+        if tail:
+            units.append(tail)
+        return units or ([text.strip()] if (text or "").strip() else [])
+
+    def _split_minimax_http_stream_text(self, text: str) -> list[str]:
+        parts: list[str] = []
+        current = ""
+        for unit in self._sentence_units_for_tts(text):
+            if len(unit) > _MINIMAX_HTTP_STREAM_MAX_CHARS:
+                if current:
+                    parts.append(current)
+                    current = ""
+                for start in range(0, len(unit), _MINIMAX_HTTP_STREAM_MAX_CHARS):
+                    chunk = unit[start : start + _MINIMAX_HTTP_STREAM_MAX_CHARS].strip()
+                    if chunk:
+                        parts.append(chunk)
+                continue
+
+            candidate = f"{current}\n{unit}" if current else unit
+            if len(candidate) <= _MINIMAX_HTTP_STREAM_MAX_CHARS:
+                current = candidate
+                continue
+            if current:
+                parts.append(current)
+            current = unit
+
+        if current:
+            parts.append(current)
+        return parts
+
+    def _minimax_subtitles_to_cues(
+        self,
+        subtitles: list[dict[str, Any]],
+        *,
+        offset_ms: int = 0,
+    ) -> list[dict[str, Any]]:
+        cues: list[dict[str, Any]] = []
+        for raw_item in subtitles or []:
+            if not isinstance(raw_item, dict):
+                continue
+            text = str(raw_item.get("text", "") or "").strip()
+            if not text:
+                continue
+            try:
+                start_ms = int(round(float(raw_item.get("time_begin") or 0)))
+                end_ms = int(round(float(raw_item.get("time_end") or start_ms)))
+            except (TypeError, ValueError):
+                continue
+            start_ms = max(start_ms + int(offset_ms or 0), 0)
+            end_ms = max(end_ms + int(offset_ms or 0), start_ms)
+            cues.append(
+                {
+                    "text": text,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "segment_index": 0,
+                    "position": self.position,
+                }
+            )
+        return cues
+
+    def _store_stream_audio_segment(
+        self,
+        *,
+        audio_data: bytes,
+        duration_ms: int,
+        text: str,
+    ) -> tuple[int, RunMarkdownFlowDTO]:
+        with self._lock:
+            segment_index = self._segment_index
+            self._segment_index += 1
+            self._all_audio_data.append(
+                (
+                    segment_index,
+                    audio_data,
+                    int(duration_ms or 0),
+                    text,
+                )
+            )
+        return segment_index, self._yield_audio_segment_event(
+            segment_index=segment_index,
+            audio_data=audio_data,
+            duration_ms=int(duration_ms or 0),
+        )
+
+    def _yield_audio_complete_from_segments(
+        self,
+        *,
+        all_segments: list[tuple],
+        raw_text: str,
+        cleaned_text: str,
+        cleaned_text_length: int,
+        subtitle_cues: Optional[list[dict[str, Any]]] = None,
+        commit: bool = True,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not all_segments:
+            logger.warning(
+                "No audio segments to concatenate. segment_index=%s, next_yield_index=%s",
+                self._segment_index,
+                self._next_yield_index,
+            )
             return
+
+        all_segments.sort(key=lambda x: x[0])
+        audio_data_list = [s[1] for s in all_segments]
+        effective_subtitle_cues = (
+            normalize_subtitle_cues(subtitle_cues)
+            if subtitle_cues
+            else self._build_segment_subtitle_cues(all_segments)
+        )
+
         try:
-            self._minimax_run_manager.close()
-        finally:
-            self._owns_minimax_run_manager = False
+            final_audio = concat_audio_best_effort(audio_data_list)
+            final_duration_ms = get_audio_duration_ms(final_audio)
+            file_size = len(final_audio)
+
+            from flaskr.service.tts.tts_handler import upload_audio_to_oss
+
+            oss_url, bucket_name = upload_audio_to_oss(
+                self.app, final_audio, self._audio_bid
+            )
+
+            audio_record = build_completed_audio_record(
+                audio_bid=self._audio_bid,
+                generated_block_bid=self.generated_block_bid,
+                position=self.position,
+                progress_record_bid=self.progress_record_bid,
+                user_bid=self.user_bid,
+                shifu_bid=self.shifu_bid,
+                oss_url=oss_url,
+                oss_bucket=bucket_name,
+                oss_object_key=f"tts-audio/{self._audio_bid}.mp3",
+                duration_ms=final_duration_ms,
+                file_size=file_size,
+                audio_format=self.audio_settings.format or "mp3",
+                sample_rate=self.audio_settings.sample_rate or 24000,
+                voice_settings=self.voice_settings,
+                tts_model=self.tts_model or "",
+                text_length=cleaned_text_length,
+                segment_count=len(audio_data_list),
+                subtitle_cues=effective_subtitle_cues,
+            )
+            save_audio_record(audio_record, commit=commit)
+
+            from flaskr.service.tts.tts_usage_recorder import (
+                record_tts_aggregated_usage,
+            )
+
+            record_tts_aggregated_usage(
+                app=self.app,
+                usage_context=self.usage_context,
+                usage_bid=self._usage_parent_bid,
+                provider=self.tts_provider or "",
+                model=self.tts_model or "",
+                raw_text=raw_text or "",
+                cleaned_text=cleaned_text or "",
+                total_word_count=self._word_count_total,
+                duration_ms=final_duration_ms or 0,
+                segment_count=len(audio_data_list),
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                is_stream=True,
+            )
+
+            yield RunMarkdownFlowDTO(
+                outline_bid=self.outline_bid,
+                generated_block_bid=self.generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url=oss_url,
+                    audio_bid=self._audio_bid,
+                    duration_ms=final_duration_ms,
+                    position=self.position,
+                    stream_element_number=self.stream_element_number,
+                    stream_element_type=self.stream_element_type,
+                    av_contract=self.av_contract,
+                    subtitle_cues=normalize_subtitle_cues(effective_subtitle_cues),
+                ),
+            )
+
+            logger.debug(
+                "TTS complete: audio_bid=%s, segments=%s, duration=%sms",
+                self._audio_bid,
+                len(audio_data_list),
+                final_duration_ms,
+            )
+        except Exception as e:
+            logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
+
+    def _finalize_minimax_http_stream(
+        self,
+        *,
+        raw_text: str,
+        cleaned_text: str,
+        cleaned_text_length: int,
+        commit: bool,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        request_texts = self._split_minimax_http_stream_text(cleaned_text)
+        if not self._enabled or not request_texts:
+            return
+
+        provider = MinimaxTTSProvider()
+        all_subtitle_cues: list[dict[str, Any]] = []
+        subtitle_offset_ms = 0
+
+        from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
+
+        for request_index, request_text in enumerate(request_texts):
+            request_started_at = time.monotonic()
+            audio_chunks: list[bytes] = []
+            emitted_ms = 0
+            request_duration_ms = 0
+            request_word_count = 0
+            request_format = self.audio_settings.format or "mp3"
+            request_subtitles: list[dict[str, Any]] = []
+
+            for chunk in provider.stream_synthesize(
+                text=request_text,
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                model=self.tts_model,
+            ):
+                if chunk.audio_data:
+                    audio_chunks.append(chunk.audio_data)
+                if chunk.format:
+                    request_format = chunk.format
+                if chunk.is_final:
+                    request_duration_ms = int(chunk.duration_ms or request_duration_ms)
+                    request_word_count = int(chunk.word_count or request_word_count)
+                    request_subtitles = chunk.subtitles
+
+                accumulated_audio = b"".join(audio_chunks)
+                if not accumulated_audio:
+                    continue
+
+                audio_piece = b""
+                piece_duration_ms = 0
+                audio_piece, piece_duration_ms = export_audio_range_best_effort(
+                    accumulated_audio,
+                    start_ms=emitted_ms,
+                    end_ms=request_duration_ms if chunk.is_final else None,
+                    input_format=request_format or "mp3",
+                    output_format=self.audio_settings.format or "mp3",
+                )
+
+                if (
+                    not chunk.is_final
+                    and piece_duration_ms < _MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS
+                ):
+                    continue
+
+                if not audio_piece and chunk.is_final and emitted_ms == 0:
+                    audio_piece = accumulated_audio
+                    piece_duration_ms = request_duration_ms or get_audio_duration_ms(
+                        audio_piece,
+                        format=request_format or "mp3",
+                    )
+
+                if not audio_piece or piece_duration_ms <= 0:
+                    continue
+
+                emitted_ms += int(piece_duration_ms or 0)
+                _segment_index, event = self._store_stream_audio_segment(
+                    audio_data=audio_piece,
+                    duration_ms=piece_duration_ms,
+                    text=request_text,
+                )
+                yield event
+
+            if request_duration_ms <= 0:
+                request_duration_ms = emitted_ms
+            if request_word_count:
+                self._word_count_total += request_word_count
+            if request_subtitles:
+                all_subtitle_cues.extend(
+                    self._minimax_subtitles_to_cues(
+                        request_subtitles,
+                        offset_ms=subtitle_offset_ms,
+                    )
+                )
+            subtitle_offset_ms += int(request_duration_ms or emitted_ms or 0)
+
+            record_tts_segment_usage(
+                app=self.app,
+                usage_context=self.usage_context,
+                provider=self.tts_provider or "",
+                model=self.tts_model or "",
+                segment_text=request_text,
+                word_count=request_word_count,
+                duration_ms=int(request_duration_ms or 0),
+                latency_ms=int((time.monotonic() - request_started_at) * 1000),
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                is_stream=True,
+                parent_usage_bid=self._usage_parent_bid,
+                segment_index=request_index,
+            )
+
+        with self._lock:
+            all_segments = list(self._all_audio_data)
+
+        if not all_subtitle_cues:
+            all_subtitle_cues = self._build_segment_subtitle_cues(all_segments)
+
+        yield from self._yield_audio_complete_from_segments(
+            all_segments=all_segments,
+            raw_text=raw_text,
+            cleaned_text=cleaned_text,
+            cleaned_text_length=cleaned_text_length,
+            subtitle_cues=all_subtitle_cues,
+            commit=commit,
+        )
 
     def finalize(
         self, *, commit: bool = True
@@ -590,7 +920,17 @@ class StreamingTTSProcessor:
         )
         if not self._enabled and not has_existing_work:
             logger.debug("TTS finalize: TTS not enabled, returning early")
-            self._close_owned_minimax_run_manager()
+            return
+
+        if self._use_minimax_http_stream:
+            self._raw_offset = len(self._buffer)
+            self._buffer = ""
+            yield from self._finalize_minimax_http_stream(
+                raw_text=raw_text,
+                cleaned_text=cleaned_text.strip(),
+                cleaned_text_length=cleaned_text_length,
+                commit=commit,
+            )
             return
 
         # Submit any remaining buffer content in segments to avoid burst
@@ -626,125 +966,15 @@ class StreamingTTSProcessor:
                 f"next_yield_index={self._next_yield_index}, "
                 f"completed_segments keys={list(self._completed_segments.keys())}"
             )
-            self._close_owned_minimax_run_manager()
             return
 
-        # Sort by index and concatenate
-        all_segments.sort(key=lambda x: x[0])
-        audio_data_list = [s[1] for s in all_segments]
-        total_duration_ms = sum(s[2] for s in all_segments)
-        subtitle_cues: list[dict[str, Any]] = []
-        for segment_index, _audio_data, duration_ms, segment_text in all_segments:
-            append_subtitle_cue(
-                subtitle_cues,
-                text=str(segment_text or ""),
-                duration_ms=int(duration_ms or 0),
-                segment_index=int(segment_index or 0),
-                position=self.position,
-            )
-
-        logger.debug(
-            f"Concatenating {len(audio_data_list)} audio segments, "
-            f"total duration: {total_duration_ms}ms"
+        yield from self._yield_audio_complete_from_segments(
+            all_segments=all_segments,
+            raw_text=raw_text,
+            cleaned_text=cleaned_text,
+            cleaned_text_length=cleaned_text_length,
+            commit=commit,
         )
-
-        try:
-            # Concatenate all segments
-            logger.debug(
-                f"TTS finalize: audio_processing_available={is_audio_processing_available()}"
-            )
-            final_audio = concat_audio_best_effort(audio_data_list)
-
-            final_duration_ms = get_audio_duration_ms(final_audio)
-            file_size = len(final_audio)
-            logger.debug(
-                f"TTS finalize: final_audio_size={file_size}, duration={final_duration_ms}ms"
-            )
-
-            # Upload to OSS
-            from flaskr.service.tts.tts_handler import upload_audio_to_oss
-
-            logger.debug(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
-            oss_url, bucket_name = upload_audio_to_oss(
-                self.app, final_audio, self._audio_bid
-            )
-            logger.debug(f"TTS finalize: OSS upload complete, url={oss_url}")
-
-            logger.debug("TTS finalize: saving to database")
-            audio_record = build_completed_audio_record(
-                audio_bid=self._audio_bid,
-                generated_block_bid=self.generated_block_bid,
-                position=self.position,
-                progress_record_bid=self.progress_record_bid,
-                user_bid=self.user_bid,
-                shifu_bid=self.shifu_bid,
-                oss_url=oss_url,
-                oss_bucket=bucket_name,
-                oss_object_key=f"tts-audio/{self._audio_bid}.mp3",
-                duration_ms=final_duration_ms,
-                file_size=file_size,
-                audio_format=self.audio_settings.format or "mp3",
-                sample_rate=self.audio_settings.sample_rate or 24000,
-                voice_settings=self.voice_settings,
-                tts_model=self.tts_model or "",
-                text_length=cleaned_text_length,
-                segment_count=len(audio_data_list),
-                subtitle_cues=subtitle_cues,
-            )
-            save_audio_record(audio_record, commit=commit)
-            if commit:
-                logger.debug("TTS finalize: database commit complete")
-            else:
-                logger.debug("TTS finalize: database flush complete")
-
-            from flaskr.service.tts.tts_usage_recorder import (
-                record_tts_aggregated_usage,
-            )
-
-            record_tts_aggregated_usage(
-                app=self.app,
-                usage_context=self.usage_context,
-                usage_bid=self._usage_parent_bid,
-                provider=self.tts_provider or "",
-                model=self.tts_model or "",
-                raw_text=raw_text or "",
-                cleaned_text=cleaned_text or "",
-                total_word_count=self._word_count_total,
-                duration_ms=final_duration_ms or 0,
-                segment_count=len(audio_data_list),
-                voice_settings=self.voice_settings,
-                audio_settings=self.audio_settings,
-                is_stream=True,
-            )
-
-            # Yield completion
-            logger.debug("TTS finalize: yielding AUDIO_COMPLETE")
-            yield RunMarkdownFlowDTO(
-                outline_bid=self.outline_bid,
-                generated_block_bid=self.generated_block_bid,
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=oss_url,
-                    audio_bid=self._audio_bid,
-                    duration_ms=final_duration_ms,
-                    position=self.position,
-                    stream_element_number=self.stream_element_number,
-                    stream_element_type=self.stream_element_type,
-                    av_contract=self.av_contract,
-                    subtitle_cues=normalize_subtitle_cues(subtitle_cues),
-                ),
-            )
-
-            logger.debug(
-                f"TTS complete: audio_bid={self._audio_bid}, "
-                f"segments={len(audio_data_list)}, "
-                f"duration={final_duration_ms}ms"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
-
-        self._close_owned_minimax_run_manager()
 
 
 class AVStreamingTTSProcessor:
@@ -808,22 +1038,6 @@ class AVStreamingTTSProcessor:
             None
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
-        self._minimax_run_manager: Optional[MinimaxRunTTSManager] = None
-        if should_use_minimax_run_websocket(tts_provider):
-            voice_settings = get_default_voice_settings(tts_provider)
-            if voice_id:
-                voice_settings.voice_id = voice_id
-            if speed is not None:
-                voice_settings.speed = float(speed)
-            if pitch is not None:
-                voice_settings.pitch = int(pitch)
-            if emotion:
-                voice_settings.emotion = emotion
-            self._minimax_run_manager = MinimaxRunTTSManager(
-                voice_settings=voice_settings,
-                audio_settings=get_default_audio_settings(tts_provider),
-                model=tts_model,
-            )
 
     def _update_av_contract(self):
         try:
@@ -853,7 +1067,6 @@ class AVStreamingTTSProcessor:
             tts_model=self.tts_model,
             av_contract=self._av_contract,
             usage_scene=self.usage_scene,
-            minimax_run_manager=self._minimax_run_manager,
         )
         self._current_segment_has_speakable_text = False
         return self._current_processor
@@ -976,21 +1189,17 @@ class AVStreamingTTSProcessor:
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        try:
-            # Ignore any trailing non-speakable content if we are mid-boundary.
-            if self._skip_mode:
-                self._raw_buffer = ""
-                self._skip_mode = None
+        # Ignore any trailing non-speakable content if we are mid-boundary.
+        if self._skip_mode:
+            self._raw_buffer = ""
+            self._skip_mode = None
 
-            if self._raw_buffer:
-                processor = self._ensure_processor()
-                yield from self._process_processor_chunk(processor, self._raw_buffer)
-                self._raw_buffer = ""
+        if self._raw_buffer:
+            processor = self._ensure_processor()
+            yield from self._process_processor_chunk(processor, self._raw_buffer)
+            self._raw_buffer = ""
 
-            yield from self._finalize_current(commit=commit)
+        yield from self._finalize_current(commit=commit)
 
-            # Refresh cursor from the full contract so next block can continue element index.
-            self._refresh_next_element_index_from_contract()
-        finally:
-            if self._minimax_run_manager is not None:
-                self._minimax_run_manager.close()
+        # Refresh cursor from the full contract so next block can continue element index.
+        self._refresh_next_element_index_from_contract()
