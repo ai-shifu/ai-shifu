@@ -183,7 +183,8 @@ export class MockRunStreamFixtureSource extends EventTarget {
       const errorEvent = new Event('error');
       Object.assign(errorEvent, {
         detail: error,
-        data: error instanceof Error ? error.message : 'Mock run fixture failed',
+        data:
+          error instanceof Error ? error.message : 'Mock run fixture failed',
       });
       this.dispatchEvent(errorEvent);
       this.close();
