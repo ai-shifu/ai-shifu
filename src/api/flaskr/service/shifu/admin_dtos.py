@@ -150,6 +150,26 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Total successful paid order amount",
         required=False,
     )
+    available_credits: str = Field(
+        default="",
+        description="Current active total creator credits",
+        required=False,
+    )
+    subscription_credits: str = Field(
+        default="",
+        description="Current active subscription creator credits",
+        required=False,
+    )
+    topup_credits: str = Field(
+        default="",
+        description="Current active top-up creator credits",
+        required=False,
+    )
+    credits_expire_at: str = Field(
+        default="",
+        description="Earliest active creator credit expiry",
+        required=False,
+    )
     last_login_at: str = Field(
         default="",
         description="Latest login timestamp",
@@ -162,6 +182,93 @@ class AdminOperationUserSummaryDTO(BaseModel):
     )
     created_at: str = Field(..., description="Created at", required=False)
     updated_at: str = Field(..., description="Updated at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditSummaryDTO(BaseModel):
+    """Credits summary shown in the operator user detail."""
+
+    available_credits: str = Field(
+        default="",
+        description="Current active total creator credits",
+        required=False,
+    )
+    subscription_credits: str = Field(
+        default="",
+        description="Current active subscription creator credits",
+        required=False,
+    )
+    topup_credits: str = Field(
+        default="",
+        description="Current active top-up creator credits",
+        required=False,
+    )
+    credits_expire_at: str = Field(
+        default="",
+        description="Earliest active creator credit expiry",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditLedgerItemDTO(BaseModel):
+    """Operator-facing user credit ledger row."""
+
+    ledger_bid: str = Field(..., description="Ledger business identifier", required=False)
+    created_at: str = Field(..., description="Created at", required=False)
+    entry_type: str = Field(..., description="Ledger entry type", required=False)
+    source_type: str = Field(..., description="Ledger source type", required=False)
+    display_entry_type: str = Field(
+        default="",
+        description="Operator-facing ledger entry type",
+        required=False,
+    )
+    display_source_type: str = Field(
+        default="",
+        description="Operator-facing ledger source type",
+        required=False,
+    )
+    amount: str = Field(..., description="Ledger amount", required=False)
+    balance_after: str = Field(..., description="Balance after entry", required=False)
+    expires_at: str = Field(default="", description="Entry expires at", required=False)
+    consumable_from: str = Field(
+        default="",
+        description="Entry consumable from",
+        required=False,
+    )
+    note: str = Field(default="", description="Ledger note", required=False)
+    note_code: str = Field(
+        default="",
+        description="Operator-facing note code",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditLedgerPageDTO(BaseModel):
+    """Paginated operator-facing user credit ledger response."""
+
+    summary: AdminOperationUserCreditSummaryDTO = Field(
+        ..., description="Credits summary", required=False
+    )
+    items: list[AdminOperationUserCreditLedgerItemDTO] = Field(
+        default_factory=list,
+        description="Credit ledger items",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()

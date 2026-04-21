@@ -87,6 +87,8 @@ const DEFAULT_COLUMN_WIDTHS = {
   learningCourses: 240,
   createdCourses: 240,
   totalPaidAmount: 140,
+  availableCredits: 140,
+  creditsExpireAt: 180,
   lastLoginAt: 180,
   lastLearningAt: 180,
   createdAt: 180,
@@ -211,6 +213,8 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.learningCourses')
  * t('module.operationsUser.table.createdCourses')
  * t('module.operationsUser.table.totalPaidAmount')
+ * t('module.operationsUser.table.availableCredits')
+ * t('module.operationsUser.table.creditsExpireAt')
  * t('module.operationsUser.table.lastLoginAt')
  * t('module.operationsUser.table.lastLearningAt')
  * t('module.operationsUser.table.createdAt')
@@ -353,6 +357,18 @@ export default function AdminOperationUsersPage() {
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
     [contactType, tOperationsUsers],
+  );
+  const resolveCreditsExpireAtLabel = React.useCallback(
+    (user: AdminOperationUserItem) => {
+      if (user.credits_expire_at) {
+        return user.credits_expire_at;
+      }
+      if (Number(user.available_credits || 0) > 0) {
+        return tOperationsUsers('credits.longTerm');
+      }
+      return EMPTY_STATE_LABEL;
+    },
+    [tOperationsUsers],
   );
 
   const fetchUsers = useCallback(
@@ -756,7 +772,7 @@ export default function AdminOperationUsersPage() {
             loading={loading}
             isEmpty={users.length === 0}
             emptyContent={tOperationsUsers('emptyList')}
-            emptyColSpan={14}
+            emptyColSpan={16}
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
             table={emptyRow => (
               <Table>
@@ -831,6 +847,20 @@ export default function AdminOperationUsersPage() {
                     >
                       {tOperationsUsers('table.totalPaidAmount')}
                       {renderResizeHandle('totalPaidAmount')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('availableCredits')}
+                    >
+                      {tOperationsUsers('table.availableCredits')}
+                      {renderResizeHandle('availableCredits')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('creditsExpireAt')}
+                    >
+                      {tOperationsUsers('table.creditsExpireAt')}
+                      {renderResizeHandle('creditsExpireAt')}
                     </TableHead>
                     <TableHead
                       className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
@@ -989,6 +1019,31 @@ export default function AdminOperationUsersPage() {
                           {renderTooltipText(
                             `${currencySymbol}${user.total_paid_amount || '0'}`,
                           )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('availableCredits')}
+                        >
+                          {userDetailUrl && user.available_credits ? (
+                            <Link
+                              href={`${userDetailUrl}#credits`}
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              {renderTooltipText(
+                                user.available_credits || EMPTY_STATE_LABEL,
+                              )}
+                            </Link>
+                          ) : (
+                            renderTooltipText(
+                              user.available_credits || EMPTY_STATE_LABEL,
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('creditsExpireAt')}
+                        >
+                          {renderTooltipText(resolveCreditsExpireAtLabel(user))}
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'

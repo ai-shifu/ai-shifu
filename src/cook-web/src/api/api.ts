@@ -103,6 +103,8 @@ const api = {
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  getAdminOperationUserCredits:
+    'GET /shifu/admin/operations/users/{user_bid}/credits',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
   getAdminOperationCourseDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
