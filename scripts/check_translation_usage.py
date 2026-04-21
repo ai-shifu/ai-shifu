@@ -17,6 +17,9 @@ COOK_WEB_DIR = ROOT / "src" / "cook-web" / "src"
 WEB_DIR = ROOT / "src" / "web" / "src"
 
 STRING_LITERAL = re.compile(r"['\"][^'\"]+['\"]")
+TRANSLATION_KEY_LITERAL = re.compile(
+    r"^(?:module|server)\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+$"
+)
 
 BACKEND_PATTERNS = [
     re.compile(r"_\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
@@ -160,10 +163,22 @@ def collect_frontend_keys() -> Set[str]:
         for file_path in root.rglob("*"):
             if file_path.suffix not in extensions:
                 continue
+            if (
+                ".test." in file_path.name
+                or ".spec." in file_path.name
+                or "__tests__" in file_path.parts
+            ):
+                continue
             text = file_path.read_text(encoding="utf-8", errors="ignore")
             for pattern in patterns:
                 for match in pattern.findall(text):
                     used.add(match)
+            # Catch translation keys referenced as bare string literals
+            # (e.g. in arrays or maps) that are later passed to t().
+            for match in STRING_LITERAL.findall(text):
+                candidate = match[1:-1]
+                if TRANSLATION_KEY_LITERAL.fullmatch(candidate):
+                    used.add(candidate)
     return used
 
 

@@ -128,23 +128,7 @@ export function BillingOverviewShowcase({
     t('module.billing.package.free.description'),
   );
 
-  let freePriceMetaLabel = '';
-  if (trialOffer) {
-    if (
-      trialOffer.status === 'granted' &&
-      trialOffer.granted_at &&
-      trialOffer.expires_at
-    ) {
-      freePriceMetaLabel = t('module.billing.package.free.priceNoteGranted', {
-        grantedAt: formatBillingDate(trialOffer.granted_at, i18n.language),
-        expiresAt: formatBillingDate(trialOffer.expires_at, i18n.language),
-      });
-    } else {
-      freePriceMetaLabel = t('module.billing.package.free.priceNote', {
-        days: trialOffer.valid_days,
-      });
-    }
-  }
+  const freePriceMetaLabel = '';
 
   return (
     <>
