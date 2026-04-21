@@ -46,6 +46,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=base /usr/local/bin/celery /usr/local/bin/celery
 COPY --from=base /usr/local/bin/flask /usr/local/bin/flask
 COPY --from=base /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 

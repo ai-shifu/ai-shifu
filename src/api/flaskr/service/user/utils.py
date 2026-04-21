@@ -18,7 +18,7 @@ import json
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
-from flaskr.service.user.repository import mark_user_roles
+from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 
@@ -270,17 +270,21 @@ def create_and_commit_user_verify_code(
 
 def ensure_creator_demo_permissions_and_first_lesson(
     app: Flask, user_id: str, language: str
-) -> None:
+) -> bool:
     """
     Ensure that a user is marked as creator and has demo course permissions.
 
     The function name is kept for compatibility. First lesson draft creation
     is handled by course creation flows.
     """
+    entity = get_user_entity_by_bid(user_id)
+    creator_granted_now = bool(entity is not None and not bool(entity.is_creator))
+
     # Mark user as creator in canonical user entity
     mark_user_roles(user_id, is_creator=True)
 
     ensure_demo_course_permissions(app, user_id)
+    return creator_granted_now
 
 
 def load_existing_demo_shifu_ids() -> set[str]:
@@ -374,7 +378,7 @@ def ensure_demo_course_permissions(
 
 def ensure_admin_creator_and_demo_permissions(
     app: Flask, user_id: str, language: str, login_context: str | None = None
-) -> None:
+) -> bool:
     """
     Ensure that an admin-login user is a creator and has demo course permissions.
 
@@ -383,10 +387,10 @@ def ensure_admin_creator_and_demo_permissions(
     """
     # Only apply when the feature flag is enabled
     if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
-        return
+        return False
 
     # Only act on explicit admin logins
     if login_context != "admin":
-        return
+        return False
 
-    ensure_creator_demo_permissions_and_first_lesson(app, user_id, language)
+    return ensure_creator_demo_permissions_and_first_lesson(app, user_id, language)

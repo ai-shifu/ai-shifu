@@ -37,6 +37,7 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import { getHostDomain } from '@/c-utils/urlUtils';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -182,16 +183,11 @@ const ScriptManagementPage = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    const hostname = window.location.hostname;
-    const basePath = '/educators.html#course-creator-skill';
-    let domain: string | null = null;
-    if (hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost') {
-      domain = 'ai-shifu.cn';
-    } else if (hostname.endsWith('.ai-shifu.com')) {
-      domain = 'ai-shifu.com';
-    }
+    const domain = getHostDomain();
     if (domain) {
-      setCourseCreatorUrl(`https://${domain}${basePath}`);
+      setCourseCreatorUrl(
+        `https://${domain}/educators.html#course-creator-skill`,
+      );
     }
   }, []);
 

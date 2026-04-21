@@ -639,6 +639,9 @@ BACKEND_META = {
             "layer instead of branching through every order flow",
             "preserve idempotent order, coupon, and payment-notification "
             "handling because retries are normal in payment systems",
+            "when legacy provider raw tables are shared with billing snapshots, "
+            "keep legacy `/order` reads and writes scoped to "
+            "`biz_domain='order'`",
             "treat admin DTOs and public order payloads as compatibility "
             "surfaces used outside this module",
         ),

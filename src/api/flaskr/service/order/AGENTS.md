@@ -35,8 +35,8 @@ module-specific ownership and risk points.
 - Preserve idempotent order, coupon, and payment-notification handling because
   retries are normal in payment systems.
 
-- Treat admin DTOs and public order payloads as compatibility surfaces used
-  outside this module.
+- When legacy provider raw tables are shared with billing snapshots, keep
+  legacy `/order` reads and writes scoped to `biz_domain='order'`.
 
 ## Avoid
 

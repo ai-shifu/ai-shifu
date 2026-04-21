@@ -142,6 +142,21 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Currency symbol used in Cook Web (default: ¥)",
         group="frontend",
     ),
+    "BILL_CREDIT_PRECISION": EnvVar(
+        name="BILL_CREDIT_PRECISION",
+        default=2,
+        type=int,
+        description="Fractional digits used for billing credit display and settlement rounding. Values: 0-10.",
+        group="frontend",
+        validator=lambda x: 0 <= int(x) <= 10,
+    ),
+    "BILL_ENABLED": EnvVar(
+        name="BILL_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable the creator billing runtime surface (Cook Web /admin/billing and /api/billing/*). Leave off until billing is configured for the environment.",
+        group="frontend",
+    ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
         default="/",
@@ -563,6 +578,44 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    # Celery Configuration
+    "CELERY_BROKER_URL": EnvVar(
+        name="CELERY_BROKER_URL",
+        default="redis://localhost:6379/0",
+        description="Celery broker URL. Billing workers default to Redis.",
+        group="celery",
+    ),
+    "CELERY_RESULT_BACKEND": EnvVar(
+        name="CELERY_RESULT_BACKEND",
+        default="redis://localhost:6379/1",
+        description="Celery result backend URL. Defaults to Redis.",
+        group="celery",
+    ),
+    "CELERY_TASK_ALWAYS_EAGER": EnvVar(
+        name="CELERY_TASK_ALWAYS_EAGER",
+        default=False,
+        type=bool,
+        description="Execute Celery tasks eagerly in-process for tests and local debugging.",
+        group="celery",
+    ),
+    "BILLING_RENEWAL_CRON": EnvVar(
+        name="BILLING_RENEWAL_CRON",
+        default="* * * * *",
+        description="Cron expression for dispatching due billing renewal events.",
+        group="celery",
+    ),
+    "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
+        name="BILLING_BUCKET_EXPIRE_CRON",
+        default="* * * * *",
+        description="Cron expression for scanning expired billing wallet buckets.",
+        group="celery",
+    ),
+    "BILLING_LOW_BALANCE_CRON": EnvVar(
+        name="BILLING_LOW_BALANCE_CRON",
+        default="0 * * * *",
+        description="Cron expression for scanning billing low-balance alerts.",
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
@@ -823,6 +876,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="ALIBABA_CLOUD_SMS_TEMPLATE_CODE",
         default="",
         description="Alibaba Cloud SMS template code",
+        group="alibaba_cloud",
+    ),
+    "ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE": EnvVar(
+        name="ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE",
+        default="",
+        description="Alibaba Cloud SMS template code for billing subscription success notifications",
         group="alibaba_cloud",
     ),
     "ALIBABA_CLOUD_OSS_ACCESS_KEY_ID": EnvVar(

@@ -159,6 +159,7 @@ export interface UseChatSessionParams {
 export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
+  isOutputInProgress: boolean;
   currentStreamingElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
@@ -223,6 +224,7 @@ function useChatLogicHook({
     })),
   );
   const isStreamingRef = useRef(false);
+  const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
     useCourseStore(
       useShallow(state => ({
@@ -1163,10 +1165,14 @@ function useChatLogicHook({
         } catch {
         } finally {
           sseRef.current = null;
+          isStreamingRef.current = false;
+          setIsOutputInProgress(false);
         }
       }
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
+      isStreamingRef.current = true;
+      setIsOutputInProgress(true);
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
@@ -1637,6 +1643,7 @@ function useChatLogicHook({
           }
           clearLoadingPlaceholder();
           isStreamingRef.current = false;
+          setIsOutputInProgress(false);
           sseRef.current = null;
           const completedElementBid = currentBlockIdRef.current || '';
           if (completedElementBid) {
@@ -1657,6 +1664,7 @@ function useChatLogicHook({
         if (source.readyState === 1) {
           if (isActiveSource) {
             isStreamingRef.current = true;
+            setIsOutputInProgress(true);
           }
         }
         if (source.readyState === 2) {
@@ -1666,6 +1674,7 @@ function useChatLogicHook({
             // which still leaves the placeholder visible without this cleanup.
             clearLoadingPlaceholder();
             isStreamingRef.current = false;
+            setIsOutputInProgress(false);
             sseRef.current = null;
             const completedElementBid = currentBlockIdRef.current || '';
             if (completedElementBid) {
@@ -1717,6 +1726,7 @@ function useChatLogicHook({
   useEffect(() => {
     return () => {
       sseRef.current?.close();
+      isStreamingRef.current = false;
     };
   }, []);
 
@@ -2761,6 +2771,7 @@ function useChatLogicHook({
   return {
     items,
     isLoading,
+    isOutputInProgress,
     currentStreamingElementBid,
     onSend,
     onRefresh,

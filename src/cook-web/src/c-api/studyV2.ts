@@ -1,5 +1,5 @@
 import { SSE } from 'sse.js';
-import request from '@/lib/request';
+import request, { attachSseBusinessResponseFallback } from '@/lib/request';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
@@ -231,6 +231,30 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const getListenFlagFromPageUrl = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const listenParam = new URLSearchParams(window.location.search).get('listen');
+  return (
+    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
+  );
+};
+
+const dispatchSseBusinessError = (
+  source: { dispatchEvent: (event: Event) => void },
+  error: { message: string; code?: number },
+) => {
+  const event = new CustomEvent('error');
+  Object.assign(event, {
+    detail: error,
+    data: error.message,
+    responseCode: error.code,
+  });
+  source.dispatchEvent(event);
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -288,11 +312,25 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
+    if ((e as { detail?: unknown }).detail) {
+      if (onError) {
+        onError(e);
+      }
+      return;
+    }
+
     if (onError) {
       onError(e);
       return;
     }
     console.error('[SSE error]', e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
   });
 
   source.stream();
@@ -333,6 +371,13 @@ const createSseSource = (
 
   source.addEventListener('error', e => {
     onError?.(e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
   });
 
   source.stream();
