@@ -201,20 +201,11 @@ const resolveCreditLedgerLabel = (
 };
 
 const resolveCreditLedgerNote = (
-  tOperationsUsers: OperatorUsersTranslator,
   note: string,
-  noteCode: string,
 ): string => {
   const normalizedNote = note.trim();
   if (normalizedNote) {
     return normalizedNote;
-  }
-
-  const normalizedNoteCode = noteCode.trim();
-  if (normalizedNoteCode) {
-    return tOperationsUsers(`detail.creditLedgerNoteLabels.${normalizedNoteCode}`, {
-      defaultValue: normalizedNoteCode,
-    });
   }
   return EMPTY_VALUE;
 };
@@ -489,9 +480,7 @@ const CreditLedgerTable = ({
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
                           text={resolveCreditLedgerNote(
-                            tOperationsUsers,
                             item.note,
-                            item.note_code,
                           )}
                           emptyValue={EMPTY_VALUE}
                         />
@@ -523,6 +512,7 @@ const CreditLedgerTable = ({
               'module.order.paginationNextAriaLabel',
               'Go to next page',
             )}
+            className='justify-end w-auto mx-0'
           />
         ) : null}
       </CardContent>

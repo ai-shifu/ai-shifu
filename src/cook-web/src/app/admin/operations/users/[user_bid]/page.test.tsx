@@ -305,7 +305,7 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
   });
 
-  test('falls back to translated display labels and note codes for system ledger rows', async () => {
+  test('keeps note column empty for system ledger rows without manual note', async () => {
     mockGetAdminOperationUserCredits.mockResolvedValueOnce({
       ...creditsResponse,
       items: [
@@ -339,10 +339,11 @@ describe('AdminOperationUserDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'module.operationsUser.detail.creditLedgerNoteLabels.subscription_purchase',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('--')).toBeInTheDocument();
   });
 
   test('back button returns to user list', async () => {
