@@ -518,11 +518,6 @@
         "taskPriority": "Priority task processing",
         "techBasic": "Basic technical support"
       },
-      "daily": {
-        "preview": "Fast-turn daily access for short validation cycles",
-        "publish": "Short-term publishing and onboarding coverage",
-        "support": "Daily plan operational support"
-      },
       "common": {
         "aiNarration": "AI narration and audio lessons",
         "allLearning": "All learning features",
@@ -530,6 +525,11 @@
         "higherConcurrency": "Higher concurrency support",
         "orderAndData": "Order and learning data queries",
         "unlimitedCourses": "Unlimited courses"
+      },
+      "daily": {
+        "preview": "Fast-turn daily access for short validation cycles",
+        "publish": "Short-term publishing and onboarding coverage",
+        "support": "Daily plan operational support"
       },
       "free": {
         "preview": "Learner delivery and account import",

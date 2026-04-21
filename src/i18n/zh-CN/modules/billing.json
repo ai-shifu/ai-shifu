@@ -518,11 +518,6 @@
         "taskPriority": "任务优先处理",
         "techBasic": "技术基础支持"
       },
-      "daily": {
-        "preview": "适合短周期验证与快速体验",
-        "publish": "支持短期发布与快速上手",
-        "support": "日订阅运营支持"
-      },
       "common": {
         "aiNarration": "AI 讲解与听课语音",
         "allLearning": "全部学习功能",
@@ -530,6 +525,11 @@
         "higherConcurrency": "更高并发支持",
         "orderAndData": "订单和学习数据查询",
         "unlimitedCourses": "不限课程数"
+      },
+      "daily": {
+        "preview": "适合短周期验证与快速体验",
+        "publish": "支持短期发布与快速上手",
+        "support": "日订阅运营支持"
       },
       "free": {
         "preview": "学员交付与学习账号导入",
