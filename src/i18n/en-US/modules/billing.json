@@ -463,7 +463,8 @@
     "usageScene": {
       "debug": "Debug",
       "preview": "Preview",
-      "production": "Learner study"
+      "production": "Study",
+      "tts": "Voice"
     }
   },
   "orders": {

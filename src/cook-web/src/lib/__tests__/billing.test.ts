@@ -1,4 +1,6 @@
 import {
+  formatBillingCreditAmount,
+  formatBillingCreditBalance,
   formatBillingCredits,
   formatBillingPlanInterval,
   parseBillingDateValue,
@@ -65,8 +67,8 @@ describe('resolveBillingPlanCreditsLabel', () => {
       return `${key}:${String(options?.credits || '')}`;
     });
 
-    expect(resolveBillingPlanCreditsLabel(t, monthlyPlan, 'zh-CN')).toBe(
-      'module.billing.package.creditSummary.monthly:5.00',
+    expect(resolveBillingPlanCreditsLabel(t, monthlyPlan)).toBe(
+      'module.billing.package.creditSummary.monthly:5',
     );
   });
 
@@ -75,8 +77,8 @@ describe('resolveBillingPlanCreditsLabel', () => {
       return `${key}:${String(options?.credits || '')}`;
     });
 
-    expect(resolveBillingPlanCreditsLabel(t, yearlyPlan, 'en-US')).toBe(
-      'module.billing.package.creditSummary.yearly:10,000.00',
+    expect(resolveBillingPlanCreditsLabel(t, yearlyPlan)).toBe(
+      'module.billing.package.creditSummary.yearly:10000',
     );
   });
 
@@ -85,9 +87,26 @@ describe('resolveBillingPlanCreditsLabel', () => {
       return `${key}:${String(options?.count || '')}:${String(options?.credits || '')}`;
     });
 
-    expect(resolveBillingPlanCreditsLabel(t, dailyPlan, 'en-US')).toBe(
-      'module.billing.package.creditSummary.days:7:21.00',
+    expect(resolveBillingPlanCreditsLabel(t, dailyPlan)).toBe(
+      'module.billing.package.creditSummary.days:7:21',
     );
+  });
+});
+
+describe('formatBillingCreditBalance', () => {
+  test('drops decimals and thousands separators for balance displays', () => {
+    expect(formatBillingCreditBalance(5)).toBe('5');
+    expect(formatBillingCreditBalance(1.25)).toBe('1');
+    expect(formatBillingCreditBalance(10000)).toBe('10000');
+    expect(formatBillingCreditBalance(32277.76)).toBe('32277');
+  });
+});
+
+describe('formatBillingCreditAmount', () => {
+  test('drops decimals and thousands separators for plan and topup credits', () => {
+    expect(formatBillingCreditAmount(5)).toBe('5');
+    expect(formatBillingCreditAmount(10000)).toBe('10000');
+    expect(formatBillingCreditAmount(3200.88)).toBe('3200');
   });
 });
 
@@ -161,7 +180,7 @@ describe('resolveBillingLedgerReasonLabel', () => {
         },
       }),
     ).toBe(
-      'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - production course - learner@example.com',
+      'module.billing.ledger.usageScene.tts - production course - learner@example.com',
     );
   });
 

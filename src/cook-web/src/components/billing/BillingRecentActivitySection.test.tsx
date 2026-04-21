@@ -132,7 +132,7 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
     expect(
       await screen.findByText(
-        'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+        'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe('BillingRecentActivitySection', () => {
 
     expect(
       await screen.findByText(
-        'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
+        'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
 

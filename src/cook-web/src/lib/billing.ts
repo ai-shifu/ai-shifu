@@ -280,6 +280,14 @@ export function formatBillingCredits(
   }).format(Number(value || 0));
 }
 
+export function formatBillingCreditBalance(value: number): string {
+  return String(Math.trunc(Number(value || 0)));
+}
+
+export function formatBillingCreditAmount(value: number): string {
+  return String(Math.trunc(Number(value || 0)));
+}
+
 export function formatBillingPrice(
   amountInMinor: number,
   currency: string,
@@ -495,7 +503,6 @@ export function formatBillingPlanInterval(
 export function resolveBillingPlanCreditsLabel(
   t: BillingTranslator,
   product: BillingPlan,
-  locale: string,
 ): string {
   const intervalCount = Math.max(product.billing_interval_count || 0, 1);
   return t(
@@ -504,7 +511,7 @@ export function resolveBillingPlanCreditsLabel(
       : BILLING_PLAN_CREDIT_SUMMARY_KEYS[product.billing_interval],
     {
       count: intervalCount,
-      credits: formatBillingCredits(product.credit_amount, locale),
+      credits: formatBillingCreditAmount(product.credit_amount),
     },
   );
 }
@@ -564,13 +571,11 @@ export function resolveBillingLedgerReasonLabel(
       t,
       item.metadata?.usage_scene,
     );
-    if (usageSceneLabel) {
-      const reasonParts =
-        usageType === 'tts'
-          ? [resolveBillingUsageTypeLabel(t, usageType), usageSceneLabel]
-          : [usageSceneLabel];
-      const courseName = String(item.metadata?.course_name || '').trim();
-      const userIdentify = String(item.metadata?.user_identify || '').trim();
+    const courseName = String(item.metadata?.course_name || '').trim();
+    const userIdentify = String(item.metadata?.user_identify || '').trim();
+
+    if (usageType === 'tts') {
+      const reasonParts = [t('module.billing.ledger.usageScene.tts')];
 
       if (courseName) {
         reasonParts.push(courseName);
@@ -580,8 +585,17 @@ export function resolveBillingLedgerReasonLabel(
       }
       return reasonParts.join(' - ');
     }
-    if (usageType === 'tts') {
-      return resolveBillingUsageTypeLabel(t, usageType);
+
+    if (usageSceneLabel) {
+      const reasonParts = [usageSceneLabel];
+
+      if (courseName) {
+        reasonParts.push(courseName);
+      }
+      if (item.metadata?.usage_scene === 'production' && userIdentify) {
+        reasonParts.push(userIdentify);
+      }
+      return reasonParts.join(' - ');
     }
   }
 
@@ -995,6 +1009,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.usageScene.debug'),
     t('module.billing.ledger.usageScene.preview'),
     t('module.billing.ledger.usageScene.production'),
+    t('module.billing.ledger.usageScene.tts'),
     t('module.billing.page.tabs.plans'),
     t('module.billing.sidebar.cta'),
     t('module.billing.sidebar.creditsLabel'),

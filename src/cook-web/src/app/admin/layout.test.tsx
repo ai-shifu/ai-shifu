@@ -449,7 +449,7 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.monthlyTitle'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/12,500/)).toBeInTheDocument();
+    expect(screen.getByText('12500')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',

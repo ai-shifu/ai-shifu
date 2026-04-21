@@ -5,7 +5,7 @@ import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { CreatorBillingOverview } from '@/types/billing';
 import {
-  formatBillingCredits,
+  formatBillingCreditBalance,
   formatBillingExpiryCountdown,
 } from '@/lib/billing';
 
@@ -44,7 +44,7 @@ export function BillingSidebarCard({
   overview,
   isLoading = false,
 }: BillingSidebarCardProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const availableCredits = overview?.wallet.available_credits ?? 0;
   const shouldShowCredits = !isLoading && availableCredits > 0;
@@ -52,7 +52,7 @@ export function BillingSidebarCard({
 
   const creditsValue =
     overview && !isLoading
-      ? formatBillingCredits(availableCredits, i18n.language)
+      ? formatBillingCreditBalance(availableCredits)
       : t('module.billing.sidebar.placeholderValue');
 
   const expiryCountdown = !isLoading
@@ -83,12 +83,12 @@ export function BillingSidebarCard({
       data-href={BILLING_PACKAGES_HREF}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-4 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
+      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-3.5 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
       data-testid='admin-billing-sidebar-card'
     >
-      <div className='flex items-center justify-between gap-3'>
+      <div className='flex items-center justify-between gap-2.5'>
         <div className='flex min-w-0 flex-col gap-1'>
-          <div className='flex min-w-0 items-center gap-3'>
+          <div className='flex min-w-0 items-center gap-2.5'>
             <div className='flex shrink-0 items-center justify-center text-slate-950'>
               <Crown className='h-4 w-4' />
             </div>

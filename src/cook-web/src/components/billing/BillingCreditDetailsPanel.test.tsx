@@ -115,16 +115,16 @@ describe('BillingCreditDetailsPanel', () => {
     expect(
       screen.getByText('module.billing.details.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1,110.00')).toBeInTheDocument();
+    expect(screen.getByText('1110')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.billing.ledger.category.subscription'),
     ).toHaveLength(2);
     expect(
       screen.getByText('module.billing.ledger.category.topup'),
     ).toBeInTheDocument();
-    expect(screen.getByText('10.00')).toBeInTheDocument();
-    expect(screen.getByText('90.00')).toBeInTheDocument();
-    expect(screen.getByText('1,000.00')).toBeInTheDocument();
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText('90')).toBeInTheDocument();
+    expect(screen.getByText('1000')).toBeInTheDocument();
     expect(screen.getByText('2026年08月12日 23:59')).toBeInTheDocument();
     expect(screen.getByText('2026年10月12日 23:59')).toBeInTheDocument();
     expect(screen.getByText('2026年10月20日 23:59')).toBeInTheDocument();

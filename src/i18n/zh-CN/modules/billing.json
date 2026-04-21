@@ -463,7 +463,8 @@
     "usageScene": {
       "debug": "调试",
       "preview": "预览",
-      "production": "学员学习"
+      "production": "学习",
+      "tts": "语音"
     }
   },
   "orders": {
