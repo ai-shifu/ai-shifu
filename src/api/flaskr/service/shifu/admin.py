@@ -11,6 +11,36 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
+from flaskr.service.billing.bucket_categories import (
+    resolve_wallet_bucket_runtime_category,
+)
+from flaskr.service.billing.consts import (
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_LABELS,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_LABELS,
+    CREDIT_SOURCE_TYPE_MANUAL,
+    CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import (
+    BillingOrder,
+    CreditLedgerEntry,
+    CreditWalletBucket,
+)
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_RESET,
@@ -33,6 +63,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCourseUserDTO,
     AdminOperationCourseSummaryDTO,
+    AdminOperationUserCreditLedgerItemDTO,
+    AdminOperationUserCreditLedgerPageDTO,
+    AdminOperationUserCreditSummaryDTO,
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
@@ -138,6 +171,182 @@ def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
     return "{0:.1f}".format(value)
+
+
+def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
+    normalized_source_bids = [
+        str(source_bid or "").strip()
+        for source_bid in source_bids
+        if str(source_bid or "").strip()
+    ]
+    if not normalized_source_bids:
+        return {}
+
+    rows = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid.in_(normalized_source_bids),
+        )
+        .order_by(BillingOrder.id.desc())
+        .all()
+    )
+    order_map: Dict[str, BillingOrder] = {}
+    for row in rows:
+        normalized_source_bid = str(row.bill_order_bid or "").strip()
+        if normalized_source_bid and normalized_source_bid not in order_map:
+            order_map[normalized_source_bid] = row
+    return order_map
+
+
+def _resolve_operator_credit_usage_scene(metadata: Dict[str, Any]) -> int:
+    raw_usage_scene = metadata.get("usage_scene")
+    try:
+        return int(raw_usage_scene or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _resolve_operator_credit_display_entry_type(
+    row: CreditLedgerEntry,
+    *,
+    metadata: Dict[str, Any],
+) -> str:
+    usage_scene = _resolve_operator_credit_usage_scene(metadata)
+    amount = Decimal(row.amount or 0)
+
+    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+            checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+            if checkout_type == "trial_bootstrap":
+                return "trial_subscription_grant"
+            return "subscription_grant"
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+            return "topup_grant"
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+            return "gift_grant"
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+            return "manual_credit" if amount >= 0 else "manual_debit"
+        return "grant"
+
+    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_CONSUME:
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE:
+            if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+                return "preview_consume"
+            if usage_scene == BILL_USAGE_SCENE_DEBUG:
+                return "debug_consume"
+            if usage_scene == BILL_USAGE_SCENE_PROD:
+                return "learning_consume"
+        return "consume"
+
+    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT:
+        if amount > 0:
+            return "manual_credit"
+        if amount < 0:
+            return "manual_debit"
+        return "adjustment"
+
+    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE:
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+            return "subscription_expire"
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+            return "topup_expire"
+        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+            return "gift_expire"
+        return "expire"
+
+    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_REFUND:
+        return "refund_return"
+
+    return CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant")
+
+
+def _resolve_operator_credit_display_source_type(
+    row: CreditLedgerEntry,
+    *,
+    metadata: Dict[str, Any],
+) -> str:
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE:
+        usage_scene = _resolve_operator_credit_usage_scene(metadata)
+        if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+            return "preview"
+        if usage_scene == BILL_USAGE_SCENE_DEBUG:
+            return "debug"
+        if usage_scene == BILL_USAGE_SCENE_PROD:
+            return "learning"
+        return "usage"
+
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+        checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+        if checkout_type == "trial_bootstrap":
+            return "trial_subscription"
+        return "subscription"
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+        return "topup"
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+        return "gift"
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_REFUND:
+        return "refund"
+    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+        return "manual"
+    return CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual")
+
+
+def _resolve_operator_credit_note_code(
+    row: CreditLedgerEntry,
+    *,
+    metadata: Dict[str, Any],
+) -> str:
+    note = str(metadata.get("note") or "").strip()
+    if note:
+        return ""
+
+    checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+    if checkout_type == "trial_bootstrap":
+        return "trial_bootstrap"
+    if checkout_type == "subscription_renewal":
+        return "subscription_renewal"
+    if checkout_type == "subscription":
+        return "subscription_purchase"
+    if checkout_type == "topup":
+        return "topup_purchase"
+    if checkout_type == "manual_grant":
+        return "manual_grant"
+
+    reason = str(metadata.get("reason") or "").strip().lower()
+    if reason == "subscription_cycle_transition":
+        return "subscription_cycle_transition"
+
+    if metadata.get("refund_return"):
+        return "refund_return"
+
+    display_entry_type = _resolve_operator_credit_display_entry_type(
+        row,
+        metadata=metadata,
+    )
+    if display_entry_type in {
+        "learning_consume",
+        "preview_consume",
+        "debug_consume",
+        "manual_credit",
+        "manual_debit",
+        "subscription_grant",
+        "trial_subscription_grant",
+        "topup_grant",
+        "gift_grant",
+        "subscription_expire",
+        "topup_expire",
+        "gift_expire",
+        "refund_return",
+    }:
+        return display_entry_type
+
+    return ""
 
 
 def _normalize_identifier(value: str) -> str:
@@ -288,6 +497,91 @@ def _load_operator_user_last_login_map(
         for user_bid, last_login_at in rows
         if str(user_bid or "").strip() and last_login_at
     }
+
+
+def _load_operator_user_credit_summary_map(
+    user_bids: Sequence[str],
+) -> Dict[str, Dict[str, Any]]:
+    normalized_user_bids = [
+        str(user_bid or "").strip()
+        for user_bid in user_bids
+        if str(user_bid or "").strip()
+    ]
+    if not normalized_user_bids:
+        return {}
+
+    now = datetime.now()
+    buckets = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid.in_(normalized_user_bids),
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+            CreditWalletBucket.available_credits > 0,
+            or_(
+                CreditWalletBucket.effective_from.is_(None),
+                CreditWalletBucket.effective_from <= now,
+            ),
+            or_(
+                CreditWalletBucket.effective_to.is_(None),
+                CreditWalletBucket.effective_to > now,
+            ),
+        )
+        .order_by(CreditWalletBucket.creator_bid.asc(), CreditWalletBucket.id.asc())
+        .all()
+    )
+    if not buckets:
+        return {}
+
+    zero = Decimal("0")
+    summary_map: Dict[str, Dict[str, Any]] = {}
+    order_map = _load_billing_order_map(
+        [str(bucket.source_bid or "").strip() for bucket in buckets]
+    )
+    order_type_cache: Dict[str, Optional[int]] = {
+        bill_order_bid: int(order.order_type or 0)
+        for bill_order_bid, order in order_map.items()
+    }
+
+    def load_order_type(bill_order_bid: str) -> Optional[int]:
+        normalized_bill_order_bid = str(bill_order_bid or "").strip()
+        if not normalized_bill_order_bid:
+            return None
+        return order_type_cache.get(normalized_bill_order_bid)
+
+    for bucket in buckets:
+        creator_bid = str(bucket.creator_bid or "").strip()
+        if not creator_bid:
+            continue
+        available_credits = Decimal(bucket.available_credits or 0)
+        if available_credits <= zero:
+            continue
+
+        summary = summary_map.setdefault(
+            creator_bid,
+            {
+                "available_credits": zero,
+                "subscription_credits": zero,
+                "topup_credits": zero,
+                "credits_expire_at": None,
+            },
+        )
+        summary["available_credits"] += available_credits
+        effective_to = bucket.effective_to
+        if effective_to and (
+            summary["credits_expire_at"] is None
+            or effective_to < summary["credits_expire_at"]
+        ):
+            summary["credits_expire_at"] = effective_to
+        runtime_category = resolve_wallet_bucket_runtime_category(
+            bucket,
+            load_order_type=load_order_type,
+        )
+        if runtime_category == CREDIT_BUCKET_CATEGORY_TOPUP:
+            summary["topup_credits"] += available_credits
+        else:
+            summary["subscription_credits"] += available_credits
+
+    return summary_map
 
 
 def _resolve_course_user_role(
@@ -704,10 +998,13 @@ def _build_operator_user_summary(
     last_login_map: Dict[str, datetime],
     total_paid_amount_map: Dict[str, Decimal],
     last_learning_map: Dict[str, datetime],
+    credit_summary_map: Dict[str, Dict[str, Any]],
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})
     is_learner = user_bid in learner_user_bids
+    credit_summary = credit_summary_map.get(user_bid)
+    has_credit_account = bool(user.is_creator) or credit_summary is not None
     return AdminOperationUserSummaryDTO(
         user_bid=user_bid,
         mobile=str(contact.get("mobile", "") or ""),
@@ -733,11 +1030,116 @@ def _build_operator_user_summary(
         learning_courses=list(learning_courses_map.get(user_bid, []) or []),
         created_courses=list(created_courses_map.get(user_bid, []) or []),
         total_paid_amount=_format_decimal(total_paid_amount_map.get(user_bid)),
+        available_credits=(
+            _format_decimal((credit_summary or {}).get("available_credits"))
+            if has_credit_account
+            else ""
+        ),
+        subscription_credits=(
+            _format_decimal((credit_summary or {}).get("subscription_credits"))
+            if has_credit_account
+            else ""
+        ),
+        topup_credits=(
+            _format_decimal((credit_summary or {}).get("topup_credits"))
+            if has_credit_account
+            else ""
+        ),
+        credits_expire_at=(
+            _format_datetime((credit_summary or {}).get("credits_expire_at"))
+            if has_credit_account
+            else ""
+        ),
         last_login_at=_format_datetime(last_login_map.get(user_bid)),
         last_learning_at=_format_datetime(last_learning_map.get(user_bid)),
         created_at=_format_datetime(user.created_at),
         updated_at=_format_datetime(user.updated_at),
     )
+
+
+def _build_operator_user_credit_summary(
+    *,
+    user: UserEntity,
+    credit_summary_map: Dict[str, Dict[str, Any]],
+) -> AdminOperationUserCreditSummaryDTO:
+    user_bid = str(user.user_bid or "").strip()
+    credit_summary = credit_summary_map.get(user_bid)
+    has_credit_account = bool(user.is_creator) or credit_summary is not None
+    return AdminOperationUserCreditSummaryDTO(
+        available_credits=(
+            _format_decimal((credit_summary or {}).get("available_credits"))
+            if has_credit_account
+            else ""
+        ),
+        subscription_credits=(
+            _format_decimal((credit_summary or {}).get("subscription_credits"))
+            if has_credit_account
+            else ""
+        ),
+        topup_credits=(
+            _format_decimal((credit_summary or {}).get("topup_credits"))
+            if has_credit_account
+            else ""
+        ),
+        credits_expire_at=(
+            _format_datetime((credit_summary or {}).get("credits_expire_at"))
+            if has_credit_account
+            else ""
+        ),
+    )
+
+
+def _build_operator_user_credit_ledger_item(
+    row: CreditLedgerEntry,
+    *,
+    order_map: Optional[Dict[str, BillingOrder]] = None,
+) -> AdminOperationUserCreditLedgerItemDTO:
+    metadata = _normalize_metadata_json(row.metadata_json)
+    normalized_source_bid = str(row.source_bid or "").strip()
+    order = (order_map or {}).get(normalized_source_bid)
+    order_metadata = _normalize_metadata_json(order.metadata_json if order else None)
+    merged_metadata = {**order_metadata, **metadata}
+    return AdminOperationUserCreditLedgerItemDTO(
+        ledger_bid=str(row.ledger_bid or "").strip(),
+        created_at=_format_datetime(row.created_at),
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
+        source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
+        display_entry_type=_resolve_operator_credit_display_entry_type(
+            row,
+            metadata=merged_metadata,
+        ),
+        display_source_type=_resolve_operator_credit_display_source_type(
+            row,
+            metadata=merged_metadata,
+        ),
+        amount=_format_decimal(Decimal(row.amount or 0)),
+        balance_after=_format_decimal(Decimal(row.balance_after or 0)),
+        expires_at=_format_datetime(row.expires_at),
+        consumable_from=_format_datetime(row.consumable_from),
+        note=str(merged_metadata.get("note") or "").strip(),
+        note_code=_resolve_operator_credit_note_code(
+            row,
+            metadata=merged_metadata,
+        ),
+    )
+
+
+def _load_operator_user_or_raise(user_bid: str) -> UserEntity:
+    normalized_user_bid = str(user_bid or "").strip()
+    if not normalized_user_bid:
+        raise_param_error("user_bid is required")
+
+    user = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == normalized_user_bid,
+            UserEntity.deleted == 0,
+        )
+        .order_by(UserEntity.id.desc())
+        .first()
+    )
+    if user is None:
+        raise_error("server.user.userNotFound")
+    return user
 
 
 def _load_latest_shifus(
@@ -2424,6 +2826,7 @@ def list_operator_users(
         last_login_map = _load_operator_user_last_login_map(user_bids)
         total_paid_amount_map = _load_operator_user_total_paid_amount_map(user_bids)
         last_learning_map = _load_operator_user_last_learning_map(user_bids)
+        credit_summary_map = _load_operator_user_credit_summary_map(user_bids)
         items = [
             _build_operator_user_summary(
                 user,
@@ -2435,6 +2838,7 @@ def list_operator_users(
                 last_login_map,
                 total_paid_amount_map,
                 last_learning_map,
+                credit_summary_map,
             )
             for user in page_items
         ]
@@ -2447,19 +2851,7 @@ def get_operator_user_detail(
 ) -> AdminOperationUserSummaryDTO:
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
-        if not normalized_user_bid:
-            raise_param_error("user_bid is required")
-
-        user = (
-            UserEntity.query.filter(
-                UserEntity.user_bid == normalized_user_bid,
-                UserEntity.deleted == 0,
-            )
-            .order_by(UserEntity.id.desc())
-            .first()
-        )
-        if user is None:
-            raise_error("server.user.userNotFound")
+        user = _load_operator_user_or_raise(normalized_user_bid)
 
         contact_map = _load_operator_user_contact_map([normalized_user_bid])
         created_courses_map, learning_courses_map = _load_operator_user_course_maps(
@@ -2474,6 +2866,9 @@ def get_operator_user_detail(
             [normalized_user_bid]
         )
         last_learning_map = _load_operator_user_last_learning_map([normalized_user_bid])
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
         return _build_operator_user_summary(
             user,
             contact_map,
@@ -2484,6 +2879,62 @@ def get_operator_user_detail(
             last_login_map,
             total_paid_amount_map,
             last_learning_map,
+            credit_summary_map,
+        )
+
+
+def get_operator_user_credits(
+    app: Flask,
+    *,
+    user_bid: str,
+    page_index: int,
+    page_size: int,
+) -> AdminOperationUserCreditLedgerPageDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        safe_page_index = max(int(page_index or 1), 1)
+        safe_page_size = min(
+            max(int(page_size or 20), 1),
+            OPERATOR_USER_LIST_MAX_PAGE_SIZE,
+        )
+
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+
+        query = CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == normalized_user_bid,
+        )
+        total = query.count()
+        page_offset = (safe_page_index - 1) * safe_page_size
+        rows = (
+            query.order_by(
+                CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+            )
+            .offset(page_offset)
+            .limit(safe_page_size)
+            .all()
+        )
+        order_map = _load_billing_order_map(
+            [str(row.source_bid or "").strip() for row in rows]
+        )
+        items = [
+            _build_operator_user_credit_ledger_item(row, order_map=order_map)
+            for row in rows
+        ]
+        return AdminOperationUserCreditLedgerPageDTO(
+            summary=summary,
+            items=items,
+            page=safe_page_index,
+            page_size=safe_page_size,
+            total=total,
+            page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
         )
 
 
