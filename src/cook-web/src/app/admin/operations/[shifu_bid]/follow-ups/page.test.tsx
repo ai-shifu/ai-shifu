@@ -111,7 +111,10 @@ jest.mock('@/components/ui/Sheet', () => ({
   }>) =>
     open ? (
       <div>
-        <button type='button' onClick={() => onOpenChange?.(false)}>
+        <button
+          type='button'
+          onClick={() => onOpenChange?.(false)}
+        >
           {SHEET_CLOSE_LABEL}
         </button>
         {children}
@@ -404,7 +407,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
   test('ignores a late detail response after the drawer is closed', async () => {
     const deferredDetail =
-      createDeferred<Awaited<ReturnType<typeof mockGetAdminOperationCourseFollowUpDetail>>>();
+      createDeferred<
+        Awaited<ReturnType<typeof mockGetAdminOperationCourseFollowUpDetail>>
+      >();
     mockGetAdminOperationCourseFollowUpDetail.mockReset();
     mockGetAdminOperationCourseFollowUpDetail.mockImplementationOnce(
       () => deferredDetail.promise,
@@ -454,7 +459,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Stale follow-up answer')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Stale follow-up answer'),
+    ).not.toBeInTheDocument();
   });
 
   test('redirects non-operators back to admin', async () => {
