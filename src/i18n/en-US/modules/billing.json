@@ -280,23 +280,23 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for low-cost trial teaching and validating your course with learner feedback.",
+        "description": "Best for course iteration and maintenance outside delivery periods.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
-        "description": "Best for steady course delivery and ongoing support for small cohorts.",
+        "description": "Best for serving a small number of learners.",
         "title": "Basic"
       },
       "creatorYearly": {
-        "description": "Best for stable annual operations and standard course delivery.",
+        "description": "Best for large organizations.",
         "title": "Pro"
       },
       "creatorYearlyLite": {
-        "description": "Best for branded delivery with support for custom branding and a custom domain.",
+        "description": "Best for small and medium organizations.",
         "title": "Advanced"
       },
       "creatorYearlyPremium": {
-        "description": "Best for large-scale operations with support for high-concurrency course delivery.",
+        "description": "Best for extra-large organizations.",
         "title": "Premium"
       }
     },
@@ -523,6 +523,14 @@
         "publish": "Short-term publishing and onboarding coverage",
         "support": "Daily plan operational support"
       },
+      "common": {
+        "aiNarration": "AI narration and audio lessons",
+        "allLearning": "All learning features",
+        "createDebugPublish": "Create, debug, and publish courses",
+        "higherConcurrency": "Higher concurrency support",
+        "orderAndData": "Order and learning data queries",
+        "unlimitedCourses": "Unlimited courses"
+      },
       "free": {
         "preview": "Learner delivery and account import",
         "publish": "Course creation and content storage"
@@ -554,7 +562,7 @@
           "branding": "Custom branding",
           "domain": "Custom domain",
           "priority": "Dedicated technical support",
-          "support": "1 live course-building session included"
+          "support": "One exclusive course-building training session"
         },
         "pro": {
           "analytics": "Priority technical support",
@@ -568,7 +576,7 @@
     "featuresTitle": "Included benefits:",
     "free": {
       "creditSummary": "{credits} bonus credits",
-      "description": "Best for a first look — quickly run through courses and learner delivery.",
+      "description": "Best for a first look — run through the full teaching and research workflow.",
       "priceNote": "/ valid within {days} days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
       "priceValue": "¥0",

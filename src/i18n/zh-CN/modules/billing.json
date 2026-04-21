@@ -280,23 +280,23 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合低成本试教，验证课程与学员反馈",
+        "description": "适合在交付期之外做课程迭代和维护",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
-        "description": "适合稳定开课，持续服务小班学员",
+        "description": "适合服务少量学员",
         "title": "基础版"
       },
       "creatorYearly": {
-        "description": "适合年度稳定运营，覆盖常规课程交付",
+        "description": "适合大型机构",
         "title": "高阶版"
       },
       "creatorYearlyLite": {
-        "description": "适合品牌化交付，支持品牌标识与独立域名",
+        "description": "适合中小型机构",
         "title": "进阶版"
       },
       "creatorYearlyPremium": {
-        "description": "适合大规模运营，支持高并发课程交付",
+        "description": "适合超大型机构",
         "title": "旗舰版"
       }
     },
@@ -523,6 +523,14 @@
         "publish": "支持短期发布与快速上手",
         "support": "日订阅运营支持"
       },
+      "common": {
+        "aiNarration": "AI 讲解与听课语音",
+        "allLearning": "全部学习功能",
+        "createDebugPublish": "创建、调试和发布课程",
+        "higherConcurrency": "更高并发支持",
+        "orderAndData": "订单和学习数据查询",
+        "unlimitedCourses": "不限课程数"
+      },
       "free": {
         "preview": "学员交付与学习账号导入",
         "publish": "课程创建与内容存储"
@@ -536,7 +544,7 @@
         "concurrencyQuota": "更高并发任务配额",
         "dedicatedSupport": "专属技术支持",
         "includesLabel": "享有高阶版全部权益，以及：",
-        "onboarding": "含 1 次线上做课培训"
+        "onboarding": "一次专属课程制作培训"
       },
       "pro": {
         "branding": "自定义品牌标识",
@@ -554,7 +562,7 @@
           "branding": "自定义品牌标识",
           "domain": "自定义域名",
           "priority": "专属技术支持",
-          "support": "含 1 次线上做课培训"
+          "support": "一次专属课程制作培训"
         },
         "pro": {
           "analytics": "技术优先支持",
@@ -568,7 +576,7 @@
     "featuresTitle": "享有权益：",
     "free": {
       "creditSummary": "赠送积分数 {credits}",
-      "description": "适合首次体验，快速跑通建课与交付",
+      "description": "适合首次体验，跑通教研教学全流程",
       "priceNote": "/ 新注册 {days} 日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
