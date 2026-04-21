@@ -219,6 +219,10 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '88.50',
+          available_credits: '35.5',
+          subscription_credits: '27.5',
+          topup_credits: '8',
+          credits_expire_at: '2026-05-01 00:00:00',
           last_login_at: '2026-04-15 09:00:00',
           last_learning_at: '2026-04-15 10:00:00',
           created_at: '2026-04-14 10:00:00',
@@ -272,6 +276,8 @@ describe('AdminOperationUsersPage', () => {
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Nick')).toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
+    expect(screen.getByText('35.5')).toBeInTheDocument();
+    expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.operationsUser.statusLabels.paid').length,
     ).toBeGreaterThan(0);
@@ -299,6 +305,10 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByRole('link', { name: 'user-1@example.com' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-1');
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'href',
+      '/admin/operations/users/user-1#credits',
+    );
   });
 
   test('submits search filters', async () => {
@@ -392,6 +402,10 @@ describe('AdminOperationUsersPage', () => {
           learning_courses: [],
           created_courses: [],
           total_paid_amount: '0',
+          available_credits: '',
+          subscription_credits: '',
+          topup_credits: '',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
           created_at: '2026-04-14 10:00:00',
@@ -436,6 +450,10 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
           created_at: '2026-04-14 10:00:00',
@@ -486,6 +504,10 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
           created_at: '2026-04-14 10:00:00',
@@ -536,6 +558,10 @@ describe('AdminOperationUsersPage', () => {
           learning_courses: [],
           created_courses: [],
           total_paid_amount: '0',
+          available_credits: '',
+          subscription_credits: '',
+          topup_credits: '',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
           created_at: '2026-04-14 10:00:00',
@@ -552,6 +578,46 @@ describe('AdminOperationUsersPage', () => {
 
     expect(
       await screen.findByText('module.user.defaultUserName'),
+    ).toBeInTheDocument();
+  });
+
+  test('shows long-term credit label when active credits do not expire', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-long-term-credits',
+          mobile: '',
+          email: 'long-term@example.com',
+          nickname: 'Long Term',
+          user_status: 'paid',
+          user_role: 'creator',
+          user_roles: ['creator'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'en-US',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '12',
+          subscription_credits: '12',
+          topup_credits: '0',
+          credits_expire_at: '',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14 10:00:00',
+          updated_at: '2026-04-14 11:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    expect(
+      await screen.findByText('module.operationsUser.credits.longTerm'),
     ).toBeInTheDocument();
   });
 
@@ -572,6 +638,10 @@ describe('AdminOperationUsersPage', () => {
           learning_courses: [],
           created_courses: [],
           total_paid_amount: '88.50',
+          available_credits: '55',
+          subscription_credits: '40',
+          topup_credits: '15',
+          credits_expire_at: '',
           last_login_at: '2026-04-15 09:00:00',
           last_learning_at: '2026-04-15 10:00:00',
           created_at: '2026-04-14 10:00:00',
