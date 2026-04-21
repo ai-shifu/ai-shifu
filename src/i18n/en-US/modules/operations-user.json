@@ -11,12 +11,17 @@
     },
     "empty": "--"
   },
+  "actions": {
+    "grantCredits": "Add Credits"
+  },
   "credits": {
     "longTerm": "Long-term valid"
   },
   "detail": {
-    "back": "Back",
+    "back": "Back to User Management",
     "basicInfo": "Basic Information",
+    "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
+    "creditExpireAtHintAriaLabel": "View credits expiry explanation",
     "createdCourses": "Created Courses",
     "creditLedger": "Credits Detail",
     "creditLedgerColumns": {
@@ -50,12 +55,14 @@
       "trial_subscription_grant": "Credits granted from trial subscription"
     },
     "creditLedgerSourceLabels": {
+      "compensation": "Compensation",
       "debug": "Debug",
       "gift": "Gift",
       "learning": "Learning",
       "manual": "Manual",
       "preview": "Preview",
       "refund": "Refund",
+      "reward": "Reward",
       "subscription": "Subscription",
       "topup": "Top-up",
       "trial_subscription": "Trial Subscription",
@@ -73,6 +80,7 @@
       "learning_consume": "Learning Consumption",
       "manual_credit": "Manual Credit",
       "manual_debit": "Manual Debit",
+      "manual_grant": "Manual Grant",
       "preview_consume": "Preview Consumption",
       "refund": "Refund Return",
       "refund_return": "Refund Return",
@@ -82,6 +90,12 @@
       "topup_expire": "Top-up Expiry",
       "topup_grant": "Top-up Grant",
       "trial_subscription_grant": "Trial Subscription Grant"
+    },
+    "creditsOverviewLabels": {
+      "availableCredits": "Total Credit Balance",
+      "creditsExpireAt": "Credits Validity",
+      "subscriptionCredits": "Subscription Credit Balance",
+      "topupCredits": "Top-up Credit Balance"
     },
     "creditsOverview": "Credits Overview",
     "emptyCourses": "No courses",
@@ -106,6 +120,59 @@
     "role": "Role",
     "status": "Status",
     "userId": "User ID"
+  },
+  "grantDialog": {
+    "confirmButton": "Confirm Addition",
+    "confirmDescription": "Please confirm the credit addition details. Once confirmed, it takes effect immediately.",
+    "confirmSummary": {
+      "amount": "Credits Added",
+      "note": "Note",
+      "source": "Source",
+      "validityPreset": "Validity"
+    },
+    "confirmTitle": "Confirm Credit Addition",
+    "description": "Use this dialog to add reward or compensation credits from Operations.",
+    "fields": {
+      "amount": "Credits",
+      "note": "Note",
+      "source": "Source",
+      "type": "Type",
+      "validityPreset": "Validity"
+    },
+    "placeholders": {
+      "amount": "Enter credit amount",
+      "note": "Optional. Record the reason for this addition",
+      "source": "Select source",
+      "validityPreset": "Select validity"
+    },
+    "sourceOptions": {
+      "compensation": "Compensation",
+      "reward": "Reward"
+    },
+    "submitButton": "Confirm",
+    "submitSuccess": "Credits added successfully",
+    "summary": {
+      "account": "Account",
+      "availableCredits": "Credit Balance",
+      "currentExpireAt": "Valid Until",
+      "nickname": "Nickname"
+    },
+    "title": "Add Credits",
+    "typeValue": "Manual Grant",
+    "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
+    "validityOptions": {
+      "alignSubscription": "Match current subscription expiry",
+      "oneDay": "1 day after grant",
+      "oneMonth": "1 month after grant",
+      "oneYear": "1 year after grant",
+      "sevenDays": "7 days after grant",
+      "threeMonths": "3 months after grant"
+    },
+    "validation": {
+      "amountRequired": "Enter a credit amount greater than 0",
+      "sourceRequired": "Select a source",
+      "validityPresetRequired": "Select a validity preset"
+    }
   },
   "loginMethodLabels": {
     "email": "Email",
@@ -154,7 +221,8 @@
     "topupCredits": "Top-up Credits",
     "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
-    "userId": "User ID"
+    "userId": "User ID",
+    "action": "Action"
   },
   "title": "User Management"
 }

@@ -22,6 +22,7 @@ from .consts import (
     CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
@@ -132,6 +133,31 @@ class WalletExpirationResult:
 
     def __getitem__(self, key: str) -> Any:
         return self.to_task_payload()[key]
+
+
+@dataclass(slots=True, frozen=True)
+class ManualCreditGrantResult:
+    status: str
+    creator_bid: str | None
+    amount: int | float = 0
+    wallet_bid: str | None = None
+    wallet_bucket_bid: str | None = None
+    ledger_bid: str | None = None
+    expires_at: datetime | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "creator_bid": self.creator_bid,
+            "amount": self.amount,
+            "wallet_bid": self.wallet_bid,
+            "wallet_bucket_bid": self.wallet_bucket_bid,
+            "ledger_bid": self.ledger_bid,
+            "expires_at": self.expires_at,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
 
 
 def refresh_credit_wallet_snapshot(wallet: CreditWallet) -> CreditWallet:
@@ -707,6 +733,121 @@ def adjust_credit_wallet_balance(
             ),
             wallet_bucket_bids=wallet_bucket_bids,
             ledger_bids=ledger_bids,
+        )
+
+
+def grant_manual_credit_wallet_balance(
+    app: Flask,
+    *,
+    creator_bid: str,
+    amount: Decimal | Any,
+    source_bid: str = "",
+    effective_from: datetime | None = None,
+    effective_to: datetime | None = None,
+    metadata: dict[str, Any] | None = None,
+    idempotency_key: str = "",
+) -> ManualCreditGrantResult:
+    """Create a dedicated manual-grant bucket and matching ledger row."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_amount = _quantize_credit_amount(amount)
+    normalized_source_bid = str(source_bid or "").strip()
+    normalized_idempotency_key = str(idempotency_key or "").strip()
+    if not normalized_creator_bid or normalized_amount <= _ZERO:
+        return ManualCreditGrantResult(
+            status="noop",
+            creator_bid=normalized_creator_bid or None,
+            amount=_credit_decimal_to_number(normalized_amount),
+        )
+
+    with app.app_context():
+        granted_at = effective_from or datetime.now()
+        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
+        grant_bid = normalized_source_bid or generate_id(app)
+        ledger_key = normalized_idempotency_key or f"manual_grant:{grant_bid}"
+
+        existing_entry = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.creator_bid == normalized_creator_bid,
+                CreditLedgerEntry.idempotency_key == ledger_key,
+            )
+            .order_by(CreditLedgerEntry.id.desc())
+            .first()
+        )
+        if existing_entry is not None:
+            return ManualCreditGrantResult(
+                status="noop_existing",
+                creator_bid=normalized_creator_bid,
+                amount=_credit_decimal_to_number(normalized_amount),
+                wallet_bid=str(existing_entry.wallet_bid or "").strip() or None,
+                wallet_bucket_bid=(
+                    str(existing_entry.wallet_bucket_bid or "").strip() or None
+                ),
+                ledger_bid=str(existing_entry.ledger_bid or "").strip() or None,
+                expires_at=existing_entry.expires_at,
+            )
+
+        normalized_metadata = dict(metadata or {})
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=generate_id(app),
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=normalized_creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid=grant_bid,
+            priority=resolve_credit_bucket_priority(CREDIT_BUCKET_CATEGORY_SUBSCRIPTION),
+            original_credits=normalized_amount,
+            available_credits=normalized_amount,
+            reserved_credits=_ZERO,
+            consumed_credits=_ZERO,
+            expired_credits=_ZERO,
+            effective_from=granted_at,
+            effective_to=effective_to,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json=normalized_metadata,
+        )
+        db.session.add(bucket)
+        sync_credit_bucket_status(bucket)
+
+        refresh_credit_wallet_snapshot(wallet)
+        balance_after = _quantize_credit_amount(wallet.available_credits)
+        next_lifetime_granted = _quantize_credit_amount(
+            _to_decimal(wallet.lifetime_granted_credits) + normalized_amount
+        )
+        ledger_entry = CreditLedgerEntry(
+            ledger_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid=grant_bid,
+            idempotency_key=ledger_key,
+            amount=normalized_amount,
+            balance_after=balance_after,
+            expires_at=effective_to,
+            consumable_from=granted_at,
+            metadata_json=normalized_metadata,
+        )
+        wallet.available_credits = balance_after
+        persist_credit_wallet_snapshot(
+            wallet,
+            available_credits=wallet.available_credits,
+            reserved_credits=wallet.reserved_credits,
+            lifetime_granted_credits=next_lifetime_granted,
+            updated_at=granted_at,
+        )
+        db.session.add(ledger_entry)
+        db.session.commit()
+        return ManualCreditGrantResult(
+            status="granted",
+            creator_bid=normalized_creator_bid,
+            amount=_credit_decimal_to_number(normalized_amount),
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            ledger_bid=ledger_entry.ledger_bid,
+            expires_at=effective_to,
         )
 
 

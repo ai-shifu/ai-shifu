@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
@@ -13,6 +13,7 @@ from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
 )
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -31,11 +32,15 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing.models import (
-    BillingOrder,
-    CreditLedgerEntry,
-    CreditWalletBucket,
+from flaskr.service.billing.models import BillingOrder, CreditLedgerEntry, CreditWalletBucket
+from flaskr.service.billing.primitives import quantize_credit_amount as _quantize_credit_amount
+from flaskr.service.billing.primitives import to_decimal as _to_decimal
+from flaskr.service.billing.queries import (
+    add_months as _add_months,
+    add_years as _add_years,
+    load_primary_active_subscription,
 )
+from flaskr.service.billing.wallets import grant_manual_credit_wallet_balance
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -62,6 +67,8 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseDetailDTO,
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCourseUserDTO,
+    AdminOperationUserCreditGrantResultDTO,
+    AdminOperationUserCreditGrantRequestDTO,
     AdminOperationCourseSummaryDTO,
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditLedgerPageDTO,
@@ -102,6 +109,7 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
+from flaskr.util.uuid import generate_id
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
@@ -136,6 +144,27 @@ OPERATOR_USER_REGISTRATION_SOURCE_GOOGLE = "google"
 OPERATOR_USER_REGISTRATION_SOURCE_WECHAT = "wechat"
 OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED = "imported"
 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
+OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
+OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
+OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION = "align_subscription"
+OPERATOR_USER_CREDIT_VALIDITY_1D = "1d"
+OPERATOR_USER_CREDIT_VALIDITY_7D = "7d"
+OPERATOR_USER_CREDIT_VALIDITY_1M = "1m"
+OPERATOR_USER_CREDIT_VALIDITY_3M = "3m"
+OPERATOR_USER_CREDIT_VALIDITY_1Y = "1y"
+
+OPERATOR_USER_CREDIT_GRANT_SOURCES = {
+    OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD,
+    OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION,
+}
+OPERATOR_USER_CREDIT_VALIDITY_PRESETS = {
+    OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_VALIDITY_1D,
+    OPERATOR_USER_CREDIT_VALIDITY_7D,
+    OPERATOR_USER_CREDIT_VALIDITY_1M,
+    OPERATOR_USER_CREDIT_VALIDITY_3M,
+    OPERATOR_USER_CREDIT_VALIDITY_1Y,
+}
 
 USER_STATE_TO_OPERATOR_STATUS = {
     USER_STATE_UNREGISTERED: OPERATOR_USER_STATUS_UNREGISTERED,
@@ -167,6 +196,16 @@ def _format_datetime(value: Optional[datetime]) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _format_operator_datetime(value: Optional[datetime]) -> str:
+    if not value:
+        return ""
+    if value.tzinfo is None:
+        normalized_value = value.replace(tzinfo=timezone.utc)
+    else:
+        normalized_value = value.astimezone(timezone.utc)
+    return normalized_value.isoformat().replace("+00:00", "Z")
+
+
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
@@ -177,6 +216,70 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
+
+
+def _normalize_credit_amount(value: Any) -> Decimal:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise_param_error("amount")
+    try:
+        parsed = _quantize_credit_amount(Decimal(normalized))
+    except Exception:  # pragma: no cover - Decimal error details vary
+        raise_param_error("amount")
+    if parsed <= Decimal("0"):
+        raise_param_error("amount")
+    return parsed
+
+
+def _resolve_operator_credit_grant_expiry(
+    *,
+    creator_bid: str,
+    validity_preset: str,
+    granted_at: datetime,
+) -> datetime | None:
+    normalized_preset = str(validity_preset or "").strip()
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION:
+        subscription = load_primary_active_subscription(
+            creator_bid,
+            as_of=granted_at,
+        )
+        if (
+            subscription is None
+            or subscription.current_period_end_at is None
+            or subscription.current_period_end_at <= granted_at
+        ):
+            raise_error("server.billing.subscriptionInactive")
+        return subscription.current_period_end_at
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1D:
+        return granted_at + timedelta(days=1)
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_7D:
+        return granted_at + timedelta(days=7)
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1M:
+        return _add_months(granted_at, 1)
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_3M:
+        return _add_months(granted_at, 3)
+    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1Y:
+        return _add_years(granted_at, 1)
+    raise_param_error("validity_preset")
+
+
+def _load_active_subscription_end_map(
+    creator_bids: Sequence[str],
+    *,
+    as_of: datetime,
+) -> Dict[str, datetime]:
+    normalized_creator_bids = [
+        str(creator_bid or "").strip() for creator_bid in creator_bids if creator_bid
+    ]
+    if not normalized_creator_bids:
+        return {}
+    subscription_end_map: Dict[str, datetime] = {}
+    for creator_bid in normalized_creator_bids:
+        subscription = load_primary_active_subscription(creator_bid, as_of=as_of)
+        if subscription is None or subscription.current_period_end_at is None:
+            continue
+        subscription_end_map[creator_bid] = subscription.current_period_end_at
+    return subscription_end_map
 
 
 def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
@@ -231,6 +334,9 @@ def _resolve_operator_credit_display_entry_type(
         if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
             return "gift_grant"
         if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+            grant_type = str(metadata.get("grant_type") or "").strip().lower()
+            if grant_type == "manual_grant":
+                return "manual_grant"
             return "manual_credit" if amount >= 0 else "manual_debit"
         return "grant"
 
@@ -293,6 +399,9 @@ def _resolve_operator_credit_display_source_type(
     if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_REFUND:
         return "refund"
     if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+        grant_source = str(metadata.get("grant_source") or "").strip().lower()
+        if grant_source in OPERATOR_USER_CREDIT_GRANT_SOURCES:
+            return grant_source
         return "manual"
     return CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual")
 
@@ -317,6 +426,9 @@ def _resolve_operator_credit_note_code(
         return "topup_purchase"
     if checkout_type == "manual_grant":
         return "manual_grant"
+    grant_type = str(metadata.get("grant_type") or "").strip().lower()
+    if grant_type == "manual_grant":
+        return "manual_grant"
 
     reason = str(metadata.get("reason") or "").strip().lower()
     if reason == "subscription_cycle_transition":
@@ -335,6 +447,7 @@ def _resolve_operator_credit_note_code(
         "debug_consume",
         "manual_credit",
         "manual_debit",
+        "manual_grant",
         "subscription_grant",
         "trial_subscription_grant",
         "topup_grant",
@@ -511,6 +624,10 @@ def _load_operator_user_credit_summary_map(
         return {}
 
     now = datetime.now()
+    active_subscription_end_map = _load_active_subscription_end_map(
+        normalized_user_bids,
+        as_of=now,
+    )
     buckets = (
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -529,8 +646,6 @@ def _load_operator_user_credit_summary_map(
         .order_by(CreditWalletBucket.creator_bid.asc(), CreditWalletBucket.id.asc())
         .all()
     )
-    if not buckets:
-        return {}
 
     zero = Decimal("0")
     summary_map: Dict[str, Dict[str, Any]] = {}
@@ -563,15 +678,11 @@ def _load_operator_user_credit_summary_map(
                 "subscription_credits": zero,
                 "topup_credits": zero,
                 "credits_expire_at": None,
+                "has_active_subscription": False,
             },
         )
-        summary["available_credits"] += available_credits
-        effective_to = bucket.effective_to
-        if effective_to and (
-            summary["credits_expire_at"] is None
-            or effective_to < summary["credits_expire_at"]
-        ):
-            summary["credits_expire_at"] = effective_to
+        if creator_bid in active_subscription_end_map:
+            summary["has_active_subscription"] = True
         runtime_category = resolve_wallet_bucket_runtime_category(
             bucket,
             load_order_type=load_order_type,
@@ -580,6 +691,40 @@ def _load_operator_user_credit_summary_map(
             summary["topup_credits"] += available_credits
         else:
             summary["subscription_credits"] += available_credits
+        if (
+            creator_bid in active_subscription_end_map
+            or not wallet_bucket_requires_active_subscription(
+                bucket,
+                load_order_type=load_order_type,
+            )
+        ):
+            summary["available_credits"] += available_credits
+
+        effective_to = bucket.effective_to
+        if creator_bid in active_subscription_end_map:
+            summary["credits_expire_at"] = active_subscription_end_map[creator_bid]
+            continue
+        if int(bucket.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL or not effective_to:
+            continue
+        if (
+            summary["credits_expire_at"] is None
+            or effective_to < summary["credits_expire_at"]
+        ):
+            summary["credits_expire_at"] = effective_to
+
+    for creator_bid, effective_to in active_subscription_end_map.items():
+        summary = summary_map.setdefault(
+            creator_bid,
+            {
+                "available_credits": zero,
+                "subscription_credits": zero,
+                "topup_credits": zero,
+                "credits_expire_at": None,
+                "has_active_subscription": True,
+            },
+        )
+        summary["credits_expire_at"] = effective_to
+        summary["has_active_subscription"] = True
 
     return summary_map
 
@@ -1046,14 +1191,17 @@ def _build_operator_user_summary(
             else ""
         ),
         credits_expire_at=(
-            _format_datetime((credit_summary or {}).get("credits_expire_at"))
+            _format_operator_datetime((credit_summary or {}).get("credits_expire_at"))
             if has_credit_account
             else ""
         ),
-        last_login_at=_format_datetime(last_login_map.get(user_bid)),
-        last_learning_at=_format_datetime(last_learning_map.get(user_bid)),
-        created_at=_format_datetime(user.created_at),
-        updated_at=_format_datetime(user.updated_at),
+        has_active_subscription=bool(
+            (credit_summary or {}).get("has_active_subscription", False)
+        ),
+        last_login_at=_format_operator_datetime(last_login_map.get(user_bid)),
+        last_learning_at=_format_operator_datetime(last_learning_map.get(user_bid)),
+        created_at=_format_operator_datetime(user.created_at),
+        updated_at=_format_operator_datetime(user.updated_at),
     )
 
 
@@ -1082,9 +1230,12 @@ def _build_operator_user_credit_summary(
             else ""
         ),
         credits_expire_at=(
-            _format_datetime((credit_summary or {}).get("credits_expire_at"))
+            _format_operator_datetime((credit_summary or {}).get("credits_expire_at"))
             if has_credit_account
             else ""
+        ),
+        has_active_subscription=bool(
+            (credit_summary or {}).get("has_active_subscription", False)
         ),
     )
 
@@ -1101,7 +1252,7 @@ def _build_operator_user_credit_ledger_item(
     merged_metadata = {**order_metadata, **metadata}
     return AdminOperationUserCreditLedgerItemDTO(
         ledger_bid=str(row.ledger_bid or "").strip(),
-        created_at=_format_datetime(row.created_at),
+        created_at=_format_operator_datetime(row.created_at),
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         display_entry_type=_resolve_operator_credit_display_entry_type(
@@ -1114,8 +1265,8 @@ def _build_operator_user_credit_ledger_item(
         ),
         amount=_format_decimal(Decimal(row.amount or 0)),
         balance_after=_format_decimal(Decimal(row.balance_after or 0)),
-        expires_at=_format_datetime(row.expires_at),
-        consumable_from=_format_datetime(row.consumable_from),
+        expires_at=_format_operator_datetime(row.expires_at),
+        consumable_from=_format_operator_datetime(row.consumable_from),
         note=str(merged_metadata.get("note") or "").strip(),
         note_code=_resolve_operator_credit_note_code(
             row,
@@ -2880,6 +3031,77 @@ def get_operator_user_detail(
             total_paid_amount_map,
             last_learning_map,
             credit_summary_map,
+        )
+
+
+def grant_operator_user_credits(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    payload: AdminOperationUserCreditGrantRequestDTO,
+) -> AdminOperationUserCreditGrantResultDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        normalized_grant_source = str(payload.grant_source or "").strip().lower()
+        if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
+            raise_param_error("grant_source")
+
+        normalized_validity_preset = str(payload.validity_preset or "").strip().lower()
+        if normalized_validity_preset not in OPERATOR_USER_CREDIT_VALIDITY_PRESETS:
+            raise_param_error("validity_preset")
+
+        granted_amount = _normalize_credit_amount(payload.amount)
+        normalized_note = str(payload.note or "").strip()
+        granted_at = datetime.now()
+        expires_at = _resolve_operator_credit_grant_expiry(
+            creator_bid=normalized_user_bid,
+            validity_preset=normalized_validity_preset,
+            granted_at=granted_at,
+        )
+        grant_bid = generate_id(app)
+        grant_result = grant_manual_credit_wallet_balance(
+            app,
+            creator_bid=normalized_user_bid,
+            amount=granted_amount,
+            source_bid=grant_bid,
+            effective_from=granted_at,
+            effective_to=expires_at,
+            idempotency_key=f"operator_manual_grant:{grant_bid}",
+            metadata={
+                "checkout_type": "manual_grant",
+                "grant_type": "manual_grant",
+                "grant_source": normalized_grant_source,
+                "validity_preset": normalized_validity_preset,
+                "operator_user_bid": normalized_operator_user_bid,
+                "grant_channel": "operator_user_management",
+                "note": normalized_note,
+            },
+        )
+        if grant_result.status not in {"granted", "noop_existing"}:
+            raise_error("server.common.systemError")
+
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+        return AdminOperationUserCreditGrantResultDTO(
+            user_bid=normalized_user_bid,
+            amount=_format_decimal(granted_amount),
+            grant_source=normalized_grant_source,
+            validity_preset=normalized_validity_preset,
+            expires_at=_format_operator_datetime(grant_result.expires_at),
+            wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
+            ledger_bid=str(grant_result.ledger_bid or "").strip(),
+            summary=summary,
         )
 
 

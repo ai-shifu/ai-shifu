@@ -116,6 +116,42 @@ def resolve_wallet_bucket_runtime_category(
     )
 
 
+def is_manual_wallet_bucket(
+    bucket: CreditWalletBucket,
+    *,
+    load_order_type: OrderTypeLoader | None = None,
+) -> bool:
+    return (
+        resolve_wallet_bucket_runtime_category(
+            bucket,
+            load_order_type=load_order_type,
+        )
+        == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+        and int(bucket.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL
+    )
+
+
+def wallet_bucket_requires_active_subscription(
+    bucket: CreditWalletBucket,
+    *,
+    load_order_type: OrderTypeLoader | None = None,
+) -> bool:
+    runtime_category = resolve_wallet_bucket_runtime_category(
+        bucket,
+        load_order_type=load_order_type,
+    )
+    if runtime_category == CREDIT_BUCKET_CATEGORY_TOPUP:
+        return True
+    if int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_FREE:
+        return False
+    if int(bucket.source_type or 0) in {
+        CREDIT_SOURCE_TYPE_GIFT,
+        CREDIT_SOURCE_TYPE_MANUAL,
+    }:
+        return False
+    return runtime_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+
+
 def build_wallet_bucket_runtime_sort_key(
     bucket: CreditWalletBucket,
     *,

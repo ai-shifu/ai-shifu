@@ -5,6 +5,9 @@ import AdminOperationUsersPage from './page';
 
 const mockReplace = jest.fn();
 const originalLocation = window.location;
+const mockGrantDialogPrefix = 'grant-dialog-';
+const buildGrantDialogLabel = (userBid: string) =>
+  `${mockGrantDialogPrefix}${userBid}`;
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -60,6 +63,38 @@ jest.mock('@/api', () => ({
   },
 }));
 
+jest.mock('@/components/ui/DropdownMenu', () => ({
+  __esModule: true,
+  DropdownMenu: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  ),
+}));
+
+jest.mock('./UserCreditGrantDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    user,
+  }: {
+    open: boolean;
+    user: { user_bid: string } | null;
+  }) =>
+    open ? <div>{buildGrantDialogLabel(user?.user_bid || '')}</div> : null,
+}));
+
 jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
@@ -80,6 +115,10 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: 'email',
       currencySymbol: '¥',
     }),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
 }));
 
 jest.mock('react-i18next', () => ({
@@ -222,11 +261,11 @@ describe('AdminOperationUsersPage', () => {
           available_credits: '35.5',
           subscription_credits: '27.5',
           topup_credits: '8',
-          credits_expire_at: '2026-05-01 00:00:00',
-          last_login_at: '2026-04-15 09:00:00',
-          last_learning_at: '2026-04-15 10:00:00',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -309,6 +348,25 @@ describe('AdminOperationUsersPage', () => {
       'href',
       '/admin/operations/users/user-1#credits',
     );
+    expect(
+      screen.getByRole('button', { name: 'module.operationsUser.actions.grantCredits' }),
+    ).toBeInTheDocument();
+  });
+
+  test('opens the credit grant dialog from the action menu', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
+    );
+
+    expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
   });
 
   test('submits search filters', async () => {
@@ -408,8 +466,8 @@ describe('AdminOperationUsersPage', () => {
           credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -456,8 +514,8 @@ describe('AdminOperationUsersPage', () => {
           credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -510,8 +568,8 @@ describe('AdminOperationUsersPage', () => {
           credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -564,8 +622,8 @@ describe('AdminOperationUsersPage', () => {
           credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -604,8 +662,8 @@ describe('AdminOperationUsersPage', () => {
           credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -642,10 +700,10 @@ describe('AdminOperationUsersPage', () => {
           subscription_credits: '40',
           topup_credits: '15',
           credits_expire_at: '',
-          last_login_at: '2026-04-15 09:00:00',
-          last_learning_at: '2026-04-15 10:00:00',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,

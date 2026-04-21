@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -23,11 +24,17 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
+import { formatOperatorUtcDateTime } from '../dateTime';
 import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
@@ -48,6 +55,7 @@ const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   subscription_credits: '',
   topup_credits: '',
   credits_expire_at: '',
+  has_active_subscription: false,
 };
 const createEmptyCreditsResponse = (): AdminOperationUserCreditsResponse => ({
   summary: DEFAULT_CREDIT_SUMMARY,
@@ -79,6 +87,7 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
   subscription_credits: '',
   topup_credits: '',
   credits_expire_at: '',
+  has_active_subscription: false,
   last_login_at: '',
   last_learning_at: '',
   created_at: '',
@@ -119,6 +128,7 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.operationsUser.detail.creditLedgerTypeLabels.learning_consume')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.manual_credit')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.manual_debit')
+ * t('module.operationsUser.detail.creditLedgerTypeLabels.manual_grant')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.preview_consume')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.refund')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.refund_return')
@@ -157,6 +167,12 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.operationsUser.detail.creditLedgerNoteLabels.topup_purchase')
  * t('module.operationsUser.detail.creditLedgerNoteLabels.trial_bootstrap')
  * t('module.operationsUser.detail.creditLedgerNoteLabels.trial_subscription_grant')
+ * t('module.operationsUser.detail.creditExpireAtHint')
+ * t('module.operationsUser.detail.creditExpireAtHintAriaLabel')
+ * t('module.operationsUser.detail.creditsOverviewLabels.availableCredits')
+ * t('module.operationsUser.detail.creditsOverviewLabels.subscriptionCredits')
+ * t('module.operationsUser.detail.creditsOverviewLabels.topupCredits')
+ * t('module.operationsUser.detail.creditsOverviewLabels.creditsExpireAt')
  * t('module.operationsUser.table.subscriptionCredits')
  * t('module.operationsUser.table.topupCredits')
  * t('module.operationsUser.table.creditsExpireAt')
@@ -164,9 +180,15 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.user.defaultUserName')
  */
 
-const InfoItem = ({ label, value }: { label: string; value?: string }) => (
+const InfoItem = ({
+  label,
+  value,
+}: {
+  label: React.ReactNode;
+  value?: string;
+}) => (
   <div className='space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3'>
-    <div className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+    <div className='flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'>
       {label}
     </div>
     <div className='break-all text-sm font-medium text-foreground'>
@@ -441,7 +463,7 @@ const CreditLedgerTable = ({
                     <TableRow key={item.ledger_bid}>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={item.created_at}
+                          text={formatOperatorUtcDateTime(item.created_at)}
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -481,7 +503,7 @@ const CreditLedgerTable = ({
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={item.expires_at}
+                          text={formatOperatorUtcDateTime(item.expires_at)}
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -610,14 +632,18 @@ export default function AdminOperationUserDetailPage() {
         credits.summary.topup_credits || detail.topup_credits || '',
       credits_expire_at:
         credits.summary.credits_expire_at || detail.credits_expire_at || '',
+      has_active_subscription:
+        credits.summary.has_active_subscription || detail.has_active_subscription,
     }),
     [
       credits.summary.available_credits,
       credits.summary.credits_expire_at,
+      credits.summary.has_active_subscription,
       credits.summary.subscription_credits,
       credits.summary.topup_credits,
       detail.available_credits,
       detail.credits_expire_at,
+      detail.has_active_subscription,
       detail.subscription_credits,
       detail.topup_credits,
     ],
@@ -777,13 +803,35 @@ export default function AdminOperationUserDetailPage() {
   };
   const resolveCreditsExpireAt = () => {
     if (creditSummary.credits_expire_at) {
-      return creditSummary.credits_expire_at;
+      return formatOperatorUtcDateTime(creditSummary.credits_expire_at);
     }
     if (Number(creditSummary.available_credits || 0) > 0) {
       return tOperationsUsers('credits.longTerm');
     }
     return EMPTY_VALUE;
   };
+  const creditExpireAtLabel = (
+    <>
+      <span>{tOperationsUsers('detail.creditsOverviewLabels.creditsExpireAt')}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            aria-label={tOperationsUsers('detail.creditExpireAtHintAriaLabel')}
+            className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
+          >
+            <CircleHelp className='h-3.5 w-3.5' />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side='top'
+          className='max-w-[220px] text-center'
+        >
+          {tOperationsUsers('detail.creditExpireAtHint')}
+        </TooltipContent>
+      </Tooltip>
+    </>
+  );
 
   if (!isReady || detailLoading) {
     return <Loading />;
@@ -802,8 +850,9 @@ export default function AdminOperationUserDetailPage() {
   }
 
   return (
-    <div className='h-full overflow-auto'>
-      <div className='mx-auto max-w-7xl space-y-5 px-1 py-6'>
+    <TooltipProvider delayDuration={150}>
+      <div className='h-full overflow-auto'>
+        <div className='mx-auto max-w-7xl space-y-5 px-1 py-6'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h1 className='text-2xl font-semibold text-gray-900'>
@@ -859,15 +908,15 @@ export default function AdminOperationUserDetailPage() {
               />
               <InfoItem
                 label={tOperationsUsers('table.lastLoginAt')}
-                value={detail.last_login_at}
+                value={formatOperatorUtcDateTime(detail.last_login_at)}
               />
               <InfoItem
                 label={tOperationsUsers('table.updatedAt')}
-                value={detail.updated_at}
+                value={formatOperatorUtcDateTime(detail.updated_at)}
               />
               <InfoItem
                 label={tOperationsUsers('table.createdAt')}
-                value={detail.created_at}
+                value={formatOperatorUtcDateTime(detail.created_at)}
               />
             </div>
           </CardContent>
@@ -895,7 +944,7 @@ export default function AdminOperationUserDetailPage() {
               />
               <InfoItem
                 label={tOperationsUsers('table.lastLearningAt')}
-                value={detail.last_learning_at}
+                value={formatOperatorUtcDateTime(detail.last_learning_at)}
               />
             </div>
           </CardContent>
@@ -915,19 +964,25 @@ export default function AdminOperationUserDetailPage() {
             <CardContent>
               <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                 <InfoItem
-                  label={tOperationsUsers('table.availableCredits')}
+                  label={tOperationsUsers(
+                    'detail.creditsOverviewLabels.availableCredits',
+                  )}
                   value={creditSummary.available_credits}
                 />
                 <InfoItem
-                  label={tOperationsUsers('table.subscriptionCredits')}
+                  label={tOperationsUsers(
+                    'detail.creditsOverviewLabels.subscriptionCredits',
+                  )}
                   value={creditSummary.subscription_credits}
                 />
                 <InfoItem
-                  label={tOperationsUsers('table.topupCredits')}
+                  label={tOperationsUsers(
+                    'detail.creditsOverviewLabels.topupCredits',
+                  )}
                   value={creditSummary.topup_credits}
                 />
                 <InfoItem
-                  label={tOperationsUsers('table.creditsExpireAt')}
+                  label={creditExpireAtLabel}
                   value={resolveCreditsExpireAt()}
                 />
               </div>
@@ -1009,7 +1064,8 @@ export default function AdminOperationUserDetailPage() {
             </TabsContent>
           </Tabs>
         </div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

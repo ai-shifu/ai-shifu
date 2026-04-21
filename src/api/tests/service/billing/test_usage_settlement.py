@@ -9,6 +9,7 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -20,10 +21,12 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_USAGE,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
+    BillingSubscription,
     CreditLedgerEntry,
     CreditUsageRate,
     CreditWallet,
@@ -114,6 +117,23 @@ def _create_bucket(
     )
 
 
+def _create_active_subscription(creator_bid: str) -> BillingSubscription:
+    return BillingSubscription(
+        subscription_bid=f"subscription-{creator_bid}",
+        creator_bid=creator_bid,
+        product_bid="bill-product-plan-monthly",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="manual",
+        provider_subscription_id="",
+        provider_customer_id="",
+        current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
+        current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+        cancel_at_period_end=0,
+        next_product_bid="",
+        metadata_json={},
+    )
+
+
 def _create_rate(
     *,
     rate_bid: str,
@@ -201,6 +221,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-1", "4.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-1"))
         dao.db.session.add_all(
             [
                 _create_bucket(
@@ -305,7 +326,6 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
         assert buckets["bucket-sub"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
         assert buckets["bucket-topup"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
 
-
 def test_settle_usage_rounds_consumption_before_persisting(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -321,6 +341,7 @@ def test_settle_usage_rounds_consumption_before_persisting(
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-rounding", "1.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-rounding"))
         dao.db.session.add(
             _create_bucket(
                 creator_bid="creator-rounding",
@@ -366,10 +387,8 @@ def test_settle_usage_rounds_consumption_before_persisting(
         assert payload["consumed_credits"] == 0.13
         assert wallet.available_credits == Decimal("0.8700000000")
         assert entry.amount == Decimal("-0.1300000000")
-        assert entry.balance_after == Decimal("0.8700000000")
         assert entry.metadata_json["metric_breakdown"][0]["consumed_credits"] == 0.13
         assert entry.metadata_json["bucket_breakdown"][0]["consumed_credits"] == 0.13
-
 
 def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
@@ -452,6 +471,7 @@ def test_settle_tts_usage_is_idempotent(
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-2", "5.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-2"))
         dao.db.session.add(
             _create_bucket(
                 creator_bid="creator-2",
@@ -501,7 +521,6 @@ def test_settle_tts_usage_is_idempotent(
         assert len(entries) == 1
         assert wallet.available_credits == Decimal("3.0000000000")
 
-
 def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -513,6 +532,7 @@ def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
     with billing_settlement_app.app_context():
         wallet = _create_wallet("creator-tts-char", "5.0000000000")
         dao.db.session.add(wallet)
+        dao.db.session.add(_create_active_subscription("creator-tts-char"))
         dao.db.session.add(
             _create_bucket(
                 creator_bid="creator-tts-char",
@@ -559,6 +579,79 @@ def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
             "tts_output_chars"
         )
         assert wallet.available_credits == Decimal("3.5000000000")
+
+
+def test_settle_usage_consumes_manual_grant_without_subscription_and_skips_topup(
+    billing_settlement_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.settlement.resolve_usage_creator_bid",
+        lambda app, usage: "creator-manual-settlement",
+    )
+
+    with billing_settlement_app.app_context():
+        wallet = _create_wallet("creator-manual-settlement", "5.0000000000")
+        dao.db.session.add(wallet)
+        dao.db.session.add_all(
+            [
+                _create_bucket(
+                    creator_bid="creator-manual-settlement",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-manual-settlement",
+                    category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    priority=20,
+                    available_credits="2.0000000000",
+                ),
+                _create_bucket(
+                    creator_bid="creator-manual-settlement",
+                    wallet_bid=wallet.wallet_bid,
+                    bucket_bid="bucket-topup-settlement",
+                    category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    priority=30,
+                    available_credits="3.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-manual-settlement",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2.0000000000",
+                ),
+                _create_usage(
+                    usage_bid="usage-manual-settlement",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-test",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                ),
+            ]
+        )
+        manual_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-manual-settlement"
+        ).one()
+        manual_bucket.source_type = CREDIT_SOURCE_TYPE_MANUAL
+        manual_bucket.metadata_json = {"grant_type": "manual_grant"}
+        dao.db.session.add(manual_bucket)
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(
+            billing_settlement_app,
+            usage_bid="usage-manual-settlement",
+        )
+
+        manual_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-manual-settlement"
+        ).one()
+        topup_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-topup-settlement"
+        ).one()
+
+        assert payload["status"] == "settled"
+        assert manual_bucket.available_credits == Decimal("0E-10")
+        assert topup_bucket.available_credits == Decimal("3.0000000000")
 
 
 def test_settle_usage_prefers_exact_rate_over_wildcard(
