@@ -11,65 +11,22 @@
     },
     "empty": "--"
   },
+  "credits": {
+    "longTerm": "Long-term valid"
+  },
   "detail": {
     "back": "Back",
     "basicInfo": "Basic Information",
     "createdCourses": "Created Courses",
-    "emptyCourses": "No courses",
-    "learningCourses": "Learning Courses",
-    "learningProgress": "Progress",
-    "overview": "Overview",
-    "title": "User Detail",
-    "creditsOverview": "Credits Overview",
     "creditLedger": "Credits Detail",
-    "emptyCredits": "No credit entries",
-    "tabs": {
-      "credits": "Credits Detail",
-      "learningCourses": "Learning Courses",
-      "createdCourses": "Created Courses"
-    },
     "creditLedgerColumns": {
-      "createdAt": "Changed At",
-      "entryType": "Type",
-      "sourceType": "Source",
       "amount": "Amount",
       "balanceAfter": "Balance After",
+      "createdAt": "Changed At",
+      "entryType": "Type",
       "expiresAt": "Expires At",
-      "note": "Note"
-    },
-    "creditLedgerTypeLabels": {
-      "adjustment": "Credit Adjustment",
-      "consume": "Credit Consumption",
-      "debug_consume": "Debug Consumption",
-      "expire": "Credit Expiry",
-      "gift_expire": "Gift Credit Expiry",
-      "gift_grant": "Gift Grant",
-      "grant": "Credit Grant",
-      "learning_consume": "Learning Consumption",
-      "manual_credit": "Manual Credit",
-      "manual_debit": "Manual Debit",
-      "preview_consume": "Preview Consumption",
-      "refund": "Refund Return",
-      "refund_return": "Refund Return",
-      "release": "Credit Release",
-      "subscription_expire": "Subscription Credit Expiry",
-      "subscription_grant": "Subscription Grant",
-      "hold": "Credit Hold",
-      "topup_expire": "Top-up Expiry",
-      "topup_grant": "Top-up Grant",
-      "trial_subscription_grant": "Trial Subscription Grant"
-    },
-    "creditLedgerSourceLabels": {
-      "debug": "Debug",
-      "gift": "Gift",
-      "learning": "Learning",
-      "manual": "Manual",
-      "preview": "Preview",
-      "refund": "Refund",
-      "subscription": "Subscription",
-      "topup": "Top-up",
-      "trial_subscription": "Trial Subscription",
-      "usage": "Usage"
+      "note": "Note",
+      "sourceType": "Source"
     },
     "creditLedgerNoteLabels": {
       "debug_consume": "Credits consumed by debug usage",
@@ -92,7 +49,53 @@
       "trial_bootstrap": "Credits granted from trial activation",
       "trial_subscription_grant": "Credits granted from trial subscription"
     },
-    "loadingCredits": "Loading"
+    "creditLedgerSourceLabels": {
+      "debug": "Debug",
+      "gift": "Gift",
+      "learning": "Learning",
+      "manual": "Manual",
+      "preview": "Preview",
+      "refund": "Refund",
+      "subscription": "Subscription",
+      "topup": "Top-up",
+      "trial_subscription": "Trial Subscription",
+      "usage": "Usage"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Credit Adjustment",
+      "consume": "Credit Consumption",
+      "debug_consume": "Debug Consumption",
+      "expire": "Credit Expiry",
+      "gift_expire": "Gift Credit Expiry",
+      "gift_grant": "Gift Grant",
+      "grant": "Credit Grant",
+      "hold": "Credit Hold",
+      "learning_consume": "Learning Consumption",
+      "manual_credit": "Manual Credit",
+      "manual_debit": "Manual Debit",
+      "preview_consume": "Preview Consumption",
+      "refund": "Refund Return",
+      "refund_return": "Refund Return",
+      "release": "Credit Release",
+      "subscription_expire": "Subscription Credit Expiry",
+      "subscription_grant": "Subscription Grant",
+      "topup_expire": "Top-up Expiry",
+      "topup_grant": "Top-up Grant",
+      "trial_subscription_grant": "Trial Subscription Grant"
+    },
+    "creditsOverview": "Credits Overview",
+    "emptyCourses": "No courses",
+    "emptyCredits": "No credit entries",
+    "learningCourses": "Learning Courses",
+    "learningProgress": "Progress",
+    "loadingCredits": "Loading",
+    "overview": "Overview",
+    "tabs": {
+      "createdCourses": "Created Courses",
+      "credits": "Credits Detail",
+      "learningCourses": "Learning Courses"
+    },
+    "title": "User Detail"
   },
   "emptyList": "No users",
   "filters": {
@@ -133,8 +136,10 @@
     "unregistered": "Unregistered"
   },
   "table": {
+    "availableCredits": "Total Credits",
     "createdAt": "Created At",
     "createdCourses": "Created Courses",
+    "creditsExpireAt": "Credits Expire At",
     "email": "Email",
     "lastLearningAt": "Last Learning",
     "lastLoginAt": "Last Login",
@@ -145,16 +150,11 @@
     "registrationSource": "Registration Source",
     "role": "Role",
     "status": "Status",
-    "totalPaidAmount": "Total Paid",
-    "availableCredits": "Total Credits",
     "subscriptionCredits": "Subscription Credits",
     "topupCredits": "Top-up Credits",
+    "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
-    "userId": "User ID",
-    "creditsExpireAt": "Credits Expire At"
+    "userId": "User ID"
   },
-  "title": "User Management",
-  "credits": {
-    "longTerm": "Long-term valid"
-  }
+  "title": "User Management"
 }

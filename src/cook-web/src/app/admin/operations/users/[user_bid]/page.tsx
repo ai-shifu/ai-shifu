@@ -200,9 +200,7 @@ const resolveCreditLedgerLabel = (
   return fallbackCode.trim() || EMPTY_VALUE;
 };
 
-const resolveCreditLedgerNote = (
-  note: string,
-): string => {
+const resolveCreditLedgerNote = (note: string): string => {
   const normalizedNote = note.trim();
   if (normalizedNote) {
     return normalizedNote;
@@ -413,7 +411,9 @@ const CreditLedgerTable = ({
                     {tOperationsUsers('detail.creditLedgerColumns.amount')}
                   </TableHead>
                   <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.balanceAfter')}
+                    {tOperationsUsers(
+                      'detail.creditLedgerColumns.balanceAfter',
+                    )}
                   </TableHead>
                   <TableHead className='text-center'>
                     {tOperationsUsers('detail.creditLedgerColumns.expiresAt')}
@@ -479,9 +479,7 @@ const CreditLedgerTable = ({
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={resolveCreditLedgerNote(
-                            item.note,
-                          )}
+                          text={resolveCreditLedgerNote(item.note)}
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -602,8 +600,11 @@ export default function AdminOperationUserDetailPage() {
       available_credits:
         credits.summary.available_credits || detail.available_credits || '',
       subscription_credits:
-        credits.summary.subscription_credits || detail.subscription_credits || '',
-      topup_credits: credits.summary.topup_credits || detail.topup_credits || '',
+        credits.summary.subscription_credits ||
+        detail.subscription_credits ||
+        '',
+      topup_credits:
+        credits.summary.topup_credits || detail.topup_credits || '',
       credits_expire_at:
         credits.summary.credits_expire_at || detail.credits_expire_at || '',
     }),
@@ -842,7 +843,9 @@ export default function AdminOperationUserDetailPage() {
               />
               <InfoItem
                 label={tOperationsUsers('table.registrationSource')}
-                value={resolveRegistrationSourceLabel(detail.registration_source)}
+                value={resolveRegistrationSourceLabel(
+                  detail.registration_source,
+                )}
               />
               <InfoItem
                 label={tOperationsUsers('table.lastLoginAt')}
@@ -964,7 +967,9 @@ export default function AdminOperationUserDetailPage() {
                 courseNameLabel={tOperationsUsers(
                   'courseSummary.dialog.courseName',
                 )}
-                courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+                courseIdLabel={tOperationsUsers(
+                  'courseSummary.dialog.courseId',
+                )}
                 valueLabel={tOperationsUsers('detail.learningProgress')}
                 renderValue={formatLearningProgress}
                 courseNameAlign='left'
@@ -982,7 +987,9 @@ export default function AdminOperationUserDetailPage() {
                 courseNameLabel={tOperationsUsers(
                   'courseSummary.dialog.courseName',
                 )}
-                courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+                courseIdLabel={tOperationsUsers(
+                  'courseSummary.dialog.courseId',
+                )}
                 valueLabel={tOperationsUsers('courseSummary.dialog.status')}
                 renderValue={course =>
                   resolveCourseStatusLabel(course.course_status)

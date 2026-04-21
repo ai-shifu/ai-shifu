@@ -32,7 +32,11 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing.models import BillingOrder, CreditLedgerEntry, CreditWalletBucket
+from flaskr.service.billing.models import (
+    BillingOrder,
+    CreditLedgerEntry,
+    CreditWalletBucket,
+)
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -538,8 +542,8 @@ def _load_operator_user_credit_summary_map(
         if not normalized_bill_order_bid:
             return None
         if normalized_bill_order_bid not in order_type_cache:
-            order_type_cache[normalized_bill_order_bid] = load_billing_order_type_by_bid(
-                normalized_bill_order_bid
+            order_type_cache[normalized_bill_order_bid] = (
+                load_billing_order_type_by_bid(normalized_bill_order_bid)
             )
         return order_type_cache[normalized_bill_order_bid]
 
@@ -2909,7 +2913,9 @@ def get_operator_user_credits(
         total = query.count()
         page_offset = (safe_page_index - 1) * safe_page_size
         rows = (
-            query.order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
+            query.order_by(
+                CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+            )
             .offset(page_offset)
             .limit(safe_page_size)
             .all()

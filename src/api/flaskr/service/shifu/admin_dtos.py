@@ -220,7 +220,9 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
 class AdminOperationUserCreditLedgerItemDTO(BaseModel):
     """Operator-facing user credit ledger row."""
 
-    ledger_bid: str = Field(..., description="Ledger business identifier", required=False)
+    ledger_bid: str = Field(
+        ..., description="Ledger business identifier", required=False
+    )
     created_at: str = Field(..., description="Created at", required=False)
     entry_type: str = Field(..., description="Ledger entry type", required=False)
     source_type: str = Field(..., description="Ledger source type", required=False)
