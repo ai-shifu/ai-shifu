@@ -603,7 +603,7 @@ def run_script(
                             app.logger.info(
                                 "Client disconnected from SSE stream during heartbeat"
                             )
-                            break
+                            return
                         except (ConnectionError, BrokenPipeError, OSError) as exc:
                             client_disconnected = True
                             stop_event.set()
@@ -641,7 +641,7 @@ def run_script(
                         app.logger.info(
                             "Client disconnected from SSE stream (GeneratorExit)"
                         )
-                        break
+                        return
                     except (ConnectionError, BrokenPipeError, OSError) as exc:
                         client_disconnected = True
                         stop_event.set()
@@ -709,7 +709,7 @@ def run_script(
                             False if use_element_protocol else None
                         )
 
-            if not (
+            if not client_disconnected and not (
                 use_element_protocol
                 and last_stream_type == GeneratedType.DONE.value
                 and last_stream_done_is_terminal is True

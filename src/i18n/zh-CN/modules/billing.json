@@ -265,7 +265,7 @@
     },
     "badges": {
       "bestValue": "更划算",
-      "recommended": "推荐"
+      "recommended": "热门"
     },
     "labels": {
       "everyDays": "/ 每 {count} 天",
@@ -280,23 +280,23 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合低成本试教，验证课程与学员反馈",
+        "description": "适合在交付期之外做课程迭代和维护",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
-        "description": "适合稳定开课，持续服务小班学员",
+        "description": "适合服务少量学员",
         "title": "基础版"
       },
       "creatorYearly": {
-        "description": "适合年度稳定运营，覆盖常规课程交付",
+        "description": "适合大型机构",
         "title": "高阶版"
       },
       "creatorYearlyLite": {
-        "description": "适合品牌化交付，支持品牌标识与独立域名",
+        "description": "适合中小型机构",
         "title": "进阶版"
       },
       "creatorYearlyPremium": {
-        "description": "适合大规模运营，支持高并发课程交付",
+        "description": "适合超大型机构",
         "title": "旗舰版"
       }
     },
@@ -350,17 +350,20 @@
     },
     "subtitle": "查看当前创作者空间的总积分、各类积分余额以及对应有效期。",
     "table": {
-      "balance": "积分余额",
-      "creditType": "积分类型",
-      "validUntil": "有效期"
+      "balance": "余额",
+      "creditType": "类型",
+      "validUntil": "有效期到"
     },
-    "title": "积分详情",
-    "totalCreditsDescription": "积分会按套餐积分、积分包的顺序优先扣减。",
-    "totalCreditsLabel": "总积分",
+    "title": "积分总览",
+    "topupAvailabilityLabel": "无限期",
+    "topupAvailabilityTooltip": "必须有任意激活套餐才可使用",
+    "totalCreditsDescription": "按照套餐积分>积分包的顺序优先扣减",
+    "totalCreditsLabel": "积分余额",
     "usageTable": {
       "columns": {
-        "scene": "积分变化"
-      }
+        "scene": "消耗项"
+      },
+      "title": "积分消耗明细"
     }
   },
   "domains": {
@@ -449,7 +452,7 @@
       "amount": "数量",
       "availableCredits": "可用积分",
       "balanceAfter": "变化后余额",
-      "createdAt": "日期",
+      "createdAt": "时间",
       "detail": "查看明细",
       "effectiveWindow": "生效时间",
       "entryType": "账本类型",
@@ -460,7 +463,8 @@
     "usageScene": {
       "debug": "调试",
       "preview": "预览",
-      "production": "学员学习"
+      "production": "学习",
+      "tts": "语音"
     }
   },
   "orders": {
@@ -518,6 +522,12 @@
         "taskPriority": "任务优先处理",
         "techBasic": "技术基础支持"
       },
+      "common": {
+        "allLearning": "全部学习功能",
+        "createDebugPublish": "创建、调试和发布课程",
+        "higherConcurrency": "更高并发支持",
+        "unlimitedCourses": "不限课程数"
+      },
       "daily": {
         "preview": "适合短周期验证与快速体验",
         "publish": "支持短期发布与快速上手",
@@ -529,14 +539,13 @@
       },
       "monthly": {
         "preview": "学员交付与学习账号导入",
-        "publish": "课程创建与内容存储",
-        "support": "AI 讲解与听课语音"
+        "publish": "课程创建与内容存储"
       },
       "premium": {
         "concurrencyQuota": "更高并发任务配额",
         "dedicatedSupport": "专属技术支持",
         "includesLabel": "享有高阶版全部权益，以及：",
-        "onboarding": "含 1 次线上做课培训"
+        "onboarding": "一次专属课程制作培训"
       },
       "pro": {
         "branding": "自定义品牌标识",
@@ -554,7 +563,7 @@
           "branding": "自定义品牌标识",
           "domain": "自定义域名",
           "priority": "专属技术支持",
-          "support": "含 1 次线上做课培训"
+          "support": "一次专属课程制作培训"
         },
         "pro": {
           "analytics": "技术优先支持",
@@ -568,7 +577,7 @@
     "featuresTitle": "享有权益：",
     "free": {
       "creditSummary": "赠送积分数 {credits}",
-      "description": "适合首次体验，快速跑通建课与交付",
+      "description": "适合首次体验，跑通教研教学全流程",
       "priceNote": "/ 新注册 {days} 日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
@@ -582,22 +591,22 @@
     },
     "scale": {
       "advanced": {
-        "students": "预估支持学员数：300人以内"
+        "students": "预估支持学员数：300人左右"
       },
       "basic": {
-        "students": "预估支持学员数：10人以内"
+        "students": "预估支持学员数：10人左右"
       },
       "free": {
-        "students": "预估支持学员数：10人以内"
+        "students": "预估支持学员数：10人左右"
       },
       "lite": {
-        "students": "预估支持学员数：3人以内"
+        "students": "预估支持学员数：3人左右"
       },
       "premium": {
-        "students": "预估支持学员数：1000人以内"
+        "students": "预估支持学员数：1000人左右"
       },
       "pro": {
-        "students": "预估支持学员数：500人以内"
+        "students": "预估支持学员数：500人左右"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -614,7 +623,7 @@
       "daily": "有效期：自购买当日起按日生效",
       "days": "有效期：自购买当日起每 {count} 天续期",
       "free": "有效期：注册日起 15 内有效",
-      "monthly": "有效期：当月购买起计算日起，每月有效",
+      "monthly": "购买日起 30 天内",
       "months": "有效期：自购买当月起每 {count} 个月续期",
       "yearly": "有效期：当月购买起计算日起，每年有效",
       "years": "有效期：自购买当月起每 {count} 年续期"
@@ -689,18 +698,22 @@
   "sidebar": {
     "creditsLabel": "剩余积分",
     "cta": "前往会员中心",
+    "dailyBalanceTitle": "日套餐余额",
     "dailyTitle": "日订阅",
     "description": "查看会员状态、积分余额与后续账务动作。",
     "expired": "已到期",
-    "expiresInDays": "剩 {days} 天",
+    "expiresInDays": "{days} 天后到期",
+    "monthlyBalanceTitle": "月套餐余额",
     "monthlyTitle": "月订阅",
+    "nonMemberBalanceTitle": "积分余额",
     "nonMemberTitle": "非会员",
     "periodLabel": "套餐周期",
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
     "upgradeCta": "升级",
-    "usageCta": "查看使用情况",
+    "usageCta": "查看详情",
+    "yearlyBalanceTitle": "年套餐余额",
     "yearlyTitle": "年订阅"
   },
   "status": {

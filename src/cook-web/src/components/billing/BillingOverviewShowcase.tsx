@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
-  formatBillingCredits,
+  formatBillingCreditAmount,
   formatBillingDate,
   formatBillingPlanInterval,
   formatBillingPrice,
@@ -101,10 +101,7 @@ export function BillingOverviewShowcase({
     currentPlan?.product_bid || null,
   );
   const freeCreditSummary = t('module.billing.package.free.creditSummary', {
-    credits: formatBillingCredits(
-      trialOffer?.credit_amount || 0,
-      i18n.language,
-    ),
+    credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
   });
   const freeCreditValidityLabel = t('module.billing.package.validity.free');
   const freeFeatureData = getFreeFeatureData(trialOffer?.highlights);
@@ -128,23 +125,7 @@ export function BillingOverviewShowcase({
     t('module.billing.package.free.description'),
   );
 
-  let freePriceMetaLabel = '';
-  if (trialOffer) {
-    if (
-      trialOffer.status === 'granted' &&
-      trialOffer.granted_at &&
-      trialOffer.expires_at
-    ) {
-      freePriceMetaLabel = t('module.billing.package.free.priceNoteGranted', {
-        grantedAt: formatBillingDate(trialOffer.granted_at, i18n.language),
-        expiresAt: formatBillingDate(trialOffer.expires_at, i18n.language),
-      });
-    } else {
-      freePriceMetaLabel = t('module.billing.package.free.priceNote', {
-        days: trialOffer.valid_days,
-      });
-    }
-  }
+  const freePriceMetaLabel = '';
 
   return (
     <>
@@ -225,10 +206,7 @@ export function BillingOverviewShowcase({
                   actionLabel={t('module.billing.package.actions.buyNow')}
                   actionLoading={checkoutLoadingKey === checkoutKey}
                   creditsLabel={t('module.billing.package.topup.creditLabel', {
-                    credits: formatBillingCredits(
-                      product.credit_amount,
-                      i18n.language,
-                    ),
+                    credits: formatBillingCreditAmount(product.credit_amount),
                   })}
                   disabled={!provider}
                   featured={Boolean(product.status_badge_key)}
@@ -248,14 +226,7 @@ export function BillingOverviewShowcase({
         </div>
       ) : (
         <div
-          className={cn(
-            'grid gap-6',
-            showcaseTab === 'yearly'
-              ? 'xl:grid-cols-3'
-              : renderFreeCard
-                ? 'xl:grid-cols-3'
-                : 'xl:grid-cols-2',
-          )}
+          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
           data-testid='billing-plan-grid'
         >
           {renderFreeCard
@@ -338,11 +309,7 @@ export function BillingOverviewShowcase({
                     : undefined
                 }
                 badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
-                creditSummary={resolveBillingPlanCreditsLabel(
-                  t,
-                  plan,
-                  i18n.language,
-                )}
+                creditSummary={resolveBillingPlanCreditsLabel(t, plan)}
                 creditValidityLabel={resolveBillingPlanValidityLabel(t, plan)}
                 description={resolveBillingProductDescription(t, plan)}
                 disabled={!provider || isCurrentPlan || isDowngradeLocked}

@@ -24,46 +24,33 @@ type PlanFeatureData = {
   items: string[];
 };
 
-const DEFAULT_FREE_FEATURE_KEYS: string[] = [
-  'module.billing.package.features.free.publish',
-  'module.billing.package.features.free.preview',
+const COMMON_FEATURE_KEYS: string[] = [
+  'module.billing.package.features.common.unlimitedCourses',
+  'module.billing.package.features.common.createDebugPublish',
+  'module.billing.package.features.common.allLearning',
 ];
 
+const DEFAULT_FREE_FEATURE_KEYS: string[] = COMMON_FEATURE_KEYS;
+
 const PLAN_FEATURE_INCLUDE_LABELS: Record<string, string> = {
-  'creator-plan-yearly-lite':
-    'module.billing.package.features.advanced.includesLabel',
   'creator-plan-yearly': 'module.billing.package.features.pro.includesLabel',
   'creator-plan-yearly-premium':
     'module.billing.package.features.premium.includesLabel',
 };
 
 const PLAN_FEATURE_FALLBACK_KEYS: Record<string, string[]> = {
-  'creator-plan-monthly': [
-    'module.billing.package.features.monthly.publish',
-    'module.billing.package.features.monthly.preview',
-    'module.billing.package.features.monthly.support',
-  ],
-  'creator-plan-monthly-pro': [
-    'module.billing.package.features.monthly.publish',
-    'module.billing.package.features.monthly.preview',
-    'module.billing.package.features.monthly.support',
-  ],
+  'creator-plan-monthly': COMMON_FEATURE_KEYS,
+  'creator-plan-monthly-pro': COMMON_FEATURE_KEYS,
   'creator-plan-yearly-lite': [
-    'module.billing.package.features.yearly.lite.ops',
-    'module.billing.package.features.yearly.lite.publish',
+    ...COMMON_FEATURE_KEYS,
+    'module.billing.package.features.common.higherConcurrency',
   ],
   'creator-plan-yearly': [
     'module.billing.package.features.yearly.pro.branding',
     'module.billing.package.features.yearly.pro.domain',
-    'module.billing.package.features.yearly.pro.priority',
-    'module.billing.package.features.yearly.pro.analytics',
-    'module.billing.package.features.yearly.pro.support',
   ],
   'creator-plan-yearly-premium': [
-    'module.billing.package.features.yearly.premium.branding',
-    'module.billing.package.features.yearly.premium.domain',
     'module.billing.package.features.yearly.premium.priority',
-    'module.billing.package.features.yearly.premium.analytics',
     'module.billing.package.features.yearly.premium.support',
   ],
 };
@@ -90,18 +77,18 @@ const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
 };
 
 export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
+  if (PLAN_FEATURE_FALLBACK_KEYS[product.product_code]) {
+    return {
+      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
+      items: PLAN_FEATURE_FALLBACK_KEYS[product.product_code],
+    };
+  }
+
   const productHighlights = product.highlights?.filter(item => Boolean(item));
   if (productHighlights && productHighlights.length > 0) {
     return {
       includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
       items: productHighlights,
-    };
-  }
-
-  if (PLAN_FEATURE_FALLBACK_KEYS[product.product_code]) {
-    return {
-      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
-      items: PLAN_FEATURE_FALLBACK_KEYS[product.product_code],
     };
   }
 
@@ -126,13 +113,9 @@ export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
   };
 }
 
-export function getFreeFeatureData(highlights?: string[]): PlanFeatureData {
-  const featureItems = highlights?.filter(item => Boolean(item));
+export function getFreeFeatureData(_highlights?: string[]): PlanFeatureData {
   return {
-    items:
-      featureItems && featureItems.length > 0
-        ? featureItems
-        : DEFAULT_FREE_FEATURE_KEYS,
+    items: DEFAULT_FREE_FEATURE_KEYS,
   };
 }
 

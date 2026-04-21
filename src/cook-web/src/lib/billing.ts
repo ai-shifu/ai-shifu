@@ -280,6 +280,14 @@ export function formatBillingCredits(
   }).format(Number(value || 0));
 }
 
+export function formatBillingCreditBalance(value: number): string {
+  return String(Math.trunc(Number(value || 0)));
+}
+
+export function formatBillingCreditAmount(value: number): string {
+  return String(Math.trunc(Number(value || 0)));
+}
+
 export function formatBillingPrice(
   amountInMinor: number,
   currency: string,
@@ -457,6 +465,28 @@ export function formatBillingDateTime(
   }).format(date);
 }
 
+export function formatBillingCompactDateTime(
+  value: string | null | undefined,
+  locale: string,
+): string {
+  const date = parseBillingDateValue(value);
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+
+  if (locale.toLowerCase().startsWith('zh')) {
+    return `${year}年${month}月${day}日 ${hour}:${minute}`;
+  }
+
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
 export function formatBillingPlanInterval(
   t: BillingTranslator,
   product: BillingPlan,
@@ -473,7 +503,6 @@ export function formatBillingPlanInterval(
 export function resolveBillingPlanCreditsLabel(
   t: BillingTranslator,
   product: BillingPlan,
-  locale: string,
 ): string {
   const intervalCount = Math.max(product.billing_interval_count || 0, 1);
   return t(
@@ -482,7 +511,7 @@ export function resolveBillingPlanCreditsLabel(
       : BILLING_PLAN_CREDIT_SUMMARY_KEYS[product.billing_interval],
     {
       count: intervalCount,
-      credits: formatBillingCredits(product.credit_amount, locale),
+      credits: formatBillingCreditAmount(product.credit_amount),
     },
   );
 }
@@ -538,28 +567,42 @@ export function resolveBillingLedgerReasonLabel(
 
   if (item.source_type === 'usage') {
     const usageType = resolveBillingLedgerUsageType(item.metadata);
+    const usageScene = item.metadata?.usage_scene;
     const usageSceneLabel = resolveBillingUsageSceneLabel(
       t,
-      item.metadata?.usage_scene,
+      usageScene === 'preview' ? 'debug' : usageScene,
     );
-    if (usageSceneLabel) {
-      const reasonParts =
-        usageType === 'tts'
-          ? [resolveBillingUsageTypeLabel(t, usageType), usageSceneLabel]
-          : [usageSceneLabel];
-      const courseName = String(item.metadata?.course_name || '').trim();
-      const userIdentify = String(item.metadata?.user_identify || '').trim();
+    const courseName = String(item.metadata?.course_name || '').trim();
+    const userIdentify = String(item.metadata?.user_identify || '').trim();
+    const shouldShowUserIdentify = Boolean(
+      userIdentify &&
+      (usageScene === 'production' ||
+        usageScene === 'debug' ||
+        usageScene === 'preview'),
+    );
+
+    if (usageType === 'tts') {
+      const reasonParts = [t('module.billing.ledger.usageScene.tts')];
 
       if (courseName) {
         reasonParts.push(courseName);
       }
-      if (item.metadata?.usage_scene === 'production' && userIdentify) {
+      if (shouldShowUserIdentify) {
         reasonParts.push(userIdentify);
       }
       return reasonParts.join(' - ');
     }
-    if (usageType === 'tts') {
-      return resolveBillingUsageTypeLabel(t, usageType);
+
+    if (usageSceneLabel) {
+      const reasonParts = [usageSceneLabel];
+
+      if (courseName) {
+        reasonParts.push(courseName);
+      }
+      if (shouldShowUserIdentify) {
+        reasonParts.push(userIdentify);
+      }
+      return reasonParts.join(' - ');
     }
   }
 
@@ -878,7 +921,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.validity.years', { count: 2 }),
     t('module.billing.package.features.monthly.preview'),
     t('module.billing.package.features.monthly.publish'),
-    t('module.billing.package.features.monthly.support'),
     t('module.billing.package.features.yearly.lite.ops'),
     t('module.billing.package.features.yearly.lite.publish'),
     t('module.billing.package.features.yearly.pro.analytics'),
@@ -974,15 +1016,20 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.ledger.usageScene.debug'),
     t('module.billing.ledger.usageScene.preview'),
     t('module.billing.ledger.usageScene.production'),
+    t('module.billing.ledger.usageScene.tts'),
     t('module.billing.page.tabs.plans'),
     t('module.billing.sidebar.cta'),
     t('module.billing.sidebar.creditsLabel'),
+    t('module.billing.sidebar.dailyBalanceTitle'),
     t('module.billing.sidebar.dailyTitle'),
     t('module.billing.sidebar.description'),
     t('module.billing.sidebar.monthlyTitle'),
+    t('module.billing.sidebar.monthlyBalanceTitle'),
+    t('module.billing.sidebar.nonMemberBalanceTitle'),
     t('module.billing.sidebar.nonMemberTitle'),
     t('module.billing.sidebar.subscriptionPending'),
     t('module.billing.sidebar.subscriptionStatusLabel'),
+    t('module.billing.sidebar.yearlyBalanceTitle'),
     t('module.billing.sidebar.yearlyTitle'),
     t('module.billing.orders.type.manual'),
     t('module.billing.orders.type.refund'),

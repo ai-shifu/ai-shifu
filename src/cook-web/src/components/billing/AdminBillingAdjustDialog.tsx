@@ -5,7 +5,7 @@ import { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
-import { formatBillingCredits } from '@/lib/billing';
+import { formatBillingCreditBalance } from '@/lib/billing';
 import type {
   AdminBillingLedgerAdjustPayload,
   AdminBillingLedgerAdjustResult,
@@ -43,7 +43,7 @@ export function AdminBillingAdjustDialog({
   initialCreatorBid = '',
   onOpenChange,
 }: AdminBillingAdjustDialogProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { mutate } = useSWRConfig();
   const [creatorBid, setCreatorBid] = React.useState(initialCreatorBid);
   const [amount, setAmount] = React.useState('');
@@ -99,9 +99,8 @@ export function AdminBillingAdjustDialog({
       toast({
         title: t('module.billing.admin.adjust.success', {
           creatorBid: result.creator_bid,
-          availableCredits: formatBillingCredits(
+          availableCredits: formatBillingCreditBalance(
             result.wallet?.available_credits || 0,
-            i18n.language,
           ),
         }),
       });

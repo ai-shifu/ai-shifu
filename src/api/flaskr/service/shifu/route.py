@@ -106,6 +106,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_user_detail,
+    get_operator_user_credits,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
@@ -684,6 +685,51 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         _require_operator()
         return make_common_response(get_operator_user_detail(app, user_bid))
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]
+    )
+    def admin_operation_user_credits(user_bid: str):
+        """
+        Get operator user credits detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+            - name: page_index
+              type: integer
+              required: false
+            - name: page_size
+              type: integer
+              required: false
+        responses:
+            200:
+                description: Operator user credits detail
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        return make_common_response(
+            get_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                page_index=page_index,
+                page_size=page_size,
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]

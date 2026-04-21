@@ -5,7 +5,7 @@ import { ChevronRight, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { CreatorBillingOverview } from '@/types/billing';
 import {
-  formatBillingCredits,
+  formatBillingCreditBalance,
   formatBillingExpiryCountdown,
 } from '@/lib/billing';
 
@@ -14,26 +14,28 @@ type BillingSidebarCardProps = {
   isLoading?: boolean;
 };
 
-const resolveMembershipTitleKey = (overview?: CreatorBillingOverview) => {
+const resolveMembershipBalanceTitleKey = (
+  overview?: CreatorBillingOverview,
+) => {
   const productCode = overview?.subscription?.product_code?.toLowerCase() || '';
 
   if (!productCode) {
-    return 'module.billing.sidebar.nonMemberTitle' as const;
+    return 'module.billing.sidebar.nonMemberBalanceTitle' as const;
   }
 
   if (productCode.includes('year')) {
-    return 'module.billing.sidebar.yearlyTitle' as const;
+    return 'module.billing.sidebar.yearlyBalanceTitle' as const;
   }
 
   if (productCode.includes('day')) {
-    return 'module.billing.sidebar.dailyTitle' as const;
+    return 'module.billing.sidebar.dailyBalanceTitle' as const;
   }
 
   if (productCode.includes('month')) {
-    return 'module.billing.sidebar.monthlyTitle' as const;
+    return 'module.billing.sidebar.monthlyBalanceTitle' as const;
   }
 
-  return 'module.billing.sidebar.nonMemberTitle' as const;
+  return 'module.billing.sidebar.nonMemberBalanceTitle' as const;
 };
 
 const BILLING_CENTER_HREF = '/admin/billing';
@@ -44,15 +46,15 @@ export function BillingSidebarCard({
   overview,
   isLoading = false,
 }: BillingSidebarCardProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const availableCredits = overview?.wallet.available_credits ?? 0;
   const shouldShowCredits = !isLoading && availableCredits > 0;
-  const membershipTitleKey = resolveMembershipTitleKey(overview);
+  const membershipBalanceTitleKey = resolveMembershipBalanceTitleKey(overview);
 
   const creditsValue =
     overview && !isLoading
-      ? formatBillingCredits(availableCredits, i18n.language)
+      ? formatBillingCreditBalance(availableCredits)
       : t('module.billing.sidebar.placeholderValue');
 
   const expiryCountdown = !isLoading
@@ -83,17 +85,17 @@ export function BillingSidebarCard({
       data-href={BILLING_PACKAGES_HREF}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-4 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
+      className='mt-4 block cursor-pointer rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] px-3.5 py-[14px] shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-colors hover:border-[var(--base-border-hover,#D4D4D4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
       data-testid='admin-billing-sidebar-card'
     >
-      <div className='flex items-center justify-between gap-3'>
+      <div className='flex items-center justify-between gap-2.5'>
         <div className='flex min-w-0 flex-col gap-1'>
-          <div className='flex min-w-0 items-center gap-3'>
+          <div className='flex min-w-0 items-center gap-2.5'>
             <div className='flex shrink-0 items-center justify-center text-slate-950'>
               <Crown className='h-4 w-4' />
             </div>
             <p className='truncate text-sm font-extrabold leading-5 text-slate-950'>
-              {t(membershipTitleKey)}
+              {t(membershipBalanceTitleKey)}
               {shouldShowCredits ? (
                 <span className='ml-2 font-medium text-slate-500'>
                   {creditsValue}
@@ -103,9 +105,6 @@ export function BillingSidebarCard({
           </div>
           {expiryCountdown && (
             <div className='ml-7 flex items-center gap-1.5 text-sm leading-5'>
-              <span className='text-slate-400'>
-                {t('module.billing.sidebar.periodLabel')}:
-              </span>
               <span className='font-semibold text-slate-900'>
                 {expiryCountdown}
               </span>
