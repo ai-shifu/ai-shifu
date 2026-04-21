@@ -101,6 +101,11 @@ const EMPTY_FOLLOW_UP_DETAIL: AdminOperationCourseFollowUpDetailResponse = {
   current_record: {
     follow_up_content: '',
     answer_content: '',
+    source_output_content: '',
+    source_output_type: '',
+    source_position: 0,
+    source_element_bid: '',
+    source_element_type: '',
   },
   timeline: [],
 };

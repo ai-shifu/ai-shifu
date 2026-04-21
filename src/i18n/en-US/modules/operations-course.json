@@ -96,7 +96,7 @@
         "lessonKeyword": "Lesson Search",
         "lessonKeywordPlaceholder": "Search by lesson title",
         "reset": "Reset",
-        "resultCount": "{count} results",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
         "timeRangePlaceholder": "Select follow-up start and end dates",
         "userKeyword": "User Search",

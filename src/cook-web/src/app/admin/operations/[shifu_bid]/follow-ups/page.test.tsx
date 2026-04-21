@@ -312,15 +312,18 @@ describe('AdminOperationCourseFollowUpsPage', () => {
       shifu_bid: 'course-1',
       generated_block_bid: 'ask-2',
     });
-    expect(
-      screen.getAllByText('Second follow-up question').length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText('Please tell me your current understanding.').length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText('Second follow-up answer').length,
-    ).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(
+        screen.getAllByText('Second follow-up question').length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText('Please tell me your current understanding.')
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText('Second follow-up answer').length,
+      ).toBeGreaterThan(0);
+    });
     expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.drawer.timeline.current',
@@ -372,5 +375,17 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.sourceUnavailable',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('redirects non-operators back to admin', async () => {
+    mockUserState.userInfo = {
+      is_operator: false,
+    };
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/admin');
+    });
   });
 });

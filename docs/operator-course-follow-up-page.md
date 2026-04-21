@@ -287,12 +287,14 @@ without forcing an early migration to a more complex event-only query path.
     {
       "role": "student",
       "content": "First follow-up question",
-      "created_at": "2026-04-21 10:00:00"
+      "created_at": "2026-04-21 10:00:00",
+      "is_current": false
     },
     {
       "role": "teacher",
       "content": "First follow-up answer",
-      "created_at": "2026-04-21 10:00:03"
+      "created_at": "2026-04-21 10:00:03",
+      "is_current": false
     }
   ]
 }

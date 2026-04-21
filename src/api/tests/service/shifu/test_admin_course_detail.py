@@ -1802,6 +1802,24 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert lesson_filtered_payload["data"]["total"] == 1
     assert lesson_filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
+    nickname_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&keyword=STUDENT-1",
+        headers={"Token": "test-token"},
+    )
+    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
+
+    assert nickname_filtered_response.status_code == 200
+    assert nickname_filtered_payload["code"] == 0
+    assert nickname_filtered_payload["data"]["total"] == 2
+    assert [
+        item["generated_block_bid"]
+        for item in nickname_filtered_payload["data"]["items"]
+    ] == [
+        "ask-2",
+        "ask-1",
+    ]
+
 
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
     app,
@@ -1933,6 +1951,129 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
             "role": "teacher",
             "content": "Second follow-up answer",
             "created_at": "2026-04-04 10:02:02",
+            "is_current": True,
+        },
+    ]
+
+
+def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks_when_resolving_answer(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            user_bid="student-1",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            updated_at=datetime(2026, 4, 4, 10, 0, 0),
+        )
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid="ask-gap-1",
+                progress_record_bid="progress-student-1-lesson-1-602",
+                user_bid="student-1",
+                block_bid="",
+                outline_item_bid="lesson-1",
+                shifu_bid="course-detail",
+                type=BLOCK_TYPE_MDASK_VALUE,
+                role=ROLE_STUDENT,
+                generated_content="Question with an intermediate block",
+                position=7,
+                block_content_conf="",
+                status=1,
+                deleted=0,
+                created_at=datetime(2026, 4, 4, 10, 2, 0),
+                updated_at=datetime(2026, 4, 4, 10, 2, 0),
+            )
+        )
+        _seed_teacher_output_block(
+            generated_block_bid="source-interaction-gap-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-student-1-lesson-1-602",
+            user_bid="student-1",
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            position=7,
+            created_at=datetime(2026, 4, 4, 10, 2, 1),
+            block_content_conf="Intermediate prompt block",
+        )
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid="answer-gap-1",
+                progress_record_bid="progress-student-1-lesson-1-602",
+                user_bid="student-1",
+                block_bid="",
+                outline_item_bid="lesson-1",
+                shifu_bid="course-detail",
+                type=BLOCK_TYPE_MDANSWER_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="Answer after an intermediate block",
+                position=7,
+                block_content_conf="",
+                status=1,
+                deleted=0,
+                created_at=datetime(2026, 4, 4, 10, 2, 3),
+                updated_at=datetime(2026, 4, 4, 10, 2, 3),
+            )
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-gap-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["current_record"]["answer_content"] == (
+        "Answer after an intermediate block"
+    )
+    assert payload["data"]["timeline"] == [
+        {
+            "role": "student",
+            "content": "Question with an intermediate block",
+            "created_at": "2026-04-04 10:02:00",
+            "is_current": True,
+        },
+        {
+            "role": "teacher",
+            "content": "Answer after an intermediate block",
+            "created_at": "2026-04-04 10:02:03",
             "is_current": True,
         },
     ]
@@ -2180,6 +2321,19 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
             anchor_element_type="img",
             anchor_content_text="Spring Festival poster image",
             created_at=datetime(2026, 4, 4, 10, 1, 30),
+        )
+        _seed_generated_element(
+            element_bid="anchor-element-1",
+            progress_record_bid="progress-foreign",
+            user_bid="student-foreign",
+            generated_block_bid="foreign-source-block-1",
+            outline_item_bid="lesson-foreign",
+            shifu_bid="course-foreign",
+            created_at=datetime(2026, 4, 4, 10, 1, 45),
+            role="teacher",
+            element_type="img",
+            content_text="Foreign image description that should stay isolated",
+            payload="{}",
         )
         db.session.commit()
 

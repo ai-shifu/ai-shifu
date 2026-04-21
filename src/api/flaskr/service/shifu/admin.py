@@ -1841,18 +1841,23 @@ def _resolve_follow_up_answer_block(
     blocks: Sequence[LearnGeneratedBlock],
     index: int,
 ) -> LearnGeneratedBlock | None:
-    next_index = index + 1
-    if next_index >= len(blocks):
-        return None
-    next_block = blocks[next_index]
-    if int(next_block.type or 0) == BLOCK_TYPE_MDANSWER_VALUE:
-        return next_block
-    if (
-        int(next_block.type or 0) == BLOCK_TYPE_MDCONTENT_VALUE
-        and int(next_block.role or 0) == ROLE_TEACHER
-        and int(next_block.position or 0) == int(blocks[index].position or 0)
-    ):
-        return next_block
+    ask_position = int(blocks[index].position or 0)
+    for next_block in blocks[index + 1 :]:
+        next_block_type = int(next_block.type or 0)
+        next_block_role = int(next_block.role or 0)
+        if (
+            next_block_type == BLOCK_TYPE_MDASK_VALUE
+            and next_block_role == ROLE_STUDENT
+        ):
+            return None
+        if next_block_type == BLOCK_TYPE_MDANSWER_VALUE:
+            return next_block
+        if (
+            next_block_type == BLOCK_TYPE_MDCONTENT_VALUE
+            and next_block_role == ROLE_TEACHER
+            and int(next_block.position or 0) == ask_position
+        ):
+            return next_block
     return None
 
 
@@ -1944,6 +1949,8 @@ def _resolve_follow_up_source_from_element(
         return {}
 
     anchor_query = LearnGeneratedElement.query.filter(
+        LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
+        LearnGeneratedElement.user_bid == normalized_user_bid,
         LearnGeneratedElement.event_type == "element",
         or_(
             LearnGeneratedElement.element_bid == anchor_element_bid,
@@ -2658,7 +2665,7 @@ def get_operator_course_follow_ups(
                 if generated_block_bid:
                     turn_index_map[generated_block_bid] = turn_index
 
-        keyword = _normalize_identifier(str(filters.get("keyword", "") or ""))
+        keyword = _normalize_identifier(str(filters.get("keyword", "") or "")).lower()
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
