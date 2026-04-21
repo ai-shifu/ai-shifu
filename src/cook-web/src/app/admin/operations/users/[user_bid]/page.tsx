@@ -49,6 +49,14 @@ const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   topup_credits: '',
   credits_expire_at: '',
 };
+const createEmptyCreditsResponse = (): AdminOperationUserCreditsResponse => ({
+  summary: DEFAULT_CREDIT_SUMMARY,
+  items: [],
+  page: 1,
+  page_count: 0,
+  page_size: CREDITS_PAGE_SIZE,
+  total: 0,
+});
 type OperatorUsersTranslator = (
   key: string,
   options?: { defaultValue?: string },
@@ -546,14 +554,9 @@ export default function AdminOperationUserDetailPage() {
   const [activeTab, setActiveTab] = useState<DetailTab>('credits');
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
-  const [credits, setCredits] = useState<AdminOperationUserCreditsResponse>({
-    summary: DEFAULT_CREDIT_SUMMARY,
-    items: [],
-    page: 1,
-    page_count: 0,
-    page_size: CREDITS_PAGE_SIZE,
-    total: 0,
-  });
+  const [credits, setCredits] = useState<AdminOperationUserCreditsResponse>(
+    createEmptyCreditsResponse,
+  );
 
   const userBidState = useMemo(() => {
     const rawUserBid = String(params?.user_bid || '').trim();
@@ -666,6 +669,13 @@ export default function AdminOperationUserDetailPage() {
       cancelled = true;
     };
   }, [detailRetryNonce, isReady, t, userBid, userBidState.errorMessage]);
+
+  useEffect(() => {
+    setCreditsPageIndex(1);
+    setCreditsError(null);
+    setCredits(createEmptyCreditsResponse());
+    setActiveTab('credits');
+  }, [userBid]);
 
   useEffect(() => {
     if (!isReady || !userBid || userBidState.errorMessage) {

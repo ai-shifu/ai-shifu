@@ -65,8 +65,9 @@ business-readable rows such as:
 - subscription expiry
 
 When a row already carries a free-text `note`, the operator page shows that
-text directly. When no explicit note exists, the page falls back to the
-translated `note_code`.
+text directly. When no explicit note exists, the current operator detail page
+renders `--` and keeps `note_code` as backend-only display metadata for future
+expansion.
 
 ## Product Interpretation
 

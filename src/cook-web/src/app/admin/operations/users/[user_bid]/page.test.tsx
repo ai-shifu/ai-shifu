@@ -360,6 +360,21 @@ describe('AdminOperationUserDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/operations/users');
   });
 
+  test('does not request detail or credits when the route param cannot be decoded', async () => {
+    currentUserBid = '%';
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByText('server.common.paramsError'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).not.toHaveBeenCalled();
+      expect(mockGetAdminOperationUserCredits).not.toHaveBeenCalled();
+    });
+  });
+
   test('activates the credits tab when the hash is present', async () => {
     window.history.pushState({}, '', '/admin/operations/users/user-1#credits');
 

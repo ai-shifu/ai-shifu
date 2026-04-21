@@ -12,7 +12,6 @@ from flaskr.common.config import get_config
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
-    load_billing_order_type_by_bid,
     resolve_wallet_bucket_runtime_category,
 )
 from flaskr.service.billing.consts import (
@@ -535,17 +534,19 @@ def _load_operator_user_credit_summary_map(
 
     zero = Decimal("0")
     summary_map: Dict[str, Dict[str, Any]] = {}
-    order_type_cache: Dict[str, Optional[int]] = {}
+    order_map = _load_billing_order_map(
+        [str(bucket.source_bid or "").strip() for bucket in buckets]
+    )
+    order_type_cache: Dict[str, Optional[int]] = {
+        bill_order_bid: int(order.order_type or 0)
+        for bill_order_bid, order in order_map.items()
+    }
 
     def load_order_type(bill_order_bid: str) -> Optional[int]:
         normalized_bill_order_bid = str(bill_order_bid or "").strip()
         if not normalized_bill_order_bid:
             return None
-        if normalized_bill_order_bid not in order_type_cache:
-            order_type_cache[normalized_bill_order_bid] = (
-                load_billing_order_type_by_bid(normalized_bill_order_bid)
-            )
-        return order_type_cache[normalized_bill_order_bid]
+        return order_type_cache.get(normalized_bill_order_bid)
 
     for bucket in buckets:
         creator_bid = str(bucket.creator_bid or "").strip()
