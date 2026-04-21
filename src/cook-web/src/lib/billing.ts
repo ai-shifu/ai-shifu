@@ -878,7 +878,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.validity.years', { count: 2 }),
     t('module.billing.package.features.monthly.preview'),
     t('module.billing.package.features.monthly.publish'),
-    t('module.billing.package.features.monthly.support'),
     t('module.billing.package.features.yearly.lite.ops'),
     t('module.billing.package.features.yearly.lite.publish'),
     t('module.billing.package.features.yearly.pro.analytics'),

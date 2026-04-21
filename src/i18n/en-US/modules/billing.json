@@ -519,11 +519,9 @@
         "techBasic": "Basic technical support"
       },
       "common": {
-        "aiNarration": "AI narration and audio lessons",
         "allLearning": "All learning features",
         "createDebugPublish": "Create, debug, and publish courses",
         "higherConcurrency": "Higher concurrency support",
-        "orderAndData": "Order and learning data queries",
         "unlimitedCourses": "Unlimited courses"
       },
       "daily": {
@@ -537,8 +535,7 @@
       },
       "monthly": {
         "preview": "Learner delivery and account import",
-        "publish": "Course creation and content storage",
-        "support": "AI narration and audio lessons"
+        "publish": "Course creation and content storage"
       },
       "premium": {
         "concurrencyQuota": "Higher concurrency quota",

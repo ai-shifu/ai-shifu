@@ -175,7 +175,6 @@ const CATALOG_RESPONSE = {
       highlights: [
         'module.billing.package.features.monthly.publish',
         'module.billing.package.features.monthly.preview',
-        'module.billing.package.features.monthly.support',
       ],
       status_badge_key: 'module.billing.catalog.badges.recommended',
     },

@@ -519,11 +519,9 @@
         "techBasic": "技术基础支持"
       },
       "common": {
-        "aiNarration": "AI 讲解与听课语音",
         "allLearning": "全部学习功能",
         "createDebugPublish": "创建、调试和发布课程",
         "higherConcurrency": "更高并发支持",
-        "orderAndData": "订单和学习数据查询",
         "unlimitedCourses": "不限课程数"
       },
       "daily": {
@@ -537,8 +535,7 @@
       },
       "monthly": {
         "preview": "学员交付与学习账号导入",
-        "publish": "课程创建与内容存储",
-        "support": "AI 讲解与听课语音"
+        "publish": "课程创建与内容存储"
       },
       "premium": {
         "concurrencyQuota": "更高并发任务配额",
