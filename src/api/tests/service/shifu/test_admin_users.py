@@ -25,7 +25,11 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
-from flaskr.service.billing.models import BillingOrder, BillingSubscription, CreditLedgerEntry
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingSubscription,
+    CreditLedgerEntry,
+)
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import (
@@ -919,7 +923,9 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
         item = get_operator_user_detail(app, "user-profile-rich")
 
     assert item.registration_source == "email"
-    assert item.last_login_at == _format_operator_datetime(datetime(2026, 4, 10, 8, 0, 0))
+    assert item.last_login_at == _format_operator_datetime(
+        datetime(2026, 4, 10, 8, 0, 0)
+    )
     assert item.total_paid_amount == "88.50"
     assert item.last_learning_at == _format_operator_datetime(
         datetime(2026, 4, 11, 10, 0, 0)
@@ -1808,9 +1814,7 @@ def test_admin_operation_user_credits_route_returns_payload(
                 "display_source_type": "subscription",
                 "amount": "7",
                 "balance_after": "7",
-                "expires_at": _format_operator_datetime(
-                    datetime(2026, 5, 1, 0, 0, 0)
-                ),
+                "expires_at": _format_operator_datetime(datetime(2026, 5, 1, 0, 0, 0)),
                 "consumable_from": _format_operator_datetime(
                     datetime(2026, 4, 10, 12, 0, 0)
                 ),

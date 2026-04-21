@@ -32,9 +32,14 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing.models import BillingOrder, CreditLedgerEntry, CreditWalletBucket
-from flaskr.service.billing.primitives import quantize_credit_amount as _quantize_credit_amount
-from flaskr.service.billing.primitives import to_decimal as _to_decimal
+from flaskr.service.billing.models import (
+    BillingOrder,
+    CreditLedgerEntry,
+    CreditWalletBucket,
+)
+from flaskr.service.billing.primitives import (
+    quantize_credit_amount as _quantize_credit_amount,
+)
 from flaskr.service.billing.queries import (
     add_months as _add_months,
     add_years as _add_years,
@@ -704,7 +709,10 @@ def _load_operator_user_credit_summary_map(
         if creator_bid in active_subscription_end_map:
             summary["credits_expire_at"] = active_subscription_end_map[creator_bid]
             continue
-        if int(bucket.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL or not effective_to:
+        if (
+            int(bucket.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL
+            or not effective_to
+        ):
             continue
         if (
             summary["credits_expire_at"] is None

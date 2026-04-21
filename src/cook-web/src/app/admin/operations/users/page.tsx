@@ -458,12 +458,9 @@ export default function AdminOperationUsersPage() {
     void fetchUsers(nextPage, appliedFilters);
   };
 
-  const handleGrantSuccess = useCallback(
-    () => {
-      void fetchUsers(pageIndex, appliedFilters);
-    },
-    [appliedFilters, fetchUsers, pageIndex],
-  );
+  const handleGrantSuccess = useCallback(() => {
+    void fetchUsers(pageIndex, appliedFilters);
+  }, [appliedFilters, fetchUsers, pageIndex]);
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span

@@ -326,6 +326,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
         assert buckets["bucket-sub"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
         assert buckets["bucket-topup"].status == CREDIT_BUCKET_STATUS_EXHAUSTED
 
+
 def test_settle_usage_rounds_consumption_before_persisting(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -389,6 +390,7 @@ def test_settle_usage_rounds_consumption_before_persisting(
         assert entry.amount == Decimal("-0.1300000000")
         assert entry.metadata_json["metric_breakdown"][0]["consumed_credits"] == 0.13
         assert entry.metadata_json["bucket_breakdown"][0]["consumed_credits"] == 0.13
+
 
 def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
@@ -520,6 +522,7 @@ def test_settle_tts_usage_is_idempotent(
         assert second["status"] == "already_settled"
         assert len(entries) == 1
         assert wallet.available_credits == Decimal("3.0000000000")
+
 
 def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch

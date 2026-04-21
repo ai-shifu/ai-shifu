@@ -183,7 +183,9 @@ export default function UserCreditGrantDialog({
     () => [
       {
         value: 'align_subscription',
-        label: tOperationsUsers('grantDialog.validityOptions.alignSubscription'),
+        label: tOperationsUsers(
+          'grantDialog.validityOptions.alignSubscription',
+        ),
         disabled: !hasActiveSubscription,
       },
       {
@@ -219,16 +221,18 @@ export default function UserCreditGrantDialog({
     sourceOptions.find(option => option.value === formState.source)?.label ||
     '--';
   const validityLabel =
-    validityOptions.find(
-      option => option.value === formState.validityPreset,
-    )?.label || '--';
+    validityOptions.find(option => option.value === formState.validityPreset)
+      ?.label || '--';
   const accountLabel = user?.email || user?.mobile || user?.user_bid || '--';
   const currentExpiry = resolveCurrentExpiry(
     user,
     tOperationsUsers('credits.longTerm'),
   );
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const updateField = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K],
+  ) => {
     setFormState(current => ({ ...current, [key]: value }));
     setFormErrors(current => ({
       ...current,
@@ -240,10 +244,14 @@ export default function UserCreditGrantDialog({
   const validateForm = (): boolean => {
     const nextErrors: FormErrors = {};
     if (!formState.source) {
-      nextErrors.source = tOperationsUsers('grantDialog.validation.sourceRequired');
+      nextErrors.source = tOperationsUsers(
+        'grantDialog.validation.sourceRequired',
+      );
     }
     if (!validatePositiveAmount(formState.amount)) {
-      nextErrors.amount = tOperationsUsers('grantDialog.validation.amountRequired');
+      nextErrors.amount = tOperationsUsers(
+        'grantDialog.validation.amountRequired',
+      );
     }
     if (!formState.validityPreset) {
       nextErrors.validityPreset = tOperationsUsers(
@@ -330,11 +338,15 @@ export default function UserCreditGrantDialog({
                   value={user?.nickname || '--'}
                 />
                 <SummaryField
-                  label={tOperationsUsers('grantDialog.summary.availableCredits')}
+                  label={tOperationsUsers(
+                    'grantDialog.summary.availableCredits',
+                  )}
                   value={user?.available_credits || '0'}
                 />
                 <SummaryField
-                  label={tOperationsUsers('grantDialog.summary.currentExpireAt')}
+                  label={tOperationsUsers(
+                    'grantDialog.summary.currentExpireAt',
+                  )}
                   value={currentExpiry}
                 />
               </div>
@@ -363,14 +375,18 @@ export default function UserCreditGrantDialog({
                             id={optionId}
                             value={option.value}
                           />
-                          <span className='font-medium leading-none'>{option.label}</span>
+                          <span className='font-medium leading-none'>
+                            {option.label}
+                          </span>
                         </label>
                       );
                     })}
                   </RadioGroup>
                 </div>
                 {formErrors.source ? (
-                  <div className='text-xs text-destructive'>{formErrors.source}</div>
+                  <div className='text-xs text-destructive'>
+                    {formErrors.source}
+                  </div>
                 ) : null}
               </div>
 
@@ -390,12 +406,16 @@ export default function UserCreditGrantDialog({
                         sanitizePositiveDecimalInput(event.target.value),
                       )
                     }
-                    placeholder={tOperationsUsers('grantDialog.placeholders.amount')}
+                    placeholder={tOperationsUsers(
+                      'grantDialog.placeholders.amount',
+                    )}
                     className='h-10'
                   />
                 </div>
                 {formErrors.amount ? (
-                  <div className='text-xs text-destructive'>{formErrors.amount}</div>
+                  <div className='text-xs text-destructive'>
+                    {formErrors.amount}
+                  </div>
                 ) : null}
               </div>
 
@@ -406,11 +426,15 @@ export default function UserCreditGrantDialog({
                   </div>
                   <Select
                     value={formState.validityPreset}
-                    onValueChange={value => updateField('validityPreset', value)}
+                    onValueChange={value =>
+                      updateField('validityPreset', value)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={tOperationsUsers('grantDialog.placeholders.validityPreset')}
+                        placeholder={tOperationsUsers(
+                          'grantDialog.placeholders.validityPreset',
+                        )}
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -444,7 +468,9 @@ export default function UserCreditGrantDialog({
                   <Textarea
                     value={formState.note}
                     onChange={event => updateField('note', event.target.value)}
-                    placeholder={tOperationsUsers('grantDialog.placeholders.note')}
+                    placeholder={tOperationsUsers(
+                      'grantDialog.placeholders.note',
+                    )}
                     rows={1}
                     className='min-h-[40px] resize-y'
                   />
@@ -505,7 +531,9 @@ export default function UserCreditGrantDialog({
               value={formState.amount.trim() || '--'}
             />
             <ConfirmSummaryItem
-              label={tOperationsUsers('grantDialog.confirmSummary.validityPreset')}
+              label={tOperationsUsers(
+                'grantDialog.confirmSummary.validityPreset',
+              )}
               value={validityLabel}
             />
             {formState.note.trim() ? (

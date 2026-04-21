@@ -43,26 +43,43 @@ jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
   Dialog: ({ open, children }: React.PropsWithChildren<{ open: boolean }>) =>
     open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  DialogHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DialogDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  DialogFooter: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/ui/AlertDialog', () => ({
   __esModule: true,
-  AlertDialog: ({ open, children }: React.PropsWithChildren<{ open: boolean }>) =>
+  AlertDialog: ({
+    open,
+    children,
+  }: React.PropsWithChildren<{ open: boolean }>) =>
     open ? <div>{children}</div> : null,
-  AlertDialogContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  AlertDialogFooter: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   AlertDialogCancel: ({
     children,
     onClick,
@@ -77,7 +94,9 @@ jest.mock('@/components/ui/AlertDialog', () => ({
   AlertDialogAction: ({
     children,
     onClick,
-  }: React.PropsWithChildren<{ onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void }>) => (
+  }: React.PropsWithChildren<{
+    onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  }>) => (
     <button
       type='button'
       onClick={onClick}
@@ -111,9 +130,15 @@ jest.mock('@/components/ui/Select', () => {
         <div>{children}</div>
       </SelectContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-    SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
-    SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     SelectItem: ({
       value,
       disabled,
@@ -259,17 +284,27 @@ describe('UserCreditGrantDialog', () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText('module.operationsUser.grantDialog.placeholders.amount'), {
-      target: { value: '10' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsUser.grantDialog.placeholders.amount',
+      ),
+      {
+        target: { value: '10' },
+      },
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.validityOptions.oneDay',
       }),
     );
-    fireEvent.change(screen.getByPlaceholderText('module.operationsUser.grantDialog.placeholders.note'), {
-      target: { value: 'ops note' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsUser.grantDialog.placeholders.note',
+      ),
+      {
+        target: { value: 'ops note' },
+      },
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -347,8 +382,9 @@ describe('UserCreditGrantDialog', () => {
       await screen.findByText('module.operationsUser.grantDialog.confirmTitle'),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.operationsUser.grantDialog.validityOptions.oneDay')
-        .length,
+      screen.getAllByText(
+        'module.operationsUser.grantDialog.validityOptions.oneDay',
+      ).length,
     ).toBeGreaterThan(0);
 
     fireEvent.click(

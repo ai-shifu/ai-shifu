@@ -1,5 +1,8 @@
 {
   "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "增加积分"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "课程ID",
@@ -11,18 +14,15 @@
     },
     "empty": "--"
   },
-  "actions": {
-    "grantCredits": "增加积分"
-  },
   "credits": {
     "longTerm": "长期有效"
   },
   "detail": {
     "back": "返回用户管理",
     "basicInfo": "基础信息",
+    "createdCourses": "创作课程",
     "creditExpireAtHint": "多个有效期优先展示最早到期时间",
     "creditExpireAtHintAriaLabel": "查看积分到期时间说明",
-    "createdCourses": "创作课程",
     "creditLedger": "积分明细",
     "creditLedgerColumns": {
       "amount": "变更积分",
@@ -91,13 +91,13 @@
       "topup_grant": "积分包发放",
       "trial_subscription_grant": "体验套餐发放"
     },
+    "creditsOverview": "积分概览",
     "creditsOverviewLabels": {
       "availableCredits": "总积分余额",
       "creditsExpireAt": "积分有效期",
       "subscriptionCredits": "套餐积分余额",
       "topupCredits": "积分包余额"
     },
-    "creditsOverview": "积分概览",
     "emptyCourses": "暂无课程",
     "emptyCredits": "暂无积分明细",
     "learningCourses": "学习课程",
@@ -159,6 +159,11 @@
     },
     "title": "增加积分",
     "typeValue": "人工发放",
+    "validation": {
+      "amountRequired": "请输入大于 0 的积分数值",
+      "sourceRequired": "请选择来源",
+      "validityPresetRequired": "请选择有效期"
+    },
     "validityHint": "无有效套餐时，无法设置有效期为“与当前套餐有效期一致”。",
     "validityOptions": {
       "alignSubscription": "与当前套餐有效期一致",
@@ -167,11 +172,6 @@
       "oneYear": "发放后 1 年",
       "sevenDays": "发放后 7 天",
       "threeMonths": "发放后 3 个月"
-    },
-    "validation": {
-      "amountRequired": "请输入大于 0 的积分数值",
-      "sourceRequired": "请选择来源",
-      "validityPresetRequired": "请选择有效期"
     }
   },
   "loginMethodLabels": {
@@ -203,6 +203,7 @@
     "unregistered": "未注册"
   },
   "table": {
+    "action": "操作",
     "availableCredits": "总积分",
     "createdAt": "创建时间",
     "createdCourses": "创作课程",
@@ -221,8 +222,7 @@
     "topupCredits": "积分包积分",
     "totalPaidAmount": "累计付费金额",
     "updatedAt": "更新时间",
-    "userId": "用户ID",
-    "action": "操作"
+    "userId": "用户ID"
   },
   "title": "用户管理"
 }

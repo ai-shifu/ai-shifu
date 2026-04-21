@@ -796,7 +796,9 @@ def grant_manual_credit_wallet_balance(
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
             source_type=CREDIT_SOURCE_TYPE_MANUAL,
             source_bid=grant_bid,
-            priority=resolve_credit_bucket_priority(CREDIT_BUCKET_CATEGORY_SUBSCRIPTION),
+            priority=resolve_credit_bucket_priority(
+                CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            ),
             original_credits=normalized_amount,
             available_credits=normalized_amount,
             reserved_credits=_ZERO,

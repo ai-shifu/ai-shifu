@@ -65,8 +65,12 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
-  DropdownMenu: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  DropdownMenu: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
+    <>{children}</>
+  ),
   DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
@@ -349,7 +353,9 @@ describe('AdminOperationUsersPage', () => {
       '/admin/operations/users/user-1#credits',
     );
     expect(
-      screen.getByRole('button', { name: 'module.operationsUser.actions.grantCredits' }),
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
     ).toBeInTheDocument();
   });
 

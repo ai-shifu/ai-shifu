@@ -1,5 +1,8 @@
 {
   "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "Add Credits"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "Course ID",
@@ -11,18 +14,15 @@
     },
     "empty": "--"
   },
-  "actions": {
-    "grantCredits": "Add Credits"
-  },
   "credits": {
     "longTerm": "Long-term valid"
   },
   "detail": {
     "back": "Back to User Management",
     "basicInfo": "Basic Information",
+    "createdCourses": "Created Courses",
     "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
     "creditExpireAtHintAriaLabel": "View credits expiry explanation",
-    "createdCourses": "Created Courses",
     "creditLedger": "Credits Detail",
     "creditLedgerColumns": {
       "amount": "Amount",
@@ -91,13 +91,13 @@
       "topup_grant": "Top-up Grant",
       "trial_subscription_grant": "Trial Subscription Grant"
     },
+    "creditsOverview": "Credits Overview",
     "creditsOverviewLabels": {
       "availableCredits": "Total Credit Balance",
       "creditsExpireAt": "Credits Validity",
       "subscriptionCredits": "Subscription Credit Balance",
       "topupCredits": "Top-up Credit Balance"
     },
-    "creditsOverview": "Credits Overview",
     "emptyCourses": "No courses",
     "emptyCredits": "No credit entries",
     "learningCourses": "Learning Courses",
@@ -159,6 +159,11 @@
     },
     "title": "Add Credits",
     "typeValue": "Manual Grant",
+    "validation": {
+      "amountRequired": "Enter a credit amount greater than 0",
+      "sourceRequired": "Select a source",
+      "validityPresetRequired": "Select a validity preset"
+    },
     "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
     "validityOptions": {
       "alignSubscription": "Match current subscription expiry",
@@ -167,11 +172,6 @@
       "oneYear": "1 year after grant",
       "sevenDays": "7 days after grant",
       "threeMonths": "3 months after grant"
-    },
-    "validation": {
-      "amountRequired": "Enter a credit amount greater than 0",
-      "sourceRequired": "Select a source",
-      "validityPresetRequired": "Select a validity preset"
     }
   },
   "loginMethodLabels": {
@@ -203,6 +203,7 @@
     "unregistered": "Unregistered"
   },
   "table": {
+    "action": "Action",
     "availableCredits": "Total Credits",
     "createdAt": "Created At",
     "createdCourses": "Created Courses",
@@ -221,8 +222,7 @@
     "topupCredits": "Top-up Credits",
     "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
-    "userId": "User ID",
-    "action": "Action"
+    "userId": "User ID"
   },
   "title": "User Management"
 }
