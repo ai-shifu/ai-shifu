@@ -7,6 +7,7 @@ const mockPush = jest.fn();
 const mockGetAdminOperationCourseFollowUps = jest.fn();
 const mockGetAdminOperationCourseFollowUpDetail = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
+const SHEET_CLOSE_LABEL = 'close-sheet';
 const mockEnvState = {
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
@@ -100,14 +101,38 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
 
 jest.mock('@/components/ui/Sheet', () => ({
   __esModule: true,
-  Sheet: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
-    open ? <div>{children}</div> : null,
+  Sheet: ({
+    open,
+    onOpenChange,
+    children,
+  }: React.PropsWithChildren<{
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  }>) =>
+    open ? (
+      <div>
+        <button type='button' onClick={() => onOpenChange?.(false)}>
+          {SHEET_CLOSE_LABEL}
+        </button>
+        {children}
+      </div>
+    ) : null,
   SheetContent: ({ children }: React.PropsWithChildren) => (
     <div role='dialog'>{children}</div>
   ),
   SheetHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
 }));
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 describe('AdminOperationCourseFollowUpsPage', () => {
   beforeEach(() => {
@@ -375,6 +400,61 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.sourceUnavailable',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('ignores a late detail response after the drawer is closed', async () => {
+    const deferredDetail =
+      createDeferred<Awaited<ReturnType<typeof mockGetAdminOperationCourseFollowUpDetail>>>();
+    mockGetAdminOperationCourseFollowUpDetail.mockReset();
+    mockGetAdminOperationCourseFollowUpDetail.mockImplementationOnce(
+      () => deferredDetail.promise,
+    );
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Second follow-up question');
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      })[0],
+    );
+
+    expect(await screen.findByTestId('loading-indicator')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: SHEET_CLOSE_LABEL }));
+
+    deferredDetail.resolve({
+      basic_info: {
+        generated_block_bid: 'ask-2',
+        progress_record_bid: 'progress-1',
+        user_bid: 'student-1',
+        mobile: '13900001235',
+        email: '',
+        nickname: 'Bob',
+        course_name: 'Course One',
+        shifu_bid: 'course-1',
+        chapter_title: 'Chapter 1',
+        lesson_title: 'Lesson 1',
+        created_at: '2026-04-05 11:02:00',
+        turn_index: 2,
+      },
+      current_record: {
+        source_output_content: 'Stale source output',
+        source_output_type: 'interaction',
+        source_position: 2,
+        source_element_bid: '',
+        source_element_type: '',
+        follow_up_content: 'Stale follow-up question',
+        answer_content: 'Stale follow-up answer',
+      },
+      timeline: [],
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText('Stale follow-up answer')).not.toBeInTheDocument();
   });
 
   test('redirects non-operators back to admin', async () => {

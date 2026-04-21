@@ -460,7 +460,7 @@ export default function AdminOperationCourseFollowUpsPage() {
 
   const currentPage = followUps.page || 1;
   const pageCount = Math.max(followUps.page_count || 0, 1);
-  const rows = followUps.items || [];
+  const rows = useMemo(() => followUps.items || [], [followUps.items]);
   const hasChapterHierarchy = useMemo(
     () =>
       rows.some(item => {
@@ -556,13 +556,18 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
 
   const handleOpenDetail = useCallback((generatedBlockBid: string) => {
+    detailRequestIdRef.current += 1;
     setSelectedGeneratedBlockBid(generatedBlockBid);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
     setDetailOpen(true);
   }, []);
 
   const handleDetailOpenChange = useCallback((open: boolean) => {
     setDetailOpen(open);
     if (!open) {
+      detailRequestIdRef.current += 1;
       setSelectedGeneratedBlockBid('');
       setDetail(null);
       setDetailError(null);

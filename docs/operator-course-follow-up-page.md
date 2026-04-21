@@ -281,7 +281,12 @@ without forcing an early migration to a more complex event-only query path.
   },
   "current_record": {
     "follow_up_content": "Why is this value calculated like this?",
-    "answer_content": "Because the current branch uses ..."
+    "answer_content": "Because the current branch uses ...",
+    "source_output_content": "Definition block: current branch formula",
+    "source_output_type": "interaction",
+    "source_position": 2,
+    "source_element_bid": "element-1",
+    "source_element_type": "rich_text"
   },
   "timeline": [
     {
@@ -312,8 +317,10 @@ without forcing an early migration to a more complex event-only query path.
 - keep the course detail metric and follow-up list on the same counting rule
 - prefer `LearnGeneratedBlock` as the primary source in v1 because it matches
   the existing course detail metric and makes pagination stable
-- keep any future `LearnGeneratedElement`-based refinement out of scope for
-  v1 unless the current data source proves insufficient during implementation
+- note that the backend already uses `LearnGeneratedElement` to resolve
+  follow-up sources such as anchor snapshots; any broader refinement beyond
+  that existing resolution flow can remain out of scope for v1 unless the
+  current data source proves insufficient during implementation
 
 ## Frontend Notes
 

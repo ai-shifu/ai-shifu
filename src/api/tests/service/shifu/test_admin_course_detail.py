@@ -986,6 +986,8 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
         "/api/shifu/admin/operations/courses/course-detail/detail",
         "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
         "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20",
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-1/detail",
     ],
 )
 def test_admin_operation_course_detail_routes_require_operator(

@@ -66,6 +66,9 @@ const AdminDateRangeFilter = ({
     return placeholder;
   }, [placeholder, selectedRange]);
   const hasValue = Boolean(startValue || endValue);
+  const triggerLabel = hasValue
+    ? [triggerAriaLabel || placeholder, label].filter(Boolean).join(' ')
+    : triggerAriaLabel || placeholder;
 
   return (
     <Popover>
@@ -75,7 +78,7 @@ const AdminDateRangeFilter = ({
             size='sm'
             variant='outline'
             type='button'
-            aria-label={triggerAriaLabel || placeholder}
+            aria-label={triggerLabel}
             className={cn(
               'h-9 w-full justify-start font-normal',
               hasValue ? 'pr-16' : 'pr-10',
