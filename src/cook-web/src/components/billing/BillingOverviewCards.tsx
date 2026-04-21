@@ -28,8 +28,6 @@ const COMMON_FEATURE_KEYS: string[] = [
   'module.billing.package.features.common.unlimitedCourses',
   'module.billing.package.features.common.createDebugPublish',
   'module.billing.package.features.common.allLearning',
-  'module.billing.package.features.common.aiNarration',
-  'module.billing.package.features.common.orderAndData',
 ];
 
 const DEFAULT_FREE_FEATURE_KEYS: string[] = COMMON_FEATURE_KEYS;

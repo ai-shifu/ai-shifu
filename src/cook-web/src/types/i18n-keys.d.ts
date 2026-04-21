@@ -507,7 +507,6 @@ export type I18nKey =
   | 'module.billing.package.features.free.publish'
   | 'module.billing.package.features.monthly.preview'
   | 'module.billing.package.features.monthly.publish'
-  | 'module.billing.package.features.monthly.support'
   | 'module.billing.package.features.premium.concurrencyQuota'
   | 'module.billing.package.features.premium.dedicatedSupport'
   | 'module.billing.package.features.premium.includesLabel'
