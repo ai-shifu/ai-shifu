@@ -428,7 +428,7 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-plan-grid')).toHaveClass(
-      'xl:grid-cols-3',
+      '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
     );
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-lite'),

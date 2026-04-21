@@ -567,12 +567,19 @@ export function resolveBillingLedgerReasonLabel(
 
   if (item.source_type === 'usage') {
     const usageType = resolveBillingLedgerUsageType(item.metadata);
+    const usageScene = item.metadata?.usage_scene;
     const usageSceneLabel = resolveBillingUsageSceneLabel(
       t,
-      item.metadata?.usage_scene,
+      usageScene === 'preview' ? 'debug' : usageScene,
     );
     const courseName = String(item.metadata?.course_name || '').trim();
     const userIdentify = String(item.metadata?.user_identify || '').trim();
+    const shouldShowUserIdentify = Boolean(
+      userIdentify &&
+        (usageScene === 'production' ||
+          usageScene === 'debug' ||
+          usageScene === 'preview'),
+    );
 
     if (usageType === 'tts') {
       const reasonParts = [t('module.billing.ledger.usageScene.tts')];
@@ -580,7 +587,7 @@ export function resolveBillingLedgerReasonLabel(
       if (courseName) {
         reasonParts.push(courseName);
       }
-      if (item.metadata?.usage_scene === 'production' && userIdentify) {
+      if (shouldShowUserIdentify) {
         reasonParts.push(userIdentify);
       }
       return reasonParts.join(' - ');
@@ -592,7 +599,7 @@ export function resolveBillingLedgerReasonLabel(
       if (courseName) {
         reasonParts.push(courseName);
       }
-      if (item.metadata?.usage_scene === 'production' && userIdentify) {
+      if (shouldShowUserIdentify) {
         reasonParts.push(userIdentify);
       }
       return reasonParts.join(' - ');

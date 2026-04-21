@@ -226,14 +226,7 @@ export function BillingOverviewShowcase({
         </div>
       ) : (
         <div
-          className={cn(
-            'grid gap-6',
-            showcaseTab === 'yearly'
-              ? 'xl:grid-cols-3'
-              : renderFreeCard
-                ? 'xl:grid-cols-3'
-                : 'xl:grid-cols-2',
-          )}
+          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
           data-testid='billing-plan-grid'
         >
           {renderFreeCard

@@ -103,9 +103,6 @@ export function BillingSidebarCard({
           </div>
           {expiryCountdown && (
             <div className='ml-7 flex items-center gap-1.5 text-sm leading-5'>
-              <span className='text-slate-400'>
-                {t('module.billing.sidebar.periodLabel')}:
-              </span>
               <span className='font-semibold text-slate-900'>
                 {expiryCountdown}
               </span>

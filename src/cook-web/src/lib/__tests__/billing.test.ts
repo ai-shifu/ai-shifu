@@ -153,12 +153,12 @@ describe('resolveBillingLedgerReasonLabel', () => {
     };
   }
 
-  test('shows course name for debug and preview usage', () => {
+  test('shows debug label and learner identifier for debug and preview usage', () => {
     expect(resolveBillingLedgerReasonLabel(t, buildUsageItem('debug'))).toBe(
-      'module.billing.ledger.usageScene.debug - debug course',
+      'module.billing.ledger.usageScene.debug - debug course - learner@example.com',
     );
     expect(resolveBillingLedgerReasonLabel(t, buildUsageItem('preview'))).toBe(
-      'module.billing.ledger.usageScene.preview - preview course',
+      'module.billing.ledger.usageScene.debug - preview course - learner@example.com',
     );
   });
 

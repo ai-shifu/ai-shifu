@@ -265,7 +265,7 @@
     },
     "badges": {
       "bestValue": "Best value",
-      "recommended": "Recommended"
+      "recommended": "Hot"
     },
     "labels": {
       "everyDays": "/ every {count} days",
@@ -591,22 +591,22 @@
     },
     "scale": {
       "advanced": {
-        "students": "Est. learner capacity: up to 300"
+        "students": "Est. learner capacity: around 300"
       },
       "basic": {
-        "students": "Est. learner capacity: up to 10"
+        "students": "Est. learner capacity: around 10"
       },
       "free": {
-        "students": "Est. learner capacity: up to 10"
+        "students": "Est. learner capacity: around 10"
       },
       "lite": {
-        "students": "Est. learner capacity: up to 3"
+        "students": "Est. learner capacity: around 3"
       },
       "premium": {
-        "students": "Est. learner capacity: up to 1000"
+        "students": "Est. learner capacity: around 1000"
       },
       "pro": {
-        "students": "Est. learner capacity: up to 500"
+        "students": "Est. learner capacity: around 500"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -623,7 +623,7 @@
       "daily": "Validity: counted from the purchase day, valid every day",
       "days": "Validity: counted from the purchase day, renews every {count} days",
       "free": "Validity: valid within 15 days from registration",
-      "monthly": "Validity: counted from the purchase month, valid every month",
+      "monthly": "Valid for 30 days from purchase",
       "months": "Validity: counted from the purchase month, renews every {count} months",
       "yearly": "Validity: counted from the purchase month, valid every year",
       "years": "Validity: counted from the purchase month, renews every {count} years"

@@ -265,7 +265,7 @@
     },
     "badges": {
       "bestValue": "更划算",
-      "recommended": "推荐"
+      "recommended": "热门"
     },
     "labels": {
       "everyDays": "/ 每 {count} 天",
@@ -591,22 +591,22 @@
     },
     "scale": {
       "advanced": {
-        "students": "预估支持学员数：300人以内"
+        "students": "预估支持学员数：300人左右"
       },
       "basic": {
-        "students": "预估支持学员数：10人以内"
+        "students": "预估支持学员数：10人左右"
       },
       "free": {
-        "students": "预估支持学员数：10人以内"
+        "students": "预估支持学员数：10人左右"
       },
       "lite": {
-        "students": "预估支持学员数：3人以内"
+        "students": "预估支持学员数：3人左右"
       },
       "premium": {
-        "students": "预估支持学员数：1000人以内"
+        "students": "预估支持学员数：1000人左右"
       },
       "pro": {
-        "students": "预估支持学员数：500人以内"
+        "students": "预估支持学员数：500人左右"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -623,7 +623,7 @@
       "daily": "有效期：自购买当日起按日生效",
       "days": "有效期：自购买当日起每 {count} 天续期",
       "free": "有效期：注册日起 15 内有效",
-      "monthly": "有效期：当月购买起计算日起，每月有效",
+      "monthly": "购买日起 30 天内",
       "months": "有效期：自购买当月起每 {count} 个月续期",
       "yearly": "有效期：当月购买起计算日起，每年有效",
       "years": "有效期：自购买当月起每 {count} 年续期"
