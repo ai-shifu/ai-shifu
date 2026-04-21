@@ -309,10 +309,7 @@ export function BillingOverviewShowcase({
                     : undefined
                 }
                 badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
-                creditSummary={resolveBillingPlanCreditsLabel(
-                  t,
-                  plan,
-                )}
+                creditSummary={resolveBillingPlanCreditsLabel(t, plan)}
                 creditValidityLabel={resolveBillingPlanValidityLabel(t, plan)}
                 description={resolveBillingProductDescription(t, plan)}
                 disabled={!provider || isCurrentPlan || isDowngradeLocked}

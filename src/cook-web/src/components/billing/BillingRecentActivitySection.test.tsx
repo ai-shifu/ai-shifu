@@ -288,7 +288,9 @@ describe('BillingRecentActivitySection', () => {
 
     const skeleton = await screen.findByTestId('billing-usage-table-skeleton');
     expect(skeleton).toBeInTheDocument();
-    expect(screen.getAllByTestId('billing-usage-skeleton-row')).toHaveLength(10);
+    expect(screen.getAllByTestId('billing-usage-skeleton-row')).toHaveLength(
+      10,
+    );
 
     await act(async () => {
       resolveSecondPage?.({

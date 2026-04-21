@@ -169,7 +169,9 @@ export function AdminBillingSubscriptionsTable() {
                         {resolveBillingProviderLabel(t, item.billing_provider)}
                       </TableCell>
                       <TableCell className='font-medium text-slate-900'>
-                        {formatBillingCreditBalance(item.wallet.available_credits)}
+                        {formatBillingCreditBalance(
+                          item.wallet.available_credits,
+                        )}
                       </TableCell>
                       <TableCell className='min-w-[180px] text-slate-600'>
                         {formatBillingDateTime(

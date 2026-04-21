@@ -576,9 +576,9 @@ export function resolveBillingLedgerReasonLabel(
     const userIdentify = String(item.metadata?.user_identify || '').trim();
     const shouldShowUserIdentify = Boolean(
       userIdentify &&
-        (usageScene === 'production' ||
-          usageScene === 'debug' ||
-          usageScene === 'preview'),
+      (usageScene === 'production' ||
+        usageScene === 'debug' ||
+        usageScene === 'preview'),
     );
 
     if (usageType === 'tts') {

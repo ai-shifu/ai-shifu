@@ -14,7 +14,9 @@ type BillingSidebarCardProps = {
   isLoading?: boolean;
 };
 
-const resolveMembershipBalanceTitleKey = (overview?: CreatorBillingOverview) => {
+const resolveMembershipBalanceTitleKey = (
+  overview?: CreatorBillingOverview,
+) => {
   const productCode = overview?.subscription?.product_code?.toLowerCase() || '';
 
   if (!productCode) {
