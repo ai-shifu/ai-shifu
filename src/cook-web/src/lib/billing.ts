@@ -457,6 +457,28 @@ export function formatBillingDateTime(
   }).format(date);
 }
 
+export function formatBillingCompactDateTime(
+  value: string | null | undefined,
+  locale: string,
+): string {
+  const date = parseBillingDateValue(value);
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+
+  if (locale.toLowerCase().startsWith('zh')) {
+    return `${year}年${month}月${day}日 ${hour}:${minute}`;
+  }
+
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
 export function formatBillingPlanInterval(
   t: BillingTranslator,
   product: BillingPlan,
@@ -976,12 +998,16 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.page.tabs.plans'),
     t('module.billing.sidebar.cta'),
     t('module.billing.sidebar.creditsLabel'),
+    t('module.billing.sidebar.dailyBalanceTitle'),
     t('module.billing.sidebar.dailyTitle'),
     t('module.billing.sidebar.description'),
     t('module.billing.sidebar.monthlyTitle'),
+    t('module.billing.sidebar.monthlyBalanceTitle'),
+    t('module.billing.sidebar.nonMemberBalanceTitle'),
     t('module.billing.sidebar.nonMemberTitle'),
     t('module.billing.sidebar.subscriptionPending'),
     t('module.billing.sidebar.subscriptionStatusLabel'),
+    t('module.billing.sidebar.yearlyBalanceTitle'),
     t('module.billing.sidebar.yearlyTitle'),
     t('module.billing.orders.type.manual'),
     t('module.billing.orders.type.refund'),

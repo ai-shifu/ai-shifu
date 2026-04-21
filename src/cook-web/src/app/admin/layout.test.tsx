@@ -444,6 +444,9 @@ describe('AdminLayout', () => {
       screen.getByTestId('admin-billing-sidebar-card'),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('module.billing.sidebar.monthlyBalanceTitle'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('module.billing.sidebar.monthlyTitle'),
     ).toBeInTheDocument();
     expect(screen.getByText(/12,500/)).toBeInTheDocument();
@@ -478,6 +481,9 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(
+      screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.sidebar.nonMemberTitle'),
     ).toBeInTheDocument();
@@ -523,7 +529,7 @@ describe('AdminLayout', () => {
     );
 
     expect(
-      screen.getByText('module.billing.sidebar.yearlyTitle'),
+      screen.getByText('module.billing.sidebar.yearlyBalanceTitle'),
     ).toBeInTheDocument();
   });
 });

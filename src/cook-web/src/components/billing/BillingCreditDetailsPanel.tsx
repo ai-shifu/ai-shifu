@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import {
@@ -10,6 +11,12 @@ import {
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   useBillingOverview,
   useBillingWalletBuckets,
 } from '@/hooks/useBillingData';
@@ -19,7 +26,7 @@ import type {
 } from '@/types/billing';
 import {
   formatBillingCredits,
-  parseBillingDateValue,
+  formatBillingCompactDateTime,
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
 } from '@/lib/billing';
@@ -35,19 +42,6 @@ type CategorySummaryRow = {
 };
 
 const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
-
-function formatDetailWindow(value: string | null): string {
-  const date = parseBillingDateValue(value);
-  if (!date) {
-    return '';
-  }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  return `${year}.${month}.${day} ${hour}:${minute}`;
-}
 
 function buildCategorySummary(
   buckets: BillingWalletBucket[],
@@ -93,6 +87,53 @@ function buildCategorySummary(
   });
 }
 
+function CategoryValidityCell({
+  category,
+  effectiveTo,
+  locale,
+  neverExpiresLabel,
+  topupAvailabilityLabel,
+  topupAvailabilityTooltip,
+}: {
+  category: BillingBucketCategory;
+  effectiveTo: string | null;
+  locale: string;
+  neverExpiresLabel: string;
+  topupAvailabilityLabel: string;
+  topupAvailabilityTooltip: string;
+}) {
+  if (effectiveTo) {
+    return <>{formatBillingCompactDateTime(effectiveTo, locale)}</>;
+  }
+
+  if (category !== 'topup') {
+    return <>{neverExpiresLabel}</>;
+  }
+
+  return (
+    <div className='flex items-center justify-end gap-1.5'>
+      <span>{topupAvailabilityLabel}</span>
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              aria-label={topupAvailabilityTooltip}
+              className='inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground'
+              data-testid='billing-topup-validity-tooltip-trigger'
+              type='button'
+            >
+              <QuestionMarkCircleIcon className='h-4 w-4' />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className='max-w-56 text-left leading-5'>
+            {topupAvailabilityTooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+}
+
 export function BillingCreditDetailsPanel({
   onUpgrade,
 }: BillingCreditDetailsPanelProps) {
@@ -119,6 +160,12 @@ export function BillingCreditDetailsPanel({
     i18n.language,
   );
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
+  const topupAvailabilityLabel = t(
+    'module.billing.details.topupAvailabilityLabel',
+  );
+  const topupAvailabilityTooltip = t(
+    'module.billing.details.topupAvailabilityTooltip',
+  );
   const loadError = overviewError || bucketsError;
 
   return (
@@ -204,9 +251,14 @@ export function BillingCreditDetailsPanel({
                       )}
                     </div>
                     <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                      {row.effectiveTo
-                        ? formatDetailWindow(row.effectiveTo)
-                        : neverExpiresLabel}
+                      <CategoryValidityCell
+                        category={row.category}
+                        effectiveTo={row.effectiveTo}
+                        locale={i18n.language}
+                        neverExpiresLabel={neverExpiresLabel}
+                        topupAvailabilityLabel={topupAvailabilityLabel}
+                        topupAvailabilityTooltip={topupAvailabilityTooltip}
+                      />
                     </div>
                   </div>
                 ))}

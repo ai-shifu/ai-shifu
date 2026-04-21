@@ -350,17 +350,20 @@
     },
     "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
     "table": {
-      "balance": "Credit balance",
-      "creditType": "Credit type",
-      "validUntil": "Valid until"
+      "balance": "Balance",
+      "creditType": "Type",
+      "validUntil": "Expires on"
     },
-    "title": "Credit Details",
-    "totalCreditsDescription": "Credits are consumed in the order of plan credits and credit packs.",
-    "totalCreditsLabel": "Total credits",
+    "title": "Credits Overview",
+    "topupAvailabilityLabel": "No expiry",
+    "topupAvailabilityTooltip": "An active subscription is required before credit packs can be used",
+    "totalCreditsDescription": "Credits are consumed in priority order: plan credits > credit packs",
+    "totalCreditsLabel": "Credit balance",
     "usageTable": {
       "columns": {
-        "scene": "Credit change"
-      }
+        "scene": "Usage item"
+      },
+      "title": "Credit usage details"
     }
   },
   "domains": {
@@ -449,7 +452,7 @@
       "amount": "Quantity",
       "availableCredits": "Available credits",
       "balanceAfter": "Balance after",
-      "createdAt": "Date",
+      "createdAt": "Time",
       "detail": "Details",
       "effectiveWindow": "Effective window",
       "entryType": "Entry type",
@@ -694,18 +697,22 @@
   "sidebar": {
     "creditsLabel": "Credits",
     "cta": "Open billing center",
+    "dailyBalanceTitle": "Daily balance",
     "dailyTitle": "Daily plan",
     "description": "Review your plan, credits, and upcoming billing actions.",
     "expired": "Expired",
-    "expiresInDays": "{days}d left",
+    "expiresInDays": "Expires in {days} days",
+    "monthlyBalanceTitle": "Monthly balance",
     "monthlyTitle": "Monthly plan",
+    "nonMemberBalanceTitle": "Credit balance",
     "nonMemberTitle": "Non-member",
     "periodLabel": "Period",
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",
     "upgradeCta": "Upgrade",
-    "usageCta": "View usage",
+    "usageCta": "View details",
+    "yearlyBalanceTitle": "Yearly balance",
     "yearlyTitle": "Yearly plan"
   },
   "status": {

@@ -112,6 +112,12 @@ export function BillingRecentActivitySection() {
       className='space-y-4'
       data-testid='billing-usage-table-section'
     >
+      <div>
+        <h2 className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
+          {t('module.billing.details.usageTable.title')}
+        </h2>
+      </div>
+
       <Card className='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'>
         <CardContent className='p-0'>
           {ledgerError ? (

@@ -128,6 +128,9 @@ describe('BillingRecentActivitySection', () => {
       ),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('module.billing.details.usageTable.title'),
+    ).toBeInTheDocument();
+    expect(
       await screen.findByText(
         'module.billing.reports.usageType.tts - module.billing.ledger.usageScene.production - Published Course 1 - learner@example.com',
       ),

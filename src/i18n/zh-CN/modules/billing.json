@@ -350,17 +350,20 @@
     },
     "subtitle": "查看当前创作者空间的总积分、各类积分余额以及对应有效期。",
     "table": {
-      "balance": "积分余额",
-      "creditType": "积分类型",
-      "validUntil": "有效期"
+      "balance": "余额",
+      "creditType": "类型",
+      "validUntil": "有效期到"
     },
-    "title": "积分详情",
-    "totalCreditsDescription": "积分会按套餐积分、积分包的顺序优先扣减。",
-    "totalCreditsLabel": "总积分",
+    "title": "积分总览",
+    "topupAvailabilityLabel": "无限期",
+    "topupAvailabilityTooltip": "必须有任意激活套餐才可使用",
+    "totalCreditsDescription": "按照套餐积分>积分包的顺序优先扣减",
+    "totalCreditsLabel": "积分余额",
     "usageTable": {
       "columns": {
-        "scene": "积分变化"
-      }
+        "scene": "消耗项"
+      },
+      "title": "积分消耗明细"
     }
   },
   "domains": {
@@ -449,7 +452,7 @@
       "amount": "数量",
       "availableCredits": "可用积分",
       "balanceAfter": "变化后余额",
-      "createdAt": "日期",
+      "createdAt": "时间",
       "detail": "查看明细",
       "effectiveWindow": "生效时间",
       "entryType": "账本类型",
@@ -694,18 +697,22 @@
   "sidebar": {
     "creditsLabel": "剩余积分",
     "cta": "前往会员中心",
+    "dailyBalanceTitle": "日套餐余额",
     "dailyTitle": "日订阅",
     "description": "查看会员状态、积分余额与后续账务动作。",
     "expired": "已到期",
-    "expiresInDays": "剩 {days} 天",
+    "expiresInDays": "{days} 天后到期",
+    "monthlyBalanceTitle": "月套餐余额",
     "monthlyTitle": "月订阅",
+    "nonMemberBalanceTitle": "积分余额",
     "nonMemberTitle": "非会员",
     "periodLabel": "套餐周期",
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
     "upgradeCta": "升级",
-    "usageCta": "查看使用情况",
+    "usageCta": "查看详情",
+    "yearlyBalanceTitle": "年套餐余额",
     "yearlyTitle": "年订阅"
   },
   "status": {
