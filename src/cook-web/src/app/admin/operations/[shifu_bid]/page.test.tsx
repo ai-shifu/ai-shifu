@@ -309,9 +309,9 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    const visitorsMetricCard = screen.getByText(
-      'module.operationsCourse.detail.metricsLabels.visitCount30d',
-    ).parentElement;
+    const visitorsMetricCard = screen
+      .getByText('module.operationsCourse.detail.metricsLabels.visitCount30d')
+      .closest('button');
     expect(visitorsMetricCard).not.toBeNull();
     expect(
       within(visitorsMetricCard as HTMLElement).getByText('34'),
@@ -351,6 +351,22 @@ describe('AdminOperationCourseDetailPage', () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/operations');
+  });
+
+  test('navigates to follow-up page from the follow-up metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/course-1/follow-ups',
+    );
   });
 
   test('opens chapter content dialog and requests chapter detail', async () => {
