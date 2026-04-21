@@ -164,6 +164,12 @@ def collect_frontend_keys() -> Set[str]:
             for pattern in patterns:
                 for match in pattern.findall(text):
                     used.add(match)
+            # Catch translation keys referenced as bare string literals
+            # (e.g. in arrays or maps) that are later passed to t().
+            for match in STRING_LITERAL.findall(text):
+                candidate = match[1:-1]
+                if candidate.startswith("module.") or candidate.startswith("server."):
+                    used.add(candidate)
     return used
 
 
