@@ -39,10 +39,24 @@ function formatSignedCredits(value: number, locale: string): string {
 
 function UsageTableSkeleton() {
   return (
-    <div className='space-y-3 px-2 py-4'>
-      <Skeleton className='h-10 rounded-xl' />
-      <Skeleton className='h-10 rounded-xl' />
-      <Skeleton className='h-10 rounded-xl' />
+    <div data-testid='billing-usage-table-skeleton'>
+      {Array.from({ length: RECENT_ITEMS_LIMIT }, (_, index) => (
+        <div
+          key={`billing-usage-skeleton-row-${index}`}
+          data-testid='billing-usage-skeleton-row'
+          className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
+        >
+          <div className='px-[32px] py-4 pl-[32px] pr-[var(--spacing-2,8px)]'>
+            <Skeleton className='h-5 w-full rounded-md' />
+          </div>
+          <div className='px-[32px] py-4 pl-[var(--spacing-2,8px)] pr-[32px]'>
+            <Skeleton className='ml-auto h-5 w-32 rounded-md' />
+          </div>
+          <div className='px-[32px] py-4 pl-[8px] pr-[32px]'>
+            <Skeleton className='ml-auto h-5 w-20 rounded-md' />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -112,6 +126,12 @@ export function BillingRecentActivitySection() {
       className='space-y-4'
       data-testid='billing-usage-table-section'
     >
+      <div>
+        <h2 className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
+          {t('module.billing.details.usageTable.title')}
+        </h2>
+      </div>
+
       <Card className='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'>
         <CardContent className='p-0'>
           {ledgerError ? (

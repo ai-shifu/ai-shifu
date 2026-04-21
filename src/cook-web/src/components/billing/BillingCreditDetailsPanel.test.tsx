@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   useBillingOverview,
@@ -11,7 +11,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'en-US',
+      language: 'zh-CN',
     },
   }),
 }));
@@ -115,19 +115,19 @@ describe('BillingCreditDetailsPanel', () => {
     expect(
       screen.getByText('module.billing.details.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1,110.00')).toBeInTheDocument();
+    expect(screen.getByText('1110')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.billing.ledger.category.subscription'),
     ).toHaveLength(2);
     expect(
       screen.getByText('module.billing.ledger.category.topup'),
     ).toBeInTheDocument();
-    expect(screen.getByText('10.00')).toBeInTheDocument();
-    expect(screen.getByText('90.00')).toBeInTheDocument();
-    expect(screen.getByText('1,000.00')).toBeInTheDocument();
-    expect(screen.getByText('2026.08.12 23:59')).toBeInTheDocument();
-    expect(screen.getByText('2026.10.12 23:59')).toBeInTheDocument();
-    expect(screen.getByText('2026.10.20 23:59')).toBeInTheDocument();
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText('90')).toBeInTheDocument();
+    expect(screen.getByText('1000')).toBeInTheDocument();
+    expect(screen.getByText('2026年08月12日 23:59')).toBeInTheDocument();
+    expect(screen.getByText('2026年10月12日 23:59')).toBeInTheDocument();
+    expect(screen.getByText('2026年10月20日 23:59')).toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', {
@@ -136,5 +136,45 @@ describe('BillingCreditDetailsPanel', () => {
     );
 
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {
+    const user = userEvent.setup();
+
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-topup',
+            category: 'topup',
+            source_type: 'topup',
+            source_bid: 'topup-1',
+            available_credits: 1000,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: null,
+            priority: 30,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    expect(
+      screen.getByText('module.billing.details.topupAvailabilityLabel'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.hover(
+        screen.getByTestId('billing-topup-validity-tooltip-trigger'),
+      );
+    });
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'module.billing.details.topupAvailabilityTooltip',
+    );
   });
 });

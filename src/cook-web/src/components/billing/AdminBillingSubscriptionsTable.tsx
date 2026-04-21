@@ -26,7 +26,7 @@ import type {
 } from '@/types/billing';
 import {
   buildBillingRenewalContextLabel,
-  formatBillingCredits,
+  formatBillingCreditBalance,
   formatBillingDateTime,
   registerBillingTranslationUsage,
   resolveBillingEmptyLabel,
@@ -169,9 +169,8 @@ export function AdminBillingSubscriptionsTable() {
                         {resolveBillingProviderLabel(t, item.billing_provider)}
                       </TableCell>
                       <TableCell className='font-medium text-slate-900'>
-                        {formatBillingCredits(
+                        {formatBillingCreditBalance(
                           item.wallet.available_credits,
-                          i18n.language,
                         )}
                       </TableCell>
                       <TableCell className='min-w-[180px] text-slate-600'>
