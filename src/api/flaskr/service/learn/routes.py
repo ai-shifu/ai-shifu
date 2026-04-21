@@ -65,6 +65,10 @@ def _to_sse_data_line(message) -> str:
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
 
+def _is_generator_close_error(exc: RuntimeError) -> bool:
+    return str(exc) == "generator ignored GeneratorExit"
+
+
 def _stream_sse_response(
     app: Flask,
     *,
@@ -108,6 +112,12 @@ def _stream_passthrough_response(
             yield from message_iter_factory()
         except GeneratorExit:
             app.logger.info(close_log)
+            raise
+        except RuntimeError as exc:
+            if _is_generator_close_error(exc):
+                app.logger.info(close_log)
+                return
+            app.logger.error(error_log, exc_info=True)
             raise
         except Exception:
             app.logger.error(error_log, exc_info=True)
