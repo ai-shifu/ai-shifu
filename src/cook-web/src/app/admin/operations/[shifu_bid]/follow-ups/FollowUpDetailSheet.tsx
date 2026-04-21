@@ -1,6 +1,12 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -115,6 +121,10 @@ const ExpandableTextBlock = ({
   const resolvedContent = normalizedContent || emptyState || emptyValue;
   const canToggle = normalizedContent.length > 80;
   const showEmptyStateStyle = emphasizeEmptyState && !normalizedContent;
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [resolvedContent]);
 
   return (
     <div className='space-y-2'>

@@ -2629,7 +2629,7 @@ def get_operator_course_follow_ups(
         )
         filters = filters or {}
 
-        detail_source, outline_items = _load_operator_course_outline_items(
+        _detail_source, outline_items = _load_operator_course_outline_items(
             normalized_shifu_bid
         )
         outline_context_map = _build_course_outline_context_map(outline_items)

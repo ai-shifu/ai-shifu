@@ -15,6 +15,7 @@ type AdminDateRangeFilterProps = {
   placeholder: string;
   resetLabel: string;
   clearLabel: string;
+  triggerAriaLabel?: string;
   onChange: (range: { start: string; end: string }) => void;
 };
 
@@ -42,6 +43,7 @@ const AdminDateRangeFilter = ({
   placeholder,
   resetLabel,
   clearLabel,
+  triggerAriaLabel,
   onChange,
 }: AdminDateRangeFilterProps) => {
   const selectedRange = React.useMemo(
@@ -73,6 +75,7 @@ const AdminDateRangeFilter = ({
             size='sm'
             variant='outline'
             type='button'
+            aria-label={triggerAriaLabel || placeholder}
             className={cn(
               'h-9 w-full justify-start font-normal',
               hasValue ? 'pr-16' : 'pr-10',

@@ -198,12 +198,14 @@ const resolvePrimaryAccount = ({
 };
 
 function ClearableTextInput({
+  id,
   value,
   placeholder,
   clearLabel,
   onChange,
   onSubmit,
 }: {
+  id?: string;
   value: string;
   placeholder: string;
   clearLabel: string;
@@ -215,6 +217,7 @@ function ClearableTextInput({
   return (
     <div className='relative'>
       <Input
+        id={id}
         value={value}
         onChange={event => onChange(event.target.value)}
         onKeyDown={event => {
@@ -478,6 +481,11 @@ export default function AdminOperationCourseFollowUpsPage() {
     : tOperations('detail.followUps.table.lesson');
   const summaryScopeHint = tOperations('detail.followUps.summary.scopeHint');
   const turnIndexHelpText = tOperations('detail.followUps.turnIndexHelp');
+  const userKeywordInputId = 'follow-up-user-keyword-filter';
+  const outlineKeywordInputId = 'follow-up-outline-keyword-filter';
+  const followUpTimeFilterAriaLabel = tOperations(
+    'detail.followUps.filters.followUpTime',
+  );
   const summaryCards = useMemo(
     () => [
       {
@@ -670,10 +678,14 @@ export default function AdminOperationCourseFollowUpsPage() {
                 >
                   <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
                     <div className='flex flex-col gap-2'>
-                      <label className='text-xs font-medium text-muted-foreground'>
+                      <label
+                        htmlFor={userKeywordInputId}
+                        className='text-xs font-medium text-muted-foreground'
+                      >
                         {tOperations('detail.followUps.filters.userKeyword')}
                       </label>
                       <ClearableTextInput
+                        id={userKeywordInputId}
                         value={filtersDraft.keyword}
                         placeholder={userKeywordPlaceholder}
                         clearLabel={clearLabel}
@@ -687,10 +699,14 @@ export default function AdminOperationCourseFollowUpsPage() {
                       />
                     </div>
                     <div className='flex flex-col gap-2'>
-                      <label className='text-xs font-medium text-muted-foreground'>
+                      <label
+                        htmlFor={outlineKeywordInputId}
+                        className='text-xs font-medium text-muted-foreground'
+                      >
                         {outlineFilterLabel}
                       </label>
                       <ClearableTextInput
+                        id={outlineKeywordInputId}
                         value={filtersDraft.chapterKeyword}
                         placeholder={outlineFilterPlaceholder}
                         clearLabel={clearLabel}
@@ -710,6 +726,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                       <AdminDateRangeFilter
                         startValue={filtersDraft.startTime}
                         endValue={filtersDraft.endTime}
+                        triggerAriaLabel={followUpTimeFilterAriaLabel}
                         placeholder={tOperations(
                           'detail.followUps.filters.timeRangePlaceholder',
                         )}
