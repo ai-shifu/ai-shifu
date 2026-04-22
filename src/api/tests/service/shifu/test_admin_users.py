@@ -812,9 +812,7 @@ def test_list_operator_users_includes_creator_credit_summaries(app):
     assert creator_item.available_credits == "20.50"
     assert creator_item.subscription_credits == "12.50"
     assert creator_item.topup_credits == "8"
-    assert creator_item.credits_expire_at == _format_operator_datetime(
-        active_end_at
-    )
+    assert creator_item.credits_expire_at == _format_operator_datetime(active_end_at)
     assert creator_item.has_active_subscription is True
     assert regular_item.available_credits == ""
     assert regular_item.subscription_credits == ""
@@ -1028,9 +1026,7 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app):
     assert result.summary.available_credits == "18"
     assert result.summary.subscription_credits == "10"
     assert result.summary.topup_credits == "8"
-    assert result.summary.credits_expire_at == _format_operator_datetime(
-        active_end_at
-    )
+    assert result.summary.credits_expire_at == _format_operator_datetime(active_end_at)
     assert result.summary.has_active_subscription is True
     assert result.total == 2
     assert result.page == 1

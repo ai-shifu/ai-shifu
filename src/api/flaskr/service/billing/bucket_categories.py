@@ -115,6 +115,7 @@ def resolve_wallet_bucket_runtime_category(
         load_order_type=load_order_type,
     )
 
+
 def wallet_bucket_requires_active_subscription(
     bucket: CreditWalletBucket,
     *,
