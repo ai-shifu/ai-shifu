@@ -13,7 +13,7 @@ type MockRunFixtureEvent = {
 
 const MOCK_RUN_FIXTURE_QUERY_KEY = 'mock_run_sse_fixture';
 const MOCK_RUN_FIXTURE_STUCK_MODE = 'stuck';
-const MOCK_RUN_FIXTURE_URL = '/mock-fixtures/测试数据.json';
+const MOCK_RUN_FIXTURE_URL = '/mock-fixtures/data.json';
 const MOCK_RUN_FIXTURE_OPEN_DELAY_MS = 120;
 const MOCK_RUN_FIXTURE_EVENT_INTERVAL_MS = 36;
 
