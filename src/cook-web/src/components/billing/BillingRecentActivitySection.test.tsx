@@ -170,6 +170,9 @@ describe('BillingRecentActivitySection', () => {
       screen.getByRole('navigation', { name: 'pagination' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
+    expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
+      'overflow-auto',
+    );
   });
 
   test('requests the next ledger page when pagination is used', async () => {
