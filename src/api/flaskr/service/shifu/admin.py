@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
-from flask import Flask
+from flask import Flask, current_app
 from sqlalchemy import and_, case, or_
 
 from flaskr.common.cache_provider import cache as redis
@@ -114,6 +114,7 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
+from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
@@ -204,11 +205,12 @@ def _format_datetime(value: Optional[datetime]) -> str:
 def _format_operator_datetime(value: Optional[datetime]) -> str:
     if not value:
         return ""
-    if value.tzinfo is None:
-        normalized_value = value.replace(tzinfo=timezone.utc)
-    else:
-        normalized_value = value.astimezone(timezone.utc)
-    return normalized_value.isoformat().replace("+00:00", "Z")
+    serialized_value = serialize_with_app_timezone(
+        current_app._get_current_object(),
+        value,
+        tz_name="UTC",
+    )
+    return str(serialized_value or "").replace("+00:00", "Z")
 
 
 def _format_average_score(value: Optional[Decimal]) -> str:

@@ -1230,6 +1230,88 @@ def test_get_operator_user_credits_maps_manual_grant_display_codes(app):
     assert result.items[0].note_code == "manual_grant"
 
 
+def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone(app):
+    with app.app_context():
+        original_tz = app.config.get("TZ")
+        app.config["TZ"] = "Asia/Shanghai"
+        try:
+            _seed_user(
+                app,
+                user_bid="tz-detail-user",
+                identify="tz-detail-user@example.com",
+                nickname="TZ Detail User",
+                state=USER_STATE_PAID,
+                created_at=datetime(2026, 4, 20, 9, 0, 0),
+                updated_at=datetime(2026, 4, 20, 10, 0, 0),
+                providers=[("email", "tz-detail-user@example.com")],
+            )
+            _seed_learn_progress(
+                shifu_bid="course-tz-detail",
+                outline_item_bid="lesson-tz-detail",
+                user_bid="tz-detail-user",
+                status=LEARN_STATUS_IN_PROGRESS,
+                created_at=datetime(2026, 4, 22, 11, 56, 11),
+            )
+
+            result = get_operator_user_detail(app, "tz-detail-user")
+        finally:
+            app.config["TZ"] = original_tz
+
+    assert result.last_learning_at == "2026-04-22T03:56:11Z"
+
+
+def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(app):
+    with app.app_context():
+        original_tz = app.config.get("TZ")
+        app.config["TZ"] = "Asia/Shanghai"
+        try:
+            _seed_user(
+                app,
+                user_bid="tz-credits-user",
+                identify="tz-credits-user@example.com",
+                nickname="TZ Credits User",
+                state=USER_STATE_PAID,
+                created_at=datetime(2026, 4, 20, 9, 0, 0),
+                updated_at=datetime(2026, 4, 20, 10, 0, 0),
+                providers=[("email", "tz-credits-user@example.com")],
+            )
+            _seed_credit_wallet(
+                creator_bid="tz-credits-user",
+                wallet_bid="wallet-tz-credits-user",
+                available_credits="5",
+            )
+            _seed_credit_ledger_entry(
+                creator_bid="tz-credits-user",
+                wallet_bid="wallet-tz-credits-user",
+                wallet_bucket_bid="bucket-tz-credits-user",
+                ledger_bid="ledger-tz-credits-user",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="order-tz-credits-user",
+                amount="5",
+                balance_after="5",
+                created_at=datetime(2026, 4, 22, 16, 29, 9),
+                expires_at=datetime(2026, 4, 29, 16, 29, 9),
+                metadata_json={
+                    "grant_type": "manual_grant",
+                    "grant_source": "reward",
+                },
+            )
+
+            result = get_operator_user_credits(
+                app,
+                user_bid="tz-credits-user",
+                page_index=1,
+                page_size=20,
+            )
+        finally:
+            app.config["TZ"] = original_tz
+
+    assert len(result.items) == 1
+    assert result.items[0].created_at == "2026-04-22T08:29:09Z"
+    assert result.items[0].expires_at == "2026-04-29T08:29:09Z"
+
+
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app):
     with app.app_context():
         _seed_user(

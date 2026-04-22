@@ -4,8 +4,10 @@ import api from '@/api';
 import AdminOperationUsersPage from './page';
 
 const mockReplace = jest.fn();
+const mockMutateBillingOverview = jest.fn();
 const originalLocation = window.location;
 const mockGrantDialogPrefix = 'grant-dialog-';
+const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
 const translationCache = new Map<string, { t: (key: string) => string }>();
@@ -63,6 +65,13 @@ jest.mock('@/api', () => ({
   },
 }));
 
+jest.mock('swr', () => ({
+  __esModule: true,
+  useSWRConfig: () => ({
+    mutate: mockMutateBillingOverview,
+  }),
+}));
+
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
   DropdownMenu: ({ children }: React.PropsWithChildren) => (
@@ -92,11 +101,23 @@ jest.mock('./UserCreditGrantDialog', () => ({
   default: ({
     open,
     user,
+    onGranted,
   }: {
     open: boolean;
     user: { user_bid: string } | null;
+    onGranted?: () => void;
   }) =>
-    open ? <div>{buildGrantDialogLabel(user?.user_bid || '')}</div> : null,
+    open ? (
+      <div>
+        <div>{buildGrantDialogLabel(user?.user_bid || '')}</div>
+        <button
+          type='button'
+          onClick={onGranted}
+        >
+          {mockGrantSuccessLabel}
+        </button>
+      </div>
+    ) : null,
 }));
 
 jest.mock('@/store', () => ({
@@ -219,6 +240,7 @@ const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    mockMutateBillingOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
@@ -373,6 +395,33 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
+  });
+
+  test('revalidates billing overview after credits are granted successfully', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: mockGrantSuccessLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(2);
+    });
+    expect(mockMutateBillingOverview).toHaveBeenCalledTimes(1);
+    expect(mockMutateBillingOverview).toHaveBeenCalledWith([
+      'creator-billing-overview',
+      'UTC',
+    ]);
   });
 
   test('submits search filters', async () => {

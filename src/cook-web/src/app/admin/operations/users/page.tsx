@@ -4,6 +4,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSWRConfig } from 'swr';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -52,6 +53,9 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
+import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
+import { buildBillingSwrKey } from '@/lib/billing';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
@@ -298,6 +302,7 @@ export default function AdminOperationUsersPage() {
     createDefaultFilters(),
   );
   const requestIdRef = useRef(0);
+  const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
     useAdminResizableColumns<ColumnKey>({
@@ -458,9 +463,18 @@ export default function AdminOperationUsersPage() {
     void fetchUsers(nextPage, appliedFilters);
   };
 
-  const handleGrantSuccess = useCallback(() => {
-    void fetchUsers(pageIndex, appliedFilters);
-  }, [appliedFilters, fetchUsers, pageIndex]);
+  const handleGrantSuccess = useCallback(
+    () => {
+      void fetchUsers(pageIndex, appliedFilters);
+      void mutate(
+        buildBillingSwrKey(
+          BILLING_OVERVIEW_SWR_KEY,
+          getBrowserTimeZone(),
+        ),
+      );
+    },
+    [appliedFilters, fetchUsers, mutate, pageIndex],
+  );
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
