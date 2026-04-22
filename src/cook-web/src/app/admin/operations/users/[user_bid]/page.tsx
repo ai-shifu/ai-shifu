@@ -977,7 +977,10 @@ export default function AdminOperationUserDetailPage() {
               courseNameLabel={tOperationsUsers(
                 'courseSummary.dialog.courseName',
               )}
-              courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+<<<<<<< HEAD
+              courseIdLabel={tOperationsUsers(
+                'courseSummary.dialog.courseId',
+              )}
               valueLabel={tOperationsUsers('detail.learningProgress')}
               renderValue={formatLearningProgress}
               courseNameAlign='left'
@@ -995,7 +998,10 @@ export default function AdminOperationUserDetailPage() {
               courseNameLabel={tOperationsUsers(
                 'courseSummary.dialog.courseName',
               )}
-              courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+<<<<<<< HEAD
+              courseIdLabel={tOperationsUsers(
+                'courseSummary.dialog.courseId',
+              )}
               valueLabel={tOperationsUsers('courseSummary.dialog.status')}
               renderValue={course =>
                 resolveCourseStatusLabel(course.course_status)
