@@ -873,141 +873,137 @@ export default function AdminOperationUserDetailPage() {
         </CardContent>
       </Card>
 
+      <Card className='shadow-sm'>
+        <CardHeader className='pb-3'>
+          <CardTitle className='text-base font-semibold'>
+            {tOperationsUsers('detail.overview')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+            <InfoItem
+              label={tOperationsUsers('table.totalPaidAmount')}
+              value={`${currencySymbol}${detail.total_paid_amount || '0'}`}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.learningCourses')}
+              value={String((detail.learning_courses || []).length)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.createdCourses')}
+              value={String((detail.created_courses || []).length)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.lastLearningAt')}
+              value={detail.last_learning_at}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div
+        id='credits'
+        ref={creditsSectionRef}
+        className='space-y-5'
+      >
         <Card className='shadow-sm'>
           <CardHeader className='pb-3'>
             <CardTitle className='text-base font-semibold'>
-              {tOperationsUsers('detail.overview')}
+              {tOperationsUsers('detail.creditsOverview')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
               <InfoItem
-                label={tOperationsUsers('table.totalPaidAmount')}
-                value={`${currencySymbol}${detail.total_paid_amount || '0'}`}
+                label={tOperationsUsers('table.availableCredits')}
+                value={creditSummary.available_credits}
               />
               <InfoItem
-                label={tOperationsUsers('table.learningCourses')}
-                value={String((detail.learning_courses || []).length)}
+                label={tOperationsUsers('table.subscriptionCredits')}
+                value={creditSummary.subscription_credits}
               />
               <InfoItem
-                label={tOperationsUsers('table.createdCourses')}
-                value={String((detail.created_courses || []).length)}
+                label={tOperationsUsers('table.topupCredits')}
+                value={creditSummary.topup_credits}
               />
               <InfoItem
-                label={tOperationsUsers('table.lastLearningAt')}
-                value={detail.last_learning_at}
+                label={tOperationsUsers('table.creditsExpireAt')}
+                value={resolveCreditsExpireAt()}
               />
             </div>
           </CardContent>
         </Card>
 
-        <div
-          id='credits'
-          ref={creditsSectionRef}
-          className='space-y-5'
+        <Tabs
+          className='space-y-4'
+          value={activeTab}
+          onValueChange={value => setActiveTab(value as DetailTab)}
         >
-          <Card className='shadow-sm'>
-            <CardHeader className='pb-3'>
-              <CardTitle className='text-base font-semibold'>
-                {tOperationsUsers('detail.creditsOverview')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                <InfoItem
-                  label={tOperationsUsers('table.availableCredits')}
-                  value={creditSummary.available_credits}
-                />
-                <InfoItem
-                  label={tOperationsUsers('table.subscriptionCredits')}
-                  value={creditSummary.subscription_credits}
-                />
-                <InfoItem
-                  label={tOperationsUsers('table.topupCredits')}
-                  value={creditSummary.topup_credits}
-                />
-                <InfoItem
-                  label={tOperationsUsers('table.creditsExpireAt')}
-                  value={resolveCreditsExpireAt()}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <TabsList>
+            <TabsTrigger value='credits'>
+              {tOperationsUsers('detail.tabs.credits')}
+            </TabsTrigger>
+            <TabsTrigger value='learning'>
+              {tOperationsUsers('detail.tabs.learningCourses')}
+            </TabsTrigger>
+            <TabsTrigger value='created'>
+              {tOperationsUsers('detail.tabs.createdCourses')}
+            </TabsTrigger>
+          </TabsList>
 
-          <Tabs
-            className='space-y-4'
-            value={activeTab}
-            onValueChange={value => setActiveTab(value as DetailTab)}
+          <TabsContent
+            value='credits'
+            className='mt-0'
           >
-            <TabsList>
-              <TabsTrigger value='credits'>
-                {tOperationsUsers('detail.tabs.credits')}
-              </TabsTrigger>
-              <TabsTrigger value='learning'>
-                {tOperationsUsers('detail.tabs.learningCourses')}
-              </TabsTrigger>
-              <TabsTrigger value='created'>
-                {tOperationsUsers('detail.tabs.createdCourses')}
-              </TabsTrigger>
-            </TabsList>
+            <CreditLedgerTable
+              loading={creditsLoading}
+              error={creditsError}
+              items={credits.items}
+              pageIndex={credits.page || creditsPageIndex}
+              pageCount={credits.page_count || 0}
+              onPageChange={page => setCreditsPageIndex(page)}
+              onRetry={() => setCreditsRetryNonce(value => value + 1)}
+            />
+          </TabsContent>
 
-            <TabsContent
-              value='credits'
-              className='mt-0'
-            >
-              <CreditLedgerTable
-                loading={creditsLoading}
-                error={creditsError}
-                items={credits.items}
-                pageIndex={credits.page || creditsPageIndex}
-                pageCount={credits.page_count || 0}
-                onPageChange={page => setCreditsPageIndex(page)}
-                onRetry={() => setCreditsRetryNonce(value => value + 1)}
-              />
-            </TabsContent>
+          <TabsContent
+            value='learning'
+            className='mt-0'
+          >
+            <CourseTable
+              title={tOperationsUsers('detail.learningCourses')}
+              courses={detail.learning_courses || []}
+              emptyText={tOperationsUsers('detail.emptyCourses')}
+              courseNameLabel={tOperationsUsers(
+                'courseSummary.dialog.courseName',
+              )}
+              courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+              valueLabel={tOperationsUsers('detail.learningProgress')}
+              renderValue={formatLearningProgress}
+              courseNameAlign='left'
+            />
+          </TabsContent>
 
-            <TabsContent
-              value='learning'
-              className='mt-0'
-            >
-              <CourseTable
-                title={tOperationsUsers('detail.learningCourses')}
-                courses={detail.learning_courses || []}
-                emptyText={tOperationsUsers('detail.emptyCourses')}
-                courseNameLabel={tOperationsUsers(
-                  'courseSummary.dialog.courseName',
-                )}
-                courseIdLabel={tOperationsUsers(
-                  'courseSummary.dialog.courseId',
-                )}
-                valueLabel={tOperationsUsers('detail.learningProgress')}
-                renderValue={formatLearningProgress}
-                courseNameAlign='left'
-              />
-            </TabsContent>
-
-            <TabsContent
-              value='created'
-              className='mt-0'
-            >
-              <CourseTable
-                title={tOperationsUsers('detail.createdCourses')}
-                courses={detail.created_courses || []}
-                emptyText={tOperationsUsers('detail.emptyCourses')}
-                courseNameLabel={tOperationsUsers(
-                  'courseSummary.dialog.courseName',
-                )}
-                courseIdLabel={tOperationsUsers(
-                  'courseSummary.dialog.courseId',
-                )}
-                valueLabel={tOperationsUsers('courseSummary.dialog.status')}
-                renderValue={course =>
-                  resolveCourseStatusLabel(course.course_status)
-                }
-                courseNameAlign='left'
-              />
-            </TabsContent>
-          </Tabs>
+          <TabsContent
+            value='created'
+            className='mt-0'
+          >
+            <CourseTable
+              title={tOperationsUsers('detail.createdCourses')}
+              courses={detail.created_courses || []}
+              emptyText={tOperationsUsers('detail.emptyCourses')}
+              courseNameLabel={tOperationsUsers(
+                'courseSummary.dialog.courseName',
+              )}
+              courseIdLabel={tOperationsUsers('courseSummary.dialog.courseId')}
+              valueLabel={tOperationsUsers('courseSummary.dialog.status')}
+              renderValue={course =>
+                resolveCourseStatusLabel(course.course_status)
+              }
+              courseNameAlign='left'
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
