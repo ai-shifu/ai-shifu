@@ -303,6 +303,15 @@ describe('AdminOperationUserDetailPage', () => {
       await screen.findByRole('link', { name: 'Learned Course' }),
     ).toHaveAttribute('href', '/admin/operations/course-1');
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('admin-operation-user-detail-page'),
+    ).toHaveClass('w-full');
+    expect(
+      screen.getByTestId('admin-operation-user-detail-page'),
+    ).not.toHaveClass('h-full');
+    expect(
+      screen.getByTestId('admin-operation-user-detail-page'),
+    ).not.toHaveClass('overflow-auto');
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {

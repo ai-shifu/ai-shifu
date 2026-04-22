@@ -802,76 +802,76 @@ export default function AdminOperationUserDetailPage() {
   }
 
   return (
-    <div className='h-full overflow-auto'>
-      <div className='mx-auto max-w-7xl space-y-5 px-1 py-6'>
-        <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-          <div>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperationsUsers('detail.title')}
-            </h1>
-          </div>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => router.push('/admin/operations/users')}
-          >
-            {tOperationsUsers('detail.back')}
-          </Button>
+    <div
+      className='mx-auto w-full max-w-7xl space-y-5 px-1 py-6'
+      data-testid='admin-operation-user-detail-page'
+    >
+      <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+        <div>
+          <h1 className='text-2xl font-semibold text-gray-900'>
+            {tOperationsUsers('detail.title')}
+          </h1>
         </div>
+        <Button
+          variant='outline'
+          className='sm:mr-3'
+          onClick={() => router.push('/admin/operations/users')}
+        >
+          {tOperationsUsers('detail.back')}
+        </Button>
+      </div>
 
-        <Card className='shadow-sm'>
-          <CardHeader className='pb-3'>
-            <CardTitle className='text-base font-semibold'>
-              {tOperationsUsers('detail.basicInfo')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-              <InfoItem
-                label={tOperationsUsers('table.userId')}
-                value={detail.user_bid}
-              />
-              <InfoItem
-                label={contactLabel}
-                value={contactValue}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.nickname')}
-                value={detail.nickname || defaultUserName}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.status')}
-                value={resolveStatusLabel(detail.user_status)}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.role')}
-                value={resolveRoleLabel(detail.user_role)}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.loginMethods')}
-                value={resolveLoginMethods(detail.login_methods)}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.registrationSource')}
-                value={resolveRegistrationSourceLabel(
-                  detail.registration_source,
-                )}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.lastLoginAt')}
-                value={detail.last_login_at}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.updatedAt')}
-                value={detail.updated_at}
-              />
-              <InfoItem
-                label={tOperationsUsers('table.createdAt')}
-                value={detail.created_at}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      <Card className='shadow-sm'>
+        <CardHeader className='pb-3'>
+          <CardTitle className='text-base font-semibold'>
+            {tOperationsUsers('detail.basicInfo')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+            <InfoItem
+              label={tOperationsUsers('table.userId')}
+              value={detail.user_bid}
+            />
+            <InfoItem
+              label={contactLabel}
+              value={contactValue}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.nickname')}
+              value={detail.nickname || defaultUserName}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.status')}
+              value={resolveStatusLabel(detail.user_status)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.role')}
+              value={resolveRoleLabel(detail.user_role)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.loginMethods')}
+              value={resolveLoginMethods(detail.login_methods)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.registrationSource')}
+              value={resolveRegistrationSourceLabel(detail.registration_source)}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.lastLoginAt')}
+              value={detail.last_login_at}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.updatedAt')}
+              value={detail.updated_at}
+            />
+            <InfoItem
+              label={tOperationsUsers('table.createdAt')}
+              value={detail.created_at}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
         <Card className='shadow-sm'>
           <CardHeader className='pb-3'>
@@ -1008,7 +1008,6 @@ export default function AdminOperationUserDetailPage() {
               />
             </TabsContent>
           </Tabs>
-        </div>
       </div>
     </div>
   );
