@@ -3099,6 +3099,16 @@ def grant_operator_user_credits(
         if grant_result.status not in {"granted", "noop_existing"}:
             raise_error("server.common.systemError")
 
+        persisted_metadata = _normalize_metadata_json(grant_result.metadata_json)
+        resolved_grant_source = str(
+            persisted_metadata.get("grant_source") or normalized_grant_source
+        ).strip()
+        resolved_validity_preset = str(
+            persisted_metadata.get("validity_preset") or normalized_validity_preset
+        ).strip()
+        resolved_amount = _format_decimal(
+            _quantize_credit_amount(Decimal(str(grant_result.amount or 0)))
+        )
         credit_summary_map = _load_operator_user_credit_summary_map(
             [normalized_user_bid]
         )
@@ -3108,9 +3118,9 @@ def grant_operator_user_credits(
         )
         return AdminOperationUserCreditGrantResultDTO(
             user_bid=normalized_user_bid,
-            amount=_format_decimal(granted_amount),
-            grant_source=normalized_grant_source,
-            validity_preset=normalized_validity_preset,
+            amount=resolved_amount,
+            grant_source=resolved_grant_source,
+            validity_preset=resolved_validity_preset,
             expires_at=_format_operator_datetime(grant_result.expires_at),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),

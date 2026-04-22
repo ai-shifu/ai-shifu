@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
+from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
@@ -144,6 +145,7 @@ class ManualCreditGrantResult:
     wallet_bucket_bid: str | None = None
     ledger_bid: str | None = None
     expires_at: datetime | None = None
+    metadata_json: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -154,6 +156,7 @@ class ManualCreditGrantResult:
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "ledger_bid": self.ledger_bid,
             "expires_at": self.expires_at,
+            "metadata_json": self.metadata_json,
         }
 
     def __getitem__(self, key: str) -> Any:
@@ -772,27 +775,12 @@ def grant_manual_credit_wallet_balance(
         grant_bid = normalized_source_bid or generate_id(app)
         ledger_key = normalized_idempotency_key or f"manual_grant:{grant_bid}"
 
-        existing_entry = (
-            CreditLedgerEntry.query.filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.creator_bid == normalized_creator_bid,
-                CreditLedgerEntry.idempotency_key == ledger_key,
-            )
-            .order_by(CreditLedgerEntry.id.desc())
-            .first()
+        existing_result = _load_existing_manual_credit_grant_result(
+            creator_bid=normalized_creator_bid,
+            ledger_key=ledger_key,
         )
-        if existing_entry is not None:
-            return ManualCreditGrantResult(
-                status="noop_existing",
-                creator_bid=normalized_creator_bid,
-                amount=_credit_decimal_to_number(normalized_amount),
-                wallet_bid=str(existing_entry.wallet_bid or "").strip() or None,
-                wallet_bucket_bid=(
-                    str(existing_entry.wallet_bucket_bid or "").strip() or None
-                ),
-                ledger_bid=str(existing_entry.ledger_bid or "").strip() or None,
-                expires_at=existing_entry.expires_at,
-            )
+        if existing_result is not None:
+            return existing_result
 
         normalized_metadata = dict(metadata or {})
         bucket = CreditWalletBucket(
@@ -847,7 +835,17 @@ def grant_manual_credit_wallet_balance(
             updated_at=granted_at,
         )
         db.session.add(ledger_entry)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            existing_result = _load_existing_manual_credit_grant_result(
+                creator_bid=normalized_creator_bid,
+                ledger_key=ledger_key,
+            )
+            if existing_result is not None:
+                return existing_result
+            raise
         return ManualCreditGrantResult(
             status="granted",
             creator_bid=normalized_creator_bid,
@@ -856,7 +854,43 @@ def grant_manual_credit_wallet_balance(
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             ledger_bid=ledger_entry.ledger_bid,
             expires_at=effective_to,
+            metadata_json=normalized_metadata,
         )
+
+
+def _build_manual_credit_grant_result_from_entry(
+    entry: CreditLedgerEntry,
+) -> ManualCreditGrantResult:
+    metadata = dict(entry.metadata_json or {})
+    return ManualCreditGrantResult(
+        status="noop_existing",
+        creator_bid=str(entry.creator_bid or "").strip() or None,
+        amount=_credit_decimal_to_number(_to_decimal(entry.amount)),
+        wallet_bid=str(entry.wallet_bid or "").strip() or None,
+        wallet_bucket_bid=str(entry.wallet_bucket_bid or "").strip() or None,
+        ledger_bid=str(entry.ledger_bid or "").strip() or None,
+        expires_at=entry.expires_at,
+        metadata_json=metadata,
+    )
+
+
+def _load_existing_manual_credit_grant_result(
+    *,
+    creator_bid: str,
+    ledger_key: str,
+) -> ManualCreditGrantResult | None:
+    existing_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == creator_bid,
+            CreditLedgerEntry.idempotency_key == ledger_key,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    if existing_entry is None:
+        return None
+    return _build_manual_credit_grant_result_from_entry(existing_entry)
 
 
 def expire_credit_wallet_buckets(

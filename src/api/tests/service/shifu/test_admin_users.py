@@ -1429,6 +1429,54 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
     assert len(ledger_entries) == 1
 
 
+def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-idempotent-persisted",
+            identify="credits-grant-idempotent-persisted@example.com",
+            nickname="Credits Grant Idempotent Persisted",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-idempotent-persisted@example.com")],
+        )
+
+        first_payload = AdminOperationUserCreditGrantRequestDTO(
+            request_id="grant-request-idempotent-persisted",
+            amount="5",
+            grant_source="reward",
+            validity_preset="1d",
+            note="first grant",
+        )
+        second_payload = AdminOperationUserCreditGrantRequestDTO(
+            request_id="grant-request-idempotent-persisted",
+            amount="9",
+            grant_source="compensation",
+            validity_preset="7d",
+            note="second grant",
+        )
+        first_result = grant_operator_user_credits(
+            app,
+            user_bid="credits-grant-idempotent-persisted",
+            operator_user_bid="operator-1",
+            payload=first_payload,
+        )
+        second_result = grant_operator_user_credits(
+            app,
+            user_bid="credits-grant-idempotent-persisted",
+            operator_user_bid="operator-1",
+            payload=second_payload,
+        )
+
+    assert second_result.ledger_bid == first_result.ledger_bid
+    assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
+    assert second_result.amount == "5"
+    assert second_result.grant_source == "reward"
+    assert second_result.validity_preset == "1d"
+    assert second_result.expires_at == first_result.expires_at
+
+
 def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app):
     with app.app_context():
         _seed_user(
