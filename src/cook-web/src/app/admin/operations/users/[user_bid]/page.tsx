@@ -977,7 +977,6 @@ export default function AdminOperationUserDetailPage() {
               courseNameLabel={tOperationsUsers(
                 'courseSummary.dialog.courseName',
               )}
-<<<<<<< HEAD
               courseIdLabel={tOperationsUsers(
                 'courseSummary.dialog.courseId',
               )}
@@ -998,7 +997,6 @@ export default function AdminOperationUserDetailPage() {
               courseNameLabel={tOperationsUsers(
                 'courseSummary.dialog.courseName',
               )}
-<<<<<<< HEAD
               courseIdLabel={tOperationsUsers(
                 'courseSummary.dialog.courseId',
               )}
