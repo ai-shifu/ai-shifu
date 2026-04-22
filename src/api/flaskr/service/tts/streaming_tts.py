@@ -104,7 +104,6 @@ _VISUAL_SKIP_KINDS = frozenset(
 # without delaying speakable text submission more than necessary.
 _STREAM_BOUNDARY_GUARD_TAIL_CHARS = 12
 _MINIMAX_HTTP_STREAM_SEGMENT_TARGET_MS = 1500
-_MINIMAX_HTTP_STREAM_PROGRESS_CUE_TARGET_MS = 1200
 _MINIMAX_HTTP_STREAM_MAX_CHARS = 9500
 
 
@@ -739,16 +738,6 @@ class StreamingTTSProcessor:
 
         return cues
 
-    def _estimate_minimax_progress_duration_ms(
-        self,
-        text: str,
-        *,
-        emitted_ms: int,
-    ) -> int:
-        units = [unit for unit in self._sentence_units_for_tts(text) if unit.strip()]
-        unit_floor_ms = len(units) * _MINIMAX_HTTP_STREAM_PROGRESS_CUE_TARGET_MS
-        return max(int(emitted_ms or 0), int(unit_floor_ms or 0), 1)
-
     def _clamp_subtitle_cues_to_progress(
         self,
         subtitle_cues: list[dict[str, Any]],
@@ -784,6 +773,7 @@ class StreamingTTSProcessor:
         subtitle_offset_ms: int,
         emitted_ms: int,
         fallback_duration_ms: Optional[int] = None,
+        allow_fallback: bool = False,
     ) -> list[dict[str, Any]]:
         progress_end_ms = max(int(subtitle_offset_ms or 0), 0) + max(
             int(emitted_ms or 0), 0
@@ -797,19 +787,18 @@ class StreamingTTSProcessor:
             request_text,
         ):
             current_cues = request_subtitle_cues
-        else:
+        elif allow_fallback:
             current_cues = self._build_minimax_fallback_subtitle_cues(
                 request_text,
                 duration_ms=(
                     int(fallback_duration_ms)
                     if fallback_duration_ms is not None
-                    else self._estimate_minimax_progress_duration_ms(
-                        request_text,
-                        emitted_ms=emitted_ms,
-                    )
+                    else max(int(emitted_ms or 0), 1)
                 ),
                 offset_ms=subtitle_offset_ms,
             )
+        else:
+            current_cues = request_subtitle_cues
         return normalize_subtitle_cues(
             list(previous_cues or [])
             + self._clamp_subtitle_cues_to_progress(
@@ -1040,6 +1029,9 @@ class StreamingTTSProcessor:
                 if not accumulated_audio:
                     continue
 
+                if not chunk.is_final and not request_subtitles:
+                    continue
+
                 audio_piece = b""
                 piece_duration_ms = 0
                 audio_piece, piece_duration_ms = export_audio_range_best_effort(
@@ -1076,6 +1068,7 @@ class StreamingTTSProcessor:
                     fallback_duration_ms=(
                         request_duration_ms if chunk.is_final else None
                     ),
+                    allow_fallback=chunk.is_final,
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,

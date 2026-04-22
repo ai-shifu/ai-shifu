@@ -97,6 +97,11 @@ function AudioPlayerBase(
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const decodedSegmentBuffersRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const decodingSegmentPromisesRef = useRef<Map<string, Promise<AudioBuffer>>>(
+    new Map(),
+  );
+  const decodedSegmentContextRef = useRef<AudioContext | null>(null);
   // Track how many seconds have been played from streaming segments in this play session.
   const playedSecondsRef = useRef(0);
   const playSessionRef = useRef(0);
@@ -147,6 +152,81 @@ function AudioPlayerBase(
     [],
   );
 
+  const resetDecodedSegmentCache = useCallback(() => {
+    decodedSegmentBuffersRef.current.clear();
+    decodingSegmentPromisesRef.current.clear();
+    decodedSegmentContextRef.current = null;
+  }, []);
+
+  const getSegmentCacheKey = useCallback((segment: AudioSegment) => {
+    const audioData = segment.audioData || '';
+    return [
+      segment.position ?? '',
+      segment.elementId ?? '',
+      segment.slideId ?? '',
+      segment.segmentIndex,
+      audioData.length,
+      audioData.slice(0, 24),
+      audioData.slice(-24),
+    ].join(':');
+  }, []);
+
+  const decodeSegmentBuffer = useCallback(
+    (audioContext: AudioContext, segment: AudioSegment) => {
+      if (decodedSegmentContextRef.current !== audioContext) {
+        resetDecodedSegmentCache();
+        decodedSegmentContextRef.current = audioContext;
+      }
+
+      const cacheKey = getSegmentCacheKey(segment);
+      const cachedBuffer = decodedSegmentBuffersRef.current.get(cacheKey);
+      if (cachedBuffer) {
+        return Promise.resolve(cachedBuffer);
+      }
+
+      const pendingDecode = decodingSegmentPromisesRef.current.get(cacheKey);
+      if (pendingDecode) {
+        return pendingDecode;
+      }
+
+      const decodePromise = decodeAudioBufferFromBase64(
+        audioContext,
+        segment.audioData,
+      )
+        .then(buffer => {
+          decodingSegmentPromisesRef.current.delete(cacheKey);
+          decodedSegmentBuffersRef.current.set(cacheKey, buffer);
+          return buffer;
+        })
+        .catch(error => {
+          decodingSegmentPromisesRef.current.delete(cacheKey);
+          throw error;
+        });
+
+      decodingSegmentPromisesRef.current.set(cacheKey, decodePromise);
+      return decodePromise;
+    },
+    [getSegmentCacheKey, resetDecodedSegmentCache],
+  );
+
+  const predecodeSegmentByIndex = useCallback(
+    (
+      index: number,
+      sessionId: number,
+      audioContext: AudioContext | null = audioContextRef.current,
+    ) => {
+      if (!audioContext || !isSessionActive(sessionId)) {
+        return;
+      }
+      const segment = segmentsRef.current[index];
+      if (!segment) {
+        return;
+      }
+      decodeSegmentBuffer(audioContext, segment).catch(() => {});
+    },
+    [decodeSegmentBuffer, isSessionActive],
+  );
+
   const stopAllSourceNodes = useCallback(() => {
     if (activeSourceNodesRef.current.size > 0) {
       activeSourceNodesRef.current.forEach(node => {
@@ -175,11 +255,12 @@ function AudioPlayerBase(
     // Release the segment lock
     isPlayingSegmentRef.current = false;
     stopAllSourceNodes();
+    resetDecodedSegmentCache();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, [stopAllSourceNodes]);
+  }, [resetDecodedSegmentCache, stopAllSourceNodes]);
 
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
@@ -243,6 +324,7 @@ function AudioPlayerBase(
         audioContext.suspend().catch(() => {});
         audioContext.close().catch(() => {});
         audioContextRef.current = null;
+        resetDecodedSegmentCache();
         isPlayingSegmentRef.current = false;
       } else {
         pausedAtRef.current = playedSecondsRef.current;
@@ -251,6 +333,7 @@ function AudioPlayerBase(
           audioContextRef.current.suspend().catch(() => {});
           audioContextRef.current.close().catch(() => {});
           audioContextRef.current = null;
+          resetDecodedSegmentCache();
         }
       }
 
@@ -264,7 +347,12 @@ function AudioPlayerBase(
 
       releaseExclusive();
     },
-    [releaseExclusive, requestExclusive, stopAllSourceNodes],
+    [
+      releaseExclusive,
+      requestExclusive,
+      resetDecodedSegmentCache,
+      stopAllSourceNodes,
+    ],
   );
 
   // Play audio from OSS URL
@@ -421,10 +509,7 @@ function AudioPlayerBase(
         const segment = segments[index];
         currentSegmentIndexRef.current = index;
 
-        const audioBuffer = await decodeAudioBufferFromBase64(
-          audioContext,
-          segment.audioData,
-        );
+        const audioBuffer = await decodeSegmentBuffer(audioContext, segment);
         if (!isSessionActive(sessionId)) {
           isPlayingSegmentRef.current = false;
           return;
@@ -469,6 +554,7 @@ function AudioPlayerBase(
         setIsPlaying(true);
         isPlayingRef.current = true;
         onPlayStateChangeRef.current?.(true);
+        predecodeSegmentByIndex(index + 1, sessionId, audioContext);
       } catch (error) {
         console.error('Failed to play audio segment:', error);
         // Release lock so future attempts can proceed.
@@ -484,7 +570,12 @@ function AudioPlayerBase(
         releaseExclusive();
       }
     },
-    [isSessionActive, releaseExclusive],
+    [
+      decodeSegmentBuffer,
+      isSessionActive,
+      predecodeSegmentByIndex,
+      releaseExclusive,
+    ],
   );
 
   // Start playback from segments
@@ -581,6 +672,18 @@ function AudioPlayerBase(
     startPlaySession,
     stopPlayback,
   ]);
+
+  useEffect(() => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext || !isPlayingRef.current || isWaitingForSegment) {
+      return;
+    }
+    predecodeSegmentByIndex(
+      currentSegmentIndexRef.current + 1,
+      playSessionRef.current,
+      audioContext,
+    );
+  }, [isWaitingForSegment, predecodeSegmentByIndex, streamingSegments]);
 
   // Watch for new segments when waiting
   useEffect(() => {

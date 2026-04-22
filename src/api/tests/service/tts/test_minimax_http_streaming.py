@@ -388,7 +388,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     ]
 
 
-def test_streaming_tts_minimax_http_stream_emits_progress_subtitles_before_provider_subtitles(
+def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitles(
     monkeypatch,
 ):
     from flaskr.service.learn.learn_dtos import GeneratedType
@@ -420,7 +420,10 @@ def test_streaming_tts_minimax_http_stream_emits_progress_subtitles_before_provi
                 ],
             )
 
+    export_calls = []
+
     def _fake_export(_audio_data, **kwargs):
+        export_calls.append(kwargs)
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
@@ -490,15 +493,19 @@ def test_streaming_tts_minimax_http_stream_emits_progress_subtitles_before_provi
         event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
     ]
 
-    assert len(audio_segments) == 2
-    first_segment_cues = audio_segments[0].content.subtitle_cues
-    assert first_segment_cues
-    assert first_segment_cues[0].text == "First sentence."
-    assert first_segment_cues[-1].end_ms == 1500
-    assert [cue.text for cue in audio_segments[1].content.subtitle_cues] == [
+    assert len(audio_segments) == 1
+    assert [cue.text for cue in audio_segments[0].content.subtitle_cues] == [
         "First sentence.",
         "Second sentence.",
     ]
+    assert [
+        (cue.start_ms, cue.end_ms) for cue in audio_segments[0].content.subtitle_cues
+    ] == [
+        (0, 1500),
+        (1500, 3000),
+    ]
+    assert len(export_calls) == 1
+    assert export_calls[0]["end_ms"] == 3000
     assert [
         (cue.start_ms, cue.end_ms) for cue in audio_complete[0].content.subtitle_cues
     ] == [
