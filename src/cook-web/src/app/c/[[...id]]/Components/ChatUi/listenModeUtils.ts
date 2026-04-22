@@ -3,6 +3,7 @@ import type {
   StudyRecordAudioPayload,
   StudyRecordPayload,
 } from '@/c-api/studyV2';
+import { stripDisallowedSubtitleTrailingPunctuation } from '@/c-utils/subtitleUtils';
 import type { ElementSubtitleCue } from 'markdown-flow-ui/slide';
 import {
   getAudioSegmentDataListFromTracks,
@@ -73,7 +74,10 @@ export const resolveListenSlideSubtitleCues = (
       }
 
       const rawCue = cue as Record<string, unknown>;
-      const text = typeof rawCue.text === 'string' ? rawCue.text : undefined;
+      const text =
+        typeof rawCue.text === 'string'
+          ? stripDisallowedSubtitleTrailingPunctuation(rawCue.text)
+          : undefined;
       const startMs = normalizeSubtitleCueNumber(rawCue.start_ms);
       const endMs = normalizeSubtitleCueNumber(rawCue.end_ms);
 

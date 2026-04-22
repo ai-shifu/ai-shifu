@@ -132,4 +132,75 @@ describe('listenModeUtils', () => {
       },
     ]);
   });
+
+  it('strips disallowed trailing punctuation from subtitle cues', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        payload: {
+          audio: {
+            subtitle_cues: [
+              {
+                text: '句号结尾。',
+                start_ms: 0,
+                end_ms: 1000,
+              },
+              {
+                text: '冒号结尾：',
+                start_ms: 1000,
+                end_ms: 2000,
+              },
+              {
+                text: '问号保留？”',
+                start_ms: 2000,
+                end_ms: 3000,
+              },
+              {
+                text: '省略号保留……',
+                start_ms: 3000,
+                end_ms: 4000,
+              },
+              {
+                text: '双引号保留”',
+                start_ms: 4000,
+                end_ms: 5000,
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: '句号结尾',
+        start_ms: 0,
+        end_ms: 1000,
+        segment_index: 0,
+      },
+      {
+        text: '冒号结尾',
+        start_ms: 1000,
+        end_ms: 2000,
+        segment_index: 0,
+      },
+      {
+        text: '问号保留？”',
+        start_ms: 2000,
+        end_ms: 3000,
+        segment_index: 0,
+      },
+      {
+        text: '省略号保留……',
+        start_ms: 3000,
+        end_ms: 4000,
+        segment_index: 0,
+      },
+      {
+        text: '双引号保留”',
+        start_ms: 4000,
+        end_ms: 5000,
+        segment_index: 0,
+      },
+    ]);
+  });
 });

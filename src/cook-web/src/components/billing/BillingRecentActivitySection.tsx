@@ -2,9 +2,9 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Card, CardContent } from '@/components/ui/Card';
+import { AppPagination } from '@/components/pagination/AppPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import {
@@ -161,7 +161,7 @@ export function BillingRecentActivitySection() {
           ) : null}
           {pageCount > 1 ? (
             <div className='px-6 py-4'>
-              <AdminPagination
+              <AppPagination
                 pageIndex={currentPage}
                 pageCount={pageCount}
                 onPageChange={setPageIndex}

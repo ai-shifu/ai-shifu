@@ -29,6 +29,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 14. 听课模式 `run` 的 `audio_segment` 若已生成当前累计字幕 cue，必须同步透传到对应 element patch 的 `payload.audio.subtitle_cues`，不要等到 `audio_complete` 才返回字幕。
 15. 课程设置里的 `tts_enabled` 虽然沿用后端字段名，但前端产品语义视为“听课模式开关”；改动作者端文案或 learner 端默认模式时，必须同时检查设置页文案、课程信息映射和 `/c/...` 布局层默认 `learningMode` 是否一致。
 16. 从阅读模式切到听课模式前，如果 `record` 历史接口映射出来的首个 `text` 内容块没有 `audio_url/audioUrl`，必须拦截进入听课模式并提示用户先重修；判断范围只能看 `isHistory === true` 的历史内容，不能把后续 SSE 流里的新内容也算进去。
+17. 听课模式把后端 `subtitle_cues[].text` 透传给 `markdown-flow-ui/slide` 前，要先过滤尾部终止标点：默认删除句号、逗号、冒号、分号等收尾符号，但保留问号、叹号、省略号，以及成对标点的后半个（如 `”`、`）`、`》`）。
 
 ## 备注
 
