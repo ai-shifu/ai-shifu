@@ -199,6 +199,58 @@ def _fetch_minimax_subtitle_file(url: str) -> List[Dict[str, Any]]:
     return []
 
 
+def _looks_like_subtitle_item(value: Dict[str, Any]) -> bool:
+    if not str(value.get("text", "") or "").strip():
+        return False
+    return any(
+        key in value
+        for key in (
+            "time_begin",
+            "time_end",
+            "start_ms",
+            "end_ms",
+            "start_time",
+            "end_time",
+            "begin",
+            "end",
+        )
+    )
+
+
+def _collect_subtitle_items(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        if _looks_like_subtitle_item(value):
+            return [value]
+        for key in ("subtitles", "subtitle", "data"):
+            items = _collect_subtitle_items(value.get(key))
+            if items:
+                return items
+    if isinstance(value, str) and value.startswith(("http://", "https://")):
+        return _fetch_minimax_subtitle_file(value)
+    return []
+
+
+def _extract_minimax_subtitles(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    for container in (
+        message.get("data"),
+        message.get("extra_info"),
+        message,
+    ):
+        if not isinstance(container, dict):
+            continue
+        for key in ("subtitles", "subtitle"):
+            subtitles = _collect_subtitle_items(container.get(key))
+            if subtitles:
+                return subtitles
+        for key in ("subtitle_file", "subtitle_url", "subtitles_url"):
+            subtitles = _collect_subtitle_items(container.get(key))
+            if subtitles:
+                return subtitles
+    return []
+
+
 class MinimaxTTSProvider(BaseTTSProvider):
     """TTS provider using Minimax API."""
 
@@ -399,10 +451,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
                 raise ValueError("Invalid MiniMax HTTP streaming audio hex") from exc
 
             status = int(data.get("status") or 0)
-            is_final = status == 2 or bool(extra_info)
-            subtitles = list(data.get("subtitles") or [])
-            if not subtitles and data.get("subtitle_file"):
-                subtitles = _fetch_minimax_subtitle_file(str(data.get("subtitle_file")))
+            is_final = status == 2 or bool(extra_info) or bool(message.get("is_final"))
+            subtitles = _extract_minimax_subtitles(message)
             yield MinimaxHTTPStreamChunk(
                 audio_data=audio_data,
                 is_final=is_final,
