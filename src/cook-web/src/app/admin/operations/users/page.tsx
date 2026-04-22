@@ -463,18 +463,12 @@ export default function AdminOperationUsersPage() {
     void fetchUsers(nextPage, appliedFilters);
   };
 
-  const handleGrantSuccess = useCallback(
-    () => {
-      void fetchUsers(pageIndex, appliedFilters);
-      void mutate(
-        buildBillingSwrKey(
-          BILLING_OVERVIEW_SWR_KEY,
-          getBrowserTimeZone(),
-        ),
-      );
-    },
-    [appliedFilters, fetchUsers, mutate, pageIndex],
-  );
+  const handleGrantSuccess = useCallback(() => {
+    void fetchUsers(pageIndex, appliedFilters);
+    void mutate(
+      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
+    );
+  }, [appliedFilters, fetchUsers, mutate, pageIndex]);
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
