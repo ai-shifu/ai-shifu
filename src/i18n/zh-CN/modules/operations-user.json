@@ -1,7 +1,8 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "增加积分"
+    "grantCredits": "增加积分",
+    "moreForUser": "{user} 的更多操作"
   },
   "courseSummary": {
     "dialog": {

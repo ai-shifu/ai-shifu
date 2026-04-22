@@ -230,6 +230,11 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
 class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     """Operator credits grant request payload."""
 
+    request_id: str = Field(
+        ...,
+        description="Client request identifier for idempotent credit grants",
+        required=False,
+    )
     amount: str = Field(..., description="Granted credits amount", required=False)
     grant_source: str = Field(
         ..., description="Grant source: reward or compensation", required=False

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
@@ -231,9 +231,9 @@ def _normalize_credit_amount(value: Any) -> Decimal:
         raise_param_error("amount")
     try:
         parsed = _quantize_credit_amount(Decimal(normalized))
-    except Exception:  # pragma: no cover - Decimal error details vary
+    except (InvalidOperation, TypeError, ValueError, ArithmeticError):
         raise_param_error("amount")
-    if parsed <= Decimal("0"):
+    if not parsed.is_finite() or parsed <= Decimal("0"):
         raise_param_error("amount")
     return parsed
 
@@ -3067,6 +3067,9 @@ def grant_operator_user_credits(
             raise_param_error("validity_preset")
 
         granted_amount = _normalize_credit_amount(payload.amount)
+        normalized_request_id = str(payload.request_id or "").strip()
+        if not normalized_request_id:
+            raise_param_error("request_id")
         normalized_note = str(payload.note or "").strip()
         granted_at = datetime.now()
         expires_at = _resolve_operator_credit_grant_expiry(
@@ -3082,7 +3085,7 @@ def grant_operator_user_credits(
             source_bid=grant_bid,
             effective_from=granted_at,
             effective_to=expires_at,
-            idempotency_key=f"operator_manual_grant:{grant_bid}",
+            idempotency_key=f"operator_manual_grant:{normalized_request_id}",
             metadata={
                 "checkout_type": "manual_grant",
                 "grant_type": "manual_grant",

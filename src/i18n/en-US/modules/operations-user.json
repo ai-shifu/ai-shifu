@@ -1,7 +1,8 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "Add Credits"
+    "grantCredits": "Add Credits",
+    "moreForUser": "More actions for {user}"
   },
   "courseSummary": {
     "dialog": {

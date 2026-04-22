@@ -379,6 +379,11 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.actions.grantCredits',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.moreForUser',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('opens the credit grant dialog from the action menu', async () => {

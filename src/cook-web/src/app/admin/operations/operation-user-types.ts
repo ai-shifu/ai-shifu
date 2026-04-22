@@ -89,6 +89,7 @@ export type AdminOperationUserCreditsResponse = {
 };
 
 export type AdminOperationUserCreditGrantRequest = {
+  request_id: string;
   amount: string;
   grant_source: string;
   validity_preset: string;

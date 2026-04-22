@@ -35,6 +35,10 @@ jest.mock('@/hooks/useToast', () => ({
   }),
 }));
 
+jest.mock('uuid', () => ({
+  v4: () => 'test-request-id',
+}));
+
 jest.mock('@/lib/browser-timezone', () => ({
   getBrowserTimeZone: () => 'UTC',
 }));
@@ -325,6 +329,7 @@ describe('UserCreditGrantDialog', () => {
     await waitFor(() => {
       expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledWith({
         user_bid: 'user-1',
+        request_id: 'testrequestid',
         amount: '10',
         grant_source: 'reward',
         validity_preset: '1d',
@@ -396,9 +401,65 @@ describe('UserCreditGrantDialog', () => {
     await waitFor(() => {
       expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledWith(
         expect.objectContaining({
+          request_id: 'testrequestid',
           validity_preset: '1d',
         }),
       );
     });
+  });
+
+  test('closes the confirm dialog and shows submit errors in the main dialog', async () => {
+    mockGrantAdminOperationUserCredits.mockRejectedValueOnce(
+      new Error('grant failed'),
+    );
+
+    render(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsUser.grantDialog.placeholders.amount',
+      ),
+      {
+        target: { value: '10' },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.confirmButton',
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsUser.grantDialog.confirmTitle'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.submitButton',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request_id: 'testrequestid',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsUser.grantDialog.confirmTitle'),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('grant failed')).toBeInTheDocument();
   });
 });

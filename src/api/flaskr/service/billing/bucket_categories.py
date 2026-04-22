@@ -115,22 +115,6 @@ def resolve_wallet_bucket_runtime_category(
         load_order_type=load_order_type,
     )
 
-
-def is_manual_wallet_bucket(
-    bucket: CreditWalletBucket,
-    *,
-    load_order_type: OrderTypeLoader | None = None,
-) -> bool:
-    return (
-        resolve_wallet_bucket_runtime_category(
-            bucket,
-            load_order_type=load_order_type,
-        )
-        == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-        and int(bucket.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL
-    )
-
-
 def wallet_bucket_requires_active_subscription(
     bucket: CreditWalletBucket,
     *,

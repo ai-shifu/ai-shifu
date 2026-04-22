@@ -235,6 +235,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.updatedAt')
  * t('module.operationsUser.table.action')
  * t('module.operationsUser.actions.grantCredits')
+ * t('module.operationsUser.actions.moreForUser')
  * t('module.operationsUser.courseSummary.empty')
  * t('module.operationsUser.courseSummary.dialog.learningTitle')
  * t('module.operationsUser.courseSummary.dialog.createdTitle')
@@ -1121,6 +1122,12 @@ export default function AdminOperationUsersPage() {
                               <DropdownMenuTrigger asChild>
                                 <button
                                   type='button'
+                                  aria-label={tOperationsUsers(
+                                    'actions.moreForUser',
+                                    {
+                                      user: user.user_bid,
+                                    },
+                                  )}
                                   className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
                                 >
                                   {t('common.core.more')}

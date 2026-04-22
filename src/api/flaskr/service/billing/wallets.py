@@ -759,6 +759,12 @@ def grant_manual_credit_wallet_balance(
             creator_bid=normalized_creator_bid or None,
             amount=_credit_decimal_to_number(normalized_amount),
         )
+    if not normalized_source_bid and not normalized_idempotency_key:
+        return ManualCreditGrantResult(
+            status="error_missing_idempotency",
+            creator_bid=normalized_creator_bid,
+            amount=_credit_decimal_to_number(normalized_amount),
+        )
 
     with app.app_context():
         granted_at = effective_from or datetime.now()

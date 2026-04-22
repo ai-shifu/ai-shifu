@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
 import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
@@ -156,12 +157,14 @@ export default function UserCreditGrantDialog({
   const [formState, setFormState] = useState<FormState>(() => defaultFormState);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [requestId, setRequestId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setFormState(defaultFormState);
     setFormErrors({});
     setConfirmOpen(false);
+    setRequestId(open ? uuidv4().replace(/-/g, '') : '');
     setSubmitting(false);
   }, [defaultFormState, open]);
 
@@ -279,6 +282,7 @@ export default function UserCreditGrantDialog({
       return;
     }
     const payload: AdminOperationUserCreditGrantRequest = {
+      request_id: requestId,
       amount: formState.amount.trim(),
       grant_source: formState.source,
       validity_preset: formState.validityPreset,
@@ -299,6 +303,7 @@ export default function UserCreditGrantDialog({
       onGranted(result);
     } catch (error) {
       const resolvedError = error as ErrorWithCode;
+      setConfirmOpen(false);
       setFormErrors(current => ({
         ...current,
         submit: resolvedError.message || t('common.core.networkError'),

@@ -11,7 +11,10 @@ from flask import Flask
 
 from flaskr.service.common.models import raise_error
 
-from .bucket_categories import wallet_bucket_requires_active_subscription
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    wallet_bucket_requires_active_subscription,
+)
 from .consts import CREDIT_BUCKET_CATEGORY_SUBSCRIPTION, CREDIT_BUCKET_STATUS_ACTIVE
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
@@ -117,7 +120,10 @@ def admit_creator_usage(
             bucket
             for bucket in active_buckets
             if has_active_subscription
-            or not wallet_bucket_requires_active_subscription(bucket)
+            or not wallet_bucket_requires_active_subscription(
+                bucket,
+                load_order_type=load_billing_order_type_by_bid,
+            )
         ]
         wallet_available_credits = sum(
             (_to_decimal(bucket.available_credits) for bucket in consumable_buckets),
@@ -148,7 +154,10 @@ def admit_creator_usage(
                         active_subscription_bucket.effective_to,
                     )
                 if any(
-                    wallet_bucket_requires_active_subscription(bucket)
+                    wallet_bucket_requires_active_subscription(
+                        bucket,
+                        load_order_type=load_billing_order_type_by_bid,
+                    )
                     for bucket in active_buckets
                 ):
                     raise_error("server.billing.subscriptionInactive")
