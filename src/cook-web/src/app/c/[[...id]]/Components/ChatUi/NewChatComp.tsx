@@ -500,7 +500,7 @@ export const NewChatComponents = ({
   const readModeItems = useMemo(
     () =>
       buildReadModeItemsWithAskState({
-        items,
+        items: items.filter(item => item.type !== ChatContentItemType.ERROR),
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
       }),

@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { toast } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
@@ -123,6 +124,7 @@ jest.mock('@/c-api/studyV2', () => {
     SSE_OUTPUT_TYPE: {
       ELEMENT: 'element',
       CONTENT: 'content',
+      ERROR: 'error',
       BREAK: 'break',
       ASK: 'ask',
       TEXT_END: 'done',
@@ -517,6 +519,48 @@ describe('useChatLogicHook stream cleanup', () => {
     await waitFor(() =>
       expect(result.current.lessonFeedbackPopup.open).toBe(true),
     );
+  });
+
+  it('pushes an error item and shows a destructive toast after 3s of run stream inactivity', async () => {
+    jest.useFakeTimers();
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.some(
+          item => item.type === ChatContentItemType.ERROR,
+        ),
+      ).toBe(true),
+    );
+
+    const timeoutErrorItem = result.current.items.find(
+      item => item.type === ChatContentItemType.ERROR,
+    );
+
+    expect(timeoutErrorItem?.content).toBe('module.chat.streamTimeoutRetry');
+    expect(toast).toHaveBeenCalledWith({
+      title: 'module.chat.streamTimeoutRetry',
+      variant: 'destructive',
+    });
+    expect(activeRun?.source.close).toHaveBeenCalled();
+
+    jest.useRealTimers();
   });
 
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
