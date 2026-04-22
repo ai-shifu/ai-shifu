@@ -265,11 +265,7 @@ export default function ChatLayout({
 
     // Keep the course-scoped preference synced after user toggles mode.
     writeLearningModeToStorage(storageCourseId, learningMode);
-  }, [
-    hasListenModeOverride,
-    learningMode,
-    storageCourseId,
-  ]);
+  }, [hasListenModeOverride, learningMode, storageCourseId]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
