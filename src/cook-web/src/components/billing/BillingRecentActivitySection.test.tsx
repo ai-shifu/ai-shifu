@@ -160,7 +160,9 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.debug - Debug Course 1 - 15811237246',
       ),
     ).toBeInTheDocument();
-    expect(await screen.findByText(/Apr 6, 2026,/)).toBeInTheDocument();
+    expect(
+      await screen.findByText('Apr 6, 2026, 06:00 PM'),
+    ).toBeInTheDocument();
     expect(await screen.findByText('-2.50')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.orders.title'),

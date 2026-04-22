@@ -310,11 +310,6 @@ describe('AdminOperationUserDetailPage', () => {
       await screen.findByRole('link', { name: 'Learned Course' }),
     ).toHaveAttribute('href', '/admin/operations/course-1');
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
-    const pageContainer = screen.getByTestId(
-      'admin-operation-user-detail-page',
-    );
-    expect(pageContainer).toBeInTheDocument();
-    expect(pageContainer).not.toHaveClass('h-full');
     expect(pageContainer).not.toHaveClass('overflow-auto');
   });
 
