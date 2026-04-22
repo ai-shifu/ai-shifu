@@ -118,15 +118,19 @@ export function AdminBillingPageClient({
           </TabsList>
 
           <TabsContent
-            className='mt-0'
+            className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
             value='packages'
+            data-testid='admin-billing-packages-panel'
           >
-            <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+            <div className='pb-6'>
+              <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+            </div>
           </TabsContent>
 
           <TabsContent
             className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
             value='details'
+            data-testid='admin-billing-details-panel'
           >
             <div className='space-y-8 pb-6'>
               <BillingCreditDetailsPanel

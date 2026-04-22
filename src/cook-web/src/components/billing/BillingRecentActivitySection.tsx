@@ -159,25 +159,27 @@ export function BillingRecentActivitySection() {
               </div>
             </div>
           ) : null}
-          <div className='px-6 py-4'>
-            <AdminPagination
-              pageIndex={currentPage}
-              pageCount={pageCount}
-              onPageChange={setPageIndex}
-              prevLabel={t('module.order.paginationPrev')}
-              nextLabel={t('module.order.paginationNext')}
-              prevAriaLabel={t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              )}
-              nextAriaLabel={t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              )}
-              className='mx-0 w-full justify-end'
-              hideWhenSinglePage
-            />
-          </div>
+          {pageCount > 1 ? (
+            <div className='px-6 py-4'>
+              <AdminPagination
+                pageIndex={currentPage}
+                pageCount={pageCount}
+                onPageChange={setPageIndex}
+                prevLabel={t('module.order.paginationPrev')}
+                nextLabel={t('module.order.paginationNext')}
+                prevAriaLabel={t(
+                  'module.order.paginationPrevAriaLabel',
+                  'Go to previous page',
+                )}
+                nextAriaLabel={t(
+                  'module.order.paginationNextAriaLabel',
+                  'Go to next page',
+                )}
+                className='mx-0 w-full justify-end'
+                hideWhenSinglePage
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </section>

@@ -160,9 +160,7 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.debug - Debug Course 1 - 15811237246',
       ),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText('Apr 6, 2026, 06:00 PM'),
-    ).toBeInTheDocument();
+    expect(await screen.findAllByText(/Apr 6, 2026/)).toHaveLength(2);
     expect(await screen.findByText('-2.50')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.orders.title'),
@@ -203,6 +201,41 @@ describe('BillingRecentActivitySection', () => {
       await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
+  });
+
+  test('does not render an empty pagination footer for a single page result', async () => {
+    mockGetBillingLedger.mockResolvedValueOnce({
+      items: [
+        {
+          ledger_bid: 'ledger-1',
+          wallet_bucket_bid: 'bucket-free',
+          entry_type: 'consume',
+          source_type: 'usage',
+          source_bid: 'usage-1',
+          idempotency_key: 'usage-1-bucket-free',
+          amount: -2.5,
+          balance_after: 97.5,
+          expires_at: null,
+          consumable_from: null,
+          metadata: {
+            course_name: 'Published Course 1',
+            user_identify: 'learner@example.com',
+          },
+          created_at: '2026-04-06T10:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+
+    renderSection();
+
+    expect(await screen.findByText('-2.50')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'pagination' }),
+    ).not.toBeInTheDocument();
   });
 
   test('keeps a full 10-row skeleton height while the next ledger page is loading', async () => {
