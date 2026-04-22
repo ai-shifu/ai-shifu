@@ -292,7 +292,9 @@ describe('AdminOperationUserDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('manual top up')).toBeInTheDocument();
-    const pageContainer = screen.getByTestId('admin-operation-user-detail-page');
+    const pageContainer = screen.getByTestId(
+      'admin-operation-user-detail-page',
+    );
     expect(pageContainer).toHaveClass('h-full');
     expect(pageContainer).toHaveClass('overflow-hidden');
     expect(pageContainer).not.toHaveClass('overflow-auto');
