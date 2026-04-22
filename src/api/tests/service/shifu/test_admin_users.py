@@ -1429,7 +1429,9 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
     assert len(ledger_entries) == 1
 
 
-def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(app):
+def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(
+    app,
+):
     with app.app_context():
         _seed_user(
             app,
