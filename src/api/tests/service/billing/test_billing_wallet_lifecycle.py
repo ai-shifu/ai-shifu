@@ -10,6 +10,7 @@ import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -26,6 +27,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingSubscription,
     CreditLedgerEntry,
     CreditUsageRate,
     CreditWallet,
@@ -296,6 +298,13 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
         dao.db.session.add(wallet)
         dao.db.session.add_all(
             [
+                BillingSubscription(
+                    subscription_bid="subscription-consistency-1",
+                    creator_bid="creator-consistency-1",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=datetime(2026, 4, 8, 0, 0, 0),
+                    current_period_end_at=datetime(2026, 4, 30, 0, 0, 0),
+                ),
                 CreditWalletBucket(
                     wallet_bucket_bid="bucket-consistency-free",
                     wallet_bid=wallet.wallet_bid,
