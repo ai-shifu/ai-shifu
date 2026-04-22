@@ -3,6 +3,10 @@ import request, { attachSseBusinessResponseFallback } from '@/lib/request';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
+import {
+  MockRunStreamFixtureSource,
+  shouldUseMockStuckRunFixture,
+} from './mockRunStreamFixture';
 
 export const ELEMENT_TYPE = {
   INTERACTION: 'interaction',
@@ -286,6 +290,34 @@ export const getRunMessage = (
     // If input is string, use default 'input' as key
     payload.input = { input: [body.input] };
   }
+
+  if (shouldUseMockStuckRunFixture(body)) {
+    const source = new MockRunStreamFixtureSource();
+
+    source.addEventListener('message', event => {
+      try {
+        const response = JSON.parse((event as MessageEvent<string>).data);
+        if (onMessage) {
+          onMessage(response);
+        }
+      } catch {
+        // ignore malformed SSE payloads
+      }
+    });
+
+    source.addEventListener('error', e => {
+      if (onError) {
+        onError(e);
+        return;
+      }
+      console.error('[Mock SSE error]', e);
+    });
+
+    source.stream();
+
+    return source;
+  }
+
   const source = new SSE(
     `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
