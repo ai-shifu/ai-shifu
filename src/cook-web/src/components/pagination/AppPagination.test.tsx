@@ -1,11 +1,11 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { AdminPagination } from './AdminPagination';
+import { AppPagination } from './AppPagination';
 
-describe('AdminPagination', () => {
+describe('AppPagination', () => {
   test('hides pagination when only one page is available', () => {
     render(
-      <AdminPagination
+      <AppPagination
         pageIndex={1}
         pageCount={1}
         onPageChange={jest.fn()}
@@ -26,7 +26,7 @@ describe('AdminPagination', () => {
     const onPageChange = jest.fn();
 
     render(
-      <AdminPagination
+      <AppPagination
         pageIndex={1}
         pageCount={6}
         onPageChange={onPageChange}
@@ -53,7 +53,7 @@ describe('AdminPagination', () => {
 
   test('renders condensed page links around the current page', () => {
     render(
-      <AdminPagination
+      <AppPagination
         pageIndex={5}
         pageCount={10}
         onPageChange={jest.fn()}
@@ -80,7 +80,7 @@ describe('AdminPagination', () => {
     const onPageChange = jest.fn();
 
     render(
-      <AdminPagination
+      <AppPagination
         pageIndex={10}
         pageCount={10}
         onPageChange={onPageChange}
@@ -108,7 +108,7 @@ describe('AdminPagination', () => {
     const onPageChange = jest.fn();
 
     render(
-      <AdminPagination
+      <AppPagination
         pageIndex={1}
         pageCount={2}
         onPageChange={onPageChange}

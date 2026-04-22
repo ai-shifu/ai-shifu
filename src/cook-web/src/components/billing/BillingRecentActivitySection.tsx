@@ -4,14 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
+import { AppPagination } from '@/components/pagination/AppPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import {
@@ -95,30 +88,7 @@ export function BillingRecentActivitySection() {
 
   const ledgerItems = ledgerData?.items || [];
   const pageCount = Number(ledgerData?.page_count || 1);
-  const total = Number(ledgerData?.total || 0);
   const currentPage = Number(ledgerData?.page || pageIndex);
-  const canGoPrev = currentPage > 1;
-  const canGoNext = currentPage < pageCount;
-
-  const paginationItems = Array.from({ length: pageCount }, (_, index) => {
-    const page = index + 1;
-
-    return (
-      <PaginationItem key={page}>
-        <PaginationLink
-          href='#'
-          isActive={page === currentPage}
-          onClick={event => {
-            event.preventDefault();
-            setPageIndex(page);
-          }}
-          size='icon'
-        >
-          {page}
-        </PaginationLink>
-      </PaginationItem>
-    );
-  });
 
   return (
     <section
@@ -185,41 +155,23 @@ export function BillingRecentActivitySection() {
       </Card>
 
       {pageCount > 1 ? (
-        <Pagination className='mx-0 w-full justify-end'>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href='#'
-                aria-disabled={!canGoPrev}
-                className={!canGoPrev ? 'pointer-events-none opacity-50' : ''}
-                onClick={event => {
-                  event.preventDefault();
-                  if (canGoPrev) {
-                    setPageIndex(current => Math.max(1, current - 1));
-                  }
-                }}
-              >
-                {t('module.order.paginationPrev')}
-              </PaginationPrevious>
-            </PaginationItem>
-            {paginationItems}
-            <PaginationItem>
-              <PaginationNext
-                href='#'
-                aria-disabled={!canGoNext}
-                className={!canGoNext ? 'pointer-events-none opacity-50' : ''}
-                onClick={event => {
-                  event.preventDefault();
-                  if (canGoNext) {
-                    setPageIndex(current => Math.min(pageCount, current + 1));
-                  }
-                }}
-              >
-                {t('module.order.paginationNext')}
-              </PaginationNext>
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <AppPagination
+          pageIndex={currentPage}
+          pageCount={pageCount}
+          onPageChange={setPageIndex}
+          prevLabel={t('module.order.paginationPrev')}
+          nextLabel={t('module.order.paginationNext')}
+          prevAriaLabel={t(
+            'module.order.paginationPrevAriaLabel',
+            'Go to previous page',
+          )}
+          nextAriaLabel={t(
+            'module.order.paginationNextAriaLabel',
+            'Go to next page',
+          )}
+          className='mx-0 w-full justify-end'
+          hideWhenSinglePage
+        />
       ) : null}
     </section>
   );
