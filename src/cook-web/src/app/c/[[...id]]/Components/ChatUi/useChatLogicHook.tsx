@@ -1316,6 +1316,12 @@ function useChatLogicHook({
         }, RUN_STREAM_IDLE_TIMEOUT_MS);
       };
 
+      // Track run start event
+      trackEvent('learner_run_start', {
+        shifu_bid: shifuBid,
+        outline_bid: outlineBid,
+        learning_mode: isListenMode ? 'listen' : 'read',
+      });
       source = getRunMessage(
         shifuBid,
         outlineBid,
