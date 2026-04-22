@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
@@ -170,9 +170,18 @@ describe('BillingRecentActivitySection', () => {
       screen.getByRole('navigation', { name: 'pagination' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
-    expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
-      'overflow-auto',
-    );
+    const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
+    expect(scrollContainer).toHaveClass('overflow-auto');
+    expect(
+      within(scrollContainer).getByText(
+        'module.billing.details.usageTable.columns.scene',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(scrollContainer).getByText(
+        'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('requests the next ledger page when pagination is used', async () => {
@@ -233,6 +242,19 @@ describe('BillingRecentActivitySection', () => {
     renderSection();
 
     expect(await screen.findByText('-2.50')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'pagination' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('hides pagination when the ledger request fails', async () => {
+    mockGetBillingLedger.mockRejectedValueOnce(new Error('network error'));
+
+    renderSection();
+
+    expect(
+      await screen.findByText('module.billing.ledger.loadError'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'pagination' }),
     ).not.toBeInTheDocument();

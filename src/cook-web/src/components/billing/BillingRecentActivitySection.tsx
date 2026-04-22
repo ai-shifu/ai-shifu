@@ -114,23 +114,23 @@ export function BillingRecentActivitySection() {
           ) : null}
 
           {!ledgerError ? (
-            <div>
-              <div className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] bg-[var(--base-muted,#F5F5F5)]'>
-                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-[10px] px-[32px] pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                  {t('module.billing.details.usageTable.columns.scene')}
+            <div
+              className='overflow-auto'
+              data-testid='billing-usage-table-scroll'
+            >
+              <div className='min-w-[720px]'>
+                <div className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] bg-[var(--base-muted,#F5F5F5)]'>
+                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-[10px] px-[32px] pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                    {t('module.billing.details.usageTable.columns.scene')}
+                  </div>
+                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                    {t('module.billing.ledger.table.createdAt')}
+                  </div>
+                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
+                    {t('module.billing.ledger.table.amount')}
+                  </div>
                 </div>
-                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                  {t('module.billing.ledger.table.createdAt')}
-                </div>
-                <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                  {t('module.billing.ledger.table.amount')}
-                </div>
-              </div>
 
-              <div
-                className='overflow-auto'
-                data-testid='billing-usage-table-scroll'
-              >
                 {ledgerLoading ? <UsageTableSkeleton /> : null}
 
                 {!ledgerLoading && !ledgerItems.length ? (
@@ -159,7 +159,7 @@ export function BillingRecentActivitySection() {
               </div>
             </div>
           ) : null}
-          {pageCount > 1 ? (
+          {!ledgerError && pageCount > 1 ? (
             <div className='px-6 py-4'>
               <AppPagination
                 pageIndex={currentPage}
