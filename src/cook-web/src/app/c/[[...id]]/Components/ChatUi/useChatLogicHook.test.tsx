@@ -954,7 +954,7 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toContain('<custom-button-after-content>');
   });
 
-  it('keeps ask block position by history sequence order instead of anchor position', async () => {
+  it('places history ask block right after its anchor element across multiple content elements', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
       elements: [
@@ -1009,17 +1009,15 @@ describe('useChatLogicHook stream cleanup', () => {
         item.type === ChatContentItemType.ASK &&
         item.parent_element_bid === 'content-1',
     );
+    const contentOneIndex = result.current.items.findIndex(
+      item => item.element_bid === 'content-1',
+    );
     const contentTwoIndex = result.current.items.findIndex(
       item => item.element_bid === 'content-2',
     );
-    const contentTwoLikeStatusIndex = result.current.items.findIndex(
-      item =>
-        item.type === ChatContentItemType.LIKE_STATUS &&
-        item.parent_element_bid === 'content-2',
-    );
 
-    expect(askBlockIndex).toBeGreaterThan(contentTwoIndex);
-    expect(askBlockIndex).toBeGreaterThan(contentTwoLikeStatusIndex);
+    expect(askBlockIndex).toBeGreaterThan(contentOneIndex);
+    expect(askBlockIndex).toBeLessThan(contentTwoIndex);
   });
 
   it('inserts only one ask block and keeps it under like status', async () => {
