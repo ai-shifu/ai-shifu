@@ -131,4 +131,22 @@ describe('AppPagination', () => {
     expect(onPageChange).toHaveBeenCalledTimes(1);
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
+
+  test('falls back to page 1 when page props are not finite numbers', () => {
+    render(
+      <AppPagination
+        pageIndex={Number.NaN}
+        pageCount={Number.NaN}
+        onPageChange={jest.fn()}
+        prevLabel='Previous'
+        nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
+      />,
+    );
+
+    const currentPageLink = screen.getByRole('link', { name: '1' });
+    expect(currentPageLink).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: 'NaN' })).not.toBeInTheDocument();
+  });
 });

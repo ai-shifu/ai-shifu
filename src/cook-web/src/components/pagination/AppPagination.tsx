@@ -17,8 +17,8 @@ export type AppPaginationProps = {
   onPageChange: (page: number) => void;
   prevLabel: string;
   nextLabel: string;
-  prevAriaLabel?: string;
-  nextAriaLabel?: string;
+  prevAriaLabel: string;
+  nextAriaLabel: string;
   className?: string;
   hideWhenSinglePage?: boolean;
 };
@@ -73,14 +73,16 @@ export function AppPagination({
   onPageChange,
   prevLabel,
   nextLabel,
-  prevAriaLabel = 'Go to previous page',
-  nextAriaLabel = 'Go to next page',
+  prevAriaLabel,
+  nextAriaLabel,
   className,
   hideWhenSinglePage = false,
 }: AppPaginationProps) {
-  const normalizedPageCount = Math.max(pageCount, 1);
+  const safePageCount = Number.isFinite(pageCount) ? pageCount : 1;
+  const normalizedPageCount = Math.max(safePageCount, 1);
+  const safePageIndex = Number.isFinite(pageIndex) ? pageIndex : 1;
   const normalizedPageIndex = Math.min(
-    Math.max(pageIndex, 1),
+    Math.max(safePageIndex, 1),
     normalizedPageCount,
   );
 
