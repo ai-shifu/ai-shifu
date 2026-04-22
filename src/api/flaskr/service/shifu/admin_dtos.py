@@ -170,6 +170,11 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Earliest active creator credit expiry",
         required=False,
     )
+    has_active_subscription: bool = Field(
+        default=False,
+        description="Whether the user currently has an active subscription",
+        required=False,
+    )
     last_login_at: str = Field(
         default="",
         description="Latest login timestamp",
@@ -210,6 +215,62 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
         default="",
         description="Earliest active creator credit expiry",
         required=False,
+    )
+    has_active_subscription: bool = Field(
+        default=False,
+        description="Whether the user currently has an active subscription",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditGrantRequestDTO(BaseModel):
+    """Operator credits grant request payload."""
+
+    request_id: str = Field(
+        ...,
+        description="Client request identifier for idempotent credit grants",
+        required=False,
+    )
+    amount: str = Field(..., description="Granted credits amount", required=False)
+    grant_source: str = Field(
+        ..., description="Grant source: reward or compensation", required=False
+    )
+    validity_preset: str = Field(
+        ..., description="Grant validity preset", required=False
+    )
+    note: str = Field(default="", description="Optional operator note", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditGrantResultDTO(BaseModel):
+    """Operator credits grant response payload."""
+
+    user_bid: str = Field(..., description="Target user business identifier")
+    amount: str = Field(..., description="Granted credits amount", required=False)
+    grant_source: str = Field(
+        ..., description="Grant source: reward or compensation", required=False
+    )
+    validity_preset: str = Field(
+        ..., description="Applied validity preset", required=False
+    )
+    expires_at: str = Field(
+        default="", description="Resolved expiry timestamp", required=False
+    )
+    wallet_bucket_bid: str = Field(
+        ..., description="Created wallet bucket identifier", required=False
+    )
+    ledger_bid: str = Field(
+        ..., description="Created ledger identifier", required=False
+    )
+    summary: AdminOperationUserCreditSummaryDTO = Field(
+        ..., description="Refreshed credits summary", required=False
     )
 
     def __json__(self) -> dict[str, Any]:

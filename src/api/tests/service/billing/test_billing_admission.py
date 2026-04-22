@@ -185,6 +185,78 @@ def test_admit_creator_usage_rejects_topup_credits_without_active_subscription(
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionInactive"]
 
 
+def test_admit_creator_usage_allows_manual_grant_without_active_subscription(
+    billing_admission_app: Flask,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-manual-no-sub-1",
+                created_user_bid="creator-manual-no-sub-1",
+            )
+        )
+        dao.db.session.add(_create_wallet("creator-manual-no-sub-1", "6.0000000000"))
+        dao.db.session.add(
+            _create_bucket(
+                "creator-manual-no-sub-1",
+                category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                available_credits="6.0000000000",
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            )
+        )
+        dao.db.session.commit()
+
+    payload = admit_creator_usage(
+        billing_admission_app,
+        shifu_bid="shifu-manual-no-sub-1",
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+
+    assert payload["allowed"] is True
+    assert payload["creator_bid"] == "creator-manual-no-sub-1"
+    assert payload["wallet_available_credits"] == Decimal("6.0000000000")
+
+
+def test_admit_creator_usage_prefers_manual_grant_balance_when_topup_exists_without_subscription(
+    billing_admission_app: Flask,
+) -> None:
+    with billing_admission_app.app_context():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid="shifu-manual-topup-no-sub-1",
+                created_user_bid="creator-manual-topup-no-sub-1",
+            )
+        )
+        dao.db.session.add(
+            _create_wallet("creator-manual-topup-no-sub-1", "10.0000000000")
+        )
+        dao.db.session.add(
+            _create_bucket(
+                "creator-manual-topup-no-sub-1",
+                category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                available_credits="4.0000000000",
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            )
+        )
+        dao.db.session.add(
+            _create_bucket(
+                "creator-manual-topup-no-sub-1",
+                category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                available_credits="6.0000000000",
+            )
+        )
+        dao.db.session.commit()
+
+    payload = admit_creator_usage(
+        billing_admission_app,
+        shifu_bid="shifu-manual-topup-no-sub-1",
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+
+    assert payload["allowed"] is True
+    assert payload["wallet_available_credits"] == Decimal("4.0000000000")
+
+
 def test_admit_creator_usage_rejects_missing_credits(
     billing_admission_app: Flask,
 ) -> None:
