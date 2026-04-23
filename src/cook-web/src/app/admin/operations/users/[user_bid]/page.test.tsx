@@ -86,8 +86,24 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+}));
+
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  TooltipProvider: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  TooltipContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/loading', () => ({
@@ -195,11 +211,12 @@ const detailResponse = {
   available_credits: '35.5',
   subscription_credits: '27.5',
   topup_credits: '8',
-  credits_expire_at: '2026-05-01 00:00:00',
-  last_login_at: '2026-04-15 09:00:00',
-  last_learning_at: '2026-04-15 10:00:00',
-  created_at: '2026-04-14 10:00:00',
-  updated_at: '2026-04-14 11:00:00',
+  credits_expire_at: '2026-05-01T00:00:00Z',
+  has_active_subscription: true,
+  last_login_at: '2026-04-15T09:00:00Z',
+  last_learning_at: '2026-04-15T10:00:00Z',
+  created_at: '2026-04-14T10:00:00Z',
+  updated_at: '2026-04-14T11:00:00Z',
 };
 
 const creditsResponse = {
@@ -207,21 +224,22 @@ const creditsResponse = {
     available_credits: '35.5',
     subscription_credits: '27.5',
     topup_credits: '8',
-    credits_expire_at: '2026-05-01 00:00:00',
+    credits_expire_at: '2026-05-01T00:00:00Z',
+    has_active_subscription: true,
   },
   items: [
     {
       ledger_bid: 'ledger-1',
-      created_at: '2026-04-18 10:00:00',
-      entry_type: 'adjustment',
-      source_type: 'manual',
-      display_entry_type: 'manual_credit',
-      display_source_type: 'manual',
+      created_at: '2026-04-18T10:00:00Z',
+      entry_type: 'grant',
+      source_type: 'reward',
+      display_entry_type: 'manual_grant',
+      display_source_type: 'reward',
       amount: '5',
       balance_after: '35.5',
       expires_at: '',
-      consumable_from: '2026-04-18 10:00:00',
-      note: 'manual top up',
+      consumable_from: '2026-04-18T10:00:00Z',
+      note: 'ops reward',
       note_code: '',
     },
   ],
@@ -283,15 +301,15 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'module.operationsUser.detail.creditLedgerTypeLabels.manual_credit',
+        'module.operationsUser.detail.creditLedgerTypeLabels.manual_grant',
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'module.operationsUser.detail.creditLedgerSourceLabels.manual',
+        'module.operationsUser.detail.creditLedgerSourceLabels.reward',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('manual top up')).toBeInTheDocument();
+    expect(screen.getByText('ops reward')).toBeInTheDocument();
     const pageContainer = screen.getByTestId(
       'admin-operation-user-detail-page',
     );
@@ -321,15 +339,15 @@ describe('AdminOperationUserDetailPage', () => {
       items: [
         {
           ledger_bid: 'ledger-2',
-          created_at: '2026-04-19 10:00:00',
+          created_at: '2026-04-19T10:00:00Z',
           entry_type: 'grant',
           source_type: 'subscription',
           display_entry_type: 'subscription_grant',
           display_source_type: 'subscription',
           amount: '10',
           balance_after: '45.5',
-          expires_at: '2026-05-01 00:00:00',
-          consumable_from: '2026-04-19 10:00:00',
+          expires_at: '2026-05-01T00:00:00Z',
+          consumable_from: '2026-04-19T10:00:00Z',
           note: '',
           note_code: 'subscription_purchase',
         },
@@ -443,6 +461,7 @@ describe('AdminOperationUserDetailPage', () => {
       subscription_credits: '',
       topup_credits: '',
       credits_expire_at: '',
+      has_active_subscription: false,
     });
     mockGetAdminOperationUserCredits.mockResolvedValueOnce({
       summary: {
@@ -450,6 +469,7 @@ describe('AdminOperationUserDetailPage', () => {
         subscription_credits: '',
         topup_credits: '',
         credits_expire_at: '',
+        has_active_subscription: false,
       },
       items: [],
       page: 1,

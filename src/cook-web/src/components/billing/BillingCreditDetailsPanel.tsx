@@ -45,7 +45,13 @@ const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
 
 function buildCategorySummary(
   buckets: BillingWalletBucket[],
+  options: {
+    hasActiveSubscription: boolean;
+    activeSubscriptionEffectiveTo: string | null;
+  },
 ): CategorySummaryRow[] {
+  const { activeSubscriptionEffectiveTo, hasActiveSubscription } = options;
+
   return CATEGORY_ORDER.flatMap(category => {
     const activeBuckets = buckets.filter(
       bucket => bucket.category === category && bucket.status === 'active',
@@ -56,7 +62,34 @@ function buildCategorySummary(
         {
           category,
           availableCredits: 0,
-          effectiveTo: null,
+          effectiveTo:
+            category === 'subscription' && hasActiveSubscription
+              ? activeSubscriptionEffectiveTo
+              : null,
+        },
+      ];
+    }
+
+    if (category === 'subscription') {
+      const manualGrantExpiry = activeBuckets
+        .filter(
+          bucket =>
+            bucket.source_type === 'manual' &&
+            Boolean(bucket.effective_to?.trim()),
+        )
+        .map(bucket => bucket.effective_to as string)
+        .sort((left, right) => left.localeCompare(right))[0];
+
+      return [
+        {
+          category,
+          availableCredits: activeBuckets.reduce(
+            (total, bucket) => total + Number(bucket.available_credits || 0),
+            0,
+          ),
+          effectiveTo: hasActiveSubscription
+            ? activeSubscriptionEffectiveTo
+            : manualGrantExpiry || null,
         },
       ];
     }
@@ -149,10 +182,22 @@ export function BillingCreditDetailsPanel({
     error: bucketsError,
     isLoading: bucketsLoading,
   } = useBillingWalletBuckets();
+  const hasActiveSubscription = Boolean(
+    overview?.subscription &&
+    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
+  );
+  const activeSubscriptionEffectiveTo =
+    hasActiveSubscription && overview?.subscription?.current_period_end_at
+      ? String(overview.subscription.current_period_end_at)
+      : null;
 
   const summaryRows = useMemo(
-    () => buildCategorySummary(bucketList?.items || []),
-    [bucketList?.items],
+    () =>
+      buildCategorySummary(bucketList?.items || [], {
+        hasActiveSubscription,
+        activeSubscriptionEffectiveTo,
+      }),
+    [activeSubscriptionEffectiveTo, bucketList?.items, hasActiveSubscription],
   );
 
   const totalCreditsLabel = formatBillingCredits(

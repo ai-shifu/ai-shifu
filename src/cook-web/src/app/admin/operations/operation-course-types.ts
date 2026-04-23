@@ -115,3 +115,78 @@ export type AdminOperationCourseUsersResponse = {
   page_size: number;
   total: number;
 };
+
+export type AdminOperationCourseFollowUpSummary = {
+  follow_up_count: number;
+  user_count: number;
+  lesson_count: number;
+  latest_follow_up_at: string;
+};
+
+export type AdminOperationCourseFollowUpItem = {
+  generated_block_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  follow_up_content: string;
+  turn_index: number;
+  created_at: string;
+};
+
+export type AdminOperationCourseFollowUpListResponse = {
+  summary: AdminOperationCourseFollowUpSummary;
+  items: AdminOperationCourseFollowUpItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  page_count: number;
+};
+
+export type AdminOperationCourseFollowUpDetailBasicInfo = {
+  generated_block_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  course_name: string;
+  shifu_bid: string;
+  chapter_title: string;
+  lesson_title: string;
+  created_at: string;
+  turn_index: number;
+};
+
+export type AdminOperationCourseFollowUpCurrentRecord = {
+  follow_up_content: string;
+  answer_content: string;
+  source_output_content: string;
+  source_output_type: string;
+  source_position: number;
+  source_element_bid: string;
+  source_element_type: string;
+};
+
+export type AdminOperationCourseFollowUpTimelineRole =
+  | 'student'
+  | 'teacher'
+  | LooseString;
+
+export type AdminOperationCourseFollowUpTimelineItem = {
+  role: AdminOperationCourseFollowUpTimelineRole;
+  content: string;
+  created_at: string;
+  is_current: boolean;
+};
+
+export type AdminOperationCourseFollowUpDetailResponse = {
+  basic_info: AdminOperationCourseFollowUpDetailBasicInfo;
+  current_record: AdminOperationCourseFollowUpCurrentRecord;
+  timeline: AdminOperationCourseFollowUpTimelineItem[];
+};

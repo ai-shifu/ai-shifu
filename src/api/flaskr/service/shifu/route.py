@@ -103,8 +103,11 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    get_operator_course_follow_up_detail,
+    get_operator_course_follow_ups,
     get_operator_user_detail,
     get_operator_user_credits,
+    grant_operator_user_credits,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
@@ -112,6 +115,7 @@ from flaskr.service.shifu.admin import (
     list_operator_users,
     transfer_operator_course_creator,
 )
+from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -730,6 +734,48 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
     @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
+        methods=["POST"],
+    )
+    def admin_operation_user_credit_grant(user_bid: str):
+        """
+        Grant operator user credits
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/AdminOperationUserCreditGrantRequestDTO"
+        responses:
+            200:
+                description: Operator user credits grant result
+        """
+        _require_operator()
+        try:
+            payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
+                request.get_json() or {}
+            )
+        except Exception:
+            raise_param_error("credits_grant_payload")
+        return make_common_response(
+            grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
     )
     def admin_operation_course_detail(shifu_bid: str):
@@ -884,6 +930,127 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/follow-ups",
+        methods=["GET"],
+    )
+    def admin_operation_course_follow_ups(shifu_bid: str):
+        """
+        Get operator course follow-up list
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: chapter_keyword
+              in: query
+              type: string
+              required: false
+              description: Chapter or lesson keyword
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
+        responses:
+            200:
+                description: Operator course follow-up list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "chapter_keyword": request.args.get("chapter_keyword", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            get_operator_course_follow_ups(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/courses/<shifu_bid>/follow-ups/<generated_block_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_course_follow_up_detail(
+        shifu_bid: str,
+        generated_block_bid: str,
+    ):
+        """
+        Get operator course follow-up detail
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: generated_block_bid
+              in: path
+              type: string
+              required: true
+              description: Follow-up generated block bid
+        responses:
+            200:
+                description: Operator course follow-up detail
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_course_follow_up_detail(
+                app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
             )
         )
 

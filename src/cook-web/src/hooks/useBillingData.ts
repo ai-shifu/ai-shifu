@@ -14,7 +14,7 @@ const BILLING_SWR_OPTIONS = {
 } as const;
 
 const BILLING_BOOTSTRAP_SWR_KEY = ['creator-billing-bootstrap'] as const;
-const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
+export const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
 export const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
 
 function useBillingEnabled(): boolean {
