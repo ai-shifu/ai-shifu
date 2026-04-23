@@ -34,6 +34,7 @@ import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
@@ -452,6 +453,7 @@ const ScriptManagementPage = () => {
 
   return (
     <>
+      <MobileUnsupportedDialog />
       <AlertDialog
         open={archiveDialogOpen}
         onOpenChange={open => {
