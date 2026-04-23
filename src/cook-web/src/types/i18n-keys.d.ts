@@ -23,6 +23,8 @@ export type I18nKey =
   | 'common.core.expand'
   | 'common.core.follow'
   | 'common.core.logout'
+  | 'common.core.mobileUnsupportedDescription'
+  | 'common.core.mobileUnsupportedTitle'
   | 'common.core.more'
   | 'common.core.networkError'
   | 'common.core.noMoreShifus'

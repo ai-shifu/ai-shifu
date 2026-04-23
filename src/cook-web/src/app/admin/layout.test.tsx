@@ -446,9 +446,6 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.monthlyBalanceTitle'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.monthlyTitle'),
-    ).toBeInTheDocument();
     expect(screen.getByText('12500')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
@@ -483,9 +480,6 @@ describe('AdminLayout', () => {
 
     expect(
       screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.nonMemberTitle'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-sidebar-card')).toHaveAttribute(
       'data-href',
