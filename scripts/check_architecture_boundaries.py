@@ -24,6 +24,7 @@ IMPORT_FROM_PATTERN = re.compile(
 )
 FETCH_PATTERN = re.compile(r"\bfetch\s*\(")
 ROUTE_FILE_NAMES = {"route.py", "routes.py"}
+FRONTEND_IMPORT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
 FRONTEND_FETCH_ALLOWLIST = {
     "lib/request.ts",
     "lib/api.ts",
@@ -69,25 +70,27 @@ def collect_frontend_imports(path: Path, frontend_root: Path) -> list[str]:
     return imports
 
 
-def resolve_frontend_alias(import_source: str, frontend_root: Path) -> Path | None:
+def resolve_frontend_import(
+    import_source: str, source_path: Path, frontend_root: Path
+) -> Path | None:
     if import_source.startswith("@/"):
         base = (frontend_root / import_source[2:]).resolve()
-        candidates = [
-            base,
-            base.with_suffix(".ts"),
-            base.with_suffix(".tsx"),
-            base.with_suffix(".js"),
-            base.with_suffix(".jsx"),
-            base / "index.ts",
-            base / "index.tsx",
-            base / "index.js",
-            base / "index.jsx",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-        return base
-    return None
+    elif import_source.startswith("."):
+        base = (source_path.parent / import_source).resolve()
+    else:
+        return None
+
+    candidates = [base]
+    candidates.extend(
+        base.with_suffix(extension) for extension in FRONTEND_IMPORT_EXTENSIONS
+    )
+    candidates.extend(
+        base / f"index{extension}" for extension in FRONTEND_IMPORT_EXTENSIONS
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return base
 
 
 def top_level_route_scope(app_relative_path: Path) -> str:
@@ -96,6 +99,8 @@ def top_level_route_scope(app_relative_path: Path) -> str:
             continue
         if part.startswith("(") and part.endswith(")"):
             continue
+        if Path(part).suffix:
+            return "__root__"
         return part
     return "__root__"
 
@@ -138,12 +143,14 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
         source_under_components = path.is_relative_to(components_root)
 
         for import_source in imports:
-            target_path = resolve_frontend_alias(import_source, frontend_root)
+            target_path = resolve_frontend_import(import_source, path, frontend_root)
             if target_path is None:
                 continue
             if not target_path.exists():
                 # Static alias resolution is best-effort; unresolved paths may still
                 # point to TS path aliases or generated files, so skip them.
+                continue
+            if target_path.suffix not in FRONTEND_IMPORT_EXTENSIONS:
                 continue
 
             if source_under_app and target_path.is_relative_to(app_root):
@@ -194,7 +201,46 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
     return violations
 
 
-def iter_python_imports(path: Path) -> list[str]:
+def python_module_parts(path: Path, backend_root: Path) -> list[str]:
+    relative = path.relative_to(backend_root).with_suffix("")
+    parts = list(relative.parts)
+    return parts[:-1]
+
+
+def resolve_backend_relative_import(
+    path: Path, backend_root: Path, node: ast.ImportFrom
+) -> list[str]:
+    package_parts = python_module_parts(path, backend_root)
+    keep_count = len(package_parts) - max(node.level - 1, 0)
+    if keep_count < 0:
+        return []
+
+    base_parts = package_parts[:keep_count]
+    module_parts = node.module.split(".") if node.module else []
+    resolved_parts = base_parts + module_parts
+    if not resolved_parts:
+        return []
+
+    resolved_module = ".".join(resolved_parts)
+    module_path = backend_root.joinpath(*resolved_parts)
+    if not module_path.is_dir():
+        return [resolved_module]
+
+    child_modules: list[str] = []
+    for alias in node.names:
+        if alias.name == "*":
+            continue
+        child_path = module_path / alias.name
+        if (
+            child_path.with_suffix(".py").exists()
+            or (child_path / "__init__.py").exists()
+        ):
+            child_modules.append(f"{resolved_module}.{alias.name}")
+
+    return child_modules or [resolved_module]
+
+
+def iter_python_imports(path: Path, backend_root: Path) -> list[str]:
     imports: list[str] = []
     tree = ast.parse(read_text(path), filename=str(path))
     for node in ast.walk(tree):
@@ -203,9 +249,10 @@ def iter_python_imports(path: Path) -> list[str]:
                 imports.append(alias.name)
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
-            if node.level and module:
-                # Relative imports stay within the same package; we do not map them
-                # across service boundaries in the first-wave checker.
+            if node.level:
+                imports.extend(
+                    resolve_backend_relative_import(path, backend_root, node)
+                )
                 continue
             if module:
                 imports.append(module)
@@ -229,7 +276,7 @@ def collect_backend_violations(backend_root: Path) -> list[Violation]:
         source_service = parts[0]
         is_route_adapter = path.name in ROUTE_FILE_NAMES
 
-        for module in iter_python_imports(path):
+        for module in iter_python_imports(path, backend_root):
             if module.startswith("flaskr.route.") and not is_route_adapter:
                 rule_id = "backend.service_imports_root_route"
                 violations.append(

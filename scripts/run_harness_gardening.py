@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -27,6 +28,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUMMARY = ROOT / "docs" / "generated" / "harness-gardening-summary.md"
 REVIEW_WINDOW_DAYS = 120
 RETIRED_TERM_PATTERNS = ("tasks.md", "temporary root checklist")
+ALLOWED_RETIRED_TERM_PATTERNS = {
+    ROOT / "AGENTS.md": (
+        re.compile(r"Do not create new root `tasks\.md` checklists\."),
+    ),
+    ROOT / "PLANS.md": (re.compile(r"Repository-root `tasks\.md` is retired\."),),
+}
 RETIRED_TERM_SCAN_PATHS = (
     ROOT / "AGENTS.md",
     ROOT / "ARCHITECTURE.md",
@@ -72,9 +79,16 @@ def retired_term_hits() -> list[str]:
             files.extend(sorted(path.rglob("*.md")))
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
-        for term in RETIRED_TERM_PATTERNS:
-            if term in text:
-                hits.append(f"{path.relative_to(ROOT)} contains retired term `{term}`")
+        allowed_patterns = ALLOWED_RETIRED_TERM_PATTERNS.get(path, ())
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if any(pattern.search(line) for pattern in allowed_patterns):
+                continue
+            for term in RETIRED_TERM_PATTERNS:
+                if term in line:
+                    hits.append(
+                        f"{path.relative_to(ROOT)}:{line_number} contains retired "
+                        f"term `{term}`"
+                    )
     return hits
 
 

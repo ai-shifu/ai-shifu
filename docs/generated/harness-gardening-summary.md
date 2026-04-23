@@ -3,10 +3,7 @@
 # Harness Gardening Summary
 
 - Stale docs: `0`
-- Retired term hits: `2`
+- Retired term hits: `0`
 - Stale boundary baseline entries: `0`
 
-## Retired Workflow Terms
-
-- AGENTS.md contains retired term `tasks.md`
-- PLANS.md contains retired term `tasks.md`
+No harness drift detected.
