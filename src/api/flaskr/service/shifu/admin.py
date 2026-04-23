@@ -2472,6 +2472,7 @@ def _resolve_follow_up_source_from_element(
     *,
     shifu_bid: str,
     user_bid: str,
+    progress_record_bid: str,
     answer_generated_block_bid: str,
     fallback_position: int,
     ask_created_at: datetime | None,
@@ -2481,10 +2482,12 @@ def _resolve_follow_up_source_from_element(
     ).strip()
     normalized_user_bid = str(user_bid or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
     if (
         not normalized_answer_generated_block_bid
         or not normalized_user_bid
         or not normalized_shifu_bid
+        or not normalized_progress_record_bid
     ):
         return {}
 
@@ -2494,6 +2497,8 @@ def _resolve_follow_up_source_from_element(
             == normalized_answer_generated_block_bid,
             LearnGeneratedElement.user_bid == normalized_user_bid,
             LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
+            LearnGeneratedElement.progress_record_bid
+            == normalized_progress_record_bid,
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.element_type.in_(
                 [ElementType.ASK.value, ElementType.ANSWER.value]
@@ -2525,6 +2530,7 @@ def _resolve_follow_up_source_from_element(
     anchor_query = LearnGeneratedElement.query.filter(
         LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
         LearnGeneratedElement.user_bid == normalized_user_bid,
+        LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
         LearnGeneratedElement.event_type == "element",
         or_(
             LearnGeneratedElement.element_bid == anchor_element_bid,
@@ -2638,6 +2644,9 @@ def _resolve_follow_up_source(
         source = _resolve_follow_up_source_from_element(
             shifu_bid=str(getattr(ask_block, "shifu_bid", "") or ""),
             user_bid=str(getattr(ask_block, "user_bid", "") or ""),
+            progress_record_bid=str(
+                getattr(ask_block, "progress_record_bid", "") or ""
+            ),
             answer_generated_block_bid=str(
                 getattr(answer_block, "generated_block_bid", "") or ""
             ),

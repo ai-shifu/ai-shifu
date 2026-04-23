@@ -2356,6 +2356,118 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
     assert payload["data"]["current_record"]["source_element_type"] == "img"
 
 
+def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_progress_record(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            user_bid="student-1",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            updated_at=datetime(2026, 4, 4, 10, 0, 0),
+        )
+        db.session.add(
+            LearnProgressRecord(
+                progress_record_bid="progress-student-1-lesson-1-603",
+                shifu_bid="course-detail",
+                outline_item_bid="lesson-1",
+                user_bid="student-1",
+                status=LEARN_STATUS_IN_PROGRESS,
+                created_at=datetime(2026, 4, 4, 10, 5, 0),
+                updated_at=datetime(2026, 4, 4, 10, 5, 0),
+            )
+        )
+        _seed_follow_up_pair(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-student-1-lesson-1-602",
+            user_bid="student-1",
+            ask_bid="ask-listen-progress-1",
+            ask_content="Can you explain this image from the current attempt?",
+            ask_position=4,
+            ask_created_at=datetime(2026, 4, 4, 10, 2, 0),
+            answer_bid="answer-listen-progress-1",
+            answer_content="This image shows the current attempt source.",
+            answer_created_at=datetime(2026, 4, 4, 10, 2, 3),
+        )
+        _seed_follow_up_anchor_element(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-student-1-lesson-1-602",
+            user_bid="student-1",
+            answer_generated_block_bid="answer-listen-progress-1",
+            anchor_element_bid="shared-anchor-element-1",
+            anchor_element_type="img",
+            anchor_content_text="Current progress image description",
+            created_at=datetime(2026, 4, 4, 10, 1, 20),
+        )
+        _seed_generated_element(
+            element_bid="shared-anchor-element-1",
+            progress_record_bid="progress-student-1-lesson-1-603",
+            user_bid="student-1",
+            generated_block_bid="other-progress-source-block-1",
+            outline_item_bid="lesson-1",
+            shifu_bid="course-detail",
+            created_at=datetime(2026, 4, 4, 10, 1, 50),
+            role="teacher",
+            element_type="img",
+            content_text="Other progress image description that should stay isolated",
+            payload="{}",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-listen-progress-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["current_record"]["source_output_content"] == (
+        "Current progress image description"
+    )
+    assert payload["data"]["current_record"]["source_element_bid"] == (
+        "shared-anchor-element-1"
+    )
+    assert payload["data"]["current_record"]["source_element_type"] == "img"
+
+
 def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_snapshot(
     app,
     test_client,
