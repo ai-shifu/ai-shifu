@@ -743,6 +743,54 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(askBlock?.isAskExpanded).toBe(false);
   });
 
+  it('re-adds the mobile follow-up button for history content after switching from listen mode to read mode', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'History lesson summary',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result, rerender } = renderHook(
+      ({ isListenMode }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+        }),
+      {
+        wrapper: mobileWrapper,
+        initialProps: {
+          isListenMode: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
+
+    rerender({ isListenMode: false });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+  });
+
   it('finalizes previous mobile content when a new element arrives', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
