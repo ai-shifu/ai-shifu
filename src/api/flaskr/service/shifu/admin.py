@@ -2497,8 +2497,7 @@ def _resolve_follow_up_source_from_element(
             == normalized_answer_generated_block_bid,
             LearnGeneratedElement.user_bid == normalized_user_bid,
             LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
-            LearnGeneratedElement.progress_record_bid
-            == normalized_progress_record_bid,
+            LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.element_type.in_(
                 [ElementType.ASK.value, ElementType.ANSWER.value]
