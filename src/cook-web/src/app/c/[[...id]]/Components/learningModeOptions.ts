@@ -8,10 +8,10 @@ type LearningModeOption = {
 
 export const LEARNING_MODE_OPTIONS = [
   {
-    mode: 'listen',
+    mode: 'read',
   },
   {
-    mode: 'read',
+    mode: 'listen',
   },
 ] as const satisfies readonly LearningModeOption[];
 
