@@ -1,5 +1,6 @@
 import type { ChatContentItem } from './useChatLogicHook';
 import type {
+  SubtitleCueData,
   StudyRecordAudioPayload,
   StudyRecordPayload,
 } from '@/c-api/studyV2';
@@ -53,16 +54,12 @@ const sortSubtitleCues = (cues: ElementSubtitleCue[]) =>
 
 interface ListenSlideSubtitleCueSource {
   payload?: StudyRecordPayload;
+  audioTracks?: ChatContentItem['audioTracks'];
 }
 
-export const resolveListenSlideSubtitleCues = (
-  item: ListenSlideSubtitleCueSource,
+const normalizeSubtitleCueList = (
+  rawSubtitleCues: unknown,
 ): ElementSubtitleCue[] | undefined => {
-  const audioPayload = item.payload?.audio as
-    | StudyRecordAudioPayload
-    | undefined;
-  const rawSubtitleCues = audioPayload?.subtitle_cues as unknown;
-
   if (!Array.isArray(rawSubtitleCues)) {
     return undefined;
   }
@@ -105,6 +102,54 @@ export const resolveListenSlideSubtitleCues = (
   return normalizedSubtitleCues.length > 0
     ? sortSubtitleCues(normalizedSubtitleCues)
     : undefined;
+};
+
+const resolveTrackSubtitleCueSource = (
+  tracks: AudioTrack[] = [],
+): SubtitleCueData[] | undefined => {
+  for (const track of sortByPosition(tracks)) {
+    if (!hasAudioContentInTrack(track)) {
+      continue;
+    }
+
+    if (Array.isArray(track.subtitleCues) && track.subtitleCues.length > 0) {
+      return track.subtitleCues;
+    }
+
+    const latestSegmentWithSubtitleCues = [
+      ...sortSegmentsByIndex(track.audioSegments ?? []),
+    ]
+      .reverse()
+      .find(
+        segment =>
+          Array.isArray(segment.subtitleCues) &&
+          segment.subtitleCues.length > 0,
+      );
+
+    if (latestSegmentWithSubtitleCues?.subtitleCues?.length) {
+      return latestSegmentWithSubtitleCues.subtitleCues;
+    }
+  }
+
+  return undefined;
+};
+
+export const resolveListenSlideSubtitleCues = (
+  item: ListenSlideSubtitleCueSource,
+): ElementSubtitleCue[] | undefined => {
+  const audioPayload = item.payload?.audio as
+    | StudyRecordAudioPayload
+    | undefined;
+  const payloadSubtitleCues = normalizeSubtitleCueList(
+    audioPayload?.subtitle_cues,
+  );
+  if (payloadSubtitleCues) {
+    return payloadSubtitleCues;
+  }
+
+  return normalizeSubtitleCueList(
+    resolveTrackSubtitleCueSource(item.audioTracks ?? []),
+  );
 };
 
 export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
