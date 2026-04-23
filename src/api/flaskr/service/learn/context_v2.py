@@ -729,7 +729,12 @@ class RunScriptPreviewContextV2:
                 visual_mode=bool(preview_request.visual_mode),
             )
 
-            block_index = preview_request.block_index
+            block_index = self._resolve_preview_block_index(
+                mdflow_context,
+                preview_request.block_index,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+            )
             current_block = mdflow_context.get_block(block_index)
             current_block_content = ""
             if current_block:
@@ -803,6 +808,36 @@ class RunScriptPreviewContextV2:
             )
             if restore_language:
                 set_language(original_language)
+
+    def _resolve_preview_block_index(
+        self,
+        mdflow_context: MdflowContextV2,
+        requested_block_index: int,
+        *,
+        shifu_bid: str,
+        outline_bid: str,
+    ) -> int:
+        block_count = len(mdflow_context.get_all_blocks() or [])
+        if block_count <= 0:
+            raise ValueError("Markdown-Flow content has no previewable blocks")
+
+        if requested_block_index < 0:
+            raise ValueError(f"block_index must be >= 0, got {requested_block_index}")
+
+        if requested_block_index >= block_count:
+            fallback_block_index = block_count - 1
+            self.app.logger.warning(
+                "preview block index out of range, fallback to last block | "
+                "shifu_bid=%s | outline_bid=%s | requested=%s | total=%s | fallback=%s",
+                shifu_bid,
+                outline_bid,
+                requested_block_index,
+                block_count,
+                fallback_block_index,
+            )
+            return fallback_block_index
+
+        return requested_block_index
 
     def _update_preview_context(
         self,
