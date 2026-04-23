@@ -50,6 +50,7 @@ import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
+import { buildAdminOperationsCourseFollowUpsUrl } from '../operation-course-routes';
 import type {
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
@@ -374,6 +375,10 @@ export default function AdminOperationCourseDetailPage() {
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
+  const followUpPageUrl = useMemo(
+    () => buildAdminOperationsCourseFollowUpsUrl(shifuBid),
+    [shifuBid],
+  );
   const emptyValue = '--';
   const unknownErrorMessage = t('common.core.unknownError');
   const contactMode = useMemo(
@@ -633,13 +638,24 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.metricsLabels.followUpCount'),
         value: formatCount(detail.metrics.follow_up_count),
+        onClick: followUpPageUrl
+          ? () => router.push(followUpPageUrl)
+          : undefined,
+        actionLabel: tOperations('detail.followUps.openMetric'),
       },
       {
         label: tOperations('detail.metricsLabels.ratingScore'),
         value: detail.metrics.rating_score || emptyValue,
       },
     ],
-    [currencySymbol, detail.metrics, emptyValue, tOperations],
+    [
+      currencySymbol,
+      detail.metrics,
+      emptyValue,
+      followUpPageUrl,
+      router,
+      tOperations,
+    ],
   );
 
   const resolveCourseUserRoleLabel = useCallback(
@@ -1300,19 +1316,48 @@ export default function AdminOperationCourseDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
-                  {metricCards.map(card => (
-                    <div
-                      key={card.label}
-                      className='rounded-lg border border-border/70 bg-muted/20 p-4'
-                    >
-                      <div className='text-sm text-muted-foreground'>
-                        {card.label}
+                  {metricCards.map(card => {
+                    const cardContent = (
+                      <>
+                        <div className='text-sm font-medium text-muted-foreground'>
+                          {card.label}
+                        </div>
+                        <div className='mt-3 flex items-end gap-1.5'>
+                          <span
+                            className={cn(
+                              'text-2xl font-semibold',
+                              card.onClick ? 'text-primary' : 'text-foreground',
+                            )}
+                          >
+                            {card.value}
+                          </span>
+                        </div>
+                      </>
+                    );
+
+                    if (card.onClick) {
+                      return (
+                        <button
+                          key={card.label}
+                          type='button'
+                          aria-label={card.actionLabel || card.label}
+                          className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                          onClick={card.onClick}
+                        >
+                          {cardContent}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={card.label}
+                        className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left'
+                      >
+                        {cardContent}
                       </div>
-                      <div className='mt-3 text-2xl font-semibold text-foreground'>
-                        {card.value}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

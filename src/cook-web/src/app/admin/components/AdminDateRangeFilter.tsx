@@ -15,6 +15,7 @@ type AdminDateRangeFilterProps = {
   placeholder: string;
   resetLabel: string;
   clearLabel: string;
+  triggerAriaLabel?: string;
   onChange: (range: { start: string; end: string }) => void;
 };
 
@@ -42,6 +43,7 @@ const AdminDateRangeFilter = ({
   placeholder,
   resetLabel,
   clearLabel,
+  triggerAriaLabel,
   onChange,
 }: AdminDateRangeFilterProps) => {
   const selectedRange = React.useMemo(
@@ -64,6 +66,13 @@ const AdminDateRangeFilter = ({
     return placeholder;
   }, [placeholder, selectedRange]);
   const hasValue = Boolean(startValue || endValue);
+  const triggerLabel = React.useMemo(() => {
+    const baseTriggerLabel = triggerAriaLabel || placeholder;
+    if (!hasValue || label === baseTriggerLabel) {
+      return baseTriggerLabel;
+    }
+    return [baseTriggerLabel, label].filter(Boolean).join(' ');
+  }, [hasValue, label, placeholder, triggerAriaLabel]);
 
   return (
     <Popover>
@@ -73,6 +82,7 @@ const AdminDateRangeFilter = ({
             size='sm'
             variant='outline'
             type='button'
+            aria-label={triggerLabel}
             className={cn(
               'h-9 w-full justify-start font-normal',
               hasValue ? 'pr-16' : 'pr-10',
