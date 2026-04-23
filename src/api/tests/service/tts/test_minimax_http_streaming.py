@@ -271,7 +271,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     assert [
         (cue.start_ms, cue.end_ms) for cue in audio_complete[0].content.subtitle_cues
     ] == [
-        (0, 400),
+        (0, 500),
         (500, 1000),
     ]
 
@@ -577,9 +577,15 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_progress_cues_lag_aud
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
         lambda _audio, format="mp3": 2000,
     )
+    saved_records = []
+
+    def _fake_build_completed_audio_record(**kwargs):
+        saved_records.append(kwargs)
+        return SimpleNamespace(**kwargs)
+
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        _fake_build_completed_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -625,6 +631,12 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_progress_cues_lag_aud
     ]
     assert audio_segments[0].content.subtitle_cues[0].start_ms == 0
     assert audio_segments[0].content.subtitle_cues[-1].end_ms == 1600
+    assert [
+        (cue.start_ms, cue.end_ms) for cue in audio_segments[1].content.subtitle_cues
+    ] == [
+        (0, 900),
+        (900, 2000),
+    ]
     assert len(audio_complete) == 1
     assert [cue.text for cue in audio_complete[0].content.subtitle_cues] == [
         "First sentence.",
@@ -633,6 +645,330 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_progress_cues_lag_aud
     assert [
         (cue.start_ms, cue.end_ms) for cue in audio_complete[0].content.subtitle_cues
     ] == [
+        (0, 900),
+        (900, 2000),
+    ]
+    assert len(saved_records) == 1
+    assert [
+        (cue["start_ms"], cue["end_ms"]) for cue in saved_records[0]["subtitle_cues"]
+    ] == [
         (0, 700),
         (900, 2000),
+    ]
+
+
+def test_streaming_tts_minimax_http_stream_keeps_middle_live_cue_on_emitted_timeline(
+    monkeypatch,
+):
+    from flaskr.service.learn.learn_dtos import GeneratedType
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+    saved_records = []
+
+    class _FakeMinimaxProvider:
+        def stream_synthesize(self, **_kwargs):
+            yield SimpleNamespace(
+                audio_data=b"fake-mp3-part-1",
+                is_final=False,
+                duration_ms=0,
+                format="mp3",
+                word_count=0,
+                subtitles=[
+                    {"text": "First sentence.", "time_begin": 0, "time_end": 700},
+                    {
+                        "text": "Second sentence.",
+                        "time_begin": 900,
+                        "time_end": 1900,
+                    },
+                ],
+            )
+            yield SimpleNamespace(
+                audio_data=b"",
+                is_final=True,
+                duration_ms=5400,
+                format="mp3",
+                word_count=15,
+                subtitles=[
+                    {"text": "First sentence.", "time_begin": 0, "time_end": 700},
+                    {
+                        "text": "Second sentence.",
+                        "time_begin": 900,
+                        "time_end": 2100,
+                    },
+                    {
+                        "text": "Third sentence.",
+                        "time_begin": 2300,
+                        "time_end": 5400,
+                    },
+                ],
+            )
+
+    def _fake_export(_audio_data, **kwargs):
+        end_ms = kwargs.get("end_ms")
+        start_ms = int(kwargs.get("start_ms") or 0)
+        if end_ms is None:
+            return b"early-piece", 1900
+        return b"final-piece", int(end_ms or 0) - start_ms
+
+    def _fake_build_completed_audio_record(**kwargs):
+        saved_records.append(kwargs)
+        return SimpleNamespace(**kwargs)
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.should_use_minimax_http_stream",
+        lambda _provider: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.MinimaxTTSProvider", _FakeMinimaxProvider
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.export_audio_range_best_effort",
+        _fake_export,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+        lambda parts, output_format="mp3": b"".join(parts),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
+        lambda _audio, format="mp3": 5400,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.build_completed_audio_record",
+        _fake_build_completed_audio_record,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.save_audio_record",
+        lambda _record, commit=True: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_handler.upload_audio_to_oss",
+        lambda _app, _audio, audio_bid: (f"https://example.com/{audio_bid}.mp3", "b"),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
+        lambda **_kwargs: None,
+    )
+
+    processor = StreamingTTSProcessor(
+        app=SimpleNamespace(),
+        generated_block_bid="generated-http-stream-middle-live-cue",
+        outline_bid="outline",
+        progress_record_bid="progress",
+        user_bid="user",
+        shifu_bid="shifu",
+        tts_provider="minimax",
+        tts_model="speech-2.8-turbo",
+    )
+    assert (
+        list(
+            processor.process_chunk("First sentence. Second sentence. Third sentence.")
+        )
+        == []
+    )
+
+    events = list(processor.finalize(commit=False))
+    audio_segments = [
+        event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+    ]
+    audio_complete = [
+        event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+    ]
+
+    assert len(audio_segments) == 2
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_segments[0].content.subtitle_cues
+    ] == [
+        ("First sentence.", 0, 900),
+        ("Second sentence.", 900, 1900),
+    ]
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_segments[1].content.subtitle_cues
+    ] == [
+        ("First sentence.", 0, 900),
+        ("Second sentence.", 900, 2300),
+        ("Third sentence.", 2300, 5400),
+    ]
+    assert len(audio_complete) == 1
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_complete[0].content.subtitle_cues
+    ] == [
+        ("First sentence.", 0, 900),
+        ("Second sentence.", 900, 2300),
+        ("Third sentence.", 2300, 5400),
+    ]
+    assert len(saved_records) == 1
+    assert [
+        (cue["text"], cue["start_ms"], cue["end_ms"])
+        for cue in saved_records[0]["subtitle_cues"]
+    ] == [
+        ("First sentence.", 0, 700),
+        ("Second sentence.", 900, 2100),
+        ("Third sentence.", 2300, 5400),
+    ]
+
+
+def test_streaming_tts_minimax_http_stream_rebuilds_same_count_live_cues(
+    monkeypatch,
+):
+    from flaskr.service.learn.learn_dtos import GeneratedType
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+    saved_records = []
+
+    class _FakeMinimaxProvider:
+        def stream_synthesize(self, **_kwargs):
+            yield SimpleNamespace(
+                audio_data=b"fake-mp3-part-1",
+                is_final=False,
+                duration_ms=0,
+                format="mp3",
+                word_count=0,
+                subtitles=[
+                    {"text": "Sentence one.", "time_begin": 0, "time_end": 251},
+                    {"text": "Sentence two.", "time_begin": 251, "time_end": 847},
+                    {"text": "Sentence three.", "time_begin": 847, "time_end": 1946},
+                ],
+            )
+            yield SimpleNamespace(
+                audio_data=b"",
+                is_final=True,
+                duration_ms=6364,
+                format="mp3",
+                word_count=20,
+                subtitles=[
+                    {"text": "Sentence one.", "time_begin": 0, "time_end": 913},
+                    {"text": "Sentence two.", "time_begin": 913, "time_end": 2410},
+                    {
+                        "text": "Sentence three.",
+                        "time_begin": 2410,
+                        "time_end": 6364,
+                    },
+                ],
+            )
+
+    def _fake_export(_audio_data, **kwargs):
+        end_ms = kwargs.get("end_ms")
+        start_ms = int(kwargs.get("start_ms") or 0)
+        if end_ms is None:
+            return b"early-piece", 1946
+        return b"final-piece", int(end_ms or 0) - start_ms
+
+    def _fake_build_completed_audio_record(**kwargs):
+        saved_records.append(kwargs)
+        return SimpleNamespace(**kwargs)
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.should_use_minimax_http_stream",
+        lambda _provider: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.MinimaxTTSProvider", _FakeMinimaxProvider
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.export_audio_range_best_effort",
+        _fake_export,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+        lambda parts, output_format="mp3": b"".join(parts),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
+        lambda _audio, format="mp3": 6364,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.build_completed_audio_record",
+        _fake_build_completed_audio_record,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.save_audio_record",
+        lambda _record, commit=True: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_handler.upload_audio_to_oss",
+        lambda _app, _audio, audio_bid: (f"https://example.com/{audio_bid}.mp3", "b"),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
+        lambda **_kwargs: None,
+    )
+
+    processor = StreamingTTSProcessor(
+        app=SimpleNamespace(),
+        generated_block_bid="generated-http-stream-rebuild-same-count",
+        outline_bid="outline",
+        progress_record_bid="progress",
+        user_bid="user",
+        shifu_bid="shifu",
+        tts_provider="minimax",
+        tts_model="speech-2.8-turbo",
+    )
+    assert (
+        list(processor.process_chunk("Sentence one. Sentence two. Sentence three."))
+        == []
+    )
+
+    events = list(processor.finalize(commit=False))
+    audio_segments = [
+        event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+    ]
+    audio_complete = [
+        event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+    ]
+
+    assert len(audio_segments) == 2
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_segments[0].content.subtitle_cues
+    ] == [
+        ("Sentence one.", 0, 251),
+        ("Sentence two.", 251, 847),
+        ("Sentence three.", 847, 1946),
+    ]
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_segments[1].content.subtitle_cues
+    ] == [
+        ("Sentence one.", 0, 913),
+        ("Sentence two.", 913, 2410),
+        ("Sentence three.", 2410, 6364),
+    ]
+    assert audio_segments[1].content.subtitle_cues[0].end_ms > 251
+    assert audio_segments[1].content.subtitle_cues[-1].end_ms == 6364
+
+    assert len(audio_complete) == 1
+    assert [
+        (cue.text, cue.start_ms, cue.end_ms)
+        for cue in audio_complete[0].content.subtitle_cues
+    ] == [
+        ("Sentence one.", 0, 913),
+        ("Sentence two.", 913, 2410),
+        ("Sentence three.", 2410, 6364),
+    ]
+    assert len(saved_records) == 1
+    assert [
+        (cue["text"], cue["start_ms"], cue["end_ms"])
+        for cue in saved_records[0]["subtitle_cues"]
+    ] == [
+        ("Sentence one.", 0, 913),
+        ("Sentence two.", 913, 2410),
+        ("Sentence three.", 2410, 6364),
     ]

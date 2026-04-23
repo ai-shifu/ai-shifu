@@ -35,6 +35,7 @@ class BlockState:
     generated_block_bid: str
     raw_content: str = ""
     audio_by_position: dict[int, ElementAudioDTO] = field(default_factory=dict)
+    live_audio_by_position: dict[int, ElementAudioDTO] = field(default_factory=dict)
     audio_segments_by_position: dict[int, list[dict[str, Any]]] = field(
         default_factory=dict
     )

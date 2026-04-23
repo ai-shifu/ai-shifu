@@ -654,6 +654,7 @@ class StreamingTTSProcessor:
             self._minimax_raw_subtitle_key(item): index
             for index, item in enumerate(target)
         }
+        search_start = 0
         for raw_item in incoming or []:
             if not isinstance(raw_item, dict):
                 continue
@@ -663,9 +664,28 @@ class StreamingTTSProcessor:
             existing_index = seen_indexes.get(key)
             if existing_index is not None:
                 target[existing_index] = raw_item
+                search_start = max(search_start, existing_index + 1)
+                continue
+            normalized_text = self._normalize_subtitle_compare_text(key[0])
+            matching_index = None
+            for index in range(search_start, len(target)):
+                target_text = self._normalize_subtitle_compare_text(
+                    self._minimax_subtitle_text(target[index])
+                )
+                if target_text == normalized_text:
+                    matching_index = index
+                    break
+            if matching_index is not None:
+                previous_key = self._minimax_raw_subtitle_key(target[matching_index])
+                if seen_indexes.get(previous_key) == matching_index:
+                    seen_indexes.pop(previous_key, None)
+                target[matching_index] = raw_item
+                seen_indexes[key] = matching_index
+                search_start = matching_index + 1
                 continue
             target.append(raw_item)
             seen_indexes[key] = len(target) - 1
+            search_start = len(target)
 
     @staticmethod
     def _normalize_subtitle_compare_text(text: str) -> str:
@@ -801,10 +821,9 @@ class StreamingTTSProcessor:
             )
         return clamped
 
-    def _build_minimax_progress_subtitle_cues(
+    def _build_minimax_progress_source_subtitle_cues(
         self,
         *,
-        previous_cues: list[dict[str, Any]],
         request_text: str,
         request_subtitles: list[dict[str, Any]],
         subtitle_offset_ms: int,
@@ -844,7 +863,175 @@ class StreamingTTSProcessor:
             )
         else:
             current_cues = progress_subtitle_cues
-        return normalize_subtitle_cues(list(previous_cues or []) + current_cues)
+
+        normalized_current_cues = normalize_subtitle_cues(current_cues)
+        if normalized_current_cues:
+            normalized_current_cues[-1]["end_ms"] = max(
+                int(normalized_current_cues[-1].get("end_ms", 0) or 0),
+                progress_end_ms,
+            )
+        return normalized_current_cues
+
+    @staticmethod
+    def _remap_minimax_live_subtitle_point(
+        point_ms: int,
+        *,
+        source_start_ms: int,
+        source_end_ms: int,
+        target_start_ms: int,
+        target_end_ms: int,
+    ) -> int:
+        safe_target_start_ms = max(int(target_start_ms or 0), 0)
+        safe_target_end_ms = max(int(target_end_ms or 0), safe_target_start_ms)
+        safe_source_start_ms = max(int(source_start_ms or 0), 0)
+        safe_source_end_ms = max(int(source_end_ms or 0), safe_source_start_ms)
+        if safe_target_end_ms <= safe_target_start_ms:
+            return safe_target_start_ms
+        if safe_source_end_ms <= safe_source_start_ms:
+            return safe_target_end_ms
+        clamped_point_ms = min(
+            max(int(point_ms or 0), safe_source_start_ms),
+            safe_source_end_ms,
+        )
+        return safe_target_start_ms + int(
+            round(
+                (clamped_point_ms - safe_source_start_ms)
+                * (safe_target_end_ms - safe_target_start_ms)
+                / max(safe_source_end_ms - safe_source_start_ms, 1)
+            )
+        )
+
+    @staticmethod
+    def _matching_live_subtitle_prefix_len(
+        previous_live_request_cues: list[dict[str, Any]],
+        source_request_cues: list[dict[str, Any]],
+    ) -> int:
+        shared_prefix_len = 0
+        for previous_cue, current_cue in zip(
+            previous_live_request_cues,
+            source_request_cues,
+        ):
+            previous_text = str(previous_cue.get("text", "") or "").strip()
+            current_text = str(current_cue.get("text", "") or "").strip()
+            if not previous_text or previous_text != current_text:
+                break
+            shared_prefix_len += 1
+        return shared_prefix_len
+
+    def _build_minimax_live_request_subtitle_cues(
+        self,
+        *,
+        previous_live_request_cues: list[dict[str, Any]],
+        source_request_cues: list[dict[str, Any]],
+        progress_start_ms: int,
+        progress_end_ms: int,
+    ) -> list[dict[str, Any]]:
+        safe_progress_start_ms = max(int(progress_start_ms or 0), 0)
+        safe_progress_end_ms = max(int(progress_end_ms or 0), safe_progress_start_ms)
+        previous_live_cues = normalize_subtitle_cues(previous_live_request_cues)
+        current_source_cues = normalize_subtitle_cues(source_request_cues)
+
+        if not current_source_cues:
+            if not previous_live_cues:
+                return []
+            retained_cues = [dict(cue) for cue in previous_live_cues]
+            retained_cues[-1]["end_ms"] = max(
+                int(retained_cues[-1].get("end_ms", 0) or 0),
+                safe_progress_end_ms,
+            )
+            return retained_cues
+
+        shared_prefix_len = self._matching_live_subtitle_prefix_len(
+            previous_live_cues,
+            current_source_cues,
+        )
+
+        source_start_ms = max(
+            int(current_source_cues[0].get("start_ms", safe_progress_start_ms) or 0),
+            safe_progress_start_ms,
+        )
+        source_end_ms = max(
+            safe_progress_end_ms,
+            int(current_source_cues[-1].get("end_ms", safe_progress_end_ms) or 0),
+            source_start_ms,
+        )
+
+        cue_boundaries = [safe_progress_start_ms]
+        for index, cue in enumerate(current_source_cues[1:], start=1):
+            mapped_boundary = self._remap_minimax_live_subtitle_point(
+                int(cue.get("start_ms", source_start_ms) or 0),
+                source_start_ms=source_start_ms,
+                source_end_ms=source_end_ms,
+                target_start_ms=safe_progress_start_ms,
+                target_end_ms=safe_progress_end_ms,
+            )
+            if index < shared_prefix_len and index < len(previous_live_cues):
+                mapped_boundary = max(
+                    mapped_boundary,
+                    int(previous_live_cues[index].get("start_ms", 0) or 0),
+                )
+            cue_boundaries.append(
+                min(max(mapped_boundary, cue_boundaries[-1]), safe_progress_end_ms)
+            )
+        cue_boundaries.append(safe_progress_end_ms)
+
+        live_request_cues: list[dict[str, Any]] = []
+        for index, cue in enumerate(current_source_cues):
+            text = str(cue.get("text", "") or "").strip()
+            if not text:
+                continue
+            start_ms = int(cue_boundaries[index])
+            end_ms = max(int(cue_boundaries[index + 1]), start_ms)
+            live_request_cues.append(
+                {
+                    "text": text,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "segment_index": max(int(cue.get("segment_index", 0) or 0), 0),
+                    "position": max(int(cue.get("position", self.position) or 0), 0),
+                }
+            )
+
+        if live_request_cues:
+            live_request_cues[-1]["end_ms"] = max(
+                int(live_request_cues[-1].get("end_ms", 0) or 0),
+                safe_progress_end_ms,
+            )
+        return normalize_subtitle_cues(live_request_cues)
+
+    def _build_minimax_live_progress_subtitle_cues(
+        self,
+        *,
+        previous_live_cues: list[dict[str, Any]],
+        previous_live_request_cues: list[dict[str, Any]],
+        request_text: str,
+        request_subtitles: list[dict[str, Any]],
+        subtitle_offset_ms: int,
+        emitted_ms: int,
+        fallback_duration_ms: Optional[int] = None,
+        allow_fallback: bool = False,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        progress_end_ms = max(int(subtitle_offset_ms or 0), 0) + max(
+            int(emitted_ms or 0), 0
+        )
+        current_source_cues = self._build_minimax_progress_source_subtitle_cues(
+            request_text=request_text,
+            request_subtitles=request_subtitles,
+            subtitle_offset_ms=subtitle_offset_ms,
+            emitted_ms=emitted_ms,
+            fallback_duration_ms=fallback_duration_ms,
+            allow_fallback=allow_fallback,
+        )
+        current_live_request_cues = self._build_minimax_live_request_subtitle_cues(
+            previous_live_request_cues=previous_live_request_cues,
+            source_request_cues=current_source_cues,
+            progress_start_ms=subtitle_offset_ms,
+            progress_end_ms=progress_end_ms,
+        )
+        cumulative_live_cues = normalize_subtitle_cues(
+            list(previous_live_cues or []) + current_live_request_cues
+        )
+        return current_live_request_cues, cumulative_live_cues
 
     def _minimax_subtitles_to_cues(
         self,
@@ -922,6 +1109,7 @@ class StreamingTTSProcessor:
         cleaned_text: str,
         cleaned_text_length: int,
         subtitle_cues: Optional[list[dict[str, Any]]] = None,
+        event_subtitle_cues: Optional[list[dict[str, Any]]] = None,
         commit: bool = True,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not all_segments:
@@ -938,6 +1126,11 @@ class StreamingTTSProcessor:
             normalize_subtitle_cues(subtitle_cues)
             if subtitle_cues
             else self._build_segment_subtitle_cues(all_segments)
+        )
+        effective_event_subtitle_cues = (
+            normalize_subtitle_cues(event_subtitle_cues)
+            if event_subtitle_cues is not None
+            else effective_subtitle_cues
         )
 
         try:
@@ -1005,7 +1198,9 @@ class StreamingTTSProcessor:
                     stream_element_number=self.stream_element_number,
                     stream_element_type=self.stream_element_type,
                     av_contract=self.av_contract,
-                    subtitle_cues=normalize_subtitle_cues(effective_subtitle_cues),
+                    subtitle_cues=normalize_subtitle_cues(
+                        effective_event_subtitle_cues
+                    ),
                 ),
             )
 
@@ -1031,7 +1226,8 @@ class StreamingTTSProcessor:
             return
 
         provider = MinimaxTTSProvider()
-        all_subtitle_cues: list[dict[str, Any]] = []
+        live_subtitle_cues: list[dict[str, Any]] = []
+        final_subtitle_cues: list[dict[str, Any]] = []
         subtitle_offset_ms = 0
 
         from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
@@ -1044,6 +1240,7 @@ class StreamingTTSProcessor:
             request_word_count = 0
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
+            live_request_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
                 text=request_text,
@@ -1098,16 +1295,19 @@ class StreamingTTSProcessor:
                     continue
 
                 emitted_ms += int(piece_duration_ms or 0)
-                progressive_subtitle_cues = self._build_minimax_progress_subtitle_cues(
-                    previous_cues=all_subtitle_cues,
-                    request_text=request_text,
-                    request_subtitles=request_subtitles,
-                    subtitle_offset_ms=subtitle_offset_ms,
-                    emitted_ms=emitted_ms,
-                    fallback_duration_ms=(
-                        request_duration_ms if chunk.is_final else None
-                    ),
-                    allow_fallback=True,
+                live_request_subtitle_cues, progressive_subtitle_cues = (
+                    self._build_minimax_live_progress_subtitle_cues(
+                        previous_live_cues=live_subtitle_cues,
+                        previous_live_request_cues=live_request_subtitle_cues,
+                        request_text=request_text,
+                        request_subtitles=request_subtitles,
+                        subtitle_offset_ms=subtitle_offset_ms,
+                        emitted_ms=emitted_ms,
+                        fallback_duration_ms=(
+                            request_duration_ms if chunk.is_final else None
+                        ),
+                        allow_fallback=True,
+                    )
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,
@@ -1129,7 +1329,7 @@ class StreamingTTSProcessor:
                 request_subtitle_cues,
                 request_text,
             ):
-                all_subtitle_cues.extend(request_subtitle_cues)
+                final_subtitle_cues.extend(request_subtitle_cues)
             else:
                 if request_subtitle_cues:
                     logger.debug(
@@ -1138,13 +1338,16 @@ class StreamingTTSProcessor:
                         request_index,
                         len(request_subtitle_cues),
                     )
-                all_subtitle_cues.extend(
+                final_subtitle_cues.extend(
                     self._build_minimax_fallback_subtitle_cues(
                         request_text,
                         duration_ms=int(request_duration_ms or emitted_ms or 0),
                         offset_ms=subtitle_offset_ms,
                     )
                 )
+            live_subtitle_cues = normalize_subtitle_cues(
+                list(live_subtitle_cues or []) + live_request_subtitle_cues
+            )
             subtitle_offset_ms += int(request_duration_ms or emitted_ms or 0)
 
             record_tts_segment_usage(
@@ -1171,7 +1374,8 @@ class StreamingTTSProcessor:
             raw_text=raw_text,
             cleaned_text=cleaned_text,
             cleaned_text_length=cleaned_text_length,
-            subtitle_cues=all_subtitle_cues,
+            subtitle_cues=final_subtitle_cues,
+            event_subtitle_cues=live_subtitle_cues,
             commit=commit,
         )
 
