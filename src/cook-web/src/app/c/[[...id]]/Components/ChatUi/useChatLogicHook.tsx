@@ -1443,7 +1443,7 @@ function useChatLogicHook({
                     messageGeneratedBlockBid:
                       elementRecord.generated_block_bid || itemBid,
                     messageContent: elementRecord.content || '',
-                    insertionMode: 'sequence',
+                    insertionMode: 'anchor',
                   }),
                 );
                 return;
@@ -1891,7 +1891,7 @@ function useChatLogicHook({
             messageGeneratedBlockBid: item.generated_block_bid || itemBid,
             messageContent: item.content || '',
             isHistory: true,
-            insertionMode: 'sequence',
+            insertionMode: 'anchor',
           });
           result.splice(0, result.length, ...nextResult);
           return;

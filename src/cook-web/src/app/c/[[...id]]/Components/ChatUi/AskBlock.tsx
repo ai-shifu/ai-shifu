@@ -41,7 +41,6 @@ export interface AskBlockProps {
   outline_bid: string;
   preview_mode?: boolean;
   element_bid: string;
-  isOutputInProgress?: boolean;
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
@@ -58,7 +57,6 @@ export default function AskBlock({
   outline_bid,
   preview_mode = false,
   element_bid,
-  isOutputInProgress = false,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -198,7 +196,7 @@ export default function AskBlock({
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
-    if (isStreamingRef.current || isOutputInProgress) {
+    if (isStreamingRef.current) {
       showOutputInProgressToast();
       return;
     }
@@ -331,7 +329,6 @@ export default function AskBlock({
     preview_mode,
     element_bid,
     inputValue,
-    isOutputInProgress,
     dismissAskInputFocus,
     showOutputInProgressToast,
     finalizeStreamingMessage,
