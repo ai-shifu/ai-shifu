@@ -258,4 +258,12 @@ describe('AdminOperationOrdersPage', () => {
 
     expect(await screen.findByText('detail:order-1')).toBeInTheDocument();
   });
+
+  test('shows error UI when getAdminOperationOrders fails', async () => {
+    mockGetAdminOperationOrders.mockRejectedValueOnce(new Error('network'));
+
+    render(<AdminOperationOrdersPage />);
+
+    expect(await screen.findByText('network')).toBeInTheDocument();
+  });
 });

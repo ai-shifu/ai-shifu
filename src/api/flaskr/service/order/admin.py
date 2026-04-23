@@ -462,22 +462,34 @@ def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
     if not normalized_keyword:
         return []
 
-    matched_user_bids = {
-        str(row.user_bid or "").strip()
-        for row in UserEntity.query.filter(
+    matched_user_bids = set()
+    for row in (
+        UserEntity.query.filter(
             db.or_(
                 UserEntity.user_bid == normalized_keyword,
                 UserEntity.user_identify == normalized_keyword,
             )
-        ).all()
-        if str(row.user_bid or "").strip()
-    }
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        user_bid = str(row.user_bid or "").strip()
+        if user_bid:
+            matched_user_bids.add(user_bid)
 
-    credential_rows = AuthCredential.query.filter(
-        AuthCredential.identifier == normalized_keyword,
-        AuthCredential.provider_name.in_(["phone", "email"]),
-    ).all()
-    for row in credential_rows:
+    normalized_credential_identifier = (
+        normalized_keyword.lower()
+        if EMAIL_PATTERN.fullmatch(normalized_keyword)
+        else normalized_keyword
+    )
+    for row in (
+        AuthCredential.query.filter(
+            AuthCredential.identifier == normalized_credential_identifier,
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
         user_bid = str(row.user_bid or "").strip()
         if user_bid:
             matched_user_bids.add(user_bid)
@@ -491,24 +503,31 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
         return []
 
     like_value = f"%{normalized_course_name}%"
-    matched_shifu_bids = {
-        str(row.shifu_bid or "").strip()
-        for row in DraftShifu.query.filter(
+    matched_shifu_bids = set()
+    for row in (
+        DraftShifu.query.filter(
             DraftShifu.deleted == 0,
             DraftShifu.title.like(like_value),
-        ).all()
-        if str(row.shifu_bid or "").strip()
-    }
-    matched_shifu_bids.update(
-        {
-            str(row.shifu_bid or "").strip()
-            for row in PublishedShifu.query.filter(
-                PublishedShifu.deleted == 0,
-                PublishedShifu.title.like(like_value),
-            ).all()
-            if str(row.shifu_bid or "").strip()
-        }
-    )
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if shifu_bid:
+            matched_shifu_bids.add(shifu_bid)
+
+    for row in (
+        PublishedShifu.query.filter(
+            PublishedShifu.deleted == 0,
+            PublishedShifu.title.like(like_value),
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if shifu_bid:
+            matched_shifu_bids.add(shifu_bid)
+
     return sorted(matched_shifu_bids)
 
 
@@ -937,11 +956,14 @@ def list_operator_orders(
         if order_source:
             query = _apply_order_source_filter(query, order_source)
 
-        start_time = filters.get("start_time")
+        start_time = _parse_datetime(str(filters.get("start_time", "") or ""))
         if start_time:
             query = query.filter(Order.created_at >= start_time)
 
-        end_time = filters.get("end_time")
+        end_time = _parse_datetime(
+            str(filters.get("end_time", "") or ""),
+            is_end=True,
+        )
         if end_time:
             query = query.filter(Order.created_at <= end_time)
 

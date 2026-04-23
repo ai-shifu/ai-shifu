@@ -2,11 +2,11 @@
 
 ## Goal
 
-Add a new operator-only global order management page under `运营`, while keeping the existing creator-facing `/admin/orders` page unchanged.
+Add a new operator-only global order management page under `Operations`, while keeping the existing creator-facing `/admin/orders` page unchanged.
 
 ## Scope
 
-- Add a new operator menu entry: `运营 > 订单管理`
+- Add a new operator menu entry: `Operations > Order Management`
 - Add a new operator page route: `/admin/operations/orders`
 - Add operator-only backend list/detail APIs for global orders
 - Support richer operator filters and fields than the legacy creator order page

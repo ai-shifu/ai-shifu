@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import api from '@/api';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -80,22 +86,33 @@ const OperatorOrderDetailSheet = ({
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
   );
+  const fetchRequestIdRef = useRef(0);
 
   const emptyValue = useMemo(() => t('module.order.emptyValue'), [t]);
 
   const fetchDetail = useCallback(async () => {
     if (!orderBid) {
+      fetchRequestIdRef.current += 1;
       setDetail(null);
+      setLoading(false);
       return;
     }
+    const requestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = requestId;
     setLoading(true);
     setError(null);
     try {
       const result = (await api.getAdminOperationOrderDetail({
         order_bid: orderBid,
       })) as AdminOperationOrderDetailResponse;
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
       setDetail(result);
     } catch (err) {
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
       if (err instanceof ErrorWithCode) {
         setError({ message: err.message, code: err.code });
       } else if (err instanceof Error) {
@@ -104,7 +121,9 @@ const OperatorOrderDetailSheet = ({
         setError({ message: t('common.core.unknownError') });
       }
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [orderBid, t]);
 
@@ -116,6 +135,7 @@ const OperatorOrderDetailSheet = ({
 
   useEffect(() => {
     if (!open) {
+      fetchRequestIdRef.current += 1;
       setDetail(null);
       setError(null);
       setLoading(false);

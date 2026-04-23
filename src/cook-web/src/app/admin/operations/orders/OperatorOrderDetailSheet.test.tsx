@@ -158,4 +158,19 @@ describe('OperatorOrderDetailSheet', () => {
       screen.getByText('module.operationsCourse.table.courseId'),
     ).toHaveClass('whitespace-nowrap');
   });
+
+  test('shows error UI when detail request fails', async () => {
+    mockGetAdminOperationOrderDetail.mockRejectedValueOnce(
+      new Error('detail failed'),
+    );
+
+    render(
+      <OperatorOrderDetailSheet
+        open
+        orderBid='order-1'
+      />,
+    );
+
+    expect(await screen.findByText('detail failed')).toBeInTheDocument();
+  });
 });

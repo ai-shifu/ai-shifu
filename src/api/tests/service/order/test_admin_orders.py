@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from flask import Flask
@@ -35,6 +36,25 @@ class DummyOrder:
 class DummyShifu:
     def __init__(self):
         self.title = "Demo Course"
+
+
+def _mock_operator(
+    monkeypatch,
+    user_id: str = "operator-1",
+    *,
+    is_operator: bool = True,
+) -> None:
+    dummy_user = SimpleNamespace(
+        user_id=user_id,
+        is_operator=is_operator,
+        is_creator=False,
+        language="en-US",
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
 
 
 def test_list_orders_returns_page_dto():
@@ -291,6 +311,38 @@ def test_get_operator_order_detail_returns_detail_dto():
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)
     assert detail.order.order_bid == "order-1"
+
+
+def test_admin_operation_orders_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_order_detail_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders/order-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
 
 
 def test_resolve_order_source_prefers_manual_open_api_and_coupon():

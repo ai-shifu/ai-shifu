@@ -103,6 +103,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    OPERATOR_USER_LIST_MAX_PAGE_SIZE,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_user_detail,
@@ -729,6 +730,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("page_index or page_size is not a number")
         if page_index < 1 or page_size < 1:
             raise_param_error("page_index or page_size is less than 1")
+        page_size = min(page_size, OPERATOR_USER_LIST_MAX_PAGE_SIZE)
 
         filters = {
             "user_keyword": request.args.get("user_keyword", ""),
