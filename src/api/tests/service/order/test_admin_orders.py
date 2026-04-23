@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from flask import Flask
+from sqlalchemy.sql import column
 
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.order.admin import (
@@ -10,6 +11,8 @@ from flaskr.service.order.admin import (
     ORDER_SOURCE_IMPORT_ACTIVATION,
     ORDER_SOURCE_OPEN_API,
     ORDER_SOURCE_USER_PURCHASE,
+    _apply_order_source_filter,
+    _load_matching_user_bids_for_keyword,
     get_operator_order_detail,
     get_order_detail,
     list_operator_orders,
@@ -373,3 +376,76 @@ def test_resolve_order_source_prefers_manual_open_api_and_coupon():
         paid_price="0.5",
     )
     assert source == ORDER_SOURCE_USER_PURCHASE
+
+
+def test_load_matching_user_bids_for_keyword_ignores_deleted_credentials():
+    user_query = MagicMock()
+    (
+        user_query.filter.return_value.yield_per.return_value.enable_eagerloads.return_value
+    ) = []
+
+    credential_query = MagicMock()
+    (
+        credential_query.filter.return_value.yield_per.return_value.enable_eagerloads.return_value
+    ) = [SimpleNamespace(user_bid="user-2")]
+
+    fake_user_entity = SimpleNamespace(
+        query=user_query,
+        user_bid=column("user_bid"),
+        user_identify=column("user_identify"),
+    )
+    fake_auth_credential = SimpleNamespace(
+        query=credential_query,
+        identifier=column("identifier"),
+        provider_name=column("provider_name"),
+        deleted=column("deleted"),
+    )
+
+    with patch("flaskr.service.order.admin.UserEntity", fake_user_entity):
+        with patch("flaskr.service.order.admin.AuthCredential", fake_auth_credential):
+            result = _load_matching_user_bids_for_keyword("Test@Example.com")
+
+    filter_args = credential_query.filter.call_args.args
+
+    assert result == ["user-2"]
+    assert any("deleted" in str(arg) for arg in filter_args)
+
+
+def test_apply_order_source_filter_treats_null_payment_channel_as_non_special():
+    query_mock = MagicMock()
+    query_mock.filter.return_value = query_mock
+    coupon_order_bid_subquery = SimpleNamespace(
+        c=SimpleNamespace(order_bid="order_bid")
+    )
+
+    with patch(
+        "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
+        return_value=coupon_order_bid_subquery,
+    ):
+        with patch(
+            "flaskr.service.order.admin.db.session.query",
+            return_value=["order-1"],
+        ):
+            _apply_order_source_filter(query_mock, ORDER_SOURCE_COUPON_REDEEM)
+
+    coupon_filter_args = query_mock.filter.call_args.args
+
+    query_mock.reset_mock()
+    query_mock.filter.return_value = query_mock
+
+    with patch(
+        "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
+        return_value=coupon_order_bid_subquery,
+    ):
+        with patch(
+            "flaskr.service.order.admin.db.session.query",
+            return_value=["order-1"],
+        ):
+            _apply_order_source_filter(query_mock, ORDER_SOURCE_USER_PURCHASE)
+
+    user_purchase_filter_args = query_mock.filter.call_args_list[0].args
+
+    assert "IS NULL" in str(coupon_filter_args[0])
+    assert "NOT IN" in str(coupon_filter_args[0])
+    assert "IS NULL" in str(user_purchase_filter_args[0])
+    assert "NOT IN" in str(user_purchase_filter_args[0])

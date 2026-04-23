@@ -486,6 +486,7 @@ def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
         AuthCredential.query.filter(
             AuthCredential.identifier == normalized_credential_identifier,
             AuthCredential.provider_name.in_(["phone", "email", "google"]),
+            AuthCredential.deleted == 0,
         )
         .yield_per(200)
         .enable_eagerloads(False)
@@ -540,6 +541,10 @@ def _apply_order_source_filter(query, order_source: str):
     coupon_order_bid_query = db.session.query(
         coupon_usage_order_bid_subquery.c.order_bid
     )
+    non_special_payment_channel = db.or_(
+        Order.payment_channel.is_(None),
+        Order.payment_channel.notin_(["manual", "open_api"]),
+    )
 
     if normalized_order_source == ORDER_SOURCE_IMPORT_ACTIVATION:
         return query.filter(Order.payment_channel == "manual")
@@ -549,14 +554,14 @@ def _apply_order_source_filter(query, order_source: str):
 
     if normalized_order_source == ORDER_SOURCE_COUPON_REDEEM:
         return query.filter(
-            Order.payment_channel.notin_(["manual", "open_api"]),
+            non_special_payment_channel,
             Order.order_bid.in_(coupon_order_bid_query),
             Order.paid_price == Decimal("0"),
         )
 
     if normalized_order_source == ORDER_SOURCE_USER_PURCHASE:
         return query.filter(
-            Order.payment_channel.notin_(["manual", "open_api"]),
+            non_special_payment_channel,
         ).filter(
             db.not_(
                 db.and_(
