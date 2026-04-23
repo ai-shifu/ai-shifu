@@ -23,7 +23,7 @@
   "expand": "Expand",
   "follow": "Follow",
   "logout": "Logout",
-  "mobileUnsupportedDescription": "Please use a desktop device to view this page.",
+  "mobileUnsupportedDescription": "Please use a desktop device to view this page",
   "mobileUnsupportedTitle": "This page is not supported on mobile devices",
   "more": "More",
   "networkError": "Network error, please try again later",
