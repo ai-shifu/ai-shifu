@@ -3484,9 +3484,7 @@ def get_operator_course_follow_up_detail(
                 follow_up_content=str(
                     getattr(ask_block, "generated_content", "") or ""
                 ),
-                answer_content=_resolve_follow_up_answer_content(
-                    selected_answer_block
-                ),
+                answer_content=_resolve_follow_up_answer_content(selected_answer_block),
                 source_output_content=str(
                     source_info.get("source_output_content", "") or ""
                 ),

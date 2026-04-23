@@ -7,16 +7,18 @@ jest.mock('@/components/ui/Button', () => ({
   Button: ({
     children,
     ...props
-  }: React.PropsWithChildren<React.ButtonHTMLAttributes<HTMLButtonElement>>) => (
-    <button {...props}>{children}</button>
-  ),
+  }: React.PropsWithChildren<
+    React.ButtonHTMLAttributes<HTMLButtonElement>
+  >) => <button {...props}>{children}</button>,
 }));
 
 jest.mock('@/components/ui/Popover', () => ({
   __esModule: true,
   Popover: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   PopoverTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  PopoverContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  PopoverContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/ui/Calendar', () => ({

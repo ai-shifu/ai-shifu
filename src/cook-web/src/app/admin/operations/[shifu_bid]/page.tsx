@@ -1319,19 +1319,19 @@ export default function AdminOperationCourseDetailPage() {
                   {metricCards.map(card => {
                     const cardContent = (
                       <>
-                      <div className='text-sm font-medium text-muted-foreground'>
-                        {card.label}
-                      </div>
-                      <div className='mt-3 flex items-end gap-1.5'>
-                        <span
-                          className={cn(
-                            'text-2xl font-semibold',
-                            card.onClick ? 'text-primary' : 'text-foreground',
-                          )}
-                        >
-                          {card.value}
-                        </span>
-                      </div>
+                        <div className='text-sm font-medium text-muted-foreground'>
+                          {card.label}
+                        </div>
+                        <div className='mt-3 flex items-end gap-1.5'>
+                          <span
+                            className={cn(
+                              'text-2xl font-semibold',
+                              card.onClick ? 'text-primary' : 'text-foreground',
+                            )}
+                          >
+                            {card.value}
+                          </span>
+                        </div>
                       </>
                     );
 
