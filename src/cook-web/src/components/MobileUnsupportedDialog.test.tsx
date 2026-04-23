@@ -12,9 +12,8 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/c-store/useUiLayoutStore', () => ({
   __esModule: true,
-  useUiLayoutStore: (
-    selector: (state: { inMobile: boolean }) => boolean,
-  ) => mockUseUiLayoutStore(selector),
+  useUiLayoutStore: (selector: (state: { inMobile: boolean }) => boolean) =>
+    mockUseUiLayoutStore(selector),
 }));
 
 describe('MobileUnsupportedDialog', () => {
