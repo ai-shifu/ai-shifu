@@ -1,7 +1,7 @@
 .courseCatalogList {
   height: 100%;
   display: flex;
-  padding: 10px 20px;
+  padding: 0px 20px 10px 20px;
   flex-flow: column nowrap;
   box-sizing: border-box;
   position: relative;
@@ -12,25 +12,12 @@
     flex-flow: row nowrap;
     justify-content: space-between;
     align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--base-border, #e5e5e5);
 
     .titleArea {
-      display: flex;
-      flex-flow: row nowrap;
-      align-items: center;
       flex: 1 1 0;
       overflow: hidden;
-
-      .icon {
-        width: 16px;
-      }
-
-      .titleName {
-        font-weight: var(--font-weight-bold);
-        color: #0a0a0a;
-        font-size: 16px;
-        line-height: 23px;
-        // flex: 1;
-      }
     }
 
     .chapterCount {
@@ -40,7 +27,7 @@
   }
 
   .listRow {
-    margin-top: 5px;
+    margin-top: 12px;
   }
 
   .listRowWithoutHeader {

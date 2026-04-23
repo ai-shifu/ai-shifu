@@ -15,18 +15,12 @@ export const buildCourseVisitEventName = (shifuBid: string) => {
   return `${COURSE_VISIT_EVENT_PREFIX}${normalized.slice(0, suffixLimit)}`;
 };
 
-export const buildCourseVisitSessionKey = (shifuBid: string) =>
-  `course_visit:${normalizeCourseVisitId(shifuBid)}`;
-
-type SessionStorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-
 type TrackCourseVisitParams = {
   initialized: boolean;
   isLoggedIn: boolean;
   previewMode: boolean;
   shifuBid: string;
   entryType: 'catalog' | 'deep_link';
-  storage?: SessionStorageLike | null;
   trackEvent: (
     eventName: string,
     eventData?: Record<string, unknown>,
@@ -39,44 +33,22 @@ export const trackCourseVisitIfNeeded = async ({
   previewMode,
   shifuBid,
   entryType,
-  storage,
   trackEvent,
 }: TrackCourseVisitParams): Promise<boolean> => {
   const normalizedShifuBid = normalizeCourseVisitId(shifuBid);
-  if (!initialized || !isLoggedIn || previewMode || !normalizedShifuBid) {
+  if (!initialized || previewMode || !normalizedShifuBid) {
     return false;
   }
 
-  const sessionKey = buildCourseVisitSessionKey(normalizedShifuBid);
-  let shouldTrack = true;
-
-  if (storage) {
-    try {
-      shouldTrack = !storage.getItem(sessionKey);
-    } catch {
-      shouldTrack = true;
-    }
-  }
-
-  if (!shouldTrack) {
-    return false;
-  }
-
-  let attempted = false;
   try {
-    attempted = true;
     await trackEvent(buildCourseVisitEventName(normalizedShifuBid), {
       shifu_bid: normalizedShifuBid,
       entry_type: entryType,
+      auth_state: isLoggedIn ? 'logged_in' : 'guest',
       preview_mode: false,
     });
-  } catch {}
-
-  if (attempted && storage) {
-    try {
-      storage.setItem(sessionKey, '1');
-    } catch {}
+    return true;
+  } catch {
+    return false;
   }
-
-  return attempted;
 };

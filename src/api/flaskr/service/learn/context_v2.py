@@ -17,6 +17,8 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,
 )
 from markdown_flow import (
     MarkdownFlow,
@@ -3390,6 +3392,12 @@ class RunScriptContextV2:
                                 LearnGeneratedBlock.user_bid == self._user_info.user_id,
                                 LearnGeneratedBlock.deleted == 0,
                                 LearnGeneratedBlock.status == 1,
+                                LearnGeneratedBlock.type.notin_(
+                                    [
+                                        BLOCK_TYPE_MDASK_VALUE,
+                                        BLOCK_TYPE_MDANSWER_VALUE,
+                                    ]
+                                ),
                                 LearnGeneratedBlock.id
                                 >= (
                                     generated_block.id
@@ -3419,6 +3427,12 @@ class RunScriptContextV2:
                             ),
                             LearnGeneratedBlock.deleted == 0,
                             LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.type.notin_(
+                                [
+                                    BLOCK_TYPE_MDASK_VALUE,
+                                    BLOCK_TYPE_MDANSWER_VALUE,
+                                ]
+                            ),
                         ).update(
                             {LearnGeneratedBlock.status: 0},
                             synchronize_session=False,

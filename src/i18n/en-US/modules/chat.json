@@ -7,7 +7,9 @@
   "closeCatalog": "Close catalog",
   "generating": "Generating diagram...",
   "learningModeListen": "Listen",
+  "learningModeListenShort": "Listen",
   "learningModeRead": "Read",
+  "learningModeReadShort": "Read",
   "learningModeToggle": "Switch learning mode",
   "lessonFeedbackClearInput": "Clear input",
   "lessonFeedbackCommentPlaceholder": "Optional: share your feedback or suggestions",
@@ -40,6 +42,7 @@
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
   "slideAudioBuffering": "Buffering...",
+  "streamTimeoutRetry": "The service timed out. Please refresh and try again.",
   "thinking": "Thinking...",
   "ttsSynthesisPreview": "Listen Mode"
 }

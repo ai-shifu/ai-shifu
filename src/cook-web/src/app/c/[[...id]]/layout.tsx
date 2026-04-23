@@ -7,8 +7,10 @@ import { parseUrlParams } from '@/c-utils/urlUtils';
 // import { ConfigProvider } from 'antd';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useTranslation } from 'react-i18next';
+import type { LearningMode } from './Components/learningModeOptions';
 
 import { useShallow } from 'zustand/react/shallow';
+import { useParams } from 'next/navigation';
 
 import {
   inWechat,
@@ -25,6 +27,10 @@ import {
 
 import { useEnvStore, useCourseStore } from '@/c-store';
 import { UserProvider, useUserStore } from '@/store';
+import {
+  readLearningModeFromStorage,
+  writeLearningModeToStorage,
+} from './Components/learningModeStorage';
 
 const parseBooleanQueryParam = (value?: string) => {
   if (typeof value !== 'string') {
@@ -34,12 +40,41 @@ const parseBooleanQueryParam = (value?: string) => {
   return value.trim().toLowerCase() === 'true';
 };
 
+const resolveLearningMode = ({
+  courseTtsEnabled,
+  hasListenModeOverride,
+  listenModeParam,
+  storedLearningMode,
+}: {
+  courseTtsEnabled: boolean | null;
+  hasListenModeOverride: boolean;
+  listenModeParam: boolean | null;
+  storedLearningMode: LearningMode | null;
+}): LearningMode => {
+  if (hasListenModeOverride) {
+    if (courseTtsEnabled === null) {
+      return listenModeParam === true ? 'listen' : 'read';
+    }
+
+    return listenModeParam === true && courseTtsEnabled === true
+      ? 'listen'
+      : 'read';
+  }
+
+  if (storedLearningMode === 'listen' && courseTtsEnabled !== false) {
+    return 'listen';
+  }
+
+  return 'read';
+};
+
 export default function ChatLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { i18n, t } = useTranslation();
+  const routeParams = useParams<{ id?: string[] }>();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   const envDataInitialized = useEnvStore(
@@ -58,6 +93,7 @@ export default function ChatLayout({
     updatePreviewMode,
     updateSkip,
     updateShowLearningModeToggle,
+    learningMode,
     updateLearningMode,
   } = useSystemStore() as SystemStoreState;
 
@@ -101,6 +137,8 @@ export default function ChatLayout({
 
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
+  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
+  const storageCourseId = routeCourseId || params.courseId || courseId;
   const currChannel = params.channel || '';
   const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
   const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
@@ -111,16 +149,6 @@ export default function ChatLayout({
     courseTtsEnabled === null
       ? listenModeParam === true
       : isCourseListenModeAvailable;
-  const effectiveLearningMode =
-    courseTtsEnabled === null
-      ? listenModeParam === true
-        ? 'listen'
-        : 'read'
-      : hasListenModeOverride
-        ? listenModeParam === true && isCourseListenModeAvailable
-          ? 'listen'
-          : 'read'
-        : 'read';
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -187,17 +215,57 @@ export default function ChatLayout({
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
     updateShowLearningModeToggle(showLearningModeToggle);
-    updateLearningMode(effectiveLearningMode);
   }, [
-    effectiveLearningMode,
     isPreviewMode,
     isSkipMode,
     showLearningModeToggle,
     updatePreviewMode,
     updateSkip,
     updateShowLearningModeToggle,
+  ]);
+
+  useEffect(() => {
+    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    const nextLearningMode = resolveLearningMode({
+      courseTtsEnabled,
+      hasListenModeOverride,
+      listenModeParam,
+      storedLearningMode,
+    });
+    const currentLearningMode = useSystemStore.getState().learningMode;
+
+    if (currentLearningMode === nextLearningMode) {
+      return;
+    }
+
+    // Sync course preference or URL override into the global learning mode state.
+    updateLearningMode(nextLearningMode);
+  }, [
+    courseTtsEnabled,
+    hasListenModeOverride,
+    listenModeParam,
+    storageCourseId,
     updateLearningMode,
   ]);
+
+  useEffect(() => {
+    if (!storageCourseId || hasListenModeOverride) {
+      return;
+    }
+
+    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+
+    if (storedLearningMode === learningMode) {
+      return;
+    }
+
+    if (storedLearningMode === null && learningMode === 'read') {
+      return;
+    }
+
+    // Keep the course-scoped preference synced after user toggles mode.
+    writeLearningModeToStorage(storageCourseId, learningMode);
+  }, [hasListenModeOverride, learningMode, storageCourseId]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {

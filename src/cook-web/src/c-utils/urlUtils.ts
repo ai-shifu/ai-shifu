@@ -103,3 +103,33 @@ export const buildLoginRedirectPath = (url: string) => {
   urlObj.searchParams.delete('state');
   return urlObj.pathname + urlObj.search;
 };
+
+/**
+ * Detects the branded host domain from the current page URL.
+ * Returns 'ai-shifu.cn', 'ai-shifu.com', or null for unknown hosts.
+ * Covers bare domains, subdomains, and localhost (mapped to ai-shifu.cn).
+ */
+export const getHostDomain = (): 'ai-shifu.cn' | 'ai-shifu.com' | null => {
+  if (typeof window === 'undefined') return null;
+  const hostname = window.location.hostname;
+  if (
+    hostname === 'ai-shifu.cn' ||
+    hostname.endsWith('.ai-shifu.cn') ||
+    hostname === 'localhost'
+  ) {
+    return 'ai-shifu.cn';
+  }
+  if (hostname === 'ai-shifu.com' || hostname.endsWith('.ai-shifu.com')) {
+    return 'ai-shifu.com';
+  }
+  return null;
+};
+
+/**
+ * Returns the absolute URL to the payment agreement page for the current domain,
+ * or null when the domain cannot be detected (graceful degradation: hide the checkbox).
+ */
+export const getPaymentAgreementUrl = (): string | null => {
+  const domain = getHostDomain();
+  return domain ? `https://${domain}/payment-agreement.html` : null;
+};

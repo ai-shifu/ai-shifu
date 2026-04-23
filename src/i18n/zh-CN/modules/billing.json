@@ -1,0 +1,734 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "adjust": {
+      "cancel": "取消",
+      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准 bucket 扣减顺序人工扣减积分。",
+      "errors": {
+        "amountInvalid": "请输入非 0 的十进制金额，最多保留 10 位小数。",
+        "creatorBidRequired": "必须填写 creator bid。"
+      },
+      "fields": {
+        "amount": "调整额度",
+        "creatorBid": "Creator Bid",
+        "note": "备注"
+      },
+      "help": {
+        "amount": "示例：12.5000000 表示补发积分，-8.0000000 表示扣减积分。"
+      },
+      "open": "调整积分",
+      "placeholders": {
+        "amount": "12.5000000 或 -8.0000000",
+        "creatorBid": "creator_bid",
+        "note": "填写人工调整原因"
+      },
+      "quickAction": "调整该创作者积分",
+      "submit": "确认调整",
+      "submitting": "调整中...",
+      "success": "已更新 {creatorBid} 的账本，当前可用积分 {availableCredits}。",
+      "title": "人工积分调整"
+    },
+    "attention": "需关注",
+    "backToCreatorBilling": "返回会员中心",
+    "domains": {
+      "description": "审核创作者自定义域名状态、权益开关，以及仍需跟进的 host。",
+      "empty": "暂无自定义域名绑定。",
+      "loadError": "无法加载后台域名审核数据。",
+      "table": {
+        "creator": "创作者",
+        "effective": "是否生效",
+        "entitlement": "域名权益",
+        "host": "域名",
+        "lastVerified": "最近校验",
+        "ssl": "SSL",
+        "status": "状态"
+      },
+      "title": "域名审核",
+      "values": {
+        "effective": "已生效",
+        "inactive": "未生效"
+      }
+    },
+    "entitlements": {
+      "description": "查看每个创作者当前解析到的有效权益快照。",
+      "empty": "暂无权益快照。",
+      "loadError": "无法加载后台权益数据。",
+      "source": {
+        "default": "默认回退",
+        "productPayload": "商品 payload",
+        "snapshot": "存储快照"
+      },
+      "table": {
+        "analytics": "分析等级",
+        "creator": "创作者",
+        "features": "功能开关",
+        "priority": "优先级",
+        "source": "来源",
+        "support": "支持等级",
+        "window": "生效窗口"
+      },
+      "title": "权益查看"
+    },
+    "exceptions": {
+      "description": "聚焦仍需要人工跟进的订阅和订单异常。",
+      "empty": "当前没有需要处理的账务异常。",
+      "fields": {
+        "amount": "金额",
+        "createdAt": "创建时间",
+        "detail": "异常详情",
+        "periodEnd": "周期结束",
+        "renewalEvent": "续费事件"
+      },
+      "loadError": "账务异常数据读取失败，请刷新后重试。",
+      "sections": {
+        "orders": "需关注订单",
+        "subscriptions": "需关注订阅"
+      },
+      "title": "异常处理"
+    },
+    "orders": {
+      "description": "查看所有创作者的 billing 订单，并快速定位 provider 失败单。",
+      "empty": "当前还没有 billing 订单。",
+      "loadError": "后台订单数据读取失败，请刷新后重试。",
+      "table": {
+        "amount": "金额",
+        "createdAt": "创建时间",
+        "creator": "创作者",
+        "failure": "失败信息",
+        "order": "订单",
+        "provider": "支付通道",
+        "status": "状态"
+      },
+      "title": "订单列表"
+    },
+    "pagination": {
+      "page": "第 {page} / {pageCount} 页，共 {total} 条记录"
+    },
+    "reports": {
+      "description": "在运营后台直接查看跨创作者的 usage 与账本日报表。",
+      "sections": {
+        "ledger": {
+          "description": "按天查看跨创作者的账本变动汇总。",
+          "title": "账本汇总"
+        },
+        "usage": {
+          "description": "按创作者、shifu、scene 与 metric 查看 usage 成本汇总。",
+          "title": "Usage 汇总"
+        }
+      },
+      "table": {
+        "creator": "创作者"
+      },
+      "title": "报表"
+    },
+    "subscriptions": {
+      "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
+      "empty": "当前还没有订阅记录。",
+      "loadError": "后台订阅数据读取失败，请刷新后重试。",
+      "table": {
+        "availableCredits": "可用积分",
+        "creator": "创作者",
+        "currentPeriodEnd": "当前周期结束",
+        "product": "套餐",
+        "provider": "支付通道",
+        "renewal": "续费上下文",
+        "renewalStatus": "续费事件",
+        "scheduled": "计划于",
+        "status": "状态"
+      },
+      "title": "订阅列表"
+    },
+    "subtitle": "用于查看订阅状态、失败支付和需要人工跟进的账务异常。",
+    "tabs": {
+      "domains": "域名",
+      "entitlements": "权益",
+      "exceptions": "异常处理",
+      "orders": "订单视图",
+      "reports": "报表",
+      "subscriptions": "订阅视图"
+    },
+    "title": "后台账务视图"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "立即充值",
+      "openOrders": "查看付款记录",
+      "resumeSubscription": "恢复订阅"
+    },
+    "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
+    "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
+    "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
+    "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
+  },
+  "capabilities": {
+    "description": "这里统一标记哪些 billing 能力已经在 UI 中启用，哪些仍只存在于默认关闭配置或内部任务链路中。",
+    "fallbackDescription": "能力状态以 billing capability registry 为准。",
+    "fallbackTitle": "Billing 能力",
+    "items": {
+      "adminDomains": {
+        "description": "后台域名绑定与审核页面当前仍可使用。",
+        "title": "后台域名"
+      },
+      "adminEntitlements": {
+        "description": "后台权益查看当前仍可使用。",
+        "title": "后台权益"
+      },
+      "adminLedgerAdjust": {
+        "description": "后台账本调整当前仍可使用。",
+        "title": "后台账本调整"
+      },
+      "adminOrders": {
+        "description": "后台 billing 订单查看当前仍可使用。",
+        "title": "后台订单"
+      },
+      "adminReports": {
+        "description": "后台 usage 与 ledger 报表当前仍可使用。",
+        "title": "后台报表"
+      },
+      "adminSubscriptions": {
+        "description": "后台订阅查看当前仍可使用。",
+        "title": "后台订阅"
+      },
+      "billingFeatureFlag": {
+        "description": "billing 功能开关在 seed 配置中仍默认关闭。",
+        "title": "Billing 功能开关"
+      },
+      "creatorCatalog": {
+        "description": "套餐与充值包目录当前仍为 active。",
+        "title": "创作者商品目录"
+      },
+      "creatorOrders": {
+        "description": "创作者订单、sync、refund 和 topup 流程当前仍启用。",
+        "title": "创作者订单"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "创作者订阅购买、取消与恢复当前仍启用。",
+        "title": "创作者订阅生命周期"
+      },
+      "creatorWalletLedger": {
+        "description": "钱包 bucket 与账本视图当前仍启用。",
+        "title": "创作者钱包与账本"
+      },
+      "dailyAggregateRebuild": {
+        "description": "日报表重建与 finalize 仍属于内部能力。",
+        "title": "日报表重建"
+      },
+      "domainVerifyRefresh": {
+        "description": "域名校验刷新仍属于内部能力。",
+        "title": "域名校验刷新"
+      },
+      "lowBalanceAlerts": {
+        "description": "低余额告警生成仍属于内部能力。",
+        "title": "低余额告警"
+      },
+      "providerReconcile": {
+        "description": "provider reconcile 仍属于内部恢复链路。",
+        "title": "Provider 对账补偿"
+      },
+      "renewalCompensation": {
+        "description": "续费与 retry 补偿仍属于内部能力。",
+        "title": "续费补偿"
+      },
+      "renewalTaskQueue": {
+        "description": "续费 worker 执行在 seed 配置中仍默认关闭。",
+        "title": "续费任务队列"
+      },
+      "runtimeBillingExtensions": {
+        "description": "runtime-config 当前仍会输出 billing entitlement 与 domain 上下文。",
+        "title": "运行时 billing 扩展"
+      },
+      "usageSettlement": {
+        "description": "usage settlement 与 replay 仍属于内部 task/CLI 流程。",
+        "title": "Usage 结算"
+      },
+      "walletBucketExpiration": {
+        "description": "wallet bucket 过期扫描仍属于内部能力。",
+        "title": "余额桶过期扫描"
+      }
+    },
+    "status": {
+      "active": "已启用",
+      "defaultDisabled": "默认关闭",
+      "internalOnly": "仅内部"
+    },
+    "summary": {
+      "active": "{count} 个已启用",
+      "defaultDisabled": "{count} 个默认关闭",
+      "internalOnly": "{count} 个仅内部"
+    },
+    "title": "能力状态"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "处理中..."
+    },
+    "badges": {
+      "bestValue": "更划算",
+      "recommended": "热门"
+    },
+    "labels": {
+      "everyDays": "/ 每 {count} 天",
+      "everyMonths": "/ 每 {count} 个月",
+      "everyYears": "/ 每 {count} 年",
+      "perDay": "/ 每日",
+      "perMonth": "/ 每月",
+      "perYear": "/ 每年",
+      "providerManual": "人工开通",
+      "providerPingxx": "Pingxx / 支付宝二维码",
+      "providerStripe": "Stripe"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "适合在交付期之外做课程迭代和维护",
+        "title": "轻量版"
+      },
+      "creatorMonthlyPro": {
+        "description": "适合服务少量学员",
+        "title": "基础版"
+      },
+      "creatorYearly": {
+        "description": "适合大型机构",
+        "title": "高阶版"
+      },
+      "creatorYearlyLite": {
+        "description": "适合中小型机构",
+        "title": "进阶版"
+      },
+      "creatorYearlyPremium": {
+        "description": "适合超大型机构",
+        "title": "旗舰版"
+      }
+    },
+    "topups": {
+      "creatorLarge": {
+        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
+        "title": "120 积分包"
+      },
+      "creatorMedium": {
+        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
+        "title": "50 积分包"
+      },
+      "creatorSmall": {
+        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
+        "title": "20 积分包"
+      },
+      "creatorXLarge": {
+        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
+        "title": "320 积分包"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "积分购买协议",
+    "agreementPrefix": "我已阅读并同意",
+    "cancel": "取消",
+    "confirm": "继续支付",
+    "creditsLabel": "积分",
+    "planDescription": "以下是积分订阅套餐的支付环节。",
+    "priceLabel": "价格",
+    "processing": "处理中...",
+    "productLabel": "商品",
+    "providerLabel": "支付通道",
+    "subject": {
+      "plan": {
+        "day": "日套餐",
+        "month": "月套餐",
+        "year": "年套餐"
+      }
+    },
+    "title": "确认购买",
+    "topupDescription": "你将进入一次性积分充值的支付确认流程。",
+    "unsupported": "当前支付方式暂不可用。"
+  },
+  "common": {
+    "empty": "暂无"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "立即升级"
+    },
+    "subtitle": "查看当前创作者空间的总积分、各类积分余额以及对应有效期。",
+    "table": {
+      "balance": "余额",
+      "creditType": "类型",
+      "validUntil": "有效期到"
+    },
+    "title": "积分总览",
+    "topupAvailabilityLabel": "无限期",
+    "topupAvailabilityTooltip": "必须有任意激活套餐才可使用",
+    "totalCreditsDescription": "按照套餐积分>积分包的顺序优先扣减",
+    "totalCreditsLabel": "积分余额",
+    "usageTable": {
+      "columns": {
+        "scene": "消耗项"
+      },
+      "title": "积分消耗明细"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "尚未校验"
+    },
+    "ssl": {
+      "issued": "SSL 已签发",
+      "not_requested": "SSL 未申请",
+      "pending": "SSL 处理中"
+    },
+    "status": {
+      "disabled": "已停用",
+      "failed": "校验失败",
+      "pending": "待校验",
+      "verified": "已校验"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "高级分析",
+      "basic": "基础分析",
+      "enterprise": "企业分析"
+    },
+    "flags": {
+      "branding": "品牌覆写",
+      "customDomain": "自定义域名",
+      "disabled": "未开启",
+      "enabled": "已开启"
+    },
+    "metrics": {
+      "analyticsTier": "分析等级",
+      "maxConcurrency": "最大并发",
+      "priorityClass": "优先级",
+      "supportTier": "支持等级"
+    },
+    "priority": {
+      "priority": "优先级保障",
+      "standard": "标准",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "工作时间支持",
+      "priority": "优先支持",
+      "selfServe": "自助支持"
+    }
+  },
+  "ledger": {
+    "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
+    "category": {
+      "subscription": "套餐积分",
+      "topup": "积分包"
+    },
+    "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
+    "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
+    "entriesTitle": "账本流水",
+    "entryType": {
+      "adjustment": "调整",
+      "consume": "消耗",
+      "expire": "过期",
+      "grant": "发放",
+      "hold": "冻结",
+      "refund": "退款返还",
+      "release": "释放"
+    },
+    "loadError": "积分来源读取失败，请刷新后重试。",
+    "neverExpires": "跟随套餐积分的有效期",
+    "pagination": {
+      "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
+    },
+    "source": {
+      "gift": "赠送积分",
+      "manual": "人工调整",
+      "refund": "退款返还",
+      "subscription": "套餐积分",
+      "topup": "积分包",
+      "usage": "用量结算"
+    },
+    "summary": {
+      "activeBuckets": "生效 bucket",
+      "nextExpiry": "最近过期",
+      "totalAvailable": "来源积分总额"
+    },
+    "table": {
+      "action": "操作",
+      "amount": "数量",
+      "availableCredits": "可用积分",
+      "balanceAfter": "变化后余额",
+      "createdAt": "时间",
+      "detail": "查看明细",
+      "effectiveWindow": "生效时间",
+      "entryType": "账本类型",
+      "priority": "优先级",
+      "source": "积分来源",
+      "status": "状态"
+    },
+    "usageScene": {
+      "debug": "调试",
+      "preview": "预览",
+      "production": "学习",
+      "tts": "语音"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "已取消",
+      "failed": "失败",
+      "init": "已创建",
+      "paid": "已支付",
+      "pending": "处理中",
+      "refunded": "已退款",
+      "timeout": "已超时"
+    },
+    "type": {
+      "manual": "人工订单",
+      "refund": "退款订单",
+      "subscriptionRenewal": "订阅续费",
+      "subscriptionStart": "订阅开通",
+      "subscriptionUpgrade": "订阅升级",
+      "topup": "充值订单"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "可用积分",
+    "feedback": {
+      "cancelSuccess": "当前订阅将在本周期结束后取消。",
+      "resumeSuccess": "订阅续费已恢复。"
+    },
+    "loadError": "账务数据加载失败，请刷新后重试。",
+    "walletTitle": "积分总览"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "立即购买",
+      "currentSubscription": "当前订阅",
+      "currentUsing": "当前使用",
+      "downgradeDisabled": "不支持降级",
+      "freeTrial": "已失效",
+      "nonMemberTooltip": "当前为非会员状态，无需操作",
+      "subscribeNow": "立即订阅",
+      "upgradeNow": "立即升级",
+      "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
+    },
+    "creditSummary": {
+      "daily": "日积分数 {credits}",
+      "days": "每 {count} 天积分数 {credits}",
+      "monthly": "月积分数 {credits}",
+      "months": "每 {count} 个月积分数 {credits}",
+      "yearly": "年积分数 {credits}",
+      "years": "每 {count} 年积分数 {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "享有基础版全部权益，以及：",
+        "parallelProcessing": "更高并行处理能力",
+        "taskPriority": "任务优先处理",
+        "techBasic": "技术基础支持"
+      },
+      "common": {
+        "allLearning": "全部学习功能",
+        "createDebugPublish": "创建、调试和发布课程",
+        "higherConcurrency": "更高并发支持",
+        "unlimitedCourses": "不限课程数"
+      },
+      "daily": {
+        "preview": "适合短周期验证与快速体验",
+        "publish": "支持短期发布与快速上手",
+        "support": "日订阅运营支持"
+      },
+      "free": {
+        "preview": "学员交付与学习账号导入",
+        "publish": "课程创建与内容存储"
+      },
+      "monthly": {
+        "preview": "学员交付与学习账号导入",
+        "publish": "课程创建与内容存储"
+      },
+      "premium": {
+        "concurrencyQuota": "更高并发任务配额",
+        "dedicatedSupport": "专属技术支持",
+        "includesLabel": "享有高阶版全部权益，以及：",
+        "onboarding": "一次专属课程制作培训"
+      },
+      "pro": {
+        "branding": "自定义品牌标识",
+        "customDomain": "自定义域名",
+        "includesLabel": "享有进阶版全部权益，以及：",
+        "techPriority": "技术优先支持"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "更高并行处理能力",
+          "publish": "任务优先处理"
+        },
+        "premium": {
+          "analytics": "更高并发任务配额",
+          "branding": "自定义品牌标识",
+          "domain": "自定义域名",
+          "priority": "专属技术支持",
+          "support": "一次专属课程制作培训"
+        },
+        "pro": {
+          "analytics": "技术优先支持",
+          "branding": "自定义品牌标识",
+          "domain": "自定义域名",
+          "priority": "更高并行处理能力",
+          "support": "技术基础支持"
+        }
+      }
+    },
+    "featuresTitle": "享有权益：",
+    "free": {
+      "creditSummary": "赠送积分数 {credits}",
+      "description": "适合首次体验，跑通教研教学全流程",
+      "priceNote": "/ 新注册 {days} 日内有效",
+      "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
+      "priceValue": "¥0",
+      "title": "体验版"
+    },
+    "intervalTabs": {
+      "daily": "日度套餐",
+      "monthly": "月度套餐",
+      "topup": "积分充值",
+      "yearly": "年度套餐"
+    },
+    "scale": {
+      "advanced": {
+        "students": "预估支持学员数：300人左右"
+      },
+      "basic": {
+        "students": "预估支持学员数：10人左右"
+      },
+      "free": {
+        "students": "预估支持学员数：10人左右"
+      },
+      "lite": {
+        "students": "预估支持学员数：3人左右"
+      },
+      "premium": {
+        "students": "预估支持学员数：1000人左右"
+      },
+      "pro": {
+        "students": "预估支持学员数：500人左右"
+      },
+      "sectionTitle": "学员支持规模（参考）"
+    },
+    "subtitle": "请选择合适的积分套餐",
+    "title": "积分套餐",
+    "topup": {
+      "creditLabel": "{credits} 积分",
+      "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
+      "noteInstant": "购买后即时生效, 积分永不过期。",
+      "noteTitle": "积分充值说明"
+    },
+    "topupComingSoon": "敬请期待",
+    "validity": {
+      "daily": "有效期：自购买当日起按日生效",
+      "days": "有效期：自购买当日起每 {count} 天续期",
+      "free": "有效期：注册日起 15 内有效",
+      "monthly": "购买日起 30 天内",
+      "months": "有效期：自购买当月起每 {count} 个月续期",
+      "yearly": "有效期：当月购买起计算日起，每年有效",
+      "years": "有效期：自购买当月起每 {count} 年续期"
+    }
+  },
+  "page": {
+    "adminLink": "打开后台账务视图",
+    "tabs": {
+      "ledger": "积分详情",
+      "plans": "积分套餐"
+    }
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "取消生效",
+      "downgradeEffective": "降级生效",
+      "expire": "过期处理",
+      "reconcile": "对账修正",
+      "renewal": "自动续费",
+      "retry": "失败重试"
+    },
+    "status": {
+      "canceled": "已取消",
+      "failed": "失败",
+      "pending": "待执行",
+      "processing": "处理中",
+      "succeeded": "已完成"
+    }
+  },
+  "reports": {
+    "empty": "暂无日报表数据。",
+    "loadError": "当前无法加载账务报表。",
+    "metric": {
+      "llmCacheTokens": "LLM 缓存 tokens",
+      "llmInputTokens": "LLM 输入 tokens",
+      "llmOutputTokens": "LLM 输出 tokens",
+      "ttsInputChars": "TTS 输入字符",
+      "ttsOutputChars": "TTS 输出字符",
+      "ttsRequestCount": "TTS 请求次数"
+    },
+    "table": {
+      "count": "条目数",
+      "credits": "积分",
+      "date": "日期",
+      "entryType": "账本类型",
+      "metric": "计费指标",
+      "provider": "Provider / Model",
+      "rawAmount": "原始用量",
+      "scene": "场景",
+      "shifu": "Shifu",
+      "source": "来源",
+      "usageType": "Usage 类型",
+      "window": "统计窗口"
+    },
+    "usageType": {
+      "llm": "LLM",
+      "tts": "TTS"
+    }
+  },
+  "result": {
+    "countdown": "{seconds}s 后自动返回会员中心",
+    "errorTitle": "账务同步失败",
+    "missingOrder": "缺少 billing 订单号，请返回会员中心后从订单列表重新同步。",
+    "openBilling": "打开会员中心",
+    "pending": "支付结果还在处理中，稍后可以再次同步。",
+    "pendingTitle": "等待账务确认",
+    "processing": "正在同步支付状态",
+    "retry": "重新同步",
+    "success": "支付已确认，正在刷新你的会员与积分数据。",
+    "successTitle": "账务已更新"
+  },
+  "sidebar": {
+    "creditsLabel": "剩余积分",
+    "cta": "前往会员中心",
+    "dailyBalanceTitle": "日套餐余额",
+    "dailyTitle": "日订阅",
+    "description": "查看会员状态、积分余额与后续账务动作。",
+    "expired": "已到期",
+    "expiresInDays": "{days} 天后到期",
+    "monthlyBalanceTitle": "月套餐余额",
+    "monthlyTitle": "月订阅",
+    "nonMemberBalanceTitle": "积分余额",
+    "nonMemberTitle": "非会员",
+    "periodLabel": "套餐周期",
+    "placeholderValue": "--",
+    "subscriptionPending": "即将开放",
+    "subscriptionStatusLabel": "订阅状态",
+    "upgradeCta": "升级",
+    "usageCta": "查看详情",
+    "yearlyBalanceTitle": "年套餐余额",
+    "yearlyTitle": "年订阅"
+  },
+  "status": {
+    "active": "生效中",
+    "cancelScheduled": "已计划取消",
+    "canceled": "已取消",
+    "draft": "待支付",
+    "expired": "已过期",
+    "none": "未开通",
+    "pastDue": "续费失败",
+    "paused": "已暂停"
+  },
+  "welcomeTrial": {
+    "confirm": "好的，开始使用！",
+    "description": "新用户赠送体验版，包含 {credits} 积分，有效期 {days} 天。现在就开始创建你的第一门课程吧！",
+    "title": "欢迎来到 {appName}"
+  }
+}

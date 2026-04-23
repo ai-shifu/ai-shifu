@@ -13,6 +13,7 @@ from .base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
     PaymentRefundResult,
+    SubscriptionUpdateResult,
 )
 from . import register_payment_provider
 
@@ -148,6 +149,66 @@ class StripeProvider(PaymentProvider):
             },
         )
 
+    def create_subscription(
+        self, *, request: PaymentRequest, app: Flask
+    ) -> PaymentCreationResult:
+        options: Dict[str, Any] = dict(request.extra or {})
+        session_params = dict(options.get("session_params", {}) or {})
+        session_params["mode"] = "subscription"
+        options["mode"] = "checkout_session"
+        options["session_params"] = session_params
+        subscription_request = PaymentRequest(
+            order_bid=request.order_bid,
+            user_bid=request.user_bid,
+            shifu_bid=request.shifu_bid,
+            amount=request.amount,
+            channel=request.channel,
+            currency=request.currency,
+            subject=request.subject,
+            body=request.body,
+            client_ip=request.client_ip,
+            extra=options,
+        )
+        return self.create_payment(request=subscription_request, app=app)
+
+    def cancel_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+    ) -> SubscriptionUpdateResult:
+        stripe = self._ensure_client(app)
+        subscription = stripe.Subscription.modify(
+            provider_subscription_id,
+            cancel_at_period_end=True,
+            metadata={"subscription_bid": subscription_bid},
+        )
+        payload = subscription.to_dict()
+        return SubscriptionUpdateResult(
+            provider_reference=payload.get("id", provider_subscription_id),
+            raw_response=payload,
+            status=payload.get("status", ""),
+            extra={
+                "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
+            },
+        )
+
+    def resume_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+    ) -> SubscriptionUpdateResult:
+        stripe = self._ensure_client(app)
+        subscription = stripe.Subscription.modify(
+            provider_subscription_id,
+            cancel_at_period_end=False,
+            metadata={"subscription_bid": subscription_bid},
+        )
+        payload = subscription.to_dict()
+        return SubscriptionUpdateResult(
+            provider_reference=payload.get("id", provider_subscription_id),
+            raw_response=payload,
+            status=payload.get("status", ""),
+            extra={
+                "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
+            },
+        )
+
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
     ) -> Dict[str, Any]:
@@ -158,8 +219,14 @@ class StripeProvider(PaymentProvider):
         stripe = self._ensure_client(app)
         return stripe.PaymentIntent.retrieve(intent_id)
 
-    def handle_notification(
-        self, *, payload: Dict[str, Any], app: Flask
+    def retrieve_subscription(
+        self, *, subscription_id: str, app: Flask
+    ) -> Dict[str, Any]:
+        stripe = self._ensure_client(app)
+        return stripe.Subscription.retrieve(subscription_id)
+
+    def verify_webhook(
+        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         stripe = self._ensure_client(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
@@ -167,12 +234,13 @@ class StripeProvider(PaymentProvider):
             app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
             raise RuntimeError("STRIPE_WEBHOOK_SECRET must be configured for Stripe")
 
-        raw_body = payload.get("raw_body", "")
         if isinstance(raw_body, bytes):
             raw_body_str = raw_body.decode("utf-8")
         else:
             raw_body_str = str(raw_body or "")
-        sig_header = payload.get("sig_header", "")
+        sig_header = headers.get("Stripe-Signature") or headers.get(
+            "stripe-signature", ""
+        )
         if not sig_header:
             raise RuntimeError("Stripe signature header missing")
 
@@ -184,21 +252,75 @@ class StripeProvider(PaymentProvider):
             app.logger.error("Stripe webhook signature verification failed: %s", exc)
             raise
 
-        data_object = event.get("data", {}).get("object", {}) or {}
-        metadata = data_object.get("metadata", {}) or {}
-        order_bid = metadata.get("order_bid", "")
-        charge_id = data_object.get("latest_charge") or ""
-        if not charge_id:
-            charges = data_object.get("charges", {}).get("data", [])
-            if charges:
-                charge_id = charges[0].get("id", "")
+        return self._build_notification_from_event(event)
 
-        return PaymentNotificationResult(
-            order_bid=order_bid,
-            status=event.get("type", ""),
-            provider_payload=event,
-            charge_id=charge_id,
+    def handle_notification(
+        self, *, payload: Dict[str, Any], app: Flask
+    ) -> PaymentNotificationResult:
+        headers = dict(payload.get("headers", {}) or {})
+        sig_header = payload.get("sig_header", "")
+        if sig_header and "Stripe-Signature" not in headers:
+            headers["Stripe-Signature"] = sig_header
+        return self.verify_webhook(
+            headers=headers,
+            raw_body=payload.get("raw_body", ""),
+            app=app,
         )
+
+    def sync_reference(
+        self, *, provider_reference: str, reference_type: str, app: Flask
+    ) -> PaymentNotificationResult:
+        normalized_reference_type = str(reference_type or "").strip().lower()
+        if normalized_reference_type in {"checkout_session", "session", "payment"}:
+            session = self.retrieve_checkout_session(
+                session_id=provider_reference,
+                app=app,
+            )
+            intent = None
+            intent_id = session.get("payment_intent") or ""
+            if intent_id:
+                intent = self.retrieve_payment_intent(intent_id=intent_id, app=app)
+            payload = {
+                "checkout_session": session,
+                "payment_intent": intent or {},
+            }
+            charge_id = ""
+            if intent:
+                charge_id = str(intent.get("latest_charge") or "")
+                if not charge_id:
+                    charges = intent.get("charges", {}).get("data", [])
+                    if charges:
+                        charge_id = str(charges[0].get("id") or "")
+            metadata = session.get("metadata", {}) or {}
+            return PaymentNotificationResult(
+                order_bid=str(metadata.get("order_bid") or ""),
+                status="manual_sync",
+                provider_payload=payload,
+                charge_id=charge_id or None,
+            )
+        if normalized_reference_type == "payment_intent":
+            intent = self.retrieve_payment_intent(intent_id=provider_reference, app=app)
+            metadata = intent.get("metadata", {}) or {}
+            charge_id = str(intent.get("latest_charge") or "") or None
+            return PaymentNotificationResult(
+                order_bid=str(metadata.get("order_bid") or ""),
+                status="manual_sync",
+                provider_payload={"payment_intent": intent},
+                charge_id=charge_id,
+            )
+        if normalized_reference_type == "subscription":
+            subscription = self.retrieve_subscription(
+                subscription_id=provider_reference,
+                app=app,
+            )
+            metadata = subscription.get("metadata", {}) or {}
+            return PaymentNotificationResult(
+                order_bid=str(metadata.get("order_bid") or ""),
+                status="manual_sync",
+                provider_payload={"subscription": subscription},
+                charge_id=None,
+            )
+        raise RuntimeError(f"Unsupported Stripe reference type: {reference_type}")
 
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
@@ -234,6 +356,25 @@ class StripeProvider(PaymentProvider):
             provider_reference=refund_dict.get("id", ""),
             raw_response=refund_dict,
             status=refund_dict.get("status", ""),
+        )
+
+    def _build_notification_from_event(
+        self, event: Dict[str, Any]
+    ) -> PaymentNotificationResult:
+        data_object = event.get("data", {}).get("object", {}) or {}
+        metadata = data_object.get("metadata", {}) or {}
+        order_bid = metadata.get("order_bid", "")
+        charge_id = data_object.get("latest_charge") or ""
+        if not charge_id:
+            charges = data_object.get("charges", {}).get("data", [])
+            if charges:
+                charge_id = charges[0].get("id", "")
+
+        return PaymentNotificationResult(
+            order_bid=order_bid,
+            status=event.get("type", ""),
+            provider_payload=event,
+            charge_id=charge_id or None,
         )
 
 

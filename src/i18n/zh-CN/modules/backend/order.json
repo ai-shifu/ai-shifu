@@ -15,6 +15,8 @@
     "mobileAlreadyActivated": "手机号 {mobile} 已开通过该课程",
     "orderHasPaid": "订单已经支付",
     "orderNotFound": "没有找到订单",
+    "orderRefundError": "退款失败",
+    "orderStatusError": "当前订单状态不支持此操作",
     "orderStatusInit": "未发起支付",
     "orderStatusRefund": "退款",
     "orderStatusSuccess": "购买成功",

@@ -1,8 +1,12 @@
 import { SSE } from 'sse.js';
-import request from '@/lib/request';
+import request, { attachSseBusinessResponseFallback } from '@/lib/request';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
+import {
+  MockRunStreamFixtureSource,
+  shouldUseMockStuckRunFixture,
+} from './mockRunStreamFixture';
 
 export const ELEMENT_TYPE = {
   INTERACTION: 'interaction',
@@ -231,6 +235,30 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const getListenFlagFromPageUrl = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const listenParam = new URLSearchParams(window.location.search).get('listen');
+  return (
+    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
+  );
+};
+
+const dispatchSseBusinessError = (
+  source: { dispatchEvent: (event: Event) => void },
+  error: { message: string; code?: number },
+) => {
+  const event = new CustomEvent('error');
+  Object.assign(event, {
+    detail: error,
+    data: error.message,
+    responseCode: error.code,
+  });
+  source.dispatchEvent(event);
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -262,6 +290,34 @@ export const getRunMessage = (
     // If input is string, use default 'input' as key
     payload.input = { input: [body.input] };
   }
+
+  if (shouldUseMockStuckRunFixture(body)) {
+    const source = new MockRunStreamFixtureSource();
+
+    source.addEventListener('message', event => {
+      try {
+        const response = JSON.parse((event as MessageEvent<string>).data);
+        if (onMessage) {
+          onMessage(response);
+        }
+      } catch {
+        // ignore malformed SSE payloads
+      }
+    });
+
+    source.addEventListener('error', e => {
+      if (onError) {
+        onError(e);
+        return;
+      }
+      console.error('[Mock SSE error]', e);
+    });
+
+    source.stream();
+
+    return source;
+  }
+
   const source = new SSE(
     `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
@@ -288,11 +344,25 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
+    if ((e as { detail?: unknown }).detail) {
+      if (onError) {
+        onError(e);
+      }
+      return;
+    }
+
     if (onError) {
       onError(e);
       return;
     }
     console.error('[SSE error]', e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
   });
 
   source.stream();
@@ -333,6 +403,13 @@ const createSseSource = (
 
   source.addEventListener('error', e => {
     onError?.(e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
   });
 
   source.stream();

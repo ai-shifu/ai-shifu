@@ -1,5 +1,9 @@
 {
   "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "增加积分",
+    "moreForUser": "{user} 的更多操作"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "课程ID",
@@ -11,14 +15,101 @@
     },
     "empty": "--"
   },
+  "credits": {
+    "longTerm": "长期有效"
+  },
   "detail": {
-    "back": "返回",
+    "back": "返回用户管理",
     "basicInfo": "基础信息",
     "createdCourses": "创作课程",
+    "creditExpireAtHint": "多个有效期优先展示最早到期时间",
+    "creditExpireAtHintAriaLabel": "查看积分到期时间说明",
+    "creditLedger": "积分明细",
+    "creditLedgerColumns": {
+      "amount": "变更积分",
+      "balanceAfter": "变更后余额",
+      "createdAt": "变更时间",
+      "entryType": "类型",
+      "expiresAt": "到期时间",
+      "note": "备注",
+      "sourceType": "来源"
+    },
+    "creditLedgerNoteLabels": {
+      "debug_consume": "调试内容消耗积分",
+      "gift_expire": "赠送积分到期失效",
+      "gift_grant": "系统发放赠送积分",
+      "learning_consume": "学习内容消耗积分",
+      "manual_credit": "人工补发积分",
+      "manual_debit": "人工扣减积分",
+      "manual_grant": "人工发放积分",
+      "preview_consume": "预览内容消耗积分",
+      "refund_return": "退款后退回积分",
+      "subscription_cycle_transition": "套餐周期切换，旧周期剩余积分失效",
+      "subscription_expire": "套餐积分到期失效",
+      "subscription_grant": "套餐开通后发放积分",
+      "subscription_purchase": "套餐购买发放积分",
+      "subscription_renewal": "套餐续费发放积分",
+      "topup_expire": "积分包到期失效",
+      "topup_grant": "积分包充值后发放积分",
+      "topup_purchase": "积分包购买发放积分",
+      "trial_bootstrap": "体验套餐开通发放积分",
+      "trial_subscription_grant": "体验套餐发放积分"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "补偿",
+      "debug": "调试",
+      "gift": "赠送",
+      "learning": "学习",
+      "manual": "人工",
+      "preview": "预览",
+      "refund": "退款",
+      "reward": "奖励",
+      "subscription": "套餐",
+      "topup": "积分包",
+      "trial_subscription": "体验套餐",
+      "usage": "使用"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "积分调整",
+      "consume": "积分消耗",
+      "debug_consume": "调试消耗",
+      "expire": "积分过期",
+      "gift_expire": "赠送积分过期",
+      "gift_grant": "赠送发放",
+      "grant": "积分发放",
+      "hold": "冻结积分",
+      "learning_consume": "学习消耗",
+      "manual_credit": "人工补发",
+      "manual_debit": "人工扣减",
+      "manual_grant": "人工发放",
+      "preview_consume": "预览消耗",
+      "refund": "退款返还",
+      "refund_return": "退款返还",
+      "release": "释放积分",
+      "subscription_expire": "套餐积分过期",
+      "subscription_grant": "套餐发放",
+      "topup_expire": "积分包过期",
+      "topup_grant": "积分包发放",
+      "trial_subscription_grant": "体验套餐发放"
+    },
+    "creditsOverview": "积分概览",
+    "creditsOverviewLabels": {
+      "availableCredits": "总积分余额",
+      "creditsExpireAt": "积分有效期",
+      "subscriptionCredits": "套餐积分余额",
+      "topupCredits": "积分包余额"
+    },
     "emptyCourses": "暂无课程",
+    "emptyCredits": "暂无积分明细",
     "learningCourses": "学习课程",
     "learningProgress": "学习进度",
+    "loadingCredits": "加载中",
     "overview": "数据概览",
+    "tabs": {
+      "createdCourses": "创作课程",
+      "credits": "积分明细",
+      "learningCourses": "学习课程"
+    },
     "title": "用户详情"
   },
   "emptyList": "暂无用户",
@@ -30,6 +121,59 @@
     "role": "用户身份",
     "status": "用户状态",
     "userId": "用户ID"
+  },
+  "grantDialog": {
+    "confirmButton": "确认增加",
+    "confirmDescription": "请确认本次积分发放信息，确认后将立即生效。",
+    "confirmSummary": {
+      "amount": "增加积分",
+      "note": "备注",
+      "source": "来源",
+      "validityPreset": "有效期"
+    },
+    "confirmTitle": "确认增加积分",
+    "description": "用于运营后台给用户增加奖励或补偿积分。",
+    "fields": {
+      "amount": "积分",
+      "note": "备注",
+      "source": "来源",
+      "type": "类型",
+      "validityPreset": "有效期"
+    },
+    "placeholders": {
+      "amount": "请输入积分数值",
+      "note": "可选，记录本次发放理由",
+      "source": "请选择来源",
+      "validityPreset": "请选择有效期"
+    },
+    "sourceOptions": {
+      "compensation": "补偿",
+      "reward": "奖励"
+    },
+    "submitButton": "确认",
+    "submitSuccess": "积分增加成功",
+    "summary": {
+      "account": "账号",
+      "availableCredits": "积分余额",
+      "currentExpireAt": "有效期到",
+      "nickname": "昵称"
+    },
+    "title": "增加积分",
+    "typeValue": "人工发放",
+    "validation": {
+      "amountRequired": "请输入大于 0 的积分数值",
+      "sourceRequired": "请选择来源",
+      "validityPresetRequired": "请选择有效期"
+    },
+    "validityHint": "无有效套餐时，无法设置有效期为“与当前套餐有效期一致”。",
+    "validityOptions": {
+      "alignSubscription": "与当前套餐有效期一致",
+      "oneDay": "发放后 1 天",
+      "oneMonth": "发放后 1 个月",
+      "oneYear": "发放后 1 年",
+      "sevenDays": "发放后 7 天",
+      "threeMonths": "发放后 3 个月"
+    }
   },
   "loginMethodLabels": {
     "email": "邮箱",
@@ -60,8 +204,11 @@
     "unregistered": "未注册"
   },
   "table": {
+    "action": "操作",
+    "availableCredits": "总积分",
     "createdAt": "创建时间",
     "createdCourses": "创作课程",
+    "creditsExpireAt": "积分到期时间",
     "email": "邮箱",
     "lastLearningAt": "最近学习时间",
     "lastLoginAt": "最近登录时间",
@@ -72,6 +219,8 @@
     "registrationSource": "注册来源",
     "role": "用户身份",
     "status": "用户状态",
+    "subscriptionCredits": "套餐积分",
+    "topupCredits": "积分包积分",
     "totalPaidAmount": "累计付费金额",
     "updatedAt": "更新时间",
     "userId": "用户ID"

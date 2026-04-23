@@ -19,6 +19,8 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 当需求要求“按接口顺序直接展示内容与追问”时，不要额外引入 `readyElementBids`、`onTypeFinished` 等前端渲染门禁。
 - SSE 流里 `ELEMENT/CONTENT` 阶段只更新当前元素本体，不要提前插入 `LIKE_STATUS`；追问入口统一在 `TEXT_END` 后补齐，避免按钮先于流式正文出现。
 - 若后端未必为每个 `element` 都补 `TEXT_END`，前端可在“下一个 `element` 开始”或“当前流关闭”时，把上一个活动 `element` 视为隐式完成并补齐追问入口。
+- 移动端阅读模式的正文追问按钮时序必须完全复用 `useChatLogicHook` 的 finalize 结果；渲染层只消费已有 `content/LIKE_STATUS/ASK` 状态，不能再按相邻元素关系提前补按钮。
+- 移动端正文一旦在 finalize 后补上 `custom-button-after-content`，同一 `element_bid` 后续再收到 `ELEMENT/CONTENT` 覆盖时也必须继承该按钮，不能用新的原始正文把它抹掉，否则会出现“按钮闪一下又消失”。
 - 交互块触发 `onSend` 且需要截断后续内容时，必须保留该交互块关联的辅助行（`LIKE_STATUS` / `ASK`），避免进入思考中后追问入口消失。
 - 后台调试/预览链路中收到 `interaction` 时，也要为该 `interaction` 本身补齐 `LIKE_STATUS`，否则追问按钮不会渲染。
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。

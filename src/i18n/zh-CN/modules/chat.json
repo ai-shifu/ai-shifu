@@ -7,7 +7,9 @@
   "closeCatalog": "关闭目录",
   "generating": "插图生成中...",
   "learningModeListen": "听课",
+  "learningModeListenShort": "听",
   "learningModeRead": "阅读",
+  "learningModeReadShort": "读",
   "learningModeToggle": "切换学习模式",
   "lessonFeedbackClearInput": "清空输入",
   "lessonFeedbackCommentPlaceholder": "选填：欢迎分享你的感受或建议",
@@ -40,6 +42,7 @@
   "regenerateConfirmDescription": "选择重新生成后，此内容及其以后的内容将会重新生成，当前的内容将被清空。",
   "regenerateConfirmTitle": "确定重新生成此内容？",
   "slideAudioBuffering": "正在缓冲中...",
+  "streamTimeoutRetry": "系统服务超时，请刷新重试",
   "thinking": "思考中...",
   "ttsSynthesisPreview": "听课模式"
 }

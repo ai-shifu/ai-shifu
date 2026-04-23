@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, X } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -39,11 +39,7 @@ import {
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
-import {
-  resolvePreviousActionableItem,
-  shouldShowMobileAskButtonForReadContent,
-  syncCustomButtonAfterContent,
-} from './chatUiUtils';
+import { syncCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +53,8 @@ import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -81,12 +79,10 @@ const buildReadModeItemsWithAskState = ({
   items,
   askListByAnchorElementBid,
   mobileStyle,
-  askButtonMarkup,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Record<string, AskMessage[]>;
   mobileStyle: boolean;
-  askButtonMarkup: string;
 }) => {
   const existingAskAnchorSet = new Set<string>();
   const likeStatusAnchorSet = new Set<string>();
@@ -107,24 +103,7 @@ const buildReadModeItemsWithAskState = ({
   const insertedAskAnchorSet = new Set<string>();
   const nextItems: ChatContentItem[] = [];
 
-  items.forEach((item, index) => {
-    const previousActionableItem = resolvePreviousActionableItem(items, index);
-    const shouldShowMobileAskButton = shouldShowMobileAskButtonForReadContent({
-      item,
-      previousActionableItem,
-    });
-    const nextItem =
-      mobileStyle && item.type === ChatContentItemType.CONTENT
-        ? ({
-            ...item,
-            content: syncCustomButtonAfterContent({
-              content: item.content,
-              buttonMarkup: askButtonMarkup,
-              shouldShowButton: shouldShowMobileAskButton,
-            }),
-          } satisfies ChatContentItem)
-        : item;
-
+  items.forEach(item => {
     if (item.type === ChatContentItemType.ASK) {
       const anchorElementBid = item.parent_element_bid || '';
       const storedAskList = anchorElementBid
@@ -147,12 +126,12 @@ const buildReadModeItemsWithAskState = ({
       return;
     }
 
-    nextItems.push(nextItem);
+    nextItems.push(item);
 
     const anchorElementBid =
-      nextItem.type === ChatContentItemType.LIKE_STATUS
-        ? nextItem.parent_element_bid || ''
-        : nextItem.element_bid || '';
+      item.type === ChatContentItemType.LIKE_STATUS
+        ? item.parent_element_bid || ''
+        : item.element_bid || '';
 
     if (
       !anchorElementBid ||
@@ -169,10 +148,10 @@ const buildReadModeItemsWithAskState = ({
     }
 
     const shouldInsertAfterCurrent =
-      nextItem.type === ChatContentItemType.LIKE_STATUS ||
+      item.type === ChatContentItemType.LIKE_STATUS ||
       (!likeStatusAnchorSet.has(anchorElementBid) &&
-        (nextItem.type === ChatContentItemType.CONTENT ||
-          nextItem.type === ChatContentItemType.INTERACTION));
+        (item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION));
 
     if (!shouldInsertAfterCurrent) {
       return;
@@ -392,6 +371,8 @@ export const NewChatComponents = ({
   });
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const isListenModeResetting =
+    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
@@ -472,6 +453,7 @@ export const NewChatComponents = ({
   const {
     items,
     isLoading,
+    isOutputInProgress,
     currentStreamingElementBid,
     onSend,
     onRefresh,
@@ -518,12 +500,11 @@ export const NewChatComponents = ({
   const readModeItems = useMemo(
     () =>
       buildReadModeItemsWithAskState({
-        items,
+        items: items.filter(item => item.type !== ChatContentItemType.ERROR),
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
-        askButtonMarkup,
       }),
-    [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
+    [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
 
   useEffect(() => {
@@ -892,24 +873,38 @@ export const NewChatComponents = ({
   );
 
   const handleReadLegacyMode = useCallback(() => {
+    if (isListenModeResetting) {
+      return;
+    }
+
+    stopActiveLessonStream(resolvedLessonId);
     pendingListenAfterResetLessonIdRef.current = null;
     listenModeRestoreReadyRef.current = false;
     updateLearningMode('read');
     setShowListenModeUpgradeDialog(false);
-  }, [updateLearningMode]);
+  }, [isListenModeResetting, resolvedLessonId, updateLearningMode]);
 
-  const handleResetChapterForListenMode = useCallback(() => {
-    pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
-    listenModeRestoreReadyRef.current = false;
-    updateLearningMode('read');
-    setShowListenModeUpgradeDialog(false);
-
+  const handleResetChapterForListenMode = useSingleFlight(async () => {
     if (!resolvedLessonId) {
       return;
     }
 
-    void resetChapter(resolvedLessonId);
-  }, [resetChapter, resolvedLessonId, updateLearningMode]);
+    stopActiveLessonStream(resolvedLessonId);
+    pendingListenAfterResetLessonIdRef.current = resolvedLessonId || null;
+    listenModeRestoreReadyRef.current = false;
+    updateLearningMode('read');
+    await resetChapter(resolvedLessonId);
+    setShowListenModeUpgradeDialog(false);
+  });
+
+  const handleListenModeUpgradeDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleReadLegacyMode();
+      }
+    },
+    [handleReadLegacyMode],
+  );
 
   useEffect(() => {
     const container = chatRef.current;
@@ -1079,6 +1074,7 @@ export const NewChatComponents = ({
             shifuBid={shifuBid}
             previewMode={previewMode}
             lessonStatus={lessonStatus}
+            isOutputInProgress={isOutputInProgress}
             onMobileViewModeChange={onListenMobileViewModeChange}
             onSend={memoizedOnSend}
             onPlayerVisibilityChange={onListenPlayerVisibilityChange}
@@ -1136,6 +1132,7 @@ export const NewChatComponents = ({
                         outline_bid={resolvedLessonId}
                         preview_mode={previewMode}
                         element_bid={item.parent_element_bid || ''}
+                        isOutputInProgress={isOutputInProgress}
                         onToggleAskExpanded={toggleAskExpanded}
                         askList={(item.ask_list || []) as any[]}
                       />
@@ -1348,13 +1345,22 @@ export const NewChatComponents = ({
       </Dialog>
       <Dialog
         open={showListenModeUpgradeDialog}
-        onOpenChange={open => {
-          if (!open) {
-            handleReadLegacyMode();
-          }
-        }}
+        onOpenChange={handleListenModeUpgradeDialogOpenChange}
       >
-        <DialogContent className='sm:max-w-md'>
+        <DialogContent
+          className='sm:max-w-md'
+          showClose={!isListenModeResetting}
+          onEscapeKeyDown={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDownOutside={event => {
+            if (isListenModeResetting) {
+              event.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{listenModeUpgradeDialogTitle}</DialogTitle>
             <DialogDescription>
@@ -1364,16 +1370,22 @@ export const NewChatComponents = ({
           <DialogFooter className='flex gap-2 sm:gap-2'>
             <button
               type='button'
-              onClick={handleResetChapterForListenMode}
-              disabled={resettingLessonId === resolvedLessonId}
+              onClick={() => {
+                void handleResetChapterForListenMode();
+              }}
+              disabled={isListenModeResetting}
               className='cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter disabled:cursor-not-allowed disabled:bg-primary/60'
             >
+              {isListenModeResetting ? (
+                <Loader2 className='mr-2 inline h-4 w-4 animate-spin' />
+              ) : null}
               {listenModeUpgradeDialogRedo}
             </button>
             <button
               type='button'
               onClick={handleReadLegacyMode}
-              className='cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
+              disabled={isListenModeResetting}
+              className='cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400'
             >
               {listenModeUpgradeDialogReadLegacy}
             </button>

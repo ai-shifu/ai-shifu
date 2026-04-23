@@ -6,6 +6,10 @@
   "detail": {
     "back": "返回课程列表",
     "basicInfo": "基础信息",
+    "boolean": {
+      "no": "否",
+      "yes": "是"
+    },
     "chapterType": {
       "chapter": "章",
       "lesson": "节"
@@ -56,6 +60,74 @@
       "status": "状态",
       "updatedAt": "更新时间"
     },
+    "followUps": {
+      "back": "返回课程详情",
+      "drawer": {
+        "currentRecordHint": "按“被追问的原始输出 -> 本次追问 -> 本次系统回答”的顺序阅读",
+        "fields": {
+          "chapter": "章节",
+          "currentAnswer": "本次系统回答",
+          "currentFollowUp": "本次追问",
+          "followUpTime": "追问时间",
+          "nickname": "昵称",
+          "sourceOutput": "被追问的原始输出",
+          "turnIndex": "追问轮次",
+          "user": "用户",
+          "userId": "用户 ID"
+        },
+        "sections": {
+          "basicInfo": "基础信息",
+          "currentRecord": "本次追问详情",
+          "timeline": "上下文时间线"
+        },
+        "sourceUnavailable": "暂无法定位对应原始输出",
+        "timeline": {
+          "current": "当前轮次",
+          "student": "学员",
+          "teacher": "系统"
+        },
+        "title": "追问详情"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "章/节搜索",
+        "chapterKeywordPlaceholder": "输入章/节标题",
+        "followUpTime": "追问时间",
+        "lessonKeyword": "节搜索",
+        "lessonKeywordPlaceholder": "输入节标题",
+        "reset": "重置",
+        "resultCount": "共 {count} 条",
+        "search": "查询",
+        "timeRangePlaceholder": "选择追问开始时间 / 结束时间",
+        "userKeyword": "用户搜索",
+        "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱 / 昵称",
+        "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "输入用户 ID / 手机号 / 昵称"
+      },
+      "openMetric": "查看追问数据",
+      "summary": {
+        "followUpCount": "追问总数",
+        "latestFollowUpAt": "最近追问时间",
+        "lessonCount": "涉及节数",
+        "scopeHint": "以下统计基于当前筛选结果",
+        "userCount": "追问用户数"
+      },
+      "table": {
+        "action": "操作",
+        "chapter": "章节",
+        "content": "追问内容",
+        "createdAt": "追问时间",
+        "detailAction": "查看详情",
+        "empty": "暂无追问数据",
+        "lesson": "节",
+        "title": "追问列表",
+        "turnIndex": "追问轮次",
+        "user": "用户"
+      },
+      "title": "追问数据",
+      "turnIndex": "第 {count} 次",
+      "turnIndexHelp": "追问轮次按同一学习记录中的追问时间顺序排序"
+    },
     "learningPermission": {
       "free": "免费",
       "guest": "免登录",
@@ -66,12 +138,56 @@
     "metricsLabels": {
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
-      "orderAmount": "流水总额",
+      "orderAmount": "实收总额（含兑换码）",
       "orderCount": "订单数",
       "ratingScore": "评分",
       "visitCount30d": "近30天访问人数"
     },
     "title": "课程详情",
+    "userLearningStatus": {
+      "completed": "已完成",
+      "learning": "学习中",
+      "notStarted": "未开始"
+    },
+    "userRole": {
+      "creator": "创作者",
+      "normal": "普通用户",
+      "operator": "运营者",
+      "student": "学员"
+    },
+    "users": "用户数据",
+    "usersCount": "共 {count} 课程用户",
+    "usersDescription": "查看课程相关用户的学习进度、付费情况与最近活跃时间。",
+    "usersFilters": {
+      "all": "全部",
+      "learningStatus": "学习状态",
+      "paymentPaid": "已付费",
+      "paymentStatus": "是否付费",
+      "paymentUnpaid": "未付费",
+      "userKeyword": "用户搜索",
+      "userKeywordPlaceholder": "输入用户ID / 手机号 / 邮箱 / 昵称",
+      "userKeywordPlaceholderEmail": "输入用户ID / 邮箱 / 昵称",
+      "userKeywordPlaceholderPhone": "输入用户ID / 手机号 / 昵称",
+      "userRole": "用户身份"
+    },
+    "usersTable": {
+      "account": "手机号 / 邮箱",
+      "accountEmail": "邮箱",
+      "accountPhone": "手机号",
+      "action": "操作",
+      "detailAction": "详情",
+      "empty": "暂无用户数据",
+      "isPaid": "是否付费",
+      "joinedAt": "加入课程时间",
+      "lastLearnedAt": "最近学习时间",
+      "lastLoginAt": "最近登录时间",
+      "learningProgress": "学习进度",
+      "learningStatus": "学习状态",
+      "nickname": "昵称",
+      "totalPaidAmount": "累计付费金额",
+      "userId": "用户ID",
+      "userRole": "用户身份"
+    },
     "visibility": {
       "hidden": "隐藏",
       "visible": "显示"

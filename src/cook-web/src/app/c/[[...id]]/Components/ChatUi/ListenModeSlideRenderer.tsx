@@ -61,6 +61,7 @@ interface ListenModeSlideRendererProps {
   lessonId?: string;
   shifuBid?: string;
   previewMode?: boolean;
+  isOutputInProgress?: boolean;
   lessonStatus?: string;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
@@ -388,6 +389,7 @@ const ListenModeSlideRenderer = ({
   lessonId = '',
   shifuBid = '',
   previewMode = false,
+  isOutputInProgress = false,
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
@@ -602,6 +604,10 @@ const ListenModeSlideRenderer = ({
     !isLoading &&
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
+  const hasErrorElement = useMemo(
+    () => items.some(item => item.type === ChatContentItemType.ERROR),
+    [items],
+  );
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const currentPlayerElementBid = useMemo(() => {
@@ -1312,6 +1318,7 @@ const ListenModeSlideRenderer = ({
               className='listen-slide-ask-block'
               element_bid={playerCustomAskElementBid}
               isExpanded={true}
+              isOutputInProgress={isOutputInProgress}
               onToggleAskExpanded={handlePlayerCustomActionClose}
               outline_bid={lessonId}
               preview_mode={previewMode}
@@ -1355,6 +1362,7 @@ const ListenModeSlideRenderer = ({
                     element_bid={resolvedAskElementBid}
                     forceDesktopSlidePanel={true}
                     isExpanded={true}
+                    isOutputInProgress={isOutputInProgress}
                     onToggleAskExpanded={handleMobileAskClose}
                     outline_bid={lessonId}
                     preview_mode={previewMode}
@@ -1373,6 +1381,7 @@ const ListenModeSlideRenderer = ({
                   className='listen-slide-ask-block'
                   element_bid={resolvedAskElementBid}
                   isExpanded={true}
+                  isOutputInProgress={isOutputInProgress}
                   onToggleAskExpanded={handleMobileAskClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}
@@ -1413,6 +1422,7 @@ const ListenModeSlideRenderer = ({
           playerCustomActionPauseOnActive={true}
           playerCustomActions={playerCustomActions}
           playerTexts={playerTexts}
+          disableLoadingOverlay={hasErrorElement}
           showPlayer={!shouldRenderEmptyPpt}
         />
         {isLoading ? (

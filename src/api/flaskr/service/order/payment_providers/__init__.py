@@ -5,6 +5,7 @@ from .base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
     PaymentRefundResult,
+    SubscriptionUpdateResult,
 )
 
 _PROVIDER_REGISTRY: dict[str, type[PaymentProvider]] = {}
@@ -34,6 +35,7 @@ __all__ = [
     "PaymentNotificationResult",
     "PaymentRefundRequest",
     "PaymentRefundResult",
+    "SubscriptionUpdateResult",
     "register_payment_provider",
     "get_payment_provider",
 ]

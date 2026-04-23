@@ -1,5 +1,9 @@
 {
   "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "Add Credits",
+    "moreForUser": "More actions for {user}"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "Course ID",
@@ -11,14 +15,101 @@
     },
     "empty": "--"
   },
+  "credits": {
+    "longTerm": "Long-term valid"
+  },
   "detail": {
-    "back": "Back",
+    "back": "Back to User Management",
     "basicInfo": "Basic Information",
     "createdCourses": "Created Courses",
+    "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
+    "creditExpireAtHintAriaLabel": "View credits expiry explanation",
+    "creditLedger": "Credits Detail",
+    "creditLedgerColumns": {
+      "amount": "Amount",
+      "balanceAfter": "Balance After",
+      "createdAt": "Changed At",
+      "entryType": "Type",
+      "expiresAt": "Expires At",
+      "note": "Note",
+      "sourceType": "Source"
+    },
+    "creditLedgerNoteLabels": {
+      "debug_consume": "Credits consumed by debug usage",
+      "gift_expire": "Gift credits expired",
+      "gift_grant": "Gift credits granted",
+      "learning_consume": "Credits consumed by learning usage",
+      "manual_credit": "Credits added manually",
+      "manual_debit": "Credits deducted manually",
+      "manual_grant": "Credits granted manually",
+      "preview_consume": "Credits consumed by preview usage",
+      "refund_return": "Credits returned after refund",
+      "subscription_cycle_transition": "Previous-cycle subscription credits expired during cycle transition",
+      "subscription_expire": "Subscription credits expired",
+      "subscription_grant": "Credits granted from subscription",
+      "subscription_purchase": "Credits granted from subscription purchase",
+      "subscription_renewal": "Credits granted from subscription renewal",
+      "topup_expire": "Top-up credits expired",
+      "topup_grant": "Credits granted from top-up",
+      "topup_purchase": "Credits granted from top-up purchase",
+      "trial_bootstrap": "Credits granted from trial activation",
+      "trial_subscription_grant": "Credits granted from trial subscription"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "Compensation",
+      "debug": "Debug",
+      "gift": "Gift",
+      "learning": "Learning",
+      "manual": "Manual",
+      "preview": "Preview",
+      "refund": "Refund",
+      "reward": "Reward",
+      "subscription": "Subscription",
+      "topup": "Top-up",
+      "trial_subscription": "Trial Subscription",
+      "usage": "Usage"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Credit Adjustment",
+      "consume": "Credit Consumption",
+      "debug_consume": "Debug Consumption",
+      "expire": "Credit Expiry",
+      "gift_expire": "Gift Credit Expiry",
+      "gift_grant": "Gift Grant",
+      "grant": "Credit Grant",
+      "hold": "Credit Hold",
+      "learning_consume": "Learning Consumption",
+      "manual_credit": "Manual Credit",
+      "manual_debit": "Manual Debit",
+      "manual_grant": "Manual Grant",
+      "preview_consume": "Preview Consumption",
+      "refund": "Refund Return",
+      "refund_return": "Refund Return",
+      "release": "Credit Release",
+      "subscription_expire": "Subscription Credit Expiry",
+      "subscription_grant": "Subscription Grant",
+      "topup_expire": "Top-up Expiry",
+      "topup_grant": "Top-up Grant",
+      "trial_subscription_grant": "Trial Subscription Grant"
+    },
+    "creditsOverview": "Credits Overview",
+    "creditsOverviewLabels": {
+      "availableCredits": "Total Credit Balance",
+      "creditsExpireAt": "Credits Validity",
+      "subscriptionCredits": "Subscription Credit Balance",
+      "topupCredits": "Top-up Credit Balance"
+    },
     "emptyCourses": "No courses",
+    "emptyCredits": "No credit entries",
     "learningCourses": "Learning Courses",
     "learningProgress": "Progress",
+    "loadingCredits": "Loading",
     "overview": "Overview",
+    "tabs": {
+      "createdCourses": "Created Courses",
+      "credits": "Credits Detail",
+      "learningCourses": "Learning Courses"
+    },
     "title": "User Detail"
   },
   "emptyList": "No users",
@@ -30,6 +121,59 @@
     "role": "Role",
     "status": "Status",
     "userId": "User ID"
+  },
+  "grantDialog": {
+    "confirmButton": "Confirm Addition",
+    "confirmDescription": "Please confirm the credit addition details. Once confirmed, it takes effect immediately.",
+    "confirmSummary": {
+      "amount": "Credits Added",
+      "note": "Note",
+      "source": "Source",
+      "validityPreset": "Validity"
+    },
+    "confirmTitle": "Confirm Credit Addition",
+    "description": "Use this dialog to add reward or compensation credits from Operations.",
+    "fields": {
+      "amount": "Credits",
+      "note": "Note",
+      "source": "Source",
+      "type": "Type",
+      "validityPreset": "Validity"
+    },
+    "placeholders": {
+      "amount": "Enter credit amount",
+      "note": "Optional. Record the reason for this addition",
+      "source": "Select source",
+      "validityPreset": "Select validity"
+    },
+    "sourceOptions": {
+      "compensation": "Compensation",
+      "reward": "Reward"
+    },
+    "submitButton": "Confirm",
+    "submitSuccess": "Credits added successfully",
+    "summary": {
+      "account": "Account",
+      "availableCredits": "Credit Balance",
+      "currentExpireAt": "Valid Until",
+      "nickname": "Nickname"
+    },
+    "title": "Add Credits",
+    "typeValue": "Manual Grant",
+    "validation": {
+      "amountRequired": "Enter a credit amount greater than 0",
+      "sourceRequired": "Select a source",
+      "validityPresetRequired": "Select a validity preset"
+    },
+    "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
+    "validityOptions": {
+      "alignSubscription": "Match current subscription expiry",
+      "oneDay": "1 day after grant",
+      "oneMonth": "1 month after grant",
+      "oneYear": "1 year after grant",
+      "sevenDays": "7 days after grant",
+      "threeMonths": "3 months after grant"
+    }
   },
   "loginMethodLabels": {
     "email": "Email",
@@ -60,8 +204,11 @@
     "unregistered": "Unregistered"
   },
   "table": {
+    "action": "Action",
+    "availableCredits": "Total Credits",
     "createdAt": "Created At",
     "createdCourses": "Created Courses",
+    "creditsExpireAt": "Credits Expire At",
     "email": "Email",
     "lastLearningAt": "Last Learning",
     "lastLoginAt": "Last Login",
@@ -72,6 +219,8 @@
     "registrationSource": "Registration Source",
     "role": "Role",
     "status": "Status",
+    "subscriptionCredits": "Subscription Credits",
+    "topupCredits": "Top-up Credits",
     "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
     "userId": "User ID"

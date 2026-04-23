@@ -21,6 +21,7 @@ interface EnvironmentConfig {
   enableWechatCode: boolean;
 
   // Payment Configuration
+  billingEnabled: boolean;
   stripePublishableKey: string;
   stripeEnabled: boolean;
   paymentChannels: string[];
@@ -178,6 +179,13 @@ function getWeChatAppId(): string {
  */
 function getWeChatCodeEnabled(): boolean {
   return true;
+}
+
+/**
+ * Gets billing enable flag
+ */
+function getBillingEnabled(): boolean {
+  return false;
 }
 
 /**
@@ -361,6 +369,7 @@ export const environment: EnvironmentConfig = {
   enableWechatCode: getWeChatCodeEnabled(),
 
   // Payment Configuration
+  billingEnabled: getBillingEnabled(),
   stripePublishableKey: getStripePublishableKey(),
   stripeEnabled: getStripeEnabled(),
   paymentChannels: getPaymentChannels(),
