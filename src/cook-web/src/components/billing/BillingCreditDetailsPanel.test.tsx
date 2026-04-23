@@ -245,6 +245,89 @@ describe('BillingCreditDetailsPanel', () => {
     ).toBeInTheDocument();
   });
 
+  test('does not fall back to manual grant expiry while an active subscription still exists', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 35,
+          reserved_credits: 0,
+          lifetime_granted_credits: 2000,
+          lifetime_consumed_credits: 1965,
+        },
+        subscription: {
+          subscription_bid: 'sub-active-no-expiry',
+          product_bid: 'product-plan-paid',
+          product_code: 'creator-plan-pro',
+          status: 'active',
+          billing_provider: 'stripe',
+          current_period_start_at: '2026-04-01T00:00:00',
+          current_period_end_at: null,
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: {
+          enabled: true,
+          status: 'ineligible',
+          product_bid: 'bill-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          display_name: 'module.billing.package.free.title',
+          description: 'module.billing.package.free.description',
+          currency: 'CNY',
+          price_amount: 0,
+          credit_amount: 100,
+          valid_days: 15,
+          highlights: [],
+          starts_on_first_grant: true,
+          granted_at: null,
+          expires_at: null,
+        },
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseBillingWalletBuckets.mockReturnValue({
+      data: {
+        items: [
+          {
+            wallet_bucket_bid: 'bucket-manual-active-subscription',
+            category: 'subscription',
+            source_type: 'manual',
+            source_bid: 'manual-1',
+            available_credits: 35,
+            effective_from: '2026-04-01T00:00:00',
+            effective_to: '2026-05-06T07:59:00',
+            priority: 20,
+            status: 'active',
+          },
+        ],
+      },
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<BillingCreditDetailsPanel />);
+
+    const subscriptionLabel = screen.getByText(
+      'module.billing.ledger.category.subscription',
+    );
+    const subscriptionRow = subscriptionLabel.closest('.grid');
+
+    expect(subscriptionRow).not.toBeNull();
+    expect(
+      within(subscriptionRow as HTMLElement).getByText(
+        'module.billing.ledger.neverExpires',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(subscriptionRow as HTMLElement).queryByText('2026年05月06日 07:59'),
+    ).not.toBeInTheDocument();
+  });
+
   test('shows a tooltip for topup availability when the topup bucket has no expiry', async () => {
     const user = userEvent.setup();
 

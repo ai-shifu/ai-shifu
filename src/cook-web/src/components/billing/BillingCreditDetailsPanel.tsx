@@ -46,10 +46,11 @@ const CATEGORY_ORDER: BillingBucketCategory[] = ['subscription', 'topup'];
 function buildCategorySummary(
   buckets: BillingWalletBucket[],
   options: {
+    hasActiveSubscription: boolean;
     activeSubscriptionEffectiveTo: string | null;
   },
 ): CategorySummaryRow[] {
-  const { activeSubscriptionEffectiveTo } = options;
+  const { activeSubscriptionEffectiveTo, hasActiveSubscription } = options;
 
   return CATEGORY_ORDER.flatMap(category => {
     const activeBuckets = buckets.filter(
@@ -61,7 +62,10 @@ function buildCategorySummary(
         {
           category,
           availableCredits: 0,
-          effectiveTo: null,
+          effectiveTo:
+            category === 'subscription' && hasActiveSubscription
+              ? activeSubscriptionEffectiveTo
+              : null,
         },
       ];
     }
@@ -83,8 +87,9 @@ function buildCategorySummary(
             (total, bucket) => total + Number(bucket.available_credits || 0),
             0,
           ),
-          effectiveTo:
-            activeSubscriptionEffectiveTo || manualGrantExpiry || null,
+          effectiveTo: hasActiveSubscription
+            ? activeSubscriptionEffectiveTo
+            : manualGrantExpiry || null,
         },
       ];
     }
@@ -189,9 +194,10 @@ export function BillingCreditDetailsPanel({
   const summaryRows = useMemo(
     () =>
       buildCategorySummary(bucketList?.items || [], {
+        hasActiveSubscription,
         activeSubscriptionEffectiveTo,
       }),
-    [activeSubscriptionEffectiveTo, bucketList?.items],
+    [activeSubscriptionEffectiveTo, bucketList?.items, hasActiveSubscription],
   );
 
   const totalCreditsLabel = formatBillingCredits(
