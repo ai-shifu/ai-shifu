@@ -31,6 +31,7 @@ from .consts import (
 from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
+    wallet_bucket_requires_active_subscription,
 )
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
@@ -38,6 +39,7 @@ from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import decimal_to_number as _decimal_to_number
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+from .subscriptions import load_effective_topup_subscription
 from .wallets import (
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
@@ -624,6 +626,18 @@ def _load_consumable_buckets(
         if _to_decimal(row.available_credits) > _ZERO
         and (row.effective_from is None or row.effective_from <= settlement_at)
         and (row.effective_to is None or row.effective_to > settlement_at)
+    ]
+    has_active_subscription = (
+        load_effective_topup_subscription(creator_bid, as_of=settlement_at) is not None
+    )
+    eligible = [
+        row
+        for row in eligible
+        if has_active_subscription
+        or not wallet_bucket_requires_active_subscription(
+            row,
+            load_order_type=load_billing_order_type_by_bid,
+        )
     ]
     eligible.sort(
         key=lambda row: build_wallet_bucket_runtime_sort_key(

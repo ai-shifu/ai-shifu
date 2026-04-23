@@ -5,19 +5,23 @@ from decimal import Decimal
 
 from flask import Flask
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -26,6 +30,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingSubscription,
     CreditLedgerEntry,
     CreditUsageRate,
     CreditWallet,
@@ -34,6 +39,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.settlement import settle_bill_usage
 from flaskr.service.billing.wallets import (
     expire_credit_wallet_buckets,
+    grant_manual_credit_wallet_balance,
     grant_refund_return_credits,
     rebuild_credit_wallet_snapshots,
 )
@@ -170,6 +176,110 @@ def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledg
         )
 
 
+def test_grant_manual_credit_wallet_balance_returns_existing_ledger_payload(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        first = grant_manual_credit_wallet_balance(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-manual-idempotent-1",
+            amount=Decimal("2.5000000000"),
+            source_bid="grant-manual-idempotent-1",
+            effective_from=datetime(2026, 4, 8, 12, 0, 0),
+            effective_to=datetime(2026, 4, 9, 12, 0, 0),
+            idempotency_key="manual-grant-idempotent-1",
+            metadata={
+                "grant_source": "reward",
+                "validity_preset": "1d",
+            },
+        )
+        second = grant_manual_credit_wallet_balance(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-manual-idempotent-1",
+            amount=Decimal("9.9000000000"),
+            source_bid="grant-manual-idempotent-2",
+            effective_from=datetime(2026, 4, 8, 13, 0, 0),
+            effective_to=datetime(2026, 4, 15, 12, 0, 0),
+            idempotency_key="manual-grant-idempotent-1",
+            metadata={
+                "grant_source": "compensation",
+                "validity_preset": "7d",
+            },
+        )
+
+        ledger = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-manual-idempotent-1",
+            idempotency_key="manual-grant-idempotent-1",
+        ).one()
+
+    assert first["status"] == "granted"
+    assert second["status"] == "noop_existing"
+    assert second["ledger_bid"] == first["ledger_bid"]
+    assert second["amount"] == 2.5
+    assert second["expires_at"] == datetime(2026, 4, 9, 12, 0, 0)
+    assert second["metadata_json"]["grant_source"] == "reward"
+    assert second["metadata_json"]["validity_preset"] == "1d"
+    assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+
+
+def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrity_error(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = CreditLedgerEntry(
+        ledger_bid="ledger-existing-manual-grant",
+        creator_bid="creator-manual-race-1",
+        wallet_bid="wallet-existing-manual-grant",
+        wallet_bucket_bid="bucket-existing-manual-grant",
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+        source_bid="grant-existing-manual-grant",
+        idempotency_key="manual-grant-race-1",
+        amount=Decimal("3.0000000000"),
+        balance_after=Decimal("3.0000000000"),
+        expires_at=datetime(2026, 4, 9, 12, 0, 0),
+        consumable_from=datetime(2026, 4, 8, 12, 0, 0),
+        metadata_json={
+            "grant_source": "reward",
+            "validity_preset": "1d",
+        },
+    )
+
+    original_commit = dao.db.session.commit
+    state = {"raised": False}
+
+    def _commit_once_with_duplicate():
+        if not state["raised"]:
+            state["raised"] = True
+            dao.db.session.rollback()
+            dao.db.session.add(existing)
+            original_commit()
+            raise IntegrityError("duplicate", {}, Exception("duplicate"))
+        return original_commit()
+
+    monkeypatch.setattr(dao.db.session, "commit", _commit_once_with_duplicate)
+
+    with billing_wallet_lifecycle_app.app_context():
+        result = grant_manual_credit_wallet_balance(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-manual-race-1",
+            amount=Decimal("4.0000000000"),
+            source_bid="grant-manual-race-1",
+            effective_from=datetime(2026, 4, 8, 12, 0, 0),
+            effective_to=datetime(2026, 4, 9, 12, 0, 0),
+            idempotency_key="manual-grant-race-1",
+            metadata={
+                "grant_source": "compensation",
+                "validity_preset": "7d",
+            },
+        )
+
+    assert result["status"] == "noop_existing"
+    assert result["ledger_bid"] == "ledger-existing-manual-grant"
+    assert result["amount"] == 3
+    assert result["metadata_json"]["grant_source"] == "reward"
+
+
 def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
@@ -296,6 +406,13 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
         dao.db.session.add(wallet)
         dao.db.session.add_all(
             [
+                BillingSubscription(
+                    subscription_bid="subscription-consistency-1",
+                    creator_bid="creator-consistency-1",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=datetime(2026, 4, 8, 0, 0, 0),
+                    current_period_end_at=datetime(2026, 4, 30, 0, 0, 0),
+                ),
                 CreditWalletBucket(
                     wallet_bucket_bid="bucket-consistency-free",
                     wallet_bid=wallet.wallet_bid,

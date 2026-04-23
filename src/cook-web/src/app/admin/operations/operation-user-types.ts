@@ -39,6 +39,7 @@ export type AdminOperationUserItem = {
   subscription_credits: string;
   topup_credits: string;
   credits_expire_at: string;
+  has_active_subscription: boolean;
   last_login_at: string;
   last_learning_at: string;
   created_at: string;
@@ -60,6 +61,7 @@ export type AdminOperationUserCreditSummary = {
   subscription_credits: string;
   topup_credits: string;
   credits_expire_at: string;
+  has_active_subscription: boolean;
 };
 
 export type AdminOperationUserCreditLedgerItem = {
@@ -84,4 +86,23 @@ export type AdminOperationUserCreditsResponse = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type AdminOperationUserCreditGrantRequest = {
+  request_id: string;
+  amount: string;
+  grant_source: string;
+  validity_preset: string;
+  note?: string;
+};
+
+export type AdminOperationUserCreditGrantResponse = {
+  user_bid: string;
+  amount: string;
+  grant_source: string;
+  validity_preset: string;
+  expires_at: string;
+  wallet_bucket_bid: string;
+  ledger_bid: string;
+  summary: AdminOperationUserCreditSummary;
 };

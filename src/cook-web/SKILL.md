@@ -18,6 +18,7 @@
 - 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及中英文文案时，同步更新 `zh-CN/en-US`、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
 - 钱包余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
 - 当产品要求把套餐赠送积分数、免费体验积分和积分充值包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、充值卡和对应测试口径一致。
+- 对于明确暂不支持移动端的页面，优先复用共享的国际化弹窗组件统一提示，避免在多个页面分别写一套移动端拦截文案和状态逻辑。
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
 - When listen-mode misses trailing interaction cards, check whether `outline_item_update: completed` arrived before the final `element` events; completion must not cause post-completion interaction markers to be dropped.

@@ -4,6 +4,7 @@
     "backgroundNotAllowed": "Oops, illegal background.",
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "paramsError": "Params Error {param_message}",
+    "systemError": "System Error",
     "unknownError": "Unknown Error"
   }
 }

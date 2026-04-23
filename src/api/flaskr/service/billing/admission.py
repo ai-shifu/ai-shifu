@@ -11,6 +11,10 @@ from flask import Flask
 
 from flaskr.service.common.models import raise_error
 
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    wallet_bucket_requires_active_subscription,
+)
 from .consts import CREDIT_BUCKET_CATEGORY_SUBSCRIPTION, CREDIT_BUCKET_STATUS_ACTIVE
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingSubscription, CreditWalletBucket
@@ -105,13 +109,6 @@ def admit_creator_usage(
             and (bucket.effective_from is None or bucket.effective_from <= admission_at)
             and (bucket.effective_to is None or bucket.effective_to > admission_at)
         ]
-        wallet_available_credits = sum(
-            (_to_decimal(bucket.available_credits) for bucket in active_buckets),
-            start=_ZERO_CREDITS,
-        )
-        if wallet_available_credits <= _ZERO_CREDITS and not active_buckets:
-            raise_error("server.billing.creditInsufficient")
-
         has_active_subscription = (
             load_effective_topup_subscription(
                 normalized_creator_bid,
@@ -119,30 +116,52 @@ def admit_creator_usage(
             )
             is not None
         )
-        if not has_active_subscription:
-            active_subscription_bucket = next(
-                (
-                    bucket
-                    for bucket in active_buckets
-                    if int(bucket.bucket_category or 0)
-                    == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-                ),
-                None,
+        consumable_buckets = [
+            bucket
+            for bucket in active_buckets
+            if has_active_subscription
+            or not wallet_bucket_requires_active_subscription(
+                bucket,
+                load_order_type=load_billing_order_type_by_bid,
             )
-            if active_subscription_bucket is not None:
-                app.logger.warning(
-                    "billing admission invariant violated: creator has an active "
-                    "subscription bucket but no active subscription "
-                    "creator_bid=%s shifu_bid=%s wallet_bucket_bid=%s "
-                    "source_bid=%s effective_from=%s effective_to=%s",
-                    normalized_creator_bid,
-                    str(shifu_bid or "").strip(),
-                    active_subscription_bucket.wallet_bucket_bid,
-                    active_subscription_bucket.source_bid,
-                    active_subscription_bucket.effective_from,
-                    active_subscription_bucket.effective_to,
+        ]
+        wallet_available_credits = sum(
+            (_to_decimal(bucket.available_credits) for bucket in consumable_buckets),
+            start=_ZERO_CREDITS,
+        )
+        if wallet_available_credits <= _ZERO_CREDITS and not consumable_buckets:
+            if active_buckets and not has_active_subscription:
+                active_subscription_bucket = next(
+                    (
+                        bucket
+                        for bucket in active_buckets
+                        if int(bucket.bucket_category or 0)
+                        == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+                    ),
+                    None,
                 )
-            raise_error("server.billing.subscriptionInactive")
+                if active_subscription_bucket is not None:
+                    app.logger.warning(
+                        "billing admission invariant violated: creator has an active "
+                        "subscription bucket but no active subscription "
+                        "creator_bid=%s shifu_bid=%s wallet_bucket_bid=%s "
+                        "source_bid=%s effective_from=%s effective_to=%s",
+                        normalized_creator_bid,
+                        str(shifu_bid or "").strip(),
+                        active_subscription_bucket.wallet_bucket_bid,
+                        active_subscription_bucket.source_bid,
+                        active_subscription_bucket.effective_from,
+                        active_subscription_bucket.effective_to,
+                    )
+                if any(
+                    wallet_bucket_requires_active_subscription(
+                        bucket,
+                        load_order_type=load_billing_order_type_by_bid,
+                    )
+                    for bucket in active_buckets
+                ):
+                    raise_error("server.billing.subscriptionInactive")
+            raise_error("server.billing.creditInsufficient")
 
         entitlement_state = resolve_creator_entitlement_state(
             normalized_creator_bid,

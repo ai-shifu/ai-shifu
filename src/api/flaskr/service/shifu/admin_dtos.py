@@ -170,6 +170,11 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Earliest active creator credit expiry",
         required=False,
     )
+    has_active_subscription: bool = Field(
+        default=False,
+        description="Whether the user currently has an active subscription",
+        required=False,
+    )
     last_login_at: str = Field(
         default="",
         description="Latest login timestamp",
@@ -210,6 +215,62 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
         default="",
         description="Earliest active creator credit expiry",
         required=False,
+    )
+    has_active_subscription: bool = Field(
+        default=False,
+        description="Whether the user currently has an active subscription",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditGrantRequestDTO(BaseModel):
+    """Operator credits grant request payload."""
+
+    request_id: str = Field(
+        ...,
+        description="Client request identifier for idempotent credit grants",
+        required=False,
+    )
+    amount: str = Field(..., description="Granted credits amount", required=False)
+    grant_source: str = Field(
+        ..., description="Grant source: reward or compensation", required=False
+    )
+    validity_preset: str = Field(
+        ..., description="Grant validity preset", required=False
+    )
+    note: str = Field(default="", description="Optional operator note", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditGrantResultDTO(BaseModel):
+    """Operator credits grant response payload."""
+
+    user_bid: str = Field(..., description="Target user business identifier")
+    amount: str = Field(..., description="Granted credits amount", required=False)
+    grant_source: str = Field(
+        ..., description="Grant source: reward or compensation", required=False
+    )
+    validity_preset: str = Field(
+        ..., description="Applied validity preset", required=False
+    )
+    expires_at: str = Field(
+        default="", description="Resolved expiry timestamp", required=False
+    )
+    wallet_bucket_bid: str = Field(
+        ..., description="Created wallet bucket identifier", required=False
+    )
+    ledger_bid: str = Field(
+        ..., description="Created ledger identifier", required=False
+    )
+    summary: AdminOperationUserCreditSummaryDTO = Field(
+        ..., description="Refreshed credits summary", required=False
     )
 
     def __json__(self) -> dict[str, Any]:
@@ -451,4 +512,201 @@ class AdminOperationCourseDetailDTO(BaseModel):
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
             "chapters": [chapter.__json__() for chapter in self.chapters],
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpSummaryDTO(BaseModel):
+    """Operator-facing course follow-up summary."""
+
+    follow_up_count: int = Field(
+        default=0, description="Filtered follow-up record count", required=False
+    )
+    user_count: int = Field(
+        default=0, description="Distinct follow-up user count", required=False
+    )
+    lesson_count: int = Field(
+        default=0, description="Distinct lesson count with follow-ups", required=False
+    )
+    latest_follow_up_at: str = Field(
+        default="", description="Latest follow-up timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpItemDTO(BaseModel):
+    """Operator-facing course follow-up row."""
+
+    generated_block_bid: str = Field(
+        ..., description="Follow-up generated block business identifier", required=False
+    )
+    progress_record_bid: str = Field(
+        ..., description="Progress record business identifier", required=False
+    )
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    chapter_outline_item_bid: str = Field(
+        default="",
+        description="Chapter outline item business identifier",
+        required=False,
+    )
+    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    lesson_outline_item_bid: str = Field(
+        default="",
+        description="Lesson outline item business identifier",
+        required=False,
+    )
+    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    follow_up_content: str = Field(
+        default="", description="Student follow-up content", required=False
+    )
+    turn_index: int = Field(
+        default=0, description="1-based follow-up turn index", required=False
+    )
+    created_at: str = Field(default="", description="Created at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpListDTO(BaseModel):
+    """Operator-facing course follow-up list payload."""
+
+    summary: AdminOperationCourseFollowUpSummaryDTO = Field(
+        ..., description="Follow-up summary", required=False
+    )
+    items: list[AdminOperationCourseFollowUpItemDTO] = Field(
+        default_factory=list,
+        description="Paginated follow-up rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary.__json__(),
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
+    """Operator-facing course follow-up detail basic information."""
+
+    generated_block_bid: str = Field(
+        ..., description="Follow-up generated block business identifier", required=False
+    )
+    progress_record_bid: str = Field(
+        ..., description="Progress record business identifier", required=False
+    )
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    course_name: str = Field(..., description="Course name", required=False)
+    shifu_bid: str = Field(
+        ..., description="Course business identifier", required=False
+    )
+    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    created_at: str = Field(default="", description="Created at", required=False)
+    turn_index: int = Field(
+        default=0, description="1-based follow-up turn index", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpCurrentRecordDTO(BaseModel):
+    """Operator-facing current follow-up record payload."""
+
+    follow_up_content: str = Field(
+        default="", description="Student follow-up content", required=False
+    )
+    answer_content: str = Field(
+        default="", description="System answer content", required=False
+    )
+    source_output_content: str = Field(
+        default="",
+        description="Original output content being followed up",
+        required=False,
+    )
+    source_output_type: str = Field(
+        default="",
+        description="Original output source type",
+        required=False,
+    )
+    source_position: int = Field(
+        default=0,
+        description="Original output block position",
+        required=False,
+    )
+    source_element_bid: str = Field(
+        default="",
+        description="Original output anchor element business identifier",
+        required=False,
+    )
+    source_element_type: str = Field(
+        default="",
+        description="Original output anchor element type",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpTimelineItemDTO(BaseModel):
+    """Operator-facing follow-up timeline item."""
+
+    role: str = Field(..., description="student or teacher", required=False)
+    content: str = Field(default="", description="Timeline content", required=False)
+    created_at: str = Field(default="", description="Created at", required=False)
+    is_current: bool = Field(
+        default=False,
+        description="Whether the item belongs to the selected turn",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseFollowUpDetailDTO(BaseModel):
+    """Operator-facing course follow-up detail payload."""
+
+    basic_info: AdminOperationCourseFollowUpDetailBasicInfoDTO = Field(
+        ..., description="Follow-up basic info", required=False
+    )
+    current_record: AdminOperationCourseFollowUpCurrentRecordDTO = Field(
+        ..., description="Current follow-up record", required=False
+    )
+    timeline: list[AdminOperationCourseFollowUpTimelineItemDTO] = Field(
+        default_factory=list,
+        description="Follow-up timeline",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "basic_info": self.basic_info.__json__(),
+            "current_record": self.current_record.__json__(),
+            "timeline": [item.__json__() for item in self.timeline],
         }

@@ -42,6 +42,7 @@
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
   "slideAudioBuffering": "Buffering...",
+  "streamTimeoutRetry": "The service timed out. Please refresh and try again.",
   "thinking": "Thinking...",
   "ttsSynthesisPreview": "Listen Mode"
 }

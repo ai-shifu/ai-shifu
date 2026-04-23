@@ -4,6 +4,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSWRConfig } from 'swr';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -11,13 +12,20 @@ import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
 import {
   Dialog,
   DialogContent,
@@ -45,12 +53,17 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
+import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
+import { buildBillingSwrKey } from '@/lib/billing';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
+import UserCreditGrantDialog from './UserCreditGrantDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -93,6 +106,7 @@ const DEFAULT_COLUMN_WIDTHS = {
   lastLearningAt: 180,
   createdAt: 180,
   updatedAt: 180,
+  action: 120,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
@@ -219,6 +233,9 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.lastLearningAt')
  * t('module.operationsUser.table.createdAt')
  * t('module.operationsUser.table.updatedAt')
+ * t('module.operationsUser.table.action')
+ * t('module.operationsUser.actions.grantCredits')
+ * t('module.operationsUser.actions.moreForUser')
  * t('module.operationsUser.courseSummary.empty')
  * t('module.operationsUser.courseSummary.dialog.learningTitle')
  * t('module.operationsUser.courseSummary.dialog.createdTitle')
@@ -277,6 +294,8 @@ export default function AdminOperationUsersPage() {
   const [courseDialog, setCourseDialog] = useState<CourseDialogState | null>(
     null,
   );
+  const [grantDialogUser, setGrantDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
   );
@@ -284,6 +303,7 @@ export default function AdminOperationUsersPage() {
     createDefaultFilters(),
   );
   const requestIdRef = useRef(0);
+  const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
     useAdminResizableColumns<ColumnKey>({
@@ -361,7 +381,7 @@ export default function AdminOperationUsersPage() {
   const resolveCreditsExpireAtLabel = React.useCallback(
     (user: AdminOperationUserItem) => {
       if (user.credits_expire_at) {
-        return user.credits_expire_at;
+        return formatOperatorUtcDateTime(user.credits_expire_at);
       }
       if (Number(user.available_credits || 0) > 0) {
         return tOperationsUsers('credits.longTerm');
@@ -443,6 +463,13 @@ export default function AdminOperationUsersPage() {
     setPageIndex(nextPage);
     void fetchUsers(nextPage, appliedFilters);
   };
+
+  const handleGrantSuccess = useCallback(() => {
+    void fetchUsers(pageIndex, appliedFilters);
+    void mutate(
+      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
+    );
+  }, [appliedFilters, fetchUsers, mutate, pageIndex]);
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
@@ -772,7 +799,7 @@ export default function AdminOperationUsersPage() {
             loading={loading}
             isEmpty={users.length === 0}
             emptyContent={tOperationsUsers('emptyList')}
-            emptyColSpan={16}
+            emptyColSpan={17}
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
             table={emptyRow => (
               <Table>
@@ -884,11 +911,18 @@ export default function AdminOperationUsersPage() {
                       {renderResizeHandle('createdAt')}
                     </TableHead>
                     <TableHead
-                      className={ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS}
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('updatedAt')}
                     >
                       {tOperationsUsers('table.updatedAt')}
                       {renderResizeHandle('updatedAt')}
+                    </TableHead>
+                    <TableHead
+                      className={getAdminStickyRightHeaderClass('text-center')}
+                      style={getColumnStyle('action')}
+                    >
+                      {tOperationsUsers('table.action')}
+                      {renderResizeHandle('action')}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1049,25 +1083,66 @@ export default function AdminOperationUsersPage() {
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLoginAt')}
                         >
-                          {renderTooltipText(user.last_login_at)}
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.last_login_at),
+                          )}
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('lastLearningAt')}
                         >
-                          {renderTooltipText(user.last_learning_at)}
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.last_learning_at),
+                          )}
                         </TableCell>
                         <TableCell
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('createdAt')}
                         >
-                          {renderTooltipText(user.created_at)}
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.created_at),
+                          )}
                         </TableCell>
                         <TableCell
                           className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('updatedAt')}
                         >
-                          {renderTooltipText(user.updated_at)}
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.updated_at),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className={getAdminStickyRightCellClass(
+                            'whitespace-nowrap text-center',
+                          )}
+                          style={getColumnStyle('action')}
+                        >
+                          <div className='flex justify-center'>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type='button'
+                                  aria-label={tOperationsUsers(
+                                    'actions.moreForUser',
+                                    {
+                                      user: user.user_bid,
+                                    },
+                                  )}
+                                  className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
+                                >
+                                  {t('common.core.more')}
+                                  <ChevronDown className='h-3.5 w-3.5' />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align='center'>
+                                <DropdownMenuItem
+                                  onClick={() => setGrantDialogUser(user)}
+                                >
+                                  {tOperationsUsers('actions.grantCredits')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1202,6 +1277,16 @@ export default function AdminOperationUsersPage() {
               </div>
             </DialogContent>
           </Dialog>
+          <UserCreditGrantDialog
+            open={Boolean(grantDialogUser)}
+            user={grantDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) {
+                setGrantDialogUser(null);
+              }
+            }}
+            onGranted={handleGrantSuccess}
+          />
         </div>
       </TooltipProvider>
     </div>
