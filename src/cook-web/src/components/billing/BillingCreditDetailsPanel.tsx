@@ -83,7 +83,8 @@ function buildCategorySummary(
             (total, bucket) => total + Number(bucket.available_credits || 0),
             0,
           ),
-          effectiveTo: activeSubscriptionEffectiveTo || manualGrantExpiry || null,
+          effectiveTo:
+            activeSubscriptionEffectiveTo || manualGrantExpiry || null,
         },
       ];
     }
