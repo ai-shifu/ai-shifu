@@ -637,35 +637,35 @@ class StreamingTTSProcessor:
         return int(default_ms or 0)
 
     @classmethod
-    def _minimax_raw_subtitle_key(
-        cls, raw_item: dict[str, Any]
-    ) -> tuple[str, int, int]:
+    def _minimax_raw_subtitle_key(cls, raw_item: dict[str, Any]) -> tuple[str, int]:
         text = cls._minimax_subtitle_text(raw_item)
         start_ms = cls._minimax_subtitle_time_ms(
             raw_item,
             ("time_begin", "start_ms", "start_time", "begin_time", "start", "begin"),
         )
-        end_ms = cls._minimax_subtitle_time_ms(
-            raw_item,
-            ("time_end", "end_ms", "end_time", "finish_time", "end", "finish"),
-            default_ms=start_ms,
-        )
-        return text, start_ms, end_ms
+        return text, start_ms
 
     def _extend_unique_minimax_subtitles(
         self,
         target: list[dict[str, Any]],
         incoming: list[dict[str, Any]],
     ) -> None:
-        seen = {self._minimax_raw_subtitle_key(item) for item in target}
+        seen_indexes = {
+            self._minimax_raw_subtitle_key(item): index
+            for index, item in enumerate(target)
+        }
         for raw_item in incoming or []:
             if not isinstance(raw_item, dict):
                 continue
             key = self._minimax_raw_subtitle_key(raw_item)
-            if not key[0] or key in seen:
+            if not key[0]:
+                continue
+            existing_index = seen_indexes.get(key)
+            if existing_index is not None:
+                target[existing_index] = raw_item
                 continue
             target.append(raw_item)
-            seen.add(key)
+            seen_indexes[key] = len(target) - 1
 
     @staticmethod
     def _normalize_subtitle_compare_text(text: str) -> str:
@@ -690,6 +690,43 @@ class StreamingTTSProcessor:
         if not subtitle_blob:
             return False
         return all(unit in subtitle_blob for unit in normalized_units)
+
+    def _subtitle_cues_cover_progress_window(
+        self,
+        subtitle_cues: list[dict[str, Any]],
+        *,
+        progress_start_ms: int,
+        progress_end_ms: int,
+    ) -> bool:
+        safe_progress_start_ms = max(int(progress_start_ms or 0), 0)
+        safe_progress_end_ms = max(int(progress_end_ms or 0), safe_progress_start_ms)
+        normalized_cues = normalize_subtitle_cues(subtitle_cues)
+        if safe_progress_end_ms <= safe_progress_start_ms:
+            return bool(normalized_cues)
+
+        relevant_ranges: list[tuple[int, int]] = []
+        for cue in normalized_cues:
+            start_ms = int(cue.get("start_ms", 0) or 0)
+            end_ms = int(cue.get("end_ms", start_ms) or start_ms)
+            if end_ms <= safe_progress_start_ms or start_ms >= safe_progress_end_ms:
+                continue
+            relevant_ranges.append(
+                (
+                    max(start_ms, safe_progress_start_ms),
+                    min(max(end_ms, start_ms), safe_progress_end_ms),
+                )
+            )
+
+        if not relevant_ranges:
+            return False
+
+        max_boundary_gap_ms = 400
+        leading_gap_ms = max(relevant_ranges[0][0] - safe_progress_start_ms, 0)
+        trailing_gap_ms = max(safe_progress_end_ms - relevant_ranges[-1][1], 0)
+        return (
+            leading_gap_ms <= max_boundary_gap_ms
+            and trailing_gap_ms <= max_boundary_gap_ms
+        )
 
     def _build_minimax_fallback_subtitle_cues(
         self,
@@ -782,30 +819,32 @@ class StreamingTTSProcessor:
             request_subtitles,
             offset_ms=subtitle_offset_ms,
         )
-        if request_subtitle_cues and self._subtitle_cues_cover_text(
+        progress_subtitle_cues = self._clamp_subtitle_cues_to_progress(
             request_subtitle_cues,
-            request_text,
+            progress_end_ms=progress_end_ms,
+        )
+        if progress_subtitle_cues and self._subtitle_cues_cover_progress_window(
+            progress_subtitle_cues,
+            progress_start_ms=subtitle_offset_ms,
+            progress_end_ms=progress_end_ms,
         ):
-            current_cues = request_subtitle_cues
+            current_cues = progress_subtitle_cues
         elif allow_fallback:
-            current_cues = self._build_minimax_fallback_subtitle_cues(
-                request_text,
-                duration_ms=(
-                    int(fallback_duration_ms)
-                    if fallback_duration_ms is not None
-                    else max(int(emitted_ms or 0), 1)
+            current_cues = self._clamp_subtitle_cues_to_progress(
+                self._build_minimax_fallback_subtitle_cues(
+                    request_text,
+                    duration_ms=(
+                        int(fallback_duration_ms)
+                        if fallback_duration_ms is not None
+                        else max(int(emitted_ms or 0), 1)
+                    ),
+                    offset_ms=subtitle_offset_ms,
                 ),
-                offset_ms=subtitle_offset_ms,
-            )
-        else:
-            current_cues = request_subtitle_cues
-        return normalize_subtitle_cues(
-            list(previous_cues or [])
-            + self._clamp_subtitle_cues_to_progress(
-                current_cues,
                 progress_end_ms=progress_end_ms,
             )
-        )
+        else:
+            current_cues = progress_subtitle_cues
+        return normalize_subtitle_cues(list(previous_cues or []) + current_cues)
 
     def _minimax_subtitles_to_cues(
         self,
@@ -1068,7 +1107,7 @@ class StreamingTTSProcessor:
                     fallback_duration_ms=(
                         request_duration_ms if chunk.is_final else None
                     ),
-                    allow_fallback=chunk.is_final,
+                    allow_fallback=True,
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,

@@ -3314,3 +3314,280 @@ class TestElementChangeTypeSemantics:
         assert history_element.payload.audio is not None
         assert history_element.payload.audio.audio_bid == "stream-retain-audio"
         assert history_element.content_text == "Hello world"
+
+    def test_audio_complete_patch_overwrites_progressive_subtitles_on_same_element(
+        self, adapter_app
+    ):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-overwrite",
+                    type=GeneratedType.CONTENT,
+                    content="Narration subtitle stream.\n",
+                ).set_mdflow_stream_parts(
+                    [("Narration subtitle stream.\n", "text", 1)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-overwrite",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Narration subtitle stream.",
+                                "start_ms": 0,
+                                "end_ms": 180,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-overwrite",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/subtitle-overwrite.mp3",
+                        audio_bid="subtitle-overwrite-audio",
+                        duration_ms=240,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "Narration subtitle stream.",
+                                "start_ms": 0,
+                                "end_ms": 240,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 3
+        segment_patch = text_events[-2]
+        final_patch = text_events[-1]
+
+        assert segment_patch.element_bid == final_patch.element_bid
+        assert segment_patch.payload is not None
+        assert segment_patch.payload.audio is not None
+        assert [cue.text for cue in segment_patch.payload.audio.subtitle_cues] == [
+            "Narration subtitle stream."
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 180)]
+        assert segment_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": False,
+                "subtitle_cues": [
+                    {
+                        "text": "Narration subtitle stream.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]
+
+        assert final_patch.audio_url == "https://example.com/subtitle-overwrite.mp3"
+        assert final_patch.payload is not None
+        assert final_patch.payload.audio is not None
+        assert final_patch.payload.audio.audio_bid == "subtitle-overwrite-audio"
+        assert [cue.text for cue in final_patch.payload.audio.subtitle_cues] == [
+            "Narration subtitle stream."
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in final_patch.payload.audio.subtitle_cues
+        ] == [(0, 240)]
+        assert final_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": True,
+                "subtitle_cues": [
+                    {
+                        "text": "Narration subtitle stream.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]
+
+    def test_explicit_stream_audio_waits_for_matching_text_element(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Intro line.\n",
+                ).set_mdflow_stream_parts([("Intro line.\n", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Delayed narration.",
+                                "start_ms": 0,
+                                "end_ms": 180,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Still intro.\n",
+                ).set_mdflow_stream_parts([("Still intro.\n", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/delayed.mp3",
+                        audio_bid="delayed-audio",
+                        duration_ms=240,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "Delayed narration.",
+                                "start_ms": 0,
+                                "end_ms": 240,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Delayed narration.\n",
+                ).set_mdflow_stream_parts([("Delayed narration.\n", "text", 1)]),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 3
+        intro_event = text_events[0]
+        intro_patch = text_events[1]
+        delayed_event = text_events[2]
+
+        assert intro_event.element_bid == intro_patch.element_bid
+        assert intro_event.payload is not None
+        assert intro_event.payload.audio is None
+        assert intro_patch.payload is not None
+        assert intro_patch.payload.audio is None
+        assert intro_patch.audio_url == ""
+        assert intro_patch.audio_segments == []
+
+        assert delayed_event.element_bid != intro_event.element_bid
+        assert delayed_event.audio_url == "https://example.com/delayed.mp3"
+        assert delayed_event.payload is not None
+        assert delayed_event.payload.audio is not None
+        assert delayed_event.payload.audio.audio_bid == "delayed-audio"
+        assert [cue.text for cue in delayed_event.payload.audio.subtitle_cues] == [
+            "Delayed narration."
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in delayed_event.payload.audio.subtitle_cues
+        ] == [(0, 240)]
+        assert delayed_event.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": True,
+                "subtitle_cues": [
+                    {
+                        "text": "Delayed narration.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]

@@ -39,6 +39,9 @@ class BlockState:
         default_factory=dict
     )
     audio_target_element_bid_by_position: dict[int, str] = field(default_factory=dict)
+    pending_stream_audio_target_by_position: dict[int, tuple[int, str]] = field(
+        default_factory=dict
+    )
     fallback_element_bid: str | None = None
     latest_av_contract: dict[str, Any] | None = None
     stream_elements: OrderedDict[str, StreamElementState] = field(

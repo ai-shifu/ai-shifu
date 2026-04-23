@@ -221,6 +221,38 @@ class ListenElementRunStreamMixin:
             return None
         return self._element_message(patch_element)
 
+    def _resolve_or_buffer_audio_target_element_bid(
+        self,
+        state: BlockState,
+        *,
+        position: int,
+        stream_element_number: Any = None,
+        stream_element_type: str | None = None,
+    ) -> str | None:
+        existing_target = state.audio_target_element_bid_by_position.get(position)
+        if existing_target:
+            state.pending_stream_audio_target_by_position.pop(position, None)
+            return existing_target
+        if stream_element_number is not None:
+            target_element_bid = _resolve_audio_target_element_bid_for_stream_number(
+                state,
+                stream_element_number,
+                stream_element_type,
+            )
+            if target_element_bid:
+                state.pending_stream_audio_target_by_position.pop(position, None)
+                return target_element_bid
+            try:
+                normalized_stream_number = int(stream_element_number)
+            except (TypeError, ValueError):
+                return None
+            state.pending_stream_audio_target_by_position[position] = (
+                normalized_stream_number,
+                str(stream_element_type or "").strip().lower(),
+            )
+            return None
+        return _resolve_audio_target_element_bid(state, position)
+
     def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.run_session_bid == self.run_session_bid,
@@ -491,16 +523,12 @@ class ListenElementRunStreamMixin:
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
             return
-        target_element_bid = None
-        stream_element_number = getattr(content, "stream_element_number", None)
-        if stream_element_number is not None:
-            target_element_bid = _resolve_audio_target_element_bid_for_stream_number(
-                state,
-                stream_element_number,
-                getattr(content, "stream_element_type", None),
-            )
-        if target_element_bid is None:
-            target_element_bid = _resolve_audio_target_element_bid(state, position)
+        target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
+            state,
+            position=position,
+            stream_element_number=getattr(content, "stream_element_number", None),
+            stream_element_type=getattr(content, "stream_element_type", None),
+        )
         if target_element_bid:
             state.audio_target_element_bid_by_position[position] = target_element_bid
         if target_element_bid and content.audio_url:
@@ -568,18 +596,12 @@ class ListenElementRunStreamMixin:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
                 return
-            target_element_bid = None
-            stream_element_number = getattr(content, "stream_element_number", None)
-            if stream_element_number is not None:
-                target_element_bid = (
-                    _resolve_audio_target_element_bid_for_stream_number(
-                        state,
-                        stream_element_number,
-                        getattr(content, "stream_element_type", None),
-                    )
-                )
-            if target_element_bid is None:
-                target_element_bid = _resolve_audio_target_element_bid(state, position)
+            target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
+                state,
+                position=position,
+                stream_element_number=getattr(content, "stream_element_number", None),
+                stream_element_type=getattr(content, "stream_element_type", None),
+            )
             if target_element_bid:
                 state.audio_target_element_bid_by_position[position] = (
                     target_element_bid
