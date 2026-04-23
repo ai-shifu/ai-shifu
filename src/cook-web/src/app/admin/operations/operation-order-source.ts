@@ -49,6 +49,18 @@ export const getOperationOrderSourceLabel = (
   translate: TranslateOrderSource,
   fallbackLabel: string,
 ): string => {
+  const explicitTranslationKey = String(order.order_source_key || '').trim();
+  if (explicitTranslationKey) {
+    const normalizedExplicitTranslationKey = explicitTranslationKey.replace(
+      'module.operationsOrder.',
+      '',
+    );
+    const translatedExplicitLabel = translate(normalizedExplicitTranslationKey);
+    if (translatedExplicitLabel !== normalizedExplicitTranslationKey) {
+      return translatedExplicitLabel;
+    }
+  }
+
   const normalizedSource = normalizeOperationOrderSource(order);
   const translationKey = ORDER_SOURCE_TRANSLATION_KEY_MAP[normalizedSource];
 

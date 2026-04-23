@@ -57,6 +57,21 @@ describe('normalizeOperationOrderSource', () => {
 });
 
 describe('getOperationOrderSourceLabel', () => {
+  test('prefers backend translation key when provided', () => {
+    const translate = (key: string) => `translated:${key}`;
+
+    expect(
+      getOperationOrderSourceLabel(
+        buildOrder({
+          order_source: 'user_purchase',
+          order_source_key: 'module.operationsOrder.source.couponRedeem',
+        }),
+        translate,
+        '--',
+      ),
+    ).toBe('translated:source.couponRedeem');
+  });
+
   test('maps normalized source with translation function', () => {
     const translate = (key: string) => `translated:${key}`;
 
