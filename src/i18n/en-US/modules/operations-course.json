@@ -65,7 +65,7 @@
       "drawer": {
         "currentRecordHint": "Read in order: original output -> current follow-up -> current system answer.",
         "fields": {
-          "chapter": "Lesson",
+          "chapter": "Chapter / Lesson",
           "currentAnswer": "Current System Answer",
           "currentFollowUp": "Current Follow-up",
           "followUpTime": "Follow-up Time",

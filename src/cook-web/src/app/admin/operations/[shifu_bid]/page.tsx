@@ -1316,20 +1316,9 @@ export default function AdminOperationCourseDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
-                  {metricCards.map(card => (
-                    <button
-                      key={card.label}
-                      type='button'
-                      aria-label={card.actionLabel || card.label}
-                      disabled={!card.onClick}
-                      className={cn(
-                        'rounded-lg border border-border/70 bg-muted/20 p-4 text-left',
-                        card.onClick
-                          ? 'transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-                          : 'cursor-default',
-                      )}
-                      onClick={card.onClick}
-                    >
+                  {metricCards.map(card => {
+                    const cardContent = (
+                      <>
                       <div className='text-sm font-medium text-muted-foreground'>
                         {card.label}
                       </div>
@@ -1343,8 +1332,32 @@ export default function AdminOperationCourseDetailPage() {
                           {card.value}
                         </span>
                       </div>
-                    </button>
-                  ))}
+                      </>
+                    );
+
+                    if (card.onClick) {
+                      return (
+                        <button
+                          key={card.label}
+                          type='button'
+                          aria-label={card.actionLabel || card.label}
+                          className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                          onClick={card.onClick}
+                        >
+                          {cardContent}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={card.label}
+                        className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left'
+                      >
+                        {cardContent}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

@@ -66,9 +66,13 @@ const AdminDateRangeFilter = ({
     return placeholder;
   }, [placeholder, selectedRange]);
   const hasValue = Boolean(startValue || endValue);
-  const triggerLabel = hasValue
-    ? [triggerAriaLabel || placeholder, label].filter(Boolean).join(' ')
-    : triggerAriaLabel || placeholder;
+  const triggerLabel = React.useMemo(() => {
+    const baseTriggerLabel = triggerAriaLabel || placeholder;
+    if (!hasValue || label === baseTriggerLabel) {
+      return baseTriggerLabel;
+    }
+    return [baseTriggerLabel, label].filter(Boolean).join(' ');
+  }, [hasValue, label, placeholder, triggerAriaLabel]);
 
   return (
     <Popover>

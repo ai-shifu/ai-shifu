@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminOperationCourseFollowUpsPage from './page';
 
 const mockReplace = jest.fn();
@@ -429,31 +429,34 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: SHEET_CLOSE_LABEL }));
 
-    deferredDetail.resolve({
-      basic_info: {
-        generated_block_bid: 'ask-2',
-        progress_record_bid: 'progress-1',
-        user_bid: 'student-1',
-        mobile: '13900001235',
-        email: '',
-        nickname: 'Bob',
-        course_name: 'Course One',
-        shifu_bid: 'course-1',
-        chapter_title: 'Chapter 1',
-        lesson_title: 'Lesson 1',
-        created_at: '2026-04-05 11:02:00',
-        turn_index: 2,
-      },
-      current_record: {
-        source_output_content: 'Stale source output',
-        source_output_type: 'interaction',
-        source_position: 2,
-        source_element_bid: '',
-        source_element_type: '',
-        follow_up_content: 'Stale follow-up question',
-        answer_content: 'Stale follow-up answer',
-      },
-      timeline: [],
+    await act(async () => {
+      deferredDetail.resolve({
+        basic_info: {
+          generated_block_bid: 'ask-2',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          course_name: 'Course One',
+          shifu_bid: 'course-1',
+          chapter_title: 'Chapter 1',
+          lesson_title: 'Lesson 1',
+          created_at: '2026-04-05 11:02:00',
+          turn_index: 2,
+        },
+        current_record: {
+          source_output_content: 'Stale source output',
+          source_output_type: 'interaction',
+          source_position: 2,
+          source_element_bid: '',
+          source_element_type: '',
+          follow_up_content: 'Stale follow-up question',
+          answer_content: 'Stale follow-up answer',
+        },
+        timeline: [],
+      });
+      await deferredDetail.promise;
     });
 
     await waitFor(() => {

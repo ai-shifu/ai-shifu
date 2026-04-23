@@ -63,9 +63,9 @@ the course context.
   - label: return to course detail
   - target: `/admin/operations/[shifu_bid]`
 - page title: `追问数据`
-- subtitle content:
-  - course name
-  - course BID
+- secondary text under the title should keep the filtered-result scope hint
+- first version does **not** require a separate subtitle that repeats course
+  name and course BID in the header
 
 ### 2. Summary cards
 
@@ -118,8 +118,8 @@ Recommended columns:
   - primary line: preferred account field or `user_bid`
   - secondary line: nickname
 - `所属课时`
-  - primary line: chapter title
-  - secondary line: lesson title
+  - primary line: lesson title
+  - secondary line: chapter title
 - `追问内容`
   - single-line truncation
   - tooltip on hover

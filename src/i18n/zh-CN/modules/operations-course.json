@@ -65,7 +65,7 @@
       "drawer": {
         "currentRecordHint": "按“被追问的原始输出 -> 本次追问 -> 本次系统回答”的顺序阅读",
         "fields": {
-          "chapter": "所属节",
+          "chapter": "章节",
           "currentAnswer": "本次系统回答",
           "currentFollowUp": "本次追问",
           "followUpTime": "追问时间",

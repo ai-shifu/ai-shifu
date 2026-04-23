@@ -563,7 +563,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
     credentials = (
         AuthCredential.query.filter(
             AuthCredential.user_bid.in_(list(user_bids)),
-            AuthCredential.provider_name.in_(["phone", "email"]),
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
             AuthCredential.deleted == 0,
         )
         .order_by(AuthCredential.id.desc())
@@ -577,7 +577,10 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
             continue
         if credential.provider_name == "phone" and user_bid not in phone_map:
             phone_map[user_bid] = credential.identifier or ""
-        if credential.provider_name == "email" and user_bid not in email_map:
+        if (
+            credential.provider_name in {"email", "google"}
+            and user_bid not in email_map
+        ):
             email_map[user_bid] = credential.identifier or ""
 
     users = (
@@ -2424,6 +2427,17 @@ def _resolve_follow_up_answer_block(
     return None
 
 
+def _resolve_follow_up_answer_content(block: LearnGeneratedBlock | None) -> str:
+    if block is None:
+        return ""
+
+    generated_content = str(getattr(block, "generated_content", "") or "").strip()
+    if generated_content:
+        return generated_content
+
+    return str(getattr(block, "block_content_conf", "") or "").strip()
+
+
 def _load_follow_up_groups_for_progress_record(
     progress_record_bid: str,
 ) -> list[dict[str, Any]]:
@@ -3433,14 +3447,12 @@ def get_operator_course_follow_up_detail(
                 )
             )
             answer_block = group.get("answer_block")
-            if (
-                answer_block is not None
-                and str(answer_block.generated_content or "").strip()
-            ):
+            answer_content = _resolve_follow_up_answer_content(answer_block)
+            if answer_content:
                 timeline.append(
                     AdminOperationCourseFollowUpTimelineItemDTO(
                         role="teacher",
-                        content=str(answer_block.generated_content or ""),
+                        content=answer_content,
                         created_at=_format_datetime(
                             getattr(answer_block, "created_at", None)
                         ),
@@ -3472,10 +3484,8 @@ def get_operator_course_follow_up_detail(
                 follow_up_content=str(
                     getattr(ask_block, "generated_content", "") or ""
                 ),
-                answer_content=(
-                    str(selected_answer_block.generated_content or "")
-                    if selected_answer_block is not None
-                    else ""
+                answer_content=_resolve_follow_up_answer_content(
+                    selected_answer_block
                 ),
                 source_output_content=str(
                     source_info.get("source_output_content", "") or ""

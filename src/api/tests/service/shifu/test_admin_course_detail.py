@@ -1823,6 +1823,96 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     ]
 
 
+def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        create_user_entity(
+            user_bid="google-student-1",
+            identify="google-student-1",
+            nickname="Google Student",
+            language="en-US",
+            state=1,
+        )
+        upsert_credential(
+            app,
+            user_bid="google-student-1",
+            provider_name="google",
+            subject_id="google-student@example.com",
+            subject_format="email",
+            identifier="google-student@example.com",
+            metadata={},
+            verified=True,
+        )
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            user_bid="google-student-1",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            updated_at=datetime(2026, 4, 4, 10, 0, 0),
+        )
+        _seed_follow_up_pair(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-google-student-1-lesson-1-602",
+            user_bid="google-student-1",
+            ask_bid="ask-google-1",
+            ask_content="Can I search by my Google email?",
+            ask_position=1,
+            ask_created_at=datetime(2026, 4, 4, 10, 1, 0),
+            answer_bid="answer-google-1",
+            answer_content="Yes, Google email should resolve correctly.",
+            answer_created_at=datetime(2026, 4, 4, 10, 1, 2),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&keyword=google-student@example.com",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["user_bid"] == "google-student-1"
+    assert payload["data"]["items"][0]["email"] == "google-student@example.com"
+
+
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
     app,
     test_client,
@@ -2165,6 +2255,111 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
     )
     assert payload["data"]["current_record"]["source_output_type"] == "interaction"
     assert payload["data"]["current_record"]["source_position"] == 3
+
+
+def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_from_block_content_conf(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            user_bid="student-1",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            updated_at=datetime(2026, 4, 4, 10, 0, 0),
+        )
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid="ask-mdcontent-1",
+                progress_record_bid="progress-student-1-lesson-1-602",
+                user_bid="student-1",
+                block_bid="",
+                outline_item_bid="lesson-1",
+                shifu_bid="course-detail",
+                type=BLOCK_TYPE_MDASK_VALUE,
+                role=ROLE_STUDENT,
+                generated_content="Can you restate that content answer?",
+                position=5,
+                block_content_conf="",
+                status=1,
+                deleted=0,
+                created_at=datetime(2026, 4, 4, 10, 2, 0),
+                updated_at=datetime(2026, 4, 4, 10, 2, 0),
+            )
+        )
+        _seed_teacher_output_block(
+            generated_block_bid="answer-mdcontent-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-student-1-lesson-1-602",
+            user_bid="student-1",
+            block_type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=5,
+            created_at=datetime(2026, 4, 4, 10, 2, 2),
+            generated_content="",
+            block_content_conf="The content answer is stored in block_content_conf.",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-mdcontent-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["current_record"]["answer_content"] == (
+        "The content answer is stored in block_content_conf."
+    )
+    assert payload["data"]["timeline"] == [
+        {
+            "role": "student",
+            "content": "Can you restate that content answer?",
+            "created_at": "2026-04-04 10:02:00",
+            "is_current": True,
+        },
+        {
+            "role": "teacher",
+            "content": "The content answer is stored in block_content_conf.",
+            "created_at": "2026-04-04 10:02:02",
+            "is_current": True,
+        },
+    ]
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_source(
