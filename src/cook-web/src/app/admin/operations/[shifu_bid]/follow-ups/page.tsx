@@ -408,6 +408,7 @@ export default function AdminOperationCourseFollowUpsPage() {
     if (!shifuBid.trim() || !selectedGeneratedBlockBid.trim()) {
       setDetailError({ message: unknownErrorMessage });
       setDetail(EMPTY_FOLLOW_UP_DETAIL);
+      setDetailLoading(false);
       return;
     }
 
@@ -555,14 +556,28 @@ export default function AdminOperationCourseFollowUpsPage() {
     [currentPage, pageCount],
   );
 
-  const handleOpenDetail = useCallback((generatedBlockBid: string) => {
-    detailRequestIdRef.current += 1;
-    setSelectedGeneratedBlockBid(generatedBlockBid);
-    setDetail(null);
-    setDetailError(null);
-    setDetailLoading(true);
-    setDetailOpen(true);
-  }, []);
+  const handleOpenDetail = useCallback(
+    (generatedBlockBid: string) => {
+      const normalizedGeneratedBlockBid = generatedBlockBid.trim();
+      if (!normalizedGeneratedBlockBid) {
+        detailRequestIdRef.current += 1;
+        setSelectedGeneratedBlockBid('');
+        setDetail(EMPTY_FOLLOW_UP_DETAIL);
+        setDetailError({ message: unknownErrorMessage });
+        setDetailLoading(false);
+        setDetailOpen(false);
+        return;
+      }
+
+      detailRequestIdRef.current += 1;
+      setSelectedGeneratedBlockBid(normalizedGeneratedBlockBid);
+      setDetail(null);
+      setDetailError(null);
+      setDetailLoading(true);
+      setDetailOpen(true);
+    },
+    [unknownErrorMessage],
+  );
 
   const handleDetailOpenChange = useCallback((open: boolean) => {
     setDetailOpen(open);

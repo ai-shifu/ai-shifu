@@ -464,6 +464,52 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('does not open the detail drawer for a blank generated block bid', async () => {
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      summary: {
+        follow_up_count: 1,
+        user_count: 1,
+        lesson_count: 1,
+        latest_follow_up_at: '2026-04-05 11:02:00',
+      },
+      items: [
+        {
+          generated_block_bid: '   ',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          follow_up_content: 'Question without a valid block bid',
+          turn_index: 1,
+          created_at: '2026-04-05 11:02:00',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Question without a valid block bid');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      }),
+    );
+
+    expect(mockGetAdminOperationCourseFollowUpDetail).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();
+  });
+
   test('redirects non-operators back to admin', async () => {
     mockUserState.userInfo = {
       is_operator: false,

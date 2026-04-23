@@ -2436,6 +2436,17 @@ def _load_follow_up_groups_for_progress_record(
             LearnGeneratedBlock.progress_record_bid == normalized_progress_record_bid,
             LearnGeneratedBlock.deleted == 0,
             LearnGeneratedBlock.status == 1,
+            or_(
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                    LearnGeneratedBlock.role == ROLE_STUDENT,
+                ),
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                    LearnGeneratedBlock.role == ROLE_TEACHER,
+                ),
+            ),
         )
         .order_by(LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc())
         .all()
