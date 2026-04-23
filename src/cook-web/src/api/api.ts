@@ -112,6 +112,10 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseFollowUps:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups',
+  getAdminOperationCourseFollowUpDetail:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
   transferAdminOperationCourseCreator:
