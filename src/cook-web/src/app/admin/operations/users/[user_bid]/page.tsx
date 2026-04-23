@@ -1069,7 +1069,9 @@ export default function AdminOperationUserDetailPage() {
                       courseIdLabel={tOperationsUsers(
                         'courseSummary.dialog.courseId',
                       )}
-                      valueLabel={tOperationsUsers('courseSummary.dialog.status')}
+                      valueLabel={tOperationsUsers(
+                        'courseSummary.dialog.status',
+                      )}
                       renderValue={course =>
                         resolveCourseStatusLabel(course.course_status)
                       }
