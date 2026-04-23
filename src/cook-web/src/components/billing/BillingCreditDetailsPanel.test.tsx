@@ -324,7 +324,9 @@ describe('BillingCreditDetailsPanel', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(subscriptionRow as HTMLElement).queryByText('2026年05月06日 07:59'),
+      within(subscriptionRow as HTMLElement).queryByText(
+        '2026年05月06日 07:59',
+      ),
     ).not.toBeInTheDocument();
   });
 
