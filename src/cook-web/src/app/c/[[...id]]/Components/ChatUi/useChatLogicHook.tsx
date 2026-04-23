@@ -40,7 +40,6 @@ import {
   ELEMENT_TYPE,
 } from '@/c-api/studyV2';
 import {
-  buildAudioTracksFromSegmentData,
   getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
   mergeAudioSegmentDataList,
@@ -677,6 +676,53 @@ function useChatLogicHook({
     [mobileStyle],
   );
 
+  const normalizeHistoryAudioTracks = useCallback(
+    (audios: AudioSegmentData[] = []): AudioTrack[] => {
+      if (!audios.length) {
+        return [];
+      }
+
+      const trackByPosition = new Map<number, AudioTrack>();
+
+      [...audios]
+        .sort(
+          (a, b) =>
+            Number(a.position ?? 0) - Number(b.position ?? 0) ||
+            Number(a.segment_index ?? 0) - Number(b.segment_index ?? 0),
+        )
+        .forEach(audio => {
+          const position = Number(audio.position ?? 0);
+          const track = trackByPosition.get(position) ?? {
+            position,
+            audioSegments: [],
+            isAudioStreaming: false,
+          };
+
+          track.audioSegments = [
+            ...(track.audioSegments ?? []),
+            {
+              segmentIndex: Number(audio.segment_index ?? 0),
+              audioData: audio.audio_data,
+              durationMs: Number(audio.duration_ms ?? 0),
+              isFinal: Boolean(audio.is_final),
+              position,
+              elementId: audio.element_id,
+              slideId: audio.slide_id,
+              avContract: audio.av_contract ?? null,
+            },
+          ];
+          track.isAudioStreaming = Boolean(
+            track.audioSegments?.some(segment => !segment.isFinal),
+          );
+
+          trackByPosition.set(position, track);
+        });
+
+      return [...trackByPosition.values()];
+    },
+    [],
+  );
+
   const buildElementContentItem = useCallback(
     (
       record: StudyRecordItem,
@@ -704,8 +750,7 @@ function useChatLogicHook({
         ...previousTrackAudioSegments,
         ...incomingAudioSegments,
       ]);
-      const historyTracks =
-        buildAudioTracksFromSegmentData(mergedAudioSegments);
+      const historyTracks = normalizeHistoryAudioTracks(mergedAudioSegments);
       const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
@@ -761,6 +806,7 @@ function useChatLogicHook({
       getAskButtonMarkup,
       isListenMode,
       mobileStyle,
+      normalizeHistoryAudioTracks,
       resolveElementItemBid,
       resolveRecordUserInput,
     ],

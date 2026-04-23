@@ -2,7 +2,6 @@ import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
-import { resolveListenSlideSubtitleCues } from './listenModeUtils';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 
@@ -522,7 +521,7 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('pushes an error item and shows a destructive toast after 15s of run stream inactivity', async () => {
+  it('pushes an error item and shows a destructive toast after 3s of run stream inactivity', async () => {
     jest.useFakeTimers();
 
     const { result } = renderHook(
@@ -538,8 +537,8 @@ describe('useChatLogicHook stream cleanup', () => {
 
     await waitFor(() => expect(activeRun).toBeDefined());
 
-    await act(async () => {
-      jest.advanceTimersByTime(15000);
+    act(() => {
+      jest.advanceTimersByTime(3000);
     });
 
     await waitFor(() =>
@@ -1211,170 +1210,6 @@ describe('useChatLogicHook stream cleanup', () => {
         }),
       ),
     );
-  });
-
-  it('exposes streamed audio segment subtitle cues to listen-mode slide rendering', async () => {
-    const { result } = renderHook(
-      () =>
-        useChatLogicHook({
-          ...buildBaseParams(),
-          isListenMode: true,
-        }),
-      {
-        wrapper,
-      },
-    );
-
-    await waitFor(() => expect(activeRun).toBeDefined());
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'content-1',
-        type: SSE_OUTPUT_TYPE.ELEMENT,
-        content: {
-          element_bid: 'content-1',
-          generated_block_bid: 'content-1',
-          element_type: 'text',
-          content: 'Hello',
-          like_status: 'none',
-        },
-      });
-      await activeRun?.onMessage({
-        generated_block_bid: 'content-1',
-        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
-        content: {
-          segment_index: 0,
-          audio_data: 'ZmFrZS0w',
-          duration_ms: 1200,
-          is_final: false,
-          position: 0,
-          subtitle_cues: [
-            {
-              text: '第一句。',
-              start_ms: 0,
-              end_ms: 1200,
-              segment_index: 0,
-              position: 0,
-            },
-          ],
-        },
-      });
-    });
-
-    await waitFor(() => {
-      const item = result.current.items.find(
-        currentItem => currentItem.element_bid === 'content-1',
-      );
-      expect(item).toBeDefined();
-      expect(resolveListenSlideSubtitleCues(item!)).toEqual([
-        {
-          text: '第一句',
-          start_ms: 0,
-          end_ms: 1200,
-          segment_index: 0,
-          position: 0,
-        },
-      ]);
-    });
-  });
-
-  it('replaces progressive subtitle cues with final audio complete cues', async () => {
-    const { result } = renderHook(
-      () =>
-        useChatLogicHook({
-          ...buildBaseParams(),
-          isListenMode: true,
-        }),
-      {
-        wrapper,
-      },
-    );
-
-    await waitFor(() => expect(activeRun).toBeDefined());
-
-    await act(async () => {
-      await activeRun?.onMessage({
-        generated_block_bid: 'content-1',
-        type: SSE_OUTPUT_TYPE.ELEMENT,
-        content: {
-          element_bid: 'content-1',
-          generated_block_bid: 'content-1',
-          element_type: 'text',
-          content: 'Hello',
-          like_status: 'none',
-        },
-      });
-      await activeRun?.onMessage({
-        generated_block_bid: 'content-1',
-        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
-        content: {
-          segment_index: 0,
-          audio_data: 'ZmFrZS0w',
-          duration_ms: 1200,
-          is_final: false,
-          position: 0,
-          subtitle_cues: [
-            {
-              text: '第一句。',
-              start_ms: 0,
-              end_ms: 1200,
-              segment_index: 0,
-              position: 0,
-            },
-          ],
-        },
-      });
-      await activeRun?.onMessage({
-        generated_block_bid: 'content-1',
-        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
-        content: {
-          audio_url: 'https://example.com/audio.mp3',
-          audio_bid: 'audio-1',
-          duration_ms: 2400,
-          position: 0,
-          subtitle_cues: [
-            {
-              text: '第一句。',
-              start_ms: 0,
-              end_ms: 1200,
-              segment_index: 0,
-              position: 0,
-            },
-            {
-              text: '第二句。',
-              start_ms: 1200,
-              end_ms: 2400,
-              segment_index: 1,
-              position: 0,
-            },
-          ],
-        },
-      });
-    });
-
-    await waitFor(() => {
-      const item = result.current.items.find(
-        currentItem => currentItem.element_bid === 'content-1',
-      );
-      expect(item).toBeDefined();
-      expect(item?.audioTracks?.[0].audioSegments).toHaveLength(1);
-      expect(resolveListenSlideSubtitleCues(item!)).toEqual([
-        {
-          text: '第一句',
-          start_ms: 0,
-          end_ms: 1200,
-          segment_index: 0,
-          position: 0,
-        },
-        {
-          text: '第二句',
-          start_ms: 1200,
-          end_ms: 2400,
-          segment_index: 1,
-          position: 0,
-        },
-      ]);
-    });
   });
 
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {

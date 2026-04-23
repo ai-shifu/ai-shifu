@@ -197,7 +197,6 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
-  subtitle_cues?: SubtitleCueData[];
   position?: number;
   element_id?: string;
   slide_id?: string;
@@ -208,7 +207,6 @@ export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
-  subtitle_cues?: SubtitleCueData[];
   position?: number;
   slide_id?: string;
   av_contract?: Record<string, any> | null;

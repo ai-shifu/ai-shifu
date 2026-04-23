@@ -604,6 +604,11 @@ const ListenModeSlideRenderer = ({
     !isLoading &&
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
+  const hasErrorElement = useMemo(
+    () => items.some(item => item.type === ChatContentItemType.ERROR),
+    [items],
+  );
+
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const currentPlayerElementBid = useMemo(() => {
     const blockBid = playerCustomActionState.currentElement?.blockBid;
@@ -1417,6 +1422,7 @@ const ListenModeSlideRenderer = ({
           playerCustomActionPauseOnActive={true}
           playerCustomActions={playerCustomActions}
           playerTexts={playerTexts}
+          disableLoadingOverlay={hasErrorElement}
           showPlayer={!shouldRenderEmptyPpt}
         />
         {isLoading ? (
