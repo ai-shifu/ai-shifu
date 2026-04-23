@@ -61,10 +61,13 @@ def _role_value_to_name(role_value: Any) -> str:
 
 def _element_type_for_visual_kind(visual_kind: str) -> ElementType:
     normalized = (visual_kind or "").strip().lower()
+    alias = VISUAL_KIND_ELEMENT_TYPE_ALIASES.get(normalized)
+    if alias is not None:
+        return alias
     try:
         return ElementType(normalized)
     except ValueError:
-        return VISUAL_KIND_ELEMENT_TYPE_ALIASES.get(normalized, ElementType.TEXT)
+        return ElementType.TEXT
 
 
 def _element_type_code(element_type: ElementType) -> int:

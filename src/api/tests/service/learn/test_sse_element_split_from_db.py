@@ -45,7 +45,7 @@ VALID_EVENT_TYPES = {
     "variable_update",
     "outline_item_update",
 }
-VALID_TYPE_CODES = set(range(201, 213))
+VALID_TYPE_CODES = set(range(201, 214))
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +562,8 @@ class TestSSEElementSplitFromDB:
         ]
 
         print(f"\n  Pure visual blocks found: {len(visual_blocks)}")
+        if not visual_blocks:
+            pytest.skip("No pure visual blocks found in test DB")
 
         results = []
         for block in visual_blocks[:15]:

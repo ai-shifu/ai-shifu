@@ -11,6 +11,7 @@ from flask import Flask
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
     DashboardCourseDetailDTO,
@@ -28,7 +29,10 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
-from flaskr.service.shifu.demo_courses import is_builtin_demo_course
+from flaskr.service.shifu.demo_courses import (
+    LEGACY_DEMO_SHIFU_BIDS,
+    is_builtin_demo_course,
+)
 from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
@@ -70,6 +74,28 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
+def _load_dashboard_demo_shifu_bids() -> set[str]:
+    demo_bids = set(LEGACY_DEMO_SHIFU_BIDS)
+    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
+        bid = str(get_dynamic_config(key, "") or "").strip()
+        if bid:
+            demo_bids.add(bid)
+    return demo_bids
+
+
+def _is_dashboard_demo_course(
+    *, shifu_bid: str, title: str, created_user_bid: str
+) -> bool:
+    normalized_bid = str(shifu_bid or "").strip()
+    if normalized_bid in _load_dashboard_demo_shifu_bids():
+        return True
+    return is_builtin_demo_course(
+        shifu_bid=shifu_bid,
+        title=title,
+        created_user_bid=created_user_bid,
+    )
+
+
 def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseMeta]:
     owned_rows = (
         db.session.query(PublishedShifu.shifu_bid)
@@ -84,7 +110,7 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
     all_bids = {
         bid
         for bid in owned_bids
-        if not is_builtin_demo_course(
+        if not _is_dashboard_demo_course(
             shifu_bid=bid,
             title="",
             created_user_bid="",
@@ -114,7 +140,7 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
             continue
         title = str(row.title or "").strip()
         created_user_bid = str(row.created_user_bid or "").strip()
-        if is_builtin_demo_course(
+        if _is_dashboard_demo_course(
             shifu_bid=shifu_bid,
             title=title,
             created_user_bid=created_user_bid,

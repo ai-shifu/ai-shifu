@@ -2361,35 +2361,32 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert "audio_segment" not in replay_event_types
         assert replay_event_types.count("element") >= 1
         assert "audio_complete" not in replay_event_types
-        assert "done" in replay_event_types
-        replay_audio_patches = [
-            item.content
-            for item in result_with_events.events
-            if item.type == "element"
-            and item.content.audio_segments
-            and not item.content.audio_url
-            and not item.content.is_final
+        assert "break" in replay_event_types
+        replay_elements = [
+            item.content for item in result_with_events.events if item.type == "element"
         ]
-        assert [item.audio_segments for item in replay_audio_patches] == [
-            [
+        assert any(
+            item.audio_url == "https://example.com/stream-audio.mp3"
+            and item.is_final is True
+            and item.audio_segments
+            == [
                 {
                     "position": 0,
                     "segment_index": 0,
                     "audio_data": "",
                     "duration_ms": 240,
                     "is_final": False,
-                }
-            ],
-            [
+                },
                 {
                     "position": 0,
                     "segment_index": 1,
                     "audio_data": "",
                     "duration_ms": 260,
-                    "is_final": False,
-                }
-            ],
-        ]
+                    "is_final": True,
+                },
+            ]
+            for item in replay_elements
+        )
 
         persisted_rows = (
             LearnGeneratedElement.query.filter(
@@ -2408,24 +2405,6 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         ]
         assert persisted_segments
         assert persisted_segments == [
-            [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "",
-                    "duration_ms": 240,
-                    "is_final": False,
-                }
-            ],
-            [
-                {
-                    "position": 0,
-                    "segment_index": 1,
-                    "audio_data": "",
-                    "duration_ms": 260,
-                    "is_final": False,
-                }
-            ],
             [
                 {
                     "position": 0,
@@ -3019,7 +2998,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             item for item in element_events if item.element_type == ElementType.HTML
         ]
         assert len(text_elements) >= 3
-        assert len(html_elements) == 3
+        assert len(html_elements) == 4
 
         text_element_bid = text_elements[0].element_bid
         assert text_elements[1].element_bid == text_element_bid
@@ -3049,7 +3028,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             and item.element_bid == text_element_bid
         )
         assert audio_complete_text.element_bid == text_element_bid
-        assert audio_complete_text.target_element_bid in ("", None)
+        assert audio_complete_text.target_element_bid == text_element_bid
         assert audio_complete_text.is_final is True
         assert audio_complete_text.audio_segments == [
             {
@@ -3583,7 +3562,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
         text_elements = [
             item for item in element_events if item.element_type == ElementType.TEXT
         ]
-        assert len([item for item in html_elements if item.is_new is True]) == 1
+        assert len([item for item in html_elements if item.is_new is True]) == 2
         assert len(text_elements) >= 2
 
         html_element = next(item for item in html_elements if item.is_new is True)
@@ -3604,7 +3583,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
                 "segment_index": 0,
                 "audio_data": "late-text-segment",
                 "duration_ms": 210,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert initial_text.audio_url == ""
@@ -3994,7 +3973,7 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
             row for row in persisted_rows if row.element_type == ElementType.HTML.value
         ]
 
-        assert len(persisted_html_rows) == 2
+        assert len(persisted_html_rows) == 1
         assert all(
             not row.audio_segments or row.audio_segments == "[]"
             for row in persisted_html_rows

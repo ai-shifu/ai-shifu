@@ -9,7 +9,6 @@ from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementPayloadDTO,
     ElementType,
-    ElementVisualDTO,
     GeneratedType,
     LearnStatus,
     OutlineItemUpdateDTO,
@@ -281,12 +280,12 @@ def _normalize_record_element(element: ElementDTO) -> ElementDTO:
         (item.content for item in payload.previous_visuals if item.content),
         "",
     )
-    if primary_visual_content and not (element.content_text or ""):
+    has_bound_audio = bool(
+        element.audio_url
+        or element.audio_segments
+        or payload.audio is not None
+        or element.is_speakable
+    )
+    if primary_visual_content and not (element.content_text or "") and has_bound_audio:
         element.content_text = primary_visual_content
-
-    payload.previous_visuals = [
-        ElementVisualDTO(visual_type=item.visual_type, content="")
-        for item in payload.previous_visuals
-    ]
-    element.payload = payload
     return element

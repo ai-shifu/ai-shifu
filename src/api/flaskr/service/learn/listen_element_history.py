@@ -18,6 +18,9 @@ from flaskr.service.learn.legacy_record_builder import (
     LegacyLearnRecord,
     build_legacy_record_for_progress,
 )
+from flaskr.service.learn.listen_element_payloads import (
+    _normalize_audio_segments_for_element,
+)
 from flaskr.service.learn.listen_element_rows import (
     _element_from_row,
     _event_from_row,
@@ -139,9 +142,16 @@ def _build_final_elements_from_rows(
             if row.event_type != GeneratedType.AUDIO_COMPLETE.value
         ]
 
-    final_elements = _enrich_elements_with_persisted_audio(
-        [_normalize_record_element(element) for element in latest_by_bid.values()]
-    )
+    normalized_elements: list[ElementDTO] = []
+    for element in latest_by_bid.values():
+        normalized = _normalize_record_element(element)
+        if normalized.audio_segments:
+            normalized.audio_segments = _normalize_audio_segments_for_element(
+                normalized.audio_segments
+            )
+        normalized_elements.append(normalized)
+
+    final_elements = _enrich_elements_with_persisted_audio(normalized_elements)
     return (
         final_elements,
         events,
@@ -381,6 +391,30 @@ def _group_elements_by_generated_block_bid(
     return grouped
 
 
+def _load_block_order_by_generated_block_bid(
+    progress_record_bid: str,
+) -> dict[str, int]:
+    if not progress_record_bid:
+        return {}
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid == progress_record_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        )
+        .order_by(
+            LearnGeneratedBlock.position.asc(),
+            LearnGeneratedBlock.id.asc(),
+        )
+        .all()
+    )
+    return {
+        block.generated_block_bid or "": index
+        for index, block in enumerate(blocks)
+        if block.generated_block_bid
+    }
+
+
 def _merge_follow_up_elements_after_anchor(
     elements: list[ElementDTO],
 ) -> list[ElementDTO]:
@@ -468,6 +502,7 @@ def _merge_progress_elements(
     outline_bid: str,
     include_non_navigable: bool,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
+    load_progress_legacy_record: Callable[..., LegacyLearnRecord],
 ) -> tuple[list[ElementDTO], list[RunElementSSEMessageDTO] | None]:
     rows_by_progress: dict[str, list[LearnGeneratedElement]] = {}
     for row in rows:
@@ -505,7 +540,7 @@ def _merge_progress_elements(
             if row.event_type == "element" and (row.generated_block_bid or "")
         }
 
-        legacy_record = build_legacy_record_for_progress(
+        legacy_record = load_progress_legacy_record(
             progress_record,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -515,11 +550,16 @@ def _merge_progress_elements(
             dedupe_audio_by_block_position=True,
             skip_empty_content=True,
         )
-        block_order_by_generated_block_bid = {
+        block_order_by_generated_block_bid = _load_block_order_by_generated_block_bid(
+            progress_bid
+        )
+        legacy_block_order_by_generated_block_bid = {
             record.generated_block_bid or "": index
             for index, record in enumerate(legacy_record.records)
             if record.generated_block_bid
         }
+        for group_key, order in legacy_block_order_by_generated_block_bid.items():
+            block_order_by_generated_block_bid.setdefault(group_key, order)
         legacy_records = [
             record
             for record in legacy_record.records
@@ -577,6 +617,9 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
     load_fallback_record: Callable[[], LegacyLearnRecord],
+    load_progress_legacy_record: Callable[
+        ..., LegacyLearnRecord
+    ] = build_legacy_record_for_progress,
 ) -> LearnElementRecordDTO:
     progress_records = (
         LearnProgressRecord.query.filter(
@@ -610,6 +653,7 @@ def get_listen_element_record(
             outline_bid=outline_bid,
             include_non_navigable=include_non_navigable,
             build_record_from_legacy=build_record_from_legacy,
+            load_progress_legacy_record=load_progress_legacy_record,
         )
         if collected_elements:
             return LearnElementRecordDTO(

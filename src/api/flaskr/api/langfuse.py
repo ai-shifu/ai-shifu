@@ -3,7 +3,7 @@ import json
 import uuid
 from typing import Any
 
-from flask import Flask, request
+from flask import Flask, has_request_context, request
 from langfuse import Langfuse
 
 from flaskr.common.log import thread_local
@@ -29,13 +29,16 @@ def get_langfuse_client():
 
 def get_request_id() -> str:
     request_id = getattr(thread_local, "request_id", "") or ""
-    if request_id:
+    if request_id and has_request_context():
         return request_id
 
     try:
-        request_id = request.headers.get("X-Request-ID", "") or ""
+        header_request_id = request.headers.get("X-Request-ID", "") or ""
     except RuntimeError:
-        request_id = ""
+        header_request_id = ""
+
+    if header_request_id:
+        return header_request_id
 
     return request_id
 

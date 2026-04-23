@@ -688,7 +688,10 @@ class ElementDTO(BaseModel):
 
     def apply_patch(self, patch: "ElementDTO") -> None:
         for field_name in self._PATCH_FIELDS:
-            setattr(self, field_name, getattr(patch, field_name))
+            patch_value = getattr(patch, field_name)
+            if field_name == "is_final":
+                patch_value = bool(self.is_final or patch_value)
+            setattr(self, field_name, patch_value)
 
     def _audio_segments_for_output(self) -> list[dict[str, Any]]:
         segments: list[dict[str, Any]] = []
