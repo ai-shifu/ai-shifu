@@ -15,8 +15,10 @@ type LoadingDotsCssVariables = CSSProperties & {
   '--loading-dot-rest-opacity'?: number;
 };
 
-export interface LoadingDotsProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+export interface LoadingDotsProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  'children'
+> {
   ariaLabel?: string;
   count?: number;
   dotClassName?: string;
@@ -32,7 +34,12 @@ const normalizePositiveNumber = (value: number, fallback: number) =>
 
 const createDotIndexes = (count: number) =>
   Array.from(
-    { length: Math.max(1, Math.floor(normalizePositiveNumber(count, DEFAULT_DOT_COUNT))) },
+    {
+      length: Math.max(
+        1,
+        Math.floor(normalizePositiveNumber(count, DEFAULT_DOT_COUNT)),
+      ),
+    },
     (_, index) => index,
   );
 
@@ -50,7 +57,10 @@ export default function LoadingDots({
   ...props
 }: LoadingDotsProps) {
   const dotIndexes = createDotIndexes(count);
-  const safeDurationMs = normalizePositiveNumber(durationMs, DEFAULT_DURATION_MS);
+  const safeDurationMs = normalizePositiveNumber(
+    durationMs,
+    DEFAULT_DURATION_MS,
+  );
   const safeGap = normalizePositiveNumber(gap, DEFAULT_DOT_GAP);
   const safeSize = normalizePositiveNumber(size, DEFAULT_DOT_SIZE);
   const safeActiveScale = normalizePositiveNumber(
