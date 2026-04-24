@@ -616,7 +616,7 @@ class TestAddConfig:
         with app.app_context():
             mock_get_config_from_common.return_value = "env-value"
             result = add_config(app, "test_key", "test_value")
-            assert result is None
+            assert result is False
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")

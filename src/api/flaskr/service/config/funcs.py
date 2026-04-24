@@ -212,9 +212,12 @@ def get_config(key: str, default: str = None) -> str:
 
 def add_config(
     app: Flask, key: str, value: str, is_secret: bool = False, remark: str = ""
-) -> None:
+) -> bool:
     """
     Add config to database.
+
+    Returns True when a DB-backed config row was created or updated, and False
+    when the write is skipped.
     """
     with app.app_context():
         app.logger.info(
@@ -222,7 +225,7 @@ def add_config(
         )
         env_value = get_config_from_common(key, None)
         if env_value is not None:
-            return
+            return False
         # Check if config already exists in database
         existing_config = (
             Config.query.filter(
