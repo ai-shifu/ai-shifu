@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request
 import pytest
 
 import flaskr.dao as dao
+from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
@@ -77,6 +78,7 @@ def admin_billing_client(monkeypatch):
     )
 
     dao.db.init_app(app)
+    load_translations(app)
 
     @app.errorhandler(AppException)
     def _handle_app_exception(error: AppException):
@@ -403,7 +405,7 @@ class TestAdminBillingRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 401
-        assert payload["message"] == "server.shifu.noPermission"
+        assert payload["message"] == "No permission"
 
     def test_admin_billing_public_builders_return_dto_instances(
         self,

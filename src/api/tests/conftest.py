@@ -106,6 +106,12 @@ def app():
     from flask_migrate import upgrade
 
     app = create_app()
+    app.config["SQLALCHEMY_BINDS"] = {
+        "ai_shifu_saas": _test_db_uri,
+        "ai_shifu_admin": _test_db_uri,
+    }
+    app.extensions.pop("sqlalchemy", None)
+    dao.db.init_app(app)
 
     with app.app_context():
         # Allow skipping DB migrations in CI/unit-only runs
