@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import json
-from pathlib import Path
-import sys
-import types
 import uuid
 from decimal import Decimal
 
@@ -39,45 +36,11 @@ from flaskr.service.user.utils import generate_token
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
-_API_ROOT = Path(__file__).resolve().parents[3]
-_ROUTE_DIR = _API_ROOT / "flaskr" / "route"
-_COMMON_ROUTE_FILE = _ROUTE_DIR / "common.py"
-_USER_ROUTE_FILE = _ROUTE_DIR / "user.py"
-
 
 def _load_user_route_handlers():
-    package_name = "flaskr.route"
-    if package_name not in sys.modules:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(_ROUTE_DIR)]
-        sys.modules[package_name] = package
-
-    common_name = f"{package_name}.common"
-    if common_name not in sys.modules:
-        common_spec = importlib.util.spec_from_file_location(
-            common_name,
-            _COMMON_ROUTE_FILE,
-        )
-        assert common_spec is not None and common_spec.loader is not None
-        common_module = importlib.util.module_from_spec(common_spec)
-        sys.modules[common_name] = common_module
-        common_spec.loader.exec_module(common_module)
-
-    full_name = f"{package_name}.user"
-    if full_name in sys.modules:
-        module = sys.modules[full_name]
-        return module.register_user_handler, sys.modules[
-            common_name
-        ].register_common_handler
-
-    spec = importlib.util.spec_from_file_location(full_name, _USER_ROUTE_FILE)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[full_name] = module
-    spec.loader.exec_module(module)
-    return module.register_user_handler, sys.modules[
-        common_name
-    ].register_common_handler
+    common_module = importlib.import_module("flaskr.route.common")
+    user_module = importlib.import_module("flaskr.route.user")
+    return user_module.register_user_handler, common_module.register_common_handler
 
 
 register_user_handler, register_common_handler = _load_user_route_handlers()
@@ -103,6 +66,7 @@ def user_trial_client(monkeypatch, tmp_path):
 
     db_path = tmp_path / "user-trial.db"
     db_uri = f"sqlite:///{db_path}"
+    monkeypatch.setenv("BILL_ENABLED", "true")
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -111,6 +75,7 @@ def user_trial_client(monkeypatch, tmp_path):
             "ai_shifu_saas": db_uri,
             "ai_shifu_admin": db_uri,
         },
+        BILL_ENABLED=True,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SECRET_KEY="test-secret-key",
         TOKEN_EXPIRE_TIME=60 * 60,

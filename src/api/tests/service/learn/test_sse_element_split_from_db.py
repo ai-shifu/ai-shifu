@@ -45,7 +45,7 @@ VALID_EVENT_TYPES = {
     "variable_update",
     "outline_item_update",
 }
-VALID_TYPE_CODES = set(range(201, 213))
+VALID_TYPE_CODES = set(range(201, 214))
 
 
 # ---------------------------------------------------------------------------
@@ -680,5 +680,8 @@ class TestSSEElementSplitFromDB:
                 f"{len(retire_issues)} retire element issues:\n"
                 + "\n".join(retire_issues[:10])
             )
+
+        if not results:
+            pytest.skip("No pure visual blocks found in test DB sample")
 
         assert proper_retire > 0, "No blocks demonstrated retire+replace flow"

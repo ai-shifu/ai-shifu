@@ -32,6 +32,10 @@ def app():
         SECRET_KEY="test-secret-key",
         REDIS_KEY_PREFIX="test:",
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
     )
     db.init_app(flask_app)
     with flask_app.app_context():
