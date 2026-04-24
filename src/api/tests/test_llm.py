@@ -183,6 +183,50 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
     assert models == llm.DEEPSEEK_FALLBACK_MODELS
 
 
+def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
+    captured_kwargs = {}
+
+    def fake_completion(*args, **kwargs):
+        captured_kwargs["kwargs"] = kwargs
+        return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://api.deepseek.com"},
+        models=["deepseek-v4-pro"],
+        prefix="",
+        wildcard_prefixes=(),
+        reload_params=llm._reload_deepseek_params,
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"deepseek": provider_state})
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {"deepseek-v4-pro": ("deepseek", "deepseek-v4-pro")},
+    )
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_CONFIG_HINTS",
+        {"deepseek": "DEEPSEEK_API_KEY,DEEPSEEK_API_URL"},
+    )
+
+    list(
+        llm.chat_llm(
+            app=app,
+            user_id="user-1",
+            span=DummySpan(),
+            model="deepseek-v4-pro",
+            messages=[{"role": "user", "content": "hello"}],
+            temperature="0.7",
+            generation_name="deepseek-test",
+        )
+    )
+
+    assert captured_kwargs["kwargs"]["temperature"] == 0.7
+    assert captured_kwargs["kwargs"]["extra_body"] == {"thinking": {"type": "disabled"}}
+
+
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
 
