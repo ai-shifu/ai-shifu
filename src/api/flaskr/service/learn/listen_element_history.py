@@ -468,6 +468,7 @@ def _merge_progress_elements(
     outline_bid: str,
     include_non_navigable: bool,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
+    build_legacy_record_for_progress_fn: Callable[..., LegacyLearnRecord],
 ) -> tuple[list[ElementDTO], list[RunElementSSEMessageDTO] | None]:
     rows_by_progress: dict[str, list[LearnGeneratedElement]] = {}
     for row in rows:
@@ -494,6 +495,18 @@ def _merge_progress_elements(
     for progress_record in progress_records:
         progress_bid = progress_record.progress_record_bid or ""
         progress_rows = rows_by_progress.get(progress_bid, [])
+        active_blocks = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid == progress_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+            )
+            .order_by(
+                LearnGeneratedBlock.position.asc(),
+                LearnGeneratedBlock.id.asc(),
+            )
+            .all()
+        )
         persisted_elements, persisted_events = _build_final_elements_from_rows(
             progress_rows,
             interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
@@ -505,7 +518,7 @@ def _merge_progress_elements(
             if row.event_type == "element" and (row.generated_block_bid or "")
         }
 
-        legacy_record = build_legacy_record_for_progress(
+        legacy_record = build_legacy_record_for_progress_fn(
             progress_record,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -516,9 +529,9 @@ def _merge_progress_elements(
             skip_empty_content=True,
         )
         block_order_by_generated_block_bid = {
-            record.generated_block_bid or "": index
-            for index, record in enumerate(legacy_record.records)
-            if record.generated_block_bid
+            str(block.generated_block_bid or ""): index
+            for index, block in enumerate(active_blocks)
+            if str(block.generated_block_bid or "")
         }
         legacy_records = [
             record
@@ -577,6 +590,9 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
     load_fallback_record: Callable[[], LegacyLearnRecord],
+    build_legacy_record_for_progress_fn: Callable[
+        ..., LegacyLearnRecord
+    ] = build_legacy_record_for_progress,
 ) -> LearnElementRecordDTO:
     progress_records = (
         LearnProgressRecord.query.filter(
@@ -610,6 +626,7 @@ def get_listen_element_record(
             outline_bid=outline_bid,
             include_non_navigable=include_non_navigable,
             build_record_from_legacy=build_record_from_legacy,
+            build_legacy_record_for_progress_fn=build_legacy_record_for_progress_fn,
         )
         if collected_elements:
             return LearnElementRecordDTO(

@@ -66,6 +66,7 @@ def user_trial_client(monkeypatch, tmp_path):
 
     db_path = tmp_path / "user-trial.db"
     db_uri = f"sqlite:///{db_path}"
+    monkeypatch.setenv("BILL_ENABLED", "true")
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -74,6 +75,7 @@ def user_trial_client(monkeypatch, tmp_path):
             "ai_shifu_saas": db_uri,
             "ai_shifu_admin": db_uri,
         },
+        BILL_ENABLED=True,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SECRET_KEY="test-secret-key",
         TOKEN_EXPIRE_TIME=60 * 60,

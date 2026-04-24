@@ -2241,6 +2241,13 @@ class RunScriptContextV2:
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
+        if not getattr(self, "_trace_id", ""):
+            self._trace_id = get_request_trace_id()
+        if not isinstance(getattr(self, "_trace_args", None), dict):
+            self._trace_args = {}
+        if not hasattr(self, "_trace_root_span"):
+            self._trace_root_span = None
+        self._trace_args.setdefault("metadata", {})
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
         self.app.logger.info(
             "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
@@ -3180,11 +3187,9 @@ class RunScriptContextV2:
                                 stream_element_type,
                                 normalized_number,
                             ) in _iter_llm_result_content_parts(payload):
-                                if not stream_element_type or normalized_number is None:
-                                    continue
                                 yield from _process_stream_chunk(
                                     chunk_content,
-                                    stream_element_type=stream_element_type,
+                                    stream_element_type=stream_element_type or None,
                                     stream_element_number=normalized_number,
                                 )
                     else:
