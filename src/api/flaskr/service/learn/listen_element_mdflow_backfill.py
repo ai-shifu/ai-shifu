@@ -5,7 +5,77 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from flask import Flask
-from markdown_flow import format_content
+
+try:
+    from markdown_flow import format_content
+except ImportError:
+    from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+    @dataclass
+    class _FormattedContentPart:
+        content: str
+        type: str
+        number: int
+
+    _VISUAL_KIND_ALIASES = {
+        "iframe": "html",
+        "video": "html",
+        "sandbox": "html",
+        "html_table": "html",
+        "md_table": "tables",
+        "fence": "code",
+    }
+
+    def format_content(content: str) -> list[_FormattedContentPart]:
+        """
+        Compatibility formatter for older markdown_flow builds that do not
+        export `format_content`.
+
+        The backfill only needs stable ordered stream parts so the listen
+        element adapter can reconstruct final rows. We reuse the shared AV
+        segmentation contract to recover text/visual boundaries and normalize
+        visual kinds to element protocol types.
+        """
+
+        raw_content = str(content or "")
+        if not raw_content.strip():
+            return []
+
+        contract = build_av_segmentation_contract(raw_content)
+        items: list[tuple[int, int, str]] = []
+
+        for segment in contract.get("speakable_segments") or []:
+            span = segment.get("source_span") or []
+            if len(span) != 2:
+                continue
+            start, end = int(span[0]), int(span[1])
+            if end <= start:
+                continue
+            items.append((start, end, "text"))
+
+        for boundary in contract.get("visual_boundaries") or []:
+            span = boundary.get("source_span") or []
+            if len(span) != 2:
+                continue
+            start, end = int(span[0]), int(span[1])
+            if end <= start:
+                continue
+            kind = str(boundary.get("kind", "") or "")
+            items.append((start, end, _VISUAL_KIND_ALIASES.get(kind, kind)))
+
+        if not items:
+            return [_FormattedContentPart(content=raw_content, type="text", number=0)]
+
+        items.sort(key=lambda item: (item[0], item[1]))
+        return [
+            _FormattedContentPart(
+                content=raw_content[start:end],
+                type=item_type or "text",
+                number=index,
+            )
+            for index, (start, end, item_type) in enumerate(items)
+        ]
+
 
 from flaskr.dao import db
 from flaskr.service.learn.const import ROLE_TEACHER

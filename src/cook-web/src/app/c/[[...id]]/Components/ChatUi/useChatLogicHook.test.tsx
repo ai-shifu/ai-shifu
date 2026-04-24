@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { toast } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
@@ -123,6 +124,7 @@ jest.mock('@/c-api/studyV2', () => {
     SSE_OUTPUT_TYPE: {
       ELEMENT: 'element',
       CONTENT: 'content',
+      ERROR: 'error',
       BREAK: 'break',
       ASK: 'ask',
       TEXT_END: 'done',
@@ -237,6 +239,20 @@ describe('useChatLogicHook stream cleanup', () => {
     </AppContext.Provider>
   );
 
+  const mobileWrapper = ({ children }: { children: React.ReactNode }) => (
+    <AppContext.Provider
+      value={{
+        isLoggedIn: false,
+        mobileStyle: true,
+        userInfo: null,
+        theme: 'light',
+        frameLayout: 0,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+
   const buildBaseParams = () => ({
     shifuBid: 'shifu-1',
     outlineBid: 'lesson-1',
@@ -260,6 +276,7 @@ describe('useChatLogicHook stream cleanup', () => {
     });
 
     await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
     await waitFor(() =>
       expect(
         result.current.items.some(
@@ -269,8 +286,14 @@ describe('useChatLogicHook stream cleanup', () => {
     );
 
     act(() => {
+      if (!activeRun) {
+        throw new Error('Expected active run source');
+      }
+      activeRun.source.readyState = 1;
       activeRun?.source.emit('readystatechange');
     });
+
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
 
     await act(async () => {
       await activeRun?.onMessage({
@@ -302,6 +325,7 @@ describe('useChatLogicHook stream cleanup', () => {
         ),
       ).toBe(false),
     );
+    expect(result.current.isOutputInProgress).toBe(false);
   });
 
   it('keeps lesson feedback popup pending until prompting is allowed', async () => {
@@ -497,6 +521,48 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it('pushes an error item and shows a destructive toast after 3s of run stream inactivity', async () => {
+    jest.useFakeTimers();
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.some(
+          item => item.type === ChatContentItemType.ERROR,
+        ),
+      ).toBe(true),
+    );
+
+    const timeoutErrorItem = result.current.items.find(
+      item => item.type === ChatContentItemType.ERROR,
+    );
+
+    expect(timeoutErrorItem?.content).toBe('module.chat.streamTimeoutRetry');
+    expect(toast).toHaveBeenCalledWith({
+      title: 'module.chat.streamTimeoutRetry',
+      variant: 'destructive',
+    });
+    expect(activeRun?.source.close).toHaveBeenCalled();
+
+    jest.useRealTimers();
+  });
+
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
@@ -662,20 +728,6 @@ describe('useChatLogicHook stream cleanup', () => {
       records: [],
     });
 
-    const mobileWrapper = ({ children }: { children: React.ReactNode }) => (
-      <AppContext.Provider
-        value={{
-          isLoggedIn: false,
-          mobileStyle: true,
-          userInfo: null,
-          theme: 'light',
-          frameLayout: 0,
-        }}
-      >
-        {children}
-      </AppContext.Provider>
-    );
-
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
     });
@@ -689,6 +741,265 @@ describe('useChatLogicHook stream cleanup', () => {
     );
     expect(askBlock).toBeDefined();
     expect(askBlock?.isAskExpanded).toBe(false);
+  });
+
+  it('re-adds the mobile follow-up button for history content after switching from listen mode to read mode', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'History lesson summary',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result, rerender } = renderHook(
+      ({ isListenMode }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+        }),
+      {
+        wrapper: mobileWrapper,
+        initialProps: {
+          isListenMode: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
+
+    rerender({ isListenMode: false });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+  });
+
+  it('finalizes previous mobile content when a new element arrives', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-html-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-html-1',
+          generated_block_bid: 'content-html-1',
+          element_type: 'html',
+          content: '<p>HTML block</p>',
+          like_status: 'none',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-html-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-2',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-2',
+          generated_block_bid: 'content-text-2',
+          element_type: 'text',
+          content: 'Text block',
+          like_status: 'none',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-html-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+    expect(
+      result.current.items.find(
+        item =>
+          item.type === ChatContentItemType.LIKE_STATUS &&
+          item.parent_element_bid === 'content-html-1',
+      ),
+    ).toBeDefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-2')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
+  });
+
+  it('adds the mobile follow-up button only after text end for the current element', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line',
+          like_status: 'none',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-text-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+    expect(
+      result.current.items.find(
+        item =>
+          item.type === ChatContentItemType.LIKE_STATUS &&
+          item.parent_element_bid === 'content-text-1',
+      ),
+    ).toBeDefined();
+  });
+
+  it('keeps the mobile follow-up button after finalized content receives more stream text', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-text-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: ' and second line',
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.content,
+    ).toContain('<custom-button-after-content>');
+  });
+
+  it('keeps the mobile follow-up button after finalized content receives another element update', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-html-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-html-1',
+          generated_block_bid: 'content-html-1',
+          element_type: 'html',
+          content: '<p>HTML block</p>',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-html-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-html-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-html-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-html-1',
+          generated_block_bid: 'content-html-1',
+          element_type: 'html',
+          content: '<p>Updated HTML block</p>',
+          like_status: 'none',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-html-1')
+        ?.content,
+    ).toContain('<custom-button-after-content>');
   });
 
   it('keeps ask block position by history sequence order instead of anchor position', async () => {
@@ -777,6 +1088,20 @@ describe('useChatLogicHook stream cleanup', () => {
           content: 'Hello',
           like_status: 'none',
         },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
       });
     });
 

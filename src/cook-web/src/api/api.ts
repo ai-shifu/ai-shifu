@@ -101,13 +101,24 @@ const api = {
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
+  getAdminOperationOrderDetail:
+    'GET /shifu/admin/operations/orders/{order_bid}/detail',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  getAdminOperationUserCredits:
+    'GET /shifu/admin/operations/users/{user_bid}/credits',
+  grantAdminOperationUserCredits:
+    'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
   getAdminOperationCourseDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseFollowUps:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups',
+  getAdminOperationCourseFollowUpDetail:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
   transferAdminOperationCourseCreator:
@@ -129,6 +140,29 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+
+  // billing creator api
+  getBillingBootstrap: 'GET /billing',
+  getBillingCatalog: 'GET /billing/catalog',
+  getBillingOverview: 'GET /billing/overview',
+  acknowledgeBillingTrialWelcome: 'POST /billing/trial-offer/welcome/ack',
+  getBillingWalletBuckets: 'GET /billing/wallet-buckets',
+  getBillingLedger: 'GET /billing/ledger',
+  checkoutBillingOrder: 'POST /billing/orders/{bill_order_bid}/checkout',
+  syncBillingOrder: 'POST /billing/orders/{bill_order_bid}/sync',
+  checkoutBillingSubscription: 'POST /billing/subscriptions/checkout',
+  cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
+  resumeBillingSubscription: 'POST /billing/subscriptions/resume',
+  checkoutBillingTopup: 'POST /billing/topups/checkout',
+
+  // billing admin api
+  getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
+  getAdminBillingOrders: 'GET /admin/billing/orders',
+  getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
+  getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',
+  getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
+  getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
+  adjustAdminBillingLedger: 'POST /admin/billing/ledger/adjust',
 };
 
 export default api;

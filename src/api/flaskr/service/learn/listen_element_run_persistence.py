@@ -49,6 +49,25 @@ class ListenElementRunPersistenceMixin:
             return False
         return bool(element.is_new)
 
+    def _remember_latest_element_snapshot(
+        self, base_element_bid: str, element: ElementDTO
+    ) -> None:
+        if not base_element_bid:
+            return
+        snapshots = getattr(self, "_latest_element_snapshots", None)
+        if snapshots is None:
+            snapshots = {}
+            self._latest_element_snapshots = snapshots
+        snapshots[base_element_bid] = element.model_copy(deep=True)
+
+    def _forget_latest_element_snapshot(self, base_element_bid: str) -> None:
+        if not base_element_bid:
+            return
+        snapshots = getattr(self, "_latest_element_snapshots", None)
+        if snapshots is None:
+            return
+        snapshots.pop(base_element_bid, None)
+
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
             return self._block_meta_cache[generated_block_bid]
@@ -223,6 +242,20 @@ class ListenElementRunPersistenceMixin:
             content=element,
         )
 
+    def _stream_only_element_message(
+        self, element: ElementDTO
+    ) -> RunElementSSEMessageDTO:
+        base_element_bid = self._prepare_runtime_element(element)
+        self._remember_latest_element_snapshot(base_element_bid, element)
+        return RunElementSSEMessageDTO(
+            type="element",
+            event_type="element",
+            generated_block_bid=element.generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
+            run_event_seq=element.run_event_seq,
+            content=element,
+        )
+
     def _prepare_runtime_element(self, element: ElementDTO) -> str:
         seq = self._next_seq()
         if element.element_type in {ElementType.ASK, ElementType.ANSWER}:
@@ -277,6 +310,7 @@ class ListenElementRunPersistenceMixin:
             payload=element.payload,
             run_event_seq=element.run_event_seq,
         )
+        self._remember_latest_element_snapshot(base_element_bid, element)
 
     def _build_non_element_message(
         self,
@@ -419,6 +453,11 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _load_latest_element_snapshot(self, element_bid: str) -> ElementDTO | None:
+        in_memory_snapshot = getattr(self, "_latest_element_snapshots", {}).get(
+            element_bid
+        )
+        if in_memory_snapshot is not None:
+            return in_memory_snapshot.model_copy(deep=True)
         row = (
             LearnGeneratedElement.query.filter(
                 LearnGeneratedElement.run_session_bid == self.run_session_bid,

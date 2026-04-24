@@ -129,6 +129,8 @@ from flaskr.service.order.consts import (
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
@@ -773,6 +775,118 @@ class ReloadFromElementBidTests(unittest.TestCase):
             self.assertEqual(later_block.status, 0)
             self.assertIsNotNone(later_element)
             self.assertEqual(later_element.status, 0)
+
+    def test_reload_preserves_ask_and_answer_blocks(self):
+        with self.app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid="progress-ask-keep",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-1",
+                user_bid="user-1",
+                status=LEARN_STATUS_COMPLETED,
+                block_position=6,
+            )
+            dao.db.session.add(progress)
+
+            target_block = LearnGeneratedBlock(
+                generated_block_bid="generated-content-target",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=1,
+                generated_content="target content",
+                position=5,
+                block_content_conf="target content",
+                status=1,
+            )
+            ask_block = LearnGeneratedBlock(
+                generated_block_bid="generated-ask-1",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDASK_VALUE,
+                role=0,
+                generated_content="why?",
+                position=5,
+                block_content_conf="why?",
+                status=1,
+            )
+            answer_block = LearnGeneratedBlock(
+                generated_block_bid="generated-answer-1",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDANSWER_VALUE,
+                role=1,
+                generated_content="because",
+                position=5,
+                block_content_conf="because",
+                status=1,
+            )
+            later_block = LearnGeneratedBlock(
+                generated_block_bid="generated-content-later",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=1,
+                generated_content="later content",
+                position=6,
+                block_content_conf="later content",
+                status=1,
+            )
+            dao.db.session.add(target_block)
+            dao.db.session.add(ask_block)
+            dao.db.session.add(answer_block)
+            dao.db.session.add(later_block)
+            dao.db.session.add(
+                LearnGeneratedElement(
+                    element_bid="target-element-1",
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid=progress.user_bid,
+                    generated_block_bid=target_block.generated_block_bid,
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    run_session_bid="run-1",
+                    run_event_seq=1,
+                    role="teacher",
+                    element_index=1,
+                    element_type=ElementType.TEXT.value,
+                    element_type_code=213,
+                    change_type="render",
+                    content_text="target content",
+                    payload="{}",
+                    status=1,
+                )
+            )
+            dao.db.session.commit()
+
+            list(
+                self.ctx.reload(
+                    self.app,
+                    "target-element-1",
+                    reload_element_bid="target-element-1",
+                )
+            )
+
+            dao.db.session.refresh(target_block)
+            dao.db.session.refresh(ask_block)
+            dao.db.session.refresh(answer_block)
+            dao.db.session.refresh(later_block)
+
+            self.assertEqual(target_block.status, 0)
+            self.assertEqual(later_block.status, 0)
+            self.assertEqual(ask_block.status, 1)
+            self.assertEqual(answer_block.status, 1)
 
 
 class StreamTtsTeardownTests(unittest.TestCase):

@@ -318,14 +318,18 @@ class GoogleAuthProvider(AuthProvider):
 
             # Reuse the first-account bootstrap logic across login methods so
             # Google can also initialize a fresh self-hosted deployment.
+            creator_granted_now = False
             if email_verified:
                 from flaskr.service.user.phone_flow import init_first_course
 
-                init_first_course(app, aggregate.user_bid)
+                creator_granted_now = init_first_course(app, aggregate.user_bid)
 
             # Optionally grant creator and demo-course permissions for admin logins
-            ensure_admin_creator_and_demo_permissions(
-                app, aggregate.user_bid, aggregate.language, login_context
+            creator_granted_now = (
+                ensure_admin_creator_and_demo_permissions(
+                    app, aggregate.user_bid, aggregate.language, login_context
+                )
+                or creator_granted_now
             )
 
             refreshed = load_user_aggregate(aggregate.user_bid)
@@ -344,8 +348,11 @@ class GoogleAuthProvider(AuthProvider):
             credential=credential_record,
             is_new_user=created_user,
             metadata={
+                "language": language,
+                "login_context": login_context,
                 "token_response": token,
                 "profile": profile,
+                "creator_granted_now": creator_granted_now,
                 "snapshot": snapshot.to_dict(),
             },
         )

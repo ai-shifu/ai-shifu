@@ -8,10 +8,10 @@ type LearningModeOption = {
 
 export const LEARNING_MODE_OPTIONS = [
   {
-    mode: 'listen',
+    mode: 'read',
   },
   {
-    mode: 'read',
+    mode: 'listen',
   },
 ] as const satisfies readonly LearningModeOption[];
 
@@ -24,6 +24,17 @@ export const getLearningModeLabel = (
   }
 
   return t('module.chat.learningModeRead');
+};
+
+export const getLearningModeShortLabel = (
+  t: TFunction,
+  learningMode: LearningMode,
+) => {
+  if (learningMode === 'listen') {
+    return t('module.chat.learningModeListenShort');
+  }
+
+  return t('module.chat.learningModeReadShort');
 };
 
 export const isListenModeActive = ({

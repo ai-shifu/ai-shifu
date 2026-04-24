@@ -7,6 +7,8 @@ English | [简体中文](README_ZH-CN.md)
 </div>
 AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once, AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.
 
+Developed by the AI-Shifu Team and the Research Center of Intelligent Software Engineering at Harbin Institute of Technology.
+
 # Core Capabilities
 
 - **Personalized explanation engine** — Generates learning paths and tone based on learner background, goals, and level.

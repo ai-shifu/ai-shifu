@@ -2,24 +2,49 @@
 Unit tests for config service functions.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
+from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
+
 from flaskr.service.config import funcs as config_funcs
 from flaskr.service.config.funcs import (
-    _get_fernet_key,
-    _get_fernet,
-    _encrypt_config,
+    ConfigCache,
     _decrypt_config,
+    _encrypt_config,
     _get_config_cache_key,
     _get_config_lock_key,
+    _get_fernet,
+    _get_fernet_key,
     _is_redis_available,
-    get_config,
     add_config,
+    get_config,
     update_config,
-    ConfigCache,
 )
+
+
+@pytest.fixture
+def app():
+    """Provide a minimal Flask app without importing the full backend stack."""
+    from flaskr.dao import db
+
+    flask_app = Flask(__name__)
+    flask_app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret-key",
+        REDIS_KEY_PREFIX="test:",
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+    )
+    db.init_app(flask_app)
+    with flask_app.app_context():
+        db.create_all()
+    yield flask_app
 
 
 @pytest.fixture(autouse=True)
@@ -280,6 +305,36 @@ class TestGetConfig:
             result = get_config("test_key")
             assert result == "db-value"
             mock_decrypt.assert_not_called()
+            mock_lock.release.assert_called_once()
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.Config")
+    def test_get_config_queries_database_when_default_is_explicit_empty_string(
+        self, mock_config_class, mock_redis, mock_get_config_from_common, app
+    ):
+        """Explicit caller defaults should not mask DB-backed config keys."""
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.return_value = None
+            mock_redis.get.return_value = None
+            mock_lock = MagicMock()
+            mock_lock.acquire.return_value = True
+            mock_redis.lock.return_value = mock_lock
+
+            mock_config_instance = MagicMock()
+            mock_config_instance.value = '{"enabled":1}'
+            mock_config_instance.is_encrypted = 0
+            mock_config_instance.created_at = datetime.now()
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                mock_config_instance
+            )
+            mock_config_class.query = mock_query
+
+            result = get_config("test_key", "")
+            assert result == '{"enabled":1}'
+            mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_lock.release.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")

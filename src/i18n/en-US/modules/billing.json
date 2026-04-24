@@ -1,0 +1,734 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "adjust": {
+      "cancel": "Cancel",
+      "description": "Use a positive decimal to grant credits or a negative decimal to consume them in the standard bucket order.",
+      "errors": {
+        "amountInvalid": "Enter a non-zero decimal amount with up to 10 fractional digits.",
+        "creatorBidRequired": "Creator bid is required."
+      },
+      "fields": {
+        "amount": "Adjustment amount",
+        "creatorBid": "Creator bid",
+        "note": "Note"
+      },
+      "help": {
+        "amount": "Examples: 12.5000000 to grant credits, -8.0000000 to debit credits."
+      },
+      "open": "Adjust credits",
+      "placeholders": {
+        "amount": "12.5000000 or -8.0000000",
+        "creatorBid": "creator_bid",
+        "note": "Reason for the manual adjustment"
+      },
+      "quickAction": "Adjust this creator",
+      "submit": "Apply adjustment",
+      "submitting": "Applying...",
+      "success": "Ledger updated for {creatorBid}. Available credits: {availableCredits}.",
+      "title": "Manual credit adjustment"
+    },
+    "attention": "Needs attention",
+    "backToCreatorBilling": "Back to billing center",
+    "domains": {
+      "description": "Audit creator custom domains, inspect entitlement gates, and spot hosts that still need follow-up.",
+      "empty": "No custom domain bindings yet.",
+      "loadError": "Admin domain audit data could not be loaded.",
+      "table": {
+        "creator": "Creator",
+        "effective": "Effective",
+        "entitlement": "Domain entitlement",
+        "host": "Host",
+        "lastVerified": "Last verified",
+        "ssl": "SSL",
+        "status": "Status"
+      },
+      "title": "Domain Audits",
+      "values": {
+        "effective": "Effective",
+        "inactive": "Inactive"
+      }
+    },
+    "entitlements": {
+      "description": "Review the effective entitlement snapshot resolved for each creator workspace.",
+      "empty": "No entitlement snapshots yet.",
+      "loadError": "Admin entitlement data could not be loaded.",
+      "source": {
+        "default": "Default fallback",
+        "productPayload": "Product payload",
+        "snapshot": "Stored snapshot"
+      },
+      "table": {
+        "analytics": "Analytics tier",
+        "creator": "Creator",
+        "features": "Features",
+        "priority": "Priority class",
+        "source": "Source",
+        "support": "Support tier",
+        "window": "Effective window"
+      },
+      "title": "Entitlements"
+    },
+    "exceptions": {
+      "description": "Focus on the subscriptions and orders that still need manual follow-up.",
+      "empty": "No billing exceptions right now.",
+      "fields": {
+        "amount": "Amount",
+        "createdAt": "Created at",
+        "detail": "Detail",
+        "periodEnd": "Period end",
+        "renewalEvent": "Renewal event"
+      },
+      "loadError": "Billing exception data could not be loaded.",
+      "sections": {
+        "orders": "Attention orders",
+        "subscriptions": "Attention subscriptions"
+      },
+      "title": "Exceptions"
+    },
+    "orders": {
+      "description": "Review billing orders across creators and spot failed provider actions.",
+      "empty": "No billing orders yet.",
+      "loadError": "Admin order data could not be loaded.",
+      "table": {
+        "amount": "Amount",
+        "createdAt": "Created at",
+        "creator": "Creator",
+        "failure": "Failure",
+        "order": "Order",
+        "provider": "Provider",
+        "status": "Status"
+      },
+      "title": "Orders"
+    },
+    "pagination": {
+      "page": "Page {page} / {pageCount} · {total} records"
+    },
+    "reports": {
+      "description": "Inspect cross-creator usage and ledger rollups without leaving the operations console.",
+      "sections": {
+        "ledger": {
+          "description": "Cross-creator ledger movement by day, source, and entry type.",
+          "title": "Ledger Rollups"
+        },
+        "usage": {
+          "description": "Cross-creator usage cost rollups by creator, shifu, scene, and metric.",
+          "title": "Usage Rollups"
+        }
+      },
+      "table": {
+        "creator": "Creator"
+      },
+      "title": "Reports"
+    },
+    "subscriptions": {
+      "description": "Inspect creator subscriptions, wallet balances, and renewal context.",
+      "empty": "No subscriptions yet.",
+      "loadError": "Admin subscription data could not be loaded.",
+      "table": {
+        "availableCredits": "Available credits",
+        "creator": "Creator",
+        "currentPeriodEnd": "Current period end",
+        "product": "Product",
+        "provider": "Provider",
+        "renewal": "Renewal context",
+        "renewalStatus": "Renewal event",
+        "scheduled": "Scheduled",
+        "status": "Status"
+      },
+      "title": "Subscriptions"
+    },
+    "subtitle": "Operations view for subscriptions, failed payments, and billing exceptions.",
+    "tabs": {
+      "domains": "Domains",
+      "entitlements": "Entitlements",
+      "exceptions": "Exceptions",
+      "orders": "Orders",
+      "reports": "Reports",
+      "subscriptions": "Subscriptions"
+    },
+    "title": "Billing Ops"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "Top up now",
+      "openOrders": "Open payment records",
+      "resumeSubscription": "Resume subscription"
+    },
+    "cancelScheduled": "This subscription is set to end at the current period boundary. Resume it to keep recurring credits active.",
+    "lowBalance": "Your creator wallet is out of credits. Start a top-up before the next settlement runs.",
+    "lowBalanceDescription": "Your credits are gone, so AI-generated content is unavailable right now.",
+    "lowBalanceTitle": "Your credits are exhausted. The AI is taking a break.",
+    "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
+  },
+  "capabilities": {
+    "description": "This summary marks which billing surfaces are live in the UI and which ones still exist only as config-guarded or internal flows.",
+    "fallbackDescription": "Capability status is tracked from the billing registry.",
+    "fallbackTitle": "Billing capability",
+    "items": {
+      "adminDomains": {
+        "description": "Admin domain bind and audit pages are still reachable.",
+        "title": "Admin domains"
+      },
+      "adminEntitlements": {
+        "description": "Admin entitlement review remains enabled.",
+        "title": "Admin entitlements"
+      },
+      "adminLedgerAdjust": {
+        "description": "Admin ledger adjustment stays available.",
+        "title": "Admin ledger adjustment"
+      },
+      "adminOrders": {
+        "description": "Admin billing order review remains enabled.",
+        "title": "Admin orders"
+      },
+      "adminReports": {
+        "description": "Admin usage and ledger reports remain enabled.",
+        "title": "Admin reports"
+      },
+      "adminSubscriptions": {
+        "description": "Admin subscription review remains enabled.",
+        "title": "Admin subscriptions"
+      },
+      "billingFeatureFlag": {
+        "description": "The billing feature flag still defaults to disabled in seed config.",
+        "title": "Billing feature flag"
+      },
+      "creatorCatalog": {
+        "description": "Catalog cards for plans and topups remain active.",
+        "title": "Creator catalog"
+      },
+      "creatorOrders": {
+        "description": "Creator orders, sync, refund, and topup flows remain enabled.",
+        "title": "Creator orders"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "Creator subscription checkout, cancel, and resume remain enabled.",
+        "title": "Creator subscription lifecycle"
+      },
+      "creatorWalletLedger": {
+        "description": "Wallet buckets and ledger read models remain enabled.",
+        "title": "Creator wallet and ledger"
+      },
+      "dailyAggregateRebuild": {
+        "description": "Daily aggregate rebuild and finalize flows remain internal-only.",
+        "title": "Daily aggregate rebuild"
+      },
+      "domainVerifyRefresh": {
+        "description": "Domain verification refresh remains internal-only.",
+        "title": "Domain verify refresh"
+      },
+      "lowBalanceAlerts": {
+        "description": "Low-balance alert generation remains internal-only.",
+        "title": "Low-balance alerts"
+      },
+      "providerReconcile": {
+        "description": "Provider reconcile remains an internal recovery flow.",
+        "title": "Provider reconcile"
+      },
+      "renewalCompensation": {
+        "description": "Renewal and retry compensation remain internal-only.",
+        "title": "Renewal compensation"
+      },
+      "renewalTaskQueue": {
+        "description": "Renewal worker execution still defaults to disabled in seed config.",
+        "title": "Renewal task queue"
+      },
+      "runtimeBillingExtensions": {
+        "description": "Runtime config still exposes billing entitlement and domain context.",
+        "title": "Runtime billing extensions"
+      },
+      "usageSettlement": {
+        "description": "Usage settlement and replay remain internal-only task/CLI flows.",
+        "title": "Usage settlement"
+      },
+      "walletBucketExpiration": {
+        "description": "Wallet bucket expiration remains internal-only.",
+        "title": "Wallet bucket expiration"
+      }
+    },
+    "status": {
+      "active": "Active",
+      "defaultDisabled": "Default disabled",
+      "internalOnly": "Internal only"
+    },
+    "summary": {
+      "active": "{count} active",
+      "defaultDisabled": "{count} default disabled",
+      "internalOnly": "{count} internal only"
+    },
+    "title": "Capability Status"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "Processing..."
+    },
+    "badges": {
+      "bestValue": "Best value",
+      "recommended": "Hot"
+    },
+    "labels": {
+      "everyDays": "/ every {count} days",
+      "everyMonths": "/ every {count} months",
+      "everyYears": "/ every {count} years",
+      "perDay": "/ daily",
+      "perMonth": "/ monthly",
+      "perYear": "/ yearly",
+      "providerManual": "Manual",
+      "providerPingxx": "Pingxx / Alipay QR",
+      "providerStripe": "Stripe"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "Best for course iteration and maintenance outside delivery periods.",
+        "title": "Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "Best for serving a small number of learners.",
+        "title": "Basic"
+      },
+      "creatorYearly": {
+        "description": "Best for large organizations.",
+        "title": "Pro"
+      },
+      "creatorYearlyLite": {
+        "description": "Best for small and medium organizations.",
+        "title": "Advanced"
+      },
+      "creatorYearlyPremium": {
+        "description": "Best for extra-large organizations.",
+        "title": "Premium"
+      }
+    },
+    "topups": {
+      "creatorLarge": {
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
+        "title": "120-credit pack"
+      },
+      "creatorMedium": {
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
+        "title": "50-credit pack"
+      },
+      "creatorSmall": {
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
+        "title": "20-credit pack"
+      },
+      "creatorXLarge": {
+        "description": "Supplement your current plan. Unused credits expire with the plan period.",
+        "title": "320-credit pack"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "Credit Purchase Agreement",
+    "agreementPrefix": "I have read and agreed to the",
+    "cancel": "Cancel",
+    "confirm": "Continue to payment",
+    "creditsLabel": "Credits",
+    "planDescription": "Here are the payment details for your credit subscription plan.",
+    "priceLabel": "Price",
+    "processing": "Processing...",
+    "productLabel": "Product",
+    "providerLabel": "Payment provider",
+    "subject": {
+      "plan": {
+        "day": "Daily plan",
+        "month": "Monthly plan",
+        "year": "Yearly plan"
+      }
+    },
+    "title": "Confirm purchase",
+    "topupDescription": "You are about to open a one-time credit top-up checkout.",
+    "unsupported": "This payment method is not available right now."
+  },
+  "common": {
+    "empty": "Not available"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "Upgrade now"
+    },
+    "subtitle": "Review total credits, category balances, and the effective window for each credit source.",
+    "table": {
+      "balance": "Balance",
+      "creditType": "Type",
+      "validUntil": "Expires on"
+    },
+    "title": "Credits Overview",
+    "topupAvailabilityLabel": "No expiry",
+    "topupAvailabilityTooltip": "An active subscription is required before credit packs can be used",
+    "totalCreditsDescription": "Credits are consumed in priority order: plan credits > credit packs",
+    "totalCreditsLabel": "Credit balance",
+    "usageTable": {
+      "columns": {
+        "scene": "Usage item"
+      },
+      "title": "Credit usage details"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "Not verified yet"
+    },
+    "ssl": {
+      "issued": "SSL issued",
+      "not_requested": "SSL not requested",
+      "pending": "SSL pending"
+    },
+    "status": {
+      "disabled": "Disabled",
+      "failed": "Verification failed",
+      "pending": "Pending verification",
+      "verified": "Verified"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "Advanced",
+      "basic": "Basic",
+      "enterprise": "Enterprise"
+    },
+    "flags": {
+      "branding": "Branding override",
+      "customDomain": "Custom domain",
+      "disabled": "Disabled",
+      "enabled": "Enabled"
+    },
+    "metrics": {
+      "analyticsTier": "Analytics tier",
+      "maxConcurrency": "Max concurrency",
+      "priorityClass": "Priority class",
+      "supportTier": "Support tier"
+    },
+    "priority": {
+      "priority": "Priority",
+      "standard": "Standard",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "Business hours",
+      "priority": "Priority support",
+      "selfServe": "Self-serve"
+    }
+  },
+  "ledger": {
+    "bucketDescription": "Review source buckets, remaining balances, and the order they will be consumed.",
+    "category": {
+      "subscription": "Plan credits",
+      "topup": "Credit pack"
+    },
+    "empty": "No wallet buckets yet. Credits will appear here after your first grant.",
+    "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
+    "entriesTitle": "Ledger entries",
+    "entryType": {
+      "adjustment": "Adjustment",
+      "consume": "Consume",
+      "expire": "Expire",
+      "grant": "Grant",
+      "hold": "Hold",
+      "refund": "Refund",
+      "release": "Release"
+    },
+    "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
+    "neverExpires": "Follows plan credits expiry",
+    "pagination": {
+      "page": "Page {page} / {pageCount} · {total} entries"
+    },
+    "source": {
+      "gift": "Gift credits",
+      "manual": "Manual adjustment",
+      "refund": "Refund return",
+      "subscription": "Plan credits",
+      "topup": "Credit pack",
+      "usage": "Usage settlement"
+    },
+    "summary": {
+      "activeBuckets": "Active buckets",
+      "nextExpiry": "Next expiry",
+      "totalAvailable": "Bucket credits"
+    },
+    "table": {
+      "action": "Action",
+      "amount": "Quantity",
+      "availableCredits": "Available credits",
+      "balanceAfter": "Balance after",
+      "createdAt": "Time",
+      "detail": "Details",
+      "effectiveWindow": "Effective window",
+      "entryType": "Entry type",
+      "priority": "Priority",
+      "source": "Source",
+      "status": "Status"
+    },
+    "usageScene": {
+      "debug": "Debug",
+      "preview": "Preview",
+      "production": "Study",
+      "tts": "Voice"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "Canceled",
+      "failed": "Failed",
+      "init": "Initialized",
+      "paid": "Paid",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "timeout": "Timed out"
+    },
+    "type": {
+      "manual": "Manual order",
+      "refund": "Refund order",
+      "subscriptionRenewal": "Subscription renewal",
+      "subscriptionStart": "Subscription start",
+      "subscriptionUpgrade": "Subscription upgrade",
+      "topup": "Top-up order"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "Available credits",
+    "feedback": {
+      "cancelSuccess": "Subscription will cancel at the end of the current period.",
+      "resumeSuccess": "Subscription renewal has been restored."
+    },
+    "loadError": "Billing data could not be loaded. Refresh and try again.",
+    "walletTitle": "Credits Overview"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "Buy now",
+      "currentSubscription": "Current subscription",
+      "currentUsing": "Current plan",
+      "downgradeDisabled": "Downgrade unavailable",
+      "freeTrial": "Inactive",
+      "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
+      "subscribeNow": "Subscribe now",
+      "upgradeNow": "Upgrade now",
+      "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+    },
+    "creditSummary": {
+      "daily": "Daily credits {credits}",
+      "days": "Credits every {count} days: {credits}",
+      "monthly": "Monthly credits {credits}",
+      "months": "Credits every {count} months: {credits}",
+      "yearly": "Yearly credits {credits}",
+      "years": "Credits every {count} years: {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "Everything in Basic, and:",
+        "parallelProcessing": "Higher parallel processing capacity",
+        "taskPriority": "Priority task processing",
+        "techBasic": "Basic technical support"
+      },
+      "common": {
+        "allLearning": "All learning features",
+        "createDebugPublish": "Create, debug, and publish courses",
+        "higherConcurrency": "Higher concurrency support",
+        "unlimitedCourses": "Unlimited courses"
+      },
+      "daily": {
+        "preview": "Fast-turn daily access for short validation cycles",
+        "publish": "Short-term publishing and onboarding coverage",
+        "support": "Daily plan operational support"
+      },
+      "free": {
+        "preview": "Learner delivery and account import",
+        "publish": "Course creation and content storage"
+      },
+      "monthly": {
+        "preview": "Learner delivery and account import",
+        "publish": "Course creation and content storage"
+      },
+      "premium": {
+        "concurrencyQuota": "Higher concurrency quota",
+        "dedicatedSupport": "Dedicated technical support",
+        "includesLabel": "Everything in Pro, and:",
+        "onboarding": "One exclusive course-building training session"
+      },
+      "pro": {
+        "branding": "Custom branding",
+        "customDomain": "Custom domain",
+        "includesLabel": "Everything in Advanced, and:",
+        "techPriority": "Priority technical support"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "Higher parallel processing capacity",
+          "publish": "Priority task processing"
+        },
+        "premium": {
+          "analytics": "Higher concurrency quota",
+          "branding": "Custom branding",
+          "domain": "Custom domain",
+          "priority": "Dedicated technical support",
+          "support": "One exclusive course-building training session"
+        },
+        "pro": {
+          "analytics": "Priority technical support",
+          "branding": "Custom branding",
+          "domain": "Custom domain",
+          "priority": "Higher parallel processing capacity",
+          "support": "Basic technical support"
+        }
+      }
+    },
+    "featuresTitle": "Included benefits:",
+    "free": {
+      "creditSummary": "{credits} bonus credits",
+      "description": "Best for a first look — run through the full teaching and research workflow.",
+      "priceNote": "/ valid within {days} days of registration",
+      "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
+      "priceValue": "¥0",
+      "title": "Trial"
+    },
+    "intervalTabs": {
+      "daily": "Daily Plans",
+      "monthly": "Monthly Plans",
+      "topup": "Credit Top-ups",
+      "yearly": "Yearly Plans"
+    },
+    "scale": {
+      "advanced": {
+        "students": "Est. learner capacity: around 300"
+      },
+      "basic": {
+        "students": "Est. learner capacity: around 10"
+      },
+      "free": {
+        "students": "Est. learner capacity: around 10"
+      },
+      "lite": {
+        "students": "Est. learner capacity: around 3"
+      },
+      "premium": {
+        "students": "Est. learner capacity: around 1000"
+      },
+      "pro": {
+        "students": "Est. learner capacity: around 500"
+      },
+      "sectionTitle": "Learner capacity (est.)"
+    },
+    "subtitle": "Choose the right credit plan.",
+    "title": "Credit Plans",
+    "topup": {
+      "creditLabel": "{credits} credits",
+      "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
+      "noteInstant": "Credits take effect immediately after purchase.",
+      "noteTitle": "Top-up notes"
+    },
+    "topupComingSoon": "Coming soon",
+    "validity": {
+      "daily": "Validity: counted from the purchase day, valid every day",
+      "days": "Validity: counted from the purchase day, renews every {count} days",
+      "free": "Validity: valid within 15 days from registration",
+      "monthly": "Valid for 30 days from purchase",
+      "months": "Validity: counted from the purchase month, renews every {count} months",
+      "yearly": "Validity: counted from the purchase month, valid every year",
+      "years": "Validity: counted from the purchase month, renews every {count} years"
+    }
+  },
+  "page": {
+    "adminLink": "Open billing ops",
+    "tabs": {
+      "ledger": "Credit Details",
+      "plans": "Credit Plans"
+    }
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "Cancel effective",
+      "downgradeEffective": "Downgrade effective",
+      "expire": "Expire",
+      "reconcile": "Reconcile",
+      "renewal": "Renewal",
+      "retry": "Retry"
+    },
+    "status": {
+      "canceled": "Canceled",
+      "failed": "Failed",
+      "pending": "Pending",
+      "processing": "Processing",
+      "succeeded": "Succeeded"
+    }
+  },
+  "reports": {
+    "empty": "No daily report data yet.",
+    "loadError": "Unable to load billing reports right now.",
+    "metric": {
+      "llmCacheTokens": "LLM cache tokens",
+      "llmInputTokens": "LLM input tokens",
+      "llmOutputTokens": "LLM output tokens",
+      "ttsInputChars": "TTS input chars",
+      "ttsOutputChars": "TTS output chars",
+      "ttsRequestCount": "TTS request count"
+    },
+    "table": {
+      "count": "Entry count",
+      "credits": "Credits",
+      "date": "Date",
+      "entryType": "Entry type",
+      "metric": "Metric",
+      "provider": "Provider / Model",
+      "rawAmount": "Raw amount",
+      "scene": "Scene",
+      "shifu": "Shifu",
+      "source": "Source",
+      "usageType": "Usage type",
+      "window": "Window"
+    },
+    "usageType": {
+      "llm": "LLM",
+      "tts": "TTS"
+    }
+  },
+  "result": {
+    "countdown": "Redirecting to the billing center in {seconds}s",
+    "errorTitle": "Billing sync failed",
+    "missingOrder": "Missing billing order. Open the billing center and retry from your order list.",
+    "openBilling": "Open billing center",
+    "pending": "Payment is still processing. You can retry sync in a moment.",
+    "pendingTitle": "Waiting for billing confirmation",
+    "processing": "Syncing payment status",
+    "retry": "Retry sync",
+    "success": "Payment confirmed. Your billing data is being refreshed.",
+    "successTitle": "Billing updated"
+  },
+  "sidebar": {
+    "creditsLabel": "Credits",
+    "cta": "Open billing center",
+    "dailyBalanceTitle": "Daily balance",
+    "dailyTitle": "Daily plan",
+    "description": "Review your plan, credits, and upcoming billing actions.",
+    "expired": "Expired",
+    "expiresInDays": "Expires in {days} days",
+    "monthlyBalanceTitle": "Monthly balance",
+    "monthlyTitle": "Monthly plan",
+    "nonMemberBalanceTitle": "Credit balance",
+    "nonMemberTitle": "Non-member",
+    "periodLabel": "Period",
+    "placeholderValue": "--",
+    "subscriptionPending": "Coming soon",
+    "subscriptionStatusLabel": "Subscription",
+    "upgradeCta": "Upgrade",
+    "usageCta": "View details",
+    "yearlyBalanceTitle": "Yearly balance",
+    "yearlyTitle": "Yearly plan"
+  },
+  "status": {
+    "active": "Active",
+    "cancelScheduled": "Cancel scheduled",
+    "canceled": "Canceled",
+    "draft": "Draft",
+    "expired": "Expired",
+    "none": "Not started",
+    "pastDue": "Past due",
+    "paused": "Paused"
+  },
+  "welcomeTrial": {
+    "confirm": "Got it, let's go!",
+    "description": "As a new user, you get a free trial package with {credits} credits, valid for {days} days. Start creating your first course now!",
+    "title": "Welcome to {appName}"
+  }
+}

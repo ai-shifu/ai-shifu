@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
+from flask import request
 from flaskr.service.common.models import ERROR_CODE
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
 
@@ -249,3 +251,84 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
     assert payload["data"]["provider"] == "coze_workflow"
     assert payload["data"]["requested_provider"] == "coze_workflow"
     assert payload["data"]["fallback_used"] is False
+
+
+def test_ask_preview_route_passes_debug_usage_context_for_creator(
+    monkeypatch, test_client
+):
+    fake_langfuse = _FakeLangfuseClient()
+    captured: dict[str, object] = {}
+
+    def _inject_request_user() -> None:
+        request.user = SimpleNamespace(
+            user_id="creator-debug-1",
+            language="en-US",
+            is_creator=True,
+        )
+
+    def fake_chat_llm(*args, **kwargs):
+        _ = args
+        captured.update(kwargs)
+        yield SimpleNamespace(content="debug answer")
+
+    def fake_stream_ask_provider_response(*args, **kwargs):
+        _ = args
+        runtime = kwargs.get("runtime")
+        assert runtime is not None
+        yield from runtime.llm_stream_factory()
+
+    before_request_funcs = test_client.application.before_request_funcs.setdefault(
+        None, []
+    )
+    before_request_funcs.append(_inject_request_user)
+    try:
+        monkeypatch.setattr(
+            "flaskr.service.shifu.route.get_langfuse_client",
+            lambda: fake_langfuse,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.shifu.route.admit_creator_usage",
+            lambda _app, creator_bid, usage_scene: {
+                "creator_bid": creator_bid,
+                "usage_scene": usage_scene,
+            },
+            raising=False,
+        )
+        monkeypatch.setattr(
+            "flaskr.api.llm.chat_llm",
+            fake_chat_llm,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+            fake_stream_ask_provider_response,
+            raising=False,
+        )
+
+        resp = test_client.post(
+            "/api/shifu/ask/preview",
+            json={
+                "query": "hello",
+                "ask_model": "gpt-test",
+                "ask_provider_config": {
+                    "provider": "llm",
+                    "mode": "provider_only",
+                    "config": {},
+                },
+            },
+        )
+    finally:
+        before_request_funcs.remove(_inject_request_user)
+
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["answer"] == "debug answer"
+    assert captured["usage_scene"] == BILL_USAGE_SCENE_DEBUG
+    assert captured["billable"] == 1
+    usage_context = captured["usage_context"]
+    assert usage_context.user_bid == "creator-debug-1"
+    assert usage_context.usage_scene == BILL_USAGE_SCENE_DEBUG
+    assert usage_context.billable == 1

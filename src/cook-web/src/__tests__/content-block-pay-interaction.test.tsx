@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import ContentBlock from '@/app/c/[[...id]]/Components/ChatUi/ContentBlock';
 
-const mockContentRender = jest.fn(() => null);
+const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: (props: Record<string, unknown>) => {

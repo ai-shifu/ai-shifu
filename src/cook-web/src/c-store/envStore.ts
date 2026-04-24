@@ -42,6 +42,9 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   currencySymbol: environment.currencySymbol,
   updateCurrencySymbol: async (currencySymbol: string) =>
     set({ currencySymbol }),
+  billingEnabled: environment.billingEnabled.toString(),
+  updateBillingEnabled: async (billingEnabled: string) =>
+    set({ billingEnabled }),
   stripePublishableKey: environment.stripePublishableKey,
   updateStripePublishableKey: async (stripePublishableKey: string) =>
     set({ stripePublishableKey }),

@@ -67,7 +67,10 @@ import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import {
   appendCustomButtonAfterContent,
+  hasCustomButtonAfterContent,
+  inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
+  syncCustomButtonAfterContent,
 } from './chatUiUtils';
 
 interface LessonFeedbackPopupState {
@@ -81,12 +84,15 @@ interface LessonFeedbackPopupState {
 }
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
+const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
+const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
   INTERACTION = 'interaction',
   ASK = 'ask',
   LIKE_STATUS = 'likeStatus',
+  ERROR = 'error',
 }
 
 export interface ChatContentItem {
@@ -157,6 +163,7 @@ export interface UseChatSessionParams {
 export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
+  isOutputInProgress: boolean;
   currentStreamingElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
@@ -221,6 +228,7 @@ function useChatLogicHook({
     })),
   );
   const isStreamingRef = useRef(false);
+  const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
     useCourseStore(
       useShallow(state => ({
@@ -247,6 +255,9 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
+  const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const ttsSseRef = useRef<Record<string, any>>({});
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
@@ -479,7 +490,7 @@ function useChatLogicHook({
         mobileStyle &&
         !isListenMode &&
         targetItem.type === ChatContentItemType.CONTENT &&
-        !targetItem.content?.includes(`<custom-button-after-content>`)
+        !hasCustomButtonAfterContent(targetItem.content)
       ) {
         nextItems[targetIndex] = {
           ...targetItem,
@@ -745,13 +756,18 @@ function useChatLogicHook({
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
       const rawContent = record.content ?? '';
-      const content =
+      const contentWithAskButton =
         options?.appendAskButton &&
         mobileStyle &&
         !isListenMode &&
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
+      const content = inheritCustomButtonAfterContent({
+        nextContent: contentWithAskButton,
+        previousContent: options?.previousItem?.content,
+        buttonMarkup: getAskButtonMarkup(),
+      });
 
       return {
         ...options?.previousItem,
@@ -765,7 +781,7 @@ function useChatLogicHook({
           options?.previousItem?.user_input ??
           '',
         readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory,
+        isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -1006,6 +1022,124 @@ function useChatLogicHook({
     [],
   );
 
+  const syncContentListFollowUpButtons = useCallback(
+    (items: ChatContentItem[]) => {
+      const shouldShowButton = mobileStyle && !isListenMode;
+      const finalizedParentElementBids = new Set(
+        items
+          .filter(
+            item =>
+              (item.type === ChatContentItemType.LIKE_STATUS ||
+                item.type === ChatContentItemType.ASK) &&
+              Boolean(item.parent_element_bid),
+          )
+          .map(item => item.parent_element_bid as string),
+      );
+      let hasChanges = false;
+
+      const nextItems = items.map(item => {
+        const shouldSyncCurrentItem =
+          item.type === ChatContentItemType.CONTENT &&
+          (Boolean(item.isHistory) ||
+            finalizedParentElementBids.has(item.element_bid));
+
+        if (!shouldSyncCurrentItem) {
+          return item;
+        }
+
+        const syncedContent = syncCustomButtonAfterContent({
+          content: item.content,
+          buttonMarkup: getAskButtonMarkup(),
+          shouldShowButton,
+        });
+        const currentContent = item.content ?? '';
+
+        if (syncedContent === currentContent) {
+          return item;
+        }
+
+        hasChanges = true;
+
+        return {
+          ...item,
+          content: syncedContent,
+        };
+      });
+
+      return hasChanges ? nextItems : null;
+    },
+    [getAskButtonMarkup, isListenMode, mobileStyle],
+  );
+
+  useEffect(() => {
+    const syncedItems = syncContentListFollowUpButtons(contentListRef.current);
+
+    if (!syncedItems) {
+      return;
+    }
+
+    setTrackedContentList(syncedItems);
+  }, [setTrackedContentList, syncContentListFollowUpButtons]);
+
+  const clearRunStreamTimeout = useCallback(() => {
+    if (runStreamTimeoutRef.current) {
+      clearTimeout(runStreamTimeoutRef.current);
+      runStreamTimeoutRef.current = null;
+    }
+  }, []);
+
+  const createRunTimeoutErrorItem = useCallback(
+    (runSerial: number): ChatContentItem => {
+      const itemBid = `${STREAM_TIMEOUT_ITEM_BID_PREFIX}-${outlineBid}-${runSerial}`;
+
+      return {
+        element_bid: itemBid,
+        generated_block_bid: itemBid,
+        content: t('module.chat.streamTimeoutRetry'),
+        readonly: true,
+        user_input: '',
+        customRenderBar: () => null,
+        type: ChatContentItemType.ERROR,
+        is_marker: true,
+        is_renderable: true,
+        is_new: true,
+        is_speakable: false,
+      };
+    },
+    [outlineBid, t],
+  );
+
+  const appendRunTimeoutError = useCallback(
+    (runSerial: number) => {
+      const timeoutErrorItem = createRunTimeoutErrorItem(runSerial);
+      const timeoutErrorContent =
+        typeof timeoutErrorItem.content === 'string'
+          ? timeoutErrorItem.content
+          : t('module.chat.streamTimeoutRetry');
+
+      toast({
+        title: timeoutErrorContent,
+        variant: 'destructive',
+      });
+
+      setTrackedContentList(prevState => {
+        const nextList = prevState.filter(
+          item => item.element_bid !== 'loading',
+        );
+        if (
+          nextList.some(
+            item => item.element_bid === timeoutErrorItem.element_bid,
+          )
+        ) {
+          return nextList;
+        }
+
+        return [...nextList, timeoutErrorItem];
+      });
+    },
+    [createRunTimeoutErrorItem, setTrackedContentList, t],
+  );
+
   const syncLessonFeedbackInteractionValues = useCallback(
     (blockBid: string, scoreText: string, commentText: string) => {
       setTrackedContentList(prev =>
@@ -1105,6 +1239,49 @@ function useChatLogicHook({
     [lessonUpdate, updateSelectedLesson],
   );
 
+  const stopActiveRunStream = useCallback(() => {
+    clearRunStreamTimeout();
+    if (sseRef.current) {
+      try {
+        sseRef.current.close();
+      } catch {
+      } finally {
+        sseRef.current = null;
+      }
+    }
+
+    isStreamingRef.current = false;
+
+    const completedElementBid = currentBlockIdRef.current || '';
+    setTrackedContentList(prevState => {
+      let nextList = prevState.filter(item => item.element_bid !== 'loading');
+      if (completedElementBid) {
+        nextList = finalizeElementOutputInList(nextList, completedElementBid);
+      }
+      return nextList.map(item =>
+        item.isAudioStreaming
+          ? {
+              ...item,
+              isAudioStreaming: false,
+            }
+          : item,
+      );
+    });
+
+    currentBlockIdRef.current = null;
+    currentContentRef.current = '';
+    setCurrentStreamingElementBid('');
+
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, [
+    clearRunStreamTimeout,
+    finalizeElementOutputInList,
+    setTrackedContentList,
+  ]);
+
   /**
    * Starts the SSE request and streams content into the chat list.
    */
@@ -1112,16 +1289,21 @@ function useChatLogicHook({
     (sseParams: SSEParams) => {
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
+      clearRunStreamTimeout();
       if (sseRef.current) {
         try {
           sseRef.current?.close();
         } catch {
         } finally {
           sseRef.current = null;
+          isStreamingRef.current = false;
+          setIsOutputInProgress(false);
         }
       }
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
+      isStreamingRef.current = true;
+      setIsOutputInProgress(true);
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
@@ -1151,7 +1333,56 @@ function useChatLogicHook({
         );
       };
 
-      const source = getRunMessage(
+      let source: ReturnType<typeof getRunMessage> | null = null;
+
+      const cleanupRunStreamState = () => {
+        clearRunStreamTimeout();
+        clearLoadingPlaceholder();
+        isStreamingRef.current = false;
+        setIsOutputInProgress(false);
+        sseRef.current = null;
+        const completedElementBid = currentBlockIdRef.current || '';
+        if (completedElementBid) {
+          setTrackedContentList(prevState =>
+            finalizeElementOutputInList(prevState, completedElementBid),
+          );
+        }
+        currentBlockIdRef.current = null;
+        currentContentRef.current = '';
+        setCurrentStreamingElementBid('');
+      };
+
+      const handleRunStreamTimeout = () => {
+        if (
+          !source ||
+          sseRef.current !== source ||
+          runSerial !== sseRunSerialRef.current
+        ) {
+          return;
+        }
+
+        cleanupRunStreamState();
+        appendRunTimeoutError(runSerial);
+
+        try {
+          source.close();
+        } catch {}
+      };
+
+      const armRunStreamTimeout = () => {
+        clearRunStreamTimeout();
+        runStreamTimeoutRef.current = setTimeout(() => {
+          handleRunStreamTimeout();
+        }, RUN_STREAM_IDLE_TIMEOUT_MS);
+      };
+
+      // Track run start event
+      trackEvent('learner_run_start', {
+        shifu_bid: shifuBid,
+        outline_bid: outlineBid,
+        learning_mode: isListenMode ? 'listen' : 'read',
+      });
+      source = getRunMessage(
         shifuBid,
         outlineBid,
         effectivePreviewMode,
@@ -1163,6 +1394,7 @@ function useChatLogicHook({
           ) {
             return;
           }
+          armRunStreamTimeout();
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
           //     currentBlockIdRef.current = 'loading';
@@ -1186,6 +1418,7 @@ function useChatLogicHook({
           // }
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
+              clearRunStreamTimeout();
               const rawContent = response?.content;
               const errorContent =
                 typeof rawContent === 'string'
@@ -1412,7 +1645,11 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: displayText,
+                        content: inheritCustomButtonAfterContent({
+                          nextContent: displayText,
+                          previousContent: item.content,
+                          buttonMarkup: getAskButtonMarkup(),
+                        }),
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??
@@ -1586,21 +1823,11 @@ function useChatLogicHook({
           if (!isLatestRun || !isCurrentSource) {
             return;
           }
-          clearLoadingPlaceholder();
-          isStreamingRef.current = false;
-          sseRef.current = null;
-          const completedElementBid = currentBlockIdRef.current || '';
-          if (completedElementBid) {
-            setTrackedContentList(prevState =>
-              finalizeElementOutputInList(prevState, completedElementBid),
-            );
-          }
-          currentBlockIdRef.current = null;
-          currentContentRef.current = '';
-          setCurrentStreamingElementBid('');
+          cleanupRunStreamState();
         },
       );
       sseRef.current = source;
+      armRunStreamTimeout();
       source.addEventListener('readystatechange', () => {
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
         const isActiveSource =
@@ -1608,6 +1835,7 @@ function useChatLogicHook({
         if (source.readyState === 1) {
           if (isActiveSource) {
             isStreamingRef.current = true;
+            setIsOutputInProgress(true);
           }
         }
         if (source.readyState === 2) {
@@ -1615,18 +1843,7 @@ function useChatLogicHook({
             // Always clear the loading placeholder when the active stream closes.
             // Some interaction flows may only emit control events before closing,
             // which still leaves the placeholder visible without this cleanup.
-            clearLoadingPlaceholder();
-            isStreamingRef.current = false;
-            sseRef.current = null;
-            const completedElementBid = currentBlockIdRef.current || '';
-            if (completedElementBid) {
-              setTrackedContentList(prevState =>
-                finalizeElementOutputInList(prevState, completedElementBid),
-              );
-            }
-            currentBlockIdRef.current = null;
-            currentContentRef.current = '';
-            setCurrentStreamingElementBid('');
+            cleanupRunStreamState();
           }
         }
       });
@@ -1647,6 +1864,8 @@ function useChatLogicHook({
       mobileStyle,
       trackTrailProgress,
       allowTtsStreaming,
+      appendRunTimeoutError,
+      clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,
       getAskButtonMarkup,
@@ -1667,9 +1886,37 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
+      clearRunStreamTimeout();
       sseRef.current?.close();
+      isStreamingRef.current = false;
     };
-  }, []);
+  }, [clearRunStreamTimeout]);
+
+  useEffect(() => {
+    const handleStopActiveLessonStream = (
+      event: Event | CustomEvent<{ lessonId: string }>,
+    ) => {
+      const targetLessonId =
+        'detail' in event ? event.detail?.lessonId || '' : '';
+      if (!targetLessonId || targetLessonId !== outlineBid) {
+        return;
+      }
+
+      stopActiveRunStream();
+    };
+
+    events.addEventListener(
+      BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+      handleStopActiveLessonStream as EventListener,
+    );
+
+    return () => {
+      events.removeEventListener(
+        BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
+        handleStopActiveLessonStream as EventListener,
+      );
+    };
+  }, [outlineBid, stopActiveRunStream]);
 
   useEffect(() => {
     runRef.current = run;
@@ -2686,6 +2933,7 @@ function useChatLogicHook({
   return {
     items,
     isLoading,
+    isOutputInProgress,
     currentStreamingElementBid,
     onSend,
     onRefresh,

@@ -34,6 +34,10 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.raw_snapshots import (
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+)
 from flaskr.service.promo.consts import (
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_INACTIVE,
@@ -102,6 +106,18 @@ PAYMENT_CHANNEL_KEY_MAP = {
     "stripe": "module.order.paymentChannel.stripe",
     "manual": "module.order.paymentChannel.manual",
     "open_api": "module.order.paymentChannel.open_api",
+}
+
+ORDER_SOURCE_USER_PURCHASE = "user_purchase"
+ORDER_SOURCE_COUPON_REDEEM = "coupon_redeem"
+ORDER_SOURCE_IMPORT_ACTIVATION = "import_activation"
+ORDER_SOURCE_OPEN_API = "open_api"
+
+ORDER_SOURCE_KEY_MAP = {
+    ORDER_SOURCE_USER_PURCHASE: "module.operationsOrder.source.userPurchase",
+    ORDER_SOURCE_COUPON_REDEEM: "module.operationsOrder.source.couponRedeem",
+    ORDER_SOURCE_IMPORT_ACTIVATION: "module.operationsOrder.source.importActivation",
+    ORDER_SOURCE_OPEN_API: "module.operationsOrder.source.openApi",
 }
 
 MOBILE_PATTERN = re.compile(r"^\d{11}$")
@@ -406,6 +422,158 @@ def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
     return dict(coupon_map)
 
 
+def _build_coupon_usage_order_bid_subquery():
+    return (
+        db.session.query(CouponUsage.order_bid.label("order_bid"))
+        .filter(
+            CouponUsage.deleted == 0,
+            CouponUsage.order_bid != "",
+        )
+        .distinct()
+        .subquery()
+    )
+
+
+def _resolve_order_source(
+    *,
+    payment_channel: str,
+    coupon_codes: List[str],
+    paid_price: Decimal | str | None,
+) -> tuple[str, str]:
+    normalized_payment_channel = str(payment_channel or "").strip()
+    if normalized_payment_channel == "manual":
+        return ORDER_SOURCE_IMPORT_ACTIVATION, ORDER_SOURCE_KEY_MAP[
+            ORDER_SOURCE_IMPORT_ACTIVATION
+        ]
+    if normalized_payment_channel == "open_api":
+        return ORDER_SOURCE_OPEN_API, ORDER_SOURCE_KEY_MAP[ORDER_SOURCE_OPEN_API]
+
+    normalized_paid_price = Decimal(str(paid_price or 0))
+    if coupon_codes and normalized_paid_price == Decimal("0"):
+        return ORDER_SOURCE_COUPON_REDEEM, ORDER_SOURCE_KEY_MAP[
+            ORDER_SOURCE_COUPON_REDEEM
+        ]
+
+    return ORDER_SOURCE_USER_PURCHASE, ORDER_SOURCE_KEY_MAP[ORDER_SOURCE_USER_PURCHASE]
+
+
+def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
+    normalized_keyword = str(keyword or "").strip()
+    if not normalized_keyword:
+        return []
+
+    matched_user_bids = set()
+    for row in (
+        UserEntity.query.filter(
+            db.or_(
+                UserEntity.user_bid == normalized_keyword,
+                UserEntity.user_identify == normalized_keyword,
+            )
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        user_bid = str(row.user_bid or "").strip()
+        if user_bid:
+            matched_user_bids.add(user_bid)
+
+    normalized_credential_identifier = (
+        normalized_keyword.lower()
+        if EMAIL_PATTERN.fullmatch(normalized_keyword)
+        else normalized_keyword
+    )
+    for row in (
+        AuthCredential.query.filter(
+            AuthCredential.identifier == normalized_credential_identifier,
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
+            AuthCredential.deleted == 0,
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        user_bid = str(row.user_bid or "").strip()
+        if user_bid:
+            matched_user_bids.add(user_bid)
+
+    return sorted(matched_user_bids)
+
+
+def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
+    normalized_course_name = str(course_name or "").strip()
+    if not normalized_course_name:
+        return []
+
+    like_value = f"%{normalized_course_name}%"
+    matched_shifu_bids = set()
+    for row in (
+        DraftShifu.query.filter(
+            DraftShifu.deleted == 0,
+            DraftShifu.title.like(like_value),
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if shifu_bid:
+            matched_shifu_bids.add(shifu_bid)
+
+    for row in (
+        PublishedShifu.query.filter(
+            PublishedShifu.deleted == 0,
+            PublishedShifu.title.like(like_value),
+        )
+        .yield_per(200)
+        .enable_eagerloads(False)
+    ):
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if shifu_bid:
+            matched_shifu_bids.add(shifu_bid)
+
+    return sorted(matched_shifu_bids)
+
+
+def _apply_order_source_filter(query, order_source: str):
+    normalized_order_source = str(order_source or "").strip()
+    if not normalized_order_source:
+        return query
+
+    coupon_usage_order_bid_subquery = _build_coupon_usage_order_bid_subquery()
+    coupon_order_bid_query = db.session.query(
+        coupon_usage_order_bid_subquery.c.order_bid
+    )
+    non_special_payment_channel = db.or_(
+        Order.payment_channel.is_(None),
+        Order.payment_channel.notin_(["manual", "open_api"]),
+    )
+
+    if normalized_order_source == ORDER_SOURCE_IMPORT_ACTIVATION:
+        return query.filter(Order.payment_channel == "manual")
+
+    if normalized_order_source == ORDER_SOURCE_OPEN_API:
+        return query.filter(Order.payment_channel == "open_api")
+
+    if normalized_order_source == ORDER_SOURCE_COUPON_REDEEM:
+        return query.filter(
+            non_special_payment_channel,
+            Order.order_bid.in_(coupon_order_bid_query),
+            Order.paid_price == Decimal("0"),
+        )
+
+    if normalized_order_source == ORDER_SOURCE_USER_PURCHASE:
+        return query.filter(
+            non_special_payment_channel,
+        ).filter(
+            db.not_(
+                db.and_(
+                    Order.order_bid.in_(coupon_order_bid_query),
+                    Order.paid_price == Decimal("0"),
+                )
+            )
+        )
+
+    return query.filter(db.literal(False))
+
+
 def _build_order_item(
     order: Order,
     shifu_map: Dict[str, DraftShifu | PublishedShifu],
@@ -420,6 +588,11 @@ def _build_order_item(
     coupon_codes = []
     if coupon_map is not None:
         coupon_codes = coupon_map.get(order.order_bid, []) or []
+    order_source, order_source_key = _resolve_order_source(
+        payment_channel=payment_channel,
+        coupon_codes=coupon_codes,
+        paid_price=order.paid_price,
+    )
     return OrderAdminSummaryDTO(
         order_bid=order.order_bid,
         shifu_bid=order.shifu_bid,
@@ -439,6 +612,8 @@ def _build_order_item(
         payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
             payment_channel, "module.order.paymentChannel.unknown"
         ),
+        order_source=order_source,
+        order_source_key=order_source_key,
         coupon_codes=coupon_codes,
         created_at=_format_datetime(order.created_at),
         updated_at=_format_datetime(order.updated_at),
@@ -737,6 +912,85 @@ def list_orders(
         return PageNationDTO(page_index, page_size, total, items)
 
 
+def list_operator_orders(
+    app: Flask,
+    page_index: int,
+    page_size: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> PageNationDTO:
+    """List global orders for operator views with cross-course filters."""
+    with app.app_context():
+        page_index = max(page_index, 1)
+        page_size = max(page_size, 1)
+        filters = filters or {}
+
+        query = Order.query.filter(Order.deleted == 0)
+
+        order_bid = str(filters.get("order_bid", "") or "").strip()
+        if order_bid:
+            query = query.filter(Order.order_bid == order_bid)
+
+        user_keyword = str(filters.get("user_keyword", "") or "").strip()
+        if user_keyword:
+            matched_user_bids = _load_matching_user_bids_for_keyword(user_keyword)
+            if matched_user_bids:
+                query = query.filter(Order.user_bid.in_(matched_user_bids))
+            else:
+                query = query.filter(Order.user_bid == user_keyword)
+
+        shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
+        if shifu_bid:
+            query = query.filter(Order.shifu_bid == shifu_bid)
+
+        course_name = str(filters.get("course_name", "") or "").strip()
+        if course_name:
+            matched_shifu_bids = _load_matching_shifu_bids_for_course_name(course_name)
+            if not matched_shifu_bids:
+                return PageNationDTO(page_index, page_size, 0, [])
+            query = query.filter(Order.shifu_bid.in_(matched_shifu_bids))
+
+        status = filters.get("status")
+        if status is not None and str(status).isdigit():
+            query = query.filter(Order.status == int(status))
+
+        payment_channel = str(filters.get("payment_channel", "") or "").strip()
+        if payment_channel:
+            query = query.filter(Order.payment_channel == payment_channel)
+
+        order_source = str(filters.get("order_source", "") or "").strip()
+        if order_source:
+            query = _apply_order_source_filter(query, order_source)
+
+        start_time = _parse_datetime(str(filters.get("start_time", "") or ""))
+        if start_time:
+            query = query.filter(Order.created_at >= start_time)
+
+        end_time = _parse_datetime(
+            str(filters.get("end_time", "") or ""),
+            is_end=True,
+        )
+        if end_time:
+            query = query.filter(Order.created_at <= end_time)
+
+        total = query.count()
+        orders = (
+            query.order_by(Order.created_at.desc(), Order.id.desc())
+            .offset((page_index - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+
+        shifu_map = _load_shifu_map([order.shifu_bid for order in orders])
+        user_map = _load_user_map([order.user_bid for order in orders])
+        coupon_map = _load_coupon_code_map([order.order_bid for order in orders])
+
+        items = [
+            _build_order_item(order, shifu_map, user_map, coupon_map)
+            for order in orders
+        ]
+        return PageNationDTO(page_index, page_size, total, items)
+
+
 def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
     """Load activity records tied to an order and format as DTOs."""
     records = PromoRedemption.query.filter(
@@ -795,9 +1049,9 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
     payment_channel = order.payment_channel or ""
     if payment_channel == "stripe":
         stripe_order = (
-            StripeOrder.query.filter(
+            legacy_stripe_snapshot_query()
+            .filter(
                 StripeOrder.order_bid == order.order_bid,
-                StripeOrder.deleted == 0,
             )
             .order_by(StripeOrder.id.desc())
             .first()
@@ -826,9 +1080,9 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
 
     if payment_channel == "pingxx":
         pingxx_order = (
-            PingxxOrder.query.filter(
+            legacy_pingxx_snapshot_query()
+            .filter(
                 PingxxOrder.order_bid == order.order_bid,
-                PingxxOrder.deleted == 0,
             )
             .order_by(PingxxOrder.id.desc())
             .first()
@@ -868,6 +1122,42 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
         creator_bid = get_shifu_creator_bid(app, order.shifu_bid)
         if creator_bid != user_id:
             raise_error("server.shifu.noPermission")
+
+        shifu_map = _load_shifu_map([order.shifu_bid])
+        user_map = _load_user_map([order.user_bid])
+        coupon_map = _load_coupon_code_map([order.order_bid])
+        summary = _build_order_item(order, shifu_map, user_map, coupon_map)
+        payment_detail = _load_payment_detail(order)
+        if not payment_detail:
+            payment_channel = order.payment_channel or ""
+            payment_detail = OrderAdminPaymentDTO(
+                payment_channel=payment_channel,
+                payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
+                    payment_channel, "module.order.paymentChannel.unknown"
+                ),
+                status=0,
+                status_key="module.order.paymentStatus.unknown",
+                amount="0",
+                currency="",
+            )
+
+        return OrderAdminDetailDTO(
+            order=summary,
+            activities=_load_order_activities(order.order_bid),
+            coupons=_load_order_coupons(order.order_bid),
+            payment=payment_detail,
+        )
+
+
+def get_operator_order_detail(app: Flask, order_bid: str) -> OrderAdminDetailDTO:
+    """Return global operator order detail without creator scope restrictions."""
+    with app.app_context():
+        order = Order.query.filter(
+            Order.order_bid == order_bid,
+            Order.deleted == 0,
+        ).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
 
         shifu_map = _load_shifu_map([order.shifu_bid])
         user_map = _load_user_map([order.user_bid])

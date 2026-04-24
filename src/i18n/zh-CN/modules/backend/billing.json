@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "creditInsufficient": "积分余额不足，暂时无法继续调用，请先充值或开通订阅",
+    "customDomainDisabled": "当前创作者未开通自定义域名权益",
+    "disabled": "积分计费功能当前未启用",
+    "domainBindingNotFound": "未找到对应的自定义域名绑定记录",
+    "domainHostConflict": "该自定义域名已被其他创作者绑定",
+    "subscriptionInactive": "需要先拥有有效套餐；积分包只能在套餐有效期内购买和使用",
+    "subscriptionUpgradeOnly": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
+  }
+}

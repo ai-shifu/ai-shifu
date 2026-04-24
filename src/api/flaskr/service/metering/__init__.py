@@ -3,7 +3,6 @@ from flaskr.service.common.dicts import register_dict
 from .consts import (  # noqa: F401
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_DICT,
-    BILL_USAGE_SCENE_NON_BILLABLE,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_DICT,

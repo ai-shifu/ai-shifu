@@ -31,6 +31,16 @@ describe('buildAdminMenuItems', () => {
           label: 'common.core.courseManagement',
           href: '/admin/operations',
         },
+        {
+          id: 'operations-user',
+          label: 'common.core.userManagement',
+          href: '/admin/operations/users',
+        },
+        {
+          id: 'operations-order',
+          label: 'common.core.orderManagement',
+          href: '/admin/operations/orders',
+        },
       ],
     });
   });

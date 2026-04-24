@@ -1,7 +1,7 @@
 import {
   appendCustomButtonAfterContent,
-  resolvePreviousActionableItem,
-  shouldShowMobileAskButtonForReadContent,
+  hasCustomButtonAfterContent,
+  inheritCustomButtonAfterContent,
   syncCustomButtonAfterContent,
 } from './chatUiUtils';
 
@@ -36,64 +36,30 @@ describe('chatUiUtils', () => {
     ).toBe('Lesson summary');
   });
 
-  it('hides the mobile follow-up button for loading placeholders', () => {
-    expect(
-      shouldShowMobileAskButtonForReadContent({
-        item: {
-          element_bid: 'loading',
-          type: 'content',
-        },
-      }),
-    ).toBe(false);
+  it('detects the follow-up button markup in content', () => {
+    const contentWithButton = appendCustomButtonAfterContent(
+      'Lesson summary',
+      buttonMarkup,
+    );
+
+    expect(hasCustomButtonAfterContent(contentWithButton)).toBe(true);
+    expect(hasCustomButtonAfterContent('Lesson summary')).toBe(false);
   });
 
-  it('hides the mobile follow-up button for content after an interaction', () => {
-    const items = [
-      {
-        element_bid: 'interaction-1',
-        type: 'interaction',
-      },
-      {
-        parent_element_bid: 'interaction-1',
-        type: 'likeStatus',
-      },
-      {
-        element_bid: 'content-1',
-        type: 'content',
-      },
-    ];
-    const previousActionableItem = resolvePreviousActionableItem(items, 2);
+  it('inherits the follow-up button from previous finalized content', () => {
+    const previousContent = appendCustomButtonAfterContent(
+      'Lesson summary',
+      buttonMarkup,
+    );
 
     expect(
-      shouldShowMobileAskButtonForReadContent({
-        item: items[2],
-        previousActionableItem,
+      inheritCustomButtonAfterContent({
+        nextContent: 'Updated lesson summary',
+        previousContent,
+        buttonMarkup,
       }),
-    ).toBe(false);
-  });
-
-  it('keeps the mobile follow-up button for regular read-mode content', () => {
-    const items = [
-      {
-        element_bid: 'content-0',
-        type: 'content',
-      },
-      {
-        parent_element_bid: 'content-0',
-        type: 'likeStatus',
-      },
-      {
-        element_bid: 'content-1',
-        type: 'content',
-      },
-    ];
-    const previousActionableItem = resolvePreviousActionableItem(items, 2);
-
-    expect(
-      shouldShowMobileAskButtonForReadContent({
-        item: items[2],
-        previousActionableItem,
-      }),
-    ).toBe(true);
+    ).toBe(
+      appendCustomButtonAfterContent('Updated lesson summary', buttonMarkup),
+    );
   });
 });

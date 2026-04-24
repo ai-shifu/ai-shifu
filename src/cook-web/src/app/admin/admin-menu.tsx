@@ -26,16 +26,19 @@ export const buildAdminMenuItems = ({
 }: BuildAdminMenuItemsOptions): AdminMenuItem[] => {
   const items: AdminMenuItem[] = [
     {
+      id: 'shifu',
       icon: <DocumentIcon className='w-4 h-4' />,
       label: t('common.core.shifu'),
       href: '/admin',
     },
     {
+      id: 'orders',
       icon: <ShoppingCartIcon className='w-4 h-4' />,
       label: t('module.order.title'),
       href: '/admin/orders',
     },
     {
+      id: 'dashboard',
       icon: <PresentationChartLineIcon className='w-4 h-4' />,
       label: t('module.dashboard.title'),
       href: '/admin/dashboard',
@@ -57,6 +60,11 @@ export const buildAdminMenuItems = ({
           id: 'operations-user',
           label: t('common.core.userManagement'),
           href: '/admin/operations/users',
+        },
+        {
+          id: 'operations-order',
+          label: t('common.core.orderManagement'),
+          href: '/admin/operations/orders',
         },
       ],
     });

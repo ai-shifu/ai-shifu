@@ -22,6 +22,12 @@ export type StreamCallback = (
   abort: () => void,
 ) => void;
 
+export type BusinessResponse = {
+  code: number;
+  message?: string;
+  data?: unknown;
+};
+
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
@@ -75,8 +81,42 @@ const handleAuthRecovery = async () => {
 };
 
 // Check response status code and handle business logic
-const handleBusinessCode = async (
-  response: { code: number; message?: string; data?: unknown },
+export const isBusinessResponse = (
+  value: unknown,
+): value is BusinessResponse => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return typeof (value as BusinessResponse).code === 'number';
+};
+
+export const parseBusinessResponsePayload = (
+  payload: unknown,
+): BusinessResponse | null => {
+  if (isBusinessResponse(payload)) {
+    return payload;
+  }
+
+  if (typeof payload !== 'string') {
+    return null;
+  }
+
+  const normalizedPayload = payload.trim();
+  if (!normalizedPayload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedPayload);
+    return isBusinessResponse(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+export const handleBusinessCode = async (
+  response: BusinessResponse,
   requestToken?: string,
 ) => {
   const error = new ErrorWithCode(
@@ -137,6 +177,42 @@ const handleBusinessCode = async (
     return Promise.reject(error);
   }
   return response.data ?? response;
+};
+
+type SseFallbackXhr = Pick<XMLHttpRequest, 'addEventListener' | 'responseText'>;
+
+type AttachSseBusinessResponseFallbackOptions = {
+  requestToken?: string;
+  onHandled?: (error: ErrorWithCode) => void;
+};
+
+export const attachSseBusinessResponseFallback = (
+  source: { xhr?: SseFallbackXhr | null },
+  options: AttachSseBusinessResponseFallbackOptions = {},
+) => {
+  const xhr = source.xhr;
+  if (!xhr) {
+    return;
+  }
+
+  let handled = false;
+
+  xhr.addEventListener('load', () => {
+    if (handled) {
+      return;
+    }
+
+    const response = parseBusinessResponsePayload(xhr.responseText);
+    if (!response || response.code === 0) {
+      return;
+    }
+
+    handled = true;
+
+    void handleBusinessCode(response, options.requestToken).catch(error => {
+      options.onHandled?.(error as ErrorWithCode);
+    });
+  });
 };
 
 // ===== Utility Functions =====

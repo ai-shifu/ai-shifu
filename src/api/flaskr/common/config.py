@@ -107,6 +107,13 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="The count of history messages to append to LLM's context in ask",
         group="app",
     ),
+    "MAX_PARALLEL_ASK_COUNT": EnvVar(
+        name="MAX_PARALLEL_ASK_COUNT",
+        default=3,
+        type=int,
+        description="Maximum concurrent follow-up (ask) requests per (user, outline) that can run alongside the main lesson stream.",
+        group="app",
+    ),
     "SHIFU_PERMISSION_CACHE_EXPIRE": EnvVar(
         name="SHIFU_PERMISSION_CACHE_EXPIRE",
         default=300,
@@ -133,6 +140,21 @@ ENV_VARS: Dict[str, EnvVar] = {
         name="CURRENCY_SYMBOL",
         default="\u00a5",
         description="Currency symbol used in Cook Web (default: ¥)",
+        group="frontend",
+    ),
+    "BILL_CREDIT_PRECISION": EnvVar(
+        name="BILL_CREDIT_PRECISION",
+        default=2,
+        type=int,
+        description="Fractional digits used for billing credit display and settlement rounding. Values: 0-10.",
+        group="frontend",
+        validator=lambda x: 0 <= int(x) <= 10,
+    ),
+    "BILL_ENABLED": EnvVar(
+        name="BILL_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable the creator billing runtime surface (Cook Web /admin/billing and /api/billing/*). Leave off until billing is configured for the environment.",
         group="frontend",
     ),
     "HOME_URL": EnvVar(
@@ -556,6 +578,44 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    # Celery Configuration
+    "CELERY_BROKER_URL": EnvVar(
+        name="CELERY_BROKER_URL",
+        default="redis://localhost:6379/0",
+        description="Celery broker URL. Billing workers default to Redis.",
+        group="celery",
+    ),
+    "CELERY_RESULT_BACKEND": EnvVar(
+        name="CELERY_RESULT_BACKEND",
+        default="redis://localhost:6379/1",
+        description="Celery result backend URL. Defaults to Redis.",
+        group="celery",
+    ),
+    "CELERY_TASK_ALWAYS_EAGER": EnvVar(
+        name="CELERY_TASK_ALWAYS_EAGER",
+        default=False,
+        type=bool,
+        description="Execute Celery tasks eagerly in-process for tests and local debugging.",
+        group="celery",
+    ),
+    "BILLING_RENEWAL_CRON": EnvVar(
+        name="BILLING_RENEWAL_CRON",
+        default="* * * * *",
+        description="Cron expression for dispatching due billing renewal events.",
+        group="celery",
+    ),
+    "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
+        name="BILLING_BUCKET_EXPIRE_CRON",
+        default="* * * * *",
+        description="Cron expression for scanning expired billing wallet buckets.",
+        group="celery",
+    ),
+    "BILLING_LOW_BALANCE_CRON": EnvVar(
+        name="BILLING_LOW_BALANCE_CRON",
+        default="0 * * * *",
+        description="Cron expression for scanning billing low-balance alerts.",
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
@@ -818,6 +878,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Alibaba Cloud SMS template code",
         group="alibaba_cloud",
     ),
+    "ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE": EnvVar(
+        name="ALIBABA_CLOUD_SMS_SUBSCRIPTION_SUCCESS_TEMPLATE_CODE",
+        default="",
+        description="Alibaba Cloud SMS template code for billing subscription success notifications",
+        group="alibaba_cloud",
+    ),
     "ALIBABA_CLOUD_OSS_ACCESS_KEY_ID": EnvVar(
         name="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID",
         default="",
@@ -1065,6 +1131,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default=128000,
         type=int,
         description="TTS audio bitrate (32000-256000)",
+        group="tts",
+    ),
+    "MINIMAX_TTS_RPM_LIMIT": EnvVar(
+        name="MINIMAX_TTS_RPM_LIMIT",
+        default=0,
+        type=int,
+        description="MiniMax TTS RPM queue limit; 0 disables queue gating",
+        group="tts",
+    ),
+    "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS": EnvVar(
+        name="MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS",
+        default=10,
+        type=int,
+        description="Maximum seconds a MiniMax TTS request waits in the RPM queue",
         group="tts",
     ),
     # Volcengine TTS Configuration (shared by WebSocket + HTTP providers)

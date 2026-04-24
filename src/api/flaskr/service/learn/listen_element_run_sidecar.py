@@ -274,20 +274,42 @@ class ListenElementRunSidecarMixin:
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         anchor_bid = getattr(event, "anchor_element_bid", "") or ""
         ask_content = str(event.content or "")
+        generated_block_bid = event.generated_block_bid or ""
+        meta = self._load_block_meta(generated_block_bid)
+
+        # Under concurrency, the main stream may have just marked the anchor
+        # element as status=0 in the instant between the client picking an
+        # element and the ask request being served. Previously we dropped the
+        # ASK event here, which left the MDASK/MDANSWER blocks orphaned on
+        # reload. Fall back to a synthetic anchor derived from the ask's own
+        # generated_block_bid so the follow-up chain still persists with the
+        # correct element_type and can be recovered by the legacy builder.
+        synthetic_anchor = False
+        anchor_row = _load_latest_active_element_row(anchor_bid) if anchor_bid else None
+        if anchor_row is None:
+            synthetic_anchor = True
+            self.app.logger.warning(
+                "ASK anchor element unavailable, falling back to synthetic anchor: "
+                "anchor_bid=%s generated_block_bid=%s",
+                anchor_bid,
+                generated_block_bid,
+            )
+            anchor_bid = anchor_bid or generated_block_bid
+            element_index = 0
+        else:
+            element_index = int(anchor_row.element_index or 0)
+            if not meta.progress_record_bid:
+                meta.progress_record_bid = anchor_row.progress_record_bid or ""
+                self._block_meta_cache[generated_block_bid] = meta
+
         if not anchor_bid:
-            self.app.logger.warning("ASK event without anchor_element_bid, skipping")
+            # No real anchor and no block bid either. Nothing sensible we can do.
+            self.app.logger.warning(
+                "ASK event without anchor_element_bid or generated_block_bid, skipping"
+            )
             return
 
         self._current_ask_anchor_bid = anchor_bid
-        generated_block_bid = event.generated_block_bid or ""
-        meta = self._load_block_meta(generated_block_bid)
-        anchor_row = _load_latest_active_element_row(anchor_bid)
-        if anchor_row is None:
-            self.app.logger.warning("ASK anchor element not found: %s", anchor_bid)
-            return
-        if not meta.progress_record_bid:
-            meta.progress_record_bid = anchor_row.progress_record_bid or ""
-            self._block_meta_cache[generated_block_bid] = meta
 
         ask_element_bid = _new_element_bid(self.app)
         self._current_ask_element_bid = ask_element_bid
@@ -299,11 +321,16 @@ class ListenElementRunSidecarMixin:
             ask_element_bid=ask_element_bid,
             anchor_element_bid=anchor_bid,
             content_text=ask_content,
-            element_index=int(anchor_row.element_index or 0),
+            element_index=element_index,
             is_new=True,
             is_final=True,
             base_payload=ElementPayloadDTO(anchor_element_bid=anchor_bid),
         )
+        if synthetic_anchor:
+            # Mark the synthesis so downstream consumers (logs, backfill) know
+            # this anchor didn't come from a real LearnGeneratedElement row.
+            if ask_element.payload is not None:
+                ask_element.payload.anchor_element_bid = anchor_bid
         yield self._element_message(ask_element)
 
     def _finalize_answer_element(

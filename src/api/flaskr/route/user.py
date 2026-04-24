@@ -1,6 +1,5 @@
 from flask import Flask, request, make_response, current_app
 from functools import wraps
-import threading
 
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
@@ -22,7 +21,7 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from ..service.user.common import validate_user, update_user_info, verify_sms_code
+from ..service.user.common import validate_user, update_user_info
 from ..service.user.user import (
     generate_temp_user,
     update_user_open_id,
@@ -36,13 +35,12 @@ from ..service.user.utils import (
 from flaskr.service.user.verification_codes import consume_verification_code
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
-from ..service.user.auth.base import OAuthCallbackRequest
+from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import set_language
-
-thread_local = threading.local()
 
 
 def optional_token_validation(f):
@@ -131,13 +129,24 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 description: ensure admin creator permissions
         """
         language = getattr(request.user, "language", None) or "en-US"
-        ensure_admin_creator_and_demo_permissions(
+        creator_granted_now = ensure_admin_creator_and_demo_permissions(
             app,
             request.user.user_id,
             language,
             "admin",
         )
         db.session.commit()
+        run_post_auth_extensions(
+            app,
+            PostAuthContext(
+                user_id=request.user.user_id,
+                source="admin_creator",
+                login_context="admin",
+                created_new_user=False,
+                creator_granted_now=creator_granted_now,
+                language=language,
+            ),
+        )
         return make_common_response({"granted": True})
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
@@ -367,17 +376,35 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mobile")
             if not sms_code:
                 raise_param_error("sms_code")
-            ret = verify_sms_code(
+            provider = get_provider("phone")
+            auth_result = provider.verify(
                 app,
-                user_id,
-                mobile,
-                sms_code,
-                course_id,
-                language,
-                login_context,
+                VerificationRequest(
+                    identifier=mobile,
+                    code=sms_code,
+                    metadata={
+                        "user_id": user_id,
+                        "course_id": course_id,
+                        "language": language,
+                        "login_context": login_context,
+                    },
+                ),
             )
             db.session.commit()
-            resp = make_response(make_common_response(ret))
+            run_post_auth_extensions(
+                app,
+                PostAuthContext(
+                    user_id=auth_result.user.user_id,
+                    source="sms",
+                    login_context=login_context,
+                    created_new_user=bool(auth_result.is_new_user),
+                    creator_granted_now=bool(
+                        auth_result.metadata.get("creator_granted_now")
+                    ),
+                    language=language or getattr(auth_result.user, "language", None),
+                ),
+            )
+            resp = make_response(make_common_response(auth_result.token))
             return resp
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
@@ -653,6 +680,20 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         except Exception:
             db.session.rollback()
             raise
+        run_post_auth_extensions(
+            app,
+            PostAuthContext(
+                user_id=auth_result.user.user_id,
+                source="google",
+                login_context=auth_result.metadata.get("login_context"),
+                created_new_user=bool(auth_result.is_new_user),
+                creator_granted_now=bool(
+                    auth_result.metadata.get("creator_granted_now")
+                ),
+                language=auth_result.metadata.get("language")
+                or getattr(auth_result.user, "language", None),
+            ),
+        )
         return make_common_response(auth_result.token)
 
     # -------- Password login routes --------
@@ -678,14 +719,25 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("identifier")
         if not password:
             raise_param_error("password")
-        from flaskr.service.user.auth.base import VerificationRequest
-
         provider = get_provider("password")
         vr = VerificationRequest(identifier=identifier, code=password)
         # TODO: Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
         db.session.commit()
+        run_post_auth_extensions(
+            app,
+            PostAuthContext(
+                user_id=auth_result.user.user_id,
+                source="password",
+                login_context=None,
+                created_new_user=bool(auth_result.is_new_user),
+                creator_granted_now=bool(
+                    auth_result.metadata.get("creator_granted_now")
+                ),
+                language=language or getattr(auth_result.user, "language", None),
+            ),
+        )
         return make_common_response(auth_result.token)
 
     @app.route(path_prefix + "/set_password", methods=["POST"])

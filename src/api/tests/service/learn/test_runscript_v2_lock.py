@@ -840,3 +840,37 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
         assert status_during.running_time == 0
         assert status_after.is_running is False
         assert status_after.running_time == 0
+
+
+def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        def fake_run_script_inner(**_kwargs):
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-1",
+                type=GeneratedType.CONTENT,
+                content="hello",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        stream = runscript_v2.run_script(
+            app=app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            input={"input": ["x"]},
+            input_type="normal",
+        )
+
+        first_chunk = next(stream)
+        stream.close()
+
+        assert first_chunk.startswith("data: ")
+        assert lock.release_calls == 1

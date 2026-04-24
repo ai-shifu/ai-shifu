@@ -130,6 +130,32 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
         return get_shifu_creator_bid(app, shifu_bid)
 
 
+def _resolve_host_creator_bid(app, host: str) -> Optional[str]:
+    """Resolve creator_bid from a verified custom domain host."""
+
+    normalized_host = str(host or "").strip()
+    if not normalized_host:
+        return None
+
+    try:
+        from flaskr.service.billing.domains import resolve_creator_bid_by_host
+    except Exception:
+        return None
+
+    try:
+        return resolve_creator_bid_by_host(app, normalized_host)
+    except Exception:
+        return None
+
+
+def _extract_request_host(request) -> Optional[str]:
+    forwarded_host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
+    if forwarded_host:
+        return forwarded_host.split(",", 1)[0].strip()
+    request_host = str(getattr(request, "host", "") or "").strip()
+    return request_host or None
+
+
 def with_shifu_context(
     resolve_shifu_bid: Optional[Callable[..., Optional[str]]] = None,
 ) -> Callable:
@@ -153,6 +179,8 @@ def with_shifu_context(
             except Exception:
                 # If Flask context is not available, just call the function.
                 return func(*args, **kwargs)
+
+            clear_shifu_context()
 
             shifu_bid: Optional[str] = None
             if resolve_shifu_bid is not None:
@@ -183,6 +211,16 @@ def with_shifu_context(
                     set_shifu_context(shifu_bid, creator_bid)
                 except Exception:
                     # Context population failures should not break the endpoint.
+                    pass
+            else:
+                try:
+                    app = current_app._get_current_object()
+                    host = _extract_request_host(request)
+                    creator_bid = _resolve_host_creator_bid(app, host or "")
+                    if creator_bid:
+                        set_shifu_context(None, creator_bid)
+                except Exception:
+                    # Host-based context is best effort for custom domain routing.
                     pass
 
             return func(*args, **kwargs)

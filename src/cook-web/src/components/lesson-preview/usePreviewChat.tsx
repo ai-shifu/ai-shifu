@@ -33,6 +33,7 @@ import {
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
+import { attachSseBusinessResponseFallback } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import { normalizeLegacyBlockCompatList } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
@@ -1269,6 +1270,16 @@ export function usePreviewChat() {
             method: 'POST',
           },
         );
+        sseRef.current = source;
+        attachSseBusinessResponseFallback(source, {
+          onHandled: error => {
+            if (sseRef.current !== source) {
+              return;
+            }
+            setError(error.message || t('module.preview.llmError'));
+            stopPreview();
+          },
+        });
         source.addEventListener('message', event => {
           const raw = event?.data;
           if (!raw) return;
@@ -1308,7 +1319,6 @@ export function usePreviewChat() {
           stopPreview();
         });
         source.stream();
-        sseRef.current = source;
       } catch (err) {
         console.error('preview stream error', err);
         setError((err as Error)?.message || 'Preview failed');
@@ -1323,6 +1333,7 @@ export function usePreviewChat() {
       setTrackedContentList,
       stopPreview,
       stopPreviewAndContinueIfNeeded,
+      t,
     ],
   );
 
@@ -1747,6 +1758,27 @@ export function usePreviewChat() {
             method: 'POST',
           },
         );
+        ttsSseRef.current[blockId] = source;
+        attachSseBusinessResponseFallback(source, {
+          onHandled: error => {
+            setTrackedContentList(prevState =>
+              ensureAudioItem(
+                prevState.map(item => {
+                  if (item.generated_block_bid !== blockId) {
+                    return item;
+                  }
+                  return {
+                    ...item,
+                    isAudioStreaming: false,
+                  };
+                }),
+                blockId,
+              ),
+            );
+            closeTtsStream(blockId);
+            reject(error);
+          },
+        });
 
         source.addEventListener('message', event => {
           const raw = event?.data;
@@ -1820,7 +1852,6 @@ export function usePreviewChat() {
         });
 
         source.stream();
-        ttsSseRef.current[blockId] = source;
       });
     },
     [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],

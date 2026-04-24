@@ -13,18 +13,22 @@ jest.mock('next/server', () => ({
   },
 }));
 
+import type { NextRequest } from 'next/server';
 import { middleware } from '@/middleware';
 
-const createRequest = (url: string, userAgent: string) => {
+const createRequest = (url: string, userAgent: string): NextRequest => {
   const parsed = new URL(url);
+
   return {
-    headers: new Headers({ 'user-agent': userAgent }),
+    headers: new Headers({
+      'user-agent': userAgent,
+    }),
     nextUrl: {
       clone: () => new URL(url),
       pathname: parsed.pathname,
       search: parsed.search,
     },
-  };
+  } as unknown as NextRequest;
 };
 
 describe('middleware', () => {

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
@@ -22,6 +23,11 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
@@ -59,6 +65,10 @@ def _to_sse_data_line(message) -> str:
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
 
+def _is_generator_close_error(exc: RuntimeError) -> bool:
+    return str(exc) == "generator ignored GeneratorExit"
+
+
 def _stream_sse_response(
     app: Flask,
     *,
@@ -82,6 +92,36 @@ def _stream_sse_response(
             yield _to_sse_data_line(error_event_factory(exc))
             if terminal_event_factory is not None:
                 yield _to_sse_data_line(terminal_event_factory())
+
+    return Response(
+        stream_with_context(event_stream()),
+        headers={"Cache-Control": "no-cache"},
+        mimetype="text/event-stream",
+    )
+
+
+def _stream_passthrough_response(
+    app: Flask,
+    *,
+    message_iter_factory,
+    close_log: str,
+    error_log: str,
+) -> Response:
+    def event_stream():
+        try:
+            yield from message_iter_factory()
+        except GeneratorExit:
+            app.logger.info(close_log)
+            raise
+        except RuntimeError as exc:
+            if _is_generator_close_error(exc):
+                app.logger.info(close_log)
+                return
+            app.logger.error(error_log, exc_info=True)
+            raise
+        except Exception:
+            app.logger.error(error_log, exc_info=True)
+            raise
 
     return Response(
         stream_with_context(event_stream()),
@@ -137,6 +177,15 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
         if not in_published:
             raise_error("server.shifu.lessonNotFoundInCourse")
+
+    def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
+        if is_builtin_demo_shifu(app, shifu_bid):
+            return None
+        admit_creator_usage(
+            app,
+            shifu_bid=shifu_bid,
+            usage_scene=usage_scene,
+        )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -284,28 +333,29 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        _admit_creator_usage_for_shifu(
+            shifu_bid,
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        )
         shifu_context_snapshot = get_shifu_context_snapshot()
-        try:
-            return Response(
-                run_script(
-                    app=app,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    input=input,
-                    input_type=input_type,
-                    reload_generated_block_bid=reload_generated_block_bid,
-                    reload_element_bid=reload_element_bid,
-                    listen=listen,
-                    preview_mode=preview_mode,
-                    shifu_context_snapshot=shifu_context_snapshot,
-                ),
-                headers={"Cache-Control": "no-cache"},
-                mimetype="text/event-stream",
-            )
-        except Exception as e:
-            app.logger.error(e)
-            return make_common_response(e)
+        return _stream_passthrough_response(
+            app,
+            message_iter_factory=lambda: run_script(
+                app=app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                input=input,
+                input_type=input_type,
+                reload_generated_block_bid=reload_generated_block_bid,
+                reload_element_bid=reload_element_bid,
+                listen=listen,
+                preview_mode=preview_mode,
+                shifu_context_snapshot=shifu_context_snapshot,
+            ),
+            close_log="client closed learn runtime stream early",
+            error_log="run outline item failed",
+        )
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/preview/<outline_bid>",
@@ -429,6 +479,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             user_bid,
             preview_request.block_index,
             visual_mode,
+        )
+        _admit_creator_usage_for_shifu(
+            shifu_bid,
+            BILL_USAGE_SCENE_PREVIEW,
         )
 
         return _stream_sse_response(
@@ -842,6 +896,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = preview_mode.lower() == "true"
         listen = request.args.get("listen", "False")
         listen = listen.lower() == "true"
+        # TTS is gated by billing admission, but it should not consume a second
+        # creator runtime slot alongside the active learn stream.
+        _admit_creator_usage_for_shifu(
+            shifu_bid,
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        )
 
         return _stream_sse_response(
             app,
@@ -897,6 +957,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         text = payload.get("text") or ""
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
+        # Preview TTS reuses the same creator admission gate without claiming an
+        # extra runtime slot, so authors can preview audio during an active run.
+        _admit_creator_usage_for_shifu(
+            shifu_bid,
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        )
 
         return _stream_sse_response(
             app,

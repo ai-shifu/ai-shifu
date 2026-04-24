@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Dict, Any
@@ -8,7 +9,13 @@ from flask import Flask
 
 from flaskr.service.config import get_config
 
-from .base import PaymentProvider, PaymentRequest, PaymentCreationResult
+from .base import (
+    PaymentCreationResult,
+    PaymentNotificationResult,
+    PaymentProvider,
+    PaymentRequest,
+    SubscriptionUpdateResult,
+)
 from . import register_payment_provider
 
 
@@ -129,6 +136,74 @@ class PingxxProvider(PaymentProvider):
     def retrieve_charge(self, *, charge_id: str, app: Flask):
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)
+
+    def create_subscription(
+        self, *, request: PaymentRequest, app: Flask
+    ) -> PaymentCreationResult:
+        raise RuntimeError("Pingxx does not support subscriptions")
+
+    def cancel_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+    ) -> SubscriptionUpdateResult:
+        raise RuntimeError("Pingxx does not support subscriptions")
+
+    def resume_subscription(
+        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+    ) -> SubscriptionUpdateResult:
+        raise RuntimeError("Pingxx does not support subscriptions")
+
+    def verify_webhook(
+        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+    ) -> PaymentNotificationResult:
+        del headers
+        if isinstance(raw_body, bytes):
+            raw_body_str = raw_body.decode("utf-8")
+        else:
+            raw_body_str = str(raw_body or "")
+        if not raw_body_str:
+            payload: Dict[str, Any] = {}
+        else:
+            payload = json.loads(raw_body_str)
+
+        charge = payload.get("data", {}).get("object", {}) or {}
+        return PaymentNotificationResult(
+            order_bid=str(charge.get("order_no") or ""),
+            status=str(payload.get("type") or ""),
+            provider_payload=payload,
+            charge_id=str(charge.get("id") or "") or None,
+        )
+
+    def handle_notification(
+        self, *, payload: Dict[str, Any], app: Flask
+    ) -> PaymentNotificationResult:
+        if "raw_body" in payload:
+            return self.verify_webhook(
+                headers=payload.get("headers", {}) or {},
+                raw_body=payload.get("raw_body", ""),
+                app=app,
+            )
+
+        charge = payload.get("data", {}).get("object", {}) or {}
+        return PaymentNotificationResult(
+            order_bid=str(charge.get("order_no") or ""),
+            status=str(payload.get("type") or ""),
+            provider_payload=payload,
+            charge_id=str(charge.get("id") or "") or None,
+        )
+
+    def sync_reference(
+        self, *, provider_reference: str, reference_type: str, app: Flask
+    ) -> PaymentNotificationResult:
+        normalized_reference_type = str(reference_type or "").strip().lower()
+        if normalized_reference_type not in {"charge", "payment"}:
+            raise RuntimeError(f"Unsupported Pingxx reference type: {reference_type}")
+        charge = self.retrieve_charge(charge_id=provider_reference, app=app)
+        return PaymentNotificationResult(
+            order_bid=str(charge.get("order_no") or ""),
+            status="manual_sync",
+            provider_payload={"charge": charge},
+            charge_id=str(charge.get("id") or provider_reference),
+        )
 
 
 register_payment_provider(PingxxProvider)

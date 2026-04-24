@@ -4,7 +4,12 @@ import api from '@/api';
 import AdminOperationUsersPage from './page';
 
 const mockReplace = jest.fn();
+const mockMutateBillingOverview = jest.fn();
 const originalLocation = window.location;
+const mockGrantDialogPrefix = 'grant-dialog-';
+const mockGrantSuccessLabel = 'mock-grant-success';
+const buildGrantDialogLabel = (userBid: string) =>
+  `${mockGrantDialogPrefix}${userBid}`;
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -60,6 +65,61 @@ jest.mock('@/api', () => ({
   },
 }));
 
+jest.mock('swr', () => ({
+  __esModule: true,
+  useSWRConfig: () => ({
+    mutate: mockMutateBillingOverview,
+  }),
+}));
+
+jest.mock('@/components/ui/DropdownMenu', () => ({
+  __esModule: true,
+  DropdownMenu: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
+    <>{children}</>
+  ),
+  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  ),
+}));
+
+jest.mock('./UserCreditGrantDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    user,
+    onGranted,
+  }: {
+    open: boolean;
+    user: { user_bid: string } | null;
+    onGranted?: () => void;
+  }) =>
+    open ? (
+      <div>
+        <div>{buildGrantDialogLabel(user?.user_bid || '')}</div>
+        <button
+          type='button'
+          onClick={onGranted}
+        >
+          {mockGrantSuccessLabel}
+        </button>
+      </div>
+    ) : null,
+}));
+
 jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
@@ -80,6 +140,10 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: 'email',
       currencySymbol: '¥',
     }),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
 }));
 
 jest.mock('react-i18next', () => ({
@@ -176,6 +240,7 @@ const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    mockMutateBillingOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
@@ -219,10 +284,14 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '88.50',
-          last_login_at: '2026-04-15 09:00:00',
-          last_learning_at: '2026-04-15 10:00:00',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          available_credits: '35.5',
+          subscription_credits: '27.5',
+          topup_credits: '8',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -272,6 +341,8 @@ describe('AdminOperationUsersPage', () => {
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Nick')).toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
+    expect(screen.getByText('35.5')).toBeInTheDocument();
+    expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.operationsUser.statusLabels.paid').length,
     ).toBeGreaterThan(0);
@@ -299,6 +370,63 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByRole('link', { name: 'user-1@example.com' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-1');
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'href',
+      '/admin/operations/users/user-1#credits',
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.moreForUser',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('opens the credit grant dialog from the action menu', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
+    );
+
+    expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
+  });
+
+  test('revalidates billing overview after credits are granted successfully', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.grantCredits',
+      }),
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: mockGrantSuccessLabel }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(2);
+    });
+    expect(mockMutateBillingOverview).toHaveBeenCalledTimes(1);
+    expect(mockMutateBillingOverview).toHaveBeenCalledWith([
+      'creator-billing-overview',
+      'UTC',
+    ]);
   });
 
   test('submits search filters', async () => {
@@ -392,10 +520,14 @@ describe('AdminOperationUsersPage', () => {
           learning_courses: [],
           created_courses: [],
           total_paid_amount: '0',
+          available_credits: '',
+          subscription_credits: '',
+          topup_credits: '',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -436,10 +568,14 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -486,10 +622,14 @@ describe('AdminOperationUsersPage', () => {
             },
           ],
           total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -536,10 +676,14 @@ describe('AdminOperationUsersPage', () => {
           learning_courses: [],
           created_courses: [],
           total_paid_amount: '0',
+          available_credits: '',
+          subscription_credits: '',
+          topup_credits: '',
+          credits_expire_at: '',
           last_login_at: '',
           last_learning_at: '',
-          created_at: '2026-04-14 10:00:00',
-          updated_at: '2026-04-14 11:00:00',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
         },
       ],
       page: 1,
@@ -553,5 +697,112 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByText('module.user.defaultUserName'),
     ).toBeInTheDocument();
+  });
+
+  test('shows long-term credit label when active credits do not expire', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-long-term-credits',
+          mobile: '',
+          email: 'long-term@example.com',
+          nickname: 'Long Term',
+          user_status: 'paid',
+          user_role: 'creator',
+          user_roles: ['creator'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'en-US',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '12',
+          subscription_credits: '12',
+          topup_credits: '0',
+          credits_expire_at: '',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    expect(
+      await screen.findByText('module.operationsUser.credits.longTerm'),
+    ).toBeInTheDocument();
+  });
+
+  test('requests the selected page when the user list pagination changes', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator'],
+          login_methods: ['phone'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '88.50',
+          available_credits: '55',
+          subscription_credits: '40',
+          topup_credits: '15',
+          credits_expire_at: '',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: '2',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page_index: 2,
+          page_size: 20,
+        }),
+      );
+    });
   });
 });

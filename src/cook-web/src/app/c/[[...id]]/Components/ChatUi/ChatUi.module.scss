@@ -11,67 +11,43 @@
     height: 64px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    padding: 0 20px;
     background: linear-gradient(
       180deg,
-      #fff 0%,
-      #fff 62.5%,
+      var(--base-background, #fff) 0%,
+      var(--base-background, #fff) 62.5%,
       rgba(255, 255, 255, 0.8) 100%
     );
     z-index: 10;
     font-size: 14px;
-    color: rgba(0, 0, 0, 0.65);
+    color: var(--base-muted-foreground, #737373);
     line-height: 20px;
+
+    .headerContent {
+      min-width: 0;
+      max-width: calc(100% - 160px);
+    }
+
+    .courseSummary {
+      min-width: 0;
+    }
+
+    .courseSummaryTitle {
+      color: var(--base-foreground, #0a0a0a);
+      font-size: 18px;
+      font-weight: var(--font-weight-semibold, 600);
+      line-height: var(--text-sm-line-height, 18px);
+    }
 
     .headerActions {
       position: absolute;
-      right: 16px;
+      right: 20px;
       top: 50%;
       transform: translateY(-50%);
       display: inline-flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .modeButton {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #d9d9d9;
-      background: #fff;
-      color: #0a0a0a;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-
-      &:hover {
-        border-color: #1677ff;
-        color: #1677ff;
-      }
-
-      svg {
-        width: 16px;
-        height: 16px;
-      }
-    }
-
-    .modeButtonActive {
-      background: #1677ff;
-      border-color: #1677ff;
-      color: #fff;
-
-      &:hover {
-        background: #4096ff;
-        border-color: #4096ff;
-        color: #fff;
-      }
-
-      svg {
-        color: #fff;
-      }
     }
   }
 

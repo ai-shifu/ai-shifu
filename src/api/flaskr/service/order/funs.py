@@ -40,11 +40,17 @@ from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
+from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.raw_snapshots import (
+    RAW_BIZ_DOMAIN_ORDER,
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+)
 import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from flaskr.common.shifu_context import set_shifu_context
@@ -522,95 +528,11 @@ def _resolve_payment_channel(
 ) -> Tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
 
-    requested_payment_channel = (payment_channel_hint or "").strip().lower()
-    requested_channel = (channel_hint or "").strip()
-
-    # Read enabled payment providers from configuration.
-    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
-    enabled_providers = {
-        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
-    } or {"pingxx", "stripe"}
-
-    # If using the default configuration, automatically disable providers that
-    # are missing required credentials so that environments with only Stripe
-    # (or only Ping++) configured do not accidentally use the wrong channel.
-    if enabled_raw.strip().lower() == "pingxx,stripe":
-        if "pingxx" in enabled_providers:
-            pingxx_key = str(get_config("PINGXX_SECRET_KEY", "") or "")
-            pingxx_app = str(get_config("PINGXX_APP_ID", "") or "")
-            pingxx_key_path = str(get_config("PINGXX_PRIVATE_KEY_PATH", "") or "")
-            if not (pingxx_key and pingxx_app and pingxx_key_path):
-                enabled_providers.discard("pingxx")
-        if "stripe" in enabled_providers:
-            stripe_key = str(get_config("STRIPE_SECRET_KEY", "") or "")
-            if not stripe_key:
-                enabled_providers.discard("stripe")
-        if not enabled_providers:
-            enabled_providers = {"pingxx", "stripe"}
-
-    provider_from_channel = ""
-    if ":" in requested_channel:
-        prefix, _ = requested_channel.split(":", 1)
-        prefix = prefix.strip().lower()
-        if prefix in {"stripe", "pingxx"}:
-            provider_from_channel = prefix
-    elif requested_channel.lower() in {"stripe", "pingxx"}:
-        provider_from_channel = requested_channel.lower()
-    elif requested_channel:
-        # Non-empty channel without explicit provider prefix is treated as a
-        # Ping++ sub-channel (e.g., wx_pub_qr, alipay_qr).
-        provider_from_channel = "pingxx"
-
-    target_provider = requested_payment_channel or provider_from_channel
-
-    # Fallback to stored provider or configuration defaults when no explicit
-    # provider has been requested.
-    if not target_provider:
-        stored = (stored_channel or "").strip().lower()
-        if stored in {"pingxx", "stripe"} and stored in enabled_providers:
-            target_provider = stored
-        else:
-            if not enabled_providers:
-                raise_error("server.pay.payChannelNotSupport")
-            if len(enabled_providers) == 1:
-                target_provider = next(iter(enabled_providers))
-            elif "stripe" in enabled_providers:
-                target_provider = "stripe"
-            elif "pingxx" in enabled_providers:
-                target_provider = "pingxx"
-            else:
-                raise_error("server.pay.payChannelNotSupport")
-
-    # Validate requested provider name and configuration.
-    if target_provider not in {"pingxx", "stripe"}:
-        raise_error("server.pay.payChannelNotSupport")
-    if target_provider not in enabled_providers:
-        raise_error("server.pay.payChannelNotSupport")
-
-    if target_provider == "stripe":
-        normalized_channel = requested_channel.lower()
-        # Default to Checkout Session for backward compatibility.
-        provider_channel = "checkout_session"
-        if ":" in normalized_channel:
-            _, provider_channel = normalized_channel.split(":", 1)
-        elif normalized_channel and normalized_channel != "stripe":
-            provider_channel = normalized_channel
-
-        provider_channel = provider_channel or "checkout_session"
-        if provider_channel in {"checkout", "checkout_session"}:
-            provider_channel = "checkout_session"
-        elif provider_channel in {"intent", "payment_intent"}:
-            provider_channel = "payment_intent"
-        else:
-            # Fallback to checkout session for unknown values.
-            provider_channel = "checkout_session"
-        return "stripe", provider_channel
-
-    # Ping++ requires explicit channel input.
-    provider_channel = requested_channel or ""
-    if not provider_channel:
-        raise_error("server.pay.payChannelNotSupport")
-    return "pingxx", provider_channel
+    return resolve_payment_channel(
+        payment_channel_hint=payment_channel_hint,
+        channel_hint=channel_hint,
+        stored_channel=stored_channel,
+    )
 
 
 def _format_response_channel(payment_channel: str, provider_channel: str) -> str:
@@ -794,6 +716,7 @@ def _generate_pingxx_charge(
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     pingxx_order = PingxxOrder()
     pingxx_order.pingxx_order_bid = order_no
+    pingxx_order.biz_domain = RAW_BIZ_DOMAIN_ORDER
     pingxx_order.user_bid = buy_record.user_bid
     pingxx_order.shifu_bid = buy_record.shifu_bid
     pingxx_order.order_bid = buy_record.order_bid
@@ -895,6 +818,7 @@ def _generate_stripe_charge(
 
     stripe_order = StripeOrder()
     stripe_order.order_bid = buy_record.order_bid
+    stripe_order.biz_domain = RAW_BIZ_DOMAIN_ORDER
     stripe_order.user_bid = buy_record.user_bid
     stripe_order.shifu_bid = buy_record.shifu_bid
     stripe_order.stripe_order_bid = order_no
@@ -977,9 +901,9 @@ def sync_stripe_checkout_session(
             raise_error("server.pay.payChannelNotSupport")
 
         stripe_order = (
-            StripeOrder.query.filter(
+            legacy_stripe_snapshot_query()
+            .filter(
                 StripeOrder.order_bid == order.order_bid,
-                StripeOrder.deleted == 0,
             )
             .order_by(StripeOrder.id.desc())
             .first()
@@ -997,13 +921,13 @@ def sync_stripe_checkout_session(
             raise_error("server.order.orderNotFound")
 
         provider = get_payment_provider("stripe")
-        session = provider.retrieve_checkout_session(
-            session_id=resolved_session_id, app=app
+        sync_result = provider.sync_reference(
+            provider_reference=resolved_session_id,
+            reference_type="checkout_session",
+            app=app,
         )
-        intent = None
-        intent_id = session.get("payment_intent") or stripe_order.payment_intent_id
-        if intent_id:
-            intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+        session = sync_result.provider_payload.get("checkout_session", {}) or {}
+        intent = sync_result.provider_payload.get("payment_intent") or None
 
         _update_stripe_order_snapshot(
             stripe_order=stripe_order, session=session, intent=intent
@@ -1110,8 +1034,10 @@ def handle_stripe_webhook(
 ) -> Tuple[Dict[str, Any], int]:
     provider = get_payment_provider("stripe")
     try:
-        notification: PaymentNotificationResult = provider.handle_notification(
-            payload={"raw_body": raw_body, "sig_header": sig_header}, app=app
+        notification: PaymentNotificationResult = provider.verify_webhook(
+            headers={"Stripe-Signature": sig_header},
+            raw_body=raw_body,
+            app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via tests for error path
         app.logger.exception("Stripe webhook verification failed: %s", exc)
@@ -1124,6 +1050,16 @@ def handle_stripe_webhook(
     event_type = notification.status
     data_object = event.get("data", {}).get("object", {}) or {}
     metadata = data_object.get("metadata", {}) or {}
+    bill_order_bid = metadata.get("bill_order_bid", "")
+    is_billing_subscription_event = bool(
+        data_object.get("subscription")
+        or str(data_object.get("id") or "").startswith("sub_")
+    )
+    if bill_order_bid or is_billing_subscription_event:
+        from flaskr.service.billing.webhooks import apply_billing_stripe_notification
+
+        billing_result = apply_billing_stripe_notification(app, notification)
+        return billing_result.to_response_dict(), billing_result.status_code
     order_bid = notification.order_bid or metadata.get("order_bid", "")
 
     if not order_bid:
@@ -1136,7 +1072,8 @@ def handle_stripe_webhook(
 
     with app.app_context():
         stripe_order: Optional[StripeOrder] = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            legacy_stripe_snapshot_query()
+            .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
             .first()
         )
@@ -1241,7 +1178,8 @@ def refund_order_payment(
             raise_error("server.pay.payChannelNotSupport")
 
         stripe_order = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            legacy_stripe_snapshot_query()
+            .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
             .first()
         )
@@ -1303,7 +1241,8 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
         payment_channel = order.payment_channel or "pingxx"
         if payment_channel == "stripe":
             stripe_order = (
-                StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+                legacy_stripe_snapshot_query()
+                .filter(StripeOrder.order_bid == order_bid)
                 .order_by(StripeOrder.id.desc())
                 .first()
             )
@@ -1329,7 +1268,8 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             }
 
         pingxx_order = (
-            PingxxOrder.query.filter(PingxxOrder.order_bid == order.order_bid)
+            legacy_pingxx_snapshot_query()
+            .filter(PingxxOrder.order_bid == order.order_bid)
             .order_by(PingxxOrder.id.desc())
             .first()
         )
@@ -1355,9 +1295,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
     Success buy record from pingxx
     """
     with app.app_context():
-        pingxx_order = PingxxOrder.query.filter(
-            PingxxOrder.charge_id == charge_id
-        ).first()
+        pingxx_order = (
+            legacy_pingxx_snapshot_query()
+            .filter(PingxxOrder.charge_id == charge_id)
+            .first()
+        )
         if not pingxx_order:
             return
         lock = cache_provider.lock(
@@ -1373,9 +1315,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 app.logger.info(
                     'success buy record from pingxx charge:"{}"'.format(charge_id)
                 )
-                pingxx_order: PingxxOrder = PingxxOrder.query.filter(
-                    PingxxOrder.charge_id == charge_id
-                ).first()
+                pingxx_order = (
+                    legacy_pingxx_snapshot_query()
+                    .filter(PingxxOrder.charge_id == charge_id)
+                    .first()
+                )
                 if not pingxx_order:
                     lock.release()
                     return None

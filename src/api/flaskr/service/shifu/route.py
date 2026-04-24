@@ -31,12 +31,10 @@ Date: 2025-08-07
 
 import os
 import tempfile
-import base64
 import json
 import uuid
 import re
 from datetime import datetime
-from dataclasses import replace
 from pathlib import Path
 
 from flask import (
@@ -46,7 +44,6 @@ from flask import (
     send_file,
     after_this_request,
     Response,
-    stream_with_context,
 )
 from .funcs import (
     mark_or_unmark_favorite_shifu,
@@ -58,6 +55,8 @@ from .funcs import (
 from flaskr.route.common import make_common_response, bypass_token_validation, fmt
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
+from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
@@ -104,7 +103,12 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_follow_up_detail,
+    get_operator_course_follow_ups,
     get_operator_user_detail,
+    get_operator_user_credits,
+    grant_operator_user_credits,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
@@ -112,6 +116,11 @@ from flaskr.service.shifu.admin import (
     list_operator_users,
     transfer_operator_course_creator,
 )
+from flaskr.service.order.admin import (
+    get_operator_order_detail,
+    list_operator_orders,
+)
+from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -315,6 +324,17 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             if trimmed:
                 normalized.append(trimmed)
         return normalized
+
+    def _admit_creator_debug_usage() -> None:
+        request_user = getattr(request, "user", None)
+        creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
+        if not creator_bid or not getattr(request_user, "is_creator", False):
+            return None
+        return admit_creator_usage(
+            app,
+            creator_bid=creator_bid,
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+        )
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
         """Validate and deduplicate contact identifiers."""
@@ -651,6 +671,113 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_users(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
+    def admin_operations_orders():
+        """
+        Operator global order list
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: user_keyword
+              type: string
+              required: false
+              description: Exact match on user bid, phone, or email
+            - name: order_bid
+              type: string
+              required: false
+            - name: shifu_bid
+              type: string
+              required: false
+            - name: course_name
+              type: string
+              required: false
+            - name: status
+              type: string
+              required: false
+            - name: order_source
+              type: string
+              required: false
+              description: user_purchase, coupon_redeem, import_activation, or open_api
+            - name: payment_channel
+              type: string
+              required: false
+            - name: start_time
+              type: string
+              required: false
+              description: Order created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: Order created end date (YYYY-MM-DD)
+        responses:
+            200:
+                description: List global operator-visible orders
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
+
+        filters = {
+            "user_keyword": request.args.get("user_keyword", ""),
+            "order_bid": request.args.get("order_bid", ""),
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "course_name": request.args.get("course_name", ""),
+            "status": request.args.get("status", ""),
+            "order_source": request.args.get("order_source", ""),
+            "payment_channel": request.args.get("payment_channel", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_orders(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/<order_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_order_detail(order_bid: str):
+        """
+        Get operator order detail
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: order_bid
+              in: path
+              type: string
+              required: true
+              description: Order business identifier
+        responses:
+            200:
+                description: Operator order detail
+        """
+        _require_operator()
+        if not str(order_bid or "").strip():
+            raise_param_error("order_bid")
+        return make_common_response(get_operator_order_detail(app, order_bid))
+
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
     )
@@ -672,6 +799,93 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         _require_operator()
         return make_common_response(get_operator_user_detail(app, user_bid))
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]
+    )
+    def admin_operation_user_credits(user_bid: str):
+        """
+        Get operator user credits detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+            - name: page_index
+              type: integer
+              required: false
+            - name: page_size
+              type: integer
+              required: false
+        responses:
+            200:
+                description: Operator user credits detail
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        return make_common_response(
+            get_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                page_index=page_index,
+                page_size=page_size,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
+        methods=["POST"],
+    )
+    def admin_operation_user_credit_grant(user_bid: str):
+        """
+        Grant operator user credits
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/AdminOperationUserCreditGrantRequestDTO"
+        responses:
+            200:
+                description: Operator user credits grant result
+        """
+        _require_operator()
+        try:
+            payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
+                request.get_json() or {}
+            )
+        except Exception:
+            raise_param_error("credits_grant_payload")
+        return make_common_response(
+            grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
@@ -828,6 +1042,127 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/follow-ups",
+        methods=["GET"],
+    )
+    def admin_operation_course_follow_ups(shifu_bid: str):
+        """
+        Get operator course follow-up list
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: chapter_keyword
+              in: query
+              type: string
+              required: false
+              description: Chapter or lesson keyword
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
+        responses:
+            200:
+                description: Operator course follow-up list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "chapter_keyword": request.args.get("chapter_keyword", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            get_operator_course_follow_ups(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/courses/<shifu_bid>/follow-ups/<generated_block_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_course_follow_up_detail(
+        shifu_bid: str,
+        generated_block_bid: str,
+    ):
+        """
+        Get operator course follow-up detail
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: generated_block_bid
+              in: path
+              type: string
+              required: true
+              description: Follow-up generated block bid
+        responses:
+            200:
+                description: Operator course follow-up detail
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_course_follow_up_detail(
+                app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
             )
         )
 
@@ -2526,6 +2861,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             AskProviderTimeoutError,
             stream_ask_provider_response,
         )
+        from flaskr.service.metering import UsageContext
         from flaskr.service.shifu.shifu_draft_funcs import (
             ASK_PROVIDER_LLM,
             ASK_PROVIDER_MODE_PROVIDER_ONLY,
@@ -2573,6 +2909,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("ask_temperature")
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
+        _admit_creator_debug_usage()
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
@@ -2608,6 +2945,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
         def _build_llm_runtime() -> AskProviderRuntime:
+            runtime_billable = (
+                1
+                if bool(getattr(getattr(request, "user", None), "is_creator", False))
+                else 0
+            )
             return AskProviderRuntime(
                 llm_stream_factory=lambda: chat_llm(
                     app,
@@ -2617,6 +2959,13 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     messages=messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,
+                    usage_context=UsageContext(
+                        user_bid=preview_user_id,
+                        usage_scene=BILL_USAGE_SCENE_DEBUG,
+                        billable=runtime_billable,
+                    ),
+                    usage_scene=BILL_USAGE_SCENE_DEBUG,
+                    billable=runtime_billable,
                     stream=True,
                 )
             )
@@ -2768,113 +3117,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                             type: string
                             example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
         """
-        from flaskr.api.tts import (
-            synthesize_text,
-            is_tts_configured,
-            get_default_voice_settings,
-            get_default_audio_settings,
-        )
-        from flaskr.service.tts.pipeline import split_text_for_tts
-        from flaskr.service.tts.validation import validate_tts_settings_strict
+        from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
         json_data = request.get_json() or {}
-        provider_name = (json_data.get("provider") or "").strip().lower()
-        model = (json_data.get("model") or "").strip()
-        voice_id = json_data.get("voice_id") or ""
-        speed_raw = json_data.get("speed")
-        pitch_raw = json_data.get("pitch")
-        emotion = json_data.get("emotion", "")
-        text = json_data.get(
-            "text",
-            "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
-        )
-
-        validated = validate_tts_settings_strict(
-            provider=provider_name,
-            model=model,
-            voice_id=voice_id,
-            speed=speed_raw,
-            pitch=pitch_raw,
-            emotion=emotion,
-        )
-
-        if not is_tts_configured(validated.provider):
-            raise_param_error(f"TTS provider is not configured: {validated.provider}")
-
-        # Limit text length for preview
-        if len(text) > 200:
-            text = text[:200]
-
-        voice_settings = get_default_voice_settings(validated.provider)
-        voice_settings.voice_id = validated.voice_id
-        voice_settings.speed = validated.speed
-        voice_settings.pitch = validated.pitch
-        voice_settings.emotion = validated.emotion
-
-        segments = split_text_for_tts(text, provider_name=validated.provider)
-        if not segments:
-            raise_error("TTS_PREVIEW_FAILED")
-
-        audio_settings = get_default_audio_settings(validated.provider)
-        safe_audio_settings = replace(audio_settings, format="mp3")
-        audio_bid = uuid.uuid4().hex
-
-        def event_stream():
-            total_duration_ms = 0
-            try:
-                for index, segment_text in enumerate(segments):
-                    result = synthesize_text(
-                        text=segment_text,
-                        voice_settings=voice_settings,
-                        audio_settings=safe_audio_settings,
-                        model=validated.model or None,
-                        provider_name=validated.provider,
-                    )
-                    total_duration_ms += int(result.duration_ms or 0)
-                    audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
-                    payload = {
-                        "outline_bid": "",
-                        "generated_block_bid": "",
-                        "type": "audio_segment",
-                        "content": {
-                            "segment_index": index,
-                            "audio_data": audio_base64,
-                            "duration_ms": int(result.duration_ms or 0),
-                            "is_final": False,
-                        },
-                    }
-                    yield (
-                        "data: "
-                        + json.dumps(payload, ensure_ascii=False)
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
-
-                payload = {
-                    "outline_bid": "",
-                    "generated_block_bid": "",
-                    "type": "audio_complete",
-                    "content": {
-                        "audio_url": "",
-                        "audio_bid": audio_bid,
-                        "duration_ms": total_duration_ms,
-                    },
-                }
-                yield (
-                    "data: "
-                    + json.dumps(payload, ensure_ascii=False)
-                    + "\n\n".encode("utf-8").decode("utf-8")
-                )
-            except GeneratorExit:
-                current_app.logger.info("client closed tts preview stream early")
-                raise
-            except Exception:
-                current_app.logger.error("TTS preview stream failed", exc_info=True)
-                raise
-
-        return Response(
-            stream_with_context(event_stream()),
-            headers={"Cache-Control": "no-cache"},
-            mimetype="text/event-stream",
+        _admit_creator_debug_usage()
+        request_user = getattr(request, "user", None)
+        return build_tts_preview_response(
+            json_data,
+            request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
+            request_user_is_creator=bool(getattr(request_user, "is_creator", False)),
         )
 
     return app

@@ -19,6 +19,8 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 当需求要求“按接口顺序直接展示内容与追问”时，不要额外引入 `readyElementBids`、`onTypeFinished` 等前端渲染门禁。
 - SSE 流里 `ELEMENT/CONTENT` 阶段只更新当前元素本体，不要提前插入 `LIKE_STATUS`；追问入口统一在 `TEXT_END` 后补齐，避免按钮先于流式正文出现。
 - 若后端未必为每个 `element` 都补 `TEXT_END`，前端可在“下一个 `element` 开始”或“当前流关闭”时，把上一个活动 `element` 视为隐式完成并补齐追问入口。
+- 移动端阅读模式的正文追问按钮时序必须完全复用 `useChatLogicHook` 的 finalize 结果；渲染层只消费已有 `content/LIKE_STATUS/ASK` 状态，不能再按相邻元素关系提前补按钮。
+- 移动端正文一旦在 finalize 后补上 `custom-button-after-content`，同一 `element_bid` 后续再收到 `ELEMENT/CONTENT` 覆盖时也必须继承该按钮，不能用新的原始正文把它抹掉，否则会出现“按钮闪一下又消失”。
 - 交互块触发 `onSend` 且需要截断后续内容时，必须保留该交互块关联的辅助行（`LIKE_STATUS` / `ASK`），避免进入思考中后追问入口消失。
 - 后台调试/预览链路中收到 `interaction` 时，也要为该 `interaction` 本身补齐 `LIKE_STATUS`，否则追问按钮不会渲染。
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。
@@ -41,6 +43,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useChatLogicHook.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
 - 移动端阅读模式通过 `custom-button-after-content` 给正文补追问入口时，不能把 `loading` 占位块或“紧跟在 interaction 后的正文块”当成普通内容；交互块后的后续输出阶段应始终不出现追问按钮。
+- 历史记录若在听课模式下完成初始化，切回阅读模式时也必须对当前内存里的 `contentList` 重新同步 `custom-button-after-content`，不能只依赖“阅读模式下新生成流”去补按钮，否则会出现历史正文没有追问入口、只有新流有入口的模式切换不一致。
 - `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
 - 当听课模式的 `elementList` 需要感知追问时，优先把 `ask_list` 直接挂到对应 `element` 上；锚点匹配优先取 `anchor_element_bid`，缺失时再回退到归一化后的 `parent_element_bid`。
 - 移动端 `AskBlock` 只有在真正渲染遮罩 + 底部弹层时才允许锁定 `document.body` 滚动；内联展开的输入框不能顺手把页面主滚动一起锁死。

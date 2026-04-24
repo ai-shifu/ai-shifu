@@ -20,6 +20,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
+from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
     get_outline_item_dto,
@@ -44,6 +45,98 @@ from flaskr.common.shifu_context import (
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
+
+# Default max parallel ask (follow-up) requests per (user, outline).
+# Actual value is read from Flask config (see MAX_PARALLEL_ASK_COUNT in config.py).
+DEFAULT_MAX_PARALLEL_ASK_COUNT = 3
+
+
+def _get_max_parallel_ask_count(app: Flask) -> int:
+    try:
+        return int(
+            app.config.get("MAX_PARALLEL_ASK_COUNT", DEFAULT_MAX_PARALLEL_ASK_COUNT)
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PARALLEL_ASK_COUNT
+
+
+# Lua scripts for atomic ask semaphore operations
+_LUA_ACQUIRE_ASK_SLOT = """
+local key = KEYS[1]
+local max_count = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local current = tonumber(redis.call('get', key) or '0')
+if current < max_count then
+    redis.call('set', key, current + 1, 'EX', ttl)
+    return 1
+end
+return 0
+"""
+
+_LUA_RELEASE_ASK_SLOT = """
+local key = KEYS[1]
+local current = tonumber(redis.call('get', key) or '0')
+if current > 0 then
+    redis.call('decr', key)
+end
+return 1
+"""
+
+
+def _get_ask_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
+    return (
+        app.config.get("REDIS_KEY_PREFIX", "")
+        + ":ask_sem:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
+
+
+def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
+    """Try to acquire an ask semaphore slot. Returns True if slot acquired."""
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return True  # fail open when Redis is unavailable
+        result = redis_client.eval(
+            _LUA_ACQUIRE_ASK_SLOT,
+            1,
+            _get_ask_sem_key(app, user_bid, outline_bid),
+            str(_get_max_parallel_ask_count(app)),
+            str(RUN_SCRIPT_TIMEOUT_SECONDS),
+        )
+        return bool(result)
+    except Exception as exc:
+        app.logger.warning(
+            "ask_sem_acquire failed, failing open: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+        return True  # fail open
+
+
+def _ask_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
+    """Release an ask semaphore slot."""
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return
+        redis_client.eval(
+            _LUA_RELEASE_ASK_SLOT,
+            1,
+            _get_ask_sem_key(app, user_bid, outline_bid),
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "ask_sem_release failed: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
 
 
 def _get_run_script_lock_key(app: Flask, user_bid: str, outline_bid: str) -> str:
@@ -334,23 +427,38 @@ def run_script(
         user_bid=user_bid,
     )
     stream_element_adapter = element_adapter
-    lock = cache_provider.lock(
-        lock_key, timeout=timeout, blocking_timeout=blocking_timeout
-    )
-    acquired = False
-    for attempt in range(lock_retry_count + 1):
-        if lock.acquire(blocking=True):
-            acquired = True
-            break
-        if attempt < lock_retry_count:
-            app.logger.info(
-                "run_script lock busy, retrying: user_bid=%s outline_bid=%s attempt=%s/%s",
+    is_ask = input_type == INPUT_TYPE_ASK
+    if is_ask:
+        # Ask (follow-up) requests use a counting semaphore instead of the main mutex
+        # so they can run in parallel with the main lesson stream (up to
+        # MAX_PARALLEL_ASK_COUNT, configurable via Flask config).
+        lock = None
+        acquired = _ask_sem_acquire(app, user_bid, outline_bid)
+        if not acquired:
+            app.logger.warning(
+                "ask semaphore full: user_bid=%s outline_bid=%s max=%s",
                 user_bid,
                 outline_bid,
-                attempt + 1,
-                lock_retry_count + 1,
+                _get_max_parallel_ask_count(app),
             )
-            time.sleep(lock_retry_sleep_seconds)
+    else:
+        lock = cache_provider.lock(
+            lock_key, timeout=timeout, blocking_timeout=blocking_timeout
+        )
+        acquired = False
+        for attempt in range(lock_retry_count + 1):
+            if lock.acquire(blocking=True):
+                acquired = True
+                break
+            if attempt < lock_retry_count:
+                app.logger.info(
+                    "run_script lock busy, retrying: user_bid=%s outline_bid=%s attempt=%s/%s",
+                    user_bid,
+                    outline_bid,
+                    attempt + 1,
+                    lock_retry_count + 1,
+                )
+                time.sleep(lock_retry_sleep_seconds)
 
     if acquired:
         stop_event = threading.Event()
@@ -364,6 +472,7 @@ def run_script(
         parent_language = get_current_language()
         # Capture shifu context so background thread can reuse it (may be provided by caller)
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
+        producer_thread: threading.Thread | None = None
 
         def producer():
             # Propagate logging thread-local context into this background thread
@@ -417,44 +526,48 @@ def run_script(
                         res.close()
                     output_queue.put(("done", None))
 
-        producer_thread = threading.Thread(
-            target=producer, name="run_script_stream_producer", daemon=True
-        )
-        producer_thread.start()
-
-        run_started_at = int(time.time())
-        status_last_refreshed_at = 0.0
-
-        def _refresh_run_script_status(force: bool = False) -> None:
-            nonlocal status_last_refreshed_at
-            now = time.time()
-            if (
-                not force
-                and now - status_last_refreshed_at < RUN_SCRIPT_STATUS_REFRESH_SECONDS
-            ):
-                return
-            _set_run_script_status(app, user_bid, outline_bid, run_started_at)
-            status_last_refreshed_at = now
-
-        _refresh_run_script_status(force=True)
-
-        stream_error: Exception | None = None
-        client_disconnected = False
-        done_received = False
-        last_stream_type: str | None = None
-        last_stream_done_is_terminal: bool | None = None
-
-        def _should_suppress_live_payload(payload_obj: object) -> bool:
-            payload_type = getattr(payload_obj, "type", None)
-            if hasattr(payload_type, "value"):
-                payload_type = payload_type.value
-            return bool(
-                use_element_protocol
-                and payload_type == GeneratedType.DONE.value
-                and not bool(getattr(payload_obj, "is_terminal", False))
-            )
-
         try:
+            producer_thread = threading.Thread(
+                target=producer, name="run_script_stream_producer", daemon=True
+            )
+            producer_thread.start()
+
+            run_started_at = int(time.time())
+            status_last_refreshed_at = 0.0
+
+            def _refresh_run_script_status(force: bool = False) -> None:
+                # Ask requests do not own the run-script status slot; skip tracking.
+                if is_ask:
+                    return
+                nonlocal status_last_refreshed_at
+                now = time.time()
+                if (
+                    not force
+                    and now - status_last_refreshed_at
+                    < RUN_SCRIPT_STATUS_REFRESH_SECONDS
+                ):
+                    return
+                _set_run_script_status(app, user_bid, outline_bid, run_started_at)
+                status_last_refreshed_at = now
+
+            _refresh_run_script_status(force=True)
+
+            stream_error: Exception | None = None
+            client_disconnected = False
+            done_received = False
+            last_stream_type: str | None = None
+            last_stream_done_is_terminal: bool | None = None
+
+            def _should_suppress_live_payload(payload_obj: object) -> bool:
+                payload_type = getattr(payload_obj, "type", None)
+                if hasattr(payload_type, "value"):
+                    payload_type = payload_type.value
+                return bool(
+                    use_element_protocol
+                    and payload_type == GeneratedType.DONE.value
+                    and not bool(getattr(payload_obj, "is_terminal", False))
+                )
+
             while True:
                 kind: str
                 payload: object
@@ -490,7 +603,7 @@ def run_script(
                             app.logger.info(
                                 "Client disconnected from SSE stream during heartbeat"
                             )
-                            break
+                            return
                         except (ConnectionError, BrokenPipeError, OSError) as exc:
                             client_disconnected = True
                             stop_event.set()
@@ -528,7 +641,7 @@ def run_script(
                         app.logger.info(
                             "Client disconnected from SSE stream (GeneratorExit)"
                         )
-                        break
+                        return
                     except (ConnectionError, BrokenPipeError, OSError) as exc:
                         client_disconnected = True
                         stop_event.set()
@@ -545,85 +658,90 @@ def run_script(
                 elif kind == "done":
                     done_received = True
                     break
-        finally:
-            stop_event.set()
-            producer_thread.join(timeout=0.1)
-            if producer_thread.is_alive():
-                app.logger.warning("run_script producer thread did not stop in time")
 
-            with contextlib.suppress(Exception):
-                lock.release()
-            _clear_run_script_status(app, user_bid, outline_bid)
-
-        if stream_error and not client_disconnected:
-            if isinstance(stream_error, Exception):
-                app.logger.error("run_script error")
-                app.logger.error(stream_error)
-                error_traceback = "".join(
-                    traceback.format_exception(
-                        type(stream_error),
-                        stream_error,
-                        stream_error.__traceback__,
+            if stream_error and not client_disconnected:
+                if isinstance(stream_error, Exception):
+                    app.logger.error("run_script error")
+                    app.logger.error(stream_error)
+                    error_traceback = "".join(
+                        traceback.format_exception(
+                            type(stream_error),
+                            stream_error,
+                            stream_error.__traceback__,
+                        )
                     )
-                )
-                error_info = {
-                    "name": type(stream_error).__name__,
-                    "description": str(stream_error),
-                    "traceback": error_traceback,
-                }
+                    error_info = {
+                        "name": type(stream_error).__name__,
+                        "description": str(stream_error),
+                        "traceback": error_traceback,
+                    }
 
-                if isinstance(stream_error, AppException):
-                    app.logger.info(error_info)
-                    error_content = str(stream_error)
-                else:
-                    app.logger.error(error_info)
-                    error_content = str(_("server.common.unknownError"))
+                    if isinstance(stream_error, AppException):
+                        app.logger.info(error_info)
+                        error_content = str(stream_error)
+                    else:
+                        app.logger.error(error_info)
+                        error_content = str(_("server.common.unknownError"))
+                    yield _to_sse_chunk(
+                        _make_terminal_event(
+                            outline_bid=outline_bid,
+                            event_type="error",
+                            content=error_content,
+                            element_adapter=stream_element_adapter,
+                        )
+                    )
+                    last_stream_type = "error"
+                    block_end_event = _make_terminal_event(
+                        outline_bid=outline_bid,
+                        event_type=GeneratedType.BREAK.value,
+                        content="",
+                        element_adapter=stream_element_adapter,
+                        is_terminal=False if listen else None,
+                    )
+                    if not _should_suppress_live_payload(block_end_event):
+                        yield _to_sse_chunk(block_end_event)
+                        last_stream_type = (
+                            GeneratedType.DONE.value
+                            if use_element_protocol
+                            else GeneratedType.BREAK.value
+                        )
+                        last_stream_done_is_terminal = (
+                            False if use_element_protocol else None
+                        )
+
+            if not client_disconnected and not (
+                use_element_protocol
+                and last_stream_type == GeneratedType.DONE.value
+                and last_stream_done_is_terminal is True
+            ):
                 yield _to_sse_chunk(
                     _make_terminal_event(
                         outline_bid=outline_bid,
-                        event_type="error",
-                        content=error_content,
+                        event_type=GeneratedType.DONE.value,
+                        content="",
                         element_adapter=stream_element_adapter,
+                        is_terminal=True if use_element_protocol else None,
                     )
                 )
-                last_stream_type = "error"
-                block_end_event = _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=GeneratedType.BREAK.value,
-                    content="",
-                    element_adapter=stream_element_adapter,
-                    is_terminal=False if listen else None,
-                )
-                if not _should_suppress_live_payload(block_end_event):
-                    yield _to_sse_chunk(block_end_event)
-                    last_stream_type = (
-                        GeneratedType.DONE.value
-                        if use_element_protocol
-                        else GeneratedType.BREAK.value
-                    )
-                    last_stream_done_is_terminal = (
-                        False if use_element_protocol else None
-                    )
+                last_stream_type = GeneratedType.DONE.value
+                last_stream_done_is_terminal = True if use_element_protocol else None
+        finally:
+            stop_event.set()
+            if producer_thread is not None:
+                producer_thread.join(timeout=0.1)
+            if producer_thread is not None and producer_thread.is_alive():
+                app.logger.warning("run_script producer thread did not stop in time")
 
-        if not (
-            use_element_protocol
-            and last_stream_type == GeneratedType.DONE.value
-            and last_stream_done_is_terminal is True
-        ):
-            yield _to_sse_chunk(
-                _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=GeneratedType.DONE.value,
-                    content="",
-                    element_adapter=stream_element_adapter,
-                    is_terminal=True if use_element_protocol else None,
-                )
-            )
-            last_stream_type = GeneratedType.DONE.value
-            last_stream_done_is_terminal = True if use_element_protocol else None
+            if is_ask:
+                _ask_sem_release(app, user_bid, outline_bid)
+            else:
+                with contextlib.suppress(Exception):
+                    lock.release()
+                _clear_run_script_status(app, user_bid, outline_bid)
     else:
         app.logger.warning(
-            "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
+            "run_script acquisition failed (is_ask=%s): user_bid=%s outline_bid=%s",
+            is_ask,
             user_bid,
             outline_bid,
         )

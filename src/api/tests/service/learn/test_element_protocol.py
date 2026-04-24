@@ -1976,6 +1976,121 @@ class TestHandleAskAdapter:
             assert payload["ask_element_bid"] == ask_row.element_bid
             assert "asks" not in payload
 
+    def test_process_streams_multi_chunk_follow_up_answer_but_persists_only_final_row(
+        self, adapter_app
+    ):
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_multi_chunk",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_multi_chunk",
+                    type=GeneratedType.ASK,
+                    content="question",
+                    anchor_element_bid="anchor_elem_multi_chunk",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_multi_chunk",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_multi_chunk",
+                    type=GeneratedType.CONTENT,
+                    content=" world",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_multi_chunk",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            answer_messages = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+            ]
+
+            assert len(answer_messages) == 3
+            assert answer_messages[0].content_text == "hello"
+            assert answer_messages[0].is_final is False
+            assert answer_messages[1].content_text == "hello world"
+            assert answer_messages[1].is_final is False
+            assert answer_messages[2].content_text == "hello world"
+            assert answer_messages[2].is_final is True
+
+            logical_answer_bid = (
+                answer_messages[0].target_element_bid or answer_messages[0].element_bid
+            )
+            assert logical_answer_bid
+            assert (
+                answer_messages[1].target_element_bid or answer_messages[1].element_bid
+            ) == logical_answer_bid
+            assert (
+                answer_messages[2].target_element_bid or answer_messages[2].element_bid
+            ) == logical_answer_bid
+
+            answer_rows = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.generated_block_bid == "ask_gb_multi_chunk",
+                    LearnGeneratedElement.element_type == "answer",
+                    LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.asc(),
+                    LearnGeneratedElement.id.asc(),
+                )
+                .all()
+            )
+            assert len(answer_rows) == 1
+            assert answer_rows[0].status == 1
+            assert answer_rows[0].content_text == "hello world"
+            assert answer_rows[0].target_element_bid == logical_answer_bid
+
     def test_process_creates_answer_element_for_patched_anchor_bid(self, adapter_app):
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
         from flaskr.service.learn.listen_elements import ListenElementRunAdapter

@@ -60,6 +60,74 @@
       "status": "Status",
       "updatedAt": "Updated At"
     },
+    "followUps": {
+      "back": "Back to course detail",
+      "drawer": {
+        "currentRecordHint": "Read in order: original output -> current follow-up -> current system answer.",
+        "fields": {
+          "chapter": "Chapter / Lesson",
+          "currentAnswer": "Current System Answer",
+          "currentFollowUp": "Current Follow-up",
+          "followUpTime": "Follow-up Time",
+          "nickname": "Nickname",
+          "sourceOutput": "Original Output",
+          "turnIndex": "Turn",
+          "user": "User",
+          "userId": "User ID"
+        },
+        "sections": {
+          "basicInfo": "Basic Info",
+          "currentRecord": "Current Follow-up Detail",
+          "timeline": "Timeline"
+        },
+        "sourceUnavailable": "Unable to locate the original output for this historical record.",
+        "timeline": {
+          "current": "Current Turn",
+          "student": "Student",
+          "teacher": "System"
+        },
+        "title": "Follow-up Detail"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Chapter / Lesson Search",
+        "chapterKeywordPlaceholder": "Search by chapter or lesson title",
+        "followUpTime": "Follow-up Time",
+        "lessonKeyword": "Lesson Search",
+        "lessonKeywordPlaceholder": "Search by lesson title",
+        "reset": "Reset",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
+        "search": "Search",
+        "timeRangePlaceholder": "Select follow-up start and end dates",
+        "userKeyword": "User Search",
+        "userKeywordPlaceholder": "Search by user ID, phone, email, or nickname",
+        "userKeywordPlaceholderEmail": "Search by user ID, email, or nickname",
+        "userKeywordPlaceholderPhone": "Search by user ID, phone, or nickname"
+      },
+      "openMetric": "Open follow-up data",
+      "summary": {
+        "followUpCount": "Follow-ups",
+        "latestFollowUpAt": "Latest Follow-up",
+        "lessonCount": "Lessons",
+        "scopeHint": "These summary metrics reflect the current filtered result set.",
+        "userCount": "Users"
+      },
+      "table": {
+        "action": "Action",
+        "chapter": "Chapter",
+        "content": "Follow-up Content",
+        "createdAt": "Follow-up Time",
+        "detailAction": "View Detail",
+        "empty": "No follow-up data",
+        "lesson": "Lesson",
+        "title": "Follow-up List",
+        "turnIndex": "Turn",
+        "user": "User"
+      },
+      "title": "Follow-up Data",
+      "turnIndex": "Turn {count}",
+      "turnIndexHelp": "Turn order is based on follow-up time within the same learning record."
+    },
     "learningPermission": {
       "free": "Free",
       "guest": "No Login",
@@ -70,7 +138,7 @@
     "metricsLabels": {
       "followUpCount": "Ask",
       "learnerCount": "Learners",
-      "orderAmount": "Gross Revenue",
+      "orderAmount": "Collected Revenue (Incl. Coupon Codes)",
       "orderCount": "Orders",
       "ratingScore": "Rating",
       "visitCount30d": "Visitors (30d)"

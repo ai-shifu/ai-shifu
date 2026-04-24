@@ -203,7 +203,7 @@ const mockShifuState = {
     name: 'Chapter 1',
     children: [],
   },
-  baseRevision: null,
+  baseRevision: null as number | null,
   latestDraftMeta: null,
   hasDraftConflict: false,
   autosavePaused: false,

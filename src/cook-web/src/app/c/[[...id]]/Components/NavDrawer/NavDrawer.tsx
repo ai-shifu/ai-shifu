@@ -20,10 +20,8 @@ import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
 
 import FeedbackModal from '../FeedbackModal/FeedbackModal';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { getBoolEnv } from '@/c-utils/envUtils';
 import { useEnvStore } from '@/c-store/envStore';
 import {
-  FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
 } from '@/c-constants/uiConstants';
@@ -172,7 +170,7 @@ const NavDrawer = ({
                 <CourseCatalogList
                   courseAvatar={courseAvatar}
                   courseName={courseName}
-                  hideCourseHeader={mobileStyle}
+                  hideCourseHeader
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
                   // @ts-expect-error EXPECT

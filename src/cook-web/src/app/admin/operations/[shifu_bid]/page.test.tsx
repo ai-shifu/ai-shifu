@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -16,6 +17,7 @@ const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
+const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 const mockEnvState = {
   currencySymbol: '¥',
   loginMethodsEnabled: ['phone'],
@@ -83,9 +85,13 @@ jest.mock('@/hooks/useToast', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
-    return {
-      t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
-    };
+    const cacheKey = ns || 'translation';
+    if (!mockTranslationCache.has(cacheKey)) {
+      mockTranslationCache.set(cacheKey, {
+        t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
+      });
+    }
+    return mockTranslationCache.get(cacheKey)!;
   },
 }));
 
@@ -159,6 +165,16 @@ jest.mock('@/components/ui/Select', () => {
     },
   };
 });
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('AdminOperationCourseDetailPage', () => {
   beforeEach(() => {
@@ -293,9 +309,9 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    const visitorsMetricCard = screen.getByText(
-      'module.operationsCourse.detail.metricsLabels.visitCount30d',
-    ).parentElement;
+    const visitorsMetricCard = screen
+      .getByText('module.operationsCourse.detail.metricsLabels.visitCount30d')
+      .closest('.rounded-lg');
     expect(visitorsMetricCard).not.toBeNull();
     expect(
       within(visitorsMetricCard as HTMLElement).getByText('34'),
@@ -319,8 +335,9 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
-    const bobRow = screen.getByText('Bob').closest('tr');
+    const bobRow = screen.getAllByText('13900001234').at(-1)?.closest('tr');
     expect(bobRow).not.toBeNull();
+    expect(within(bobRow as HTMLElement).getByText('Bob')).toBeInTheDocument();
     expect(within(bobRow as HTMLElement).getByText('88')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.operationsCourse.detail.userRole.student')
@@ -336,7 +353,51 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/operations');
   });
 
+  test('navigates to follow-up page from the follow-up metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/course-1/follow-ups',
+    );
+  });
+
+  test('renders static metric cards with non-interactive semantics', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.operationsCourse.detail.metricsLabels.visitCount30d',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.openMetric',
+      }),
+    ).toBeInTheDocument();
+  });
+
   test('opens chapter content dialog and requests chapter detail', async () => {
+    const chapterDetailRequest = createDeferred<{
+      outline_item_bid: string;
+      title: string;
+      content: string;
+      llm_system_prompt: string;
+      llm_system_prompt_source: 'chapter';
+    }>();
+    mockGetAdminOperationCourseChapterDetail.mockReturnValueOnce(
+      chapterDetailRequest.promise,
+    );
+
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
@@ -359,17 +420,38 @@ describe('AdminOperationCourseDetailPage', () => {
       shifu_bid: 'course-1',
       outline_item_bid: 'lesson-1',
     });
-    expect(await screen.findByText('lesson content')).toBeInTheDocument();
 
-    const copyButton = screen.getByRole('button', {
+    const initialCopyButton = screen.getByRole('button', {
       name: 'module.operationsCourse.detail.contentDetailDialog.copy',
+    });
+    expect(initialCopyButton).toBeDisabled();
+
+    await act(async () => {
+      chapterDetailRequest.resolve({
+        outline_item_bid: 'lesson-1',
+        title: 'Lesson 1',
+        content: 'lesson content',
+        llm_system_prompt: 'lesson system prompt',
+        llm_system_prompt_source: 'chapter',
+      });
+      await chapterDetailRequest.promise;
     });
 
     await waitFor(() => {
-      expect(copyButton).not.toBeDisabled();
+      expect(screen.getByText('lesson content')).toBeInTheDocument();
+      expect(screen.getByText('lesson system prompt')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', {
+          name: 'module.operationsCourse.detail.contentDetailDialog.copy',
+        }),
+      ).not.toBeDisabled();
     });
 
-    fireEvent.click(copyButton);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.contentDetailDialog.copy',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockCopyText).toHaveBeenCalledWith(
@@ -381,10 +463,11 @@ describe('AdminOperationCourseDetailPage', () => {
           'lesson system prompt',
         ].join('\n'),
       );
+      expect(mockToastShow).toHaveBeenCalledWith(
+        'module.operationsCourse.detail.contentDetailDialog.copySuccess',
+      );
     });
-    expect(mockToastShow).toHaveBeenCalledWith(
-      'module.operationsCourse.detail.contentDetailDialog.copySuccess',
-    );
+    expect(mockToastFail).not.toHaveBeenCalled();
   });
 
   test('redirects non-operators back to admin', async () => {
@@ -593,6 +676,71 @@ describe('AdminOperationCourseDetailPage', () => {
         page_size: 20,
         keyword: '',
         user_role: 'operator',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+  });
+
+  test('requests the selected page when course user pagination changes', async () => {
+    mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          user_role: 'student',
+          learned_lesson_count: 1,
+          total_lesson_count: 3,
+          learning_status: 'learning',
+          is_paid: true,
+          total_paid_amount: '88',
+          last_learning_at: '2026-04-08 11:30:00',
+          joined_at: '2026-04-07 09:00:00',
+          last_login_at: '2026-04-08 12:00:00',
+        },
+      ],
+      page: 1,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+    mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
+      items: [],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: '',
+        user_role: 'all',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: '2',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-1',
+        page: 2,
+        page_size: 20,
+        keyword: '',
+        user_role: 'all',
         learning_status: 'all',
         payment_status: 'all',
       });

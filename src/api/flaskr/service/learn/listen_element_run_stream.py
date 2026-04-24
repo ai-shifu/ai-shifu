@@ -144,6 +144,7 @@ class ListenElementRunStreamMixin:
             generated_block_bid=state.generated_block_bid,
             element_bids=[state.fallback_element_bid],
         )
+        self._forget_latest_element_snapshot(state.fallback_element_bid)
         if not emit_notification:
             return
         meta = self._load_block_meta(state.generated_block_bid)
@@ -394,6 +395,8 @@ class ListenElementRunStreamMixin:
             generated_block_bid=state.generated_block_bid,
             element_bids=target_bids,
         )
+        for target_bid in target_bids:
+            self._forget_latest_element_snapshot(target_bid)
         if not emit_notification:
             return
         meta = self._load_block_meta(state.generated_block_bid)
@@ -447,7 +450,7 @@ class ListenElementRunStreamMixin:
                 is_final=False,
             )
             if answer_element is not None:
-                yield self._element_message(answer_element)
+                yield self._stream_only_element_message(answer_element)
             return
 
         formatted_parts = self._formatted_parts_from_event(event)

@@ -7,7 +7,9 @@ import { ChevronDown } from 'lucide-react';
 import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
 import MainMenuModal from '@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal';
 import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import { BillingSidebarCard } from '@/components/billing/BillingSidebarCard';
 import { cn } from '@/lib/utils';
+import { CreatorBillingOverview } from '@/types/billing';
 import adminSidebarStyles from './AdminSidebar.module.scss';
 import { AdminMenuItem } from './admin-menu';
 import styles from './layout.module.scss';
@@ -22,6 +24,9 @@ export type SidebarContentProps = {
   userMenuClassName?: string;
   logoSrc: string | StaticImageData;
   activePath?: string;
+  showBillingCard?: boolean;
+  billingOverviewLoading?: boolean;
+  billingOverview?: CreatorBillingOverview;
 };
 
 const normalizeRoutePath = (path?: string) => {
@@ -105,6 +110,9 @@ export const SidebarContent = ({
   userMenuClassName,
   logoSrc,
   activePath,
+  showBillingCard = true,
+  billingOverviewLoading = false,
+  billingOverview,
 }: SidebarContentProps) => {
   const logoHeight = 32;
   const logoWidth = useMemo(() => {
@@ -208,6 +216,7 @@ export const SidebarContent = ({
           <Link
             key={key}
             href={item.href || '#'}
+            data-testid={item.id ? `admin-nav-${item.id}` : undefined}
             className={cn(
               'flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-100',
               isActive && 'bg-gray-200 text-gray-900',
@@ -226,7 +235,12 @@ export const SidebarContent = ({
   );
 
   return (
-    <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
+    <div
+      className={cn(
+        'relative flex h-full min-h-0 flex-col',
+        styles.adminLayout,
+      )}
+    >
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
         <Image
           className='dark:invert'
@@ -241,7 +255,7 @@ export const SidebarContent = ({
           priority
         />
       </h1>
-      <div className='p-2 flex-1'>
+      <div className='flex min-h-0 flex-1 flex-col p-2'>
         {loading ? (
           <div
             className='space-y-3 px-2 pt-2 animate-pulse'
@@ -253,7 +267,21 @@ export const SidebarContent = ({
             <div className='h-10 rounded-lg bg-gray-200' />
           </div>
         ) : (
-          <nav className='space-y-1'>{renderMenuItems(menuItems)}</nav>
+          <>
+            {/* Keep the menu list flexible so the billing card stays pinned to the bottom. */}
+            <nav
+              className='min-h-0 flex-1 space-y-1 overflow-y-auto'
+              data-testid='admin-sidebar-nav'
+            >
+              {renderMenuItems(menuItems)}
+            </nav>
+            {showBillingCard && !userMenuOpen ? (
+              <BillingSidebarCard
+                overview={billingOverview}
+                isLoading={billingOverviewLoading}
+              />
+            ) : null}
+          </>
         )}
       </div>
       <NavFooter
