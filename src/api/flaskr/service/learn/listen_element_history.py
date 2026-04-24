@@ -65,9 +65,9 @@ def _load_interaction_user_input_by_block_bid(
 
 def _load_progress_bid_by_generated_block_bid(
     progress_record_bids: list[str],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], dict[str, list[LearnGeneratedBlock]]]:
     if not progress_record_bids:
-        return {}
+        return {}, {}
 
     blocks = (
         LearnGeneratedBlock.query.filter(
@@ -75,17 +75,24 @@ def _load_progress_bid_by_generated_block_bid(
             LearnGeneratedBlock.deleted == 0,
             LearnGeneratedBlock.status == 1,
         )
-        .order_by(LearnGeneratedBlock.id.asc())
+        .order_by(
+            LearnGeneratedBlock.progress_record_bid.asc(),
+            LearnGeneratedBlock.position.asc(),
+            LearnGeneratedBlock.id.asc(),
+        )
         .all()
     )
     progress_bid_by_generated_block_bid: dict[str, str] = {}
+    active_blocks_by_progress_bid: dict[str, list[LearnGeneratedBlock]] = {}
     for block in blocks:
         generated_block_bid = block.generated_block_bid or ""
         progress_record_bid = block.progress_record_bid or ""
-        if not generated_block_bid or not progress_record_bid:
+        if not progress_record_bid:
             continue
-        progress_bid_by_generated_block_bid[generated_block_bid] = progress_record_bid
-    return progress_bid_by_generated_block_bid
+        active_blocks_by_progress_bid.setdefault(progress_record_bid, []).append(block)
+        if generated_block_bid:
+            progress_bid_by_generated_block_bid[generated_block_bid] = progress_record_bid
+    return progress_bid_by_generated_block_bid, active_blocks_by_progress_bid
 
 
 def _build_final_elements_from_rows(
@@ -255,8 +262,15 @@ def _query_element_rows(
     shifu_bid: str,
     outline_bid: str,
     progress_record_bids: list[str],
-) -> tuple[list[LearnGeneratedElement], dict[str, str]]:
-    progress_bid_by_generated_block_bid = _load_progress_bid_by_generated_block_bid(
+) -> tuple[
+    list[LearnGeneratedElement],
+    dict[str, str],
+    dict[str, list[LearnGeneratedBlock]],
+]:
+    (
+        progress_bid_by_generated_block_bid,
+        active_blocks_by_progress_bid,
+    ) = _load_progress_bid_by_generated_block_bid(
         progress_record_bids
     )
     relevant_generated_block_bids = list(progress_bid_by_generated_block_bid.keys())
@@ -300,7 +314,7 @@ def _query_element_rows(
             if not (row.generated_block_bid or "")
             or (row.generated_block_bid or "") in active_generated_block_bids
         ]
-    return rows, progress_bid_by_generated_block_bid
+    return rows, progress_bid_by_generated_block_bid, active_blocks_by_progress_bid
 
 
 def get_final_elements_for_generated_block(
@@ -463,6 +477,7 @@ def _merge_progress_elements(
     progress_records: list[LearnProgressRecord],
     rows: list[LearnGeneratedElement],
     progress_bid_by_generated_block_bid: dict[str, str],
+    active_blocks_by_progress_bid: dict[str, list[LearnGeneratedBlock]],
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -491,34 +506,6 @@ def _merge_progress_elements(
     collected_events: list[RunElementSSEMessageDTO] | None = (
         [] if include_non_navigable else None
     )
-    progress_record_bids = [
-        str(progress_record.progress_record_bid or "")
-        for progress_record in progress_records
-        if str(progress_record.progress_record_bid or "")
-    ]
-    active_blocks_by_progress_bid: dict[str, list[LearnGeneratedBlock]] = {}
-    if progress_record_bids:
-        active_blocks = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.status == 1,
-            )
-            .order_by(
-                LearnGeneratedBlock.progress_record_bid.asc(),
-                LearnGeneratedBlock.position.asc(),
-                LearnGeneratedBlock.id.asc(),
-            )
-            .all()
-        )
-        for block in active_blocks:
-            block_progress_bid = str(block.progress_record_bid or "")
-            if not block_progress_bid:
-                continue
-            active_blocks_by_progress_bid.setdefault(block_progress_bid, []).append(
-                block
-            )
-
     for progress_record in progress_records:
         progress_bid = progress_record.progress_record_bid or ""
         progress_rows = rows_by_progress.get(progress_bid, [])
@@ -636,7 +623,7 @@ def get_listen_element_record(
     ]
 
     if progress_record_bids:
-        rows, progress_bid_map = _query_element_rows(
+        rows, progress_bid_map, active_blocks_by_progress_bid = _query_element_rows(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
@@ -646,6 +633,7 @@ def get_listen_element_record(
             progress_records=progress_records,
             rows=rows,
             progress_bid_by_generated_block_bid=progress_bid_map,
+            active_blocks_by_progress_bid=active_blocks_by_progress_bid,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
