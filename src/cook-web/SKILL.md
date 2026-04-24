@@ -22,6 +22,7 @@
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
 - When listen-mode misses trailing interaction cards, check whether `outline_item_update: completed` arrived before the final `element` events; completion must not cause post-completion interaction markers to be dropped.
+- 当新增共享 loading 动画时，优先放在 `src/components/loading/` 并以命名导出追加能力，不要直接替换已有默认 loading；动画节奏、尺寸和间距用可配置 props 暴露，保证旧调用方零破坏。
 
 ## Skills Index
 
@@ -39,6 +40,7 @@
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
+- `skills/shared-loading-dots/SKILL.md`
 
 ## Usage Rules
 

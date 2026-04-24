@@ -17,6 +17,7 @@ import {
 } from '@/c-api/studyV2';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import LoadingBar from './LoadingBar';
+import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
 import { toast } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
@@ -551,8 +552,13 @@ export default function AskBlock({
                 <ContentRender
                   content={message.content}
                   customRenderBar={
-                    message.isStreaming && !message.content
-                      ? () => <LoadingBar />
+                    message.isStreaming
+                      ? () =>
+                          message.content?.trim() ? (
+                            <StreamingLoadingDotsBar />
+                          ) : (
+                            <LoadingBar />
+                          )
                       : () => null
                   }
                   onSend={() => {}}

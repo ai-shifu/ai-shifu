@@ -33,6 +33,7 @@ import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import LoadingBar from './LoadingBar';
+import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
@@ -1261,6 +1262,14 @@ export const NewChatComponents = ({
                       onAudioPlayStateChange={handleAudioPlayStateChange}
                       onAudioEnded={handleAudioEnded}
                     />
+                    {isOutputInProgress &&
+                    item.type === ChatContentItemType.CONTENT &&
+                    item.element_bid === currentStreamingElementBid &&
+                    item.content?.trim() ? (
+                      <div>
+                        <StreamingLoadingDotsBar />
+                      </div>
+                    ) : null}
                   </div>
                 );
               })

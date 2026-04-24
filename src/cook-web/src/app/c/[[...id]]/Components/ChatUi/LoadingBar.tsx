@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 const LoadingBar = () => {
   const { t } = useTranslation();
+
   return (
     <span className='flex gap-[10px] items-center'>
       <Loader
@@ -13,4 +14,5 @@ const LoadingBar = () => {
     </span>
   );
 };
+
 export default LoadingBar;
