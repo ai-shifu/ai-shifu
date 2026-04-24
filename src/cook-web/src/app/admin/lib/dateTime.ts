@@ -59,8 +59,3 @@ export const formatAdminUtcDateTime = (
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
-
-export const formatAdminUtcDateTimeOrEmpty = (
-  value: string | null | undefined,
-  emptyValue: string,
-): string => formatAdminUtcDateTime(value) || emptyValue;
