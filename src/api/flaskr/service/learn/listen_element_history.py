@@ -549,6 +549,15 @@ def _merge_progress_elements(
             for index, block in enumerate(active_blocks)
             if str(block.generated_block_bid or "")
         }
+        next_block_order = len(block_order_by_generated_block_bid)
+        for record in legacy_record.records:
+            record_block_bid = str(record.generated_block_bid or "")
+            if (
+                record_block_bid
+                and record_block_bid not in block_order_by_generated_block_bid
+            ):
+                block_order_by_generated_block_bid[record_block_bid] = next_block_order
+                next_block_order += 1
         legacy_records = [
             record
             for record in legacy_record.records

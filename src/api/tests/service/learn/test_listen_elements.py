@@ -627,12 +627,12 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
         )
 
         assert [item.generated_block_bid for item in result.elements] == [
-            "generated-block-second",
             "generated-block-first",
+            "generated-block-second",
         ]
         assert [item.content_text for item in result.elements] == [
-            "Second block content",
             "First block content",
+            "Second block content",
         ]
 
 
@@ -4809,3 +4809,106 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
     assert rows[0].content_text == "legacy"
     assert rows[1].status == 1
     assert rows[1].generated_block_bid == generated_block_bid
+
+
+def test_backfill_learn_generated_elements_for_progress_overwrite_dry_run_rebuilds_without_stale_rows(
+    app,
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.listen_element_legacy import (
+        backfill_learn_generated_elements_for_progress,
+    )
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    user_bid = "user-backfill-overwrite-dry-run"
+    shifu_bid = "shifu-backfill-overwrite-dry-run"
+    outline_bid = "outline-backfill-overwrite-dry-run"
+    progress_bid = "progress-backfill-overwrite-dry-run"
+    generated_block_bid = "generated-backfill-overwrite-dry-run"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-backfill-overwrite-dry-run",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            role=ROLE_TEACHER,
+            generated_content="Before intro.\n\n```svg\n<svg><rect /></svg>\n```\n\nAfter chart.",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        existing_row = LearnGeneratedElement(
+            element_bid="legacy-element-dry-run",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="legacy-run",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=213,
+            change_type="render",
+            target_element_bid="",
+            is_navigable=1,
+            is_final=1,
+            content_text="legacy",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, block, existing_row])
+        db.session.commit()
+
+        preview = backfill_learn_generated_elements_for_progress(
+            app,
+            progress_bid,
+            overwrite=True,
+            dry_run=True,
+        )
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.progress_record_bid == progress_bid,
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(LearnGeneratedElement.id.asc())
+            .all()
+        )
+
+    assert preview.dry_run is True
+    assert preview.existing_active_rows == 1
+    assert preview.overwritten_rows == 0
+    assert preview.inserted_rows == 3
+    assert preview.elements_built == 3
+    assert len(rows) == 1
+    assert rows[0].status == 1
+    assert rows[0].content_text == "legacy"
