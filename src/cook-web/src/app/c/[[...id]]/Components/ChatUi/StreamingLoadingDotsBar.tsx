@@ -6,8 +6,10 @@ export default function StreamingLoadingDotsBar() {
       <LoadingDots
         count={4}
         durationMs={960}
-        gap={10}
-        size={10}
+        dotClassName='bg-muted-foreground'
+        gap={6}
+        restOpacity={0.2}
+        size={6}
       />
     </span>
   );

@@ -1266,7 +1266,7 @@ export const NewChatComponents = ({
                     item.type === ChatContentItemType.CONTENT &&
                     item.element_bid === currentStreamingElementBid &&
                     item.content?.trim() ? (
-                      <div className='mt-3'>
+                      <div>
                         <StreamingLoadingDotsBar />
                       </div>
                     ) : null}

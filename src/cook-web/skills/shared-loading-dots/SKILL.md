@@ -13,6 +13,8 @@ description: 当 cook-web 需要新增共享 loading 动画时，使用本技能
 - 动画颜色优先复用 Tailwind 中已接入的主题变量，例如 `bg-primary`，不要在组件里直接写十六进制颜色。
 - 动画实现优先复用 Tailwind 配置里的 `keyframes` 和 `animation`，只有 Tailwind 无法覆盖时再补局部样式文件。
 - 如果业务目录里已经存在本地“空占位” loading 包装组件，例如聊天页的 `LoadingBar`，不要直接替换；优先保留原占位 loading，再把共享圆点 loading 接到内容已开始输出但流尚未结束的阶段。
+- 正文或气泡下方的流式圆点 loading 优先使用更轻量的尺寸和间距，避免视觉重量压过正文内容。
+- 流式圆点如果需要弱化视觉优先级，优先复用 `muted-foreground`、`foreground` 这类现有中性色变量映射，不要单独再造新色。
 
 ## 工作流
 
