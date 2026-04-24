@@ -19,19 +19,36 @@ def init_db(app: Flask):
 
     # Flask-SQLAlchemy 3.x only reads pool settings from SQLALCHEMY_ENGINE_OPTIONS;
     # the standalone SQLALCHEMY_POOL_SIZE/TIMEOUT/RECYCLE/MAX_OVERFLOW keys are ignored.
+    # QueuePool-only keys are skipped for SQLite (SingletonThreadPool / StaticPool
+    # reject max_overflow / pool_timeout).
     existing_options = dict(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
-    existing_options.setdefault(
-        "pool_size", int(app.config.get("SQLALCHEMY_POOL_SIZE", 20))
-    )
-    existing_options.setdefault(
-        "max_overflow", int(app.config.get("SQLALCHEMY_MAX_OVERFLOW", 20))
-    )
-    existing_options.setdefault(
-        "pool_timeout", int(app.config.get("SQLALCHEMY_POOL_TIMEOUT", 30))
-    )
-    existing_options.setdefault(
-        "pool_recycle", int(app.config.get("SQLALCHEMY_POOL_RECYCLE", 3600))
-    )
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+    is_sqlite = str(db_uri).startswith("sqlite")
+
+    def _coerce_int(cfg_key: str, default: int) -> int:
+        raw = app.config.get(cfg_key)
+        if raw is None or raw == "":
+            return default
+        try:
+            return int(raw)
+        except (ValueError, TypeError):
+            app.logger.warning(
+                "Invalid %s=%r, falling back to %d", cfg_key, raw, default
+            )
+            return default
+
+    if not is_sqlite:
+        for opt, cfg, default in (
+            ("pool_size", "SQLALCHEMY_POOL_SIZE", 20),
+            ("max_overflow", "SQLALCHEMY_MAX_OVERFLOW", 20),
+            ("pool_timeout", "SQLALCHEMY_POOL_TIMEOUT", 30),
+            ("pool_recycle", "SQLALCHEMY_POOL_RECYCLE", 3600),
+        ):
+            if opt not in existing_options:
+                existing_options[opt] = _coerce_int(cfg, default)
+
+    # pool_pre_ping is default-on; callers can opt out by pre-setting
+    # SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = False.
     existing_options.setdefault("pool_pre_ping", True)
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
