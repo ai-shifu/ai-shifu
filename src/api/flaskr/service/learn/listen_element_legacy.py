@@ -316,6 +316,16 @@ def backfill_learn_generated_elements_for_progress(
         )
         return stats
 
+    if stats.existing_active_rows and not dry_run:
+        stats.overwritten_rows = existing_rows_query.update(
+            {
+                "status": 0,
+            },
+            synchronize_session=False,
+        )
+        db.session.flush()
+        db.session.expire_all()
+
     legacy_record = _build_legacy_record_for_progress(progress_record, stats)
     built_record = build_listen_elements_from_legacy_record(app, legacy_record)
     stats.elements_built = len(built_record.elements)
@@ -330,14 +340,6 @@ def backfill_learn_generated_elements_for_progress(
             stats.as_dict(),
         )
         return stats
-
-    if stats.existing_active_rows:
-        stats.overwritten_rows = existing_rows_query.update(
-            {
-                "status": 0,
-            },
-            synchronize_session=False,
-        )
 
     for run_event_seq, element in enumerate(built_record.elements, start=1):
         element.sequence_number = run_event_seq

@@ -491,22 +491,38 @@ def _merge_progress_elements(
     collected_events: list[RunElementSSEMessageDTO] | None = (
         [] if include_non_navigable else None
     )
-
-    for progress_record in progress_records:
-        progress_bid = progress_record.progress_record_bid or ""
-        progress_rows = rows_by_progress.get(progress_bid, [])
+    progress_record_bids = [
+        str(progress_record.progress_record_bid or "")
+        for progress_record in progress_records
+        if str(progress_record.progress_record_bid or "")
+    ]
+    active_blocks_by_progress_bid: dict[str, list[LearnGeneratedBlock]] = {}
+    if progress_record_bids:
         active_blocks = (
             LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.progress_record_bid == progress_bid,
+                LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
                 LearnGeneratedBlock.deleted == 0,
                 LearnGeneratedBlock.status == 1,
             )
             .order_by(
+                LearnGeneratedBlock.progress_record_bid.asc(),
                 LearnGeneratedBlock.position.asc(),
                 LearnGeneratedBlock.id.asc(),
             )
             .all()
         )
+        for block in active_blocks:
+            block_progress_bid = str(block.progress_record_bid or "")
+            if not block_progress_bid:
+                continue
+            active_blocks_by_progress_bid.setdefault(block_progress_bid, []).append(
+                block
+            )
+
+    for progress_record in progress_records:
+        progress_bid = progress_record.progress_record_bid or ""
+        progress_rows = rows_by_progress.get(progress_bid, [])
+        active_blocks = active_blocks_by_progress_bid.get(str(progress_bid), [])
         persisted_elements, persisted_events = _build_final_elements_from_rows(
             progress_rows,
             interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,

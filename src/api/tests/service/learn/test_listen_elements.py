@@ -1894,7 +1894,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         assert [item.element_type.value for item in final_elements[-4:]] == [
             "svg",
             "text",
-            "sandbox",
+            "html",
             "text",
         ]
         assert [item.is_new for item in final_elements[-4:]] == [True, True, True, True]
@@ -1955,7 +1955,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         assert [row.element_type for row in persisted_rows] == [
             ElementType.SVG.value,
             ElementType.TEXT.value,
-            ElementType._SANDBOX.value,
+            ElementType.HTML.value,
             ElementType.TEXT.value,
         ]
         assert persisted_rows[0].is_marker == 1
