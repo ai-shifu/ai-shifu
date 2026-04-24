@@ -68,6 +68,10 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -414,8 +418,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15833334444',
           updater_email: 'editor@example.com',
           updater_nickname: '',
-          created_at: '2025-04-01 10:00:00',
-          updated_at: '2025-04-02 10:00:00',
+          created_at: '2025-04-01T10:00:00Z',
+          updated_at: '2025-04-02T10:00:00Z',
         },
         {
           shifu_bid: 'course-system-custom',
@@ -430,8 +434,8 @@ describe('OperationsPage', () => {
           updater_mobile: '',
           updater_email: '',
           updater_nickname: '',
-          created_at: '2025-04-03 10:00:00',
-          updated_at: '2025-04-03 10:00:00',
+          created_at: '2025-04-03T10:00:00Z',
+          updated_at: '2025-04-03T10:00:00Z',
         },
       ],
       page: 1,
@@ -723,8 +727,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15833334444',
           updater_email: 'editor@example.com',
           updater_nickname: '',
-          created_at: '2025-04-01 10:00:00',
-          updated_at: '2025-04-02 10:00:00',
+          created_at: '2025-04-01T10:00:00Z',
+          updated_at: '2025-04-02T10:00:00Z',
         },
       ],
       page: 1,
@@ -832,8 +836,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15899991111',
           updater_email: 'editor-second@example.com',
           updater_nickname: '',
-          created_at: '2025-04-05 10:00:00',
-          updated_at: '2025-04-06 10:00:00',
+          created_at: '2025-04-05T10:00:00Z',
+          updated_at: '2025-04-06T10:00:00Z',
         },
       ],
       page: 1,
@@ -859,8 +863,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15888881111',
           updater_email: 'editor-first@example.com',
           updater_nickname: '',
-          created_at: '2025-04-03 10:00:00',
-          updated_at: '2025-04-04 10:00:00',
+          created_at: '2025-04-03T10:00:00Z',
+          updated_at: '2025-04-04T10:00:00Z',
         },
       ],
       page: 1,
