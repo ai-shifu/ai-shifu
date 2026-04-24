@@ -1296,7 +1296,7 @@ const ListenModeSlideRenderer = ({
     </button>
   ) : null;
 
-  // console.log('elementlist', elementList);
+  console.log('elementlist', elementList);
 
   const desktopAskOverlay =
     playerCustomActionState.isActive &&
