@@ -669,6 +669,9 @@ def _generate_pingxx_charge(
         charge_extra = {"result_url": return_url} if return_url else {}
     elif channel == "alipay_wap":  # alipay mobile web
         # Ping++ expects explicit success/cancel URLs for Alipay WAP redirects.
+        if not return_url:
+            app.logger.error("channel:%s missing required return_url", channel)
+            raise_error("server.pay.payChannelNotSupport")
         charge_extra = {"success_url": return_url}
         if cancel_url:
             charge_extra["cancel_url"] = cancel_url

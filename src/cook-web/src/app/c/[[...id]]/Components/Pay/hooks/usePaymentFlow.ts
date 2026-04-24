@@ -7,7 +7,10 @@ import {
   initOrder,
   queryOrder,
   type PayUrlRequest,
+  type PayUrlValue,
   type PaymentChannel,
+  type PingxxPaymentPayload,
+  type StripePaymentPayload,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
 
@@ -22,10 +25,13 @@ const COUNTDOWN_INTERVAL = 1000;
 
 export interface PaymentInfoState {
   channel: string;
-  qrUrl: string;
+  qrUrl: PayUrlValue | '';
   status?: number;
   paymentChannel?: PaymentChannel;
-  paymentPayload?: Record<string, any>;
+  paymentPayload?:
+    | StripePaymentPayload
+    | PingxxPaymentPayload
+    | Record<string, unknown>;
 }
 
 interface UsePaymentFlowOptions {

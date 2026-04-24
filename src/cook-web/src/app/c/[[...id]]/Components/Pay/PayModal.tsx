@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/Button';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
 import {
-  ORDER_STATUS,
   PAY_CHANNEL_STRIPE,
   PAY_CHANNEL_WECHAT,
 } from './constans';
@@ -145,7 +144,9 @@ export const PayModal = ({
   const stripePayload = (paymentInfo.paymentPayload ||
     {}) as StripePaymentPayload;
   const stripeCheckoutUrl =
-    stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
+    stripePayload.checkout_session_url ||
+    (typeof paymentInfo.qrUrl === 'string' ? paymentInfo.qrUrl : '') ||
+    '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
 
   const { previewMode } = useSystemStore(
@@ -533,7 +534,11 @@ export const PayModal = ({
                       ) : pingxxChannelEnabled ? (
                         <div className={cn(styles.qrcodeWrapper, 'relative')}>
                           <QRCodeSVG
-                            value={paymentInfo.qrUrl || DEFAULT_QRCODE}
+                            value={
+                              (typeof paymentInfo.qrUrl === 'string'
+                                ? paymentInfo.qrUrl
+                                : '') || DEFAULT_QRCODE
+                            }
                             size={175}
                             level={'M'}
                           />

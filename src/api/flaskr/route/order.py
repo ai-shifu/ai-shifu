@@ -64,30 +64,13 @@ def build_pingxx_allowed_origins() -> list[str]:
 
 
 def resolve_pingxx_return_url(raw_return_url: str) -> str:
-    """Resolve Ping++ return URLs without trusting client-controlled hosts."""
+    """Resolve Ping++ return URLs using trusted server-side origins only."""
 
     candidate = str(raw_return_url or "").strip()
     if not candidate:
         return ""
 
     allowed_origins = build_pingxx_allowed_origins()
-    if candidate.startswith("/"):
-        if allowed_origins:
-            return normalize_pingxx_return_url(
-                candidate,
-                allowed_origins=allowed_origins,
-            )
-
-        # Some legacy deployments still configure HOME_URL as a relative path.
-        # In that case we only use the current request origin to expand a
-        # same-site relative path, while still refusing attacker-supplied
-        # absolute URLs.
-        request_origin = f"{request.scheme}://{request.host}"
-        return normalize_pingxx_return_url(
-            candidate,
-            allowed_origins=[request_origin],
-        )
-
     return normalize_pingxx_return_url(
         candidate,
         allowed_origins=allowed_origins,

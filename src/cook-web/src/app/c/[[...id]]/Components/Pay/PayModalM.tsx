@@ -76,22 +76,9 @@ export const PayModalM = ({
   payload = {},
 }) => {
   const isWechatBrowser = inWechat();
-  const wechatBridgeWindow =
-    typeof window === 'undefined'
-      ? null
-      : (window as Window & { WeixinJSBridge?: unknown });
-  const [wechatJsApiReady, setWechatJsApiReady] = useState(() => {
-    if (!wechatBridgeWindow) {
-      return false;
-    }
-    return typeof wechatBridgeWindow.WeixinJSBridge !== 'undefined';
-  });
-  // Keep the in-WeChat JSAPI flow unchanged and only fall back to WAP in
-  // browsers where WeixinJSBridge is unavailable.
-  const mobileWechatChannel =
-    isWechatBrowser && wechatJsApiReady
-      ? PAY_CHANNEL_WECHAT_JSAPI
-      : PAY_CHANNEL_WECHAT_WAP;
+  const mobileWechatChannel = isWechatBrowser
+    ? PAY_CHANNEL_WECHAT_JSAPI
+    : PAY_CHANNEL_WECHAT_WAP;
   // This mobile payment modal uses Alipay WAP redirects; the desktop modal
   // keeps the existing QR flow.
   const mobileAlipayChannel = PAY_CHANNEL_ALIPAY_WAP;
@@ -163,31 +150,6 @@ export const PayModalM = ({
   );
 
   useEffect(() => {
-    if (!isWechatBrowser) {
-      setWechatJsApiReady(false);
-      return;
-    }
-    if (
-      wechatBridgeWindow &&
-      typeof wechatBridgeWindow.WeixinJSBridge !== 'undefined'
-    ) {
-      setWechatJsApiReady(true);
-      return;
-    }
-    const handleBridgeReady = () => {
-      setWechatJsApiReady(true);
-    };
-    document.addEventListener('WeixinJSBridgeReady', handleBridgeReady, false);
-    return () => {
-      document.removeEventListener(
-        'WeixinJSBridgeReady',
-        handleBridgeReady,
-        false,
-      );
-    };
-  }, [isWechatBrowser, wechatBridgeWindow]);
-
-  useEffect(() => {
     setPayChannel(prev => {
       if (
         prev === PAY_CHANNEL_WECHAT_JSAPI ||
@@ -238,7 +200,9 @@ export const PayModalM = ({
   const stripePayload = (paymentInfo?.paymentPayload ||
     {}) as StripePaymentPayload;
   const stripeCheckoutUrl =
-    stripePayload.checkout_session_url || paymentInfo?.qrUrl || '';
+    stripePayload.checkout_session_url ||
+    (typeof paymentInfo?.qrUrl === 'string' ? paymentInfo.qrUrl : '') ||
+    '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
   const isPingxxRedirectChannel =
     payChannel === PAY_CHANNEL_WECHAT_WAP || payChannel === mobileAlipayChannel;
@@ -408,6 +372,13 @@ export const PayModalM = ({
     }
 
     if (payChannel === PAY_CHANNEL_WECHAT_JSAPI) {
+      if (!payload.qr_url || typeof payload.qr_url === 'string') {
+        toast({
+          title: t('module.pay.payFailed'),
+          variant: 'destructive',
+        });
+        return;
+      }
       try {
         await payByJsApi(payload.qr_url);
         toast({

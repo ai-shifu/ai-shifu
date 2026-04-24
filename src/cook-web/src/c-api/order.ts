@@ -1,6 +1,8 @@
 import request from '@/lib/request';
 
 export type PaymentChannel = 'pingxx' | 'stripe';
+export type PingxxJsApiCredential = Record<string, unknown>;
+export type PayUrlValue = string | PingxxJsApiCredential;
 
 export interface StripePaymentPayload {
   mode?: 'payment_intent' | 'checkout_session';
@@ -12,9 +14,9 @@ export interface StripePaymentPayload {
 }
 
 export interface PingxxPaymentPayload {
-  qr_url?: string;
+  qr_url?: PayUrlValue;
   redirect_url?: string;
-  credential?: Record<string, any>;
+  credential?: PingxxJsApiCredential;
 }
 
 export interface PayUrlResponse {
@@ -22,12 +24,12 @@ export interface PayUrlResponse {
   user_id: string;
   price: string;
   channel: string;
-  qr_url: string;
+  qr_url: PayUrlValue;
   payment_channel?: PaymentChannel;
   payment_payload?:
     | StripePaymentPayload
     | PingxxPaymentPayload
-    | Record<string, any>;
+    | Record<string, unknown>;
   status?: number;
 }
 
