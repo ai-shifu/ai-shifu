@@ -32,6 +32,7 @@
     "module.groupon",
     "module.lesson",
     "module.operationsCourse",
+    "module.operationsOrder",
     "module.operationsUser",
     "module.order",
     "module.pay",

@@ -1,0 +1,62 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "detail": {
+    "fallback": "Order Detail",
+    "sections": {
+      "activities": "Activities",
+      "coupons": "Redemption Code",
+      "course": "Course Info",
+      "payment": "Amount & Payment",
+      "summary": "Order Info",
+      "user": "User Info"
+    },
+    "title": "Order Detail"
+  },
+  "emptyList": "No order data",
+  "filters": {
+    "courseId": "Course ID",
+    "courseIdPlaceholder": "Enter course ID",
+    "courseName": "Course Name",
+    "courseNamePlaceholder": "Enter course name",
+    "createdAt": "Created At",
+    "endTime": "End Time",
+    "orderId": "Order ID",
+    "orderIdPlaceholder": "Enter order ID",
+    "paymentChannel": "Payment Channel",
+    "reset": "Reset",
+    "search": "Search",
+    "source": "Order Source",
+    "startTime": "Start Time",
+    "status": "Status",
+    "timeRangePlaceholder": "Select order start and end dates",
+    "userKeyword": "User Search",
+    "userKeywordPlaceholder": "Search by user ID, phone, or email",
+    "userKeywordPlaceholderEmail": "Search by user ID or email",
+    "userKeywordPlaceholderPhone": "Search by user ID or phone"
+  },
+  "source": {
+    "couponRedeem": "Coupon Redemption",
+    "importActivation": "Import Activation",
+    "openApi": "Open API Grant",
+    "userPurchase": "User Purchase"
+  },
+  "table": {
+    "action": "Action",
+    "coupons": "Redemption Code",
+    "course": "Course",
+    "createdAt": "Created At",
+    "discountAmount": "Discount",
+    "empty": "No order data",
+    "orderId": "Order ID",
+    "paidAmount": "Paid",
+    "paymentChannel": "Payment Channel",
+    "source": "Order Source",
+    "status": "Status",
+    "updatedAt": "Order Updated At",
+    "user": "User",
+    "userId": "User ID",
+    "view": "View Detail"
+  },
+  "title": "Order Management",
+  "totalCount": "{count} orders"
+}

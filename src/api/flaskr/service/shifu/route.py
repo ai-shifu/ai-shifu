@@ -103,6 +103,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
 from flaskr.service.shifu.admin import (
+    OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_user_detail,
@@ -114,6 +115,10 @@ from flaskr.service.shifu.admin import (
     list_operator_courses,
     list_operator_users,
     transfer_operator_course_creator,
+)
+from flaskr.service.order.admin import (
+    get_operator_order_detail,
+    list_operator_orders,
 )
 from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
 from flaskr.service.shifu.shifu_publish_funcs import (
@@ -665,6 +670,113 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             list_operator_users(app, page_index, page_size, filters)
         )
+
+    @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
+    def admin_operations_orders():
+        """
+        Operator global order list
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: user_keyword
+              type: string
+              required: false
+              description: Exact match on user bid, phone, or email
+            - name: order_bid
+              type: string
+              required: false
+            - name: shifu_bid
+              type: string
+              required: false
+            - name: course_name
+              type: string
+              required: false
+            - name: status
+              type: string
+              required: false
+            - name: order_source
+              type: string
+              required: false
+              description: user_purchase, coupon_redeem, import_activation, or open_api
+            - name: payment_channel
+              type: string
+              required: false
+            - name: start_time
+              type: string
+              required: false
+              description: Order created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: Order created end date (YYYY-MM-DD)
+        responses:
+            200:
+                description: List global operator-visible orders
+        """
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
+
+        filters = {
+            "user_keyword": request.args.get("user_keyword", ""),
+            "order_bid": request.args.get("order_bid", ""),
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "course_name": request.args.get("course_name", ""),
+            "status": request.args.get("status", ""),
+            "order_source": request.args.get("order_source", ""),
+            "payment_channel": request.args.get("payment_channel", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_orders(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/<order_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_order_detail(order_bid: str):
+        """
+        Get operator order detail
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: order_bid
+              in: path
+              type: string
+              required: true
+              description: Order business identifier
+        responses:
+            200:
+                description: Operator order detail
+        """
+        _require_operator()
+        if not str(order_bid or "").strip():
+            raise_param_error("order_bid")
+        return make_common_response(get_operator_order_detail(app, order_bid))
 
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
