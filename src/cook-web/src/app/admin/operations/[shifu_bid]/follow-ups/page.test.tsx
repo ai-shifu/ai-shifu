@@ -62,6 +62,10 @@ jest.mock('@/c-store', () => ({
   ) => selector(mockEnvState),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -161,7 +165,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         follow_up_count: 2,
         user_count: 1,
         lesson_count: 1,
-        latest_follow_up_at: '2026-04-05 11:02:00',
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
       },
       items: [
         {
@@ -177,7 +181,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_title: 'Lesson 1',
           follow_up_content: 'Second follow-up question',
           turn_index: 2,
-          created_at: '2026-04-05 11:02:00',
+          created_at: '2026-04-05T11:02:00Z',
         },
         {
           generated_block_bid: 'ask-1',
@@ -192,7 +196,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_title: 'Lesson 1',
           follow_up_content: 'First follow-up question',
           turn_index: 1,
-          created_at: '2026-04-05 11:01:00',
+          created_at: '2026-04-05T11:01:00Z',
         },
       ],
       page: 1,
@@ -212,7 +216,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         chapter_title: 'Chapter 1',
         lesson_title: 'Lesson 1',
-        created_at: '2026-04-05 11:02:00',
+        created_at: '2026-04-05T11:02:00Z',
         turn_index: 2,
       },
       current_record: {
@@ -228,13 +232,13 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         {
           role: 'student',
           content: 'First follow-up question',
-          created_at: '2026-04-05 11:01:00',
+          created_at: '2026-04-05T11:01:00Z',
           is_current: false,
         },
         {
           role: 'teacher',
           content: 'Second follow-up answer',
-          created_at: '2026-04-05 11:02:02',
+          created_at: '2026-04-05T11:02:02Z',
           is_current: true,
         },
       ],
@@ -379,7 +383,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         chapter_title: '',
         lesson_title: 'Lesson 1',
-        created_at: '2026-04-05 11:02:00',
+        created_at: '2026-04-05T11:02:00Z',
         turn_index: 2,
       },
       current_record: {
@@ -448,7 +452,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           shifu_bid: 'course-1',
           chapter_title: 'Chapter 1',
           lesson_title: 'Lesson 1',
-          created_at: '2026-04-05 11:02:00',
+          created_at: '2026-04-05T11:02:00Z',
           turn_index: 2,
         },
         current_record: {
@@ -479,7 +483,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         follow_up_count: 1,
         user_count: 1,
         lesson_count: 1,
-        latest_follow_up_at: '2026-04-05 11:02:00',
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
       },
       items: [
         {
@@ -495,7 +499,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_title: 'Lesson 1',
           follow_up_content: 'Question without a valid block bid',
           turn_index: 1,
-          created_at: '2026-04-05 11:02:00',
+          created_at: '2026-04-05T11:02:00Z',
         },
       ],
       page: 1,

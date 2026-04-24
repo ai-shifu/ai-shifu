@@ -241,7 +241,7 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     assert result.data[0].updater_user_bid == "editor-9"
     assert result.data[0].updater_mobile == "13223532334"
     assert result.data[0].updater_nickname == "Editor Nine"
-    assert result.data[0].updated_at == "2025-04-05 09:00:00"
+    assert result.data[0].updated_at == "2025-04-05T09:00:00Z"
 
 
 def test_list_operator_courses_filters_by_latest_activity_updated_range():
@@ -300,7 +300,7 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
     assert result.total == 1
     assert len(result.data) == 1
     assert result.data[0].shifu_bid == "course-activity-filter"
-    assert result.data[0].updated_at == "2025-04-05 09:00:00"
+    assert result.data[0].updated_at == "2025-04-05T09:00:00Z"
     assert latest_mock.call_args_list[0].kwargs["updated_start_time"] is None
     assert latest_mock.call_args_list[0].kwargs["updated_end_time"] is None
 

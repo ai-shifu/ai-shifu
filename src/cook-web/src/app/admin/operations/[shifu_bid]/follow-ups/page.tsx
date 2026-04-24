@@ -17,6 +17,7 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -510,7 +511,9 @@ export default function AdminOperationCourseFollowUpsPage() {
       {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(followUps.summary.latest_follow_up_at, emptyValue),
+        value:
+          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at) ||
+          emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -915,7 +918,9 @@ export default function AdminOperationCourseFollowUpsPage() {
                                       style={getColumnStyle('createdAt')}
                                     >
                                       <AdminTooltipText
-                                        text={item.created_at}
+                                        text={formatAdminUtcDateTime(
+                                          item.created_at,
+                                        )}
                                         emptyValue={emptyValue}
                                         className='mx-auto block max-w-full'
                                       />

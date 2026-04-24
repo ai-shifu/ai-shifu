@@ -214,12 +214,6 @@ def _format_decimal(value: Optional[Decimal]) -> str:
     return normalized
 
 
-def _format_datetime(value: Optional[datetime]) -> str:
-    if not value:
-        return ""
-    return value.strftime("%Y-%m-%d %H:%M:%S")
-
-
 def _format_operator_datetime(value: Optional[datetime]) -> str:
     if not value:
         return ""
@@ -1388,8 +1382,8 @@ def _build_course_summary(
         updater_mobile=updater.get("mobile", ""),
         updater_email=updater.get("email", ""),
         updater_nickname=updater.get("nickname", ""),
-        created_at=_format_datetime(course.created_at),
-        updated_at=_format_datetime(updated_at),
+        created_at=_format_operator_datetime(course.created_at),
+        updated_at=_format_operator_datetime(updated_at),
     )
 
 
@@ -2230,7 +2224,7 @@ def _build_chapter_tree(
             modifier_mobile=modifier.get("mobile", ""),
             modifier_email=modifier.get("email", ""),
             modifier_nickname=modifier.get("nickname", ""),
-            updated_at=_format_datetime(item.updated_at),
+            updated_at=_format_operator_datetime(item.updated_at),
             children=[],
         )
         node_map[bid] = node
@@ -3015,8 +3009,8 @@ def get_operator_course_detail(
                 creator_mobile=creator.get("mobile", ""),
                 creator_email=creator.get("email", ""),
                 creator_nickname=creator.get("nickname", ""),
-                created_at=_format_datetime(course.created_at),
-                updated_at=_format_datetime(course.updated_at),
+                created_at=_format_operator_datetime(course.created_at),
+                updated_at=_format_operator_datetime(course.updated_at),
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
                 visit_count_30d=int(visit_count_30d),
@@ -3180,9 +3174,9 @@ def get_operator_course_users(
                 learning_status=learning_status,
                 is_paid=is_paid,
                 total_paid_amount=_format_decimal(total_paid_amount),
-                last_learning_at=_format_datetime(last_learning_at),
-                joined_at=_format_datetime(joined_at),
-                last_login_at=_format_datetime(last_login_at),
+                last_learning_at=_format_operator_datetime(last_learning_at),
+                joined_at=_format_operator_datetime(joined_at),
+                last_login_at=_format_operator_datetime(last_login_at),
             )
             items_with_sort_keys.append(
                 (
@@ -3330,7 +3324,7 @@ def get_operator_course_follow_ups(
                 lesson_title=str(context.get("lesson_title", "") or ""),
                 follow_up_content=str(getattr(row, "generated_content", "") or ""),
                 turn_index=int(turn_index_map.get(generated_block_bid, 0) or 0),
-                created_at=_format_datetime(created_at),
+                created_at=_format_operator_datetime(created_at),
             )
             filtered_items.append(
                 (
@@ -3441,7 +3435,7 @@ def get_operator_course_follow_up_detail(
                     content=str(
                         getattr(current_ask_block, "generated_content", "") or ""
                     ),
-                    created_at=_format_datetime(
+                    created_at=_format_operator_datetime(
                         getattr(current_ask_block, "created_at", None)
                     ),
                     is_current=is_current,
@@ -3454,7 +3448,7 @@ def get_operator_course_follow_up_detail(
                     AdminOperationCourseFollowUpTimelineItemDTO(
                         role="teacher",
                         content=answer_content,
-                        created_at=_format_datetime(
+                        created_at=_format_operator_datetime(
                             getattr(answer_block, "created_at", None)
                         ),
                         is_current=is_current,
@@ -3478,7 +3472,9 @@ def get_operator_course_follow_up_detail(
                 shifu_bid=normalized_shifu_bid,
                 chapter_title=str(context.get("chapter_title", "") or ""),
                 lesson_title=str(context.get("lesson_title", "") or ""),
-                created_at=_format_datetime(getattr(ask_block, "created_at", None)),
+                created_at=_format_operator_datetime(
+                    getattr(ask_block, "created_at", None)
+                ),
                 turn_index=selected_group_index + 1,
             ),
             current_record=AdminOperationCourseFollowUpCurrentRecordDTO(

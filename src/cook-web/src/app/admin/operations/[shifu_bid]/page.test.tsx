@@ -82,6 +82,10 @@ jest.mock('@/hooks/useToast', () => ({
   show: (...args: unknown[]) => mockToastShow(...args),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -215,9 +219,9 @@ describe('AdminOperationCourseDetailPage', () => {
           learning_status: 'learning',
           is_paid: true,
           total_paid_amount: '88',
-          last_learning_at: '2026-04-08 11:30:00',
-          joined_at: '2026-04-07 09:00:00',
-          last_login_at: '2026-04-08 12:00:00',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
         },
       ],
       page: 1,
@@ -234,8 +238,8 @@ describe('AdminOperationCourseDetailPage', () => {
         creator_mobile: '13800001234',
         creator_email: '',
         creator_nickname: 'Alice',
-        created_at: '2026-04-08 10:00:00',
-        updated_at: '2026-04-08 11:00:00',
+        created_at: '2026-04-08T10:00:00Z',
+        updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
         visit_count_30d: 34,
@@ -261,7 +265,7 @@ describe('AdminOperationCourseDetailPage', () => {
           modifier_mobile: '13800001234',
           modifier_email: '',
           modifier_nickname: 'Alice',
-          updated_at: '2026-04-08 11:00:00',
+          updated_at: '2026-04-08T11:00:00Z',
           children: [
             {
               outline_item_bid: 'lesson-1',
@@ -278,7 +282,7 @@ describe('AdminOperationCourseDetailPage', () => {
               modifier_mobile: '13900001234',
               modifier_email: '',
               modifier_nickname: 'Bob',
-              updated_at: '2026-04-08 11:00:00',
+              updated_at: '2026-04-08T11:00:00Z',
               children: [],
             },
           ],
@@ -492,8 +496,8 @@ describe('AdminOperationCourseDetailPage', () => {
         creator_mobile: '13800001234',
         creator_email: '',
         creator_nickname: 'Alice',
-        created_at: '2026-04-08 10:00:00',
-        updated_at: '2026-04-08 11:00:00',
+        created_at: '2026-04-08T10:00:00Z',
+        updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
         visit_count_30d: 34,
@@ -519,7 +523,7 @@ describe('AdminOperationCourseDetailPage', () => {
           modifier_mobile: '13800001234',
           modifier_email: '',
           modifier_nickname: 'Alice',
-          updated_at: '2026-04-08 11:00:00',
+          updated_at: '2026-04-08T11:00:00Z',
           children: [],
         },
       ],
@@ -696,9 +700,9 @@ describe('AdminOperationCourseDetailPage', () => {
           learning_status: 'learning',
           is_paid: true,
           total_paid_amount: '88',
-          last_learning_at: '2026-04-08 11:30:00',
-          joined_at: '2026-04-07 09:00:00',
-          last_login_at: '2026-04-08 12:00:00',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
         },
       ],
       page: 1,
