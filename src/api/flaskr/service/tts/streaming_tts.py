@@ -985,6 +985,7 @@ class StreamingTTSProcessor:
             request_word_count = 0
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
+            request_final_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
                 text=request_text,
@@ -1009,7 +1010,58 @@ class StreamingTTSProcessor:
                 if not accumulated_audio:
                     continue
 
-                if not chunk.is_final and not request_subtitles:
+                progressive_request_subtitle_cues = (
+                    self._build_minimax_provider_subtitle_cues(
+                        request_subtitles=request_subtitles,
+                        subtitle_offset_ms=subtitle_offset_ms,
+                    )
+                )
+                request_subtitle_coverage_end_ms = max(
+                    self._subtitle_cues_end_ms(progressive_request_subtitle_cues)
+                    - int(subtitle_offset_ms or 0),
+                    0,
+                )
+
+                if chunk.is_final:
+                    if request_duration_ms <= 0:
+                        request_duration_ms = get_audio_duration_ms(
+                            accumulated_audio,
+                            format=request_format or "mp3",
+                        )
+                    if progressive_request_subtitle_cues and (
+                        self._subtitle_cues_cover_text(
+                            progressive_request_subtitle_cues,
+                            request_text,
+                        )
+                    ):
+                        request_final_subtitle_cues = progressive_request_subtitle_cues
+                        target_end_ms = max(
+                            request_subtitle_coverage_end_ms, emitted_ms
+                        )
+                    else:
+                        if progressive_request_subtitle_cues:
+                            logger.debug(
+                                "MiniMax subtitles did not cover full request text; "
+                                "using fallback cues. request_index=%s, subtitles=%s",
+                                request_index,
+                                len(progressive_request_subtitle_cues),
+                            )
+                        request_final_subtitle_cues = (
+                            self._build_minimax_fallback_subtitle_cues(
+                                request_text,
+                                duration_ms=int(request_duration_ms or emitted_ms or 0),
+                                offset_ms=subtitle_offset_ms,
+                            )
+                        )
+                        target_end_ms = max(int(request_duration_ms or 0), emitted_ms)
+                    event_request_subtitle_cues = request_final_subtitle_cues
+                else:
+                    if not progressive_request_subtitle_cues:
+                        continue
+                    target_end_ms = request_subtitle_coverage_end_ms
+                    event_request_subtitle_cues = progressive_request_subtitle_cues
+
+                if target_end_ms <= emitted_ms:
                     continue
 
                 audio_piece = b""
@@ -1017,7 +1069,7 @@ class StreamingTTSProcessor:
                 audio_piece, piece_duration_ms = export_audio_range_best_effort(
                     accumulated_audio,
                     start_ms=emitted_ms,
-                    end_ms=request_duration_ms if chunk.is_final else None,
+                    end_ms=target_end_ms,
                     input_format=request_format or "mp3",
                     output_format=self.audio_settings.format or "mp3",
                 )
@@ -1028,7 +1080,12 @@ class StreamingTTSProcessor:
                 ):
                     continue
 
-                if not audio_piece and chunk.is_final and emitted_ms == 0:
+                if (
+                    not audio_piece
+                    and chunk.is_final
+                    and emitted_ms == 0
+                    and target_end_ms >= int(request_duration_ms or 0)
+                ):
                     audio_piece = accumulated_audio
                     piece_duration_ms = request_duration_ms or get_audio_duration_ms(
                         audio_piece,
@@ -1039,14 +1096,8 @@ class StreamingTTSProcessor:
                     continue
 
                 emitted_ms += int(piece_duration_ms or 0)
-                progressive_request_subtitle_cues = (
-                    self._build_minimax_provider_subtitle_cues(
-                        request_subtitles=request_subtitles,
-                        subtitle_offset_ms=subtitle_offset_ms,
-                    )
-                )
                 progressive_subtitle_cues = normalize_subtitle_cues(
-                    list(live_subtitle_cues or []) + progressive_request_subtitle_cues
+                    list(live_subtitle_cues or []) + event_request_subtitle_cues
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,
@@ -1060,30 +1111,31 @@ class StreamingTTSProcessor:
                 request_duration_ms = emitted_ms
             if request_word_count:
                 self._word_count_total += request_word_count
-            request_subtitle_cues = self._minimax_subtitles_to_cues(
-                request_subtitles,
-                offset_ms=subtitle_offset_ms,
-            )
-            if request_subtitle_cues and self._subtitle_cues_cover_text(
-                request_subtitle_cues,
-                request_text,
-            ):
-                request_final_subtitle_cues = request_subtitle_cues
-            else:
-                if request_subtitle_cues:
-                    logger.debug(
-                        "MiniMax subtitles did not cover full request text; "
-                        "using fallback cues. request_index=%s, subtitles=%s",
-                        request_index,
-                        len(request_subtitle_cues),
-                    )
-                request_final_subtitle_cues = (
-                    self._build_minimax_fallback_subtitle_cues(
-                        request_text,
-                        duration_ms=int(request_duration_ms or emitted_ms or 0),
-                        offset_ms=subtitle_offset_ms,
-                    )
+            if not request_final_subtitle_cues:
+                request_subtitle_cues = self._minimax_subtitles_to_cues(
+                    request_subtitles,
+                    offset_ms=subtitle_offset_ms,
                 )
+                if request_subtitle_cues and self._subtitle_cues_cover_text(
+                    request_subtitle_cues,
+                    request_text,
+                ):
+                    request_final_subtitle_cues = request_subtitle_cues
+                else:
+                    if request_subtitle_cues:
+                        logger.debug(
+                            "MiniMax subtitles did not cover full request text; "
+                            "using fallback cues. request_index=%s, subtitles=%s",
+                            request_index,
+                            len(request_subtitle_cues),
+                        )
+                    request_final_subtitle_cues = (
+                        self._build_minimax_fallback_subtitle_cues(
+                            request_text,
+                            duration_ms=int(request_duration_ms or emitted_ms or 0),
+                            offset_ms=subtitle_offset_ms,
+                        )
+                    )
             final_subtitle_cues.extend(request_final_subtitle_cues)
             live_subtitle_cues = normalize_subtitle_cues(
                 list(live_subtitle_cues or []) + request_final_subtitle_cues

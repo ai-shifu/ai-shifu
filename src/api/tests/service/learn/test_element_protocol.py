@@ -3405,7 +3405,7 @@ class TestElementChangeTypeSemantics:
                     content=AudioCompleteDTO(
                         audio_url="https://example.com/subtitle-freeze.mp3",
                         audio_bid="subtitle-freeze-audio",
-                        duration_ms=340,
+                        duration_ms=500,
                         position=0,
                         stream_element_number=1,
                         stream_element_type="text",

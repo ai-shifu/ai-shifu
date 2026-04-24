@@ -98,13 +98,13 @@ class ListenElementRunStreamMixin:
             previous_audio,
             current_audio,
         )
-        frozen_duration_ms = max(
-            int(getattr(previous_audio, "duration_ms", 0) or 0),
-            int(getattr(current_audio, "duration_ms", 0) or 0),
-            int(resolved_subtitle_cues[-1].get("end_ms", 0) or 0)
-            if resolved_subtitle_cues
-            else 0,
-        )
+        if resolved_subtitle_cues:
+            frozen_duration_ms = int(resolved_subtitle_cues[-1].get("end_ms", 0) or 0)
+        else:
+            frozen_duration_ms = max(
+                int(getattr(previous_audio, "duration_ms", 0) or 0),
+                int(getattr(current_audio, "duration_ms", 0) or 0),
+            )
         frozen_audio = ElementAudioDTO(
             audio_url=(
                 str(current_audio.audio_url or "")
