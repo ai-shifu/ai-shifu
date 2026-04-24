@@ -13,6 +13,7 @@ const mockPush = jest.fn();
 const mockGetAdminOperationCourseFollowUps = jest.fn();
 const mockGetAdminOperationCourseFollowUpDetail = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const SHEET_CLOSE_LABEL = 'close-sheet';
 const mockEnvState = {
   loginMethodsEnabled: ['phone'],
@@ -63,7 +64,7 @@ jest.mock('@/c-store', () => ({
 }));
 
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -153,6 +154,8 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     mockPush.mockReset();
     mockGetAdminOperationCourseFollowUps.mockReset();
     mockGetAdminOperationCourseFollowUpDetail.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockUserState.isInitialized = true;
@@ -413,6 +416,46 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.sourceUnavailable',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('renders summary time in the viewer timezone when UTC crosses local day boundaries', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      summary: {
+        follow_up_count: 1,
+        user_count: 1,
+        lesson_count: 1,
+        latest_follow_up_at: '2026-04-05T01:30:00Z',
+      },
+      items: [
+        {
+          generated_block_bid: 'ask-1',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          follow_up_content: 'Cross-day follow-up question',
+          turn_index: 1,
+          created_at: '2026-04-05T01:30:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Cross-day follow-up question');
+
+    expect(screen.getByText('2026-04-04')).toBeInTheDocument();
+    expect(screen.getByText('18:30:00')).toBeInTheDocument();
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {

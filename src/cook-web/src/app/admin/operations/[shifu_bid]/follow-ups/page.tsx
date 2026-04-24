@@ -127,7 +127,10 @@ const formatValue = (value: string | undefined | null, emptyValue: string) => {
 };
 
 const splitTimestampValue = (value: string) => {
-  const normalizedValue = value.trim();
+  const normalizedValue = value
+    .replace(/[,\u202F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalizedValue) {
     return [];
   }
