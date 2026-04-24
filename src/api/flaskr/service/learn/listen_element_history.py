@@ -91,7 +91,9 @@ def _load_progress_bid_by_generated_block_bid(
             continue
         active_blocks_by_progress_bid.setdefault(progress_record_bid, []).append(block)
         if generated_block_bid:
-            progress_bid_by_generated_block_bid[generated_block_bid] = progress_record_bid
+            progress_bid_by_generated_block_bid[generated_block_bid] = (
+                progress_record_bid
+            )
     return progress_bid_by_generated_block_bid, active_blocks_by_progress_bid
 
 
@@ -270,9 +272,7 @@ def _query_element_rows(
     (
         progress_bid_by_generated_block_bid,
         active_blocks_by_progress_bid,
-    ) = _load_progress_bid_by_generated_block_bid(
-        progress_record_bids
-    )
+    ) = _load_progress_bid_by_generated_block_bid(progress_record_bids)
     relevant_generated_block_bids = list(progress_bid_by_generated_block_bid.keys())
     progress_row_filter = LearnGeneratedElement.progress_record_bid.in_(
         progress_record_bids
