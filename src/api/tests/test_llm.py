@@ -113,6 +113,76 @@ class FakeResponse:
         self.usage = usage
 
 
+class FakeModelsResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload
+
+
+def test_deepseek_model_loader_lists_models(monkeypatch):
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return FakeModelsResponse(
+            {
+                "object": "list",
+                "data": [
+                    {"id": "deepseek-v4-flash", "object": "model"},
+                    {"id": "deepseek-v4-pro", "object": "model"},
+                ],
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="deepseek",
+        api_key_env="DEEPSEEK_API_KEY",
+        base_url_env="DEEPSEEK_API_URL",
+        default_base_url="https://api.deepseek.com",
+    )
+
+    models = llm._load_deepseek_models(
+        config,
+        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
+        "https://api.deepseek.com",
+    )
+
+    assert models == ["deepseek-v4-flash", "deepseek-v4-pro"]
+    assert captured["url"] == "https://api.deepseek.com/models"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["timeout"] == 20
+
+
+def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
+    def fake_get(*args, **kwargs):
+        _ = args, kwargs
+        raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="deepseek",
+        api_key_env="DEEPSEEK_API_KEY",
+        base_url_env="DEEPSEEK_API_URL",
+        default_base_url="https://api.deepseek.com",
+    )
+
+    models = llm._load_deepseek_models(
+        config,
+        {"api_key": "test-key", "api_base": "https://api.deepseek.com"},
+        "https://api.deepseek.com",
+    )
+
+    assert models == llm.DEEPSEEK_FALLBACK_MODELS
+
+
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
 
