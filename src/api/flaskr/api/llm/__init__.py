@@ -367,12 +367,28 @@ def _load_gemini_models(
     return models
 
 
+def _load_deepseek_models(
+    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
+) -> List[Union[str, Tuple[str, str]]]:
+    api_key = params.get("api_key", "")
+    try:
+        return _fetch_provider_models(api_key, base_url)
+    except Exception as exc:
+        _log_warning(f"load {config.key} models error: {exc}")
+        return list(DEEPSEEK_FALLBACK_MODELS)
+
+
 QWEN_PREFIX = "qwen/"
 ERNIE_V2_PREFIX = "ernie/"
 GLM_PREFIX = "glm/"
 SILICON_PREFIX = "silicon/"
 GEMINI_PREFIX = ""
-DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
+DEEPSEEK_FALLBACK_MODELS = [
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
+    "deepseek-chat",
+    "deepseek-reasoner",
+]
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
@@ -480,9 +496,9 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         api_key_env="DEEPSEEK_API_KEY",
         base_url_env="DEEPSEEK_API_URL",
         default_base_url="https://api.deepseek.com",
-        extra_models=DEEPSEEK_EXTRA_MODELS,
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
         custom_llm_provider="openai",
+        model_loader=_load_deepseek_models,
     ),
     ProviderConfig(
         key="gemini",
