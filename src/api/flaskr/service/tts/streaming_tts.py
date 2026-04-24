@@ -711,43 +711,6 @@ class StreamingTTSProcessor:
             return False
         return all(unit in subtitle_blob for unit in normalized_units)
 
-    def _subtitle_cues_cover_progress_window(
-        self,
-        subtitle_cues: list[dict[str, Any]],
-        *,
-        progress_start_ms: int,
-        progress_end_ms: int,
-    ) -> bool:
-        safe_progress_start_ms = max(int(progress_start_ms or 0), 0)
-        safe_progress_end_ms = max(int(progress_end_ms or 0), safe_progress_start_ms)
-        normalized_cues = normalize_subtitle_cues(subtitle_cues)
-        if safe_progress_end_ms <= safe_progress_start_ms:
-            return bool(normalized_cues)
-
-        relevant_ranges: list[tuple[int, int]] = []
-        for cue in normalized_cues:
-            start_ms = int(cue.get("start_ms", 0) or 0)
-            end_ms = int(cue.get("end_ms", start_ms) or start_ms)
-            if end_ms <= safe_progress_start_ms or start_ms >= safe_progress_end_ms:
-                continue
-            relevant_ranges.append(
-                (
-                    max(start_ms, safe_progress_start_ms),
-                    min(max(end_ms, start_ms), safe_progress_end_ms),
-                )
-            )
-
-        if not relevant_ranges:
-            return False
-
-        max_boundary_gap_ms = 400
-        leading_gap_ms = max(relevant_ranges[0][0] - safe_progress_start_ms, 0)
-        trailing_gap_ms = max(safe_progress_end_ms - relevant_ranges[-1][1], 0)
-        return (
-            leading_gap_ms <= max_boundary_gap_ms
-            and trailing_gap_ms <= max_boundary_gap_ms
-        )
-
     def _build_minimax_fallback_subtitle_cues(
         self,
         text: str,
@@ -795,243 +758,25 @@ class StreamingTTSProcessor:
 
         return cues
 
-    def _clamp_subtitle_cues_to_progress(
-        self,
-        subtitle_cues: list[dict[str, Any]],
-        *,
-        progress_end_ms: int,
-    ) -> list[dict[str, Any]]:
-        safe_progress_end_ms = max(int(progress_end_ms or 0), 0)
-        clamped: list[dict[str, Any]] = []
-        for cue in normalize_subtitle_cues(subtitle_cues):
-            start_ms = int(cue.get("start_ms", 0) or 0)
-            end_ms = int(cue.get("end_ms", start_ms) or start_ms)
-            if start_ms >= safe_progress_end_ms:
-                continue
-            if end_ms <= start_ms and safe_progress_end_ms > start_ms:
-                end_ms = safe_progress_end_ms
-            else:
-                end_ms = min(max(end_ms, start_ms), safe_progress_end_ms)
-            clamped.append(
-                {
-                    **cue,
-                    "start_ms": start_ms,
-                    "end_ms": max(end_ms, start_ms),
-                }
-            )
-        return clamped
+    @staticmethod
+    def _subtitle_cues_end_ms(subtitle_cues: list[dict[str, Any]]) -> int:
+        normalized_cues = normalize_subtitle_cues(subtitle_cues)
+        if not normalized_cues:
+            return 0
+        return max(int(cue.get("end_ms", 0) or 0) for cue in normalized_cues)
 
-    def _build_minimax_progress_source_subtitle_cues(
+    def _build_minimax_provider_subtitle_cues(
         self,
         *,
-        request_text: str,
         request_subtitles: list[dict[str, Any]],
         subtitle_offset_ms: int,
-        emitted_ms: int,
-        fallback_duration_ms: Optional[int] = None,
-        allow_fallback: bool = False,
     ) -> list[dict[str, Any]]:
-        progress_end_ms = max(int(subtitle_offset_ms or 0), 0) + max(
-            int(emitted_ms or 0), 0
-        )
-        request_subtitle_cues = self._minimax_subtitles_to_cues(
-            request_subtitles,
-            offset_ms=subtitle_offset_ms,
-        )
-        progress_subtitle_cues = self._clamp_subtitle_cues_to_progress(
-            request_subtitle_cues,
-            progress_end_ms=progress_end_ms,
-        )
-        if progress_subtitle_cues and self._subtitle_cues_cover_progress_window(
-            progress_subtitle_cues,
-            progress_start_ms=subtitle_offset_ms,
-            progress_end_ms=progress_end_ms,
-        ):
-            current_cues = progress_subtitle_cues
-        elif allow_fallback:
-            current_cues = self._clamp_subtitle_cues_to_progress(
-                self._build_minimax_fallback_subtitle_cues(
-                    request_text,
-                    duration_ms=(
-                        int(fallback_duration_ms)
-                        if fallback_duration_ms is not None
-                        else max(int(emitted_ms or 0), 1)
-                    ),
-                    offset_ms=subtitle_offset_ms,
-                ),
-                progress_end_ms=progress_end_ms,
-            )
-        else:
-            current_cues = progress_subtitle_cues
-
-        normalized_current_cues = normalize_subtitle_cues(current_cues)
-        if normalized_current_cues:
-            normalized_current_cues[-1]["end_ms"] = max(
-                int(normalized_current_cues[-1].get("end_ms", 0) or 0),
-                progress_end_ms,
-            )
-        return normalized_current_cues
-
-    @staticmethod
-    def _remap_minimax_live_subtitle_point(
-        point_ms: int,
-        *,
-        source_start_ms: int,
-        source_end_ms: int,
-        target_start_ms: int,
-        target_end_ms: int,
-    ) -> int:
-        safe_target_start_ms = max(int(target_start_ms or 0), 0)
-        safe_target_end_ms = max(int(target_end_ms or 0), safe_target_start_ms)
-        safe_source_start_ms = max(int(source_start_ms or 0), 0)
-        safe_source_end_ms = max(int(source_end_ms or 0), safe_source_start_ms)
-        if safe_target_end_ms <= safe_target_start_ms:
-            return safe_target_start_ms
-        if safe_source_end_ms <= safe_source_start_ms:
-            return safe_target_end_ms
-        clamped_point_ms = min(
-            max(int(point_ms or 0), safe_source_start_ms),
-            safe_source_end_ms,
-        )
-        return safe_target_start_ms + int(
-            round(
-                (clamped_point_ms - safe_source_start_ms)
-                * (safe_target_end_ms - safe_target_start_ms)
-                / max(safe_source_end_ms - safe_source_start_ms, 1)
+        return normalize_subtitle_cues(
+            self._minimax_subtitles_to_cues(
+                request_subtitles,
+                offset_ms=subtitle_offset_ms,
             )
         )
-
-    @staticmethod
-    def _matching_live_subtitle_prefix_len(
-        previous_live_request_cues: list[dict[str, Any]],
-        source_request_cues: list[dict[str, Any]],
-    ) -> int:
-        shared_prefix_len = 0
-        for previous_cue, current_cue in zip(
-            previous_live_request_cues,
-            source_request_cues,
-        ):
-            previous_text = str(previous_cue.get("text", "") or "").strip()
-            current_text = str(current_cue.get("text", "") or "").strip()
-            if not previous_text or previous_text != current_text:
-                break
-            shared_prefix_len += 1
-        return shared_prefix_len
-
-    def _build_minimax_live_request_subtitle_cues(
-        self,
-        *,
-        previous_live_request_cues: list[dict[str, Any]],
-        source_request_cues: list[dict[str, Any]],
-        progress_start_ms: int,
-        progress_end_ms: int,
-    ) -> list[dict[str, Any]]:
-        safe_progress_start_ms = max(int(progress_start_ms or 0), 0)
-        safe_progress_end_ms = max(int(progress_end_ms or 0), safe_progress_start_ms)
-        previous_live_cues = normalize_subtitle_cues(previous_live_request_cues)
-        current_source_cues = normalize_subtitle_cues(source_request_cues)
-
-        if not current_source_cues:
-            if not previous_live_cues:
-                return []
-            retained_cues = [dict(cue) for cue in previous_live_cues]
-            retained_cues[-1]["end_ms"] = max(
-                int(retained_cues[-1].get("end_ms", 0) or 0),
-                safe_progress_end_ms,
-            )
-            return retained_cues
-
-        shared_prefix_len = self._matching_live_subtitle_prefix_len(
-            previous_live_cues,
-            current_source_cues,
-        )
-
-        source_start_ms = max(
-            int(current_source_cues[0].get("start_ms", safe_progress_start_ms) or 0),
-            safe_progress_start_ms,
-        )
-        source_end_ms = max(
-            safe_progress_end_ms,
-            int(current_source_cues[-1].get("end_ms", safe_progress_end_ms) or 0),
-            source_start_ms,
-        )
-
-        cue_boundaries = [safe_progress_start_ms]
-        for index, cue in enumerate(current_source_cues[1:], start=1):
-            mapped_boundary = self._remap_minimax_live_subtitle_point(
-                int(cue.get("start_ms", source_start_ms) or 0),
-                source_start_ms=source_start_ms,
-                source_end_ms=source_end_ms,
-                target_start_ms=safe_progress_start_ms,
-                target_end_ms=safe_progress_end_ms,
-            )
-            if index < shared_prefix_len and index < len(previous_live_cues):
-                mapped_boundary = max(
-                    mapped_boundary,
-                    int(previous_live_cues[index].get("start_ms", 0) or 0),
-                )
-            cue_boundaries.append(
-                min(max(mapped_boundary, cue_boundaries[-1]), safe_progress_end_ms)
-            )
-        cue_boundaries.append(safe_progress_end_ms)
-
-        live_request_cues: list[dict[str, Any]] = []
-        for index, cue in enumerate(current_source_cues):
-            text = str(cue.get("text", "") or "").strip()
-            if not text:
-                continue
-            start_ms = int(cue_boundaries[index])
-            end_ms = max(int(cue_boundaries[index + 1]), start_ms)
-            live_request_cues.append(
-                {
-                    "text": text,
-                    "start_ms": start_ms,
-                    "end_ms": end_ms,
-                    "segment_index": max(int(cue.get("segment_index", 0) or 0), 0),
-                    "position": max(int(cue.get("position", self.position) or 0), 0),
-                }
-            )
-
-        if live_request_cues:
-            live_request_cues[-1]["end_ms"] = max(
-                int(live_request_cues[-1].get("end_ms", 0) or 0),
-                safe_progress_end_ms,
-            )
-        return normalize_subtitle_cues(live_request_cues)
-
-    def _build_minimax_live_progress_subtitle_cues(
-        self,
-        *,
-        previous_live_cues: list[dict[str, Any]],
-        previous_live_request_cues: list[dict[str, Any]],
-        request_text: str,
-        request_subtitles: list[dict[str, Any]],
-        subtitle_offset_ms: int,
-        emitted_ms: int,
-        fallback_duration_ms: Optional[int] = None,
-        allow_fallback: bool = False,
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        progress_end_ms = max(int(subtitle_offset_ms or 0), 0) + max(
-            int(emitted_ms or 0), 0
-        )
-        current_source_cues = self._build_minimax_progress_source_subtitle_cues(
-            request_text=request_text,
-            request_subtitles=request_subtitles,
-            subtitle_offset_ms=subtitle_offset_ms,
-            emitted_ms=emitted_ms,
-            fallback_duration_ms=fallback_duration_ms,
-            allow_fallback=allow_fallback,
-        )
-        current_live_request_cues = self._build_minimax_live_request_subtitle_cues(
-            previous_live_request_cues=previous_live_request_cues,
-            source_request_cues=current_source_cues,
-            progress_start_ms=subtitle_offset_ms,
-            progress_end_ms=progress_end_ms,
-        )
-        cumulative_live_cues = normalize_subtitle_cues(
-            list(previous_live_cues or []) + current_live_request_cues
-        )
-        return current_live_request_cues, cumulative_live_cues
 
     def _minimax_subtitles_to_cues(
         self,
@@ -1240,7 +985,6 @@ class StreamingTTSProcessor:
             request_word_count = 0
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
-            live_request_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
                 text=request_text,
@@ -1295,19 +1039,14 @@ class StreamingTTSProcessor:
                     continue
 
                 emitted_ms += int(piece_duration_ms or 0)
-                live_request_subtitle_cues, progressive_subtitle_cues = (
-                    self._build_minimax_live_progress_subtitle_cues(
-                        previous_live_cues=live_subtitle_cues,
-                        previous_live_request_cues=live_request_subtitle_cues,
-                        request_text=request_text,
+                progressive_request_subtitle_cues = (
+                    self._build_minimax_provider_subtitle_cues(
                         request_subtitles=request_subtitles,
                         subtitle_offset_ms=subtitle_offset_ms,
-                        emitted_ms=emitted_ms,
-                        fallback_duration_ms=(
-                            request_duration_ms if chunk.is_final else None
-                        ),
-                        allow_fallback=True,
                     )
+                )
+                progressive_subtitle_cues = normalize_subtitle_cues(
+                    list(live_subtitle_cues or []) + progressive_request_subtitle_cues
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,
@@ -1329,7 +1068,7 @@ class StreamingTTSProcessor:
                 request_subtitle_cues,
                 request_text,
             ):
-                final_subtitle_cues.extend(request_subtitle_cues)
+                request_final_subtitle_cues = request_subtitle_cues
             else:
                 if request_subtitle_cues:
                     logger.debug(
@@ -1338,17 +1077,24 @@ class StreamingTTSProcessor:
                         request_index,
                         len(request_subtitle_cues),
                     )
-                final_subtitle_cues.extend(
+                request_final_subtitle_cues = (
                     self._build_minimax_fallback_subtitle_cues(
                         request_text,
                         duration_ms=int(request_duration_ms or emitted_ms or 0),
                         offset_ms=subtitle_offset_ms,
                     )
                 )
+            final_subtitle_cues.extend(request_final_subtitle_cues)
             live_subtitle_cues = normalize_subtitle_cues(
-                list(live_subtitle_cues or []) + live_request_subtitle_cues
+                list(live_subtitle_cues or []) + request_final_subtitle_cues
             )
-            subtitle_offset_ms += int(request_duration_ms or emitted_ms or 0)
+            request_subtitle_end_ms = self._subtitle_cues_end_ms(
+                request_final_subtitle_cues
+            )
+            if request_subtitle_end_ms > subtitle_offset_ms:
+                subtitle_offset_ms = request_subtitle_end_ms
+            else:
+                subtitle_offset_ms += int(request_duration_ms or emitted_ms or 0)
 
             record_tts_segment_usage(
                 app=self.app,
