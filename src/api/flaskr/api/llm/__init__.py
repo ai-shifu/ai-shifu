@@ -460,6 +460,13 @@ def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+def _reload_deepseek_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -499,6 +506,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
         custom_llm_provider="openai",
         model_loader=_load_deepseek_models,
+        reload_params=_reload_deepseek_params,
     ),
     ProviderConfig(
         key="gemini",
