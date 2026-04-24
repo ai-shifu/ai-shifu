@@ -23,6 +23,7 @@
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
 - When listen-mode misses trailing interaction cards, check whether `outline_item_update: completed` arrived before the final `element` events; completion must not cause post-completion interaction markers to be dropped.
 - 当新增共享 loading 动画时，优先放在 `src/components/loading/` 并以命名导出追加能力，不要直接替换已有默认 loading；动画节奏、尺寸和间距用可配置 props 暴露，保证旧调用方零破坏。
+- 听课模式字幕尾部清洗只移除不允许的结束标点，遇到右引号、右括号这类成对符号的结尾符必须保留；即使这些结尾符后面还跟着句号、逗号等待过滤标点，也要按从右向左的顺序先保留结尾符、再剥离无效标点，并补齐 `。”`、`），`、`？”。` 一类回归测试。
 
 ## Skills Index
 
