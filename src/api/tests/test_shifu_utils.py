@@ -47,4 +47,5 @@ def test_get_shifu_creator_bid_prefers_draft(app):
         db.session.add(published)
         db.session.commit()
 
-    assert get_shifu_creator_bid(app, "shifu-1") == "creator-1"
+    with app.app_context():
+        assert get_shifu_creator_bid(app, "shifu-1") == "creator-1"
