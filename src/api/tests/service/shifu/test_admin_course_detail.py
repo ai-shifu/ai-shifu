@@ -80,6 +80,19 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _pin_app_timezone_to_utc(app):
+    original_tz = app.config.get("TZ")
+    app.config["TZ"] = "UTC"
+    try:
+        yield
+    finally:
+        if original_tz is None:
+            app.config.pop("TZ", None)
+        else:
+            app.config["TZ"] = original_tz
+
+
+@pytest.fixture(autouse=True)
 def _mock_bcrypt_module(monkeypatch):
     monkeypatch.setitem(
         sys.modules,

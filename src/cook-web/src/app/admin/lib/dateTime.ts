@@ -46,8 +46,18 @@ export const formatAdminUtcDateTime = (
 
   const parts = formatter.formatToParts(date);
   const partMap = new Map(parts.map(part => [part.type, part.value]));
+  const year = partMap.get('year');
+  const month = partMap.get('month');
+  const day = partMap.get('day');
+  const hour = partMap.get('hour');
+  const minute = partMap.get('minute');
+  const second = partMap.get('second');
 
-  return `${partMap.get('year')}-${partMap.get('month')}-${partMap.get('day')} ${partMap.get('hour')}:${partMap.get('minute')}:${partMap.get('second')}`;
+  if (!year || !month || !day || !hour || !minute || !second) {
+    return '';
+  }
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 
 export const formatAdminUtcDateTimeOrEmpty = (
