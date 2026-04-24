@@ -14,6 +14,10 @@ describe('useWechat', () => {
       .WeixinJSBridge;
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('reuses the same bridge-ready promise across rerenders', async () => {
     mockedInWechat.mockReturnValue(true);
 

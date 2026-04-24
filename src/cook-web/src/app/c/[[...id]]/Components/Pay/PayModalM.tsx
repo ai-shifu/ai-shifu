@@ -405,6 +405,13 @@ export const PayModalM = ({
       }
       window.location.href = redirectUrl;
     } else {
+      if (typeof payload.qr_url !== 'string') {
+        toast({
+          title: t('module.pay.payFailed'),
+          variant: 'destructive',
+        });
+        return;
+      }
       window.open(payload.qr_url);
     }
   }, [

@@ -44,7 +44,7 @@ from flaskr.service.order.payment_channel_resolution import resolve_payment_chan
 from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
 from flaskr.service.order.raw_snapshots import (
     RAW_BIZ_DOMAIN_ORDER,
@@ -671,7 +671,7 @@ def _generate_pingxx_charge(
         # Ping++ expects explicit success/cancel URLs for Alipay WAP redirects.
         if not return_url:
             app.logger.error("channel:%s missing required return_url", channel)
-            raise_error("server.pay.payChannelNotSupport")
+            raise_param_error("return_url")
         charge_extra = {"success_url": return_url}
         if cancel_url:
             charge_extra["cancel_url"] = cancel_url
