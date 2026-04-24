@@ -17,6 +17,24 @@ def init_db(app: Flask):
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
+    # Flask-SQLAlchemy 3.x only reads pool settings from SQLALCHEMY_ENGINE_OPTIONS;
+    # the standalone SQLALCHEMY_POOL_SIZE/TIMEOUT/RECYCLE/MAX_OVERFLOW keys are ignored.
+    existing_options = dict(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
+    existing_options.setdefault(
+        "pool_size", int(app.config.get("SQLALCHEMY_POOL_SIZE", 20))
+    )
+    existing_options.setdefault(
+        "max_overflow", int(app.config.get("SQLALCHEMY_MAX_OVERFLOW", 20))
+    )
+    existing_options.setdefault(
+        "pool_timeout", int(app.config.get("SQLALCHEMY_POOL_TIMEOUT", 30))
+    )
+    existing_options.setdefault(
+        "pool_recycle", int(app.config.get("SQLALCHEMY_POOL_RECYCLE", 3600))
+    )
+    existing_options.setdefault("pool_pre_ping", True)
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
+
     if db is None:
         db = SQLAlchemy()
     db.init_app(app)
