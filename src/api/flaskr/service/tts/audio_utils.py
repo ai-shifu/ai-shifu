@@ -68,6 +68,7 @@ def concat_audio_mp3(
 
     # Initialize combined audio
     combined = None
+    failed_segments: list[int] = []
 
     for i, segment_data in enumerate(segments):
         try:
@@ -91,12 +92,20 @@ def concat_audio_mp3(
                     combined = combined.append(segment)
 
         except Exception as e:
-            logger.error(f"Error processing audio segment {i}: {e}")
-            # Try to continue with remaining segments
-            continue
+            failed_segments.append(i)
+            logger.warning(
+                "Error processing audio segment %s (%s bytes): %s",
+                i,
+                len(segment_data or b""),
+                e,
+            )
 
     if combined is None:
         raise ValueError("Failed to concatenate audio segments")
+
+    if failed_segments:
+        failed_segment_list = ", ".join(str(index) for index in failed_segments)
+        raise ValueError(f"Failed to decode audio segments: {failed_segment_list}")
 
     # Export to bytes
     output_io = io.BytesIO()
