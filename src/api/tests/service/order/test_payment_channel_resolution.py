@@ -227,9 +227,12 @@ class TestResolvePaymentChannel:
             "/api/order/reqiure-to-pay",
             base_url="https://api.example.com/",
         ):
-            assert order_route.resolve_pingxx_return_url(
-                "/payment/pingxx/result?order_id=1"
-            ) == ""
+            assert (
+                order_route.resolve_pingxx_return_url(
+                    "/payment/pingxx/result?order_id=1"
+                )
+                == ""
+            )
 
     def test_resolve_pingxx_return_url_rejects_absolute_url_without_trusted_origin(
         self, app, monkeypatch
