@@ -6,7 +6,7 @@ This module provides audio concatenation and processing functions using pydub/ff
 
 import io
 import logging
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -142,6 +142,51 @@ def concat_audio_best_effort(
             )
 
     return b"".join(segments)
+
+
+def export_audio_range_best_effort(
+    audio_data: bytes,
+    *,
+    start_ms: int = 0,
+    end_ms: Optional[int] = None,
+    input_format: str = "mp3",
+    output_format: str = "mp3",
+) -> tuple[bytes, int]:
+    """
+    Export a time range from an encoded audio blob as a standalone audio file.
+
+    Returns ``(audio_bytes, duration_ms)``. If pydub/ffmpeg cannot decode the
+    range, returns ``(b"", 0)`` except for the full-audio fallback, where the
+    original bytes are returned.
+    """
+    if not audio_data:
+        return b"", 0
+
+    safe_start_ms = max(int(start_ms or 0), 0)
+    safe_end_ms = int(end_ms) if end_ms is not None else None
+
+    if is_audio_processing_available():
+        try:
+            audio_io = io.BytesIO(audio_data)
+            audio = AudioSegment.from_file(audio_io, format=input_format)
+            start = min(safe_start_ms, len(audio))
+            end = (
+                len(audio)
+                if safe_end_ms is None
+                else min(max(safe_end_ms, start), len(audio))
+            )
+            sliced = audio[start:end]
+            if len(sliced) <= 0:
+                return b"", 0
+            output_io = io.BytesIO()
+            sliced.export(output_io, format=output_format, bitrate="128k")
+            return output_io.getvalue(), len(sliced)
+        except Exception as exc:
+            logger.debug("Audio range export failed: %s", exc, exc_info=True)
+
+    if safe_start_ms == 0 and safe_end_ms is None:
+        return audio_data, get_audio_duration_ms(audio_data, format=input_format)
+    return b"", 0
 
 
 def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:
