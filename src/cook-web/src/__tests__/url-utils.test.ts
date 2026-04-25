@@ -133,7 +133,7 @@ describe('domain aware urls', () => {
     });
 
     expect(getCourseCreatorUrl()).toBe(
-      'https://app.ai-shifu.com/educators.html#course-creator-skill',
+      'https://ai-shifu.com/educators.html#course-creator-skill',
     );
   });
 
