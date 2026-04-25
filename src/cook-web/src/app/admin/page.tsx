@@ -37,6 +37,7 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 interface ShifuCardProps {
   id: string;
@@ -155,8 +156,7 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const courseCreatorUrl =
-    'https://app.ai-shifu.cn/c/ed0e57ded79d4b7b88d1be348c151509?lessonid=77ff6ea94e4245d19172a29c0a279848';
+  const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -182,6 +182,10 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    setCourseCreatorUrl(getCourseCreatorUrl());
+  }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
