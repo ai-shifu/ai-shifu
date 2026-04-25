@@ -36,14 +36,18 @@ Add a new operator-level `Promotions` area under operations for managing coupon 
 - Support active time window and scope:
   - all courses
   - single course
-- One-code-per-order batches can be created and toggled, but not edited afterward
+- Coupon batches support create, limited edit, and enable/disable
+- Fields such as usage type, discount type, discount value, course scope, and channel stay locked after creation
+- Operators can edit display-oriented fields such as name, description, and schedule; issuing method is editable only before start and before any redemption
 - Coupon and campaign discounts may stack
 
 ### Campaigns
 
-- V1 supports only course-level automatic campaigns
+- V1 supports course-level campaigns with `apply_type` values exposed in operator flows
 - Same course cannot have overlapping enabled campaign windows
-- Campaigns can be created and toggled, but not edited afterward
+- Campaigns support create, limited edit, and enable/disable
+- Fields such as course, discount type, discount value, and channel stay locked after creation
+- Operators can edit display-oriented fields such as name, description, and schedule; issuing method is editable only before start and before any redemption
 
 ## Backend Design
 

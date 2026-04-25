@@ -35,6 +35,8 @@ from flaskr.service.promo.admin_dtos import (
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
+    COUPON_BATCH_STATUS_ACTIVE,
+    COUPON_BATCH_STATUS_INACTIVE,
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_INACTIVE,
     COUPON_STATUS_TIMEOUT,
@@ -57,7 +59,7 @@ from flaskr.service.promo.models import (
     PromoRedemption,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.util.timezone import get_app_timezone
 from flaskr.util.uuid import generate_id
 
@@ -75,9 +77,6 @@ COUPON_DISCOUNT_TYPE_KEY_MAP = {
     COUPON_TYPE_FIXED: "module.operationsPromotion.discountType.fixed",
     COUPON_TYPE_PERCENT: "module.operationsPromotion.discountType.percent",
 }
-
-COUPON_BATCH_STATUS_ACTIVE = 1
-COUPON_BATCH_STATUS_INACTIVE = 0
 
 COUPON_COMPUTED_STATUS_KEY_MAP = {
     "inactive": "module.operationsPromotion.status.inactive",
@@ -259,6 +258,57 @@ def _resolve_course_query_bids(course_query: str) -> list[str]:
     bids = _find_course_bids_by_name(normalized)
     bids.add(normalized)
     return sorted(bid for bid in bids if bid)
+
+
+def _build_like_pattern(keyword: str) -> str:
+    normalized = str(keyword or "").strip().lower()
+    escaped = normalized.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _build_user_keyword_query(keyword: str):
+    like_pattern = _build_like_pattern(keyword)
+    return (
+        db.session.query(UserEntity.user_bid)
+        .outerjoin(
+            AuthCredential,
+            and_(
+                AuthCredential.user_bid == UserEntity.user_bid,
+                AuthCredential.provider_name.in_(["phone", "email"]),
+            ),
+        )
+        .filter(
+            UserEntity.deleted == 0,
+            or_(
+                func.lower(func.coalesce(UserEntity.user_bid, "")).like(
+                    like_pattern, escape="\\"
+                ),
+                func.lower(func.coalesce(UserEntity.user_identify, "")).like(
+                    like_pattern, escape="\\"
+                ),
+                func.lower(func.coalesce(UserEntity.nickname, "")).like(
+                    like_pattern, escape="\\"
+                ),
+                func.lower(func.coalesce(AuthCredential.identifier, "")).like(
+                    like_pattern, escape="\\"
+                ),
+            ),
+        )
+        .distinct()
+    )
+
+
+def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
+    normalized = str(keyword or "").strip().lower()
+    if not normalized:
+        return query
+    like_pattern = _build_like_pattern(normalized)
+    keyword_filters = [
+        func.lower(func.coalesce(field, "")).like(like_pattern, escape="\\")
+        for field in text_fields
+    ]
+    keyword_filters.append(user_bid_field.in_(_build_user_keyword_query(normalized)))
+    return query.filter(or_(*keyword_filters))
 
 
 def _build_coupon_status_filter(status: str):
@@ -960,48 +1010,62 @@ def list_operator_promotion_coupon_usages(
     keyword = str(filters.get("keyword", "") or "").strip().lower()
     if status:
         query = query.filter(CouponUsage.status == int(status))
-    usages = query.order_by(CouponUsage.updated_at.desc(), CouponUsage.id.desc()).all()
-    user_map = _load_user_map([usage.user_bid for usage in usages if usage.user_bid])
-    order_map = _load_order_map(
-        [usage.order_bid for usage in usages if usage.order_bid]
+    query = _apply_keyword_filter(
+        query,
+        keyword,
+        CouponUsage.user_bid,
+        CouponUsage.code,
+        CouponUsage.order_bid,
+        CouponUsage.user_bid,
     )
+    filtered_subquery = query.with_entities(
+        CouponUsage.id.label("id"),
+        CouponUsage.shifu_bid.label("shifu_bid"),
+        CouponUsage.updated_at.label("updated_at"),
+    ).subquery()
+    summary_row = db.session.query(
+        func.count(filtered_subquery.c.id).label("total"),
+        func.max(filtered_subquery.c.updated_at).label("latest_usage_at"),
+        func.coalesce(
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            filtered_subquery.c.shifu_bid != "",
+                            filtered_subquery.c.shifu_bid,
+                        ),
+                        else_=None,
+                    )
+                )
+            ),
+            0,
+        ).label("covered_courses"),
+    ).one()
+    start = (page - 1) * page_size
+    paged = (
+        query.order_by(CouponUsage.updated_at.desc(), CouponUsage.id.desc())
+        .offset(start)
+        .limit(page_size)
+        .all()
+    )
+    user_map = _load_user_map([usage.user_bid for usage in paged if usage.user_bid])
+    order_map = _load_order_map([usage.order_bid for usage in paged if usage.order_bid])
     course_bids = {
         usage.shifu_bid
         or getattr(order_map.get(usage.order_bid or ""), "shifu_bid", "")
-        for usage in usages
+        for usage in paged
     }
     course_map = _load_shifu_map(
         [course_bid for course_bid in course_bids if course_bid]
     )
-
-    filtered: list[CouponUsage] = []
-    for usage in usages:
-        user = user_map.get(usage.user_bid or "", {})
-        if keyword:
-            fields = [
-                usage.code or "",
-                usage.order_bid or "",
-                usage.user_bid or "",
-                user.get("mobile", ""),
-                user.get("email", ""),
-                user.get("nickname", ""),
-            ]
-            if not any(keyword in str(field).lower() for field in fields if field):
-                continue
-        filtered.append(usage)
-
     summary = AdminPromotionSummaryDTO(
-        total=len(filtered),
+        total=int(summary_row.total or 0),
         active=0,
-        usage_count=len(filtered),
-        latest_usage_at=_format_promotion_admin_datetime(filtered[0].updated_at)
-        if filtered
-        else "",
-        covered_courses=len({usage.shifu_bid for usage in filtered if usage.shifu_bid}),
+        usage_count=int(summary_row.total or 0),
+        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
+        covered_courses=int(summary_row.covered_courses or 0),
         discount_amount="0",
     )
-    start = (page - 1) * page_size
-    paged = filtered[start : start + page_size]
     items: list[dict] = []
     for usage in paged:
         user = user_map.get(usage.user_bid or "", {})
@@ -1041,7 +1105,7 @@ def list_operator_promotion_coupon_usages(
                 updated_at=_format_promotion_admin_datetime(usage.updated_at),
             ).__json__()
         )
-    return _build_paged_response(summary, page, page_size, len(filtered), items)
+    return _build_paged_response(summary, page, page_size, summary.total, items)
 
 
 def list_operator_promotion_coupon_codes(
@@ -1055,37 +1119,58 @@ def list_operator_promotion_coupon_codes(
         CouponUsage.coupon_bid == coupon_bid,
         CouponUsage.deleted == 0,
     )
-    codes = query.order_by(CouponUsage.updated_at.desc(), CouponUsage.id.desc()).all()
-    user_map = _load_user_map([code.user_bid for code in codes if code.user_bid])
-    filtered: list[CouponUsage] = []
-    for code in codes:
-        user = user_map.get(code.user_bid or "", {})
-        if keyword:
-            fields = [
-                code.code or "",
-                code.order_bid or "",
-                code.user_bid or "",
-                user.get("mobile", ""),
-                user.get("email", ""),
-                user.get("nickname", ""),
-            ]
-            if not any(keyword in str(field).lower() for field in fields if field):
-                continue
-        filtered.append(code)
+    query = _apply_keyword_filter(
+        query,
+        keyword,
+        CouponUsage.user_bid,
+        CouponUsage.code,
+        CouponUsage.order_bid,
+        CouponUsage.user_bid,
+    )
+    filtered_subquery = query.with_entities(
+        CouponUsage.id.label("id"),
+        CouponUsage.status.label("status"),
+        CouponUsage.order_bid.label("order_bid"),
+        CouponUsage.updated_at.label("updated_at"),
+    ).subquery()
+    summary_row = db.session.query(
+        func.count(filtered_subquery.c.id).label("total"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (filtered_subquery.c.status == COUPON_STATUS_ACTIVE, 1),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("active"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (filtered_subquery.c.order_bid != "", 1),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("usage_count"),
+        func.max(filtered_subquery.c.updated_at).label("latest_usage_at"),
+    ).one()
+    start = (page - 1) * page_size
+    paged = (
+        query.order_by(CouponUsage.updated_at.desc(), CouponUsage.id.desc())
+        .offset(start)
+        .limit(page_size)
+        .all()
+    )
+    user_map = _load_user_map([code.user_bid for code in paged if code.user_bid])
     summary = AdminPromotionSummaryDTO(
-        total=len(filtered),
-        active=sum(
-            1 for code in filtered if int(code.status or 0) == COUPON_STATUS_ACTIVE
-        ),
-        usage_count=sum(1 for code in filtered if code.order_bid),
-        latest_usage_at=_format_promotion_admin_datetime(filtered[0].updated_at)
-        if filtered
-        else "",
+        total=int(summary_row.total or 0),
+        active=int(summary_row.active or 0),
+        usage_count=int(summary_row.usage_count or 0),
+        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
         covered_courses=0,
         discount_amount="0",
     )
-    start = (page - 1) * page_size
-    paged = filtered[start : start + page_size]
     items: list[dict] = []
     for code in paged:
         user = user_map.get(code.user_bid or "", {})
@@ -1114,7 +1199,7 @@ def list_operator_promotion_coupon_codes(
                 updated_at=_format_promotion_admin_datetime(code.updated_at),
             ).__json__()
         )
-    return _build_paged_response(summary, page, page_size, len(filtered), items)
+    return _build_paged_response(summary, page, page_size, summary.total, items)
 
 
 def _load_redemption_stats(promo_bids: list[str]) -> Dict[str, dict]:
@@ -1551,55 +1636,64 @@ def list_operator_promotion_campaign_redemptions(
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_campaign_or_404(promo_bid)
     keyword = str(filters.get("keyword", "") or "").strip().lower()
-    records = (
-        PromoRedemption.query.filter(
-            PromoRedemption.promo_bid == promo_bid,
-            PromoRedemption.deleted == 0,
-        )
-        .order_by(PromoRedemption.updated_at.desc(), PromoRedemption.id.desc())
+    query = PromoRedemption.query.filter(
+        PromoRedemption.promo_bid == promo_bid,
+        PromoRedemption.deleted == 0,
+    )
+    query = _apply_keyword_filter(
+        query,
+        keyword,
+        PromoRedemption.user_bid,
+        PromoRedemption.order_bid,
+        PromoRedemption.user_bid,
+    )
+    filtered_subquery = query.with_entities(
+        PromoRedemption.id.label("id"),
+        PromoRedemption.status.label("status"),
+        PromoRedemption.updated_at.label("updated_at"),
+        PromoRedemption.discount_amount.label("discount_amount"),
+    ).subquery()
+    summary_row = db.session.query(
+        func.count(filtered_subquery.c.id).label("total"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        filtered_subquery.c.status
+                        == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("active"),
+        func.max(filtered_subquery.c.updated_at).label("latest_usage_at"),
+        func.coalesce(func.sum(filtered_subquery.c.discount_amount), 0).label(
+            "discount_amount"
+        ),
+    ).one()
+    start = (page - 1) * page_size
+    paged = (
+        query.order_by(PromoRedemption.updated_at.desc(), PromoRedemption.id.desc())
+        .offset(start)
+        .limit(page_size)
         .all()
     )
-    user_map = _load_user_map(
-        [record.user_bid for record in records if record.user_bid]
-    )
+    user_map = _load_user_map([record.user_bid for record in paged if record.user_bid])
     order_map = _load_order_map(
-        [record.order_bid for record in records if record.order_bid]
+        [record.order_bid for record in paged if record.order_bid]
     )
-    filtered: list[PromoRedemption] = []
-    for record in records:
-        user = user_map.get(record.user_bid or "", {})
-        if keyword:
-            fields = [
-                record.order_bid or "",
-                record.user_bid or "",
-                user.get("mobile", ""),
-                user.get("email", ""),
-                user.get("nickname", ""),
-            ]
-            if not any(keyword in str(field).lower() for field in fields if field):
-                continue
-        filtered.append(record)
     summary = AdminPromotionSummaryDTO(
-        total=len(filtered),
-        active=sum(
-            1
-            for record in filtered
-            if int(record.status or 0) == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED
-        ),
-        usage_count=len(filtered),
-        latest_usage_at=_format_promotion_admin_datetime(filtered[0].updated_at)
-        if filtered
-        else "",
+        total=int(summary_row.total or 0),
+        active=int(summary_row.active or 0),
+        usage_count=int(summary_row.total or 0),
+        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
         covered_courses=0,
         discount_amount=_format_decimal(
-            sum(
-                (decimal.Decimal(record.discount_amount or 0) for record in filtered),
-                decimal.Decimal("0"),
-            )
+            decimal.Decimal(summary_row.discount_amount or 0)
         ),
     )
-    start = (page - 1) * page_size
-    paged = filtered[start : start + page_size]
     items: list[dict] = []
     for record in paged:
         user = user_map.get(record.user_bid or "", {})
@@ -1629,4 +1723,4 @@ def list_operator_promotion_campaign_redemptions(
                 updated_at=_format_promotion_admin_datetime(record.updated_at),
             ).__json__()
         )
-    return _build_paged_response(summary, page, page_size, len(filtered), items)
+    return _build_paged_response(summary, page, page_size, summary.total, items)

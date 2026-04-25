@@ -518,6 +518,86 @@ def test_admin_promotions_coupon_usage_falls_back_to_order_course(
     assert usage_payload["data"]["items"][0]["course_name"] == "Coupon Course"
 
 
+def test_admin_promotions_coupon_usage_list_supports_keyword_filter(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_user("learner-1", "13812345678", "Learner One")
+        _seed_user("learner-2", "learner2@example.com", "Learner Two")
+        _seed_course("course-1", "Coupon Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/coupons",
+        json={
+            "name": "Generic Coupon",
+            "code": "TONGYONG",
+            "usage_type": 801,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 10,
+            "scope_type": "all_courses",
+            "shifu_bid": "",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    coupon_bid = create_response.get_json(force=True)["data"]["coupon_bid"]
+
+    with app.app_context():
+        _seed_order("order-1", "course-1", "learner-1", paid="79.00")
+        _seed_order("order-2", "course-1", "learner-2", paid="69.00")
+        db.session.add_all(
+            [
+                CouponUsage(
+                    coupon_usage_bid="usage-1",
+                    coupon_bid=coupon_bid,
+                    user_bid="learner-1",
+                    order_bid="order-1",
+                    code="TONGYONG-A",
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    status=COUPON_STATUS_USED,
+                    shifu_bid="course-1",
+                ),
+                CouponUsage(
+                    coupon_usage_bid="usage-2",
+                    coupon_bid=coupon_bid,
+                    user_bid="learner-2",
+                    order_bid="order-2",
+                    code="TONGYONG-B",
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    status=COUPON_STATUS_USED,
+                    shifu_bid="course-1",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    usage_response = test_client.get(
+        f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/usages",
+        query_string={
+            "page_index": 1,
+            "page_size": 1,
+            "keyword": "learner2@example.com",
+        },
+        headers={"Token": "test-token"},
+    )
+    usage_payload = usage_response.get_json(force=True)
+
+    assert usage_payload["code"] == 0
+    assert usage_payload["data"]["total"] == 1
+    assert usage_payload["data"]["summary"]["usage_count"] == 1
+    assert usage_payload["data"]["items"][0]["user_bid"] == "learner-2"
+    assert usage_payload["data"]["items"][0]["order_bid"] == "order-2"
+
+
 def test_admin_promotions_coupon_update_keeps_used_records_unchanged(
     app, test_client, monkeypatch
 ):
@@ -616,6 +696,67 @@ def test_admin_promotions_coupon_update_keeps_used_records_unchanged(
         assert all(code.shifu_bid == "course-1" for code in unused_codes)
         assert all(code.discount_type == COUPON_TYPE_FIXED for code in unused_codes)
         assert all(str(code.value) == "20.00" for code in unused_codes)
+
+
+def test_admin_promotions_coupon_code_list_supports_keyword_filter(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_user("learner-1", "learner1@example.com", "Learner One")
+        _seed_user("learner-2", "learner2@example.com", "Learner Two")
+        _seed_course("course-1", "Coupon Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/coupons",
+        json={
+            "name": "Spring Batch",
+            "code": "SPRINGBATCH",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 3,
+            "scope_type": "single_course",
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    coupon_bid = create_response.get_json(force=True)["data"]["coupon_bid"]
+
+    with app.app_context():
+        usages = (
+            CouponUsage.query.filter(CouponUsage.coupon_bid == coupon_bid)
+            .order_by(CouponUsage.id.asc())
+            .all()
+        )
+        _seed_order("order-1", "course-1", "learner-1", paid="79.00")
+        _seed_order("order-2", "course-1", "learner-2", paid="69.00")
+        usages[0].user_bid = "learner-1"
+        usages[0].order_bid = "order-1"
+        usages[0].status = COUPON_STATUS_USED
+        usages[1].user_bid = "learner-2"
+        usages[1].order_bid = "order-2"
+        usages[1].status = COUPON_STATUS_USED
+        db.session.commit()
+
+    code_response = test_client.get(
+        f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/codes",
+        query_string={"page_index": 1, "page_size": 1, "keyword": "order-2"},
+        headers={"Token": "test-token"},
+    )
+    code_payload = code_response.get_json(force=True)
+
+    assert code_payload["code"] == 0
+    assert code_payload["data"]["total"] == 1
+    assert code_payload["data"]["summary"]["usage_count"] == 1
+    assert code_payload["data"]["items"][0]["user_bid"] == "learner-2"
+    assert code_payload["data"]["items"][0]["order_bid"] == "order-2"
 
 
 def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypatch):
@@ -733,6 +874,87 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
 
     assert redemption_payload["code"] == 0
     assert redemption_payload["data"]["total"] == 1
+    assert redemption_payload["data"]["items"][0]["order_bid"] == "order-2"
+
+
+def test_admin_promotions_campaign_redemptions_support_keyword_filter(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_user("learner-1", "learner1@example.com", "Learner One")
+        _seed_user("learner-2", "learner2@example.com", "Learner Two")
+        _seed_course("course-2", "Campaign Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Early Bird",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "shifu_bid": "course-2",
+            "discount_type": COUPON_TYPE_PERCENT,
+            "value": "15",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "description": "Launch campaign",
+            "channel": "app",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    promo_bid = create_response.get_json(force=True)["data"]["promo_bid"]
+
+    with app.app_context():
+        _seed_order("order-1", "course-2", "learner-1", paid="84.15")
+        _seed_order("order-2", "course-2", "learner-2", paid="74.15")
+        db.session.add_all(
+            [
+                PromoRedemption(
+                    redemption_bid="redemption-1",
+                    promo_bid=promo_bid,
+                    order_bid="order-1",
+                    user_bid="learner-1",
+                    shifu_bid="course-2",
+                    promo_name="Early Bird",
+                    discount_type=COUPON_TYPE_PERCENT,
+                    value=Decimal("15"),
+                    discount_amount=Decimal("14.85"),
+                    status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                ),
+                PromoRedemption(
+                    redemption_bid="redemption-2",
+                    promo_bid=promo_bid,
+                    order_bid="order-2",
+                    user_bid="learner-2",
+                    shifu_bid="course-2",
+                    promo_name="Early Bird",
+                    discount_type=COUPON_TYPE_PERCENT,
+                    value=Decimal("15"),
+                    discount_amount=Decimal("13.35"),
+                    status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    redemption_response = test_client.get(
+        f"/api/shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions",
+        query_string={
+            "page_index": 1,
+            "page_size": 1,
+            "keyword": "learner2@example.com",
+        },
+        headers={"Token": "test-token"},
+    )
+    redemption_payload = redemption_response.get_json(force=True)
+
+    assert redemption_payload["code"] == 0
+    assert redemption_payload["data"]["total"] == 1
+    assert redemption_payload["data"]["summary"]["usage_count"] == 1
+    assert redemption_payload["data"]["items"][0]["user_bid"] == "learner-2"
     assert redemption_payload["data"]["items"][0]["order_bid"] == "order-2"
 
 
