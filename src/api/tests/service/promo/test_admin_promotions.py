@@ -459,6 +459,65 @@ def test_admin_promotions_single_use_coupon_generates_sub_codes_only(
         assert all(usage.code != coupon.code for usage in usages)
 
 
+def test_admin_promotions_single_use_coupon_rejects_unknown_course(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/coupons",
+        json={
+            "name": "Single Use Coupon",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2,
+            "scope_type": "single_course",
+            "shifu_bid": "missing-course",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+
+    assert create_response.get_json(force=True)["code"] != 0
+
+
+def test_admin_promotions_single_use_coupon_rejects_oversized_batch(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-1", "Coupon Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/coupons",
+        json={
+            "name": "Single Use Coupon",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2001,
+            "scope_type": "single_course",
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+
+    assert create_response.get_json(force=True)["code"] != 0
+
+
 def test_admin_promotions_coupon_usage_falls_back_to_order_course(
     app, test_client, monkeypatch
 ):

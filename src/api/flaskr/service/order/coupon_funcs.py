@@ -96,6 +96,16 @@ def _pick_coupon_candidate(
     return None, None, has_candidate_with_same_code
 
 
+def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) -> bool:
+    if getattr(coupon_usage, "shifu_bid", None) is None:
+        return True
+    if str(getattr(coupon_usage, "shifu_bid", "")) != "":
+        return False
+    if int(getattr(coupon, "usage_type", 0) or 0) != COUPON_APPLY_TYPE_SPECIFIC:
+        return True
+    return _get_course_id_from_filter(coupon) is not None
+
+
 def send_feishu_coupon_code(
     app: Flask, user_id, discount_code, discount_name, discount_value
 ):
@@ -227,7 +237,8 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         user_usage_already_bound = coupon_usage.user_bid == user_id
         coupon_usage.user_bid = user_id
         coupon_usage.order_bid = order_id
-        coupon_usage.shifu_bid = buy_record.shifu_bid or coupon_usage.shifu_bid
+        if buy_record.shifu_bid and _should_bind_usage_course(coupon, coupon_usage):
+            coupon_usage.shifu_bid = buy_record.shifu_bid
         if coupon.discount_type == COUPON_TYPE_FIXED:
             buy_record.paid_price = (
                 decimal.Decimal(buy_record.paid_price)

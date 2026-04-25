@@ -98,6 +98,7 @@ CAMPAIGN_REDEMPTION_STATUS_KEY_MAP = {
 }
 
 MAX_PROMOTION_PAGE_SIZE = 100
+MAX_SPECIFIC_COUPON_BATCH_SIZE = 2000
 
 
 def _now_local_naive() -> datetime:
@@ -381,6 +382,85 @@ def _generate_unique_coupon_code() -> str:
         if not usage_exists:
             return code
     raise_error("server.common.unknownError")
+
+
+def _generate_unique_coupon_codes(count: int) -> list[str]:
+    if count <= 0:
+        return []
+
+    generated: list[str] = []
+    seen_candidates: set[str] = set()
+    while len(generated) < count:
+        remaining = count - len(generated)
+        batch_size = max(remaining * 2, 20)
+        candidates: list[str] = []
+        while len(candidates) < batch_size:
+            code = _generate_random_coupon_code()
+            if code in seen_candidates:
+                continue
+            seen_candidates.add(code)
+            candidates.append(code)
+
+        existing_coupon_codes = {
+            row[0]
+            for row in Coupon.query.with_entities(Coupon.code)
+            .filter(
+                Coupon.deleted == 0,
+                Coupon.code.in_(candidates),
+            )
+            .all()
+        }
+        existing_usage_codes = {
+            row[0]
+            for row in CouponUsage.query.with_entities(CouponUsage.code)
+            .filter(
+                CouponUsage.deleted == 0,
+                CouponUsage.code.in_(candidates),
+            )
+            .all()
+        }
+        existing_codes = existing_coupon_codes | existing_usage_codes
+        for code in candidates:
+            if code in existing_codes:
+                continue
+            generated.append(code)
+            if len(generated) >= count:
+                break
+    return generated
+
+
+def _build_specific_coupon_usages(
+    app: Flask,
+    *,
+    coupon_bid: str,
+    name: str,
+    discount_type: int,
+    value: decimal.Decimal,
+    shifu_bid: str,
+    count: int,
+) -> list[CouponUsage]:
+    codes = _generate_unique_coupon_codes(count)
+    usages: list[CouponUsage] = []
+    for code in codes:
+        usage = CouponUsage()
+        usage.coupon_usage_bid = generate_id(app)
+        usage.coupon_bid = coupon_bid
+        usage.name = name
+        usage.code = code
+        usage.discount_type = discount_type
+        usage.value = value
+        usage.status = COUPON_STATUS_ACTIVE
+        usage.shifu_bid = shifu_bid
+        usages.append(usage)
+    return usages
+
+
+def _validate_coupon_scope_course(shifu_bid: str) -> None:
+    normalized_shifu_bid = str(shifu_bid or "").strip()
+    if not normalized_shifu_bid:
+        raise_param_error("shifu_bid")
+    if not _load_shifu_map([normalized_shifu_bid]):
+        raise_param_error("shifu_bid")
 
 
 def _validate_coupon_code_uniqueness(
@@ -748,6 +828,11 @@ def create_operator_promotion_coupon(
         total_count_int = _parse_int_value(total_count, "total_count")
         if total_count_int <= 0:
             raise_param_error("total_count")
+        if (
+            usage_type == COUPON_APPLY_TYPE_SPECIFIC
+            and total_count_int > MAX_SPECIFIC_COUPON_BATCH_SIZE
+        ):
+            raise_param_error("total_count")
         scope_type = str(
             payload.get("scope_type", PROMOTION_SCOPE_ALL_COURSES) or ""
         ).strip()
@@ -759,6 +844,8 @@ def create_operator_promotion_coupon(
         shifu_bid = str(payload.get("shifu_bid", "") or "").strip()
         if scope_type == PROMOTION_SCOPE_SINGLE_COURSE and not shifu_bid:
             raise_param_error("shifu_bid")
+        if scope_type == PROMOTION_SCOPE_SINGLE_COURSE:
+            _validate_coupon_scope_course(shifu_bid)
         start_at = _parse_datetime(payload.get("start_at"), "start_at")
         end_at = _parse_datetime(payload.get("end_at"), "end_at", is_end=True)
         if end_at < start_at:
@@ -787,17 +874,17 @@ def create_operator_promotion_coupon(
         db.session.add(coupon)
 
         if usage_type == COUPON_APPLY_TYPE_SPECIFIC:
-            for _ in range(total_count_int):
-                usage = CouponUsage()
-                usage.coupon_usage_bid = generate_id(app)
-                usage.coupon_bid = coupon.coupon_bid
-                usage.name = name
-                usage.code = _generate_unique_coupon_code()
-                usage.discount_type = discount_type
-                usage.value = value
-                usage.status = COUPON_STATUS_ACTIVE
-                usage.shifu_bid = shifu_bid
-                db.session.add(usage)
+            db.session.bulk_save_objects(
+                _build_specific_coupon_usages(
+                    app,
+                    coupon_bid=coupon.coupon_bid,
+                    name=name,
+                    discount_type=discount_type,
+                    value=value,
+                    shifu_bid=shifu_bid,
+                    count=total_count_int,
+                )
+            )
 
         db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
@@ -836,6 +923,12 @@ def update_operator_promotion_coupon(
             raise_param_error("total_count")
         used_count = int(coupon.used_count or 0)
         if total_count_int < used_count:
+            raise_param_error("total_count")
+        if (
+            usage_type == COUPON_APPLY_TYPE_SPECIFIC
+            and total_count_int > MAX_SPECIFIC_COUPON_BATCH_SIZE
+            and total_count_int > int(coupon.total_count or 0)
+        ):
             raise_param_error("total_count")
 
         scope_type = str(
@@ -897,17 +990,18 @@ def update_operator_promotion_coupon(
                 usage.deleted = 1
 
             additional_count = target_unused_count - len(unused_codes)
-            for _ in range(max(additional_count, 0)):
-                usage = CouponUsage()
-                usage.coupon_usage_bid = generate_id(app)
-                usage.coupon_bid = coupon.coupon_bid
-                usage.name = name
-                usage.code = _generate_unique_coupon_code()
-                usage.discount_type = coupon.discount_type
-                usage.value = coupon.value
-                usage.status = COUPON_STATUS_ACTIVE
-                usage.shifu_bid = current_shifu_bid
-                db.session.add(usage)
+            if additional_count > 0:
+                db.session.bulk_save_objects(
+                    _build_specific_coupon_usages(
+                        app,
+                        coupon_bid=coupon.coupon_bid,
+                        name=name,
+                        discount_type=int(coupon.discount_type or COUPON_TYPE_FIXED),
+                        value=decimal.Decimal(coupon.value or 0),
+                        shifu_bid=current_shifu_bid,
+                        count=additional_count,
+                    )
+                )
 
         db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
