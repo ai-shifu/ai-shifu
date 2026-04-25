@@ -3,6 +3,10 @@ from flaskr.service.order.coupon_funcs import (
     _get_course_id_from_filter,
     _pick_coupon_candidate,
 )
+from flaskr.service.promo.consts import (
+    COUPON_APPLY_TYPE_SPECIFIC,
+    COUPON_BATCH_STATUS_ACTIVE,
+)
 from flaskr.service.promo.models import Coupon, CouponUsage
 
 
@@ -14,6 +18,7 @@ def _make_coupon(course_id: str | None = None) -> Coupon:
         coupon.filter = f'{{"course_id": "{course_id}"}}'
     coupon.coupon_bid = "coupon-1"
     coupon.code = "CODE"
+    coupon.status = COUPON_BATCH_STATUS_ACTIVE
     return coupon
 
 
@@ -39,6 +44,13 @@ def test_coupon_matches_course_when_filter_matches():
     coupon = _make_coupon("course-1")
     assert _coupon_matches_course(coupon, "course-1") is True
     assert _coupon_matches_course(coupon, "course-2") is False
+
+
+def test_coupon_matches_course_returns_false_for_inactive_coupon():
+    coupon = _make_coupon("course-1")
+    coupon.status = 0
+
+    assert _coupon_matches_course(coupon, "course-1") is False
 
 
 def test_pick_coupon_candidate_prefers_user_usage():
@@ -71,4 +83,21 @@ def test_pick_coupon_candidate_falls_back_to_code_coupon():
 
     assert usage_result is None
     assert coupon_result is coupon
+    assert has_candidate is True
+
+
+def test_pick_coupon_candidate_skips_batch_code_for_single_use_coupon():
+    coupon = _make_coupon("course-1")
+    coupon.usage_type = COUPON_APPLY_TYPE_SPECIFIC
+
+    usage_result, coupon_result, has_candidate = _pick_coupon_candidate(
+        [],
+        {},
+        [coupon],
+        "course-1",
+        "user-1",
+    )
+
+    assert usage_result is None
+    assert coupon_result is None
     assert has_candidate is True

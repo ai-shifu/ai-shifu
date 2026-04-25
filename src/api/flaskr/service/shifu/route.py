@@ -120,6 +120,21 @@ from flaskr.service.order.admin import (
     get_operator_order_detail,
     list_operator_orders,
 )
+from flaskr.service.promo.admin import (
+    create_operator_promotion_campaign,
+    create_operator_promotion_coupon,
+    get_operator_promotion_campaign_detail,
+    get_operator_promotion_coupon_detail,
+    list_operator_promotion_campaign_redemptions,
+    list_operator_promotion_campaigns,
+    list_operator_promotion_coupon_codes,
+    list_operator_promotion_coupon_usages,
+    list_operator_promotion_coupons,
+    update_operator_promotion_campaign,
+    update_operator_promotion_campaign_status,
+    update_operator_promotion_coupon,
+    update_operator_promotion_coupon_status,
+)
 from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
@@ -777,6 +792,263 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if not str(order_bid or "").strip():
             raise_param_error("order_bid")
         return make_common_response(get_operator_order_detail(app, order_bid))
+
+    @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
+    def admin_operations_promotion_coupons():
+        """Operator coupon batch list."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "name": request.args.get("name", ""),
+            "course_query": request.args.get("course_query", ""),
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "course_name": request.args.get("course_name", ""),
+            "usage_type": request.args.get("usage_type", ""),
+            "discount_type": request.args.get("discount_type", ""),
+            "status": request.args.get("status", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_promotion_coupons(app, page_index, page_size, filters)
+        )
+
+    @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["POST"])
+    def admin_create_operations_promotion_coupon():
+        """Create operator coupon batch."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            create_operator_promotion_coupon(app, request.user.user_id, payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
+        methods=["POST"],
+    )
+    def admin_update_operations_promotion_coupon(coupon_bid: str):
+        """Update operator coupon batch."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            update_operator_promotion_coupon(
+                app, request.user.user_id, coupon_bid, payload
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_coupon_detail(coupon_bid: str):
+        """Get operator coupon batch detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_promotion_coupon_detail(app, coupon_bid)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_promotion_coupon_status(coupon_bid: str):
+        """Update operator coupon batch status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        enabled = payload.get("enabled")
+        return make_common_response(
+            update_operator_promotion_coupon_status(
+                app,
+                request.user.user_id,
+                coupon_bid,
+                enabled,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/usages",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_coupon_usages(coupon_bid: str):
+        """Get operator coupon usage list."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "status": request.args.get("status", ""),
+        }
+        return make_common_response(
+            list_operator_promotion_coupon_usages(
+                app, coupon_bid, page_index, page_size, filters
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/codes",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_coupon_codes(coupon_bid: str):
+        """Get operator coupon code pool list."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+        }
+        return make_common_response(
+            list_operator_promotion_coupon_codes(
+                app, coupon_bid, page_index, page_size, filters
+            )
+        )
+
+    @app.route(path_prefix + "/admin/operations/promotions/campaigns", methods=["GET"])
+    def admin_operations_promotion_campaigns():
+        """Operator campaign list."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "course_query": request.args.get("course_query", ""),
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "course_name": request.args.get("course_name", ""),
+            "discount_type": request.args.get("discount_type", ""),
+            "status": request.args.get("status", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_promotion_campaigns(app, page_index, page_size, filters)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/campaigns",
+        methods=["POST"],
+    )
+    def admin_create_operations_promotion_campaign():
+        """Create operator campaign."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            create_operator_promotion_campaign(app, request.user.user_id, payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_campaign_detail(promo_bid: str):
+        """Get operator campaign detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_promotion_campaign_detail(app, promo_bid)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
+        methods=["POST"],
+    )
+    def admin_update_operations_promotion_campaign(promo_bid: str):
+        """Update operator campaign."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            update_operator_promotion_campaign(
+                app, request.user.user_id, promo_bid, payload
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_promotion_campaign_status(promo_bid: str):
+        """Update operator campaign status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        enabled = payload.get("enabled")
+        return make_common_response(
+            update_operator_promotion_campaign_status(
+                app,
+                request.user.user_id,
+                promo_bid,
+                enabled,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/redemptions",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_campaign_redemptions(promo_bid: str):
+        """Get operator campaign redemption list."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+        }
+        return make_common_response(
+            list_operator_promotion_campaign_redemptions(
+                app,
+                promo_bid,
+                page_index,
+                page_size,
+                filters,
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]

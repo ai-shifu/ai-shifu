@@ -16,6 +16,8 @@ type AdminDateRangeFilterProps = {
   resetLabel: string;
   clearLabel: string;
   triggerAriaLabel?: string;
+  popoverContainer?: HTMLElement | null;
+  popoverModal?: boolean;
   onChange: (range: { start: string; end: string }) => void;
 };
 
@@ -44,6 +46,8 @@ const AdminDateRangeFilter = ({
   resetLabel,
   clearLabel,
   triggerAriaLabel,
+  popoverContainer,
+  popoverModal,
   onChange,
 }: AdminDateRangeFilterProps) => {
   const selectedRange = React.useMemo(
@@ -75,7 +79,7 @@ const AdminDateRangeFilter = ({
   }, [hasValue, label, placeholder, triggerAriaLabel]);
 
   return (
-    <Popover>
+    <Popover modal={popoverModal}>
       <div className='relative'>
         <PopoverTrigger asChild>
           <Button
@@ -120,6 +124,7 @@ const AdminDateRangeFilter = ({
       </div>
       <PopoverContent
         align='start'
+        container={popoverContainer}
         className='w-auto max-w-[90vw] p-0'
       >
         <Calendar
