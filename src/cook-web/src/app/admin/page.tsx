@@ -38,7 +38,6 @@ import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
-import { getHostDomain } from '@/c-utils/urlUtils';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -156,7 +155,8 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
+  const courseCreatorUrl =
+    'https://app.ai-shifu.cn/c/ed0e57ded79d4b7b88d1be348c151509?lessonid=77ff6ea94e4245d19172a29c0a279848';
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -182,15 +182,6 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
-  useEffect(() => {
-    const domain = getHostDomain();
-    if (domain) {
-      setCourseCreatorUrl(
-        `https://${domain}/educators.html#course-creator-skill`,
-      );
-    }
-  }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
