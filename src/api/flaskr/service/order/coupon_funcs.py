@@ -44,6 +44,7 @@ def _coupon_matches_course(coupon: Coupon, shifu_bid: str) -> bool:
     if (
         not coupon
         or int(getattr(coupon, "status", 0) or 0) != COUPON_BATCH_STATUS_ACTIVE
+        or int(getattr(coupon, "deleted", 0) or 0) != 0
     ):
         return False
     course_id = _get_course_id_from_filter(coupon)
@@ -163,6 +164,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
             CouponUsageModel.query.filter(
                 CouponUsageModel.code == coupon_code,
                 CouponUsageModel.status == COUPON_STATUS_ACTIVE,
+                CouponUsageModel.deleted == 0,
             )
             .order_by(CouponUsageModel.id.desc())
             .all()
@@ -170,7 +172,10 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         coupon_bids = {usage.coupon_bid for usage in active_usages if usage.coupon_bid}
         coupons_by_bid = {}
         if coupon_bids:
-            coupons = Coupon.query.filter(Coupon.coupon_bid.in_(coupon_bids)).all()
+            coupons = Coupon.query.filter(
+                Coupon.coupon_bid.in_(coupon_bids),
+                Coupon.deleted == 0,
+            ).all()
             coupons_by_bid = {coupon.coupon_bid: coupon for coupon in coupons}
         coupons_by_code: List[Coupon] = (
             Coupon.query.filter(

@@ -53,6 +53,13 @@ def test_coupon_matches_course_returns_false_for_inactive_coupon():
     assert _coupon_matches_course(coupon, "course-1") is False
 
 
+def test_coupon_matches_course_returns_false_for_deleted_coupon():
+    coupon = _make_coupon("course-1")
+    coupon.deleted = 1
+
+    assert _coupon_matches_course(coupon, "course-1") is False
+
+
 def test_pick_coupon_candidate_prefers_user_usage():
     coupon = _make_coupon("course-1")
     usage = _make_usage("user-1", coupon.coupon_bid)

@@ -494,7 +494,6 @@ def _resolve_batch_coupon_code(
     code: object,
     *,
     exclude_coupon_bid: str = "",
-    existing_code: str = "",
 ) -> str:
     normalized_code = str(code or "").strip().upper()
     if usage_type == COUPON_APPLY_TYPE_SPECIFIC:

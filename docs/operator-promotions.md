@@ -38,7 +38,7 @@ Add a new operator-level `Promotions` area under operations for managing coupon 
   - single course
 - Coupon batches support create, limited edit, and enable/disable
 - Fields such as usage type, discount type, discount value, course scope, and channel stay locked after creation
-- Operators can edit display-oriented fields such as name, description, and schedule; issuing method is editable only before start and before any redemption
+- Operators can edit only the implemented batch fields exposed by this PR: name and schedule/time window
 - Coupon and campaign discounts may stack
 
 ### Campaigns
