@@ -1249,6 +1249,64 @@ def test_admin_promotions_coupon_update_allows_changing_only_end_time(
         )
 
 
+def test_admin_promotions_coupon_update_ignores_empty_start_time(app, test_client, monkeypatch):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-1-empty-start", "Coupon Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/coupons",
+        json={
+            "name": "Keep Start Coupon",
+            "code": "KEEPSTART",
+            "usage_type": 801,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 10,
+            "scope_type": "single_course",
+            "shifu_bid": "course-1-empty-start",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    coupon_bid = create_response.get_json(force=True)["data"]["coupon_bid"]
+
+    update_response = test_client.post(
+        f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}",
+        json={
+            "name": "Keep Start Coupon Updated",
+            "code": "KEEPSTART",
+            "usage_type": 801,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 10,
+            "scope_type": "single_course",
+            "shifu_bid": "course-1-empty-start",
+            "start_at": "",
+            "end_at": "2026-05-30 23:59",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+
+    assert update_response.get_json(force=True)["code"] == 0
+
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        assert coupon.start == datetime.strptime(
+            "2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"
+        )
+        assert coupon.end == datetime.strptime(
+            "2026-05-30 23:59:00", "%Y-%m-%d %H:%M:%S"
+        )
+
+
 def test_admin_promotions_coupon_status_rejects_enabling_expired_coupon(
     app, test_client, monkeypatch
 ):
@@ -1453,6 +1511,66 @@ def test_admin_promotions_campaign_update_allows_changing_only_start_time(
         )
 
 
+def test_admin_promotions_campaign_update_ignores_null_end_time(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-8-null-end", "Partial Campaign Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Keep End Campaign",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "shifu_bid": "course-8-null-end",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "start_at": "2099-04-24 10:00:00",
+            "end_at": "2099-05-24 10:00:00",
+            "description": "Before",
+            "channel": "app",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    promo_bid = create_response.get_json(force=True)["data"]["promo_bid"]
+
+    update_response = test_client.post(
+        f"/api/shifu/admin/operations/promotions/campaigns/{promo_bid}",
+        json={
+            "name": "Keep End Campaign Updated",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "shifu_bid": "course-8-null-end",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "start_at": "2099-04-25 10:30",
+            "end_at": None,
+            "description": "After",
+            "channel": "app",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+
+    assert update_response.get_json(force=True)["code"] == 0
+
+    with app.app_context():
+        campaign = PromoCampaign.query.filter(
+            PromoCampaign.promo_bid == promo_bid
+        ).first()
+        assert campaign is not None
+        assert campaign.start_at == datetime.strptime(
+            "2099-04-25 10:30:00", "%Y-%m-%d %H:%M:%S"
+        )
+        assert campaign.end_at == datetime.strptime(
+            "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
+        )
+
+
 def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemption(
     app, test_client, monkeypatch
 ):
@@ -1618,3 +1736,58 @@ def test_admin_promotions_campaign_status_rejects_enabling_ended_campaign(
     )
 
     assert enable_response.get_json(force=True)["code"] != 0
+
+
+def test_admin_promotions_campaign_status_allows_manual_campaign_overlap_with_auto(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-6-manual-overlap", "Overlap Campaign Course")
+        db.session.commit()
+
+    auto_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Auto Campaign",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            "shifu_bid": "course-6-manual-overlap",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "start_at": "2099-04-24 10:00:00",
+            "end_at": "2099-05-24 10:00:00",
+            "description": "Auto",
+            "channel": "app",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    assert auto_response.get_json(force=True)["code"] == 0
+
+    manual_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Manual Campaign",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_MANUAL,
+            "shifu_bid": "course-6-manual-overlap",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "10",
+            "start_at": "2099-05-01 10:00:00",
+            "end_at": "2099-05-20 10:00:00",
+            "description": "Manual",
+            "channel": "app",
+            "enabled": False,
+        },
+        headers={"Token": "test-token"},
+    )
+    promo_bid = manual_response.get_json(force=True)["data"]["promo_bid"]
+
+    enable_response = test_client.post(
+        f"/api/shifu/admin/operations/promotions/campaigns/{promo_bid}/status",
+        json={"enabled": True},
+        headers={"Token": "test-token"},
+    )
+
+    assert enable_response.get_json(force=True)["code"] == 0

@@ -21,7 +21,12 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
 )
-from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+)
 from flaskr.service.promo.funcs import (
     apply_promo_campaigns,
     query_promo_campaign_applications,
@@ -282,8 +287,8 @@ def _sync_order_campaign_pricing(
     buy_record: Order,
     user_id: str,
     course_id: str,
-    active_id: str | None,
-) -> tuple[list, decimal.Decimal]:
+    active_id: Optional[str],
+) -> Tuple[List, decimal.Decimal]:
     """Refresh eligible campaigns for an unpaid order and recalculate paid price."""
     campaign_applications = apply_promo_campaigns(
         app,
@@ -297,10 +302,42 @@ def _sync_order_campaign_pricing(
     if campaign_applications:
         for campaign_application in campaign_applications:
             discount_value += decimal.Decimal(campaign_application.discount_amount)
-    if discount_value > buy_record.payable_price:
-        discount_value = buy_record.payable_price
-    buy_record.paid_price = decimal.Decimal(buy_record.payable_price) - discount_value
-    db.session.merge(buy_record)
+    coupon_discount_value = decimal.Decimal("0.00")
+    coupon_records: List[CouponUsageModel] = CouponUsageModel.query.filter(
+        CouponUsageModel.order_bid == buy_record.order_bid,
+        CouponUsageModel.status == COUPON_STATUS_USED,
+        CouponUsageModel.deleted == 0,
+    ).all()
+    if coupon_records:
+        coupon_bids = [
+            coupon_record.coupon_bid
+            for coupon_record in coupon_records
+            if coupon_record.coupon_bid
+        ]
+        coupon_map: Dict[str, Coupon] = {}
+        if coupon_bids:
+            coupon_map = {
+                coupon.coupon_bid: coupon
+                for coupon in Coupon.query.filter(Coupon.coupon_bid.in_(coupon_bids)).all()
+            }
+        for coupon_record in coupon_records:
+            coupon = coupon_map.get(coupon_record.coupon_bid)
+            if not coupon:
+                continue
+            coupon_value = decimal.Decimal(
+                str(getattr(coupon_record, "value", None) or coupon.value or 0)
+            )
+            if coupon.discount_type == COUPON_TYPE_FIXED:
+                coupon_discount_value += coupon_value
+            elif coupon.discount_type == COUPON_TYPE_PERCENT:
+                coupon_discount_value += (
+                    decimal.Decimal(buy_record.payable_price) * coupon_value / 100
+                )
+    total_discount_value = discount_value + coupon_discount_value
+    if total_discount_value > buy_record.payable_price:
+        total_discount_value = buy_record.payable_price
+    buy_record.paid_price = decimal.Decimal(buy_record.payable_price) - total_discount_value
+    db.session.add(buy_record)
     db.session.commit()
     return campaign_applications, discount_value
 
@@ -1371,6 +1408,7 @@ def _supplement_promo_discount_items(
         PromoRedemption.query.filter(
             PromoRedemption.order_bid == record_id,
             PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
         )
         .order_by(PromoRedemption.updated_at.desc(), PromoRedemption.id.desc())
         .all()

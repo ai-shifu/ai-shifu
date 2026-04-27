@@ -8,7 +8,6 @@ from datetime import datetime
 import math
 from typing import Dict, Optional
 
-import pytz
 from flask import Flask, current_app
 from sqlalchemy import and_, case, func, or_
 
@@ -102,8 +101,11 @@ MAX_SPECIFIC_COUPON_BATCH_SIZE = 2000
 
 
 def _now_local_naive() -> datetime:
-    now = datetime.now(pytz.timezone("Asia/Shanghai"))
-    return now.replace(tzinfo=None)
+    source_tz = get_app_timezone(
+        current_app._get_current_object(),
+        PROMOTION_ADMIN_SOURCE_TIMEZONE,
+    )
+    return datetime.now(source_tz).replace(tzinfo=None)
 
 
 def _normalize_promotion_admin_input_datetime(value: datetime) -> datetime:
@@ -135,29 +137,6 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
         except ValueError:
             continue
     raise_param_error(field_name)
-
-
-def _parse_optional_datetime(value: str, *, is_end: bool = False) -> Optional[datetime]:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return None
-    for fmt in (
-        "%Y-%m-%d",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M",
-        "%Y-%m-%dT%H:%M:%S",
-    ):
-        try:
-            parsed = datetime.strptime(normalized, fmt)
-            if fmt == "%Y-%m-%d":
-                if is_end:
-                    return parsed.replace(hour=23, minute=59, second=59)
-                return parsed.replace(hour=0, minute=0, second=0)
-            return _normalize_promotion_admin_input_datetime(parsed)
-        except ValueError:
-            continue
-    raise_param_error("datetime")
 
 
 def _parse_decimal_value(value: object, field_name: str) -> decimal.Decimal:
@@ -198,7 +177,10 @@ def _resolve_update_datetime(
 ) -> datetime:
     if field_name not in payload:
         return current_value
-    return _parse_datetime(payload.get(field_name), field_name, is_end=is_end)
+    value = payload.get(field_name)
+    if value is None or str(value).strip() == "":
+        return current_value
+    return _parse_datetime(value, field_name, is_end=is_end)
 
 
 def _format_promotion_admin_datetime(value: Optional[datetime]) -> str:
@@ -1710,7 +1692,11 @@ def update_operator_promotion_campaign_status(
         campaign = _load_campaign_or_404(promo_bid)
         if enabled_value and not _campaign_is_enableable(campaign):
             raise_error("server.discount.discountNotApply")
-        if enabled_value:
+        if (
+            enabled_value
+            and int(campaign.apply_type or PROMO_CAMPAIGN_JOIN_TYPE_AUTO)
+            == PROMO_CAMPAIGN_JOIN_TYPE_AUTO
+        ):
             _validate_campaign_overlap(
                 campaign.shifu_bid or "",
                 campaign.start_at,
