@@ -1382,7 +1382,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     with app.app_context():
         app.logger.info('query buy record:"{}"'.format(record_id))
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
-        print("buy_record: ", buy_record.payable_price, buy_record.paid_price)
         if buy_record:
             item = []
             item.append(
@@ -1394,10 +1393,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     None,
                 )
             )
-            recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
             if buy_record.payable_price > 0:
                 campaign_applications = query_promo_campaign_applications(
-                    app, record_id, recaul_discount
+                    app, record_id, False
                 )
                 discount_records = CouponUsageModel.query.filter(
                     CouponUsageModel.order_bid == record_id
@@ -1408,19 +1406,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     campaign_applications,
                     discount_records,
                 )
-                if (
-                    recaul_discount
-                    and discount_info.discount_value != buy_record.payable_price
-                ):
-                    app.logger.info(
-                        "update discount value for buy record:{}".format(record_id)
-                    )
-                    # buy_record.payable_price = discount_info.discount_value
-                    buy_record.paid_price = decimal.Decimal(
-                        buy_record.payable_price
-                    ) - decimal.Decimal(discount_info.discount_value)
-                    buy_record.updated_at = datetime.datetime.now()
-                    db.session.commit()
                 item = discount_info.items
 
             return AICourseBuyRecordDTO(
