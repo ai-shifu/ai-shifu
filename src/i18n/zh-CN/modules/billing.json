@@ -524,7 +524,7 @@
       },
       "common": {
         "allLearning": "全部学习功能",
-        "allTeachingAndLearning": "全部授课和学习功能",
+        "allTeachingAndLearning": "完整授课和学习功能",
         "createDebugPublish": "创建、调试和发布课程",
         "higherConcurrency": "更高并发支持",
         "unlimitedCourses": "不限课程数"
@@ -613,7 +613,7 @@
       "sectionTitle": "学员支持规模（参考）"
     },
     "creditPeriod": {
-      "oneTime": "一次性赠送"
+      "oneTime": "一次性"
     },
     "validityShort": {
       "free": "{days} 天",
@@ -623,9 +623,9 @@
       "yearlyYears": "{count} 年"
     },
     "validityTooltip": {
-      "free": "新注册起 {days} 天内有效。到期时间以到期日 23:59 计算。",
-      "monthly": "按天算，30 天有效，含当日。到期时间以到期日 23:59 计算。",
-      "yearly": "按自然年算，几月几号购买，次年同月同日结束（2 月 29 日购买的算到次年 3 月 1 日）。到期时间以到期日 23:59 计算。"
+      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
+      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
+      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 2 日）。以到期日的 23:59 计算。"
     },
     "subtitle": "请选择合适的积分套餐",
     "table": {

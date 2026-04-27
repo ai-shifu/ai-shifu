@@ -524,7 +524,7 @@
       },
       "common": {
         "allLearning": "All learning features",
-        "allTeachingAndLearning": "All teaching and learning features",
+        "allTeachingAndLearning": "Full teaching and learning features",
         "createDebugPublish": "Create, debug, and publish courses",
         "higherConcurrency": "Higher concurrency support",
         "unlimitedCourses": "Unlimited courses"
@@ -613,7 +613,7 @@
       "sectionTitle": "Learner capacity (est.)"
     },
     "creditPeriod": {
-      "oneTime": "One-time grant"
+      "oneTime": "One-time"
     },
     "validityShort": {
       "free": "{days} days",
@@ -623,9 +623,9 @@
       "yearlyYears": "{count} years"
     },
     "validityTooltip": {
-      "free": "Valid for {days} days from registration. Expires at 23:59 on the expiry day.",
-      "monthly": "Counted by day, valid for 30 days including the purchase day. Expires at 23:59 on the expiry day.",
-      "yearly": "Counted by calendar year; the end date is the same calendar date next year (Feb 29 purchases roll to Mar 1). Expires at 23:59 on the expiry day."
+      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 2 of the next year). Counted to 23:59 on the expiry day."
     },
     "subtitle": "Choose the right credit plan.",
     "table": {
