@@ -1388,9 +1388,9 @@ def _supplement_promo_discount_items(
         remaining_discount = expected_discount_value - current_discount_value
         if remaining_discount <= 0:
             break
-        promo_name = promo_name_map.get(record.promo_bid) or str(
-            record.promo_name or ""
-        ).strip()
+        promo_name = (
+            promo_name_map.get(record.promo_bid) or str(record.promo_name or "").strip()
+        )
         if promo_name and promo_name in existing_price_names:
             continue
         try:
