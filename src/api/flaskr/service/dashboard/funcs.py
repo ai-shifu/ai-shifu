@@ -246,7 +246,10 @@ def _build_follow_up_count_by_section_chart(
         if outline_item_bid not in visible_parent_bids
     }
     ordered_sections = sorted(
-        [outline_item_map[outline_item_bid] for outline_item_bid in visible_section_bids],
+        [
+            outline_item_map[outline_item_bid]
+            for outline_item_bid in visible_section_bids
+        ],
         key=lambda item: (
             _outline_position_key(getattr(item, "position", "")),
             int(getattr(item, "id", 0) or 0),

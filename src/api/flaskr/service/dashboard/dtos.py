@@ -213,12 +213,12 @@ class DashboardCourseDetailFollowUpCountBySectionDTO(BaseModel):
 class DashboardCourseDetailChartsDTO(BaseModel):
     """Dashboard detail chart data."""
 
-    follow_up_count_by_section: List[
-        DashboardCourseDetailFollowUpCountBySectionDTO
-    ] = Field(
-        default_factory=list,
-        description="Follow-up question distribution by section",
-        required=False,
+    follow_up_count_by_section: List[DashboardCourseDetailFollowUpCountBySectionDTO] = (
+        Field(
+            default_factory=list,
+            description="Follow-up question distribution by section",
+            required=False,
+        )
     )
 
     def __json__(self) -> Dict[str, Any]:

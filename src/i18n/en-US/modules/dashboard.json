@@ -10,8 +10,8 @@
     },
     "charts": {
       "allChapters": "All Chapters",
-      "chapterProgress": "Chapter Progress Distribution",
       "chapterFilter": "Chapter",
+      "chapterProgress": "Chapter Progress Distribution",
       "chapterSectionsDescription": "Shows all sections under the selected chapter, including sections with 0 questions.",
       "emptyFollowUpSections": "No section follow-up data to display",
       "followUpCountSeries": "Follow-up Questions",
