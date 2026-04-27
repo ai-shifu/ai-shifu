@@ -97,6 +97,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import serialize_dt as _serialize_dt
+from .primitives import credit_decimal_to_number
 from .primitives import to_decimal as _to_decimal
 from .serializers import (
     build_billing_alerts as _build_billing_alerts,
@@ -388,7 +389,7 @@ def _load_credit_order_grant_map(
             app,
             source_type=source_type_label,
             source_bid=source_bid,
-            granted_credits=row.amount,
+            granted_credits=credit_decimal_to_number(row.amount),
             valid_from=row.consumable_from,
             valid_to=row.expires_at,
             timezone_name=timezone_name,
