@@ -1,10 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {
-  formatBillingCreditAmount,
-  formatBillingPrice,
-} from '@/lib/billing';
+import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
 import type {
   BillingPlan,
   BillingProvider,

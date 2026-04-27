@@ -56,10 +56,7 @@ function buildFeatureRows(
     .sort((a, b) => a.unlockIndex - b.unlockIndex);
 }
 
-function planRankIn(
-  ordered: BillingPlan[],
-  productBid: string | null,
-): number {
+function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
   if (!productBid) return -1;
   return ordered.findIndex(plan => plan.product_bid === productBid);
 }
@@ -238,9 +235,7 @@ export function BillingPlanComparisonTable({
       currentRank >= 0 &&
       planRank >= 0 &&
       planRank < currentRank;
-    const checkoutKey = provider
-      ? `plan:${provider}:${plan.product_bid}`
-      : '';
+    const checkoutKey = provider ? `plan:${provider}:${plan.product_bid}` : '';
     const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
 

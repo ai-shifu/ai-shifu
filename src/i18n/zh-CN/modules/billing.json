@@ -507,6 +507,9 @@
       "upgradeNow": "立即升级",
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
     },
+    "creditPeriod": {
+      "oneTime": "一次性"
+    },
     "creditSummary": {
       "daily": "日积分数 {credits}",
       "days": "每 {count} 天积分数 {credits}",
@@ -612,21 +615,6 @@
       },
       "sectionTitle": "学员支持规模（参考）"
     },
-    "creditPeriod": {
-      "oneTime": "一次性"
-    },
-    "validityShort": {
-      "free": "{days} 天",
-      "monthly": "30 天",
-      "monthlyMonths": "{count} 个月",
-      "yearly": "1 年",
-      "yearlyYears": "{count} 年"
-    },
-    "validityTooltip": {
-      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
-      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
-      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 2 日）。以到期日的 23:59 计算。"
-    },
     "subtitle": "请选择合适的积分套餐",
     "table": {
       "creditsRowLabel": "周期积分",
@@ -650,6 +638,18 @@
       "months": "有效期：自购买当月起每 {count} 个月续期",
       "yearly": "有效期：当月购买起计算日起，每年有效",
       "years": "有效期：自购买当月起每 {count} 年续期"
+    },
+    "validityShort": {
+      "free": "{days} 天",
+      "monthly": "30 天",
+      "monthlyMonths": "{count} 个月",
+      "yearly": "1 年",
+      "yearlyYears": "{count} 年"
+    },
+    "validityTooltip": {
+      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
+      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
+      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 2 日）。以到期日的 23:59 计算。"
     }
   },
   "page": {

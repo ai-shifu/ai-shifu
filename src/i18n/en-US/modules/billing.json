@@ -507,6 +507,9 @@
       "upgradeNow": "Upgrade now",
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
     },
+    "creditPeriod": {
+      "oneTime": "One-time"
+    },
     "creditSummary": {
       "daily": "Daily credits {credits}",
       "days": "Credits every {count} days: {credits}",
@@ -612,21 +615,6 @@
       },
       "sectionTitle": "Learner capacity (est.)"
     },
-    "creditPeriod": {
-      "oneTime": "One-time"
-    },
-    "validityShort": {
-      "free": "{days} days",
-      "monthly": "30 days",
-      "monthlyMonths": "{count} months",
-      "yearly": "1 year",
-      "yearlyYears": "{count} years"
-    },
-    "validityTooltip": {
-      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 2 of the next year). Counted to 23:59 on the expiry day."
-    },
     "subtitle": "Choose the right credit plan.",
     "table": {
       "creditsRowLabel": "Credits per cycle",
@@ -650,6 +638,18 @@
       "months": "Validity: counted from the purchase month, renews every {count} months",
       "yearly": "Validity: counted from the purchase month, valid every year",
       "years": "Validity: counted from the purchase month, renews every {count} years"
+    },
+    "validityShort": {
+      "free": "{days} days",
+      "monthly": "30 days",
+      "monthlyMonths": "{count} months",
+      "yearly": "1 year",
+      "yearlyYears": "{count} years"
+    },
+    "validityTooltip": {
+      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 2 of the next year). Counted to 23:59 on the expiry day."
     }
   },
   "page": {
