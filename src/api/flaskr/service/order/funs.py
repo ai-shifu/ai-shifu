@@ -271,6 +271,35 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
                 pass
 
 
+def _sync_order_campaign_pricing(
+    app: Flask,
+    *,
+    buy_record: Order,
+    user_id: str,
+    course_id: str,
+    active_id: str | None,
+) -> tuple[list, decimal.Decimal]:
+    """Refresh eligible campaigns for an unpaid order and recalculate paid price."""
+    campaign_applications = apply_promo_campaigns(
+        app,
+        shifu_bid=course_id,
+        user_bid=user_id,
+        order_bid=buy_record.order_bid,
+        promo_bid=active_id,
+        payable_price=buy_record.payable_price,
+    )
+    discount_value = decimal.Decimal("0.00")
+    if campaign_applications:
+        for campaign_application in campaign_applications:
+            discount_value += decimal.Decimal(campaign_application.discount_amount)
+    if discount_value > buy_record.payable_price:
+        discount_value = buy_record.payable_price
+    buy_record.paid_price = decimal.Decimal(buy_record.payable_price) - discount_value
+    db.session.merge(buy_record)
+    db.session.commit()
+    return campaign_applications, discount_value
+
+
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
@@ -303,6 +332,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             order_timeout_make_new_order = True
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
+            _sync_order_campaign_pricing(
+                app,
+                buy_record=origin_record,
+                user_id=user_id,
+                course_id=course_id,
+                active_id=None,
+            )
             return query_buy_record(app, origin_record.order_bid)
         # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
@@ -317,13 +353,12 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             buy_record = origin_record
             order_id = origin_record.order_bid
-        campaign_applications = apply_promo_campaigns(
+        campaign_applications, discount_value = _sync_order_campaign_pricing(
             app,
-            shifu_bid=course_id,
-            user_bid=user_id,
-            order_bid=order_id,
-            promo_bid=active_id,
-            payable_price=buy_record.payable_price,
+            buy_record=buy_record,
+            user_id=user_id,
+            course_id=course_id,
+            active_id=active_id,
         )
         price_items = []
         price_items.append(
@@ -335,12 +370,8 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 None,
             )
         )
-        discount_value = decimal.Decimal(0.00)
         if campaign_applications:
             for campaign_application in campaign_applications:
-                discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
-                    campaign_application.discount_amount
-                )
                 price_items.append(
                     PayItemDto(
                         _("server.order.payItemPromotion"),
@@ -350,13 +381,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                         None,
                     )
                 )
-        if discount_value > buy_record.payable_price:
-            discount_value = buy_record.payable_price
-        buy_record.paid_price = decimal.Decimal(
-            buy_record.payable_price
-        ) - decimal.Decimal(discount_value)
-        db.session.merge(buy_record)
-        db.session.commit()
         return AICourseBuyRecordDTO(
             buy_record.order_bid,
             buy_record.user_bid,
