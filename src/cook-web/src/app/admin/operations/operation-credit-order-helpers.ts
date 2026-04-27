@@ -11,8 +11,15 @@ import type {
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 
-const BILLING_PROVIDERS = ['manual', 'pingxx', 'stripe'] as const satisfies readonly BillingProvider[];
-const PINGXX_CHANNELS = ['wx_pub_qr', 'alipay_qr'] as const satisfies readonly BillingPingxxChannel[];
+const BILLING_PROVIDERS = [
+  'manual',
+  'pingxx',
+  'stripe',
+] as const satisfies readonly BillingProvider[];
+const PINGXX_CHANNELS = [
+  'wx_pub_qr',
+  'alipay_qr',
+] as const satisfies readonly BillingPingxxChannel[];
 
 function isBillingProvider(value: string): value is BillingProvider {
   return (BILLING_PROVIDERS as readonly string[]).includes(value);
