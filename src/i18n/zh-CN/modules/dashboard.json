@@ -9,12 +9,22 @@
       "title": "基础信息"
     },
     "charts": {
+      "allChapters": "全部章节",
       "chapterProgress": "章节学习进度分布图",
+      "chapterFilter": "章节",
+      "chapterSectionsDescription": "展示所选章节下全部小节的追问数量，包含 0 追问小节。",
+      "emptyFollowUpSections": "暂无可展示的小节追问数据",
+      "followUpCountSeries": "追问数",
       "learningTrend": "学习活跃趋势图",
+      "otherSections": "其他小节",
       "placeholder": "图表能力建设中，敬请期待",
       "questionsByChapter": "追问数量按章节分布图",
       "questionsByTime": "追问数量按时间分布图",
-      "title": "图表区"
+      "title": "图表区",
+      "topSectionsDescription": "默认展示追问数最高的 20 个小节，其余小节合并为“其他”。",
+      "unassignedSection": "未归属小节",
+      "untitledChapter": "未命名章节",
+      "untitledSection": "未命名小节"
     },
     "courseIdLabel": "课程 ID",
     "learners": {

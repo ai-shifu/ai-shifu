@@ -13,7 +13,9 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
+    DashboardCourseDetailChartsDTO,
     DashboardCourseDetailDTO,
+    DashboardCourseDetailFollowUpCountBySectionDTO,
     DashboardCourseDetailMetricsDTO,
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
@@ -196,6 +198,135 @@ def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
         for outline_item_bid in visible_bids
         if outline_item_bid not in visible_parent_bids
     )
+
+
+def _outline_position_key(position: object) -> Tuple[Tuple[int, int | str], ...]:
+    normalized_position = str(position or "").strip()
+    if not normalized_position:
+        return ()
+
+    key_parts: List[Tuple[int, int | str]] = []
+    for part in normalized_position.split("."):
+        normalized_part = part.strip()
+        if not normalized_part:
+            continue
+        if normalized_part.isdigit():
+            key_parts.append((0, int(normalized_part)))
+        else:
+            key_parts.append((1, normalized_part))
+    return tuple(key_parts)
+
+
+def _build_follow_up_count_by_section_chart(
+    shifu_bid: str,
+) -> List[DashboardCourseDetailFollowUpCountBySectionDTO]:
+    outline_items: List[PublishedOutlineItem] = (
+        PublishedOutlineItem.query.filter(
+            PublishedOutlineItem.shifu_bid == shifu_bid,
+            PublishedOutlineItem.deleted == 0,
+            PublishedOutlineItem.hidden == 0,
+        )
+        .order_by(PublishedOutlineItem.id.asc())
+        .all()
+    )
+    outline_item_map: Dict[str, PublishedOutlineItem] = {}
+    visible_parent_bids: Set[str] = set()
+    for item in outline_items:
+        outline_item_bid = str(item.outline_item_bid or "").strip()
+        parent_bid = str(item.parent_bid or "").strip()
+        if not outline_item_bid:
+            continue
+        outline_item_map[outline_item_bid] = item
+        if parent_bid:
+            visible_parent_bids.add(parent_bid)
+
+    visible_section_bids = {
+        outline_item_bid
+        for outline_item_bid in outline_item_map.keys()
+        if outline_item_bid not in visible_parent_bids
+    }
+    ordered_sections = sorted(
+        [outline_item_map[outline_item_bid] for outline_item_bid in visible_section_bids],
+        key=lambda item: (
+            _outline_position_key(getattr(item, "position", "")),
+            int(getattr(item, "id", 0) or 0),
+        ),
+    )
+
+    follow_up_rows = (
+        db.session.query(
+            LearnGeneratedBlock.outline_item_bid,
+            db.func.count(LearnGeneratedBlock.id),
+        )
+        .filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .group_by(LearnGeneratedBlock.outline_item_bid)
+        .all()
+    )
+    follow_up_count_map = {
+        str(outline_item_bid or "").strip(): int(count or 0)
+        for outline_item_bid, count in follow_up_rows
+    }
+
+    chart_items: List[DashboardCourseDetailFollowUpCountBySectionDTO] = []
+    assigned_follow_up_count = 0
+    for section in ordered_sections:
+        section_outline_item_bid = str(section.outline_item_bid or "").strip()
+        section_follow_up_count = int(
+            follow_up_count_map.get(section_outline_item_bid, 0) or 0
+        )
+        assigned_follow_up_count += section_follow_up_count
+
+        chapter_outline_item_bid = section_outline_item_bid
+        chapter_title = str(section.title or "").strip()
+        current_item: Optional[PublishedOutlineItem] = section
+        visited_bids = {section_outline_item_bid}
+        while current_item is not None:
+            parent_bid = str(getattr(current_item, "parent_bid", "") or "").strip()
+            if not parent_bid or parent_bid in visited_bids:
+                break
+            visited_bids.add(parent_bid)
+            parent_item = outline_item_map.get(parent_bid)
+            if parent_item is None:
+                break
+            chapter_outline_item_bid = parent_bid
+            chapter_title = str(parent_item.title or "").strip()
+            current_item = parent_item
+
+        chart_items.append(
+            DashboardCourseDetailFollowUpCountBySectionDTO(
+                chapter_outline_item_bid=chapter_outline_item_bid,
+                chapter_title=chapter_title,
+                section_outline_item_bid=section_outline_item_bid,
+                section_title=str(section.title or "").strip(),
+                position=str(section.position or "").strip(),
+                follow_up_count=section_follow_up_count,
+            )
+        )
+
+    unassigned_follow_up_count = (
+        sum(int(count or 0) for count in follow_up_count_map.values())
+        - assigned_follow_up_count
+    )
+    if unassigned_follow_up_count > 0:
+        chart_items.append(
+            DashboardCourseDetailFollowUpCountBySectionDTO(
+                chapter_outline_item_bid="",
+                chapter_title="",
+                section_outline_item_bid="__unassigned__",
+                section_title="",
+                position="",
+                follow_up_count=unassigned_follow_up_count,
+                is_unassigned=True,
+            )
+        )
+
+    return chart_items
 
 
 def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
@@ -671,6 +802,9 @@ def build_dashboard_course_detail(
             normalized_shifu_bid,
             learner_count,
         )
+        follow_up_count_by_section = _build_follow_up_count_by_section_chart(
+            normalized_shifu_bid,
+        )
 
         return DashboardCourseDetailDTO(
             basic_info=DashboardCourseDetailBasicInfoDTO(
@@ -707,5 +841,8 @@ def build_dashboard_course_detail(
                     learner_count,
                 ),
                 avg_learning_duration_seconds=avg_learning_duration_seconds,
+            ),
+            charts=DashboardCourseDetailChartsDTO(
+                follow_up_count_by_section=follow_up_count_by_section,
             ),
         )

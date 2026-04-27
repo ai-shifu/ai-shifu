@@ -1193,6 +1193,224 @@ class TestDashboardRoutes:
             "%Y-%m-%d %H:%M:%S"
         )
 
+    def test_course_detail_returns_follow_up_count_by_section_chart(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        now = datetime.utcnow()
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-chart",
+                title="Chart Course",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart",
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart",
+                outline_item_bid="lesson-1",
+                title="Lesson 1",
+                parent_bid="chapter-1",
+                position="1.1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart",
+                outline_item_bid="lesson-2",
+                title="Lesson 2",
+                parent_bid="chapter-1",
+                position="1.2",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart",
+                outline_item_bid="lesson-hidden",
+                title="Hidden Lesson",
+                parent_bid="chapter-1",
+                position="1.3",
+                hidden=1,
+            )
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ask-1",
+                        progress_record_bid="chart-progress-1",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Question 1",
+                        position=1,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ask-2",
+                        progress_record_bid="chart-progress-1",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Question 2",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-hidden-ask",
+                        progress_record_bid="chart-progress-hidden",
+                        user_bid="learner-2",
+                        block_bid="",
+                        outline_item_bid="lesson-hidden",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Hidden question",
+                        position=3,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-stale-ask",
+                        progress_record_bid="chart-progress-stale",
+                        user_bid="learner-3",
+                        block_bid="",
+                        outline_item_bid="lesson-stale",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Stale question",
+                        position=4,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ignore-teacher",
+                        progress_record_bid="chart-progress-ignore",
+                        user_bid="learner-4",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_TEACHER,
+                        generated_content="Ignore teacher",
+                        position=5,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ignore-type",
+                        progress_record_bid="chart-progress-ignore",
+                        user_bid="learner-4",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_CONTENT_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Ignore type",
+                        position=6,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ignore-deleted",
+                        progress_record_bid="chart-progress-ignore",
+                        user_bid="learner-4",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Ignore deleted",
+                        position=7,
+                        block_content_conf="",
+                        status=1,
+                        deleted=1,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-ignore-status",
+                        progress_record_bid="chart-progress-ignore",
+                        user_bid="learner-4",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-chart",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Ignore status",
+                        position=8,
+                        block_content_conf="",
+                        status=0,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/shifus/course-chart/detail")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["metrics"]["total_follow_up_count"] == 4
+        assert payload["data"]["charts"]["follow_up_count_by_section"] == [
+            {
+                "chapter_outline_item_bid": "chapter-1",
+                "chapter_title": "Chapter 1",
+                "section_outline_item_bid": "lesson-1",
+                "section_title": "Lesson 1",
+                "position": "1.1",
+                "follow_up_count": 2,
+            },
+            {
+                "chapter_outline_item_bid": "chapter-1",
+                "chapter_title": "Chapter 1",
+                "section_outline_item_bid": "lesson-2",
+                "section_title": "Lesson 2",
+                "position": "1.2",
+                "follow_up_count": 0,
+            },
+            {
+                "chapter_outline_item_bid": "",
+                "chapter_title": "",
+                "section_outline_item_bid": "__unassigned__",
+                "section_title": "",
+                "position": "",
+                "follow_up_count": 2,
+                "is_unassigned": True,
+            },
+        ]
+
     def test_course_detail_counts_restudy_learners_as_completed(
         self,
         monkeypatch,
