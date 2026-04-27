@@ -13,7 +13,12 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_ACTIVE,
 )
-from flaskr.service.promo.models import Coupon, CouponUsage, PromoCampaign, PromoRedemption
+from flaskr.service.promo.models import (
+    Coupon,
+    CouponUsage,
+    PromoCampaign,
+    PromoRedemption,
+)
 
 
 def test_init_buy_record_creates_order(app, monkeypatch):
@@ -242,9 +247,7 @@ def test_init_buy_record_refresh_keeps_existing_coupon_discount(app, monkeypatch
         assert Decimal(result.discount) == Decimal("100.00")
         assert Decimal(result.value_to_pay) == Decimal("400.00")
 
-        stored = Order.query.filter(
-            Order.order_bid == "order-refresh-coupon-1"
-        ).first()
+        stored = Order.query.filter(Order.order_bid == "order-refresh-coupon-1").first()
         assert stored is not None
         assert Decimal(stored.paid_price) == Decimal("400.00")
 

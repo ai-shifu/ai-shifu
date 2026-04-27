@@ -113,9 +113,7 @@ def test_query_buy_record_uses_coupon_name_and_code_in_price_item(app, monkeypat
 
     result = query_buy_record(app, "order-query-coupon-1")
     assert result.order_id == "order-query-coupon-1"
-    assert any(
-        item.price_name == "新人券 (NEW10)" for item in result.price_item
-    )
+    assert any(item.price_name == "新人券 (NEW10)" for item in result.price_item)
 
     with app.app_context():
         usage = CouponUsage.query.filter(

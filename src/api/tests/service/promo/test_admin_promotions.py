@@ -1249,7 +1249,9 @@ def test_admin_promotions_coupon_update_allows_changing_only_end_time(
         )
 
 
-def test_admin_promotions_coupon_update_ignores_empty_start_time(app, test_client, monkeypatch):
+def test_admin_promotions_coupon_update_ignores_empty_start_time(
+    app, test_client, monkeypatch
+):
     _mock_operator(monkeypatch)
 
     with app.app_context():

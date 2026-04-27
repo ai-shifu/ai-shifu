@@ -318,7 +318,9 @@ def _sync_order_campaign_pricing(
         if coupon_bids:
             coupon_map = {
                 coupon.coupon_bid: coupon
-                for coupon in Coupon.query.filter(Coupon.coupon_bid.in_(coupon_bids)).all()
+                for coupon in Coupon.query.filter(
+                    Coupon.coupon_bid.in_(coupon_bids)
+                ).all()
             }
         for coupon_record in coupon_records:
             coupon = coupon_map.get(coupon_record.coupon_bid)
@@ -336,7 +338,9 @@ def _sync_order_campaign_pricing(
     total_discount_value = discount_value + coupon_discount_value
     if total_discount_value > buy_record.payable_price:
         total_discount_value = buy_record.payable_price
-    buy_record.paid_price = decimal.Decimal(buy_record.payable_price) - total_discount_value
+    buy_record.paid_price = (
+        decimal.Decimal(buy_record.payable_price) - total_discount_value
+    )
     db.session.add(buy_record)
     db.session.commit()
     return campaign_applications, discount_value
