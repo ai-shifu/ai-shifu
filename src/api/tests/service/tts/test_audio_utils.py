@@ -1,5 +1,7 @@
 import io
 
+import pytest
+
 from flaskr.service.tts import audio_utils
 
 
@@ -38,6 +40,15 @@ class _FakeAudioSegment:
         return _FakeSegment(duration)
 
 
+class _PartiallyBrokenAudioSegment:
+    @staticmethod
+    def from_mp3(segment_io: io.BytesIO):
+        payload = segment_io.getvalue()
+        if payload == b"BAD":
+            raise ValueError("Decoding failed")
+        return _FakeSegment(int(payload.decode("utf-8")))
+
+
 def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
@@ -58,3 +69,26 @@ def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch
 
     assert _FakeSegment.append_crossfades == [2, 50]
     assert output == b"duration=130"
+
+
+def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    with pytest.raises(ValueError, match="Failed to decode audio segments: 1"):
+        audio_utils.concat_audio_mp3([b"100", b"BAD", b"80"])
+
+
+def test_concat_audio_best_effort_falls_back_to_byte_join_on_partial_failure(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    output = audio_utils.concat_audio_best_effort([b"100", b"BAD", b"80"])
+
+    assert output == b"100BAD80"

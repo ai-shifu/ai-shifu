@@ -35,7 +35,7 @@ FRONTEND_FETCH_ALLOWLIST = {
     "config/environment.ts",
 }
 BACKEND_SHARED_SERVICES = {"common", "config"}
-BACKEND_STABLE_MODULE_SUFFIXES = {"dtos", "models", "consts"}
+BACKEND_STABLE_MODULE_SUFFIXES = {"api", "dtos", "models", "consts"}
 
 
 @dataclass(frozen=True)
@@ -346,8 +346,8 @@ def collect_backend_violations(backend_root: Path) -> list[Violation]:
                             "outside the shared/common stable entry points."
                         ),
                         remediation=(
-                            "Prefer shared common/config utilities, stable DTO/model/"
-                            "const modules, or a deliberate service API boundary."
+                            "Prefer shared common/config utilities, stable API/DTO/"
+                            "model/const modules, or a deliberate service boundary."
                         ),
                     )
                 )

@@ -67,6 +67,7 @@ import {
   hasCustomButtonAfterContent,
   inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
+  syncCustomButtonAfterContent,
 } from './chatUiUtils';
 
 interface LessonFeedbackPopupState {
@@ -977,6 +978,65 @@ function useChatLogicHook({
     },
     [],
   );
+
+  const syncContentListFollowUpButtons = useCallback(
+    (items: ChatContentItem[]) => {
+      const shouldShowButton = mobileStyle && !isListenMode;
+      const finalizedParentElementBids = new Set(
+        items
+          .filter(
+            item =>
+              (item.type === ChatContentItemType.LIKE_STATUS ||
+                item.type === ChatContentItemType.ASK) &&
+              Boolean(item.parent_element_bid),
+          )
+          .map(item => item.parent_element_bid as string),
+      );
+      let hasChanges = false;
+
+      const nextItems = items.map(item => {
+        const shouldSyncCurrentItem =
+          item.type === ChatContentItemType.CONTENT &&
+          (Boolean(item.isHistory) ||
+            finalizedParentElementBids.has(item.element_bid));
+
+        if (!shouldSyncCurrentItem) {
+          return item;
+        }
+
+        const syncedContent = syncCustomButtonAfterContent({
+          content: item.content,
+          buttonMarkup: getAskButtonMarkup(),
+          shouldShowButton,
+        });
+        const currentContent = item.content ?? '';
+
+        if (syncedContent === currentContent) {
+          return item;
+        }
+
+        hasChanges = true;
+
+        return {
+          ...item,
+          content: syncedContent,
+        };
+      });
+
+      return hasChanges ? nextItems : null;
+    },
+    [getAskButtonMarkup, isListenMode, mobileStyle],
+  );
+
+  useEffect(() => {
+    const syncedItems = syncContentListFollowUpButtons(contentListRef.current);
+
+    if (!syncedItems) {
+      return;
+    }
+
+    setTrackedContentList(syncedItems);
+  }, [setTrackedContentList, syncContentListFollowUpButtons]);
 
   const clearRunStreamTimeout = useCallback(() => {
     if (runStreamTimeoutRef.current) {

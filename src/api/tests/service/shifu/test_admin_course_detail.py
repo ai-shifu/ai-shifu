@@ -80,6 +80,19 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _pin_app_timezone_to_utc(app):
+    original_tz = app.config.get("TZ")
+    app.config["TZ"] = "UTC"
+    try:
+        yield
+    finally:
+        if original_tz is None:
+            app.config.pop("TZ", None)
+        else:
+            app.config["TZ"] = original_tz
+
+
+@pytest.fixture(autouse=True)
 def _mock_bcrypt_module(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
@@ -835,8 +848,8 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "creator_mobile": "13800001234",
         "creator_email": "",
         "creator_nickname": "user-creato",
-        "created_at": "2026-04-01 09:00:00",
-        "updated_at": "2026-04-03 15:30:00",
+        "created_at": "2026-04-01T09:00:00Z",
+        "updated_at": "2026-04-03T15:30:00Z",
     }
     assert payload["data"]["metrics"] == {
         "visit_count_30d": 7,
@@ -862,7 +875,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             "modifier_mobile": "13800001234",
             "modifier_email": "",
             "modifier_nickname": "user-creato",
-            "updated_at": "2026-04-03 15:30:00",
+            "updated_at": "2026-04-03T15:30:00Z",
             "children": [
                 {
                     "outline_item_bid": "lesson-1",
@@ -879,7 +892,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     "modifier_mobile": "13900001234",
                     "modifier_email": "",
                     "modifier_nickname": "user-modifi",
-                    "updated_at": "2026-04-03 15:30:00",
+                    "updated_at": "2026-04-03T15:30:00Z",
                     "children": [],
                 },
                 {
@@ -897,7 +910,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     "modifier_mobile": "13900001234",
                     "modifier_email": "",
                     "modifier_nickname": "user-modifi",
-                    "updated_at": "2026-04-03 15:30:00",
+                    "updated_at": "2026-04-03T15:30:00Z",
                     "children": [],
                 },
             ],
@@ -1476,8 +1489,8 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert creator_item["learning_status"] == "not_started"
     assert creator_item["learned_lesson_count"] == 0
     assert creator_item["total_lesson_count"] == 2
-    assert creator_item["joined_at"] == "2026-04-01 09:00:00"
-    assert creator_item["last_login_at"] == "2026-04-06 09:00:00"
+    assert creator_item["joined_at"] == "2026-04-01T09:00:00Z"
+    assert creator_item["last_login_at"] == "2026-04-06T09:00:00Z"
 
     paid_item = items_by_user_bid["student-1"]
     assert paid_item["mobile"] == "13900001234"
@@ -1487,9 +1500,9 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert paid_item["learning_status"] == "learning"
     assert paid_item["is_paid"] is True
     assert paid_item["total_paid_amount"] == "99"
-    assert paid_item["joined_at"] == "2026-04-04 10:00:00"
-    assert paid_item["last_learning_at"] == "2026-04-04 10:05:00"
-    assert paid_item["last_login_at"] == "2026-04-05 09:00:00"
+    assert paid_item["joined_at"] == "2026-04-04T10:00:00Z"
+    assert paid_item["last_learning_at"] == "2026-04-04T10:05:00Z"
+    assert paid_item["last_login_at"] == "2026-04-05T09:00:00Z"
 
     completed_item = items_by_user_bid["student-2"]
     assert completed_item["email"] == "student2@example.com"
@@ -1498,7 +1511,7 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert completed_item["total_lesson_count"] == 2
     assert completed_item["learning_status"] == "completed"
     assert completed_item["is_paid"] is False
-    assert completed_item["joined_at"] == "2026-04-02 08:30:00"
+    assert completed_item["joined_at"] == "2026-04-02T08:30:00Z"
 
 
 def test_admin_operation_course_users_route_applies_filters(
@@ -1761,7 +1774,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "follow_up_count": 3,
         "user_count": 2,
         "lesson_count": 2,
-        "latest_follow_up_at": "2026-04-05 11:01:00",
+        "latest_follow_up_at": "2026-04-05T11:01:00Z",
     }
     assert payload["data"]["total"] == 3
     assert [item["generated_block_bid"] for item in payload["data"]["items"]] == [
@@ -1788,7 +1801,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "follow_up_count": 1,
         "user_count": 1,
         "lesson_count": 1,
-        "latest_follow_up_at": "2026-04-05 11:01:00",
+        "latest_follow_up_at": "2026-04-05T11:01:00Z",
     }
     assert filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
@@ -2024,25 +2037,25 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
         {
             "role": "student",
             "content": "First follow-up question",
-            "created_at": "2026-04-04 10:01:00",
+            "created_at": "2026-04-04T10:01:00Z",
             "is_current": False,
         },
         {
             "role": "teacher",
             "content": "First follow-up answer",
-            "created_at": "2026-04-04 10:01:03",
+            "created_at": "2026-04-04T10:01:03Z",
             "is_current": False,
         },
         {
             "role": "student",
             "content": "Second follow-up question",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "Second follow-up answer",
-            "created_at": "2026-04-04 10:02:02",
+            "created_at": "2026-04-04T10:02:02Z",
             "is_current": True,
         },
     ]
@@ -2159,13 +2172,13 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
         {
             "role": "student",
             "content": "Question with an intermediate block",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "Answer after an intermediate block",
-            "created_at": "2026-04-04 10:02:03",
+            "created_at": "2026-04-04T10:02:03Z",
             "is_current": True,
         },
     ]
@@ -2350,13 +2363,13 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
         {
             "role": "student",
             "content": "Can you restate that content answer?",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "The content answer is stored in block_content_conf.",
-            "created_at": "2026-04-04 10:02:02",
+            "created_at": "2026-04-04T10:02:02Z",
             "is_current": True,
         },
     ]

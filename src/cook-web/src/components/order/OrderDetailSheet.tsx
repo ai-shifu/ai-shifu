@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import {
   Sheet,
   SheetContent,
@@ -270,11 +271,15 @@ const OrderDetailSheet = ({
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
-                  value={summary.created_at}
+                  value={
+                    formatAdminUtcDateTime(summary.created_at) || emptyValue
+                  }
                 />
                 <DetailRow
                   label={t('module.order.fields.updatedAt')}
-                  value={summary.updated_at}
+                  value={
+                    formatAdminUtcDateTime(summary.updated_at) || emptyValue
+                  }
                 />
               </Section>
 
@@ -324,11 +329,15 @@ const OrderDetailSheet = ({
                 />
                 <DetailRow
                   label={t('module.order.fields.paymentCreatedAt')}
-                  value={fallbackValue(payment?.created_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(payment?.created_at) || emptyValue
+                  }
                 />
                 <DetailRow
                   label={t('module.order.fields.paymentUpdatedAt')}
-                  value={fallbackValue(payment?.updated_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(payment?.updated_at) || emptyValue
+                  }
                 />
               </Section>
 
@@ -359,7 +368,10 @@ const OrderDetailSheet = ({
                         {t('module.order.fields.activityPrice')}:{' '}
                         {activity.price}
                       </span>
-                      <span>{activity.created_at}</span>
+                      <span>
+                        {formatAdminUtcDateTime(activity.created_at) ||
+                          emptyValue}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -398,7 +410,10 @@ const OrderDetailSheet = ({
                       <span>
                         {t('module.order.fields.couponValue')}: {coupon.value}
                       </span>
-                      <span>{coupon.created_at}</span>
+                      <span>
+                        {formatAdminUtcDateTime(coupon.created_at) ||
+                          emptyValue}
+                      </span>
                     </div>
                   </div>
                 ))}

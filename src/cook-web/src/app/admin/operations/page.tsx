@@ -15,6 +15,7 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -1194,13 +1195,17 @@ const OperationsPage = () => {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                         style={getColumnStyle('createdAt')}
                       >
-                        {renderTooltipText(course.created_at)}
+                        {renderTooltipText(
+                          formatAdminUtcDateTime(course.created_at),
+                        )}
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                         style={getColumnStyle('updatedAt')}
                       >
-                        {renderTooltipText(course.updated_at)}
+                        {renderTooltipText(
+                          formatAdminUtcDateTime(course.updated_at),
+                        )}
                       </TableCell>
                       <TableCell
                         className={getAdminStickyRightCellClass(

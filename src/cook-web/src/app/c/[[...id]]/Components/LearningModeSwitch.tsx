@@ -51,6 +51,7 @@ export const LearningModeSwitch = ({
             key={option.mode}
             className={cn(
               styles.segment,
+              isListenOption ? styles.listenSegment : '',
               size === 'desktop' ? styles.segmentDesktop : '',
               isActive ? styles.segmentActive : '',
             )}

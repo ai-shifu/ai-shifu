@@ -3314,3 +3314,683 @@ class TestElementChangeTypeSemantics:
         assert history_element.payload.audio is not None
         assert history_element.payload.audio.audio_bid == "stream-retain-audio"
         assert history_element.content_text == "Hello world"
+
+    def test_live_audio_patches_mirror_progressive_subtitles_on_same_element(
+        self, adapter_app
+    ):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-freeze",
+                    type=GeneratedType.CONTENT,
+                    content="First sentence.\n",
+                ).set_mdflow_stream_parts([("First sentence.\n", "text", 1)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-freeze",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "First sentence.",
+                                "start_ms": 0,
+                                "end_ms": 180,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-freeze",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=1,
+                        audio_data="segment-1",
+                        duration_ms=320,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "First sentence.",
+                                "start_ms": 0,
+                                "end_ms": 170,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Second sentence.",
+                                "start_ms": 180,
+                                "end_ms": 320,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-freeze",
+                    type=GeneratedType.CONTENT,
+                    content="Second sentence.\n",
+                ).set_mdflow_stream_parts([("Second sentence.\n", "text", 1)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-freeze",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/subtitle-freeze.mp3",
+                        audio_bid="subtitle-freeze-audio",
+                        duration_ms=500,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "First sentence.",
+                                "start_ms": 0,
+                                "end_ms": 160,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Second sentence.",
+                                "start_ms": 180,
+                                "end_ms": 340,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 5
+        first_segment_patch = text_events[1]
+        second_segment_patch = text_events[2]
+        content_patch = text_events[3]
+        final_patch = text_events[4]
+
+        assert first_segment_patch.element_bid == final_patch.element_bid
+        assert first_segment_patch.payload is not None
+        assert first_segment_patch.payload.audio is not None
+        assert [
+            cue.text for cue in first_segment_patch.payload.audio.subtitle_cues
+        ] == ["First sentence."]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in first_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 180)]
+        assert first_segment_patch.payload.audio.duration_ms == 180
+        assert first_segment_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": False,
+                "subtitle_cues": [
+                    {
+                        "text": "First sentence.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]
+
+        assert [
+            cue.text for cue in second_segment_patch.payload.audio.subtitle_cues
+        ] == [
+            "First sentence.",
+            "Second sentence.",
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in second_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 170), (180, 320)]
+        assert second_segment_patch.payload.audio.duration_ms == 320
+
+        assert [cue.text for cue in content_patch.payload.audio.subtitle_cues] == [
+            "First sentence.",
+            "Second sentence.",
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in content_patch.payload.audio.subtitle_cues
+        ] == [(0, 170), (180, 320)]
+        assert content_patch.payload.audio.duration_ms == 320
+
+        assert final_patch.audio_url == "https://example.com/subtitle-freeze.mp3"
+        assert final_patch.payload is not None
+        assert final_patch.payload.audio is not None
+        assert final_patch.payload.audio.audio_bid == "subtitle-freeze-audio"
+        assert [cue.text for cue in final_patch.payload.audio.subtitle_cues] == [
+            "First sentence.",
+            "Second sentence.",
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in final_patch.payload.audio.subtitle_cues
+        ] == [(0, 160), (180, 340)]
+        assert final_patch.payload.audio.duration_ms == 340
+        assert final_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": False,
+                "subtitle_cues": [
+                    {
+                        "text": "First sentence.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            },
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "segment-1",
+                "duration_ms": 320,
+                "is_final": True,
+                "subtitle_cues": [
+                    {
+                        "text": "First sentence.",
+                        "start_ms": 0,
+                        "end_ms": 170,
+                        "segment_index": 0,
+                        "position": 0,
+                    },
+                    {
+                        "text": "Second sentence.",
+                        "start_ms": 180,
+                        "end_ms": 320,
+                        "segment_index": 1,
+                        "position": 0,
+                    },
+                ],
+            },
+        ]
+
+    def test_live_audio_patches_do_not_rewrite_same_count_updates(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-grow",
+                    type=GeneratedType.CONTENT,
+                    content="Sentence one. Sentence two.\n",
+                ).set_mdflow_stream_parts(
+                    [("Sentence one. Sentence two.\n", "text", 1)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-grow",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-grow-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 80,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 100,
+                                "end_ms": 180,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-grow",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=1,
+                        audio_data="segment-grow-1",
+                        duration_ms=320,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 140,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 180,
+                                "end_ms": 320,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-grow",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/subtitle-grow.mp3",
+                        audio_bid="subtitle-grow-audio",
+                        duration_ms=360,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 160,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 220,
+                                "end_ms": 360,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 4
+        first_segment_patch = text_events[1]
+        second_segment_patch = text_events[2]
+        final_patch = text_events[3]
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in first_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 80), (100, 180)]
+        assert first_segment_patch.payload.audio.duration_ms == 180
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in second_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 140), (180, 320)]
+        assert second_segment_patch.payload.audio.duration_ms == 320
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in final_patch.payload.audio.subtitle_cues
+        ] == [(0, 160), (220, 360)]
+        assert final_patch.payload.audio.duration_ms == 360
+
+    def test_live_audio_patches_preserve_incoming_middle_cues(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-middle",
+                    type=GeneratedType.CONTENT,
+                    content="Sentence one. Sentence two. Sentence three.\n",
+                ).set_mdflow_stream_parts(
+                    [("Sentence one. Sentence two. Sentence three.\n", "text", 1)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-middle",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-middle-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 40,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 40,
+                                "end_ms": 80,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence three.",
+                                "start_ms": 80,
+                                "end_ms": 180,
+                                "segment_index": 2,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-middle",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=1,
+                        audio_data="segment-middle-1",
+                        duration_ms=320,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 120,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 120,
+                                "end_ms": 220,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence three.",
+                                "start_ms": 220,
+                                "end_ms": 320,
+                                "segment_index": 2,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-subtitle-middle",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/subtitle-middle.mp3",
+                        audio_bid="subtitle-middle-audio",
+                        duration_ms=360,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "Sentence one.",
+                                "start_ms": 0,
+                                "end_ms": 140,
+                                "segment_index": 0,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence two.",
+                                "start_ms": 140,
+                                "end_ms": 250,
+                                "segment_index": 1,
+                                "position": 0,
+                            },
+                            {
+                                "text": "Sentence three.",
+                                "start_ms": 250,
+                                "end_ms": 360,
+                                "segment_index": 2,
+                                "position": 0,
+                            },
+                        ],
+                    ),
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 4
+        first_segment_patch = text_events[1]
+        second_segment_patch = text_events[2]
+        final_patch = text_events[3]
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in first_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 40), (40, 80), (80, 180)]
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in second_segment_patch.payload.audio.subtitle_cues
+        ] == [(0, 120), (120, 220), (220, 320)]
+        assert second_segment_patch.payload.audio.duration_ms == 320
+
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in final_patch.payload.audio.subtitle_cues
+        ] == [(0, 140), (140, 250), (250, 360)]
+        assert final_patch.payload.audio.duration_ms == 360
+
+    def test_explicit_stream_audio_waits_for_matching_text_element(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Intro line.\n",
+                ).set_mdflow_stream_parts([("Intro line.\n", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        segment_index=0,
+                        audio_data="segment-0",
+                        duration_ms=180,
+                        is_final=False,
+                        subtitle_cues=[
+                            {
+                                "text": "Delayed narration.",
+                                "start_ms": 0,
+                                "end_ms": 180,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Still intro.\n",
+                ).set_mdflow_stream_parts([("Still intro.\n", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/delayed.mp3",
+                        audio_bid="delayed-audio",
+                        duration_ms=240,
+                        position=0,
+                        stream_element_number=1,
+                        stream_element_type="text",
+                        subtitle_cues=[
+                            {
+                                "text": "Delayed narration.",
+                                "start_ms": 0,
+                                "end_ms": 240,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-pending-explicit-audio",
+                    type=GeneratedType.CONTENT,
+                    content="Delayed narration.\n",
+                ).set_mdflow_stream_parts([("Delayed narration.\n", "text", 1)]),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                item.content
+                for item in streamed
+                if item.type == "element"
+                and item.content.element_type == ElementType.TEXT
+            ]
+
+        assert len(text_events) == 3
+        intro_event = text_events[0]
+        intro_patch = text_events[1]
+        delayed_event = text_events[2]
+
+        assert intro_event.element_bid == intro_patch.element_bid
+        assert intro_event.payload is not None
+        assert intro_event.payload.audio is None
+        assert intro_patch.payload is not None
+        assert intro_patch.payload.audio is None
+        assert intro_patch.audio_url == ""
+        assert intro_patch.audio_segments == []
+
+        assert delayed_event.element_bid != intro_event.element_bid
+        assert delayed_event.audio_url == "https://example.com/delayed.mp3"
+        assert delayed_event.payload is not None
+        assert delayed_event.payload.audio is not None
+        assert delayed_event.payload.audio.audio_bid == "delayed-audio"
+        assert [cue.text for cue in delayed_event.payload.audio.subtitle_cues] == [
+            "Delayed narration."
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms)
+            for cue in delayed_event.payload.audio.subtitle_cues
+        ] == [(0, 240)]
+        assert delayed_event.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": True,
+                "subtitle_cues": [
+                    {
+                        "text": "Delayed narration.",
+                        "start_ms": 0,
+                        "end_ms": 180,
+                        "segment_index": 0,
+                        "position": 0,
+                    }
+                ],
+            }
+        ]
