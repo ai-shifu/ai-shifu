@@ -40,6 +40,10 @@
     "openApi": "Open API 开通",
     "userPurchase": "用户下单"
   },
+  "tabs": {
+    "credits": "积分订单",
+    "learn": "学习订单"
+  },
   "table": {
     "action": "操作",
     "coupons": "兑换码",
@@ -56,6 +60,65 @@
     "user": "用户",
     "userId": "用户ID",
     "view": "查看详情"
+  },
+  "creditOrders": {
+    "creditAmountValue": "{credits} 积分",
+    "detail": {
+      "description": "查看积分订单详情",
+      "labels": {
+        "creatorId": "创作者ID",
+        "failedAt": "失败时间",
+        "failureCode": "失败码",
+        "failureMessage": "失败原因",
+        "grantSourceId": "发放来源ID",
+        "grantSourceType": "发放来源类型",
+        "grantedCredits": "到账积分",
+        "orderType": "订单类型",
+        "paidAt": "支付时间",
+        "productCode": "商品编码",
+        "providerReference": "支付流水号",
+        "validFrom": "生效时间"
+      },
+      "sections": {
+        "creator": "创作者信息",
+        "grant": "到账记录",
+        "metadata": "扩展信息",
+        "payment": "支付信息",
+        "product": "商品信息",
+        "summary": "订单信息"
+      },
+      "title": "积分订单详情"
+    },
+    "emptyList": "暂无积分订单数据",
+    "filters": {
+      "creatorKeyword": "创作者搜索",
+      "creatorKeywordPlaceholderEmail": "输入创作者 ID / 邮箱",
+      "creatorKeywordPlaceholderPhone": "输入创作者 ID / 手机号",
+      "orderId": "订单ID",
+      "orderIdPlaceholder": "输入积分订单ID",
+      "orderKind": "订单类型",
+      "paymentProvider": "支付渠道",
+      "productKeyword": "商品搜索",
+      "productKeywordPlaceholder": "输入商品名称 / 商品编码"
+    },
+    "kind": {
+      "other": "其他",
+      "plan": "积分套餐",
+      "topup": "积分包"
+    },
+    "longTerm": "长期有效",
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "table": {
+      "creator": "创作者",
+      "creditAmount": "积分数",
+      "orderId": "积分订单ID",
+      "orderKind": "订单类型",
+      "paymentChannel": "支付方式",
+      "product": "商品名称",
+      "validTo": "有效期"
+    }
   },
   "title": "订单管理",
   "totalCount": "共 {count} 条订单"

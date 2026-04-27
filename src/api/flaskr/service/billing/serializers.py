@@ -32,6 +32,7 @@ from .consts import (
     BILLING_ORDER_TYPE_LABELS,
     BILLING_PRODUCT_TYPE_LABELS,
     BILLING_PRODUCT_TYPE_PLAN,
+    BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_LABELS,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -75,6 +76,8 @@ from .dtos import (
     BillingDailyUsageMetricDTO,
     BillingLedgerItemDTO,
     BillingOrderSummaryDTO,
+    OperatorCreditOrderDTO,
+    OperatorCreditOrderGrantDTO,
     BillingPlanDTO,
     BillingRenewalEventDTO,
     BillingSubscriptionDTO,
@@ -683,6 +686,117 @@ def serialize_admin_order_summary(
             BILLING_ORDER_STATUS_FAILED,
             BILLING_ORDER_STATUS_PENDING,
             BILLING_ORDER_STATUS_TIMEOUT,
+        },
+    )
+
+
+def _resolve_operator_credit_order_kind(product: BillingProduct | None) -> str:
+    if product is None:
+        return "other"
+    if product.product_type == BILLING_PRODUCT_TYPE_PLAN:
+        return "plan"
+    if product.product_type == BILLING_PRODUCT_TYPE_TOPUP:
+        return "topup"
+    return "other"
+
+
+def serialize_operator_credit_order_grant(
+    app: Flask,
+    *,
+    source_type: str,
+    source_bid: str,
+    granted_credits: int | float,
+    valid_from,
+    valid_to,
+    timezone_name: str | None = None,
+) -> OperatorCreditOrderGrantDTO:
+    return OperatorCreditOrderGrantDTO(
+        granted_credits=granted_credits,
+        valid_from=_serialize_ledger_dt(
+            app,
+            valid_from,
+            timezone_name=timezone_name,
+        ),
+        valid_to=_serialize_ledger_dt(
+            app,
+            valid_to,
+            timezone_name=timezone_name,
+        ),
+        source_type=source_type,
+        source_bid=source_bid,
+    )
+
+
+def serialize_operator_credit_order(
+    app: Flask,
+    row: BillingOrder,
+    *,
+    product: BillingProduct | None,
+    creator: dict[str, str],
+    grant: OperatorCreditOrderGrantDTO | None,
+    timezone_name: str | None = None,
+) -> OperatorCreditOrderDTO:
+    order_summary = serialize_admin_order_summary(
+        app,
+        row,
+        timezone_name=timezone_name,
+    )
+    return OperatorCreditOrderDTO(
+        bill_order_bid=row.bill_order_bid,
+        creator_bid=row.creator_bid,
+        creator_identify=str(creator.get("identify") or ""),
+        creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
+        creator_nickname=str(creator.get("nickname") or ""),
+        credit_order_kind=_resolve_operator_credit_order_kind(product),
+        product_bid=row.product_bid,
+        product_code=str(
+            (product.product_code if product is not None else "")
+            or row.product_bid
+            or ""
+        ),
+        product_type=(
+            BILLING_PRODUCT_TYPE_LABELS.get(product.product_type, "")
+            if product is not None
+            else ""
+        ),
+        product_name_key=(
+            str(product.display_name_i18n_key or "") if product is not None else ""
+        ),
+        credit_amount=(
+            credit_decimal_to_number(product.credit_amount)
+            if product is not None
+            else (grant.granted_credits if grant is not None else 0)
+        ),
+        valid_from=grant.valid_from if grant is not None else None,
+        valid_to=grant.valid_to if grant is not None else None,
+        order_type=order_summary.order_type,
+        status=order_summary.status,
+        payment_provider=order_summary.payment_provider,
+        payment_channel=str(row.channel or ""),
+        payable_amount=order_summary.payable_amount,
+        paid_amount=order_summary.paid_amount,
+        currency=order_summary.currency,
+        provider_reference_id=order_summary.provider_reference_id,
+        failure_code=str(row.failure_code or ""),
+        failure_message=order_summary.failure_message,
+        created_at=order_summary.created_at,
+        paid_at=order_summary.paid_at,
+        failed_at=serialize_dt(
+            app,
+            row.failed_at,
+            timezone_name=timezone_name,
+        ),
+        refunded_at=serialize_dt(
+            app,
+            row.refunded_at,
+            timezone_name=timezone_name,
+        ),
+        has_attention=order_summary.status
+        in {
+            "failed",
+            "pending",
+            "timeout",
         },
     )
 

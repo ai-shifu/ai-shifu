@@ -40,6 +40,10 @@
     "openApi": "Open API Grant",
     "userPurchase": "User Purchase"
   },
+  "tabs": {
+    "credits": "Credit Orders",
+    "learn": "Learning Orders"
+  },
   "table": {
     "action": "Action",
     "coupons": "Redemption Code",
@@ -56,6 +60,65 @@
     "user": "User",
     "userId": "User ID",
     "view": "View Detail"
+  },
+  "creditOrders": {
+    "creditAmountValue": "{credits} credits",
+    "detail": {
+      "description": "View credit order details",
+      "labels": {
+        "creatorId": "Creator ID",
+        "failedAt": "Failed At",
+        "failureCode": "Failure Code",
+        "failureMessage": "Failure Reason",
+        "grantSourceId": "Grant Source ID",
+        "grantSourceType": "Grant Source Type",
+        "grantedCredits": "Granted Credits",
+        "orderType": "Order Type",
+        "paidAt": "Paid At",
+        "productCode": "Product Code",
+        "providerReference": "Provider Reference",
+        "validFrom": "Valid From"
+      },
+      "sections": {
+        "creator": "Creator Info",
+        "grant": "Grant Record",
+        "metadata": "Metadata",
+        "payment": "Payment Info",
+        "product": "Product Info",
+        "summary": "Order Info"
+      },
+      "title": "Credit Order Detail"
+    },
+    "emptyList": "No credit order data",
+    "filters": {
+      "creatorKeyword": "Creator Search",
+      "creatorKeywordPlaceholderEmail": "Search by creator ID or email",
+      "creatorKeywordPlaceholderPhone": "Search by creator ID or phone",
+      "orderId": "Order ID",
+      "orderIdPlaceholder": "Enter credit order ID",
+      "orderKind": "Order Type",
+      "paymentProvider": "Payment Provider",
+      "productKeyword": "Product Search",
+      "productKeywordPlaceholder": "Search by product name or product code"
+    },
+    "kind": {
+      "other": "Other",
+      "plan": "Credit Plan",
+      "topup": "Credit Pack"
+    },
+    "longTerm": "Long term",
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "table": {
+      "creator": "Creator",
+      "creditAmount": "Credits",
+      "orderId": "Credit Order ID",
+      "orderKind": "Order Type",
+      "paymentChannel": "Payment Method",
+      "product": "Product",
+      "validTo": "Validity"
+    }
   },
   "title": "Order Management",
   "totalCount": "{count} orders"
