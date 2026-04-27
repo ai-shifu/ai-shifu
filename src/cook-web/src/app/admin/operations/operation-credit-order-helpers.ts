@@ -54,9 +54,13 @@ function translateIfResolved(
 }
 
 function resolvePlanIntervalFromProduct(
-  order: Pick<AdminOperationCreditOrderItem, 'product_name_key' | 'product_code'>,
+  order: Pick<
+    AdminOperationCreditOrderItem,
+    'product_name_key' | 'product_code'
+  >,
 ): CreditOrderPlanInterval | '' {
-  const compositeKey = `${String(order.product_name_key || '')} ${String(order.product_code || '')}`.toLowerCase();
+  const compositeKey =
+    `${String(order.product_name_key || '')} ${String(order.product_code || '')}`.toLowerCase();
 
   if (compositeKey.includes('daily')) {
     return 'day';
@@ -124,7 +128,10 @@ export function resolveOperationCreditOrderProductName(
   >,
   fallback: string,
 ): string {
-  const translatedName = translateIfResolved(t, String(order.product_name_key || ''));
+  const translatedName = translateIfResolved(
+    t,
+    String(order.product_name_key || ''),
+  );
 
   if (order.credit_order_kind === 'plan') {
     const interval = resolvePlanIntervalFromProduct(order);

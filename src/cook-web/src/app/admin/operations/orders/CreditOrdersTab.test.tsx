@@ -175,9 +175,7 @@ jest.mock('@/components/ui/Sheet', () => ({
   SheetContent: ({ children }: React.PropsWithChildren) => (
     <div role='dialog'>{children}</div>
   ),
-  SheetHeader: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
+  SheetHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   SheetDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -239,7 +237,8 @@ describe('CreditOrdersTab', () => {
           product_bid: 'product-2',
           product_code: 'creator-plan-yearly-lite',
           product_type: 'plan',
-          product_name_key: 'module.billing.catalog.plans.creatorYearlyLite.title',
+          product_name_key:
+            'module.billing.catalog.plans.creatorYearlyLite.title',
           credit_amount: 5000,
           valid_from: '2026-04-27T10:00:00Z',
           valid_to: '2027-04-27T10:00:00Z',
@@ -385,9 +384,11 @@ describe('CreditOrdersTab', () => {
     });
 
     fireEvent.click(
-      (await screen.findAllByRole('button', {
-        name: 'module.operationsOrder.table.view',
-      }))[0],
+      (
+        await screen.findAllByRole('button', {
+          name: 'module.operationsOrder.table.view',
+        })
+      )[0],
     );
 
     await waitFor(() => {
@@ -415,9 +416,11 @@ describe('CreditOrdersTab', () => {
     });
 
     fireEvent.click(
-      (await screen.findAllByRole('button', {
-        name: 'module.operationsOrder.table.view',
-      }))[0],
+      (
+        await screen.findAllByRole('button', {
+          name: 'module.operationsOrder.table.view',
+        })
+      )[0],
     );
 
     await waitFor(() => {
