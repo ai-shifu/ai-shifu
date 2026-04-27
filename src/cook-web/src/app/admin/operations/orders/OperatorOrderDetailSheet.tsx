@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import api from '@/api';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
@@ -207,11 +208,15 @@ const OperatorOrderDetailSheet = ({
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
-                  value={fallbackValue(summary.created_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(summary.created_at) || emptyValue
+                  }
                 />
                 <DetailRow
                   label={tOperationsOrder('table.updatedAt')}
-                  value={fallbackValue(summary.updated_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(summary.updated_at) || emptyValue
+                  }
                 />
               </Section>
 

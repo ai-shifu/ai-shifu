@@ -48,6 +48,10 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
 }));
@@ -103,8 +107,8 @@ describe('OperatorOrderDetailSheet', () => {
         order_source: '',
         order_source_key: '',
         coupon_codes: ['FREE100'],
-        created_at: '2026-04-23 10:00:00',
-        updated_at: '2026-04-23 11:00:00',
+        created_at: '2026-04-23T10:00:00Z',
+        updated_at: '2026-04-23T11:00:00Z',
       },
       payment: {
         payment_channel: 'manual',

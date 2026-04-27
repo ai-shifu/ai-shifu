@@ -7,7 +7,7 @@ import hashlib
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Flask
+from flask import Flask, current_app
 
 from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
@@ -62,6 +62,7 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.utils import ensure_demo_course_permissions
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.util.timezone import serialize_with_app_timezone
 
 
 ORDER_STATUS_KEY_MAP = {
@@ -191,11 +192,16 @@ def _format_cents(value: Optional[int]) -> str:
         return "0"
 
 
-def _format_datetime(value: Optional[datetime]) -> str:
-    """Format datetime to standard string."""
+def _format_admin_datetime(value: Optional[datetime]) -> str:
+    """Serialize admin/operator datetimes as UTC ISO strings."""
     if not value:
         return ""
-    return value.strftime("%Y-%m-%d %H:%M:%S")
+    serialized_value = serialize_with_app_timezone(
+        current_app._get_current_object(),
+        value,
+        tz_name="UTC",
+    )
+    return str(serialized_value or "").replace("+00:00", "Z")
 
 
 def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
@@ -615,8 +621,8 @@ def _build_order_item(
         order_source=order_source,
         order_source_key=order_source_key,
         coupon_codes=coupon_codes,
-        created_at=_format_datetime(order.created_at),
-        updated_at=_format_datetime(order.updated_at),
+        created_at=_format_admin_datetime(order.created_at),
+        updated_at=_format_admin_datetime(order.updated_at),
     )
 
 
@@ -1008,8 +1014,8 @@ def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
                 status_key=ACTIVE_STATUS_KEY_MAP.get(
                     record.status, "module.order.activeStatus.unknown"
                 ),
-                created_at=_format_datetime(record.created_at),
-                updated_at=_format_datetime(record.updated_at),
+                created_at=_format_admin_datetime(record.created_at),
+                updated_at=_format_admin_datetime(record.updated_at),
             )
         )
     return activities
@@ -1037,8 +1043,8 @@ def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
                 status_key=COUPON_STATUS_KEY_MAP.get(
                     record.status, "module.order.couponStatus.unknown"
                 ),
-                created_at=_format_datetime(record.created_at),
-                updated_at=_format_datetime(record.updated_at),
+                created_at=_format_admin_datetime(record.created_at),
+                updated_at=_format_admin_datetime(record.updated_at),
             )
         )
     return coupons
@@ -1074,8 +1080,8 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             latest_charge_id=stripe_order.latest_charge_id or "",
             receipt_url=stripe_order.receipt_url or "",
             payment_method=stripe_order.payment_method or "",
-            created_at=_format_datetime(stripe_order.created_at),
-            updated_at=_format_datetime(stripe_order.updated_at),
+            created_at=_format_admin_datetime(stripe_order.created_at),
+            updated_at=_format_admin_datetime(stripe_order.updated_at),
         )
 
     if payment_channel == "pingxx":
@@ -1103,8 +1109,8 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             transaction_no=pingxx_order.transaction_no or "",
             charge_id=pingxx_order.charge_id or "",
             channel=pingxx_order.channel or "",
-            created_at=_format_datetime(pingxx_order.created_at),
-            updated_at=_format_datetime(pingxx_order.updated_at),
+            created_at=_format_admin_datetime(pingxx_order.created_at),
+            updated_at=_format_admin_datetime(pingxx_order.updated_at),
         )
 
     return None
