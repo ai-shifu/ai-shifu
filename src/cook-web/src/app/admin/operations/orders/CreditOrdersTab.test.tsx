@@ -371,4 +371,30 @@ describe('CreditOrdersTab', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  test('shows detail error state when detail request fails', async () => {
+    mockGetAdminOperationCreditOrderDetail.mockRejectedValueOnce(
+      new Error('detail failed'),
+    );
+
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsOrder.table.view',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrderDetail).toHaveBeenCalledWith({
+        bill_order_bid: 'bill-order-1',
+      });
+    });
+
+    expect(await screen.findByText('detail failed')).toBeInTheDocument();
+  });
 });

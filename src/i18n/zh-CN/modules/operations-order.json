@@ -36,7 +36,7 @@
       "orderId": "订单ID",
       "orderIdPlaceholder": "输入积分订单ID",
       "orderKind": "订单类型",
-      "paymentProvider": "支付渠道",
+      "paymentProvider": "支付服务商",
       "productKeyword": "商品搜索",
       "productKeywordPlaceholder": "输入商品名称 / 商品编码"
     },

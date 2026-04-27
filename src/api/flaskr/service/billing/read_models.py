@@ -396,9 +396,6 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
         if user_bid:
             matched_bids.add(user_bid)
 
-    if normalized:
-        matched_bids.add(normalized)
-
     return [user_bid for user_bid in matched_bids if user_bid]
 
 

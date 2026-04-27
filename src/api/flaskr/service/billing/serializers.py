@@ -764,9 +764,13 @@ def serialize_operator_credit_order(
             str(product.display_name_i18n_key or "") if product is not None else ""
         ),
         credit_amount=(
-            credit_decimal_to_number(product.credit_amount)
-            if product is not None
-            else (grant.granted_credits if grant is not None else 0)
+            grant.granted_credits
+            if grant is not None
+            else (
+                credit_decimal_to_number(product.credit_amount)
+                if product is not None
+                else 0
+            )
         ),
         valid_from=grant.valid_from if grant is not None else None,
         valid_to=grant.valid_to if grant is not None else None,

@@ -224,6 +224,17 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     assert result.items[0].bill_order_bid == "bill-order-topup-1"
     assert result.items[0].product_code == "creator-topup-small"
 
+    searched_result = build_operator_credit_orders_page(
+        app,
+        product_keyword="20 积分包",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert searched_result.total == 1
+    assert searched_result.items[0].bill_order_bid == "bill-order-topup-1"
+    assert searched_result.items[0].product_code == "creator-topup-small"
+
 
 def test_get_operator_credit_order_detail_returns_grant_and_metadata():
     app = _build_app()

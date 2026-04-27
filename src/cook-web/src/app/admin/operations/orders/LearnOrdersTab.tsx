@@ -512,7 +512,7 @@ export default function LearnOrdersTab() {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() =>
-            fetchOrders(lastRequestedPageRef.current, appliedFilters)
+            void fetchOrders(lastRequestedPageRef.current, appliedFilters)
           }
         />
       </div>
@@ -780,7 +780,7 @@ export default function LearnOrdersTab() {
                                 href={userDetailUrl}
                                 className='block truncate text-sm font-medium text-primary transition-colors hover:text-primary/80 hover:underline'
                               >
-                                {primaryContact}
+                                {primaryContact || EMPTY_STATE_LABEL}
                               </Link>
                             ) : (
                               <div className='truncate text-sm font-medium text-foreground'>

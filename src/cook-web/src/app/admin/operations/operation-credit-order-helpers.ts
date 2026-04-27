@@ -11,12 +11,15 @@ import type {
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 
+const BILLING_PROVIDERS = ['manual', 'pingxx', 'stripe'] as const satisfies readonly BillingProvider[];
+const PINGXX_CHANNELS = ['wx_pub_qr', 'alipay_qr'] as const satisfies readonly BillingPingxxChannel[];
+
 function isBillingProvider(value: string): value is BillingProvider {
-  return value === 'manual' || value === 'pingxx' || value === 'stripe';
+  return (BILLING_PROVIDERS as readonly string[]).includes(value);
 }
 
 function isPingxxChannel(value: string): value is BillingPingxxChannel {
-  return value === 'wx_pub_qr' || value === 'alipay_qr';
+  return (PINGXX_CHANNELS as readonly string[]).includes(value);
 }
 
 export function resolveOperationCreditOrderKindLabel(
