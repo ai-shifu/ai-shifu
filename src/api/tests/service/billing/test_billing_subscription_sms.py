@@ -21,12 +21,15 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.models import BillingOrder, BillingSubscription
 from flaskr.service.billing.notifications import (
+    BILLING_PAID_FEISHU_TASK_NAME,
     TASK_NAME as SUBSCRIPTION_SMS_TASK_NAME,
     deliver_subscription_purchase_sms,
     requeue_subscription_purchase_sms,
 )
 from flaskr.service.billing.tasks import (
+    BillingPaidFeishuRetryableError,
     SubscriptionPurchaseSmsRetryableError,
+    send_billing_paid_feishu_task,
     send_subscription_purchase_sms_task,
 )
 from flaskr.service.billing.webhooks import apply_billing_stripe_notification
@@ -109,6 +112,23 @@ def _notification_payload(
             }
         }
     }
+
+
+def _billing_paid_feishu_payload(
+    status: str = "pending",
+) -> dict[str, dict[str, dict[str, str]]]:
+    return {
+        "notifications": {
+            "billing_paid_feishu": {
+                "status": status,
+                "requested_at": "2026-04-20T00:00:00",
+            }
+        }
+    }
+
+
+def _raise_if_send_notify_called(*args, **kwargs):
+    raise AssertionError("billing paid Feishu delivery should run in a Celery task")
 
 
 def _create_subscription(
@@ -374,7 +394,7 @@ def test_sync_billing_order_sends_subscription_paid_feishu_once(
     _seed_creator(app)
     cycle_start_at = datetime(2026, 7, 1, 0, 0, 0)
     cycle_end_at = datetime(2026, 8, 1, 0, 0, 0)
-    captured: list[dict[str, object]] = []
+    enqueued: list[str] = []
 
     class FakeStripeProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
@@ -404,10 +424,14 @@ def test_sync_billing_order_sends_subscription_paid_feishu_once(
         lambda app, *, bill_order_bid: {"status": "enqueued"},
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
-            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
+        lambda app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        _raise_if_send_notify_called,
     )
 
     with app.app_context():
@@ -449,23 +473,15 @@ def test_sync_billing_order_sends_subscription_paid_feishu_once(
 
     assert first_payload.status == "paid"
     assert second_payload.status == "paid"
-    assert len(captured) == 1
-    assert captured[0]["title"] == "购买订阅套餐通知"
-    assert "手机号：13800000000" in captured[0]["msgs"]
-    assert "昵称：Creator" in captured[0]["msgs"]
-    assert "套餐名称：轻量版" in captured[0]["msgs"]
-    assert "实付金额：CNY 9.90" in captured[0]["msgs"]
-    assert "订单来源：用户购买 (Stripe)" in captured[0]["msgs"]
-    assert "渠道：ads" in captured[0]["msgs"]
-    assert "订阅续费-轻量版-CNY 9.90" in captured[0]["msgs"]
+    assert enqueued == ["billing-sync-feishu-1"]
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
             bill_order_bid="billing-sync-feishu-1"
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
-        assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["status"] == "pending"
+        assert notification["requested_at"] is not None
 
 
 def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
@@ -474,13 +490,17 @@ def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    captured: list[dict[str, object]] = []
+    enqueued: list[str] = []
 
     monkeypatch.setattr(
-        "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
-            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
+        lambda app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        _raise_if_send_notify_called,
     )
 
     with app.app_context():
@@ -518,21 +538,14 @@ def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
     assert second_status == 200
     assert first_payload["status"] == "paid"
     assert second_payload["status"] == "paid"
-    assert len(captured) == 1
-    assert captured[0]["title"] == "购买积分包通知"
-    assert "手机号：13800000000" in captured[0]["msgs"]
-    assert "积分包名称：20 积分包" in captured[0]["msgs"]
-    assert "实付金额：CNY 50.00" in captured[0]["msgs"]
-    assert "订单来源：用户购买 (Pingxx)" in captured[0]["msgs"]
-    assert "渠道：campaign" in captured[0]["msgs"]
-    assert "积分包-20 积分包-CNY 50.00" in captured[0]["msgs"]
+    assert enqueued == ["billing-topup-feishu-1"]
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
             bill_order_bid="billing-topup-feishu-1"
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
-        assert notification["status"] == "sent"
+        assert notification["status"] == "pending"
 
 
 def test_sync_billing_topup_sends_billing_paid_feishu_once(
@@ -541,7 +554,7 @@ def test_sync_billing_topup_sends_billing_paid_feishu_once(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    captured: list[dict[str, object]] = []
+    enqueued: list[str] = []
 
     class FakePingxxProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
@@ -567,10 +580,14 @@ def test_sync_billing_topup_sends_billing_paid_feishu_once(
         lambda channel: FakePingxxProvider(),
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
-            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
+        lambda app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        _raise_if_send_notify_called,
     )
 
     with app.app_context():
@@ -605,21 +622,164 @@ def test_sync_billing_topup_sends_billing_paid_feishu_once(
 
     assert first_payload.status == "paid"
     assert second_payload.status == "paid"
-    assert len(captured) == 1
-    assert captured[0]["title"] == "购买积分包通知"
-    assert "手机号：13800000000" in captured[0]["msgs"]
-    assert "积分包名称：20 积分包" in captured[0]["msgs"]
-    assert "实付金额：CNY 50.00" in captured[0]["msgs"]
-    assert "订单来源：用户购买 (Pingxx)" in captured[0]["msgs"]
-    assert "渠道：sync-campaign" in captured[0]["msgs"]
-    assert "积分包-20 积分包-CNY 50.00" in captured[0]["msgs"]
+    assert enqueued == ["billing-topup-sync-feishu-1"]
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
             bill_order_bid="billing-topup-sync-feishu-1"
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
+        assert notification["status"] == "pending"
+
+
+def test_send_billing_paid_feishu_task_marks_sent(
+    billing_subscription_sms_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    paid_at = datetime(2026, 4, 20, 0, 0, 0)
+    captured: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._create_task_app",
+        lambda: app,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        lambda app, title, msgs: (
+            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        ),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            UserConversion(
+                user_id="creator-1",
+                conversion_id="conversion-feishu-task-1",
+                conversion_source="task-campaign",
+                conversion_status=1,
+            )
+        )
+        dao.db.session.add(
+            _create_paid_start_order(
+                bill_order_bid="billing-feishu-task-sent-1",
+                subscription_bid="sub-feishu-task-sent-1",
+                paid_at=paid_at,
+                metadata_json=_billing_paid_feishu_payload(),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = send_billing_paid_feishu_task(bill_order_bid="billing-feishu-task-sent-1")
+
+    assert payload["status"] == "sent"
+    assert payload["task_name"] == BILLING_PAID_FEISHU_TASK_NAME
+    assert len(captured) == 1
+    assert captured[0]["title"] == "购买订阅套餐通知"
+    assert "手机号：13800000000" in captured[0]["msgs"]
+    assert "昵称：Creator" in captured[0]["msgs"]
+    assert "套餐名称：轻量版" in captured[0]["msgs"]
+    assert "实付金额：CNY 9.90" in captured[0]["msgs"]
+    assert "订单来源：用户购买 (Stripe)" in captured[0]["msgs"]
+    assert "渠道：task-campaign" in captured[0]["msgs"]
+    assert "订阅开通-轻量版-CNY 9.90" in captured[0]["msgs"]
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-feishu-task-sent-1"
+        ).one()
+        notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "sent"
+        assert notification["sent_at"] is not None
+
+
+def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failure(
+    billing_subscription_sms_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app, creator_bid="creator-feishu-failure")
+    paid_at = datetime(2026, 4, 20, 0, 0, 0)
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._create_task_app",
+        lambda: app,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        lambda app, title, msgs: None,
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            _create_paid_start_order(
+                bill_order_bid="billing-feishu-task-failure-1",
+                subscription_bid="sub-feishu-task-failure-1",
+                creator_bid="creator-feishu-failure",
+                paid_at=paid_at,
+                metadata_json=_billing_paid_feishu_payload(),
+            )
+        )
+        dao.db.session.commit()
+
+    with pytest.raises(BillingPaidFeishuRetryableError):
+        send_billing_paid_feishu_task(bill_order_bid="billing-feishu-task-failure-1")
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-feishu-task-failure-1"
+        ).one()
+        notification = order.metadata_json["notifications"]["billing_paid_feishu"]
+        assert notification["status"] == "failed_provider"
+        assert notification["error_code"] == "provider_failed"
+
+
+def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
+    billing_subscription_sms_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app, creator_bid="creator-feishu-retry")
+    paid_at = datetime(2026, 4, 20, 0, 0, 0)
+    captured: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._create_task_app",
+        lambda: app,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        lambda app, title, msgs: (
+            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        ),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            _create_paid_start_order(
+                bill_order_bid="billing-feishu-task-retry-1",
+                subscription_bid="sub-feishu-task-retry-1",
+                creator_bid="creator-feishu-retry",
+                paid_at=paid_at,
+                metadata_json=_billing_paid_feishu_payload(status="failed_provider"),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = send_billing_paid_feishu_task(
+        bill_order_bid="billing-feishu-task-retry-1"
+    )
+
+    assert payload["status"] == "sent"
+    assert len(captured) == 1
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-feishu-task-retry-1"
+        ).one()
+        notification = order.metadata_json["notifications"]["billing_paid_feishu"]
+        assert notification["status"] == "sent"
+        assert notification["sent_at"] is not None
 
 
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(

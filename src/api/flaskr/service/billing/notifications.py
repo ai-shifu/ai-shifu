@@ -35,6 +35,7 @@ from .queries import (
 )
 
 TASK_NAME = "billing.send_subscription_purchase_sms"
+BILLING_PAID_FEISHU_TASK_NAME = "billing.send_billing_paid_feishu"
 _NOTIFICATIONS_KEY = "notifications"
 _SUBSCRIPTION_PURCHASE_SMS_KEY = "subscription_purchase_sms"
 _BILLING_PAID_FEISHU_KEY = "billing_paid_feishu"
@@ -391,6 +392,7 @@ def _build_feishu_result(
     creator_bid: str | None = None,
     message: str | None = None,
     notification_status: str | None = None,
+    enqueued: bool | None = None,
 ) -> dict[str, Any]:
     payload = {
         "status": status,
@@ -398,10 +400,65 @@ def _build_feishu_result(
         "creator_bid": creator_bid,
         "notification_status": notification_status,
         "notification": _BILLING_PAID_FEISHU_KEY,
+        "task_name": BILLING_PAID_FEISHU_TASK_NAME,
     }
     if message is not None:
         payload["message"] = message
+    if enqueued is not None:
+        payload["enqueued"] = enqueued
     return payload
+
+
+def enqueue_billing_paid_feishu(
+    app: Flask,
+    *,
+    bill_order_bid: str,
+) -> dict[str, Any]:
+    """Enqueue the billing paid Feishu worker after commit."""
+
+    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
+    if not normalized_bill_order_bid:
+        return _build_feishu_result(
+            "invalid_bill_order_bid",
+            enqueued=False,
+        )
+
+    try:
+        from flaskr.common.celery_app import get_celery_app
+
+        celery_app = get_celery_app(flask_app=app)
+        task = celery_app.tasks.get(BILLING_PAID_FEISHU_TASK_NAME)
+        if task is None:
+            app.logger.warning(
+                "%s is unavailable for bill_order_bid=%s",
+                BILLING_PAID_FEISHU_TASK_NAME,
+                normalized_bill_order_bid,
+            )
+            return _build_feishu_result(
+                "task_unavailable",
+                bill_order_bid=normalized_bill_order_bid,
+                enqueued=False,
+            )
+        task.apply_async(kwargs={"bill_order_bid": normalized_bill_order_bid})
+        return _build_feishu_result(
+            "enqueued",
+            bill_order_bid=normalized_bill_order_bid,
+            enqueued=True,
+        )
+    except Exception as exc:
+        app.logger.error(
+            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            BILLING_PAID_FEISHU_TASK_NAME,
+            normalized_bill_order_bid,
+            exc,
+            exc_info=True,
+        )
+        return _build_feishu_result(
+            "enqueue_failed",
+            bill_order_bid=normalized_bill_order_bid,
+            message=str(exc),
+            enqueued=False,
+        )
 
 
 def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
@@ -578,7 +635,7 @@ def deliver_billing_paid_feishu(
             _BILLING_PAID_FEISHU_KEY,
         )
         notification_status = _normalize_bid(payload.get("status"))
-        if notification_status != "pending":
+        if notification_status not in _PROCESSABLE_STATUSES:
             return _build_feishu_result(
                 "noop",
                 bill_order_bid=order.bill_order_bid,
