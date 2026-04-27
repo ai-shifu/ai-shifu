@@ -386,7 +386,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
         assert notification_payload["status"] == "pending"
 
 
-def test_sync_billing_order_sends_subscription_paid_feishu_once(
+def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
     billing_subscription_sms_app,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -484,7 +484,7 @@ def test_sync_billing_order_sends_subscription_paid_feishu_once(
         assert notification["requested_at"] is not None
 
 
-def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
+def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
     billing_subscription_sms_app,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -548,7 +548,7 @@ def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
         assert notification["status"] == "pending"
 
 
-def test_sync_billing_topup_sends_billing_paid_feishu_once(
+def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
     billing_subscription_sms_app,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

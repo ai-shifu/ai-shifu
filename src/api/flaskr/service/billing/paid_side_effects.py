@@ -21,7 +21,7 @@ from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 class BillingPaidOrderSideEffects:
     bill_order_bid: str = ""
     should_enqueue_subscription_purchase_sms: bool = False
-    should_deliver_billing_paid_feishu: bool = False
+    should_enqueue_billing_paid_feishu: bool = False
 
 
 def stage_billing_paid_order_side_effects(
@@ -42,14 +42,14 @@ def stage_billing_paid_order_side_effects(
             previous_status=previous_status,
         )
     )
-    should_deliver_billing_paid_feishu = _stage_billing_paid_feishu_for_paid_order(
+    should_enqueue_billing_paid_feishu = _stage_billing_paid_feishu_for_paid_order(
         order,
         previous_status=previous_status,
     )
     return BillingPaidOrderSideEffects(
         bill_order_bid=order.bill_order_bid,
         should_enqueue_subscription_purchase_sms=should_enqueue_subscription_purchase_sms,
-        should_deliver_billing_paid_feishu=should_deliver_billing_paid_feishu,
+        should_enqueue_billing_paid_feishu=should_enqueue_billing_paid_feishu,
     )
 
 
@@ -66,7 +66,7 @@ def dispatch_billing_paid_order_side_effects(
             app,
             bill_order_bid=side_effects.bill_order_bid,
         )
-    if side_effects.should_deliver_billing_paid_feishu:
+    if side_effects.should_enqueue_billing_paid_feishu:
         _enqueue_billing_paid_feishu(
             app,
             bill_order_bid=side_effects.bill_order_bid,
