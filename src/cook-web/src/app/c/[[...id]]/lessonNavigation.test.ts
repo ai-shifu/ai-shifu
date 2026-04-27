@@ -88,13 +88,15 @@ describe('resolveRequestedLessonId', () => {
     ).toBe('lesson-selected');
   });
 
-  it('falls back to store lesson before url lesson', () => {
+  it('falls back to url lesson before store lesson', () => {
     expect(resolveRequestedLessonId('', 'lesson-store', 'lesson-url')).toBe(
-      'lesson-store',
+      'lesson-url',
     );
   });
 
-  it('uses url lesson when local state is still empty after refresh', () => {
-    expect(resolveRequestedLessonId('', '', 'lesson-url')).toBe('lesson-url');
+  it('uses store lesson only when selected and url lessons are both empty', () => {
+    expect(resolveRequestedLessonId('', 'lesson-store', '')).toBe(
+      'lesson-store',
+    );
   });
 });

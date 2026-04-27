@@ -494,7 +494,7 @@ export default function ChatPage() {
   );
 
   const onGoChapter = useCallback(
-    async id => {
+    id => {
       applyLessonSelection({
         lessonId: id,
         currentChapterId: chapterId,
