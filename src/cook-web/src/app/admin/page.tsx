@@ -37,8 +37,8 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
-import { getHostDomain } from '@/c-utils/urlUtils';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -184,12 +184,7 @@ const ScriptManagementPage = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    const domain = getHostDomain();
-    if (domain) {
-      setCourseCreatorUrl(
-        `https://${domain}/educators.html#course-creator-skill`,
-      );
-    }
+    setCourseCreatorUrl(getCourseCreatorUrl());
   }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {

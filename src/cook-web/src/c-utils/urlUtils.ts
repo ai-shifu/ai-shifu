@@ -133,3 +133,14 @@ export const getPaymentAgreementUrl = (): string | null => {
   const domain = getHostDomain();
   return domain ? `https://${domain}/payment-agreement.html` : null;
 };
+
+const COURSE_CREATOR_URLS: Record<'ai-shifu.cn' | 'ai-shifu.com', string> = {
+  'ai-shifu.cn':
+    'https://app.ai-shifu.cn/c/ed0e57ded79d4b7b88d1be348c151509?lessonid=77ff6ea94e4245d19172a29c0a279848',
+  'ai-shifu.com': 'https://ai-shifu.com/educators.html#course-creator-skill',
+};
+
+export const getCourseCreatorUrl = (): string | null => {
+  const domain = getHostDomain();
+  return domain ? COURSE_CREATOR_URLS[domain] : null;
+};

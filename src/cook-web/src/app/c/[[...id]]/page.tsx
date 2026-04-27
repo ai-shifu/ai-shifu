@@ -28,6 +28,10 @@ import { useUserStore } from '@/store';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useLessonTree } from './hooks/useLessonTree';
+import {
+  applyLessonSelection,
+  resolveRequestedLessonId,
+} from './lessonNavigation';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import {
@@ -386,9 +390,15 @@ export default function ChatPage() {
     }
   }, [selectedLessonId, updateLessonId]);
 
+  const requestedLessonId = resolveRequestedLessonId(
+    selectedLessonId,
+    lessonId,
+    urlLessonId,
+  );
+
   const loadData = useCallback(async () => {
-    await loadTree(chapterId, urlLessonId || lessonId);
-  }, [chapterId, lessonId, loadTree, urlLessonId]);
+    await loadTree(chapterId, requestedLessonId);
+  }, [chapterId, loadTree, requestedLessonId]);
 
   const [loadedChapterId, setLoadedChapterId] = useState<string | null>(null);
 
@@ -445,22 +455,27 @@ export default function ChatPage() {
   }, [resolvedLessonId, tree]);
 
   const onLessonSelect = ({ id }) => {
-    const chapter = getChapterByLesson(id);
-    if (!chapter) {
+    const selection = applyLessonSelection({
+      lessonId: id,
+      currentChapterId: chapterId,
+      getChapterByLesson,
+      updateSelectedLesson,
+      updateLessonId,
+      updateChapterId,
+      syncLessonUrl,
+    });
+
+    if (!selection) {
       return;
     }
-    updateLessonId(id);
-    syncLessonUrl(id);
-    if (chapter.id !== chapterId) {
-      updateChapterId(chapter.id);
-    }
+
     if (lessonId === id) {
       return;
     }
     events.dispatchEvent(
       new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
         detail: {
-          chapterId: chapter.id,
+          chapterId: selection.chapterId,
           lessonId: id,
         },
       }),
@@ -478,11 +493,28 @@ export default function ChatPage() {
     [updateLesson],
   );
 
-  const onGoChapter = async id => {
-    // updateChapterId(id);
-    updateLessonId(id);
-    syncLessonUrl(id);
-  };
+  const onGoChapter = useCallback(
+    id => {
+      applyLessonSelection({
+        lessonId: id,
+        currentChapterId: chapterId,
+        forceExpand: true,
+        getChapterByLesson,
+        updateSelectedLesson,
+        updateLessonId,
+        updateChapterId,
+        syncLessonUrl,
+      });
+    },
+    [
+      chapterId,
+      getChapterByLesson,
+      syncLessonUrl,
+      updateChapterId,
+      updateLessonId,
+      updateSelectedLesson,
+    ],
+  );
 
   const onChapterUpdate = useCallback(
     ({ id, status, status_value }) => {

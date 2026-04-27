@@ -271,16 +271,16 @@
       "everyDays": "/ every {count} days",
       "everyMonths": "/ every {count} months",
       "everyYears": "/ every {count} years",
-      "perDay": "/ daily",
-      "perMonth": "/ monthly",
-      "perYear": "/ yearly",
+      "perDay": "daily",
+      "perMonth": "monthly",
+      "perYear": "yearly",
       "providerManual": "Manual",
       "providerPingxx": "Pingxx / Alipay QR",
       "providerStripe": "Stripe"
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for course iteration and maintenance outside delivery periods.",
+        "description": "Best for lightweight course iteration.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
@@ -507,6 +507,9 @@
       "upgradeNow": "Upgrade now",
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
     },
+    "creditPeriod": {
+      "oneTime": "One-time"
+    },
     "creditSummary": {
       "daily": "Daily credits {credits}",
       "days": "Credits every {count} days: {credits}",
@@ -524,6 +527,7 @@
       },
       "common": {
         "allLearning": "All learning features",
+        "allTeachingAndLearning": "Full teaching and learning features",
         "createDebugPublish": "Create, debug, and publish courses",
         "higherConcurrency": "Higher concurrency support",
         "unlimitedCourses": "Unlimited courses"
@@ -577,7 +581,7 @@
     "featuresTitle": "Included benefits:",
     "free": {
       "creditSummary": "{credits} bonus credits",
-      "description": "Best for a first look — run through the full teaching and research workflow.",
+      "description": "Best for a first look.",
       "priceNote": "/ valid within {days} days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
       "priceValue": "¥0",
@@ -586,31 +590,38 @@
     "intervalTabs": {
       "daily": "Daily Plans",
       "monthly": "Monthly Plans",
-      "topup": "Credit Top-ups",
+      "plans": "Plans",
+      "topup": "Top-up",
       "yearly": "Yearly Plans"
     },
     "scale": {
       "advanced": {
-        "students": "Est. learner capacity: around 300"
+        "students": "Around 300 learners"
       },
       "basic": {
-        "students": "Est. learner capacity: around 10"
+        "students": "Around 10 learners"
       },
       "free": {
-        "students": "Est. learner capacity: around 10"
+        "students": "Around 10 learners"
       },
       "lite": {
-        "students": "Est. learner capacity: around 3"
+        "students": "Around 3 learners"
       },
       "premium": {
-        "students": "Est. learner capacity: around 1000"
+        "students": "Around 1000 learners"
       },
       "pro": {
-        "students": "Est. learner capacity: around 500"
+        "students": "Around 500 learners"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
     "subtitle": "Choose the right credit plan.",
+    "table": {
+      "creditsRowLabel": "Credits per cycle",
+      "featuresRowLabel": "Entitlements",
+      "studentsRowLabel": "Estimated learners",
+      "validityRowLabel": "Credit validity"
+    },
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits",
@@ -627,6 +638,18 @@
       "months": "Validity: counted from the purchase month, renews every {count} months",
       "yearly": "Validity: counted from the purchase month, valid every year",
       "years": "Validity: counted from the purchase month, renews every {count} years"
+    },
+    "validityShort": {
+      "free": "{days} days",
+      "monthly": "30 days",
+      "monthlyMonths": "{count} months",
+      "yearly": "1 year",
+      "yearlyYears": "{count} years"
+    },
+    "validityTooltip": {
+      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
+      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 2 of the next year). Counted to 23:59 on the expiry day."
     }
   },
   "page": {

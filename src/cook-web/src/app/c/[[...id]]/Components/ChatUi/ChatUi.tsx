@@ -19,7 +19,7 @@ interface ChatUiProps {
   chapterId: string;
   lessonId?: string;
   lessonUpdate: (val: any) => void;
-  onGoChapter: (id: any) => Promise<void>;
+  onGoChapter: (id: any) => void;
   onPurchased: () => void;
   lessonTitle?: string;
   lessonStatus?: string;

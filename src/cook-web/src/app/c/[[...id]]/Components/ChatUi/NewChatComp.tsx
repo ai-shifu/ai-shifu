@@ -60,7 +60,7 @@ import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 interface NewChatComponentsProps {
   className?: string;
   lessonUpdate: (val: any) => void;
-  onGoChapter: (id: any) => Promise<void>;
+  onGoChapter: (id: any) => void;
   chapterId: string;
   lessonId?: string;
   lessonTitle?: string;
