@@ -77,8 +77,6 @@ type CreditOrderFilters = {
 
 type ErrorState = { message: string; code?: number };
 
-type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
-
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 90;
 const COLUMN_MAX_WIDTH = 420;
@@ -96,6 +94,8 @@ const DEFAULT_COLUMN_WIDTHS = {
   orderId: 220,
   action: 120,
 } as const;
+
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 
 const createDefaultFilters = (): CreditOrderFilters => ({
   creator_keyword: '',
