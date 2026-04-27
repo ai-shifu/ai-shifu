@@ -145,7 +145,7 @@ const formatMoney = (value: string | undefined, currencySymbol: string) => {
  * t('module.operationsOrder.source.openApi')
  */
 export default function LearnOrdersTab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperationsOrder } = useTranslation('module.operationsOrder');
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
@@ -161,6 +161,11 @@ export default function LearnOrdersTab() {
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
+  const isEnglish = (i18n?.language || 'en-US').startsWith('en');
+  const filterControlClassName = cn(
+    'min-w-0 flex-1',
+    isEnglish && 'xl:max-w-[220px]',
+  );
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -544,12 +549,14 @@ export default function LearnOrdersTab() {
                     <span
                       className={cn(
                         "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                        'w-20',
+                        'w-24',
                       )}
                     >
                       {item.label}
                     </span>
-                    <div className='min-w-0 flex-1'>{item.component}</div>
+                    <div className={filterControlClassName}>
+                      {item.component}
+                    </div>
                   </div>
                 ))}
 
@@ -592,12 +599,14 @@ export default function LearnOrdersTab() {
                         <span
                           className={cn(
                             "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                            'w-20',
+                            'w-24',
                           )}
                         >
                           {item.label}
                         </span>
-                        <div className='min-w-0 flex-1'>{item.component}</div>
+                        <div className={filterControlClassName}>
+                          {item.component}
+                        </div>
                       </div>
                     ))}
                   </div>

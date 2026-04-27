@@ -31,12 +31,12 @@
     "emptyList": "No credit order data",
     "filters": {
       "creatorKeyword": "User",
-      "creatorKeywordPlaceholderEmail": "Search by user ID or email",
-      "creatorKeywordPlaceholderPhone": "Search by user ID or phone",
+      "creatorKeywordPlaceholderEmail": "User ID / email",
+      "creatorKeywordPlaceholderPhone": "User ID / phone",
       "orderKind": "Order Type",
-      "paymentProvider": "Payment Provider",
-      "productKeyword": "Credit Plan Search",
-      "productKeywordPlaceholder": "Search by credit plan or pack name"
+      "paymentProvider": "Provider",
+      "productKeyword": "Product",
+      "productKeywordPlaceholder": "Plan / pack name"
     },
     "kind": {
       "other": "Other",
@@ -78,24 +78,24 @@
   "emptyList": "No order data",
   "filters": {
     "courseId": "Course ID",
-    "courseIdPlaceholder": "Enter course ID",
-    "courseName": "Course Name",
-    "courseNamePlaceholder": "Enter course name",
-    "createdAt": "Created At",
+    "courseIdPlaceholder": "Course ID",
+    "courseName": "Course",
+    "courseNamePlaceholder": "Course name",
+    "createdAt": "Created",
     "endTime": "End Time",
     "orderId": "Order ID",
-    "orderIdPlaceholder": "Enter order ID",
-    "paymentChannel": "Payment Channel",
+    "orderIdPlaceholder": "Order ID",
+    "paymentChannel": "Payment",
     "reset": "Reset",
     "search": "Search",
-    "source": "Order Source",
+    "source": "Source",
     "startTime": "Start Time",
     "status": "Status",
-    "timeRangePlaceholder": "Select order start and end dates",
+    "timeRangePlaceholder": "Date range",
     "userKeyword": "User",
-    "userKeywordPlaceholder": "Search by user ID, phone, or email",
-    "userKeywordPlaceholderEmail": "Search by user ID or email",
-    "userKeywordPlaceholderPhone": "Search by user ID or phone"
+    "userKeywordPlaceholder": "User ID / phone / email",
+    "userKeywordPlaceholderEmail": "User ID / email",
+    "userKeywordPlaceholderPhone": "User ID / phone"
   },
   "source": {
     "couponRedeem": "Coupon Redemption",

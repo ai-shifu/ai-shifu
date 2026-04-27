@@ -171,7 +171,12 @@ export default function CreditOrdersTab() {
       maxWidth: COLUMN_MAX_WIDTH,
     });
 
-  const locale = i18n.language || 'en-US';
+  const locale = i18n?.language || 'en-US';
+  const isEnglish = locale.startsWith('en');
+  const filterControlClassName = cn(
+    'min-w-0 flex-1',
+    isEnglish && 'xl:max-w-[220px]',
+  );
   const creatorKeywordPlaceholder = React.useMemo(() => {
     if (contactType === 'email') {
       return tOperationsOrder(
@@ -504,7 +509,9 @@ export default function CreditOrdersTab() {
                     >
                       {item.label}
                     </span>
-                    <div className='min-w-0 flex-1'>{item.component}</div>
+                    <div className={filterControlClassName}>
+                      {item.component}
+                    </div>
                   </div>
                 ))}
 
@@ -552,7 +559,9 @@ export default function CreditOrdersTab() {
                         >
                           {item.label}
                         </span>
-                        <div className='min-w-0 flex-1'>{item.component}</div>
+                        <div className={filterControlClassName}>
+                          {item.component}
+                        </div>
                       </div>
                     ))}
                   </div>
