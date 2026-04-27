@@ -1,6 +1,8 @@
 import request from '@/lib/request';
 
 export type PaymentChannel = 'pingxx' | 'stripe';
+export type PingxxJsApiCredential = Record<string, unknown>;
+export type PayUrlValue = string | PingxxJsApiCredential;
 
 export interface StripePaymentPayload {
   mode?: 'payment_intent' | 'checkout_session';
@@ -11,14 +13,23 @@ export interface StripePaymentPayload {
   latest_charge_id?: string;
 }
 
+export interface PingxxPaymentPayload {
+  qr_url?: PayUrlValue;
+  redirect_url?: string;
+  credential?: PingxxJsApiCredential;
+}
+
 export interface PayUrlResponse {
   order_id: string;
   user_id: string;
   price: string;
   channel: string;
-  qr_url: string;
+  qr_url: PayUrlValue;
   payment_channel?: PaymentChannel;
-  payment_payload?: StripePaymentPayload | Record<string, any>;
+  payment_payload?:
+    | StripePaymentPayload
+    | PingxxPaymentPayload
+    | Record<string, unknown>;
   status?: number;
 }
 
@@ -26,6 +37,8 @@ export type PayUrlRequest = {
   channel: string;
   orderId: string;
   paymentChannel?: PaymentChannel;
+  returnUrl?: string;
+  cancelUrl?: string;
 };
 
 export interface StripePaymentDetail {
@@ -69,11 +82,15 @@ export const getPayUrl = ({
   channel,
   orderId,
   paymentChannel,
+  returnUrl,
+  cancelUrl,
 }: PayUrlRequest): Promise<PayUrlResponse> => {
   return request.post('/api/order/reqiure-to-pay', {
     channel,
     order_id: orderId,
     payment_channel: paymentChannel,
+    return_url: returnUrl,
+    cancel_url: cancelUrl,
   }) as Promise<PayUrlResponse>;
 };
 
