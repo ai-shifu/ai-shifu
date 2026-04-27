@@ -268,9 +268,9 @@
       "recommended": "热门"
     },
     "labels": {
-      "everyDays": "/ 每 {count} 天",
-      "everyMonths": "/ 每 {count} 个月",
-      "everyYears": "/ 每 {count} 年",
+      "everyDays": "每 {count} 天",
+      "everyMonths": "每 {count} 个月",
+      "everyYears": "每 {count} 年",
       "perDay": "每日",
       "perMonth": "每月",
       "perYear": "每年",

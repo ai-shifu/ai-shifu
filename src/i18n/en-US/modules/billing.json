@@ -268,9 +268,9 @@
       "recommended": "Hot"
     },
     "labels": {
-      "everyDays": "/ every {count} days",
-      "everyMonths": "/ every {count} months",
-      "everyYears": "/ every {count} years",
+      "everyDays": "every {count} days",
+      "everyMonths": "every {count} months",
+      "everyYears": "every {count} years",
       "perDay": "daily",
       "perMonth": "monthly",
       "perYear": "yearly",
