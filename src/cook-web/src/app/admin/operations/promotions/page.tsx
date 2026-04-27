@@ -923,7 +923,7 @@ const PromotionCouponCodesDialog = ({
         <DialogHeader>
           <DialogTitle>{tPromotion('coupon.codes')}</DialogTitle>
         </DialogHeader>
-        <div className='max-h-[70vh] overflow-hidden'>
+        <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>
             {couponName || couponBid}
           </div>
@@ -950,7 +950,8 @@ const PromotionCouponCodesDialog = ({
             emptyContent={tPromotion('messages.emptyCodes')}
             emptyColSpan={4}
             withTooltipProvider
-            tableWrapperClassName='max-h-[56vh] overflow-auto'
+            containerClassName='min-h-0 flex-1'
+            tableWrapperClassName='min-h-0 flex-1 overflow-auto'
             table={emptyRow => (
               <Table>
                 <TableHeader>
@@ -1087,7 +1088,7 @@ const PromotionCampaignRedemptionsDialog = ({
         <DialogHeader>
           <DialogTitle>{tPromotion('campaign.redemptions')}</DialogTitle>
         </DialogHeader>
-        <div className='max-h-[70vh] overflow-hidden'>
+        <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>
             {campaignName || promoBid}
           </div>
@@ -1097,7 +1098,8 @@ const PromotionCampaignRedemptionsDialog = ({
             emptyContent={tPromotion('messages.emptyRedemptions')}
             emptyColSpan={4}
             withTooltipProvider
-            tableWrapperClassName='max-h-[56vh] overflow-auto'
+            containerClassName='min-h-0 flex-1'
+            tableWrapperClassName='min-h-0 flex-1 overflow-auto'
             table={emptyRow => (
               <Table>
                 <TableHeader>
@@ -1233,7 +1235,7 @@ const PromotionCouponUsageDialog = ({
         <DialogHeader>
           <DialogTitle>{tPromotion('coupon.usages')}</DialogTitle>
         </DialogHeader>
-        <div className='max-h-[70vh] overflow-hidden'>
+        <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>
             {couponName || couponBid}
           </div>
@@ -1243,7 +1245,8 @@ const PromotionCouponUsageDialog = ({
             emptyContent={tPromotion('messages.emptyUsages')}
             emptyColSpan={showCourseColumn ? 5 : 4}
             withTooltipProvider
-            tableWrapperClassName='max-h-[56vh] overflow-auto'
+            containerClassName='min-h-0 flex-1'
+            tableWrapperClassName='min-h-0 flex-1 overflow-auto'
             table={emptyRow => (
               <Table containerClassName='overflow-visible max-h-none'>
                 <TableHeader>
@@ -1472,14 +1475,6 @@ const PromotionCouponDialog = ({
               : tPromotion('coupon.dialogTitle')}
           </DialogTitle>
         </DialogHeader>
-        {isEditing ? (
-          <div className='rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground'>
-            <div>{tPromotion('messages.partialTimeEditHint')}</div>
-            <div className='mt-1'>
-              {tPromotion('messages.couponEditPolicyHint')}
-            </div>
-          </div>
-        ) : null}
         <div className='grid gap-4 md:grid-cols-2'>
           <FormField label={tPromotion('table.name')}>
             <Input
@@ -1813,14 +1808,6 @@ const PromotionCampaignDialog = ({
               : tPromotion('campaign.dialogTitle')}
           </DialogTitle>
         </DialogHeader>
-        {isEditing ? (
-          <div className='rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground'>
-            <div>{tPromotion('messages.partialTimeEditHint')}</div>
-            <div className='mt-1'>
-              {tPromotion('messages.campaignEditPolicyHint')}
-            </div>
-          </div>
-        ) : null}
         <div className='grid gap-4 md:grid-cols-2'>
           <FormField label={tPromotion('table.campaignName')}>
             <Input
