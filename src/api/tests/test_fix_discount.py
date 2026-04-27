@@ -91,6 +91,8 @@ def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(app, monkeyp
         now = datetime.now()
         coupon = Coupon(
             coupon_bid=coupon_bid,
+            # Keep the batch code blank so this test explicitly exercises
+            # CouponUsage-level code resolution for specific-use coupons.
             code="",
             usage_type=COUPON_APPLY_TYPE_SPECIFIC,
             discount_type=COUPON_TYPE_FIXED,
@@ -125,6 +127,15 @@ def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(app, monkeyp
     assert result.order_id == order_bid
 
     with app.app_context():
+        refreshed = Order.query.filter(Order.order_bid == order_bid).first()
         usage = CouponUsage.query.filter(CouponUsage.order_bid == order_bid).first()
+        updated_coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert refreshed is not None
+        assert str(refreshed.paid_price) == "90.00"
         assert usage is not None
+        assert usage.coupon_usage_bid == "usage-fix-discount-2"
+        assert usage.coupon_bid == coupon_bid
+        assert usage.order_bid == order_bid
         assert usage.shifu_bid == ""
+        assert updated_coupon is not None
+        assert updated_coupon.used_count == 1

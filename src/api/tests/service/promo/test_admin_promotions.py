@@ -15,6 +15,7 @@ from flaskr.service.promo.consts import (
     COUPON_TYPE_FIXED,
     COUPON_TYPE_PERCENT,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
     PROMO_CAMPAIGN_JOIN_TYPE_MANUAL,
@@ -1015,6 +1016,83 @@ def test_admin_promotions_campaign_redemptions_support_keyword_filter(
     assert redemption_payload["data"]["summary"]["usage_count"] == 1
     assert redemption_payload["data"]["items"][0]["user_bid"] == "learner-2"
     assert redemption_payload["data"]["items"][0]["order_bid"] == "order-2"
+
+
+def test_admin_promotions_campaign_redemptions_summary_only_counts_applied(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_user("learner-1", "learner1@example.com", "Learner One")
+        _seed_user("learner-2", "learner2@example.com", "Learner Two")
+        _seed_course("course-2", "Campaign Course")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Early Bird",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "shifu_bid": "course-2",
+            "discount_type": COUPON_TYPE_PERCENT,
+            "value": "15",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "description": "Launch campaign",
+            "channel": "app",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    promo_bid = create_response.get_json(force=True)["data"]["promo_bid"]
+
+    with app.app_context():
+        _seed_order("order-1", "course-2", "learner-1", paid="84.15")
+        _seed_order("order-2", "course-2", "learner-2", paid="74.15")
+        db.session.add_all(
+            [
+                PromoRedemption(
+                    redemption_bid="redemption-1",
+                    promo_bid=promo_bid,
+                    order_bid="order-1",
+                    user_bid="learner-1",
+                    shifu_bid="course-2",
+                    promo_name="Early Bird",
+                    discount_type=COUPON_TYPE_PERCENT,
+                    value=Decimal("15"),
+                    discount_amount=Decimal("14.85"),
+                    status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                ),
+                PromoRedemption(
+                    redemption_bid="redemption-2",
+                    promo_bid=promo_bid,
+                    order_bid="order-2",
+                    user_bid="learner-2",
+                    shifu_bid="course-2",
+                    promo_name="Early Bird",
+                    discount_type=COUPON_TYPE_PERCENT,
+                    value=Decimal("15"),
+                    discount_amount=Decimal("13.35"),
+                    status=PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    redemption_response = test_client.get(
+        f"/api/shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    redemption_payload = redemption_response.get_json(force=True)
+
+    assert redemption_payload["code"] == 0
+    assert redemption_payload["data"]["total"] == 2
+    assert redemption_payload["data"]["summary"]["active"] == 1
+    assert redemption_payload["data"]["summary"]["usage_count"] == 1
+    assert redemption_payload["data"]["summary"]["discount_amount"] == "14.85"
 
 
 def test_admin_promotions_campaign_route_rejects_overlap(app, test_client, monkeypatch):

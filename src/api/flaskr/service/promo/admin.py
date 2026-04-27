@@ -388,9 +388,14 @@ def _generate_unique_coupon_codes(count: int) -> list[str]:
     if count <= 0:
         return []
 
+    max_rounds = 20
+    rounds = 0
     generated: list[str] = []
     seen_candidates: set[str] = set()
     while len(generated) < count:
+        if rounds >= max_rounds:
+            raise_error("server.common.unknownError")
+        rounds += 1
         remaining = count - len(generated)
         batch_size = max(remaining * 2, 20)
         candidates: list[str] = []
@@ -1762,9 +1767,19 @@ def list_operator_promotion_campaign_redemptions(
             0,
         ).label("active"),
         func.max(filtered_subquery.c.updated_at).label("latest_usage_at"),
-        func.coalesce(func.sum(filtered_subquery.c.discount_amount), 0).label(
-            "discount_amount"
-        ),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        filtered_subquery.c.status
+                        == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+                        filtered_subquery.c.discount_amount,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("discount_amount"),
     ).one()
     start = (page - 1) * page_size
     paged = (
@@ -1780,7 +1795,7 @@ def list_operator_promotion_campaign_redemptions(
     summary = AdminPromotionSummaryDTO(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
-        usage_count=int(summary_row.total or 0),
+        usage_count=int(summary_row.active or 0),
         latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
         covered_courses=0,
         discount_amount=_format_decimal(

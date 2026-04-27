@@ -797,15 +797,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_operations_promotion_coupons():
         """Operator coupon batch list."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
 
         filters = {
             "keyword": request.args.get("keyword", ""),
@@ -888,15 +889,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_operations_promotion_coupon_usages(coupon_bid: str):
         """Get operator coupon usage list."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         filters = {
             "keyword": request.args.get("keyword", ""),
             "status": request.args.get("status", ""),
@@ -914,15 +916,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_operations_promotion_coupon_codes(coupon_bid: str):
         """Get operator coupon code pool list."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         filters = {
             "keyword": request.args.get("keyword", ""),
         }
@@ -936,15 +939,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_operations_promotion_campaigns():
         """Operator campaign list."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
 
         filters = {
             "keyword": request.args.get("keyword", ""),
@@ -1028,15 +1032,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_operations_promotion_campaign_redemptions(promo_bid: str):
         """Get operator campaign redemption list."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         filters = {
             "keyword": request.args.get("keyword", ""),
         }
