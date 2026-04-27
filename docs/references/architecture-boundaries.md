@@ -37,6 +37,7 @@ by `python scripts/check_architecture_boundaries.py`.
   - `src/cook-web/src/lib/api.ts`
   - `src/cook-web/src/lib/file.ts`
   - `src/cook-web/src/lib/initializeEnvData.ts`
+  - `src/cook-web/src/lib/mock-fixture.ts`
   - `src/cook-web/src/lib/unified-i18n-backend.ts`
   - `src/cook-web/src/config/environment.ts`
 - New fetch-based request paths elsewhere are treated as architectural drift.

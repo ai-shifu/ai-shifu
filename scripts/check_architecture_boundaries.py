@@ -30,6 +30,7 @@ FRONTEND_FETCH_ALLOWLIST = {
     "lib/api.ts",
     "lib/file.ts",
     "lib/initializeEnvData.ts",
+    "lib/mock-fixture.ts",
     "lib/unified-i18n-backend.ts",
     "config/environment.ts",
 }

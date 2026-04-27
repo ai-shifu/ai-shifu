@@ -1,7 +1,5 @@
 .interaction-block {
   padding-top: 12px;
-  // padding-bottom: 5px;
-  // margin: 0 auto;
   max-width: 1000px;
 
   button {
@@ -14,6 +12,7 @@
 .interaction-block--no-padding-top {
   padding-top: 0;
 }
+
 .ask-button {
   background: #55575e;
   color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
