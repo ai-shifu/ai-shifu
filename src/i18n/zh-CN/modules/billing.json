@@ -524,6 +524,7 @@
       },
       "common": {
         "allLearning": "全部学习功能",
+        "allTeachingAndLearning": "全部授课和学习功能",
         "createDebugPublish": "创建、调试和发布课程",
         "higherConcurrency": "更高并发支持",
         "unlimitedCourses": "不限课程数"
@@ -612,6 +613,12 @@
       "sectionTitle": "学员支持规模（参考）"
     },
     "subtitle": "请选择合适的积分套餐",
+    "table": {
+      "creditsRowLabel": "周期积分",
+      "featuresRowLabel": "权益对比",
+      "studentsRowLabel": "学员规模",
+      "validityRowLabel": "有效期"
+    },
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分",

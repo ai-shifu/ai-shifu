@@ -524,6 +524,7 @@
       },
       "common": {
         "allLearning": "All learning features",
+        "allTeachingAndLearning": "All teaching and learning features",
         "createDebugPublish": "Create, debug, and publish courses",
         "higherConcurrency": "Higher concurrency support",
         "unlimitedCourses": "Unlimited courses"
@@ -612,6 +613,12 @@
       "sectionTitle": "Learner capacity (est.)"
     },
     "subtitle": "Choose the right credit plan.",
+    "table": {
+      "creditsRowLabel": "Credits per cycle",
+      "featuresRowLabel": "Feature comparison",
+      "studentsRowLabel": "Learner capacity",
+      "validityRowLabel": "Validity"
+    },
     "title": "Credit Plans",
     "topup": {
       "creditLabel": "{credits} credits",
