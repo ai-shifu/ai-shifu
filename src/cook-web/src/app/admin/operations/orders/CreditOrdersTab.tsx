@@ -68,7 +68,6 @@ import {
 type CreditOrderFilters = {
   creator_keyword: string;
   product_keyword: string;
-  bill_order_bid: string;
   credit_order_kind: string;
   status: string;
   payment_provider: string;
@@ -86,7 +85,6 @@ const COLUMN_MAX_WIDTH = 420;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsCreditOrdersColumnWidths';
 const DEFAULT_COLUMN_WIDTHS = {
   createdAt: 180,
-  orderId: 220,
   creator: 220,
   orderKind: 140,
   product: 220,
@@ -95,15 +93,15 @@ const DEFAULT_COLUMN_WIDTHS = {
   status: 120,
   paymentChannel: 180,
   validTo: 180,
+  orderId: 220,
   action: 120,
 } as const;
 
 const createDefaultFilters = (): CreditOrderFilters => ({
   creator_keyword: '',
   product_keyword: '',
-  bill_order_bid: '',
   credit_order_kind: '',
-  status: '',
+  status: 'paid',
   payment_provider: '',
   start_time: '',
   end_time: '',
@@ -116,8 +114,6 @@ const createDefaultFilters = (): CreditOrderFilters => ({
  * t('module.operationsOrder.creditOrders.filters.creatorKeywordPlaceholderPhone')
  * t('module.operationsOrder.creditOrders.filters.productKeyword')
  * t('module.operationsOrder.creditOrders.filters.productKeywordPlaceholder')
- * t('module.operationsOrder.creditOrders.filters.orderId')
- * t('module.operationsOrder.creditOrders.filters.orderIdPlaceholder')
  * t('module.operationsOrder.creditOrders.filters.orderKind')
  * t('module.operationsOrder.creditOrders.filters.paymentProvider')
  * t('module.operationsOrder.creditOrders.kind.other')
@@ -201,7 +197,6 @@ export default function CreditOrdersTab() {
           page_size: PAGE_SIZE,
           creator_keyword: filters.creator_keyword.trim(),
           product_keyword: filters.product_keyword.trim(),
-          bill_order_bid: filters.bill_order_bid.trim(),
           credit_order_kind: filters.credit_order_kind,
           status: filters.status,
           payment_provider: filters.payment_provider,
@@ -405,25 +400,6 @@ export default function CreditOrdersTab() {
             setDraftFilters(current => ({
               ...current,
               product_keyword: value,
-            }))
-          }
-        />
-      ),
-    },
-    {
-      key: 'bill_order_bid',
-      label: tOperationsOrder('creditOrders.filters.orderId'),
-      component: (
-        <ClearableTextInput
-          value={draftFilters.bill_order_bid}
-          placeholder={tOperationsOrder(
-            'creditOrders.filters.orderIdPlaceholder',
-          )}
-          clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              bill_order_bid: value,
             }))
           }
         />
@@ -634,13 +610,6 @@ export default function CreditOrdersTab() {
                     </TableHead>
                     <TableHead
                       className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                      style={getColumnStyle('orderId')}
-                    >
-                      {tOperationsOrder('creditOrders.table.orderId')}
-                      {renderResizeHandle('orderId')}
-                    </TableHead>
-                    <TableHead
-                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('creator')}
                     >
                       {tOperationsOrder('creditOrders.table.creator')}
@@ -694,6 +663,13 @@ export default function CreditOrdersTab() {
                     >
                       {tOperationsOrder('creditOrders.table.validTo')}
                       {renderResizeHandle('validTo')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('orderId')}
+                    >
+                      {tOperationsOrder('creditOrders.table.orderId')}
+                      {renderResizeHandle('orderId')}
                     </TableHead>
                     <TableHead
                       className={getAdminStickyRightHeaderClass('text-center')}
@@ -774,12 +750,6 @@ export default function CreditOrdersTab() {
                           )}
                         </TableCell>
                         <TableCell
-                          className='overflow-hidden whitespace-nowrap border-r border-border text-center text-ellipsis'
-                          style={getColumnStyle('orderId')}
-                        >
-                          {renderTooltipText(order.bill_order_bid)}
-                        </TableCell>
-                        <TableCell
                           className='border-r border-border px-3 py-2 align-middle'
                           style={getColumnStyle('creator')}
                         >
@@ -811,13 +781,8 @@ export default function CreditOrdersTab() {
                           className='border-r border-border px-3 py-2 align-middle'
                           style={getColumnStyle('product')}
                         >
-                          <div className='space-y-1 text-center'>
-                            <div className='truncate text-sm font-medium text-foreground'>
-                              {productLabel}
-                            </div>
-                            <div className='truncate text-xs text-muted-foreground'>
-                              {order.product_code || EMPTY_STATE_LABEL}
-                            </div>
+                          <div className='truncate text-center text-sm font-medium text-foreground'>
+                            {productLabel}
                           </div>
                         </TableCell>
                         <TableCell
@@ -849,6 +814,12 @@ export default function CreditOrdersTab() {
                           style={getColumnStyle('validTo')}
                         >
                           {renderTooltipText(validityLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('orderId')}
+                        >
+                          {renderTooltipText(order.bill_order_bid)}
                         </TableCell>
                         <TableCell
                           className={getAdminStickyRightCellClass(

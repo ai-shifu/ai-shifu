@@ -10,6 +10,7 @@ import type {
 } from './operation-credit-order-types';
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
+type CreditOrderPlanInterval = 'day' | 'month' | 'year';
 
 const BILLING_PROVIDERS = [
   'manual',
@@ -21,12 +22,52 @@ const PINGXX_CHANNELS = [
   'alipay_qr',
 ] as const satisfies readonly BillingPingxxChannel[];
 
+/**
+ * t('module.operationsOrder.creditOrders.productIntervals.day')
+ * t('module.operationsOrder.creditOrders.productIntervals.month')
+ * t('module.operationsOrder.creditOrders.productIntervals.year')
+ * t('module.operationsOrder.creditOrders.productNameFormat')
+ */
+
 function isBillingProvider(value: string): value is BillingProvider {
   return (BILLING_PROVIDERS as readonly string[]).includes(value);
 }
 
 function isPingxxChannel(value: string): value is BillingPingxxChannel {
   return (PINGXX_CHANNELS as readonly string[]).includes(value);
+}
+
+function translateIfResolved(
+  t: Translator,
+  key: string,
+  options?: Record<string, unknown>,
+): string {
+  if (!key) {
+    return '';
+  }
+
+  const translated = t(key, options);
+  if (!translated || translated === key) {
+    return '';
+  }
+  return translated;
+}
+
+function resolvePlanIntervalFromProduct(
+  order: Pick<AdminOperationCreditOrderItem, 'product_name_key' | 'product_code'>,
+): CreditOrderPlanInterval | '' {
+  const compositeKey = `${String(order.product_name_key || '')} ${String(order.product_code || '')}`.toLowerCase();
+
+  if (compositeKey.includes('daily')) {
+    return 'day';
+  }
+  if (compositeKey.includes('monthly')) {
+    return 'month';
+  }
+  if (compositeKey.includes('yearly')) {
+    return 'year';
+  }
+  return '';
 }
 
 export function resolveOperationCreditOrderKindLabel(
@@ -79,16 +120,39 @@ export function resolveOperationCreditOrderProductName(
   t: Translator,
   order: Pick<
     AdminOperationCreditOrderItem,
-    'product_name_key' | 'product_code'
+    'credit_order_kind' | 'product_name_key' | 'product_code'
   >,
   fallback: string,
 ): string {
-  if (order.product_name_key) {
-    const translatedName = t(order.product_name_key);
-    if (translatedName && translatedName !== order.product_name_key) {
-      return translatedName;
+  const translatedName = translateIfResolved(t, String(order.product_name_key || ''));
+
+  if (order.credit_order_kind === 'plan') {
+    const interval = resolvePlanIntervalFromProduct(order);
+    const intervalLabel = interval
+      ? translateIfResolved(
+          t,
+          `module.operationsOrder.creditOrders.productIntervals.${interval}`,
+        )
+      : '';
+
+    if (intervalLabel && translatedName) {
+      return (
+        translateIfResolved(
+          t,
+          'module.operationsOrder.creditOrders.productNameFormat',
+          {
+            interval: intervalLabel,
+            name: translatedName,
+          },
+        ) || `${intervalLabel}-${translatedName}`
+      );
     }
   }
+
+  if (translatedName) {
+    return translatedName;
+  }
+
   return order.product_code || fallback;
 }
 

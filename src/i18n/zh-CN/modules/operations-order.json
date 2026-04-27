@@ -5,7 +5,7 @@
     "detail": {
       "description": "查看积分订单详情",
       "labels": {
-        "creatorId": "创作者ID",
+        "creatorId": "用户ID",
         "failedAt": "失败时间",
         "failureCode": "失败码",
         "failureMessage": "失败原因",
@@ -19,26 +19,24 @@
         "validFrom": "生效时间"
       },
       "sections": {
-        "creator": "创作者信息",
+        "creator": "用户信息",
         "grant": "到账记录",
         "metadata": "扩展信息",
         "payment": "支付信息",
-        "product": "商品信息",
+        "product": "积分套餐信息",
         "summary": "订单信息"
       },
       "title": "积分订单详情"
     },
     "emptyList": "暂无积分订单数据",
     "filters": {
-      "creatorKeyword": "创作者搜索",
-      "creatorKeywordPlaceholderEmail": "输入创作者 ID / 邮箱",
-      "creatorKeywordPlaceholderPhone": "输入创作者 ID / 手机号",
-      "orderId": "订单ID",
-      "orderIdPlaceholder": "输入积分订单ID",
+      "creatorKeyword": "用户",
+      "creatorKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
+      "creatorKeywordPlaceholderPhone": "输入用户 ID / 手机号",
       "orderKind": "订单类型",
       "paymentProvider": "支付服务商",
-      "productKeyword": "商品搜索",
-      "productKeywordPlaceholder": "输入商品名称 / 商品编码"
+      "productKeyword": "积分套餐搜索",
+      "productKeywordPlaceholder": "输入积分套餐 / 积分包名称"
     },
     "kind": {
       "other": "其他",
@@ -49,14 +47,20 @@
     "paymentChannel": {
       "checkoutSession": "Checkout Session"
     },
+    "productIntervals": {
+      "day": "日度",
+      "month": "月度",
+      "year": "年度"
+    },
+    "productNameFormat": "{interval}-{name}",
     "table": {
-      "creator": "创作者",
+      "creator": "用户",
       "creditAmount": "积分数",
       "orderId": "积分订单ID",
       "orderKind": "订单类型",
       "paymentChannel": "支付方式",
-      "product": "商品名称",
-      "validTo": "有效期"
+      "product": "积分套餐",
+      "validTo": "有效至"
     }
   },
   "detail": {
@@ -88,7 +92,7 @@
     "startTime": "开始时间",
     "status": "状态",
     "timeRangePlaceholder": "选择下单开始时间 / 结束时间",
-    "userKeyword": "用户搜索",
+    "userKeyword": "用户",
     "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
     "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
     "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"

@@ -4,12 +4,22 @@ import api from '@/api';
 import CreditOrdersTab from './CreditOrdersTab';
 
 const translationCache = new Map<string, { t: (key: string) => string }>();
+const TRANSLATION_OVERRIDES: Record<string, string> = {
+  'module.billing.catalog.plans.creatorYearlyLite.title': 'Advanced',
+  'module.billing.catalog.topups.creatorSmall.title': '20-credit pack',
+  'module.operationsOrder.creditOrders.productIntervals.year': 'Yearly',
+  'module.operationsOrder.creditOrders.productNameFormat': 'Yearly - Advanced',
+};
+
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
   const cacheKey = ns || 'translation';
   if (!translationCache.has(cacheKey)) {
     translationCache.set(cacheKey, {
       t: (key: string, options?: Record<string, unknown>) => {
+        if (TRANSLATION_OVERRIDES[key]) {
+          return TRANSLATION_OVERRIDES[key];
+        }
         if (options && Object.prototype.hasOwnProperty.call(options, 'count')) {
           return `${ns ? `${ns}.` : ''}${key}:${options.count}`;
         }
@@ -158,18 +168,18 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/Dialog', () => ({
+jest.mock('@/components/ui/Sheet', () => ({
   __esModule: true,
-  Dialog: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
+  Sheet: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
     open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: React.PropsWithChildren) => (
+  SheetContent: ({ children }: React.PropsWithChildren) => (
     <div role='dialog'>{children}</div>
   ),
-  DialogHeader: ({ children }: React.PropsWithChildren) => (
+  SheetHeader: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  DialogDescription: ({ children }: React.PropsWithChildren) => (
+  SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SheetDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
 }));
@@ -218,11 +228,42 @@ describe('CreditOrdersTab', () => {
           refunded_at: null,
           has_attention: false,
         },
+        {
+          bill_order_bid: 'bill-order-2',
+          creator_bid: 'creator-2',
+          creator_identify: '13900139000',
+          creator_mobile: '13900139000',
+          creator_email: '',
+          creator_nickname: 'Creator Two',
+          credit_order_kind: 'plan',
+          product_bid: 'product-2',
+          product_code: 'creator-plan-yearly-lite',
+          product_type: 'plan',
+          product_name_key: 'module.billing.catalog.plans.creatorYearlyLite.title',
+          credit_amount: 5000,
+          valid_from: '2026-04-27T10:00:00Z',
+          valid_to: '2027-04-27T10:00:00Z',
+          order_type: 'subscription_renewal',
+          status: 'paid',
+          payment_provider: 'stripe',
+          payment_channel: 'checkout_session',
+          payable_amount: 800000,
+          paid_amount: 800000,
+          currency: 'CNY',
+          provider_reference_id: 'cs_2',
+          failure_code: '',
+          failure_message: '',
+          created_at: '2026-04-27T11:00:00Z',
+          paid_at: '2026-04-27T11:01:00Z',
+          failed_at: null,
+          refunded_at: null,
+          has_attention: false,
+        },
       ],
       page: 1,
       page_count: 1,
       page_size: 20,
-      total: 1,
+      total: 2,
     });
 
     mockGetAdminOperationCreditOrderDetail.mockResolvedValue({
@@ -279,9 +320,8 @@ describe('CreditOrdersTab', () => {
         page_size: 20,
         creator_keyword: '',
         product_keyword: '',
-        bill_order_bid: '',
         credit_order_kind: '',
-        status: '',
+        status: 'paid',
         payment_provider: '',
         start_time: '',
         end_time: '',
@@ -289,15 +329,15 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
-    expect(screen.getAllByText('creator-topup-small').length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getByText('20-credit pack')).toBeInTheDocument();
+    expect(await screen.findByText('Yearly - Advanced')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.catalog.topups.creatorSmall.title'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
   });
 
-  test('submits filters and opens detail dialog', async () => {
+  test('submits filters and opens detail sheet', async () => {
     render(<CreditOrdersTab />);
 
     await waitFor(() => {
@@ -328,15 +368,6 @@ describe('CreditOrdersTab', () => {
       },
     );
 
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        'module.operationsOrder.creditOrders.filters.orderIdPlaceholder',
-      ),
-      {
-        target: { value: 'bill-order-1' },
-      },
-    );
-
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsOrder.filters.search',
@@ -348,15 +379,15 @@ describe('CreditOrdersTab', () => {
         expect.objectContaining({
           creator_keyword: '13800138000',
           product_keyword: 'creator-topup-small',
-          bill_order_bid: 'bill-order-1',
+          status: 'paid',
         }),
       );
     });
 
     fireEvent.click(
-      await screen.findByRole('button', {
+      (await screen.findAllByRole('button', {
         name: 'module.operationsOrder.table.view',
-      }),
+      }))[0],
     );
 
     await waitFor(() => {
@@ -384,9 +415,9 @@ describe('CreditOrdersTab', () => {
     });
 
     fireEvent.click(
-      await screen.findByRole('button', {
+      (await screen.findAllByRole('button', {
         name: 'module.operationsOrder.table.view',
-      }),
+      }))[0],
     );
 
     await waitFor(() => {

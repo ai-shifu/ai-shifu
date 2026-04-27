@@ -6,12 +6,12 @@ import api from '@/api';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
 import { ErrorWithCode } from '@/lib/request';
 import {
   formatBillingCredits,
@@ -197,21 +197,21 @@ export default function CreditOrderDetailDialog({
     : emptyValue;
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='max-h-[calc(100vh-48px)] max-w-3xl overflow-hidden p-0'>
-        <DialogHeader className='border-b border-border px-6 py-4 pr-12'>
-          <DialogTitle className='text-base font-semibold text-foreground'>
+      <SheetContent className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[460px] lg:w-[560px]'>
+        <SheetHeader className='border-b border-border px-6 py-4 pr-12'>
+          <SheetTitle className='text-base font-semibold text-foreground'>
             {tOperationsOrder('creditOrders.detail.title')}
-          </DialogTitle>
-          <DialogDescription className='sr-only'>
+          </SheetTitle>
+          <SheetDescription className='sr-only'>
             {tOperationsOrder('creditOrders.detail.description')}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className='max-h-[calc(100vh-120px)] overflow-y-auto px-6 py-5'>
+        <div className='flex-1 overflow-y-auto px-6 py-5'>
           {loading ? (
             <div className='flex h-40 items-center justify-center'>
               <Loading />
@@ -262,14 +262,17 @@ export default function CreditOrderDetailDialog({
                     formatBillingDateTime(order.paid_at, locale) || emptyValue
                   }
                 />
-                <DetailRow
-                  label={tOperationsOrder(
-                    'creditOrders.detail.labels.failedAt',
-                  )}
-                  value={
-                    formatBillingDateTime(order.failed_at, locale) || emptyValue
-                  }
-                />
+                {order.failed_at ? (
+                  <DetailRow
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.failedAt',
+                    )}
+                    value={
+                      formatBillingDateTime(order.failed_at, locale) ||
+                      emptyValue
+                    }
+                  />
+                ) : null}
               </Section>
 
               <Section
@@ -297,12 +300,6 @@ export default function CreditOrderDetailDialog({
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.product')}
                   value={productName}
-                />
-                <DetailRow
-                  label={tOperationsOrder(
-                    'creditOrders.detail.labels.productCode',
-                  )}
-                  value={order.product_code || emptyValue}
                 />
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.creditAmount')}
@@ -345,18 +342,22 @@ export default function CreditOrderDetailDialog({
                   )}
                   value={order.provider_reference_id || emptyValue}
                 />
-                <DetailRow
-                  label={tOperationsOrder(
-                    'creditOrders.detail.labels.failureCode',
-                  )}
-                  value={order.failure_code || emptyValue}
-                />
-                <DetailRow
-                  label={tOperationsOrder(
-                    'creditOrders.detail.labels.failureMessage',
-                  )}
-                  value={order.failure_message || emptyValue}
-                />
+                {order.failure_code ? (
+                  <DetailRow
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.failureCode',
+                    )}
+                    value={order.failure_code}
+                  />
+                ) : null}
+                {order.failure_message ? (
+                  <DetailRow
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.failureMessage',
+                    )}
+                    value={order.failure_message}
+                  />
+                ) : null}
               </Section>
 
               {grant ? (
@@ -409,20 +410,19 @@ export default function CreditOrderDetailDialog({
               ) : null}
 
               {metadata ? (
-                <Section
-                  title={tOperationsOrder(
-                    'creditOrders.detail.sections.metadata',
-                  )}
-                >
-                  <pre className='overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700'>
+                <details className='rounded-xl border border-border bg-white p-4'>
+                  <summary className='cursor-pointer text-sm font-semibold text-foreground'>
+                    {tOperationsOrder('creditOrders.detail.sections.metadata')}
+                  </summary>
+                  <pre className='mt-3 overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700'>
                     {JSON.stringify(metadata, null, 2)}
                   </pre>
-                </Section>
+                </details>
               ) : null}
             </div>
           ) : null}
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
