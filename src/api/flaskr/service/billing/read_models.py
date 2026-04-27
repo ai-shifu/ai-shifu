@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case
+from sqlalchemy import case, or_
 
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
@@ -132,32 +132,36 @@ def _is_public_trial_catalog_product(row: BillingProduct) -> bool:
     return bool(metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG))
 
 
-def _resolve_credit_order_product_search_terms(product: BillingProduct) -> list[str]:
-    terms = []
-    for candidate in (
-        product.product_bid,
-        product.product_code,
-        product.display_name_i18n_key,
-    ):
-        normalized_candidate = str(candidate or "").strip()
-        if normalized_candidate:
-            terms.append(normalized_candidate)
+def _load_translated_product_name_map(
+    products: list[BillingProduct],
+) -> dict[str, list[str]]:
+    display_name_keys = {
+        str(product.display_name_i18n_key or "").strip()
+        for product in products
+        if str(product.display_name_i18n_key or "").strip()
+    }
+    if not display_name_keys:
+        return {}
 
-    display_name_key = str(product.display_name_i18n_key or "").strip()
-    if not display_name_key:
-        return terms
-
+    translated_name_map: dict[str, list[str]] = {
+        display_name_key: [] for display_name_key in display_name_keys
+    }
     original_language = get_current_language()
     try:
         for language in _OPERATOR_PRODUCT_FILTER_LANGUAGES:
             set_language(language)
-            translated_name = str(translate(display_name_key) or "").strip()
-            if translated_name and translated_name != display_name_key:
-                terms.append(translated_name)
+            for display_name_key in display_name_keys:
+                translated_name = str(translate(display_name_key) or "").strip()
+                if (
+                    translated_name
+                    and translated_name != display_name_key
+                    and translated_name not in translated_name_map[display_name_key]
+                ):
+                    translated_name_map[display_name_key].append(translated_name)
     finally:
         set_language(original_language)
 
-    return terms
+    return translated_name_map
 
 
 def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
@@ -165,15 +169,41 @@ def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
     if not normalized_keyword:
         return []
 
-    products = BillingProduct.query.order_by(BillingProduct.id.desc()).all()
-    matched_product_bids: list[str] = []
-    for product in products:
-        search_terms = _resolve_credit_order_product_search_terms(product)
-        if any(normalized_keyword in term.lower() for term in search_terms):
+    structural_match_pattern = f"%{normalized_keyword}%"
+    structurally_matched_products = (
+        BillingProduct.query.filter(
+            or_(
+                BillingProduct.product_bid.ilike(structural_match_pattern),
+                BillingProduct.product_code.ilike(structural_match_pattern),
+                BillingProduct.display_name_i18n_key.ilike(structural_match_pattern),
+            )
+        )
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    matched_product_bids = [
+        normalized_product_bid
+        for product in structurally_matched_products
+        if (normalized_product_bid := str(product.product_bid or "").strip())
+    ]
+    if matched_product_bids:
+        return matched_product_bids
+
+    translated_name_candidates = (
+        BillingProduct.query.filter(BillingProduct.display_name_i18n_key != "")
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    translated_name_map = _load_translated_product_name_map(translated_name_candidates)
+    translated_match_bids: list[str] = []
+    for product in translated_name_candidates:
+        display_name_key = str(product.display_name_i18n_key or "").strip()
+        translated_names = translated_name_map.get(display_name_key, [])
+        if any(normalized_keyword in term.lower() for term in translated_names):
             normalized_product_bid = str(product.product_bid or "").strip()
             if normalized_product_bid:
-                matched_product_bids.append(normalized_product_bid)
-    return matched_product_bids
+                translated_match_bids.append(normalized_product_bid)
+    return translated_match_bids
 
 
 def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
@@ -380,7 +410,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
             | (UserEntity.user_identify == normalized)
             | (UserEntity.user_identify.ilike(f"%{normalized}%"))
         ),
-    ).all()
+    ).yield_per(200)
     for user in users:
         user_bid = str(user.user_bid or "").strip()
         if user_bid:
@@ -390,7 +420,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
         AuthCredential.deleted == 0,
         AuthCredential.provider_name.in_(["phone", "email"]),
         AuthCredential.identifier.ilike(f"%{normalized}%"),
-    ).all()
+    ).yield_per(200)
     for credential in credentials:
         user_bid = str(credential.user_bid or "").strip()
         if user_bid:

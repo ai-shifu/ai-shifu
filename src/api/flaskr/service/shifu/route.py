@@ -440,10 +440,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         parameters:
             - name: page_index
               type: integer
-              required: true
+              required: false
+              description: Page index, defaults to 1 when omitted
             - name: page_size
               type: integer
-              required: true
+              required: false
+              description: Page size, defaults to 20 when omitted and is capped by OPERATOR_ORDER_LIST_MAX_PAGE_SIZE
             - name: is_favorite
               type: boolean
               required: true
