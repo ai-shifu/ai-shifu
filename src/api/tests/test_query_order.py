@@ -51,7 +51,7 @@ def test_query_buy_record_keeps_stored_discount_for_unpaid_order(app, monkeypatc
                 promo_name="spring-promo",
             )
         ],
-        )
+    )
 
     result = query_buy_record(app, "order-query-discount-1")
     assert result.order_id == "order-query-discount-1"

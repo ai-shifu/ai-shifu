@@ -172,9 +172,10 @@ export const usePaymentFlow = ({
       setIsLoading(true);
       try {
         const current =
-          snapshot || ((await queryOrder({ orderId: orderIdRef.current })) as
-            | OrderSnapshot
-            | null);
+          snapshot ||
+          ((await queryOrder({
+            orderId: orderIdRef.current,
+          })) as OrderSnapshot | null);
         if (!mountedRef.current || !current) {
           return current;
         }
