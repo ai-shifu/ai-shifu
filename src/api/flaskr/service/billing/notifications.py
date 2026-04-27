@@ -24,6 +24,7 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
@@ -519,10 +520,17 @@ def _append_subscription_user_count_line(msgs: list[str]) -> None:
     now = datetime.now()
     subscription_user_count = (
         BillingSubscription.query.with_entities(BillingSubscription.creator_bid)
+        .join(
+            BillingProduct,
+            (BillingProduct.product_bid == BillingSubscription.product_bid)
+            & (BillingProduct.deleted == 0),
+        )
         .filter(
             BillingSubscription.deleted == 0,
             BillingSubscription.creator_bid != "",
             BillingSubscription.status.in_(_COUNTED_SUBSCRIPTION_STATUSES),
+            BillingProduct.product_type == BILLING_PRODUCT_TYPE_PLAN,
+            BillingProduct.price_amount > 0,
             (
                 BillingSubscription.current_period_start_at.is_(None)
                 | (BillingSubscription.current_period_start_at <= now)

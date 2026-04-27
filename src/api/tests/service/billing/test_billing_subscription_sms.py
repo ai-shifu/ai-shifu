@@ -17,6 +17,7 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.models import BillingOrder, BillingSubscription
@@ -665,6 +666,15 @@ def test_send_billing_paid_feishu_task_marks_sent(
         dao.db.session.add(
             _create_subscription(
                 subscription_bid="sub-feishu-task-sent-1",
+                current_period_start_at=paid_at,
+                current_period_end_at=now + timedelta(days=30),
+            )
+        )
+        dao.db.session.add(
+            _create_subscription(
+                subscription_bid="sub-feishu-task-free-1",
+                creator_bid="creator-free-trial",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
                 current_period_start_at=paid_at,
                 current_period_end_at=now + timedelta(days=30),
             )
