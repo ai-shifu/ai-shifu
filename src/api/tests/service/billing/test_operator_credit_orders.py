@@ -20,7 +20,11 @@ from flaskr.service.billing.dtos import (
     OperatorCreditOrderDetailDTO,
     OperatorCreditOrdersPageDTO,
 )
-from flaskr.service.billing.models import BillingOrder, BillingProduct, CreditLedgerEntry
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    CreditLedgerEntry,
+)
 from flaskr.service.billing.read_models import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,

@@ -23,8 +23,7 @@ export function resolveOperationCreditOrderKindLabel(
   t: Translator,
   kind: OperationCreditOrderKind,
 ): string {
-  const normalizedKind =
-    kind === 'plan' || kind === 'topup' ? kind : 'other';
+  const normalizedKind = kind === 'plan' || kind === 'topup' ? kind : 'other';
   return t(`module.operationsOrder.creditOrders.kind.${normalizedKind}`);
 }
 
@@ -68,7 +67,10 @@ export function resolveOperationCreditOrderPaymentChannelLabel(
 
 export function resolveOperationCreditOrderProductName(
   t: Translator,
-  order: Pick<AdminOperationCreditOrderItem, 'product_name_key' | 'product_code'>,
+  order: Pick<
+    AdminOperationCreditOrderItem,
+    'product_name_key' | 'product_code'
+  >,
   fallback: string,
 ): string {
   if (order.product_name_key) {

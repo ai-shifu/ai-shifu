@@ -274,12 +274,16 @@ def _load_operator_creator_map(user_bids: list[str]) -> dict[str, dict[str, str]
             continue
         payload = credential_map.setdefault(user_bid, {})
         identifier = str(credential.identifier or "").strip()
-        if credential.provider_name == "phone" and identifier and not payload.get(
-            "mobile"
+        if (
+            credential.provider_name == "phone"
+            and identifier
+            and not payload.get("mobile")
         ):
             payload["mobile"] = identifier
-        if credential.provider_name == "email" and identifier and not payload.get(
-            "email"
+        if (
+            credential.provider_name == "email"
+            and identifier
+            and not payload.get("email")
         ):
             payload["email"] = identifier
 
@@ -302,7 +306,9 @@ def _load_operator_creator_map(user_bids: list[str]) -> dict[str, dict[str, str]
     return payload
 
 
-def _load_credit_order_product_map(product_bids: list[str]) -> dict[str, BillingProduct]:
+def _load_credit_order_product_map(
+    product_bids: list[str],
+) -> dict[str, BillingProduct]:
     normalized_product_bids = [_normalize_bid(bid) for bid in product_bids if bid]
     if not normalized_product_bids:
         return {}
@@ -1200,7 +1206,9 @@ def get_operator_credit_order_detail(
             raise_error("server.order.orderNotFound")
 
         creator_map = _load_operator_creator_map([str(row.creator_bid or "").strip()])
-        product_map = _load_credit_order_product_map([str(row.product_bid or "").strip()])
+        product_map = _load_credit_order_product_map(
+            [str(row.product_bid or "").strip()]
+        )
         grant_map = _load_credit_order_grant_map(
             app,
             [normalized_bill_order_bid],

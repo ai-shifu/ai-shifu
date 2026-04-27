@@ -152,7 +152,9 @@ export default function CreditOrdersTab() {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<ErrorState | null>(null);
-  const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>([]);
+  const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
+    [],
+  );
   const [pageIndex, setPageIndex] = React.useState(1);
   const [pageCount, setPageCount] = React.useState(0);
   const [total, setTotal] = React.useState(0);
@@ -161,9 +163,8 @@ export default function CreditOrdersTab() {
   const [draftFilters, setDraftFilters] = React.useState<CreditOrderFilters>(
     () => createDefaultFilters(),
   );
-  const [appliedFilters, setAppliedFilters] = React.useState<CreditOrderFilters>(
-    () => createDefaultFilters(),
-  );
+  const [appliedFilters, setAppliedFilters] =
+    React.useState<CreditOrderFilters>(() => createDefaultFilters());
   const requestIdRef = React.useRef(0);
   const lastRequestedPageRef = React.useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -177,9 +178,13 @@ export default function CreditOrdersTab() {
   const locale = i18n.language || 'en-US';
   const creatorKeywordPlaceholder = React.useMemo(() => {
     if (contactType === 'email') {
-      return tOperationsOrder('creditOrders.filters.creatorKeywordPlaceholderEmail');
+      return tOperationsOrder(
+        'creditOrders.filters.creatorKeywordPlaceholderEmail',
+      );
     }
-    return tOperationsOrder('creditOrders.filters.creatorKeywordPlaceholderPhone');
+    return tOperationsOrder(
+      'creditOrders.filters.creatorKeywordPlaceholderPhone',
+    );
   }, [contactType, tOperationsOrder]);
 
   const fetchOrders = React.useCallback(
@@ -411,7 +416,9 @@ export default function CreditOrdersTab() {
       component: (
         <ClearableTextInput
           value={draftFilters.bill_order_bid}
-          placeholder={tOperationsOrder('creditOrders.filters.orderIdPlaceholder')}
+          placeholder={tOperationsOrder(
+            'creditOrders.filters.orderIdPlaceholder',
+          )}
           clearLabel={t('common.core.close')}
           onChange={value =>
             setDraftFilters(current => ({
@@ -437,7 +444,9 @@ export default function CreditOrdersTab() {
         >
           <SelectTrigger>
             <SelectValue
-              placeholder={tOperationsOrder('creditOrders.filters.paymentProvider')}
+              placeholder={tOperationsOrder(
+                'creditOrders.filters.paymentProvider',
+              )}
             />
           </SelectTrigger>
           <SelectContent>
@@ -711,7 +720,8 @@ export default function CreditOrdersTab() {
                           order.creator_email ||
                           order.creator_identify ||
                           order.creator_bid;
-                    const creatorName = order.creator_nickname || defaultCreatorName;
+                    const creatorName =
+                      order.creator_nickname || defaultCreatorName;
                     const kindLabel = resolveOperationCreditOrderKindLabel(
                       t,
                       order.credit_order_kind,
@@ -724,7 +734,10 @@ export default function CreditOrdersTab() {
                     const creditAmountLabel = tOperationsOrder(
                       'creditOrders.creditAmountValue',
                       {
-                        credits: formatBillingCredits(order.credit_amount, locale),
+                        credits: formatBillingCredits(
+                          order.credit_amount,
+                          locale,
+                        ),
                       },
                     );
                     const paidAmountLabel = formatBillingPrice(
@@ -740,13 +753,14 @@ export default function CreditOrdersTab() {
                       : EMPTY_STATE_LABEL;
                     const paymentLabel =
                       resolveOperationCreditOrderPaymentChannelLabel(t, order);
-                    const validityLabel = resolveOperationCreditOrderValidityLabel(
-                      t,
-                      locale,
-                      order.valid_from,
-                      order.valid_to,
-                      EMPTY_STATE_LABEL,
-                    );
+                    const validityLabel =
+                      resolveOperationCreditOrderValidityLabel(
+                        t,
+                        locale,
+                        order.valid_from,
+                        order.valid_to,
+                        EMPTY_STATE_LABEL,
+                      );
 
                     return (
                       <TableRow key={order.bill_order_bid}>

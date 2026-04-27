@@ -6,7 +6,10 @@ import { useTranslation } from 'react-i18next';
 import Loading from '@/components/loading';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import useOperatorGuard from '../useOperatorGuard';
-import { ORDER_TABS_LIST_CLASSNAME, ORDER_TABS_TRIGGER_CLASSNAME } from './orderUiShared';
+import {
+  ORDER_TABS_LIST_CLASSNAME,
+  ORDER_TABS_TRIGGER_CLASSNAME,
+} from './orderUiShared';
 import LearnOrdersTab from './LearnOrdersTab';
 import CreditOrdersTab from './CreditOrdersTab';
 import {
@@ -29,9 +32,8 @@ export default function AdminOperationOrdersPage() {
     () => resolveOperationOrdersTab(searchParams.get('tab')),
     [searchParams],
   );
-  const [activeTab, setActiveTab] = React.useState<OperationOrdersTab>(
-    activeTabFromUrl,
-  );
+  const [activeTab, setActiveTab] =
+    React.useState<OperationOrdersTab>(activeTabFromUrl);
 
   React.useEffect(() => {
     setActiveTab(activeTabFromUrl);
@@ -47,10 +49,9 @@ export default function AdminOperationOrdersPage() {
         nextParams.set('tab', nextTab);
       }
       const nextQuery = nextParams.toString();
-      router.replace(
-        nextQuery ? `${pathname}?${nextQuery}` : pathname,
-        { scroll: false },
-      );
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
     },
     [pathname, router, searchParams],
   );

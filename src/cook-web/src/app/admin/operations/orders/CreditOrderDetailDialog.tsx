@@ -46,7 +46,9 @@ function DetailRow({ label, value }: DetailRowProps) {
   return (
     <div className='grid grid-cols-[112px_minmax(0,1fr)] items-start gap-4 text-sm'>
       <span className='whitespace-nowrap text-muted-foreground'>{label}</span>
-      <div className='min-w-0 break-all text-right text-foreground'>{value}</div>
+      <div className='min-w-0 break-all text-right text-foreground'>
+        {value}
+      </div>
     </div>
   );
 }
@@ -165,7 +167,10 @@ export default function CreditOrderDetailDialog({
   const metadata = detail?.metadata;
   const locale = i18n.language || 'en-US';
   const creatorContact =
-    order?.creator_email || order?.creator_mobile || order?.creator_identify || '';
+    order?.creator_email ||
+    order?.creator_mobile ||
+    order?.creator_identify ||
+    '';
   const kindLabel = order
     ? resolveOperationCreditOrderKindLabel(t, order.credit_order_kind)
     : emptyValue;
@@ -223,7 +228,9 @@ export default function CreditOrderDetailDialog({
 
           {!loading && !error && order ? (
             <div className='space-y-6'>
-              <Section title={tOperationsOrder('creditOrders.detail.sections.summary')}>
+              <Section
+                title={tOperationsOrder('creditOrders.detail.sections.summary')}
+              >
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.orderId')}
                   value={order.bill_order_bid}
@@ -237,13 +244,16 @@ export default function CreditOrderDetailDialog({
                   value={kindLabel}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.orderType')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.orderType',
+                  )}
                   value={orderTypeLabel}
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
                   value={
-                    formatBillingDateTime(order.created_at, locale) || emptyValue
+                    formatBillingDateTime(order.created_at, locale) ||
+                    emptyValue
                   }
                 />
                 <DetailRow
@@ -253,14 +263,18 @@ export default function CreditOrderDetailDialog({
                   }
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.failedAt')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.failedAt',
+                  )}
                   value={
                     formatBillingDateTime(order.failed_at, locale) || emptyValue
                   }
                 />
               </Section>
 
-              <Section title={tOperationsOrder('creditOrders.detail.sections.creator')}>
+              <Section
+                title={tOperationsOrder('creditOrders.detail.sections.creator')}
+              >
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.creator')}
                   value={creatorContact || emptyValue}
@@ -270,18 +284,24 @@ export default function CreditOrderDetailDialog({
                   value={order.creator_nickname || emptyValue}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.creatorId')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.creatorId',
+                  )}
                   value={order.creator_bid || emptyValue}
                 />
               </Section>
 
-              <Section title={tOperationsOrder('creditOrders.detail.sections.product')}>
+              <Section
+                title={tOperationsOrder('creditOrders.detail.sections.product')}
+              >
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.product')}
                   value={productName}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.productCode')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.productCode',
+                  )}
                   value={order.product_code || emptyValue}
                 />
                 <DetailRow
@@ -296,72 +316,104 @@ export default function CreditOrderDetailDialog({
                 />
               </Section>
 
-              <Section title={tOperationsOrder('creditOrders.detail.sections.payment')}>
+              <Section
+                title={tOperationsOrder('creditOrders.detail.sections.payment')}
+              >
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.paymentChannel')}
                   value={paymentChannelLabel}
                 />
                 <DetailRow
                   label={t('module.order.fields.payable')}
-                  value={formatBillingPrice(order.payable_amount, order.currency, locale)}
+                  value={formatBillingPrice(
+                    order.payable_amount,
+                    order.currency,
+                    locale,
+                  )}
                 />
                 <DetailRow
                   label={t('module.order.fields.paid')}
-                  value={formatBillingPrice(order.paid_amount, order.currency, locale)}
+                  value={formatBillingPrice(
+                    order.paid_amount,
+                    order.currency,
+                    locale,
+                  )}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.providerReference')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.providerReference',
+                  )}
                   value={order.provider_reference_id || emptyValue}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.failureCode')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.failureCode',
+                  )}
                   value={order.failure_code || emptyValue}
                 />
                 <DetailRow
-                  label={tOperationsOrder('creditOrders.detail.labels.failureMessage')}
+                  label={tOperationsOrder(
+                    'creditOrders.detail.labels.failureMessage',
+                  )}
                   value={order.failure_message || emptyValue}
                 />
               </Section>
 
               {grant ? (
-                <Section title={tOperationsOrder('creditOrders.detail.sections.grant')}>
+                <Section
+                  title={tOperationsOrder('creditOrders.detail.sections.grant')}
+                >
                   <DetailRow
-                    label={tOperationsOrder('creditOrders.detail.labels.grantedCredits')}
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.grantedCredits',
+                    )}
                     value={tOperationsOrder('creditOrders.creditAmountValue', {
-                      credits: formatBillingCredits(grant.granted_credits, locale),
+                      credits: formatBillingCredits(
+                        grant.granted_credits,
+                        locale,
+                      ),
                     })}
                   />
                   <DetailRow
-                    label={tOperationsOrder('creditOrders.detail.labels.grantSourceType')}
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.grantSourceType',
+                    )}
                     value={grant.source_type || emptyValue}
                   />
                   <DetailRow
-                    label={tOperationsOrder('creditOrders.detail.labels.grantSourceId')}
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.grantSourceId',
+                    )}
                     value={grant.source_bid || emptyValue}
                   />
                   <DetailRow
-                    label={tOperationsOrder('creditOrders.detail.labels.validFrom')}
+                    label={tOperationsOrder(
+                      'creditOrders.detail.labels.validFrom',
+                    )}
                     value={
-                      formatBillingDateTime(grant.valid_from, locale) || emptyValue
+                      formatBillingDateTime(grant.valid_from, locale) ||
+                      emptyValue
                     }
                   />
                   <DetailRow
                     label={tOperationsOrder('creditOrders.table.validTo')}
-                    value={
-                      resolveOperationCreditOrderValidityLabel(
-                        t,
-                        locale,
-                        grant.valid_from,
-                        grant.valid_to,
-                        emptyValue,
-                      )
-                    }
+                    value={resolveOperationCreditOrderValidityLabel(
+                      t,
+                      locale,
+                      grant.valid_from,
+                      grant.valid_to,
+                      emptyValue,
+                    )}
                   />
                 </Section>
               ) : null}
 
               {metadata ? (
-                <Section title={tOperationsOrder('creditOrders.detail.sections.metadata')}>
+                <Section
+                  title={tOperationsOrder(
+                    'creditOrders.detail.sections.metadata',
+                  )}
+                >
                   <pre className='overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-700'>
                     {JSON.stringify(metadata, null, 2)}
                   </pre>

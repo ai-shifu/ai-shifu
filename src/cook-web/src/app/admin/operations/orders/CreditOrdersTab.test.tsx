@@ -13,7 +13,10 @@ const baseTranslation = (namespace?: string | string[]) => {
         if (options && Object.prototype.hasOwnProperty.call(options, 'count')) {
           return `${ns ? `${ns}.` : ''}${key}:${options.count}`;
         }
-        if (options && Object.prototype.hasOwnProperty.call(options, 'credits')) {
+        if (
+          options &&
+          Object.prototype.hasOwnProperty.call(options, 'credits')
+        ) {
           return `${ns ? `${ns}.` : ''}${key}:${options.credits}`;
         }
         return ns && ns !== 'translation' ? `${ns}.${key}` : key;
@@ -162,7 +165,9 @@ jest.mock('@/components/ui/Dialog', () => ({
   DialogContent: ({ children }: React.PropsWithChildren) => (
     <div role='dialog'>{children}</div>
   ),
-  DialogHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DialogDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -284,7 +289,9 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
-    expect(screen.getAllByText('creator-topup-small').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('creator-topup-small').length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.queryByText('module.billing.catalog.topups.creatorSmall.title'),
     ).not.toBeInTheDocument();
@@ -337,7 +344,7 @@ describe('CreditOrdersTab', () => {
     );
 
     await waitFor(() => {
-        expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith(
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith(
         expect.objectContaining({
           creator_keyword: '13800138000',
           product_keyword: 'creator-topup-small',
@@ -359,7 +366,9 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(
-      await screen.findByText('module.operationsOrder.creditOrders.detail.title'),
+      await screen.findByText(
+        'module.operationsOrder.creditOrders.detail.title',
+      ),
     ).toBeInTheDocument();
   });
 });

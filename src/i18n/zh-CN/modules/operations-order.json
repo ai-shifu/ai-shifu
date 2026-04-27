@@ -1,66 +1,5 @@
 {
   "__namespace__": "module.operationsOrder",
-  "detail": {
-    "fallback": "订单详情",
-    "sections": {
-      "activities": "活动信息",
-      "coupons": "兑换码",
-      "course": "课程信息",
-      "payment": "金额与支付",
-      "summary": "订单信息",
-      "user": "用户信息"
-    },
-    "title": "订单详情"
-  },
-  "emptyList": "暂无订单数据",
-  "filters": {
-    "courseId": "课程ID",
-    "courseIdPlaceholder": "输入课程ID",
-    "courseName": "课程名称",
-    "courseNamePlaceholder": "输入课程名称",
-    "createdAt": "下单时间",
-    "endTime": "结束时间",
-    "orderId": "订单ID",
-    "orderIdPlaceholder": "输入订单ID",
-    "paymentChannel": "支付渠道",
-    "reset": "重置",
-    "search": "查询",
-    "source": "订单来源",
-    "startTime": "开始时间",
-    "status": "状态",
-    "timeRangePlaceholder": "选择下单开始时间 / 结束时间",
-    "userKeyword": "用户搜索",
-    "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
-    "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
-    "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
-  },
-  "source": {
-    "couponRedeem": "兑换码兑换",
-    "importActivation": "开通导入",
-    "openApi": "Open API 开通",
-    "userPurchase": "用户下单"
-  },
-  "tabs": {
-    "credits": "积分订单",
-    "learn": "学习订单"
-  },
-  "table": {
-    "action": "操作",
-    "coupons": "兑换码",
-    "course": "课程",
-    "createdAt": "下单时间",
-    "discountAmount": "优惠",
-    "empty": "暂无订单数据",
-    "orderId": "订单ID",
-    "paidAmount": "实收",
-    "paymentChannel": "支付渠道",
-    "source": "订单来源",
-    "status": "状态",
-    "updatedAt": "订单更新时间",
-    "user": "用户",
-    "userId": "用户ID",
-    "view": "查看详情"
-  },
   "creditOrders": {
     "creditAmountValue": "{credits} 积分",
     "detail": {
@@ -119,6 +58,67 @@
       "product": "商品名称",
       "validTo": "有效期"
     }
+  },
+  "detail": {
+    "fallback": "订单详情",
+    "sections": {
+      "activities": "活动信息",
+      "coupons": "兑换码",
+      "course": "课程信息",
+      "payment": "金额与支付",
+      "summary": "订单信息",
+      "user": "用户信息"
+    },
+    "title": "订单详情"
+  },
+  "emptyList": "暂无订单数据",
+  "filters": {
+    "courseId": "课程ID",
+    "courseIdPlaceholder": "输入课程ID",
+    "courseName": "课程名称",
+    "courseNamePlaceholder": "输入课程名称",
+    "createdAt": "下单时间",
+    "endTime": "结束时间",
+    "orderId": "订单ID",
+    "orderIdPlaceholder": "输入订单ID",
+    "paymentChannel": "支付渠道",
+    "reset": "重置",
+    "search": "查询",
+    "source": "订单来源",
+    "startTime": "开始时间",
+    "status": "状态",
+    "timeRangePlaceholder": "选择下单开始时间 / 结束时间",
+    "userKeyword": "用户搜索",
+    "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
+    "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
+    "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
+  },
+  "source": {
+    "couponRedeem": "兑换码兑换",
+    "importActivation": "开通导入",
+    "openApi": "Open API 开通",
+    "userPurchase": "用户下单"
+  },
+  "table": {
+    "action": "操作",
+    "coupons": "兑换码",
+    "course": "课程",
+    "createdAt": "下单时间",
+    "discountAmount": "优惠",
+    "empty": "暂无订单数据",
+    "orderId": "订单ID",
+    "paidAmount": "实收",
+    "paymentChannel": "支付渠道",
+    "source": "订单来源",
+    "status": "状态",
+    "updatedAt": "订单更新时间",
+    "user": "用户",
+    "userId": "用户ID",
+    "view": "查看详情"
+  },
+  "tabs": {
+    "credits": "积分订单",
+    "learn": "学习订单"
   },
   "title": "订单管理",
   "totalCount": "共 {count} 条订单"
