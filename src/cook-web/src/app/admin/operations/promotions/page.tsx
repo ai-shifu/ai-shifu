@@ -187,15 +187,6 @@ const createDefaultCampaignFilters = (): CampaignFilters => ({
   end_time: '',
 });
 
-const createEmptyPromotionSummary = () => ({
-  total: 0,
-  active: 0,
-  usage_count: 0,
-  latest_usage_at: '',
-  covered_courses: 0,
-  discount_amount: '0',
-});
-
 const createDefaultCouponForm = (): CouponFormState => ({
   name: '',
   code: '',
@@ -280,19 +271,6 @@ const SectionCard = ({
       </div>
     ) : null}
     {children}
-  </div>
-);
-
-const SummaryMetricCard = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) => (
-  <div className='rounded-xl border border-border bg-white p-4 shadow-sm'>
-    <div className='text-xs font-medium text-muted-foreground'>{label}</div>
-    <div className='mt-2 text-2xl font-semibold text-foreground'>{value}</div>
   </div>
 );
 
@@ -2023,12 +2001,6 @@ export default function AdminOperationPromotionsPage() {
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [couponError, setCouponError] = useState<ErrorState>(null);
   const [campaignError, setCampaignError] = useState<ErrorState>(null);
-  const [couponSummary, setCouponSummary] = useState(
-    createEmptyPromotionSummary,
-  );
-  const [campaignSummary, setCampaignSummary] = useState(
-    createEmptyPromotionSummary,
-  );
   const [coupons, setCoupons] = useState<AdminPromotionCouponItem[]>([]);
   const [campaigns, setCampaigns] = useState<AdminPromotionCampaignItem[]>([]);
   const [couponPage, setCouponPage] = useState(1);
@@ -2127,7 +2099,6 @@ export default function AdminOperationPromotionsPage() {
             page_index: responsePageCount,
           })) as AdminPromotionListResponse<AdminPromotionCouponItem>;
         }
-        setCouponSummary(response.summary || createEmptyPromotionSummary());
         setCoupons(response.items || []);
         setCouponPage(response.page || 1);
         setCouponPageCount(response.page_count || 0);
@@ -2135,7 +2106,6 @@ export default function AdminOperationPromotionsPage() {
         setCouponError({
           message: (error as Error).message || 'Failed to load coupons',
         });
-        setCouponSummary(createEmptyPromotionSummary());
         setCoupons([]);
         setCouponPage(pageIndex);
         setCouponPageCount(0);
@@ -2176,7 +2146,6 @@ export default function AdminOperationPromotionsPage() {
             page_index: responsePageCount,
           })) as AdminPromotionListResponse<AdminPromotionCampaignItem>;
         }
-        setCampaignSummary(response.summary || createEmptyPromotionSummary());
         setCampaigns(response.items || []);
         setCampaignPage(response.page || 1);
         setCampaignPageCount(response.page_count || 0);
@@ -2184,7 +2153,6 @@ export default function AdminOperationPromotionsPage() {
         setCampaignError({
           message: (error as Error).message || 'Failed to load campaigns',
         });
-        setCampaignSummary(createEmptyPromotionSummary());
         setCampaigns([]);
         setCampaignPage(pageIndex);
         setCampaignPageCount(0);
@@ -2471,27 +2439,6 @@ export default function AdminOperationPromotionsPage() {
           value='coupons'
           className='mt-6 space-y-6'
         >
-          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-            <SummaryMetricCard
-              label={tPromotion('summary.couponBatches')}
-              value={String(couponSummary.total)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.activeCouponBatches')}
-              value={String(couponSummary.active)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.couponUsageCount')}
-              value={String(couponSummary.usage_count)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.latestCouponUsage')}
-              value={
-                formatAdminUtcDateTime(couponSummary.latest_usage_at) ||
-                EMPTY_VALUE
-              }
-            />
-          </div>
           <SectionCard
             title=''
             action={
@@ -3057,28 +3004,6 @@ export default function AdminOperationPromotionsPage() {
           value='campaigns'
           className='mt-6 space-y-6'
         >
-          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
-            <SummaryMetricCard
-              label={tPromotion('summary.campaignCount')}
-              value={String(campaignSummary.total)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.activeCampaignCount')}
-              value={String(campaignSummary.active)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.coveredCourses')}
-              value={String(campaignSummary.covered_courses)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('summary.campaignUsageCount')}
-              value={String(campaignSummary.usage_count)}
-            />
-            <SummaryMetricCard
-              label={tPromotion('campaign.discountAmount')}
-              value={`¥ ${campaignSummary.discount_amount || '0'}`}
-            />
-          </div>
           <SectionCard
             title=''
             action={
