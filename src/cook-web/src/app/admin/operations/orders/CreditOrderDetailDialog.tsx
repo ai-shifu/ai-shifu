@@ -17,15 +17,14 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   formatBillingPrice,
-  resolveBillingOrderStatusLabel,
-  resolveBillingOrderTypeLabel,
 } from '@/lib/billing';
-import type { BillingOrderStatus, BillingOrderType } from '@/types/billing';
 import type { AdminOperationCreditOrderDetailResponse } from '../operation-credit-order-types';
 import {
   resolveOperationCreditOrderKindLabel,
   resolveOperationCreditOrderPaymentChannelLabel,
   resolveOperationCreditOrderProductName,
+  resolveOperationCreditOrderStatusLabel,
+  resolveOperationCreditOrderTypeLabel,
   resolveOperationCreditOrderValidityLabel,
 } from '../operation-credit-order-helpers';
 
@@ -174,12 +173,16 @@ export default function CreditOrderDetailDialog({
   const kindLabel = order
     ? resolveOperationCreditOrderKindLabel(t, order.credit_order_kind)
     : emptyValue;
-  const statusLabel = order?.status
-    ? resolveBillingOrderStatusLabel(t, order.status as BillingOrderStatus)
-    : emptyValue;
-  const orderTypeLabel = order?.order_type
-    ? resolveBillingOrderTypeLabel(t, order.order_type as BillingOrderType)
-    : emptyValue;
+  const statusLabel = resolveOperationCreditOrderStatusLabel(
+    t,
+    order?.status,
+    emptyValue,
+  );
+  const orderTypeLabel = resolveOperationCreditOrderTypeLabel(
+    t,
+    order?.order_type,
+    emptyValue,
+  );
   const paymentChannelLabel = order
     ? resolveOperationCreditOrderPaymentChannelLabel(t, order)
     : emptyValue;

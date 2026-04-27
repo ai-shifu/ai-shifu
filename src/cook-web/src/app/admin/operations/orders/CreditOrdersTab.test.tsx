@@ -431,4 +431,93 @@ describe('CreditOrdersTab', () => {
 
     expect(await screen.findByText('detail failed')).toBeInTheDocument();
   });
+
+  test('falls back to raw status and order type for unknown values', async () => {
+    mockGetAdminOperationCreditOrders.mockResolvedValueOnce({
+      items: [
+        {
+          bill_order_bid: 'bill-order-unknown',
+          creator_bid: 'creator-3',
+          creator_identify: '13700137000',
+          creator_mobile: '13700137000',
+          creator_email: '',
+          creator_nickname: 'Creator Three',
+          credit_order_kind: 'topup',
+          product_bid: 'product-3',
+          product_code: 'creator-topup-small',
+          product_type: 'topup',
+          product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+          credit_amount: 20,
+          valid_from: '2026-04-27T10:00:00Z',
+          valid_to: '2026-05-27T10:00:00Z',
+          order_type: 'custom_order_type',
+          status: 'custom_status',
+          payment_provider: 'manual',
+          payment_channel: 'manual',
+          payable_amount: 0,
+          paid_amount: 0,
+          currency: 'CNY',
+          provider_reference_id: '',
+          failure_code: '',
+          failure_message: '',
+          created_at: '2026-04-27T09:00:00Z',
+          paid_at: null,
+          failed_at: null,
+          refunded_at: null,
+          has_attention: false,
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockGetAdminOperationCreditOrderDetail.mockResolvedValueOnce({
+      order: {
+        bill_order_bid: 'bill-order-unknown',
+        creator_bid: 'creator-3',
+        creator_identify: '13700137000',
+        creator_mobile: '13700137000',
+        creator_email: '',
+        creator_nickname: 'Creator Three',
+        credit_order_kind: 'topup',
+        product_bid: 'product-3',
+        product_code: 'creator-topup-small',
+        product_type: 'topup',
+        product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+        credit_amount: 20,
+        valid_from: '2026-04-27T10:00:00Z',
+        valid_to: '2026-05-27T10:00:00Z',
+        order_type: 'custom_order_type',
+        status: 'custom_status',
+        payment_provider: 'manual',
+        payment_channel: 'manual',
+        payable_amount: 0,
+        paid_amount: 0,
+        currency: 'CNY',
+        provider_reference_id: '',
+        failure_code: '',
+        failure_message: '',
+        created_at: '2026-04-27T09:00:00Z',
+        paid_at: null,
+        failed_at: null,
+        refunded_at: null,
+        has_attention: false,
+      },
+      grant: null,
+      metadata: null,
+    });
+
+    render(<CreditOrdersTab />);
+
+    expect(await screen.findByText('custom_status')).toBeInTheDocument();
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsOrder.table.view',
+      }),
+    );
+
+    expect(await screen.findByText('custom_order_type')).toBeInTheDocument();
+  });
 });

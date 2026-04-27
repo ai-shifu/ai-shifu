@@ -1,9 +1,16 @@
 import {
   formatBillingDateTime,
   resolveBillingPingxxChannelLabel,
+  resolveBillingOrderStatusLabel,
+  resolveBillingOrderTypeLabel,
   resolveBillingProviderLabel,
 } from '@/lib/billing';
-import type { BillingPingxxChannel, BillingProvider } from '@/types/billing';
+import type {
+  BillingOrderStatus,
+  BillingOrderType,
+  BillingPingxxChannel,
+  BillingProvider,
+} from '@/types/billing';
 import type {
   AdminOperationCreditOrderItem,
   OperationCreditOrderKind,
@@ -21,6 +28,23 @@ const PINGXX_CHANNELS = [
   'wx_pub_qr',
   'alipay_qr',
 ] as const satisfies readonly BillingPingxxChannel[];
+const BILLING_ORDER_STATUSES = [
+  'init',
+  'pending',
+  'paid',
+  'failed',
+  'refunded',
+  'canceled',
+  'timeout',
+] as const satisfies readonly BillingOrderStatus[];
+const BILLING_ORDER_TYPES = [
+  'subscription_start',
+  'subscription_upgrade',
+  'subscription_renewal',
+  'topup',
+  'manual',
+  'refund',
+] as const satisfies readonly BillingOrderType[];
 
 /**
  * t('module.operationsOrder.creditOrders.productIntervals.day')
@@ -35,6 +59,14 @@ function isBillingProvider(value: string): value is BillingProvider {
 
 function isPingxxChannel(value: string): value is BillingPingxxChannel {
   return (PINGXX_CHANNELS as readonly string[]).includes(value);
+}
+
+function isBillingOrderStatus(value: string): value is BillingOrderStatus {
+  return (BILLING_ORDER_STATUSES as readonly string[]).includes(value);
+}
+
+function isBillingOrderType(value: string): value is BillingOrderType {
+  return (BILLING_ORDER_TYPES as readonly string[]).includes(value);
 }
 
 function translateIfResolved(
@@ -118,6 +150,36 @@ export function resolveOperationCreditOrderPaymentChannelLabel(
   }
 
   return `${providerLabel} / ${channel}`;
+}
+
+export function resolveOperationCreditOrderStatusLabel(
+  t: Translator,
+  status: string | null | undefined,
+  fallback: string,
+): string {
+  const normalizedStatus = String(status || '').trim();
+  if (!normalizedStatus) {
+    return fallback;
+  }
+  if (isBillingOrderStatus(normalizedStatus)) {
+    return resolveBillingOrderStatusLabel(t, normalizedStatus);
+  }
+  return normalizedStatus || fallback;
+}
+
+export function resolveOperationCreditOrderTypeLabel(
+  t: Translator,
+  orderType: string | null | undefined,
+  fallback: string,
+): string {
+  const normalizedOrderType = String(orderType || '').trim();
+  if (!normalizedOrderType) {
+    return fallback;
+  }
+  if (isBillingOrderType(normalizedOrderType)) {
+    return resolveBillingOrderTypeLabel(t, normalizedOrderType);
+  }
+  return normalizedOrderType || fallback;
 }
 
 export function resolveOperationCreditOrderProductName(

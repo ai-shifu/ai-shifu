@@ -44,11 +44,11 @@ import {
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
-import type { BillingOrderStatus } from '@/types/billing';
 import {
   resolveOperationCreditOrderKindLabel,
   resolveOperationCreditOrderPaymentChannelLabel,
   resolveOperationCreditOrderProductName,
+  resolveOperationCreditOrderStatusLabel,
   resolveOperationCreditOrderValidityLabel,
   resolveOperationCreditOrderProviderLabel,
 } from '../operation-credit-order-helpers';
@@ -721,12 +721,11 @@ export default function CreditOrdersTab() {
                       order.currency,
                       locale,
                     );
-                    const statusLabel = order.status
-                      ? resolveBillingOrderStatusLabel(
-                          t,
-                          order.status as BillingOrderStatus,
-                        )
-                      : EMPTY_STATE_LABEL;
+                    const statusLabel = resolveOperationCreditOrderStatusLabel(
+                      t,
+                      order.status,
+                      EMPTY_STATE_LABEL,
+                    );
                     const paymentLabel =
                       resolveOperationCreditOrderPaymentChannelLabel(t, order);
                     const validityLabel =
