@@ -15,8 +15,10 @@ from flaskr.service.order.payment_providers import (
 
 from .checkout import (
     load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
+    load_billing_order_for_native_event as _load_billing_order_for_native_event,
     load_billing_order_for_stripe_event as _load_billing_order_for_stripe_event,
     load_billing_subscription_for_stripe_event as _load_billing_subscription_for_stripe_event,
+    persist_billing_native_raw_snapshot as _persist_billing_native_raw_snapshot,
     persist_billing_pingxx_raw_snapshot as _persist_billing_pingxx_raw_snapshot,
     persist_billing_stripe_raw_snapshot as _persist_billing_stripe_raw_snapshot,
 )
@@ -337,3 +339,177 @@ def handle_billing_pingxx_webhook(
             bill_order_bid=order.bill_order_bid,
             status_code=200,
         )
+
+
+def handle_billing_alipay_webhook(
+    app: Flask,
+    payload: dict[str, Any],
+) -> BillingWebhookResult:
+    provider = get_payment_provider("alipay")
+    try:
+        notification = provider.handle_notification(payload=payload, app=app)
+    except Exception as exc:  # pragma: no cover - route-level verification path
+        app.logger.exception("Alipay billing webhook verification failed: %s", exc)
+        return BillingWebhookResult(status="error", message=str(exc), status_code=400)
+    return apply_billing_native_notification(app, "alipay", notification)
+
+
+def handle_billing_wechatpay_webhook(
+    app: Flask,
+    *,
+    raw_body: bytes,
+    headers: dict[str, str],
+) -> BillingWebhookResult:
+    provider = get_payment_provider("wechatpay")
+    try:
+        notification = provider.verify_webhook(
+            headers=headers,
+            raw_body=raw_body,
+            app=app,
+        )
+    except Exception as exc:  # pragma: no cover - route-level verification path
+        app.logger.exception("WeChat Pay billing webhook verification failed: %s", exc)
+        return BillingWebhookResult(status="error", message=str(exc), status_code=400)
+    return apply_billing_native_notification(app, "wechatpay", notification)
+
+
+def apply_billing_native_notification(
+    app: Flask,
+    provider: str,
+    notification: PaymentNotificationResult,
+) -> BillingWebhookResult:
+    normalized_provider = _normalize_bid(provider)
+    event_type = str(notification.status or "")
+    provider_attempt_id = _normalize_bid(notification.order_bid)
+    transaction_id = _normalize_bid(notification.charge_id)
+    provider_payload = notification.provider_payload or {}
+    trade_payload = _native_trade_payload(provider_payload)
+
+    with app.app_context():
+        order = _load_billing_order_for_native_event(
+            provider=normalized_provider,
+            provider_attempt_id=provider_attempt_id,
+            transaction_id=transaction_id,
+        )
+        if order is None:
+            return BillingWebhookResult(
+                status="not_billing",
+                matched=False,
+                event_type=event_type or None,
+                charge_id=transaction_id or None,
+                order_no=provider_attempt_id or None,
+                status_code=202,
+            )
+
+        actual_amount = _extract_native_amount(normalized_provider, provider_payload)
+        if (
+            actual_amount is not None
+            and int(order.payable_amount or 0) != actual_amount
+        ):
+            raise RuntimeError("Billing native payment amount mismatch")
+
+        target_status = _native_target_status(normalized_provider, trade_payload)
+        order_update = _apply_billing_order_provider_update(
+            order,
+            provider=normalized_provider,
+            event_type=event_type or "payment.notification",
+            source="webhook",
+            payload=provider_payload,
+            provider_reference_id=provider_attempt_id or order.provider_reference_id,
+            target_status=target_status,
+        )
+        _persist_billing_native_raw_snapshot(
+            order,
+            create_if_missing=False,
+            provider_attempt_id=provider_attempt_id or order.provider_reference_id,
+            transaction_id=transaction_id,
+            raw_status=_native_status(normalized_provider, trade_payload),
+            raw_notification=provider_payload,
+            metadata={"latest_source": "webhook"},
+        )
+        if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+            from .subscriptions import load_subscription_by_bid
+
+            subscription = load_subscription_by_bid(order.subscription_bid)
+            if subscription is not None:
+                _apply_subscription_checkout_success(
+                    app,
+                    subscription,
+                    payload=trade_payload,
+                    provider=normalized_provider,
+                    event_type=event_type or "payment.notification",
+                )
+
+        order_update.stage_after_state_changes(app, order)
+        db.session.commit()
+        order_update.dispatch_after_commit(app)
+        return BillingWebhookResult(
+            status="paid"
+            if target_status == BILLING_ORDER_STATUS_PAID
+            else "acknowledged",
+            matched=True,
+            event_type=event_type or None,
+            bill_order_bid=order.bill_order_bid,
+            charge_id=transaction_id or None,
+            order_no=provider_attempt_id or None,
+            status_code=200,
+        )
+
+
+def _native_trade_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    trade = payload.get("trade", {})
+    if isinstance(trade, dict) and trade:
+        return trade
+    resource = payload.get("resource", {})
+    if isinstance(resource, dict) and resource:
+        return resource
+    return payload
+
+
+def _native_status(provider: str, payload: dict[str, Any]) -> str:
+    if provider == "alipay":
+        return str(payload.get("trade_status") or "")
+    if provider == "wechatpay":
+        return str(payload.get("trade_state") or "")
+    return ""
+
+
+def _native_target_status(provider: str, payload: dict[str, Any]) -> int | None:
+    status = _native_status(provider, payload).upper()
+    if provider == "alipay":
+        if status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
+            return BILLING_ORDER_STATUS_PAID
+        if status == "TRADE_CLOSED":
+            return BILLING_ORDER_STATUS_CANCELED
+        return None
+    if provider == "wechatpay":
+        if status == "SUCCESS":
+            return BILLING_ORDER_STATUS_PAID
+        if status in {"CLOSED", "REVOKED"}:
+            return BILLING_ORDER_STATUS_CANCELED
+        if status == "PAYERROR":
+            return BILLING_ORDER_STATUS_FAILED
+        return None
+    return None
+
+
+def _extract_native_amount(provider: str, payload: dict[str, Any]) -> int | None:
+    if provider == "alipay":
+        value = payload.get("total_amount") if isinstance(payload, dict) else None
+        if value in (None, ""):
+            return None
+        from decimal import Decimal
+
+        return int((Decimal(str(value)) * 100).to_integral_value())
+    if provider == "wechatpay":
+        resource = payload.get("resource", {}) if isinstance(payload, dict) else {}
+        amount = resource.get("amount", {}) if isinstance(resource, dict) else {}
+        if not isinstance(amount, dict):
+            return None
+        value = amount.get("payer_total", amount.get("total"))
+        if value in (None, ""):
+            return None
+        return int(value)
+    return None

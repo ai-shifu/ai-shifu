@@ -3,7 +3,6 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   formatBillingCreditAmount,
-  formatBillingDate,
   formatBillingPlanInterval,
   formatBillingPrice,
   resolveBillingPlanCreditsLabel,
@@ -17,7 +16,6 @@ import type {
   BillingTopupProduct,
   BillingTrialOffer,
 } from '@/types/billing';
-import { cn } from '@/lib/utils';
 import {
   getFreeFeatureData,
   getPlanFeatureData,
@@ -37,12 +35,14 @@ type BillingOverviewShowcaseProps = {
   isLoading: boolean;
   monthlyPlans: BillingPlan[];
   orderedPlans: BillingPlan[];
+  alipayAvailable: boolean;
   pingxxAvailable: boolean;
   renderFreeCard: boolean;
   showcaseTab: ShowcaseTab;
   stripeAvailable: boolean;
   topups: BillingTopupProduct[];
   trialOffer: BillingTrialOffer | null | undefined;
+  wechatpayAvailable: boolean;
   yearlyPlans: BillingPlan[];
   onSelectPlanCheckout: (plan: BillingPlan, provider: BillingProvider) => void;
   onSelectTopupCheckout: (
@@ -55,9 +55,17 @@ type BillingOverviewShowcaseProps = {
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
   pingxxAvailable: boolean,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
 ): BillingProvider | null {
   if (stripeAvailable) {
     return 'stripe';
+  }
+  if (alipayAvailable) {
+    return 'alipay';
+  }
+  if (wechatpayAvailable) {
+    return 'wechatpay';
   }
   if (pingxxAvailable) {
     return 'pingxx';
@@ -84,12 +92,14 @@ export function BillingOverviewShowcase({
   isLoading,
   monthlyPlans,
   orderedPlans,
+  alipayAvailable,
   pingxxAvailable,
   renderFreeCard,
   showcaseTab,
   stripeAvailable,
   topups,
   trialOffer,
+  wechatpayAvailable,
   yearlyPlans,
   onSelectPlanCheckout,
   onSelectTopupCheckout,
@@ -195,6 +205,8 @@ export function BillingOverviewShowcase({
               const provider = resolveCheckoutProvider(
                 stripeAvailable,
                 pingxxAvailable,
+                alipayAvailable,
+                wechatpayAvailable,
               );
               const checkoutKey = provider
                 ? `topup:${provider}:${product.product_bid}`
@@ -273,6 +285,8 @@ export function BillingOverviewShowcase({
             const provider = resolveCheckoutProvider(
               stripeAvailable,
               pingxxAvailable,
+              alipayAvailable,
+              wechatpayAvailable,
             );
             const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
             const planRank = resolvePlanRank(orderedPlans, plan.product_bid);

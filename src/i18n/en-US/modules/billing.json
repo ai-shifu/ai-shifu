@@ -274,9 +274,11 @@
       "perDay": "/ daily",
       "perMonth": "/ monthly",
       "perYear": "/ yearly",
+      "providerAlipay": "Alipay",
       "providerManual": "Manual",
       "providerPingxx": "Pingxx / Alipay QR",
-      "providerStripe": "Stripe"
+      "providerStripe": "Stripe",
+      "providerWechatpay": "WeChat Pay"
     },
     "plans": {
       "creatorMonthly": {

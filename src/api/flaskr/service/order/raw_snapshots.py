@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .models import PingxxOrder, StripeOrder
+from .models import NativePaymentOrder, PingxxOrder, StripeOrder
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
@@ -35,6 +35,126 @@ def billing_pingxx_snapshot_query():
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
     )
+
+
+def legacy_native_snapshot_query():
+    return NativePaymentOrder.query.filter(
+        NativePaymentOrder.deleted == 0,
+        NativePaymentOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
+    )
+
+
+def billing_native_snapshot_query():
+    return NativePaymentOrder.query.filter(
+        NativePaymentOrder.deleted == 0,
+        NativePaymentOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
+    )
+
+
+def upsert_native_snapshot(
+    *,
+    biz_domain: str,
+    payment_provider: str,
+    provider_attempt_id: str,
+    amount: int,
+    currency: str,
+    raw_status: str,
+    raw_snapshot_status: int,
+    native_payment_order_bid: str = "",
+    order_bid: str = "",
+    bill_order_bid: str = "",
+    creator_bid: str = "",
+    user_bid: str = "",
+    shifu_bid: str = "",
+    transaction_id: str = "",
+    channel: str = "",
+    raw_request: Any | None = None,
+    raw_response: Any | None = None,
+    raw_notification: Any | None = None,
+    metadata: Any | None = None,
+) -> NativePaymentOrder:
+    query = NativePaymentOrder.query.filter(
+        NativePaymentOrder.deleted == 0,
+        NativePaymentOrder.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
+        NativePaymentOrder.payment_provider == str(payment_provider or ""),
+    )
+    if provider_attempt_id:
+        query = query.filter(
+            NativePaymentOrder.provider_attempt_id == str(provider_attempt_id)
+        )
+    elif order_bid:
+        query = query.filter(NativePaymentOrder.order_bid == str(order_bid))
+    elif bill_order_bid:
+        query = query.filter(NativePaymentOrder.bill_order_bid == str(bill_order_bid))
+
+    snapshot = query.order_by(NativePaymentOrder.id.desc()).first()
+    if snapshot is None:
+        snapshot = NativePaymentOrder(
+            native_payment_order_bid=(
+                native_payment_order_bid
+                or provider_attempt_id
+                or order_bid
+                or bill_order_bid
+            ),
+            biz_domain=str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
+            raw_request="{}",
+            raw_response="{}",
+            raw_notification="{}",
+            metadata_json="{}",
+        )
+
+    snapshot.native_payment_order_bid = (
+        native_payment_order_bid
+        or snapshot.native_payment_order_bid
+        or provider_attempt_id
+        or order_bid
+        or bill_order_bid
+    )
+    snapshot.biz_domain = str(biz_domain or snapshot.biz_domain or RAW_BIZ_DOMAIN_ORDER)
+    snapshot.order_bid = str(order_bid or snapshot.order_bid or "")
+    snapshot.bill_order_bid = str(bill_order_bid or snapshot.bill_order_bid or "")
+    snapshot.creator_bid = str(creator_bid or snapshot.creator_bid or "")
+    snapshot.user_bid = str(user_bid or snapshot.user_bid or "")
+    snapshot.shifu_bid = str(shifu_bid or snapshot.shifu_bid or "")
+    snapshot.payment_provider = str(payment_provider or snapshot.payment_provider or "")
+    snapshot.provider_attempt_id = str(
+        provider_attempt_id or snapshot.provider_attempt_id or ""
+    )
+    snapshot.transaction_id = str(transaction_id or snapshot.transaction_id or "")
+    snapshot.channel = str(channel or snapshot.channel or "")
+    snapshot.amount = int(amount or snapshot.amount or 0)
+    snapshot.currency = str(currency or snapshot.currency or "CNY")
+    snapshot.status = int(raw_snapshot_status)
+    snapshot.raw_status = str(raw_status or snapshot.raw_status or "")
+
+    if raw_request is not None:
+        snapshot.raw_request = _stringify_payload(raw_request)
+    elif not snapshot.raw_request:
+        snapshot.raw_request = "{}"
+    if raw_response is not None:
+        snapshot.raw_response = _stringify_payload(raw_response)
+    elif not snapshot.raw_response:
+        snapshot.raw_response = "{}"
+    if raw_notification is not None:
+        snapshot.raw_notification = _stringify_payload(raw_notification)
+    elif not snapshot.raw_notification:
+        snapshot.raw_notification = "{}"
+
+    if metadata is not None:
+        existing_metadata = _parse_json_payload(snapshot.metadata_json)
+        if isinstance(existing_metadata, dict) and isinstance(metadata, dict):
+            snapshot.metadata_json = _stringify_payload(
+                {
+                    **existing_metadata,
+                    **metadata,
+                }
+            )
+        else:
+            snapshot.metadata_json = _stringify_payload(metadata)
+    elif not snapshot.metadata_json:
+        snapshot.metadata_json = "{}"
+
+    return snapshot
 
 
 def upsert_billing_stripe_snapshot(

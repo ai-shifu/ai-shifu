@@ -386,6 +386,161 @@ class StripeOrder(db.Model):
     )
 
 
+class NativePaymentOrder(db.Model):
+    """
+    Raw native Alipay and WeChat Pay payment snapshot.
+    """
+
+    __tablename__ = "order_native_payment_orders"
+    __table_args__ = (
+        Index(
+            "ix_order_native_payment_orders_biz_domain_order_bid",
+            "biz_domain",
+            "order_bid",
+        ),
+        Index(
+            "ix_order_native_payment_orders_biz_domain_bill_order_bid",
+            "biz_domain",
+            "bill_order_bid",
+        ),
+        Index(
+            "ix_order_native_payment_orders_provider_attempt",
+            "payment_provider",
+            "provider_attempt_id",
+        ),
+        {"comment": "Order native payment provider snapshots"},
+    )
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    native_payment_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Native payment snapshot business identifier",
+    )
+    biz_domain = Column(
+        String(16),
+        index=True,
+        nullable=False,
+        default="order",
+        comment="Business domain",
+    )
+    bill_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Billing order business identifier",
+    )
+    creator_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Creator business identifier",
+    )
+    user_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="User business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Order business identifier",
+    )
+    payment_provider = Column(
+        String(32),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Native payment provider",
+    )
+    provider_attempt_id = Column(
+        String(64),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Provider-side merchant order identifier",
+    )
+    transaction_id = Column(
+        String(128),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Provider transaction identifier",
+    )
+    channel = Column(String(36), nullable=False, default="", comment="Payment channel")
+    amount = Column(BIGINT, nullable=False, default=0, comment="Payment amount")
+    currency = Column(String(36), nullable=False, default="CNY", comment="Currency")
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Status of the order: 0=pending, 1=paid, 2=refunded, 3=closed, 4=failed",
+    )
+    raw_status = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Provider raw status or event type",
+    )
+    raw_request = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Raw provider request payload",
+    )
+    raw_response = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Raw provider response payload",
+    )
+    raw_notification = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Raw provider notification payload",
+    )
+    metadata_json = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Provider metadata JSON string",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation time",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
+    )
+
+
 class BannerInfo(db.Model):
     __tablename__ = "order_banner_info"
     __table_args__ = {"comment": "Order banner info"}

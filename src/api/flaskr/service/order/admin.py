@@ -33,8 +33,14 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_TO_BE_PAID,
 )
-from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.models import (
+    NativePaymentOrder,
+    Order,
+    PingxxOrder,
+    StripeOrder,
+)
 from flaskr.service.order.raw_snapshots import (
+    legacy_native_snapshot_query,
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
 )
@@ -105,6 +111,8 @@ COUPON_TYPE_KEY_MAP = {
 PAYMENT_CHANNEL_KEY_MAP = {
     "pingxx": "module.order.paymentChannel.pingxx",
     "stripe": "module.order.paymentChannel.stripe",
+    "alipay": "module.order.paymentChannel.alipay",
+    "wechatpay": "module.order.paymentChannel.wechatpay",
     "manual": "module.order.paymentChannel.manual",
     "open_api": "module.order.paymentChannel.open_api",
 }
@@ -1111,6 +1119,36 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             channel=pingxx_order.channel or "",
             created_at=_format_admin_datetime(pingxx_order.created_at),
             updated_at=_format_admin_datetime(pingxx_order.updated_at),
+        )
+
+    if payment_channel in {"alipay", "wechatpay"}:
+        native_order = (
+            legacy_native_snapshot_query()
+            .filter(
+                NativePaymentOrder.order_bid == order.order_bid,
+                NativePaymentOrder.payment_provider == payment_channel,
+            )
+            .order_by(NativePaymentOrder.id.desc())
+            .first()
+        )
+        if not native_order:
+            return None
+        return OrderAdminPaymentDTO(
+            payment_channel=payment_channel,
+            payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
+                payment_channel, "module.order.paymentChannel.unknown"
+            ),
+            status=native_order.status,
+            status_key=PAYMENT_STATUS_KEY_MAP.get(
+                native_order.status, "module.order.paymentStatus.unknown"
+            ),
+            amount=_format_cents(native_order.amount),
+            currency=native_order.currency,
+            transaction_no=native_order.provider_attempt_id or "",
+            charge_id=native_order.transaction_id or "",
+            channel=native_order.channel or "",
+            created_at=_format_admin_datetime(native_order.created_at),
+            updated_at=_format_admin_datetime(native_order.updated_at),
         )
 
     return None

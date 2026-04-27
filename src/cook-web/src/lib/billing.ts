@@ -222,6 +222,8 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   manual: 'module.billing.catalog.labels.providerManual',
   stripe: 'module.billing.catalog.labels.providerStripe',
   pingxx: 'module.billing.catalog.labels.providerPingxx',
+  alipay: 'module.billing.catalog.labels.providerAlipay',
+  wechatpay: 'module.billing.catalog.labels.providerWechatpay',
 };
 
 const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
