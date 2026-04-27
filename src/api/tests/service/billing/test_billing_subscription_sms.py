@@ -535,6 +535,93 @@ def test_pingxx_topup_webhook_sends_billing_paid_feishu_once(
         assert notification["status"] == "sent"
 
 
+def test_sync_billing_topup_sends_billing_paid_feishu_once(
+    billing_subscription_sms_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    captured: list[dict[str, object]] = []
+
+    class FakePingxxProvider:
+        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            assert provider_reference == "ch_billing_feishu_topup_sync_1"
+            assert reference_type == "charge"
+            return PaymentNotificationResult(
+                order_bid="",
+                status="manual_sync",
+                provider_payload={
+                    "charge": {
+                        "id": provider_reference,
+                        "order_no": "billing-topup-sync-feishu-1",
+                        "paid": True,
+                        "time_paid": 1712577600,
+                        "channel": "alipay_qr",
+                    }
+                },
+                charge_id=provider_reference,
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.checkout.get_payment_provider",
+        lambda channel: FakePingxxProvider(),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.notifications.send_notify",
+        lambda app, title, msgs: (
+            captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
+        ),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            UserConversion(
+                user_id="creator-1",
+                conversion_id="conversion-topup-sync-feishu-1",
+                conversion_source="sync-campaign",
+                conversion_status=1,
+            )
+        )
+        dao.db.session.add(
+            _create_pending_topup_order(
+                bill_order_bid="billing-topup-sync-feishu-1",
+                charge_id="ch_billing_feishu_topup_sync_1",
+            )
+        )
+        dao.db.session.commit()
+
+    first_payload = sync_billing_order(
+        app,
+        "creator-1",
+        "billing-topup-sync-feishu-1",
+        {},
+    )
+    second_payload = sync_billing_order(
+        app,
+        "creator-1",
+        "billing-topup-sync-feishu-1",
+        {},
+    )
+
+    assert first_payload.status == "paid"
+    assert second_payload.status == "paid"
+    assert len(captured) == 1
+    assert captured[0]["title"] == "购买积分包通知"
+    assert "手机号：13800000000" in captured[0]["msgs"]
+    assert "积分包名称：20 积分包" in captured[0]["msgs"]
+    assert "实付金额：CNY 50.00" in captured[0]["msgs"]
+    assert "订单来源：用户购买 (Pingxx)" in captured[0]["msgs"]
+    assert "渠道：sync-campaign" in captured[0]["msgs"]
+    assert "积分包-20 积分包-CNY 50.00" in captured[0]["msgs"]
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-topup-sync-feishu-1"
+        ).one()
+        notification = order.metadata_json["notifications"]["billing_paid_feishu"]
+        assert notification["status"] == "sent"
+
+
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     billing_subscription_sms_app,
     monkeypatch: pytest.MonkeyPatch,
