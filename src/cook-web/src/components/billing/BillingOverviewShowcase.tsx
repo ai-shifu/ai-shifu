@@ -31,7 +31,6 @@ import type { ShowcaseTab } from './BillingOverviewCards';
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
   currentPlan: BillingPlan | null;
-  dailyPlans: BillingPlan[];
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   isLoading: boolean;
@@ -51,6 +50,19 @@ type BillingOverviewShowcaseProps = {
   ) => void;
   onShowcaseTabChange: (tab: ShowcaseTab) => void;
 };
+
+function sortPlansByOrderedIndex(
+  plans: BillingPlan[],
+  ordered: BillingPlan[],
+): BillingPlan[] {
+  const indexOf = new Map<string, number>();
+  ordered.forEach((plan, idx) => indexOf.set(plan.product_bid, idx));
+  return [...plans].sort((a, b) => {
+    const ai = indexOf.get(a.product_bid) ?? Number.MAX_SAFE_INTEGER;
+    const bi = indexOf.get(b.product_bid) ?? Number.MAX_SAFE_INTEGER;
+    return ai - bi;
+  });
+}
 
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
@@ -78,7 +90,6 @@ function resolvePlanRank(
 export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
-  dailyPlans,
   hasActiveSubscription,
   isTrialCurrentPlan,
   isLoading,
@@ -136,25 +147,11 @@ export function BillingOverviewShowcase({
           value={showcaseTab}
         >
           <TabsList className='h-[var(--height-h-9,36px)] rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]'>
-            {dailyPlans.length > 0 ? (
-              <TabsTrigger
-                className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-                value='daily'
-              >
-                {t('module.billing.package.intervalTabs.daily')}
-              </TabsTrigger>
-            ) : null}
             <TabsTrigger
               className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-              value='monthly'
+              value='plans'
             >
-              {t('module.billing.package.intervalTabs.monthly')}
-            </TabsTrigger>
-            <TabsTrigger
-              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-              value='yearly'
-            >
-              {t('module.billing.package.intervalTabs.yearly')}
+              {t('module.billing.package.intervalTabs.plans')}
             </TabsTrigger>
             <TabsTrigger
               className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
@@ -188,7 +185,7 @@ export function BillingOverviewShowcase({
           </div>
 
           <div
-            className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+            className='grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]'
             data-testid='billing-topup-grid'
           >
             {topups.map(product => {
@@ -226,7 +223,7 @@ export function BillingOverviewShowcase({
         </div>
       ) : (
         <div
-          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+          className='grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]'
           data-testid='billing-plan-grid'
         >
           {renderFreeCard
@@ -264,11 +261,9 @@ export function BillingOverviewShowcase({
               })()
             : null}
 
-          {(showcaseTab === 'daily'
-            ? dailyPlans
-            : showcaseTab === 'yearly'
-              ? yearlyPlans
-              : monthlyPlans
+          {sortPlansByOrderedIndex(
+            [...monthlyPlans, ...yearlyPlans],
+            orderedPlans,
           ).map(plan => {
             const provider = resolveCheckoutProvider(
               stripeAvailable,

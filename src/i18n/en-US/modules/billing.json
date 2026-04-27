@@ -586,6 +586,7 @@
     "intervalTabs": {
       "daily": "Daily Plans",
       "monthly": "Monthly Plans",
+      "plans": "Plans",
       "topup": "Credit Top-ups",
       "yearly": "Yearly Plans"
     },

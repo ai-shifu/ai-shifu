@@ -586,6 +586,7 @@
     "intervalTabs": {
       "daily": "日度套餐",
       "monthly": "月度套餐",
+      "plans": "套餐",
       "topup": "积分充值",
       "yearly": "年度套餐"
     },

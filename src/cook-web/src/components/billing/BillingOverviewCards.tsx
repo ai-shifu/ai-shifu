@@ -17,7 +17,7 @@ import type { BillingPlan } from '@/types/billing';
 import { cn } from '@/lib/utils';
 import styles from './BillingOverviewCards.module.scss';
 
-export type ShowcaseTab = 'daily' | 'monthly' | 'yearly' | 'topup';
+export type ShowcaseTab = 'plans' | 'topup';
 
 type PlanFeatureData = {
   includesLabel?: string;
@@ -205,7 +205,7 @@ export function PlanShowcaseCard({
   return (
     <div
       className={cn(
-        'flex h-full flex-col p-8 transition-all',
+        'flex h-full flex-col p-6 transition-all',
         compact ? 'min-h-[260px]' : '',
         styles.planShowcaseCard,
         featured && styles.planShowcaseCardActive,
