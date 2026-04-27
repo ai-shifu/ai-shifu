@@ -248,7 +248,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
         lambda channel: FakeStripeProvider(),
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.checkout._enqueue_subscription_purchase_sms",
+        "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
         lambda app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
@@ -304,7 +304,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
     enqueued: list[str] = []
 
     monkeypatch.setattr(
-        "flaskr.service.billing.webhooks._enqueue_subscription_purchase_sms",
+        "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
         lambda app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
@@ -400,7 +400,7 @@ def test_sync_billing_order_sends_subscription_paid_feishu_once(
         lambda channel: FakeStripeProvider(),
     )
     monkeypatch.setattr(
-        "flaskr.service.billing.checkout._enqueue_subscription_purchase_sms",
+        "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
         lambda app, *, bill_order_bid: {"status": "enqueued"},
     )
     monkeypatch.setattr(

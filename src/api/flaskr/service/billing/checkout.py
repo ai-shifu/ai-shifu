@@ -58,11 +58,9 @@ from .dtos import (
     BillingRefundResultDTO,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
-from .notifications import (
-    deliver_billing_paid_feishu as _deliver_billing_paid_feishu,
-    enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
-    stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
-    stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
+from .paid_side_effects import (
+    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
@@ -80,7 +78,6 @@ from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import (
-    grant_paid_order_credits as _grant_paid_order_credits,
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -541,35 +538,15 @@ def sync_billing_order(
         else:
             raise_error("server.pay.payChannelNotSupport")
 
-        should_deliver_billing_paid_feishu = False
-        should_enqueue_subscription_purchase_sms = False
-        if order.status == BILLING_ORDER_STATUS_PAID:
-            _grant_paid_order_credits(app, order)
-            should_enqueue_subscription_purchase_sms = (
-                _stage_subscription_purchase_sms_for_paid_order(
-                    order,
-                    previous_status=previous_status,
-                )
-            )
-            should_deliver_billing_paid_feishu = (
-                _stage_billing_paid_feishu_for_paid_order(
-                    order,
-                    previous_status=previous_status,
-                )
-            )
+        paid_order_side_effects = _stage_billing_paid_order_side_effects(
+            app,
+            order,
+            previous_status=previous_status,
+        )
 
         db.session.add(order)
         db.session.commit()
-        if should_enqueue_subscription_purchase_sms:
-            _enqueue_subscription_purchase_sms(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
-        if should_deliver_billing_paid_feishu:
-            _deliver_billing_paid_feishu(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
+        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
 
         if order.status == BILLING_ORDER_STATUS_PAID:
             return BillingOrderSyncResultDTO(

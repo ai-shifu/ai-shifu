@@ -26,11 +26,9 @@ from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
 )
-from .notifications import (
-    deliver_billing_paid_feishu as _deliver_billing_paid_feishu,
-    enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
-    stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
-    stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
+from .paid_side_effects import (
+    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
@@ -48,7 +46,6 @@ from .queries import (
     load_latest_billing_order_by_subscription as _load_latest_billing_order_by_subscription,
 )
 from .primitives import normalize_bid as _normalize_bid
-from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",
@@ -262,34 +259,14 @@ def apply_billing_stripe_notification(
                     payload=event,
                 )
 
-        should_deliver_billing_paid_feishu = False
-        should_enqueue_subscription_purchase_sms = False
-        if order is not None and order.status == BILLING_ORDER_STATUS_PAID:
-            _grant_paid_order_credits(app, order)
-            should_enqueue_subscription_purchase_sms = (
-                _stage_subscription_purchase_sms_for_paid_order(
-                    order,
-                    previous_status=order_previous_status,
-                )
-            )
-            should_deliver_billing_paid_feishu = (
-                _stage_billing_paid_feishu_for_paid_order(
-                    order,
-                    previous_status=order_previous_status,
-                )
-            )
+        paid_order_side_effects = _stage_billing_paid_order_side_effects(
+            app,
+            order,
+            previous_status=order_previous_status,
+        )
 
         db.session.commit()
-        if should_enqueue_subscription_purchase_sms:
-            _enqueue_subscription_purchase_sms(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
-        if should_deliver_billing_paid_feishu:
-            _deliver_billing_paid_feishu(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
+        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
@@ -356,33 +333,13 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
-        should_deliver_billing_paid_feishu = False
-        should_enqueue_subscription_purchase_sms = False
-        if order.status == BILLING_ORDER_STATUS_PAID:
-            _grant_paid_order_credits(app, order)
-            should_enqueue_subscription_purchase_sms = (
-                _stage_subscription_purchase_sms_for_paid_order(
-                    order,
-                    previous_status=order_previous_status,
-                )
-            )
-            should_deliver_billing_paid_feishu = (
-                _stage_billing_paid_feishu_for_paid_order(
-                    order,
-                    previous_status=order_previous_status,
-                )
-            )
+        paid_order_side_effects = _stage_billing_paid_order_side_effects(
+            app,
+            order,
+            previous_status=order_previous_status,
+        )
         db.session.commit()
-        if should_enqueue_subscription_purchase_sms:
-            _enqueue_subscription_purchase_sms(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
-        if should_deliver_billing_paid_feishu:
-            _deliver_billing_paid_feishu(
-                app,
-                bill_order_bid=order.bill_order_bid,
-            )
+        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
         return BillingWebhookResult(
             status="paid"
             if target_status == BILLING_ORDER_STATUS_PAID
