@@ -27,7 +27,9 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
 )
 from .notifications import (
+    deliver_billing_paid_feishu as _deliver_billing_paid_feishu,
     enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+    stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
     stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
 )
 from .provider_state import (
@@ -260,6 +262,7 @@ def apply_billing_stripe_notification(
                     payload=event,
                 )
 
+        should_deliver_billing_paid_feishu = False
         should_enqueue_subscription_purchase_sms = False
         if order is not None and order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
@@ -269,10 +272,21 @@ def apply_billing_stripe_notification(
                     previous_status=order_previous_status,
                 )
             )
+            should_deliver_billing_paid_feishu = (
+                _stage_billing_paid_feishu_for_paid_order(
+                    order,
+                    previous_status=order_previous_status,
+                )
+            )
 
         db.session.commit()
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
+                app,
+                bill_order_bid=order.bill_order_bid,
+            )
+        if should_deliver_billing_paid_feishu:
+            _deliver_billing_paid_feishu(
                 app,
                 bill_order_bid=order.bill_order_bid,
             )
@@ -342,6 +356,7 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
+        should_deliver_billing_paid_feishu = False
         should_enqueue_subscription_purchase_sms = False
         if order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
@@ -351,9 +366,20 @@ def handle_billing_pingxx_webhook(
                     previous_status=order_previous_status,
                 )
             )
+            should_deliver_billing_paid_feishu = (
+                _stage_billing_paid_feishu_for_paid_order(
+                    order,
+                    previous_status=order_previous_status,
+                )
+            )
         db.session.commit()
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
+                app,
+                bill_order_bid=order.bill_order_bid,
+            )
+        if should_deliver_billing_paid_feishu:
+            _deliver_billing_paid_feishu(
                 app,
                 bill_order_bid=order.bill_order_bid,
             )

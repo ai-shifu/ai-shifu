@@ -59,7 +59,9 @@ from .dtos import (
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .notifications import (
+    deliver_billing_paid_feishu as _deliver_billing_paid_feishu,
     enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+    stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
     stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
 )
 from .provider_state import (
@@ -539,6 +541,7 @@ def sync_billing_order(
         else:
             raise_error("server.pay.payChannelNotSupport")
 
+        should_deliver_billing_paid_feishu = False
         should_enqueue_subscription_purchase_sms = False
         if order.status == BILLING_ORDER_STATUS_PAID:
             _grant_paid_order_credits(app, order)
@@ -548,11 +551,22 @@ def sync_billing_order(
                     previous_status=previous_status,
                 )
             )
+            should_deliver_billing_paid_feishu = (
+                _stage_billing_paid_feishu_for_paid_order(
+                    order,
+                    previous_status=previous_status,
+                )
+            )
 
         db.session.add(order)
         db.session.commit()
         if should_enqueue_subscription_purchase_sms:
             _enqueue_subscription_purchase_sms(
+                app,
+                bill_order_bid=order.bill_order_bid,
+            )
+        if should_deliver_billing_paid_feishu:
+            _deliver_billing_paid_feishu(
                 app,
                 bill_order_bid=order.bill_order_bid,
             )
