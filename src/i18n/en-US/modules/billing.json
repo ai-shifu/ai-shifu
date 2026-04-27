@@ -271,16 +271,16 @@
       "everyDays": "/ every {count} days",
       "everyMonths": "/ every {count} months",
       "everyYears": "/ every {count} years",
-      "perDay": "/ daily",
-      "perMonth": "/ monthly",
-      "perYear": "/ yearly",
+      "perDay": "daily",
+      "perMonth": "monthly",
+      "perYear": "yearly",
       "providerManual": "Manual",
       "providerPingxx": "Pingxx / Alipay QR",
       "providerStripe": "Stripe"
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for course iteration and maintenance outside delivery periods.",
+        "description": "Best for lightweight course iteration.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
@@ -578,7 +578,7 @@
     "featuresTitle": "Included benefits:",
     "free": {
       "creditSummary": "{credits} bonus credits",
-      "description": "Best for a first look — run through the full teaching and research workflow.",
+      "description": "Best for a first look.",
       "priceNote": "/ valid within {days} days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
       "priceValue": "¥0",
@@ -588,27 +588,27 @@
       "daily": "Daily Plans",
       "monthly": "Monthly Plans",
       "plans": "Plans",
-      "topup": "Credit Top-ups",
+      "topup": "Top-up",
       "yearly": "Yearly Plans"
     },
     "scale": {
       "advanced": {
-        "students": "Est. learner capacity: around 300"
+        "students": "Around 300 learners"
       },
       "basic": {
-        "students": "Est. learner capacity: around 10"
+        "students": "Around 10 learners"
       },
       "free": {
-        "students": "Est. learner capacity: around 10"
+        "students": "Around 10 learners"
       },
       "lite": {
-        "students": "Est. learner capacity: around 3"
+        "students": "Around 3 learners"
       },
       "premium": {
-        "students": "Est. learner capacity: around 1000"
+        "students": "Around 1000 learners"
       },
       "pro": {
-        "students": "Est. learner capacity: around 500"
+        "students": "Around 500 learners"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -630,9 +630,9 @@
     "subtitle": "Choose the right credit plan.",
     "table": {
       "creditsRowLabel": "Credits per cycle",
-      "featuresRowLabel": "Feature comparison",
-      "studentsRowLabel": "Learner capacity",
-      "validityRowLabel": "Validity"
+      "featuresRowLabel": "Entitlements",
+      "studentsRowLabel": "Estimated learners",
+      "validityRowLabel": "Credit validity"
     },
     "title": "Credit Plans",
     "topup": {

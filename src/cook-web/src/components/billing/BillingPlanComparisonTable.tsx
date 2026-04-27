@@ -323,7 +323,6 @@ export function BillingPlanComparisonTable({
                   ) : null}
                 </div>
                 <div className={styles.columnPrice}>{col.priceLabel}</div>
-                <div className={styles.columnDivider} />
                 <div className={styles.columnCreditAmount}>
                   {col.creditAmount}
                 </div>
@@ -426,20 +425,15 @@ export function BillingPlanComparisonTable({
               </td>
             ))}
           </tr>
-          <tr className={styles.featureSectionRow}>
-            <th
-              colSpan={columns.length}
-              scope='colgroup'
-            >
-              {t('module.billing.package.table.featuresRowLabel')}
-            </th>
-          </tr>
           <tr className={styles.featureColumnRow}>
             {columns.map(col => (
               <td
                 key={col.key}
                 className={cn(col.featured && styles.featuredColumn)}
               >
+                <div className={styles.cellLabel}>
+                  {t('module.billing.package.table.featuresRowLabel')}
+                </div>
                 <ul className={styles.featureColumnList}>
                   {featureRows.map((row, rowIdx) =>
                     col.features[rowIdx] ? (
