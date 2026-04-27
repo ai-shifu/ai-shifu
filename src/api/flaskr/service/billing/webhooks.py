@@ -26,11 +26,8 @@ from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
 )
-from .paid_side_effects import (
-    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
-    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
-)
 from .provider_state import (
+    BillingOrderProviderUpdateResult,
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
     apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
     apply_subscription_checkout_failure as _apply_subscription_checkout_failure,
@@ -148,7 +145,6 @@ def apply_billing_stripe_notification(
             order = _load_latest_billing_order_by_subscription(
                 subscription.subscription_bid
             )
-        order_previous_status = int(order.status or 0) if order is not None else None
 
         if order is None and subscription is None:
             app.logger.warning(
@@ -164,6 +160,7 @@ def apply_billing_stripe_notification(
             )
 
         response_status = "acknowledged"
+        order_update = BillingOrderProviderUpdateResult()
         if order is not None:
             target_status = _map_stripe_order_status(event_type)
             if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
@@ -171,7 +168,7 @@ def apply_billing_stripe_notification(
                     order,
                     data_object,
                 )
-            applied = _apply_billing_order_provider_update(
+            order_update = _apply_billing_order_provider_update(
                 order,
                 provider="stripe",
                 event_type=event_type,
@@ -223,11 +220,11 @@ def apply_billing_stripe_notification(
             if target_status == BILLING_ORDER_STATUS_PAID:
                 response_status = "paid"
             elif target_status == BILLING_ORDER_STATUS_FAILED:
-                response_status = "failed" if applied else "acknowledged"
+                response_status = "failed" if order_update else "acknowledged"
             elif target_status == BILLING_ORDER_STATUS_REFUNDED:
-                response_status = "refunded" if applied else "acknowledged"
+                response_status = "refunded" if order_update else "acknowledged"
             elif target_status == BILLING_ORDER_STATUS_CANCELED:
-                response_status = "canceled" if applied else "acknowledged"
+                response_status = "canceled" if order_update else "acknowledged"
 
         if subscription is not None:
             if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
@@ -259,14 +256,10 @@ def apply_billing_stripe_notification(
                     payload=event,
                 )
 
-        paid_order_side_effects = _stage_billing_paid_order_side_effects(
-            app,
-            order,
-            previous_status=order_previous_status,
-        )
+        order_update.stage_after_state_changes(app, order)
 
         db.session.commit()
-        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
+        order_update.dispatch_after_commit(app)
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
@@ -305,9 +298,8 @@ def handle_billing_pingxx_webhook(
         target_status = None
         if event_type == "charge.succeeded":
             target_status = BILLING_ORDER_STATUS_PAID
-        order_previous_status = int(order.status or 0)
 
-        _apply_billing_order_provider_update(
+        order_update = _apply_billing_order_provider_update(
             order,
             provider="pingxx",
             event_type=event_type,
@@ -333,13 +325,9 @@ def handle_billing_pingxx_webhook(
             client_ip=str(charge.get("client_ip") or ""),
             extra=charge.get("extra"),
         )
-        paid_order_side_effects = _stage_billing_paid_order_side_effects(
-            app,
-            order,
-            previous_status=order_previous_status,
-        )
+        order_update.stage_after_state_changes(app, order)
         db.session.commit()
-        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
+        order_update.dispatch_after_commit(app)
         return BillingWebhookResult(
             status="paid"
             if target_status == BILLING_ORDER_STATUS_PAID

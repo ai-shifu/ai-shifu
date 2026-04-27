@@ -58,11 +58,8 @@ from .dtos import (
     BillingRefundResultDTO,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
-from .paid_side_effects import (
-    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
-    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
-)
 from .provider_state import (
+    BillingOrderProviderUpdateResult,
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
     apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
     apply_subscription_checkout_success as _apply_subscription_checkout_success,
@@ -529,24 +526,19 @@ def sync_billing_order(
         )
         if order is None:
             raise_error("server.order.orderNotFound")
-        previous_status = int(order.status or 0)
 
         if order.payment_provider == "stripe":
-            _sync_stripe_order(app, order, session_id=session_id)
+            order_update = _sync_stripe_order(app, order, session_id=session_id)
         elif order.payment_provider == "pingxx":
-            _sync_pingxx_order(app, order)
+            order_update = _sync_pingxx_order(app, order)
         else:
             raise_error("server.pay.payChannelNotSupport")
 
-        paid_order_side_effects = _stage_billing_paid_order_side_effects(
-            app,
-            order,
-            previous_status=previous_status,
-        )
+        order_update.stage_after_state_changes(app, order)
 
         db.session.add(order)
         db.session.commit()
-        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
+        order_update.dispatch_after_commit(app)
 
         if order.status == BILLING_ORDER_STATUS_PAID:
             return BillingOrderSyncResultDTO(
@@ -1098,18 +1090,17 @@ def _sync_stripe_order(
     order: BillingOrder,
     *,
     session_id: str,
-) -> None:
+) -> BillingOrderProviderUpdateResult:
     reference_type = _resolve_billing_order_provider_reference_type(order)
     if reference_type == "subscription":
         resolved_subscription_id = session_id or order.provider_reference_id
         if not resolved_subscription_id:
             raise_error("server.order.orderNotFound")
-        _sync_stripe_subscription_order(
+        return _sync_stripe_subscription_order(
             app,
             order,
             subscription_id=resolved_subscription_id,
         )
-        return
 
     provider = get_payment_provider("stripe")
     resolved_session_id = session_id or order.provider_reference_id
@@ -1133,7 +1124,7 @@ def _sync_stripe_order(
         failure_code = "expired"
         failure_message = "Stripe checkout session expired"
 
-    _apply_billing_order_provider_update(
+    order_update = _apply_billing_order_provider_update(
         order,
         provider="stripe",
         event_type="manual_sync",
@@ -1174,6 +1165,7 @@ def _sync_stripe_order(
                 event_type="manual_sync",
                 source="sync",
             )
+    return order_update
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
@@ -1200,7 +1192,7 @@ def _sync_stripe_subscription_order(
     order: BillingOrder,
     *,
     subscription_id: str,
-) -> None:
+) -> BillingOrderProviderUpdateResult:
     provider = get_payment_provider("stripe")
     sync_result = provider.sync_reference(
         provider_reference=subscription_id,
@@ -1217,7 +1209,7 @@ def _sync_stripe_subscription_order(
         failure_code = str(subscription_payload.get("status") or "subscription_sync")
         failure_message = "Stripe subscription sync indicates renewal is not paid yet"
 
-    _apply_billing_order_provider_update(
+    order_update = _apply_billing_order_provider_update(
         order,
         provider="stripe",
         event_type="manual_sync",
@@ -1245,9 +1237,13 @@ def _sync_stripe_subscription_order(
                 data_object=subscription_payload,
                 source="sync",
             )
+    return order_update
 
 
-def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
+def _sync_pingxx_order(
+    app: Flask,
+    order: BillingOrder,
+) -> BillingOrderProviderUpdateResult:
     provider = get_payment_provider("pingxx")
     if not order.provider_reference_id:
         raise_error("server.order.orderNotFound")
@@ -1262,7 +1258,7 @@ def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
     if charge.get("paid") or charge.get("time_paid"):
         target_status = BILLING_ORDER_STATUS_PAID
 
-    _apply_billing_order_provider_update(
+    order_update = _apply_billing_order_provider_update(
         order,
         provider="pingxx",
         event_type="manual_sync",
@@ -1288,6 +1284,7 @@ def _sync_pingxx_order(app: Flask, order: BillingOrder) -> None:
         client_ip=str(charge.get("client_ip") or ""),
         extra=charge.get("extra"),
     )
+    return order_update
 
 
 def _load_billing_order_for_stripe_event(
