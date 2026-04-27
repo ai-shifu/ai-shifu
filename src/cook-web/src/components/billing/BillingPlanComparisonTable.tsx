@@ -1,3 +1,4 @@
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -11,8 +12,6 @@ import {
   formatBillingCreditAmount,
   formatBillingPrice,
   formatBillingPlanInterval,
-  resolveBillingPlanCreditsLabel,
-  resolveBillingPlanValidityLabel,
   resolveBillingProductTitle,
   resolveBillingProductDescription,
 } from '@/lib/billing';
@@ -90,14 +89,50 @@ type ColumnDescriptor = {
   description: string;
   badgeLabel?: string;
   priceLabel: string;
-  priceMetaLabel?: string;
+  periodLabel: string;
+  creditAmount: string;
   featured: boolean;
-  creditLabel: string;
-  validityLabel: string;
+  validityShort: string;
+  validityTooltip: string;
   studentLabel?: string;
   features: boolean[];
   action: ColumnAction;
 };
+
+type BillingTranslator = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+
+function resolvePlanValidityDisplay(
+  t: BillingTranslator,
+  plan: BillingPlan,
+): { short: string; tooltip: string } {
+  const intervalCount = Math.max(plan.billing_interval_count || 0, 1);
+  if (plan.billing_interval === 'month') {
+    return {
+      short:
+        intervalCount > 1
+          ? t('module.billing.package.validityShort.monthlyMonths', {
+              count: intervalCount,
+            })
+          : t('module.billing.package.validityShort.monthly'),
+      tooltip: t('module.billing.package.validityTooltip.monthly'),
+    };
+  }
+  if (plan.billing_interval === 'year') {
+    return {
+      short:
+        intervalCount > 1
+          ? t('module.billing.package.validityShort.yearlyYears', {
+              count: intervalCount,
+            })
+          : t('module.billing.package.validityShort.yearly'),
+      tooltip: t('module.billing.package.validityTooltip.yearly'),
+    };
+  }
+  return { short: '', tooltip: '' };
+}
 
 export type BillingPlanComparisonTableProps = {
   trialOffer: BillingTrialOffer | null | undefined;
@@ -163,11 +198,17 @@ export function BillingPlanComparisonTable({
               i18n.language,
             )
           : t('module.billing.package.free.priceValue'),
-      featured: isTrialCurrentPlan || !hasActiveSubscription,
-      creditLabel: t('module.billing.package.free.creditSummary', {
+      periodLabel: t('module.billing.package.creditPeriod.oneTime'),
+      creditAmount: t('module.billing.package.topup.creditLabel', {
         credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
       }),
-      validityLabel: t('module.billing.package.validity.free'),
+      featured: isTrialCurrentPlan || !hasActiveSubscription,
+      validityShort: t('module.billing.package.validityShort.free', {
+        days: trialOffer?.valid_days || 15,
+      }),
+      validityTooltip: t('module.billing.package.validityTooltip.free', {
+        days: trialOffer?.valid_days || 15,
+      }),
       studentLabel: trialScale ? t(trialScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),
@@ -214,10 +255,15 @@ export function BillingPlanComparisonTable({
         plan.currency,
         i18n.language,
       ),
-      priceMetaLabel: formatBillingPlanInterval(t, plan),
+      periodLabel: formatBillingPlanInterval(t, plan),
+      creditAmount: t('module.billing.package.topup.creditLabel', {
+        credits: formatBillingCreditAmount(plan.credit_amount),
+      }),
       featured: isCurrentPlan,
-      creditLabel: resolveBillingPlanCreditsLabel(t, plan),
-      validityLabel: resolveBillingPlanValidityLabel(t, plan),
+      ...(() => {
+        const v = resolvePlanValidityDisplay(t, plan);
+        return { validityShort: v.short, validityTooltip: v.tooltip };
+      })(),
       studentLabel: planScale ? t(planScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
@@ -249,7 +295,10 @@ export function BillingPlanComparisonTable({
       <table className={styles.table}>
         <colgroup>
           {columns.map(col => (
-            <col key={col.key} />
+            <col
+              key={col.key}
+              style={{ width: `${100 / columns.length}%` }}
+            />
           ))}
         </colgroup>
         <thead>
@@ -273,15 +322,12 @@ export function BillingPlanComparisonTable({
                     </span>
                   ) : null}
                 </div>
-                <div className={styles.columnDescription}>{col.description}</div>
-                <div className={styles.columnPriceRow}>
-                  <span className={styles.columnPrice}>{col.priceLabel}</span>
-                  {col.priceMetaLabel ? (
-                    <span className={styles.columnPriceMeta}>
-                      {col.priceMetaLabel}
-                    </span>
-                  ) : null}
+                <div className={styles.columnPrice}>{col.priceLabel}</div>
+                <div className={styles.columnDivider} />
+                <div className={styles.columnCreditAmount}>
+                  {col.creditAmount}
                 </div>
+                <div className={styles.columnPeriod}>{col.periodLabel}</div>
                 {col.action.tooltip ? (
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>
@@ -322,16 +368,13 @@ export function BillingPlanComparisonTable({
           </tr>
         </thead>
         <tbody>
-          <tr className={styles.dataRow}>
+          <tr className={styles.scenarioRow}>
             {columns.map(col => (
               <td
                 key={col.key}
                 className={cn(col.featured && styles.featuredColumn)}
               >
-                <div className={styles.cellLabel}>
-                  {t('module.billing.package.table.creditsRowLabel')}
-                </div>
-                <div className={styles.cellValue}>{col.creditLabel}</div>
+                <div className={styles.scenarioText}>{col.description}</div>
               </td>
             ))}
           </tr>
@@ -359,7 +402,27 @@ export function BillingPlanComparisonTable({
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
                 </div>
-                <div className={styles.cellValue}>{col.validityLabel}</div>
+                <div className={styles.cellValue}>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={styles.validityHint}>
+                          {col.validityShort || '—'}
+                          {col.validityTooltip ? (
+                            <InformationCircleIcon
+                              className={styles.validityIcon}
+                            />
+                          ) : null}
+                        </span>
+                      </TooltipTrigger>
+                      {col.validityTooltip ? (
+                        <TooltipContent className={styles.validityTooltipBody}>
+                          {col.validityTooltip}
+                        </TooltipContent>
+                      ) : null}
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </td>
             ))}
           </tr>

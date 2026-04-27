@@ -15,6 +15,7 @@
 
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm-font-size, 14px);
   line-height: var(--text-sm-line-height, 20px);
@@ -72,33 +73,33 @@
   fill: currentColor;
 }
 
-.columnDescription {
-  margin-top: 8px;
-  min-height: 32px;
-  color: var(--base-muted-foreground, #737373);
-  font-size: var(--text-xs-font-size, 12px);
-  font-weight: var(--font-weight-normal, 400);
-  line-height: var(--text-xs-line-height, 16px);
-}
-
-.columnPriceRow {
-  margin-top: 16px;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  min-height: 36px;
-}
-
 .columnPrice {
+  margin-top: 16px;
+  text-align: center;
   color: var(--base-foreground, #0a0a0a);
   font-size: var(--text-3xl-font-size, 30px);
   font-weight: var(--font-weight-semibold, 600);
   line-height: var(--text-3xl-line-height, 36px);
 }
 
-.columnPriceMeta {
+.columnDivider {
+  margin: 10px auto;
+  width: 32px;
+  height: 1px;
+  background: var(--base-border, #e5e5e5);
+}
+
+.columnCreditAmount {
+  text-align: center;
+  color: var(--base-foreground, #0a0a0a);
+  font-size: var(--text-2xl-font-size, 24px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--text-2xl-line-height, 32px);
+}
+
+.columnPeriod {
+  margin-top: 4px;
+  text-align: center;
   color: var(--base-muted-foreground, #737373);
   font-size: var(--text-sm-font-size, 14px);
   font-weight: var(--font-weight-normal, 400);
@@ -147,6 +148,21 @@
   opacity: 0.6;
 }
 
+.scenarioRow td {
+  padding: 14px 16px !important;
+  border-top: 1px solid var(--base-border, #e5e5e5);
+  text-align: left;
+  vertical-align: top;
+  background: rgba(0, 82, 217, 0.03);
+}
+
+.scenarioText {
+  color: var(--base-muted-foreground, #525252);
+  font-size: var(--text-sm-font-size, 14px);
+  font-weight: var(--font-weight-normal, 400);
+  line-height: var(--text-sm-line-height, 20px);
+}
+
 .dataRow td {
   padding: 14px 16px !important;
   border-top: 1px solid var(--base-border, #e5e5e5);
@@ -168,6 +184,25 @@
   font-size: var(--text-sm-font-size, 14px);
   font-weight: var(--font-weight-medium, 500);
   line-height: var(--text-sm-line-height, 20px);
+}
+
+.validityHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.validityIcon {
+  width: 14px;
+  height: 14px;
+  color: var(--base-muted-foreground, #737373);
+  flex-shrink: 0;
+}
+
+.validityTooltipBody {
+  max-width: 280px;
+  line-height: 18px;
 }
 
 .featureSectionRow th {

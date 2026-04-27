@@ -560,7 +560,7 @@ describe('BillingOverviewTab', () => {
       screen.getByTestId('billing-plan-card-free-action'),
     ).toHaveTextContent('module.billing.package.actions.currentUsing');
     expect(
-      screen.getByText('module.billing.package.validity.free'),
+      screen.getByText('module.billing.package.validityShort.free'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-plan-card-free')).toHaveAttribute(
       'data-featured',
@@ -570,7 +570,7 @@ describe('BillingOverviewTab', () => {
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toHaveAttribute('data-featured', 'false');
     expect(
-      screen.getAllByText('module.billing.package.validity.monthly').length,
+      screen.getAllByText('module.billing.package.validityShort.monthly').length,
     ).toBeGreaterThan(0);
   });
 

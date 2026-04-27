@@ -612,6 +612,21 @@
       },
       "sectionTitle": "Learner capacity (est.)"
     },
+    "creditPeriod": {
+      "oneTime": "One-time grant"
+    },
+    "validityShort": {
+      "free": "{days} days",
+      "monthly": "30 days",
+      "monthlyMonths": "{count} months",
+      "yearly": "1 year",
+      "yearlyYears": "{count} years"
+    },
+    "validityTooltip": {
+      "free": "Valid for {days} days from registration. Expires at 23:59 on the expiry day.",
+      "monthly": "Counted by day, valid for 30 days including the purchase day. Expires at 23:59 on the expiry day.",
+      "yearly": "Counted by calendar year; the end date is the same calendar date next year (Feb 29 purchases roll to Mar 1). Expires at 23:59 on the expiry day."
+    },
     "subtitle": "Choose the right credit plan.",
     "table": {
       "creditsRowLabel": "Credits per cycle",
