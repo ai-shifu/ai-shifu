@@ -14,9 +14,7 @@ from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
-from flaskr.service.user.consts import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
-from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.timezone import format_with_app_timezone
 
@@ -26,8 +24,12 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
-from .models import BillingOrder, BillingProduct
+from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
@@ -62,6 +64,12 @@ _FEISHU_ORDER_TYPE_LABELS = {
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE: "订阅升级",
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL: "订阅续费",
     BILLING_ORDER_TYPE_TOPUP: "积分包",
+}
+_COUNTED_SUBSCRIPTION_STATUSES = {
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
 }
 
 
@@ -507,19 +515,25 @@ def _resolve_user_conversion_source(user_bid: str) -> str:
     return ""
 
 
-def _append_user_count_lines(msgs: list[str]) -> None:
-    user_count = UserEntity.query.filter(
-        UserEntity.state == USER_STATE_PAID,
-        UserEntity.deleted == 0,
-    ).count()
-    msgs.append("总付费用户数：{}".format(user_count))
-    user_reg_count = UserEntity.query.filter(
-        UserEntity.state >= USER_STATE_REGISTERED,
-        UserEntity.deleted == 0,
-    ).count()
-    msgs.append("总注册用户数：{}".format(user_reg_count))
-    user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
-    msgs.append("总访客数：{}".format(user_total_count))
+def _append_subscription_user_count_line(msgs: list[str]) -> None:
+    now = datetime.now()
+    subscription_user_count = (
+        BillingSubscription.query.with_entities(BillingSubscription.creator_bid)
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid != "",
+            BillingSubscription.status.in_(_COUNTED_SUBSCRIPTION_STATUSES),
+            (
+                BillingSubscription.current_period_start_at.is_(None)
+                | (BillingSubscription.current_period_start_at <= now)
+            ),
+            BillingSubscription.current_period_end_at.isnot(None),
+            BillingSubscription.current_period_end_at > now,
+        )
+        .distinct()
+        .count()
+    )
+    msgs.append("订阅用户数：{}".format(subscription_user_count))
 
 
 def _build_billing_paid_feishu_message(
@@ -559,7 +573,7 @@ def _build_billing_paid_feishu_message(
     if paid_at_text:
         msgs.append("支付时间：{}".format(paid_at_text))
     msgs.append("订单号：{}".format(order.bill_order_bid))
-    _append_user_count_lines(msgs)
+    _append_subscription_user_count_line(msgs)
     return title, msgs
 
 

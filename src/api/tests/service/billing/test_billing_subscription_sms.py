@@ -638,7 +638,8 @@ def test_send_billing_paid_feishu_task_marks_sent(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    paid_at = datetime(2026, 4, 20, 0, 0, 0)
+    now = datetime.now()
+    paid_at = now - timedelta(days=1)
     captured: list[dict[str, object]] = []
 
     monkeypatch.setattr(
@@ -659,6 +660,13 @@ def test_send_billing_paid_feishu_task_marks_sent(
                 conversion_id="conversion-feishu-task-1",
                 conversion_source="task-campaign",
                 conversion_status=1,
+            )
+        )
+        dao.db.session.add(
+            _create_subscription(
+                subscription_bid="sub-feishu-task-sent-1",
+                current_period_start_at=paid_at,
+                current_period_end_at=now + timedelta(days=30),
             )
         )
         dao.db.session.add(
@@ -684,6 +692,11 @@ def test_send_billing_paid_feishu_task_marks_sent(
     assert "订单来源：用户购买 (Stripe)" in captured[0]["msgs"]
     assert "渠道：task-campaign" in captured[0]["msgs"]
     assert "订阅开通-轻量版-CNY 9.90" in captured[0]["msgs"]
+    assert "订阅用户数：1" in captured[0]["msgs"]
+    assert not any(
+        str(line).startswith(("总付费用户数：", "总注册用户数：", "总访客数："))
+        for line in captured[0]["msgs"]
+    )
 
     with app.app_context():
         order = BillingOrder.query.filter_by(
