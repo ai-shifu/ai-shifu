@@ -22,6 +22,8 @@
 - 14px 文字旁边的 chevron 类图标，优先收敛到 `h-4 w-4`，并让容器使用 `items-center + leading-none`、文字单独保留 `leading-5`，避免图标因继承文本行高出现视觉不对齐。
 - 同一 billing 页面如果两个 section title 需要完全一致，优先把标题 class 抽成 `src/components/billing/` 下的共享常量或共享组件，再让各面板复用，不要在两个文件里各写一份近似但不一致的字号。
 - 同一 billing 页面如果多个 section title 需要保持一致，除了标题字号本身，还要同步检查标题到卡片/表格主体的纵向间距；当前这类 section 优先统一为 `24px`，避免一个 `space-y-4`、一个 `space-y-6` 的情况。
+- admin 页面里这种二选一 tabs/switch 如果产品要求“选中态和未选中态的圆角一致”，优先在具体页面同时覆写 `TabsList` 和 `TabsTrigger` 的圆角，不要只改外层容器导致内部 trigger 仍保留另一套圆角。
+- admin 页面头部如果有单一主创建动作（如“新建课程”），优先复用 `Button` 的默认主按钮样式，保持蓝底白字；不要继续沿用 `outline` 让主 CTA 在信息层级上变弱。
 - 对于明确暂不支持移动端的页面，优先复用共享的国际化弹窗组件统一提示，避免在多个页面分别写一套移动端拦截文案和状态逻辑。
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.

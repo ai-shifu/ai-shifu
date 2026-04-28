@@ -497,7 +497,6 @@ const ScriptManagementPage = () => {
           <div className='flex items-center gap-3 mb-5'>
             <Button
               size='sm'
-              variant='outline'
               onClick={handleCreateShifuModal}
             >
               <PlusIcon className='w-5 h-5 mr-1' />
@@ -522,9 +521,17 @@ const ScriptManagementPage = () => {
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'all' | 'archived')}
             >
-              <TabsList className='h-9 rounded-full bg-muted/40'>
-                <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
-                <TabsTrigger value='archived'>
+              <TabsList className='h-9 rounded-md bg-muted/40'>
+                <TabsTrigger
+                  value='all'
+                  className='rounded-md'
+                >
+                  {t('common.core.all')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='archived'
+                  className='rounded-md'
+                >
                   {t('common.core.archived')}
                 </TabsTrigger>
               </TabsList>
@@ -536,7 +543,7 @@ const ScriptManagementPage = () => {
             />
           </div>
           <div className='flex-1 overflow-auto'>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
               {shifus.map(shifu => (
                 <ShifuCard
                   id={shifu.bid + ''}
