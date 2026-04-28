@@ -6,10 +6,11 @@ import React, {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -69,6 +70,7 @@ import {
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { useToast } from '@/hooks/useToast';
+import { copyText } from '@/c-utils/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
@@ -102,13 +104,15 @@ const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
 const DEFAULT_COLUMN_WIDTHS = {
   courseId: 260,
-  courseName: 180,
-  price: 90,
+  courseName: 220,
   status: 110,
+  price: 90,
+  model: 170,
+  coursePrompt: 120,
   creator: 170,
   modifier: 170,
-  createdAt: 170,
   updatedAt: 170,
+  createdAt: 170,
   action: 115,
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
@@ -117,6 +121,14 @@ const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
 const EMPTY_STATE_LABEL = '--';
+const TABLE_INLINE_ACTION_BUTTON_CLASS =
+  'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
+const COLLAPSED_TEXT_STYLE: CSSProperties = {
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 6,
+  overflow: 'hidden',
+};
 
 type TransferContactType = 'email' | 'phone';
 
@@ -219,15 +231,23 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.filters.endTime')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
- * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.courseName')
- * t('module.operationsCourse.table.price')
+ * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
+ * t('module.operationsCourse.table.price')
+ * t('module.operationsCourse.table.model')
+ * t('module.operationsCourse.table.coursePrompt')
+ * t('module.operationsCourse.table.detailAction')
  * t('module.operationsCourse.table.creator')
  * t('module.operationsCourse.table.modifier')
- * t('module.operationsCourse.table.createdAt')
  * t('module.operationsCourse.table.updatedAt')
+ * t('module.operationsCourse.table.createdAt')
  * t('module.operationsCourse.table.action')
+ * t('module.operationsCourse.coursePromptDialog.title')
+ * t('module.operationsCourse.coursePromptDialog.copy')
+ * t('module.operationsCourse.coursePromptDialog.copySuccess')
+ * t('module.operationsCourse.coursePromptDialog.copyFailed')
+ * t('module.operationsCourse.coursePromptDialog.empty')
  * t('module.operationsCourse.transferCreatorDialog.title')
  * t('module.operationsCourse.transferCreatorDialog.description')
  * t('module.operationsCourse.transferCreatorDialog.currentCreator')
@@ -331,6 +351,9 @@ const OperationsPage = () => {
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(1);
   const [expanded, setExpanded] = useState(false);
+  const [coursePromptExpanded, setCoursePromptExpanded] = useState(false);
+  const [promptDetailCourse, setPromptDetailCourse] =
+    useState<AdminOperationCourseItem | null>(null);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
@@ -366,6 +389,26 @@ const OperationsPage = () => {
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const displayStatusValue = filters.course_status || ALL_OPTION_VALUE;
+  const promptDetailText = promptDetailCourse?.course_prompt?.trim() || '';
+  const canTogglePromptDetail = promptDetailText.length > 80;
+
+  const handleCopyCoursePrompt = useCallback(async () => {
+    if (!promptDetailText) {
+      return;
+    }
+
+    try {
+      await copyText(promptDetailText);
+      toast({
+        title: tOperations('coursePromptDialog.copySuccess'),
+      });
+    } catch {
+      toast({
+        title: tOperations('coursePromptDialog.copyFailed'),
+        variant: 'destructive',
+      });
+    }
+  }, [promptDetailText, tOperations, toast]);
 
   const fetchCourses = useCallback(
     async (targetPage: number, nextFilters?: CourseFilters) => {
@@ -454,6 +497,24 @@ const OperationsPage = () => {
     }
     router.push(detailUrl);
   };
+
+  const handlePromptDetailOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      setPromptDetailCourse(null);
+      setCoursePromptExpanded(false);
+    }
+  }, []);
+
+  const handlePromptDetailClick = useCallback(
+    (course: AdminOperationCourseItem) => {
+      if (!course.course_prompt?.trim()) {
+        return;
+      }
+      setPromptDetailCourse(course);
+      setCoursePromptExpanded(false);
+    },
+    [],
+  );
 
   const handleTransferDialogOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -802,10 +863,16 @@ const OperationsPage = () => {
         ColumnKey,
         (course: AdminOperationCourseItem) => string[]
       > = {
-        courseId: course => [course.shifu_bid],
         courseName: course => [course.course_name],
-        price: course => [formatMoney(course.price)],
+        courseId: course => [course.shifu_bid],
         status: course => [resolveCourseStatusLabel(course.course_status)],
+        price: course => [formatMoney(course.price)],
+        model: course => [course.course_model],
+        coursePrompt: course => [
+          course.course_prompt?.trim()
+            ? tOperations('table.detailAction')
+            : EMPTY_STATE_LABEL,
+        ],
         creator: course => [
           resolveActorDisplay(course, 'creator').primary,
           resolveActorDisplay(course, 'creator').secondary,
@@ -814,8 +881,8 @@ const OperationsPage = () => {
           resolveActorDisplay(course, 'updater').primary,
           resolveActorDisplay(course, 'updater').secondary,
         ],
-        createdAt: course => [course.created_at],
         updatedAt: course => [course.updated_at],
+        createdAt: course => [course.created_at],
         action: () => [t('common.core.more')],
       };
 
@@ -826,14 +893,16 @@ const OperationsPage = () => {
             return;
           }
           const multiplierMap: Partial<Record<ColumnKey, number>> = {
-            courseId: 5,
             courseName: 4.5,
-            price: 4,
+            courseId: 5,
             status: 5,
+            price: 4,
+            model: 4.2,
+            coursePrompt: 5.5,
             creator: 4.6,
             modifier: 4.6,
-            createdAt: 4.8,
             updatedAt: 4.8,
+            createdAt: 4.8,
             action: 4.2,
           };
           const multiplier = multiplierMap[key] ?? 7;
@@ -878,6 +947,7 @@ const OperationsPage = () => {
       resolveCourseStatusLabel,
       setColumnWidths,
       t,
+      tOperations,
     ],
   );
 
@@ -1038,7 +1108,7 @@ const OperationsPage = () => {
           loading={loading}
           isEmpty={courses.length === 0}
           emptyContent={tOperations('emptyList')}
-          emptyColSpan={9}
+          emptyColSpan={11}
           withTooltipProvider
           tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
           table={emptyRow => (
@@ -1061,6 +1131,13 @@ const OperationsPage = () => {
                   </TableHead>
                   <TableHead
                     className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('status')}
+                  >
+                    {tOperations('table.status')}
+                    {renderResizeHandle('status')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                     style={getColumnStyle('price')}
                   >
                     {tOperations('table.price')}
@@ -1068,10 +1145,17 @@ const OperationsPage = () => {
                   </TableHead>
                   <TableHead
                     className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('status')}
+                    style={getColumnStyle('model')}
                   >
-                    {tOperations('table.status')}
-                    {renderResizeHandle('status')}
+                    {tOperations('table.model')}
+                    {renderResizeHandle('model')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('coursePrompt')}
+                  >
+                    {tOperations('table.coursePrompt')}
+                    {renderResizeHandle('coursePrompt')}
                   </TableHead>
                   <TableHead
                     className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
@@ -1089,17 +1173,17 @@ const OperationsPage = () => {
                   </TableHead>
                   <TableHead
                     className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('createdAt')}
-                  >
-                    {tOperations('table.createdAt')}
-                    {renderResizeHandle('createdAt')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                     style={getColumnStyle('updatedAt')}
                   >
                     {tOperations('table.updatedAt')}
                     {renderResizeHandle('updatedAt')}
+                  </TableHead>
+                  <TableHead
+                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                    style={getColumnStyle('createdAt')}
+                  >
+                    {tOperations('table.createdAt')}
+                    {renderResizeHandle('createdAt')}
                   </TableHead>
                   <TableHead
                     className={getAdminStickyRightHeaderClass('text-center')}
@@ -1119,92 +1203,119 @@ const OperationsPage = () => {
                   return (
                     <TableRow key={course.shifu_bid}>
                       <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('courseId')}
                       >
-                        {renderTooltipText(course.shifu_bid)}
+                        {renderTooltipText(course.shifu_bid, 'mx-auto block')}
                       </TableCell>
                       <TableCell
-                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('courseName')}
                       >
                         <button
                           type='button'
-                          className='block max-w-full text-left text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
+                          className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
                           onClick={() => handleDetailClick(course)}
                         >
                           {renderTooltipText(
                             course.course_name,
-                            'truncate text-left',
+                            'truncate text-center',
                           )}
                         </button>
                       </TableCell>
                       <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                        style={getColumnStyle('price')}
-                      >
-                        {renderTooltipText(
-                          formatMoney(course.price),
-                          'text-foreground',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('status')}
                       >
                         {renderTooltipText(
                           resolveCourseStatusLabel(course.course_status),
-                          'text-foreground',
+                          'mx-auto block text-foreground',
                         )}
                       </TableCell>
                       <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
+                        style={getColumnStyle('price')}
+                      >
+                        {renderTooltipText(
+                          formatMoney(course.price),
+                          'mx-auto block text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
+                        style={getColumnStyle('model')}
+                      >
+                        {renderTooltipText(
+                          course.course_model,
+                          'mx-auto block text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
+                        style={getColumnStyle('coursePrompt')}
+                      >
+                        {course.course_prompt?.trim() ? (
+                          <button
+                            type='button'
+                            className='text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
+                            onClick={() => handlePromptDetailClick(course)}
+                          >
+                            {tOperations('table.detailAction')}
+                          </button>
+                        ) : (
+                          renderTooltipText(undefined, 'text-foreground')
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('creator')}
                       >
-                        <div className='flex flex-col gap-0.5 leading-tight'>
+                        <div className='flex flex-col items-center gap-0.5 leading-tight'>
                           {renderTooltipText(
                             creatorDisplay.primary,
-                            'text-foreground whitespace-nowrap',
+                            'mx-auto block text-foreground whitespace-nowrap text-center',
                           )}
                           {creatorDisplay.secondary
                             ? renderTooltipText(
                                 creatorDisplay.secondary,
-                                'text-xs text-muted-foreground',
+                                'mx-auto block text-xs text-muted-foreground text-center',
                               )
                             : null}
                         </div>
                       </TableCell>
                       <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('modifier')}
                       >
-                        <div className='flex flex-col gap-0.5 leading-tight'>
+                        <div className='flex flex-col items-center gap-0.5 leading-tight'>
                           {renderTooltipText(
                             updaterDisplay.primary,
-                            'text-foreground whitespace-nowrap',
+                            'mx-auto block text-foreground whitespace-nowrap text-center',
                           )}
                           {updaterDisplay.secondary
                             ? renderTooltipText(
                                 updaterDisplay.secondary,
-                                'text-xs text-muted-foreground',
+                                'mx-auto block text-xs text-muted-foreground text-center',
                               )
                             : null}
                         </div>
                       </TableCell>
                       <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                        style={getColumnStyle('createdAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(course.created_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('updatedAt')}
                       >
                         {renderTooltipText(
                           formatAdminUtcDateTime(course.updated_at),
+                          'mx-auto block',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
+                        style={getColumnStyle('createdAt')}
+                      >
+                        {renderTooltipText(
+                          formatAdminUtcDateTime(course.created_at),
+                          'mx-auto block',
                         )}
                       </TableCell>
                       <TableCell
@@ -1218,7 +1329,10 @@ const OperationsPage = () => {
                             <DropdownMenuTrigger asChild>
                               <button
                                 type='button'
-                                className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
+                                className={cn(
+                                  TABLE_INLINE_ACTION_BUTTON_CLASS,
+                                  'gap-1',
+                                )}
                               >
                                 {t('common.core.more')}
                                 <ChevronDown className='h-3.5 w-3.5' />
@@ -1261,6 +1375,61 @@ const OperationsPage = () => {
             />
           }
         />
+        <Dialog
+          open={Boolean(promptDetailCourse)}
+          onOpenChange={handlePromptDetailOpenChange}
+        >
+          <DialogContent className='w-[min(88vw,760px)] max-w-[760px] p-0'>
+            <DialogHeader className='border-b border-border px-6 py-4 pr-12'>
+              <div className='flex items-center justify-between gap-4'>
+                <DialogTitle>{tOperations('coursePromptDialog.title')}</DialogTitle>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='gap-2'
+                  onClick={handleCopyCoursePrompt}
+                  disabled={!promptDetailText}
+                >
+                  <Copy className='h-4 w-4' />
+                  {tOperations('coursePromptDialog.copy')}
+                </Button>
+              </div>
+            </DialogHeader>
+            <div className='min-h-[240px] max-h-[460px] overflow-auto px-6 py-5'>
+              <section>
+                <div className='rounded-lg border border-border bg-muted/20 p-4'>
+                  <div
+                    className='break-words whitespace-pre-wrap text-sm leading-6 text-foreground'
+                    style={
+                      coursePromptExpanded || !canTogglePromptDetail
+                        ? undefined
+                        : COLLAPSED_TEXT_STYLE
+                    }
+                  >
+                    {promptDetailText ||
+                      tOperations('coursePromptDialog.empty')}
+                  </div>
+                  {canTogglePromptDetail ? (
+                    <div className='mt-3 flex justify-end'>
+                      <button
+                        type='button'
+                        className='text-sm font-medium text-primary transition-colors hover:text-primary/80'
+                        onClick={() =>
+                          setCoursePromptExpanded(previous => !previous)
+                        }
+                      >
+                        {coursePromptExpanded
+                          ? t('common.core.collapse')
+                          : t('common.core.expand')}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog
           open={transferDialogOpen}
           onOpenChange={handleTransferDialogOpenChange}

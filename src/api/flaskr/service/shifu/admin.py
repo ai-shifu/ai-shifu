@@ -1374,6 +1374,8 @@ def _build_course_summary(
         course_name=course.title or "",
         course_status=course_status,
         price=_format_decimal(course.price),
+        course_model=str(course.llm or "").strip(),
+        course_prompt=str(course.llm_system_prompt or "").strip(),
         creator_user_bid=course.created_user_bid or "",
         creator_mobile=creator.get("mobile", ""),
         creator_email=creator.get("email", ""),

@@ -3,6 +3,13 @@
   "actions": {
     "transferCreator": "转移创作者"
   },
+  "coursePromptDialog": {
+    "copy": "复制",
+    "copyFailed": "复制课程提示词失败",
+    "copySuccess": "已复制课程提示词",
+    "empty": "暂无课程提示词",
+    "title": "课程提示词"
+  },
   "detail": {
     "back": "返回课程列表",
     "basicInfo": "基础信息",
@@ -214,8 +221,11 @@
     "action": "操作",
     "courseId": "课程ID",
     "courseName": "课程名",
+    "coursePrompt": "课程提示词",
     "createdAt": "创建时间",
     "creator": "创建者",
+    "detailAction": "详情",
+    "model": "模型",
     "modifier": "修改者",
     "price": "价格",
     "status": "状态",

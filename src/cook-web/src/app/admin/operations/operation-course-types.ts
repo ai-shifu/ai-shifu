@@ -5,6 +5,8 @@ export type AdminOperationCourseItem = {
   course_name: string;
   course_status: string;
   price: string;
+  course_model: string;
+  course_prompt: string;
   creator_user_bid: string;
   creator_mobile: string;
   creator_email: string;

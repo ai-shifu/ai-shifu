@@ -3,6 +3,13 @@
   "actions": {
     "transferCreator": "Transfer creator"
   },
+  "coursePromptDialog": {
+    "copy": "Copy",
+    "copyFailed": "Failed to copy course prompt",
+    "copySuccess": "Course prompt copied",
+    "empty": "No course prompt",
+    "title": "Course Prompt"
+  },
   "detail": {
     "back": "Back to list",
     "basicInfo": "Basic Info",
@@ -214,8 +221,11 @@
     "action": "Action",
     "courseId": "Course ID",
     "courseName": "Course Name",
+    "coursePrompt": "Course Prompt",
     "createdAt": "Created At",
     "creator": "Creator",
+    "detailAction": "Detail",
+    "model": "Model",
     "modifier": "Modifier",
     "price": "Price",
     "status": "Status",

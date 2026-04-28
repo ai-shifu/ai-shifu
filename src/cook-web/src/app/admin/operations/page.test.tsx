@@ -18,6 +18,8 @@ const originalLocation = window.location;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
+const LONG_COURSE_PROMPT =
+  'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
 
 const mockUserState: {
   isInitialized: boolean;
@@ -410,6 +412,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
+          course_model: 'gpt-4.1-mini',
+          course_prompt: LONG_COURSE_PROMPT,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
           creator_email: 'creator@example.com',
@@ -426,6 +430,8 @@ describe('OperationsPage', () => {
           course_name: 'Custom System Course',
           course_status: 'unpublished',
           price: '0',
+          course_model: '',
+          course_prompt: '',
           creator_user_bid: 'system',
           creator_mobile: '',
           creator_email: '',
@@ -473,6 +479,12 @@ describe('OperationsPage', () => {
     );
 
     expect(screen.getByText('Course 1')).toBeInTheDocument();
+    expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.table.detailAction',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText('creator@example.com')).toBeInTheDocument();
     expect(screen.getByText('Creator Mars')).toBeInTheDocument();
     expect(screen.getByText('editor@example.com')).toBeInTheDocument();
@@ -589,6 +601,37 @@ describe('OperationsPage', () => {
     expect(
       screen.queryByText('module.operationsCourse.transferCreatorDialog.title'),
     ).not.toBeInTheDocument();
+  });
+
+  test('opens course prompt detail dialog and toggles expand state', async () => {
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'module.operationsCourse.table.detailAction',
+      }),
+    );
+
+    expect(
+      screen.getByText('module.operationsCourse.coursePromptDialog.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(LONG_COURSE_PROMPT)).toBeInTheDocument();
+    const promptDialog = screen.getByRole('dialog');
+
+    fireEvent.click(
+      within(promptDialog).getByRole('button', {
+        name: 'common.core.expand',
+      }),
+    );
+
+    expect(
+      within(promptDialog).getByRole('button', {
+        name: 'common.core.collapse',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('clears search input with the right-side clear action', async () => {
@@ -719,6 +762,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
+          course_model: 'gpt-4.1-mini',
+          course_prompt: LONG_COURSE_PROMPT,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
           creator_email: 'creator@example.com',
@@ -828,6 +873,8 @@ describe('OperationsPage', () => {
           course_name: 'Course Second',
           course_status: 'published',
           price: '29',
+          course_model: 'gpt-4.1',
+          course_prompt: 'Second search prompt',
           creator_user_bid: 'creator-2',
           creator_mobile: '15899990000',
           creator_email: 'second@example.com',
@@ -855,6 +902,8 @@ describe('OperationsPage', () => {
           course_name: 'Course First',
           course_status: 'published',
           price: '19',
+          course_model: 'gpt-4.1',
+          course_prompt: 'First search prompt',
           creator_user_bid: 'creator-1',
           creator_mobile: '15888880000',
           creator_email: 'first@example.com',
