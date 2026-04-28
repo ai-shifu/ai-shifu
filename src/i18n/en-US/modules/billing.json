@@ -751,7 +751,7 @@
   },
   "welcomeTrial": {
     "confirm": "Got it, let's go!",
-    "description": "As a new user, you get a free trial package with {credits} credits, valid for {days} days. Start creating your first course now!",
+    "description": "As a new user, you get a free {days}-day Basic plan with {credits} credits. Start creating your first course now!",
     "title": "Welcome to {appName}"
   }
 }

@@ -751,7 +751,7 @@
   },
   "welcomeTrial": {
     "confirm": "好的，开始使用！",
-    "description": "新用户赠送体验版，包含 {credits} 积分，有效期 {days} 天。现在就开始创建你的第一门课程吧！",
+    "description": "新用户赠送 {days} 天基础版套餐，包含 {credits} 积分。现在就开始创建你的第一门课程吧！",
     "title": "欢迎来到 {appName}"
   }
 }
