@@ -1,0 +1,70 @@
+name: Repo Harness
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "ARCHITECTURE.md"
+      - "PLANS.md"
+      - ".pre-commit-config.yaml"
+      - ".github/**"
+      - ".claude/**"
+      - ".cursor/**"
+      - "docs/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/src/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "AGENTS.md"
+      - "ARCHITECTURE.md"
+      - "PLANS.md"
+      - ".pre-commit-config.yaml"
+      - ".github/**"
+      - ".claude/**"
+      - ".cursor/**"
+      - "docs/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/src/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repo-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Validate architecture fixtures
+        run: python scripts/check_architecture_boundaries.py --run-fixture-tests
+
+      - name: Regenerate AI docs and knowledge docs
+        run: |
+          python scripts/generate_ai_collab_docs.py
+          python scripts/build_repo_knowledge_index.py
+
+      - name: Ensure generated artifacts are up to date
+        run: |
+          git diff --exit-code -- \
+            .claude \
+            .cursor \
+            .github \
+            docs \
+            scripts/generate_ai_collab_docs.py \
+            scripts/build_repo_knowledge_index.py
+
+      - name: Run repo harness validation
+        run: |
+          python scripts/check_repo_harness.py
+          python scripts/check_architecture_boundaries.py

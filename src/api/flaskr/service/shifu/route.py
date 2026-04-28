@@ -116,7 +116,7 @@ from flaskr.service.shifu.admin import (
     list_operator_users,
     transfer_operator_course_creator,
 )
-from flaskr.service.order.admin import (
+from flaskr.service.order.api import (
     get_operator_order_detail,
     list_operator_orders,
 )
