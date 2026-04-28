@@ -5,6 +5,8 @@ export type AdminOperationCourseItem = {
   course_name: string;
   course_status: string;
   price: string;
+  course_model: string;
+  has_course_prompt: boolean;
   creator_user_bid: string;
   creator_mobile: string;
   creator_email: string;
@@ -23,6 +25,10 @@ export type AdminOperationCourseListResponse = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type AdminOperationCoursePromptResponse = {
+  course_prompt: string;
 };
 
 export type AdminOperationCourseDetailBasicInfo = {
