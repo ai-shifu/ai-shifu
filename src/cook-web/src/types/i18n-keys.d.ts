@@ -629,6 +629,7 @@ export type I18nKey =
   | 'module.billing.sidebar.nonMemberTitle'
   | 'module.billing.sidebar.periodLabel'
   | 'module.billing.sidebar.placeholderValue'
+  | 'module.billing.sidebar.summaryTitle'
   | 'module.billing.sidebar.subscriptionPending'
   | 'module.billing.sidebar.subscriptionStatusLabel'
   | 'module.billing.sidebar.upgradeCta'
