@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
+import ChartCard from '@/components/charts/ChartCard';
+import EChart from '@/components/charts/EChart';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -25,8 +27,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { ErrorWithCode } from '@/lib/request';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import {
+  ALL_CHAPTER_FILTER_VALUE,
+  buildFollowUpChapterOptions,
+  buildFollowUpSectionChartOption,
+  buildFollowUpSectionRows,
+} from '@/lib/dashboard/follow-up-section-chart';
 import { useUserStore } from '@/store';
 import type { DashboardCourseDetailResponse } from '@/types/dashboard';
 import { buildAdminOrdersUrl } from '../admin-dashboard-routes';
@@ -51,6 +66,9 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
     total_follow_up_count: 0,
     avg_follow_up_count_per_learner: '0.00',
     avg_learning_duration_seconds: 0,
+  },
+  charts: {
+    follow_up_count_by_section: [],
   },
 };
 
@@ -107,6 +125,9 @@ export default function AdminDashboardCourseDetailPage() {
     useState<DashboardCourseDetailResponse>(EMPTY_DETAIL);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [selectedFollowUpChapter, setSelectedFollowUpChapter] = useState(
+    ALL_CHAPTER_FILTER_VALUE,
+  );
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -114,8 +135,7 @@ export default function AdminDashboardCourseDetailPage() {
   const emptyValue = '--';
   const orderListUrl = buildAdminOrdersUrl(shifuBid);
 
-  const chartLabels = [
-    t('module.dashboard.detail.charts.questionsByChapter'),
+  const placeholderChartLabels = [
     t('module.dashboard.detail.charts.questionsByTime'),
     t('module.dashboard.detail.charts.learningTrend'),
     t('module.dashboard.detail.charts.chapterProgress'),
@@ -228,6 +248,60 @@ export default function AdminDashboardCourseDetailPage() {
       orderListUrl,
       t,
     ],
+  );
+
+  const followUpSections = useMemo(
+    () => detail.charts?.follow_up_count_by_section || [],
+    [detail.charts?.follow_up_count_by_section],
+  );
+  const followUpSectionChartLabels = useMemo(
+    () => ({
+      allChapters: t('module.dashboard.detail.charts.allChapters'),
+      followUpCountSeries: t(
+        'module.dashboard.detail.charts.followUpCountSeries',
+      ),
+      otherSections: t('module.dashboard.detail.charts.otherSections'),
+      unassignedSection: t('module.dashboard.detail.charts.unassignedSection'),
+      untitledChapter: t('module.dashboard.detail.charts.untitledChapter'),
+      untitledSection: t('module.dashboard.detail.charts.untitledSection'),
+    }),
+    [t],
+  );
+  const followUpChapterOptions = useMemo(
+    () =>
+      buildFollowUpChapterOptions(followUpSections, followUpSectionChartLabels),
+    [followUpSections, followUpSectionChartLabels],
+  );
+
+  useEffect(() => {
+    if (
+      selectedFollowUpChapter === ALL_CHAPTER_FILTER_VALUE ||
+      followUpChapterOptions.some(
+        option => option.value === selectedFollowUpChapter,
+      )
+    ) {
+      return;
+    }
+    setSelectedFollowUpChapter(ALL_CHAPTER_FILTER_VALUE);
+  }, [followUpChapterOptions, selectedFollowUpChapter]);
+
+  const followUpSectionRows = useMemo(
+    () =>
+      buildFollowUpSectionRows(
+        followUpSections,
+        selectedFollowUpChapter,
+        followUpSectionChartLabels,
+      ),
+    [followUpSections, followUpSectionChartLabels, selectedFollowUpChapter],
+  );
+
+  const followUpSectionChartOption = useMemo(
+    () =>
+      buildFollowUpSectionChartOption(
+        followUpSectionRows,
+        followUpSectionChartLabels.followUpCountSeries,
+      ),
+    [followUpSectionChartLabels.followUpCountSeries, followUpSectionRows],
   );
 
   if (!isInitialized || isGuest || (loading && !detail.basic_info.shifu_bid)) {
@@ -372,8 +446,67 @@ export default function AdminDashboardCourseDetailPage() {
             {t('module.dashboard.detail.charts.title')}
           </h2>
           <div className='grid grid-cols-1 gap-4 xl:grid-cols-2'>
-            {chartLabels.map(chartLabel => (
-              <Card key={chartLabel}>
+            <ChartCard
+              className='xl:col-span-2'
+              title={t('module.dashboard.detail.charts.questionsBySection')}
+              description={
+                selectedFollowUpChapter === ALL_CHAPTER_FILTER_VALUE
+                  ? t('module.dashboard.detail.charts.topSectionsDescription')
+                  : t(
+                      'module.dashboard.detail.charts.chapterSectionsDescription',
+                    )
+              }
+              actions={
+                <div className='flex items-center gap-2'>
+                  <label
+                    htmlFor='follow-up-section-chapter-filter'
+                    className='text-xs font-medium text-muted-foreground'
+                  >
+                    {t('module.dashboard.detail.charts.chapterFilter')}
+                  </label>
+                  <Select
+                    value={selectedFollowUpChapter}
+                    onValueChange={setSelectedFollowUpChapter}
+                  >
+                    <SelectTrigger
+                      id='follow-up-section-chapter-filter'
+                      className='h-8 min-w-[140px] text-xs'
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {followUpChapterOptions.map(option => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+              contentClassName='min-h-[380px]'
+            >
+              {followUpSectionRows.length ? (
+                <EChart
+                  option={followUpSectionChartOption}
+                  style={{ height: 360, width: '100%' }}
+                  notMerge
+                />
+              ) : (
+                <div className='flex h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground'>
+                  {t('module.dashboard.detail.charts.emptyFollowUpSections')}
+                </div>
+              )}
+            </ChartCard>
+
+            {placeholderChartLabels.map((chartLabel, index) => (
+              <Card
+                key={chartLabel}
+                className={index === 2 ? 'xl:col-span-2' : undefined}
+              >
                 <CardContent className='flex h-56 flex-col p-5'>
                   <div className='text-sm font-medium text-foreground'>
                     {chartLabel}

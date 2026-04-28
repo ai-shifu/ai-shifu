@@ -44,7 +44,22 @@ export type DashboardCourseDetailMetrics = {
   avg_learning_duration_seconds: number;
 };
 
+export type DashboardCourseDetailFollowUpCountBySection = {
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  section_outline_item_bid: string;
+  section_title: string;
+  position: string;
+  follow_up_count: number;
+  is_unassigned?: boolean;
+};
+
+export type DashboardCourseDetailCharts = {
+  follow_up_count_by_section: DashboardCourseDetailFollowUpCountBySection[];
+};
+
 export type DashboardCourseDetailResponse = {
   basic_info: DashboardCourseDetailBasicInfo;
   metrics: DashboardCourseDetailMetrics;
+  charts: DashboardCourseDetailCharts;
 };

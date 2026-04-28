@@ -174,6 +174,62 @@ class DashboardCourseDetailMetricsDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class DashboardCourseDetailFollowUpCountBySectionDTO(BaseModel):
+    """Dashboard chart point for follow-up counts by section."""
+
+    chapter_outline_item_bid: str = Field(
+        ..., description="Parent chapter outline item bid", required=False
+    )
+    chapter_title: str = Field(..., description="Parent chapter title", required=False)
+    section_outline_item_bid: str = Field(
+        ..., description="Section outline item bid", required=False
+    )
+    section_title: str = Field(..., description="Section title", required=False)
+    position: str = Field(..., description="Section outline position", required=False)
+    follow_up_count: int = Field(
+        ..., description="Follow-up question count", required=False
+    )
+    is_unassigned: bool = Field(
+        default=False,
+        description="Whether this bucket contains unmapped historical questions",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        payload = {
+            "chapter_outline_item_bid": self.chapter_outline_item_bid,
+            "chapter_title": self.chapter_title,
+            "section_outline_item_bid": self.section_outline_item_bid,
+            "section_title": self.section_title,
+            "position": self.position,
+            "follow_up_count": int(self.follow_up_count),
+        }
+        if self.is_unassigned:
+            payload["is_unassigned"] = True
+        return payload
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailChartsDTO(BaseModel):
+    """Dashboard detail chart data."""
+
+    follow_up_count_by_section: List[DashboardCourseDetailFollowUpCountBySectionDTO] = (
+        Field(
+            default_factory=list,
+            description="Follow-up question distribution by section",
+            required=False,
+        )
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "follow_up_count_by_section": [
+                item.__json__() for item in self.follow_up_count_by_section
+            ],
+        }
+
+
+@register_schema_to_swagger
 class DashboardCourseDetailDTO(BaseModel):
     """Dashboard detail response payload."""
 
@@ -183,9 +239,15 @@ class DashboardCourseDetailDTO(BaseModel):
     metrics: DashboardCourseDetailMetricsDTO = Field(
         ..., description="Course detail metrics", required=False
     )
+    charts: DashboardCourseDetailChartsDTO = Field(
+        default_factory=DashboardCourseDetailChartsDTO,
+        description="Course detail chart data",
+        required=False,
+    )
 
     def __json__(self) -> Dict[str, Any]:
         return {
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
+            "charts": self.charts.__json__(),
         }
