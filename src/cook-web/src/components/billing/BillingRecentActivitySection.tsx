@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { AppPagination } from '@/components/pagination/AppPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
+import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
@@ -93,11 +94,11 @@ export function BillingRecentActivitySection() {
   return (
     <section
       id='billing-recent-orders'
-      className='space-y-4'
+      className='space-y-6'
       data-testid='billing-usage-table-section'
     >
       <div>
-        <h2 className='text-xl font-semibold tracking-tight text-slate-950 md:text-2xl'>
+        <h2 className={BILLING_SECTION_TITLE_CLASS}>
           {t('module.billing.details.usageTable.title')}
         </h2>
       </div>

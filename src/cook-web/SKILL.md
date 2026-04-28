@@ -20,6 +20,8 @@
 - 当产品要求把套餐赠送积分数、免费体验积分和积分充值包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、充值卡和对应测试口径一致。
 - admin 侧边会员卡如果改成双层信息布局，保持整卡点击跳转 `packages`、底部“查看详情”独立跳转 `details`，并把积分余额与到期时间放在同一信息层；卡片整体内边距优先保持 `py-14px / pl-16px`，右侧需要贴设计微调时可收敛成 `pr-12px`。若设计稿要求顶部“积分 + 升级”这一整行整体左收 `4px`，优先给这一行的外层容器补 `padding-right`，不要误加到升级按钮本身；`查看详情` 默认不要额外补右侧内边距。头部与信息层之间优先用弱分隔线 `rgba(0,0,0,0.05)`，分隔线下余额行 `pt-3`、到期/详情行 `pt-2.5`，正文颜色优先复用 `--base-card-foreground` 和既有 `text-sm` typography token。
 - 14px 文字旁边的 chevron 类图标，优先收敛到 `h-4 w-4`，并让容器使用 `items-center + leading-none`、文字单独保留 `leading-5`，避免图标因继承文本行高出现视觉不对齐。
+- 同一 billing 页面如果两个 section title 需要完全一致，优先把标题 class 抽成 `src/components/billing/` 下的共享常量或共享组件，再让各面板复用，不要在两个文件里各写一份近似但不一致的字号。
+- 同一 billing 页面如果多个 section title 需要保持一致，除了标题字号本身，还要同步检查标题到卡片/表格主体的纵向间距；当前这类 section 优先统一为 `24px`，避免一个 `space-y-4`、一个 `space-y-6` 的情况。
 - 对于明确暂不支持移动端的页面，优先复用共享的国际化弹窗组件统一提示，避免在多个页面分别写一套移动端拦截文案和状态逻辑。
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.
