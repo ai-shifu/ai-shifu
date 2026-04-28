@@ -23,7 +23,9 @@ from .daily_aggregates import (
 from .domains import verify_domain_binding
 from .models import BillingRenewalEvent, BillingSubscription, CreditWallet
 from .notifications import (
+    BILLING_PAID_FEISHU_TASK_NAME as _BILLING_PAID_FEISHU_TASK_NAME,
     TASK_NAME as _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME,
+    deliver_billing_paid_feishu as _deliver_billing_paid_feishu,
     deliver_subscription_purchase_sms as _deliver_subscription_purchase_sms,
 )
 from .primitives import coerce_bool as _coerce_bool
@@ -47,6 +49,10 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
 
 class SubscriptionPurchaseSmsRetryableError(RuntimeError):
     """Raised when the SMS worker should use Celery autoretry."""
+
+
+class BillingPaidFeishuRetryableError(RuntimeError):
+    """Raised when the billing paid Feishu worker should use Celery autoretry."""
 
 
 def _create_task_app():
@@ -399,6 +405,36 @@ def send_subscription_purchase_sms_task(
     payload["task_name"] = _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME
     if payload.get("status") == "failed_provider":
         raise SubscriptionPurchaseSmsRetryableError(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                default=str,
+            )
+        )
+    return payload
+
+
+@shared_task(
+    name=_BILLING_PAID_FEISHU_TASK_NAME,
+    autoretry_for=(BillingPaidFeishuRetryableError,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+)
+def send_billing_paid_feishu_task(
+    *,
+    bill_order_bid: str = "",
+) -> dict[str, Any]:
+    """Deliver one pending billing paid Feishu notification."""
+
+    app = _create_task_app()
+    payload = _deliver_billing_paid_feishu(
+        app,
+        bill_order_bid=_normalize_bid(bill_order_bid),
+    )
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = _BILLING_PAID_FEISHU_TASK_NAME
+    if payload.get("status") == "failed_provider":
+        raise BillingPaidFeishuRetryableError(
             json.dumps(
                 payload,
                 sort_keys=True,

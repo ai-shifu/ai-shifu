@@ -19,6 +19,10 @@ interface LoginResponse extends ApiResponse {
   };
 }
 
+type ApiError = Error & {
+  code?: number;
+};
+
 interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
@@ -31,6 +35,14 @@ export function useAuth(options: UseAuthOptions = {}) {
   const { login, logout } = useUserStore();
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
+
+  const buildApiError = (response: ApiResponse): ApiError => {
+    const error = new Error(
+      response.message || response.msg || t('common.core.networkError'),
+    ) as ApiError;
+    error.code = response.code;
+    return error;
+  };
 
   // Generic wrapper for API calls with automatic token refresh on expiration
   const callWithTokenRefresh = async <T extends ApiResponse>(
@@ -182,9 +194,7 @@ export function useAuth(options: UseAuthOptions = {}) {
       );
 
       if (response.code !== 0) {
-        throw new Error(
-          response.message || response.msg || t('common.core.networkError'),
-        );
+        throw buildApiError(response);
       }
 
       return response;

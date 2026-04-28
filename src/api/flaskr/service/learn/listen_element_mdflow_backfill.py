@@ -9,7 +9,7 @@ from flask import Flask
 try:
     from markdown_flow import format_content
 except ImportError:
-    from flaskr.service.tts.pipeline import build_av_segmentation_contract
+    from flaskr.service.tts.api import build_av_segmentation_contract
 
     @dataclass
     class _FormattedContentPart:

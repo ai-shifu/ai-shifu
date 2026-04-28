@@ -15,9 +15,8 @@ alwaysApply: true
   code-facing text, no hardcoded user-facing strings or secrets, and
   shared-contract doc updates in the same change.
 
-- Use `docs/engineering-baseline.md` for the stable engineering handbook
-  covering architecture, API conventions, testing, naming, and environment
-  workflow.
+- Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md`
+  together: architecture map, ExecPlan spec, and stable engineering handbook.
 
 - Inspect the existing implementation, adjacent call sites, and the nearest
   tests before making code changes.
@@ -25,18 +24,12 @@ alwaysApply: true
 - Reuse existing abstractions wherever practical instead of building parallel
   helpers, request paths, stores, or provider layers.
 
-- For complex design work, create `docs/<topic>.md` before implementation and
-  track execution in repository-root `tasks.md`.
+- For complex design work, create an ExecPlan under `docs/exec-plans/active/`
+  and maintain it according to `PLANS.md`.
 
-- When `tasks.md` exists, follow it as the visible execution plan, update it
-  as progress changes, and keep one completed checklist item per atomic commit
-  while the work remains active.
-
-- One branch should track only one active complex topic in `tasks.md` at a
-  time.
-
-- Once all checklist items are complete and active tracking is no longer
-  needed, deleting `tasks.md` is required.
+- Keep generated knowledge artifacts in sync by running
+  `python scripts/build_repo_knowledge_index.py` after docs structure or
+  metadata changes.
 
 - Before committing, review the touched `AGENTS.md` and `CLAUDE.md` files and
   update any stale guidance in the same change.
