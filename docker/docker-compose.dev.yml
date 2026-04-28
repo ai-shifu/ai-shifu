@@ -1,27 +1,38 @@
 services:
   ai-shifu-api-dev:
-    container_name: ai-shifu-api-dev
     image: ai-shifu-api-dev:latest
-#    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
+    build:
+      context: ..
+      dockerfile: src/api/Dockerfile
+    #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
     environment:
+      OBSERVABILITY_TRACES_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://ai-shifu-otel-collector:4318
+      OTEL_SERVICE_NAME: ai-shifu-api-dev
+      INTERNAL_METRICS_PATH: /internal/metrics
+      INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
+      LOGIN_METHODS_ENABLED: phone
+      DEFAULT_LOGIN_METHOD: phone
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
       SKIP_LOAD_DOTENV: "1"
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
+    ports:
+      - "127.0.0.1:${AI_SHIFU_API_PORT:-5800}:5800"
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/app/i18n/
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
+      - ai-shifu-otel-collector
       - ai-shifu-redis
 
   ai-shifu-celery-worker-dev:
-    container_name: ai-shifu-celery-worker-dev
     image: ai-shifu-api-dev:latest
     command:
       - sh
@@ -44,7 +55,6 @@ services:
       - ./storage:/app/storage
 
   ai-shifu-celery-beat-dev:
-    container_name: ai-shifu-celery-beat-dev
     image: ai-shifu-api-dev:latest
     command:
       - sh
@@ -67,8 +77,10 @@ services:
       - ./storage:/app/storage
 
   ai-shifu-cook-web-dev:
-    container_name: ai-shifu-cook-web-dev
     image: ai-shifu-cook-web-dev:latest
+    build:
+      context: ../src/cook-web
+      dockerfile: Dockerfile_DEV
     restart: unless-stopped
     command:
       - sh
@@ -80,6 +92,8 @@ services:
       - I18N_ROOT=/app/src/i18n
       - NEXT_TELEMETRY_DISABLED=1
       - NODE_OPTIONS=--max-old-space-size=2048
+      - NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
+      - NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
     depends_on:
       - ai-shifu-api-dev
     volumes:
@@ -88,10 +102,9 @@ services:
       - ../src/i18n:/app/src/i18n
 
   ai-shifu-nginx-dev-dev:
-    container_name: ai-shifu-nginx-dev
     image: nginx:latest
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${AI_SHIFU_WEB_PORT:-8080}:8080"
     depends_on:
       - ai-shifu-cook-web-dev
       - ai-shifu-api-dev
@@ -99,22 +112,85 @@ services:
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
 
+  ai-shifu-loki:
+    image: grafana/loki:3.1.1
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "127.0.0.1:${AI_SHIFU_LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/config.yml
+
+  ai-shifu-promtail:
+    image: grafana/promtail:3.1.1
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - ai-shifu-loki
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml
+      - ../src/api/logs:/var/log/ai-shifu-api
+
+  ai-shifu-tempo:
+    image: grafana/tempo:2.5.0
+    command: -config.file=/etc/tempo/config.yml
+    ports:
+      - "127.0.0.1:${AI_SHIFU_TEMPO_PORT:-3200}:3200"
+      - "127.0.0.1:${AI_SHIFU_TEMPO_OTLP_HTTP_PORT:-4318}:4318"
+    volumes:
+      - ./observability/tempo-config.yml:/etc/tempo/config.yml
+
+  ai-shifu-otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.106.1
+    command: --config=/etc/otel-collector-config.yml
+    depends_on:
+      - ai-shifu-tempo
+    ports:
+      - "127.0.0.1:${AI_SHIFU_OTEL_GRPC_PORT:-4317}:4317"
+    volumes:
+      - ./observability/otel-collector-config.yml:/etc/otel-collector-config.yml
+
+  ai-shifu-prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    depends_on:
+      - ai-shifu-api-dev
+      - ai-shifu-otel-collector
+    ports:
+      - "127.0.0.1:${AI_SHIFU_PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  ai-shifu-grafana:
+    image: grafana/grafana:11.1.4
+    depends_on:
+      - ai-shifu-loki
+      - ai-shifu-prometheus
+      - ai-shifu-tempo
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "127.0.0.1:${AI_SHIFU_GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+
   ai-shifu-mysql:
-    container_name: ai-shifu-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ai-shifu
       MYSQL_DATABASE: ai-shifu
     image: mysql:8.0
     restart: always
     ports:
-      - "127.0.0.1:3306:3306"
+      - "127.0.0.1:${AI_SHIFU_MYSQL_PORT:-3306}:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
   ai-shifu-redis:
-    container_name: ai-shifu-redis
     image: redis:7-alpine
     restart: always
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${AI_SHIFU_REDIS_PORT:-6379}:6379"
     volumes:
       - ./redis_data:/data

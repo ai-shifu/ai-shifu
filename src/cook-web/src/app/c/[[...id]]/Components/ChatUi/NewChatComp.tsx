@@ -511,6 +511,9 @@ export const NewChatComponents = ({
     (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
     [],
   );
+  const shouldShowReadModeStreamingDots =
+    isOutputInProgress &&
+    !readModeItems.some(item => item.element_bid === 'loading');
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1116,167 +1119,177 @@ export const NewChatComponents = ({
             ) : isLoading ? (
               <></>
             ) : (
-              readModeItems.map((item, idx) => {
-                const isLongPressed = longPressedBlockBid === item.element_bid;
-                const baseKey = item.element_bid || `${item.type}-${idx}`;
-                const parentKey = item.parent_element_bid || baseKey;
-                if (item.type === ChatContentItemType.ASK) {
+              <>
+                {readModeItems.map((item, idx) => {
+                  const isLongPressed =
+                    longPressedBlockBid === item.element_bid;
+                  const baseKey = item.element_bid || `${item.type}-${idx}`;
+                  const parentKey = item.parent_element_bid || baseKey;
+                  if (item.type === ChatContentItemType.ASK) {
+                    return (
+                      <div
+                        key={`ask-${parentKey}`}
+                        style={{
+                          position: 'relative',
+                          margin: '0 auto',
+                          maxWidth: mobileStyle ? '100%' : '1000px',
+                          padding: '0 20px',
+                        }}
+                      >
+                        <AskBlock
+                          isExpanded={item.isAskExpanded}
+                          shifu_bid={shifuBid}
+                          outline_bid={resolvedLessonId}
+                          preview_mode={previewMode}
+                          element_bid={item.parent_element_bid || ''}
+                          isOutputInProgress={isOutputInProgress}
+                          onToggleAskExpanded={toggleAskExpanded}
+                          askList={(item.ask_list || []) as any[]}
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (item.type === ChatContentItemType.LIKE_STATUS) {
+                    const parentElementBid = item.parent_element_bid || '';
+                    if (!parentElementBid) {
+                      return null;
+                    }
+                    const parentContentItem = parentElementBid
+                      ? itemByGeneratedBid.get(parentElementBid)
+                      : undefined;
+                    const parentPrimaryTrack = getAudioTrackByPosition(
+                      parentContentItem?.audioTracks ?? [],
+                    );
+                    const canRequestAudio =
+                      !previewMode && Boolean(parentElementBid);
+                    const hasAudioForElement =
+                      hasAudioContentInTrack(parentPrimaryTrack);
+                    const shouldAutoPlayElement =
+                      autoPlayTargetBlockBid === parentElementBid;
+                    const isInteractionFollowUp =
+                      parentContentItem?.type ===
+                      ChatContentItemType.INTERACTION;
+                    const shouldRenderMobileAskAction =
+                      mobileStyle && isInteractionFollowUp;
+
+                    if (mobileStyle && !shouldRenderMobileAskAction) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={`like-${parentKey}`}
+                        className={cn(!mobileStyle && 'flex justify-end')}
+                        style={{
+                          margin: '0 auto',
+                          maxWidth: mobileStyle ? '100%' : '1000px',
+                          padding: '0px 20px',
+                        }}
+                      >
+                        <InteractionBlock
+                          shifu_bid={shifuBid}
+                          element_bid={parentElementBid}
+                          className={
+                            isInteractionFollowUp
+                              ? 'interaction-block--no-padding-top'
+                              : undefined
+                          }
+                          readonly={item.readonly}
+                          disableAskButton={isInteractionFollowUp}
+                          onRefresh={onRefresh}
+                          onToggleAskExpanded={toggleAskExpanded}
+                          askButtonVariant={
+                            shouldRenderMobileAskAction ? 'content' : 'default'
+                          }
+                          showGenerateBtn={!mobileStyle && showGenerateBtn}
+                          extraActions={
+                            !mobileStyle &&
+                            shouldShowAudioAction &&
+                            (canRequestAudio || hasAudioForElement) ? (
+                              <AudioPlayer
+                                audioUrl={parentPrimaryTrack?.audioUrl}
+                                streamingSegments={
+                                  parentPrimaryTrack?.audioSegments
+                                }
+                                isStreaming={Boolean(
+                                  parentPrimaryTrack?.isAudioStreaming,
+                                )}
+                                alwaysVisible={canRequestAudio}
+                                onRequestAudio={
+                                  canRequestAudio
+                                    ? () =>
+                                        requestAudioForBlock(parentElementBid)
+                                    : undefined
+                                }
+                                autoPlay={shouldAutoPlayElement}
+                                onPlayStateChange={isPlaying =>
+                                  handleAudioPlayStateChange(
+                                    parentElementBid,
+                                    isPlaying,
+                                  )
+                                }
+                                onEnded={() =>
+                                  handleAudioEnded(parentElementBid)
+                                }
+                                className='interaction-icon-btn'
+                                size={16}
+                              />
+                            ) : null
+                          }
+                        />
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
-                      key={`ask-${parentKey}`}
+                      key={`content-${baseKey}`}
                       style={{
                         position: 'relative',
-                        margin: '0 auto',
+                        margin:
+                          !idx || item.type === ChatContentItemType.INTERACTION
+                            ? '0 auto'
+                            : '40px auto 0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',
                         padding: getReadModeElementPadding(idx === 0),
                       }}
                     >
-                      <AskBlock
-                        isExpanded={item.isAskExpanded}
-                        shifu_bid={shifuBid}
-                        outline_bid={resolvedLessonId}
-                        preview_mode={previewMode}
-                        element_bid={item.parent_element_bid || ''}
-                        isOutputInProgress={isOutputInProgress}
-                        onToggleAskExpanded={toggleAskExpanded}
-                        askList={(item.ask_list || []) as any[]}
+                      {isLongPressed && mobileStyle && (
+                        <div className='long-press-overlay' />
+                      )}
+                      <ContentBlock
+                        item={item}
+                        mobileStyle={mobileStyle}
+                        blockBid={item.element_bid}
+                        confirmButtonText={confirmButtonText}
+                        copyButtonText={copyButtonText}
+                        copiedButtonText={copiedButtonText}
+                        onClickCustomButtonAfterContent={handleClickAskButton}
+                        onSend={memoizedOnSend}
+                        onLongPress={handleLongPress}
+                        autoPlayAudio={
+                          autoPlayTargetBlockBid === item.element_bid
+                        }
+                        showAudioAction={shouldShowAudioAction}
+                        onAudioPlayStateChange={handleAudioPlayStateChange}
+                        onAudioEnded={handleAudioEnded}
                       />
                     </div>
                   );
-                }
-
-                if (item.type === ChatContentItemType.LIKE_STATUS) {
-                  const parentElementBid = item.parent_element_bid || '';
-                  if (!parentElementBid) {
-                    return null;
-                  }
-                  const parentContentItem = parentElementBid
-                    ? itemByGeneratedBid.get(parentElementBid)
-                    : undefined;
-                  const parentPrimaryTrack = getAudioTrackByPosition(
-                    parentContentItem?.audioTracks ?? [],
-                  );
-                  const canRequestAudio =
-                    !previewMode && Boolean(parentElementBid);
-                  const hasAudioForElement =
-                    hasAudioContentInTrack(parentPrimaryTrack);
-                  const shouldAutoPlayElement =
-                    autoPlayTargetBlockBid === parentElementBid;
-                  const isInteractionFollowUp =
-                    parentContentItem?.type === ChatContentItemType.INTERACTION;
-                  const shouldRenderMobileAskAction =
-                    mobileStyle && isInteractionFollowUp;
-
-                  if (mobileStyle && !shouldRenderMobileAskAction) {
-                    return null;
-                  }
-
-                  return (
-                    <div
-                      key={`like-${parentKey}`}
-                      className={cn(!mobileStyle && 'flex justify-end')}
-                      style={{
-                        margin: '0 auto',
-                        maxWidth: mobileStyle ? '100%' : '1000px',
-                        padding: getReadModeElementPadding(idx === 0),
-                      }}
-                    >
-                      <InteractionBlock
-                        shifu_bid={shifuBid}
-                        element_bid={parentElementBid}
-                        className={
-                          isInteractionFollowUp
-                            ? 'interaction-block--no-padding-top'
-                            : undefined
-                        }
-                        readonly={item.readonly}
-                        disableAskButton={isInteractionFollowUp}
-                        onRefresh={onRefresh}
-                        onToggleAskExpanded={toggleAskExpanded}
-                        askButtonVariant={
-                          shouldRenderMobileAskAction ? 'content' : 'default'
-                        }
-                        showGenerateBtn={!mobileStyle && showGenerateBtn}
-                        extraActions={
-                          !mobileStyle &&
-                          shouldShowAudioAction &&
-                          (canRequestAudio || hasAudioForElement) ? (
-                            <AudioPlayer
-                              audioUrl={parentPrimaryTrack?.audioUrl}
-                              streamingSegments={
-                                parentPrimaryTrack?.audioSegments
-                              }
-                              isStreaming={Boolean(
-                                parentPrimaryTrack?.isAudioStreaming,
-                              )}
-                              alwaysVisible={canRequestAudio}
-                              onRequestAudio={
-                                canRequestAudio
-                                  ? () => requestAudioForBlock(parentElementBid)
-                                  : undefined
-                              }
-                              autoPlay={shouldAutoPlayElement}
-                              onPlayStateChange={isPlaying =>
-                                handleAudioPlayStateChange(
-                                  parentElementBid,
-                                  isPlaying,
-                                )
-                              }
-                              onEnded={() => handleAudioEnded(parentElementBid)}
-                              className='interaction-icon-btn'
-                              size={16}
-                            />
-                          ) : null
-                        }
-                      />
-                    </div>
-                  );
-                }
-
-                return (
+                })}
+                {shouldShowReadModeStreamingDots ? (
                   <div
-                    key={`content-${baseKey}`}
                     style={{
-                      position: 'relative',
-                      margin:
-                        !idx || item.type === ChatContentItemType.INTERACTION
-                          ? '0 auto'
-                          : '40px auto 0 auto',
+                      margin: readModeItems.length ? '16px auto 0' : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: getReadModeElementPadding(idx === 0),
                     }}
                   >
-                    {isLongPressed && mobileStyle && (
-                      <div className='long-press-overlay' />
-                    )}
-                    <ContentBlock
-                      item={item}
-                      mobileStyle={mobileStyle}
-                      blockBid={item.element_bid}
-                      confirmButtonText={confirmButtonText}
-                      copyButtonText={copyButtonText}
-                      copiedButtonText={copiedButtonText}
-                      onClickCustomButtonAfterContent={handleClickAskButton}
-                      onSend={memoizedOnSend}
-                      onLongPress={handleLongPress}
-                      autoPlayAudio={
-                        autoPlayTargetBlockBid === item.element_bid
-                      }
-                      showAudioAction={shouldShowAudioAction}
-                      onAudioPlayStateChange={handleAudioPlayStateChange}
-                      onAudioEnded={handleAudioEnded}
-                    />
-                    {isOutputInProgress &&
-                    item.type === ChatContentItemType.CONTENT &&
-                    item.element_bid === currentStreamingElementBid &&
-                    item.content?.trim() ? (
-                      <div>
-                        <StreamingLoadingDotsBar />
-                      </div>
-                    ) : null}
+                    <StreamingLoadingDotsBar />
                   </div>
-                );
-              })
+                ) : null}
+              </>
             )}
             <div
               ref={chatBoxBottomRef}

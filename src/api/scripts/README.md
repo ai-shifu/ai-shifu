@@ -68,3 +68,27 @@ The script provides helpful output:
 2. Copy `docker/.env.example.full` to `docker/.env`.
 3. Edit `.env` and configure at least one LLM API key plus any other secrets you need.
 4. Never commit `.env` to version control.
+
+## harness_diagnostics.py
+
+Summarizes backend log evidence for a specific `X-Request-ID` so browser smoke
+failures can be traced back to request-scoped server activity.
+
+### Usage
+
+From the `src/api` directory:
+
+```bash
+python scripts/harness_diagnostics.py --request-id <request-id>
+```
+
+### Output
+
+- request id and detection mode (`langfuse-configured` or `local-log-only`)
+- explicit trace-id hints when they appear in logs
+- a bounded excerpt of matching `ai-shifu.log*` lines
+- when the local dev observability stack is reachable, a Loki/Tempo/Prometheus
+  summary plus Grafana explore links for the same request context
+- the default dev harness now boots the API through
+  `scripts/repair_dev_migration_state.py` before rerunning Alembic, so
+  diagnostics can assume the self-healing path is part of normal startup
