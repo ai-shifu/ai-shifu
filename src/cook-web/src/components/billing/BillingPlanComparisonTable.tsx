@@ -394,8 +394,7 @@ export function BillingPlanComparisonTable({
                   <Button
                     className={cn(
                       styles.columnAction,
-                      col.action.tone === 'current' &&
-                        'disabled:opacity-100',
+                      col.action.tone === 'current' && 'disabled:opacity-100',
                     )}
                     data-testid={col.action.testId}
                     disabled={col.action.disabled || col.action.loading}
