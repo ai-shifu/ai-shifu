@@ -501,11 +501,11 @@ export default function AdminOperationCourseDetailPage() {
   }, [fetchDetail, isReady]);
 
   useEffect(() => {
-    if (!isReady) {
+    if (!isReady || activeTab !== 'users') {
       return;
     }
     fetchCourseUsers(courseUserPage, courseUserFilters);
-  }, [courseUserFilters, courseUserPage, fetchCourseUsers, isReady]);
+  }, [activeTab, courseUserFilters, courseUserPage, fetchCourseUsers, isReady]);
 
   const formatUnknownEnumLabel = useCallback(
     (labelKey: string, rawValue?: string) => {
@@ -1405,8 +1405,7 @@ export default function AdminOperationCourseDetailPage() {
 
               <TabsContent
                 value='chapters'
-                forceMount
-                className={cn('mt-0', activeTab !== 'chapters' && 'hidden')}
+                className='mt-0'
               >
                 <Card>
                   <CardHeader className='pb-4'>
@@ -1713,8 +1712,7 @@ export default function AdminOperationCourseDetailPage() {
 
               <TabsContent
                 value='users'
-                forceMount
-                className={cn('mt-0', activeTab !== 'users' && 'hidden')}
+                className='mt-0'
               >
                 <Card className='overflow-hidden border-border/80 shadow-sm ring-1 ring-border/40'>
                   <CardHeader className='gap-1.5 border-b border-border/70 bg-muted/[0.08] px-6 pb-2.5 pt-4'>

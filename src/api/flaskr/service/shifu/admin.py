@@ -2297,24 +2297,6 @@ def _load_outline_learning_stats(
         db.session.query(
             LearnLessonFeedback.outline_item_bid,
             db.func.count(LearnLessonFeedback.id),
-        )
-        .filter(
-            LearnLessonFeedback.shifu_bid == shifu_bid,
-            LearnLessonFeedback.deleted == 0,
-            LearnLessonFeedback.outline_item_bid.in_(normalized_outline_item_bids),
-        )
-        .group_by(LearnLessonFeedback.outline_item_bid)
-        .all()
-    )
-    rating_count_map = {
-        str(outline_item_bid or "").strip(): int(count or 0)
-        for outline_item_bid, count in rating_rows
-        if str(outline_item_bid or "").strip()
-    }
-
-    rating_score_rows = (
-        db.session.query(
-            LearnLessonFeedback.outline_item_bid,
             db.func.avg(LearnLessonFeedback.score),
         )
         .filter(
@@ -2325,11 +2307,14 @@ def _load_outline_learning_stats(
         .group_by(LearnLessonFeedback.outline_item_bid)
         .all()
     )
-    rating_score_map = {
-        str(outline_item_bid or "").strip(): _format_average_score(score)
-        for outline_item_bid, score in rating_score_rows
-        if str(outline_item_bid or "").strip()
-    }
+    rating_count_map: Dict[str, int] = {}
+    rating_score_map: Dict[str, str] = {}
+    for outline_item_bid, count, score in rating_rows:
+        normalized_outline_item_bid = str(outline_item_bid or "").strip()
+        if not normalized_outline_item_bid:
+            continue
+        rating_count_map[normalized_outline_item_bid] = int(count or 0)
+        rating_score_map[normalized_outline_item_bid] = _format_average_score(score)
 
     return follow_up_count_map, rating_count_map, rating_score_map
 

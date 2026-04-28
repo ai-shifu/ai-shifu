@@ -120,6 +120,63 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/Tabs', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const TabsContext = ReactModule.createContext<{
+    value: string;
+    onValueChange?: (value: string) => void;
+  }>({
+    value: '',
+  });
+
+  return {
+    __esModule: true,
+    Tabs: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange?: (value: string) => void;
+    }>) => (
+      <TabsContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </TabsContext.Provider>
+    ),
+    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsTrigger: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(TabsContext);
+      return (
+        <button
+          role='tab'
+          type='button'
+          aria-selected={context.value === value}
+          onClick={() => context.onValueChange?.(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+    TabsContent: ({
+      value,
+      children,
+      className,
+    }: React.PropsWithChildren<{
+      value: string;
+      className?: string;
+    }>) => {
+      const context = ReactModule.useContext(TabsContext);
+      if (context.value !== value) {
+        return null;
+      }
+      return <div className={className}>{children}</div>;
+    },
+  };
+});
+
 jest.mock('@/components/ui/Select', () => {
   const ReactModule = jest.requireActual('react') as typeof React;
   const SelectContext = ReactModule.createContext<{
@@ -187,6 +244,9 @@ describe('AdminOperationCourseDetailPage', () => {
         name: /module\.operationsCourse\.detail\.users/,
       }),
     );
+    await screen.findByRole('button', {
+      name: 'module.order.filters.search',
+    });
   };
 
   beforeEach(() => {
@@ -310,15 +370,7 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
     });
-    expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
-      shifu_bid: 'course-1',
-      page: 1,
-      page_size: 20,
-      keyword: '',
-      user_role: 'all',
-      learning_status: 'all',
-      payment_status: 'all',
-    });
+    expect(mockGetAdminOperationCourseUsers).not.toHaveBeenCalled();
 
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
@@ -355,6 +407,7 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(
       within(chapterRow as HTMLElement).getAllByText('--').length,
     ).toBeGreaterThanOrEqual(3);
+    await openUsersTab();
     const bobRow = screen.getAllByText('13900001234').at(-1)?.closest('tr');
     expect(bobRow).not.toBeNull();
     expect(within(bobRow as HTMLElement).getByText('Bob')).toBeInTheDocument();
@@ -608,6 +661,27 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   });
 
+  test('loads course users only after users tab is activated', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    expect(mockGetAdminOperationCourseUsers).not.toHaveBeenCalled();
+
+    await openUsersTab();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: '',
+        user_role: 'all',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+  });
+
   test('shows empty account when current site mode field is missing', async () => {
     mockGetAdminOperationCourseUsers.mockResolvedValue({
       items: [
@@ -635,6 +709,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
+    await screen.findByText('Course One');
     await openUsersTab();
     await waitFor(() => {
       expect(screen.getAllByText('--').length).toBeGreaterThan(0);
@@ -760,17 +835,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
-        shifu_bid: 'course-1',
-        page: 1,
-        page_size: 20,
-        keyword: '',
-        user_role: 'all',
-        learning_status: 'all',
-        payment_status: 'all',
-      });
-    });
+    await screen.findByText('Course One');
     await openUsersTab();
 
     fireEvent.click(
