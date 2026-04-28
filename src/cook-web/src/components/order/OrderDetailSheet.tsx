@@ -89,6 +89,8 @@ const OrderDetailSheet = ({
     () => ({
       pingxx: t('module.order.paymentChannel.pingxx'),
       stripe: t('module.order.paymentChannel.stripe'),
+      alipay: t('module.order.paymentChannel.alipay'),
+      wechatpay: t('module.order.paymentChannel.wechatpay'),
       manual: t('module.order.paymentChannel.manual'),
       open_api: t('module.order.paymentChannel.open_api'),
       unknown: t('module.order.paymentChannel.unknown'),
@@ -196,8 +198,9 @@ const OrderDetailSheet = ({
   const payment = detail?.payment;
   const paymentChannelLabel = summary?.payment_channel_key
     ? t(summary.payment_channel_key)
-    : paymentChannelLabels[summary?.payment_channel as 'pingxx' | 'stripe'] ||
-      paymentChannelLabels.unknown;
+    : paymentChannelLabels[
+        summary?.payment_channel as 'pingxx' | 'stripe' | 'alipay' | 'wechatpay'
+      ] || paymentChannelLabels.unknown;
   const paymentStatusLabel = payment?.status_key
     ? t(payment.status_key)
     : paymentStatusByCode[payment?.status ?? 0] || paymentStatusLabels.unknown;

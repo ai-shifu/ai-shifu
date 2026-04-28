@@ -222,6 +222,8 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   manual: 'module.billing.catalog.labels.providerManual',
   stripe: 'module.billing.catalog.labels.providerStripe',
   pingxx: 'module.billing.catalog.labels.providerPingxx',
+  alipay: 'module.billing.catalog.labels.providerAlipay',
+  wechatpay: 'module.billing.catalog.labels.providerWechatpay',
 };
 
 const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
@@ -849,7 +851,11 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.labels.perDay'),
     t('module.billing.catalog.labels.perMonth'),
     t('module.billing.catalog.labels.perYear'),
+    t('module.billing.catalog.labels.providerAlipay'),
     t('module.billing.catalog.labels.providerManual'),
+    t('module.billing.catalog.labels.providerPingxx'),
+    t('module.billing.catalog.labels.providerStripe'),
+    t('module.billing.catalog.labels.providerWechatpay'),
     t('module.billing.catalog.plans.creatorMonthly.description'),
     t('module.billing.catalog.plans.creatorMonthly.title'),
     t('module.billing.catalog.plans.creatorMonthlyPro.description'),

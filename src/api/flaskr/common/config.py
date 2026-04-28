@@ -780,6 +780,87 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Ping++ application identifier",
         group="payment",
     ),
+    "ALIPAY_APP_ID": EnvVar(
+        name="ALIPAY_APP_ID",
+        default="",
+        description="Alipay Open Platform application identifier",
+        group="payment",
+    ),
+    "ALIPAY_APP_PRIVATE_KEY_PATH": EnvVar(
+        name="ALIPAY_APP_PRIVATE_KEY_PATH",
+        default="",
+        description="Filesystem path to the Alipay application private key",
+        secret=True,
+        group="payment",
+    ),
+    "ALIPAY_PUBLIC_KEY_PATH": EnvVar(
+        name="ALIPAY_PUBLIC_KEY_PATH",
+        default="",
+        description="Filesystem path to the Alipay platform public key",
+        group="payment",
+    ),
+    "ALIPAY_GATEWAY_URL": EnvVar(
+        name="ALIPAY_GATEWAY_URL",
+        default="https://openapi.alipay.com/gateway.do",
+        description="Alipay OpenAPI gateway URL",
+        group="payment",
+    ),
+    "ALIPAY_NOTIFY_URL": EnvVar(
+        name="ALIPAY_NOTIFY_URL",
+        default="",
+        description="Public callback URL for Alipay asynchronous payment notifications",
+        group="payment",
+    ),
+    "WECHATPAY_APP_ID": EnvVar(
+        name="WECHATPAY_APP_ID",
+        default="",
+        description="WeChat Pay app identifier, defaults to WECHAT_APP_ID if empty",
+        group="payment",
+    ),
+    "WECHATPAY_MCH_ID": EnvVar(
+        name="WECHATPAY_MCH_ID",
+        default="",
+        description="WeChat Pay merchant identifier",
+        group="payment",
+    ),
+    "WECHATPAY_BASE_URL": EnvVar(
+        name="WECHATPAY_BASE_URL",
+        default="https://api.mch.weixin.qq.com",
+        description="WeChat Pay API base URL",
+        group="payment",
+    ),
+    "WECHATPAY_API_V3_KEY": EnvVar(
+        name="WECHATPAY_API_V3_KEY",
+        default="",
+        description="WeChat Pay API v3 key used to decrypt notifications",
+        secret=True,
+        group="payment",
+    ),
+    "WECHATPAY_MERCHANT_SERIAL_NO": EnvVar(
+        name="WECHATPAY_MERCHANT_SERIAL_NO",
+        default="",
+        description="WeChat Pay merchant certificate serial number",
+        group="payment",
+    ),
+    "WECHATPAY_PRIVATE_KEY_PATH": EnvVar(
+        name="WECHATPAY_PRIVATE_KEY_PATH",
+        default="",
+        description="Filesystem path to the WeChat Pay merchant private key",
+        secret=True,
+        group="payment",
+    ),
+    "WECHATPAY_PLATFORM_CERT_PATH": EnvVar(
+        name="WECHATPAY_PLATFORM_CERT_PATH",
+        default="",
+        description="Filesystem path to the WeChat Pay platform certificate for notification verification",
+        group="payment",
+    ),
+    "WECHATPAY_NOTIFY_URL": EnvVar(
+        name="WECHATPAY_NOTIFY_URL",
+        default="",
+        description="Public callback URL for WeChat Pay asynchronous payment notifications",
+        group="payment",
+    ),
     "STRIPE_SECRET_KEY": EnvVar(
         name="STRIPE_SECRET_KEY",
         default="",
@@ -841,7 +922,10 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "PAYMENT_CHANNELS_ENABLED": EnvVar(
         name="PAYMENT_CHANNELS_ENABLED",
         default="pingxx,stripe",
-        description="Comma-separated list of enabled payment providers (e.g., pingxx,stripe)",
+        description=(
+            "Comma-separated list of enabled payment providers "
+            "(e.g., wechatpay,alipay,pingxx,stripe)"
+        ),
         group="payment",
     ),
     "PAY_ORDER_EXPIRE_TIME": EnvVar(

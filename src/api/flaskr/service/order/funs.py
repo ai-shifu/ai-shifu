@@ -50,16 +50,29 @@ from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
+from flaskr.service.common.native_payment_status import (
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    native_snapshot_status,
+)
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
-from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+from flaskr.service.order.models import (
+    Order,
+    PingxxOrder,
+    StripeOrder,
+)
 from flaskr.service.order.raw_snapshots import (
     RAW_BIZ_DOMAIN_ORDER,
+    legacy_native_snapshot_query,
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
+    native_snapshot_model,
+    should_update_native_snapshot_status,
+    upsert_native_snapshot,
 )
 import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
@@ -175,6 +188,8 @@ def send_order_feishu(app: Flask, record_id: str):
     _CHANNEL_LABEL = {
         "pingxx": "用户购买 (Pingxx)",
         "stripe": "用户购买 (Stripe)",
+        "alipay": "用户购买 (支付宝)",
+        "wechatpay": "用户购买 (微信支付)",
         "manual": "手动导入",
         "open_api": "Open API",
     }
@@ -582,6 +597,32 @@ def generate_charge(
                 order_no=order_no,
             )
 
+        if payment_channel == "alipay":
+            return _generate_alipay_charge(
+                app=app,
+                buy_record=buy_record,
+                course=shifu_info,
+                channel=provider_channel,
+                client_ip=client_ip,
+                amount=amount,
+                subject=subject,
+                body=body,
+                order_no=order_no,
+            )
+
+        if payment_channel == "wechatpay":
+            return _generate_wechatpay_charge(
+                app=app,
+                buy_record=buy_record,
+                course=shifu_info,
+                channel=provider_channel,
+                client_ip=client_ip,
+                amount=amount,
+                subject=subject,
+                body=body,
+                order_no=order_no,
+            )
+
         app.logger.error("payment channel not support: %s", payment_channel)
         raise_error("server.pay.payChannelNotSupport")
 
@@ -856,6 +897,194 @@ def _generate_stripe_charge(
     )
 
 
+def _generate_alipay_charge(
+    *,
+    app: Flask,
+    buy_record: Order,
+    course: LearnShifuInfoDTO,
+    channel: str,
+    client_ip: str,
+    amount: int,
+    subject: str,
+    body: str,
+    order_no: str,
+) -> BuyRecordDTO:
+    provider = get_payment_provider("alipay")
+    sanitized_subject = _sanitize_pingxx_text(
+        subject,
+        fallback=course.title or "订单支付",
+        max_length=64,
+    )
+    sanitized_body = _sanitize_pingxx_text(
+        body,
+        fallback=sanitized_subject,
+        max_length=128,
+    )
+    payment_request = PaymentRequest(
+        order_bid=order_no,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        channel=channel,
+        currency="CNY",
+        subject=sanitized_subject,
+        body=sanitized_body,
+        client_ip=client_ip,
+        extra={
+            "metadata": {
+                "order_bid": buy_record.order_bid,
+                "user_bid": buy_record.user_bid,
+                "shifu_bid": buy_record.shifu_bid,
+            }
+        },
+    )
+    result = provider.create_payment(request=payment_request, app=app)
+    credential = result.extra.get("credential", {}) or {}
+    qr_url = str(result.extra.get("qr_url") or credential.get("alipay_qr") or "")
+
+    buy_record.status = ORDER_STATUS_TO_BE_PAID
+    snapshot = upsert_native_snapshot(
+        biz_domain=RAW_BIZ_DOMAIN_ORDER,
+        payment_provider="alipay",
+        native_payment_order_bid=order_no,
+        provider_attempt_id=str(result.provider_reference or order_no),
+        order_bid=buy_record.order_bid,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        currency="CNY",
+        raw_status="pending",
+        raw_snapshot_status=0,
+        channel=channel,
+        raw_request=result.extra.get("raw_request") or {},
+        raw_response=result.raw_response,
+        metadata={
+            "course_bid": course.bid,
+            "subject": sanitized_subject,
+            "body": sanitized_body,
+        },
+    )
+    db.session.add(snapshot)
+    db.session.commit()
+    return BuyRecordDTO(
+        buy_record.order_bid,
+        buy_record.user_bid,
+        buy_record.paid_price,
+        channel,
+        qr_url,
+        payment_channel="alipay",
+        payment_payload={
+            "qr_url": qr_url,
+            "credential": credential,
+        },
+    )
+
+
+def _generate_wechatpay_charge(
+    *,
+    app: Flask,
+    buy_record: Order,
+    course: LearnShifuInfoDTO,
+    channel: str,
+    client_ip: str,
+    amount: int,
+    subject: str,
+    body: str,
+    order_no: str,
+) -> BuyRecordDTO:
+    provider = get_payment_provider("wechatpay")
+    sanitized_subject = _sanitize_pingxx_text(
+        subject,
+        fallback=course.title or "订单支付",
+        max_length=127,
+    )
+    sanitized_body = _sanitize_pingxx_text(
+        body,
+        fallback=sanitized_subject,
+        max_length=127,
+    )
+    extra: Dict[str, Any] = {
+        "metadata": {
+            "order_bid": buy_record.order_bid,
+            "user_bid": buy_record.user_bid,
+            "shifu_bid": buy_record.shifu_bid,
+        }
+    }
+    if channel == "wx_pub":
+        user = load_user_aggregate(buy_record.user_bid)
+        open_id = str(user.wechat_open_id or "").strip() if user else ""
+        if not open_id:
+            raise_error("server.pay.wechatOpenIdRequired")
+        extra["open_id"] = open_id
+
+    payment_request = PaymentRequest(
+        order_bid=order_no,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        channel=channel,
+        currency="CNY",
+        subject=sanitized_subject,
+        body=sanitized_body,
+        client_ip=client_ip,
+        extra=extra,
+    )
+    result = provider.create_payment(request=payment_request, app=app)
+    credential = result.extra.get("credential", {}) or {}
+    qr_url = str(result.extra.get("qr_url") or credential.get("wx_pub_qr") or "")
+
+    buy_record.status = ORDER_STATUS_TO_BE_PAID
+    metadata = {
+        "course_bid": course.bid,
+        "subject": sanitized_subject,
+        "body": sanitized_body,
+    }
+    if result.extra.get("prepay_id"):
+        metadata["prepay_id"] = result.extra.get("prepay_id")
+    snapshot = upsert_native_snapshot(
+        biz_domain=RAW_BIZ_DOMAIN_ORDER,
+        payment_provider="wechatpay",
+        native_payment_order_bid=order_no,
+        provider_attempt_id=str(result.provider_reference or order_no),
+        order_bid=buy_record.order_bid,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        currency="CNY",
+        raw_status="pending",
+        raw_snapshot_status=0,
+        channel=channel,
+        raw_request=result.extra.get("raw_request") or {},
+        raw_response=result.raw_response,
+        metadata=metadata,
+    )
+    db.session.add(snapshot)
+    db.session.commit()
+
+    payment_payload: Dict[str, Any] = {
+        "qr_url": qr_url,
+        "credential": credential,
+    }
+    if result.extra.get("mode") == "jsapi":
+        payment_payload.update(
+            {
+                "mode": "jsapi",
+                "prepay_id": result.extra.get("prepay_id"),
+                "jsapi_params": result.extra.get("jsapi_params") or {},
+            }
+        )
+
+    return BuyRecordDTO(
+        buy_record.order_bid,
+        buy_record.user_bid,
+        buy_record.paid_price,
+        channel,
+        qr_url,
+        payment_channel="wechatpay",
+        payment_payload=payment_payload,
+    )
+
+
 def sync_stripe_checkout_session(
     app: Flask,
     order_id: str,
@@ -920,6 +1149,89 @@ def sync_stripe_checkout_session(
         return get_payment_details(app, order.order_bid)
 
 
+def sync_native_payment_order(
+    app: Flask,
+    order_id: str,
+    *,
+    expected_user: Optional[str] = None,
+    payment_channel: Optional[str] = None,
+):
+    with app.app_context():
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_id,
+                Order.deleted == 0,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if not order:
+            raise_error("server.order.orderNotFound")
+        if expected_user and order.user_bid != expected_user:
+            raise_error("server.order.orderNotFound")
+
+        provider_name = str(payment_channel or order.payment_channel or "").lower()
+        if provider_name == "stripe":
+            return sync_stripe_checkout_session(
+                app,
+                order_id,
+                expected_user=expected_user,
+            )
+        if provider_name not in {"alipay", "wechatpay"}:
+            raise_error("server.pay.payChannelNotSupport")
+
+        native_model = native_snapshot_model(provider_name)
+        snapshot = (
+            legacy_native_snapshot_query(provider_name)
+            .filter(
+                native_model.order_bid == order.order_bid,
+            )
+            .order_by(native_model.id.desc())
+            .first()
+        )
+        if snapshot is None:
+            raise_error("server.order.orderNotFound")
+        if not snapshot.provider_attempt_id:
+            raise_error("server.order.orderNotFound")
+
+        provider = get_payment_provider(provider_name)
+        sync_result = provider.sync_reference(
+            provider_reference=snapshot.provider_attempt_id,
+            reference_type="payment",
+            app=app,
+        )
+        _apply_native_snapshot_update(
+            snapshot=snapshot,
+            provider=provider_name,
+            notification=sync_result,
+            source="sync",
+        )
+        actual_amount = _extract_native_notification_amount(
+            provider_name,
+            sync_result.provider_payload or {},
+        )
+        amount_matches = True
+        if actual_amount is not None and int(snapshot.amount or 0) != actual_amount:
+            amount_matches = False
+            app.logger.warning(
+                "native payment sync amount mismatch provider=%s order_bid=%s provider_attempt_id=%s expected=%s actual=%s",
+                provider_name,
+                order.order_bid,
+                snapshot.provider_attempt_id,
+                snapshot.amount,
+                actual_amount,
+            )
+        if (
+            _is_native_payment_successful(provider_name, sync_result.provider_payload)
+            and amount_matches
+            and order.status != ORDER_STATUS_SUCCESS
+        ):
+            success_buy_record(app, order.order_bid)
+        db.session.add(snapshot)
+        db.session.commit()
+        return get_payment_details(app, order.order_bid)
+
+
 def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
@@ -966,6 +1278,92 @@ def _is_stripe_payment_successful(
     if intent and intent.get("status") == "succeeded":
         return True
     return False
+
+
+def _apply_native_snapshot_update(
+    *,
+    snapshot: Any,
+    provider: str,
+    notification: PaymentNotificationResult,
+    source: str,
+) -> None:
+    payload = notification.provider_payload or {}
+    raw_status = _native_raw_status(provider, payload, notification.status)
+    incoming_status = _native_snapshot_status(provider, payload, raw_status)
+    if should_update_native_snapshot_status(snapshot.status, incoming_status):
+        snapshot.raw_status = raw_status
+        snapshot.status = incoming_status
+    if notification.charge_id:
+        snapshot.transaction_id = notification.charge_id
+    if notification.order_bid:
+        snapshot.provider_attempt_id = notification.order_bid
+    if source == "webhook":
+        snapshot.raw_notification = _stringify_payload(payload)
+    else:
+        snapshot.raw_response = _stringify_payload(payload)
+    metadata = _parse_json_payload(snapshot.metadata_json)
+    if not isinstance(metadata, dict):
+        metadata = {}
+    metadata["latest_source"] = source
+    metadata["latest_provider_payload"] = payload
+    snapshot.metadata_json = _stringify_payload(metadata)
+
+
+def _native_raw_status(
+    provider: str,
+    payload: Dict[str, Any],
+    fallback: str = "",
+) -> str:
+    return extract_native_trade_status(provider, payload) or str(fallback or "")
+
+
+def _native_snapshot_status(
+    provider: str,
+    payload: Dict[str, Any],
+    raw_status: str,
+) -> int:
+    if raw_status and not extract_native_trade_status(provider, payload):
+        payload = (
+            {"trade_status": raw_status}
+            if provider == "alipay"
+            else {"trade_state": raw_status}
+        )
+    return native_snapshot_status(provider, payload)
+
+
+def _is_native_payment_successful(
+    provider: str,
+    payload: Dict[str, Any],
+) -> bool:
+    raw_status = _native_raw_status(provider, payload)
+    return _native_snapshot_status(provider, payload, raw_status) == 1
+
+
+def _extract_native_notification_amount(
+    provider: str,
+    payload: Dict[str, Any],
+) -> Optional[int]:
+    trade_payload = extract_native_trade_payload(payload)
+    if provider == "alipay":
+        total_amount = (
+            trade_payload.get("total_amount")
+            if isinstance(trade_payload, dict)
+            else None
+        )
+        if total_amount in (None, ""):
+            return None
+        return int((decimal.Decimal(str(total_amount)) * 100).to_integral_value())
+    if provider == "wechatpay":
+        amount = (
+            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
+        )
+        if not isinstance(amount, dict):
+            return None
+        value = amount.get("payer_total", amount.get("total"))
+        if value in (None, ""):
+            return None
+        return int(value)
+    return None
 
 
 def _inject_order_query(url: str, order_id: str) -> str:
@@ -1246,6 +1644,35 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
                 ),
             }
 
+        if payment_channel in {"alipay", "wechatpay"}:
+            native_model = native_snapshot_model(payment_channel)
+            native_order = (
+                legacy_native_snapshot_query(payment_channel)
+                .filter(
+                    native_model.order_bid == order.order_bid,
+                )
+                .order_by(native_model.id.desc())
+                .first()
+            )
+            if not native_order:
+                raise_error("server.order.orderNotFound")
+            return {
+                "payment_channel": payment_channel,
+                "course_id": order.shifu_bid,
+                "order_bid": order_bid,
+                "provider_attempt_id": native_order.provider_attempt_id,
+                "transaction_id": native_order.transaction_id,
+                "status": native_order.status,
+                "raw_status": native_order.raw_status,
+                "amount": native_order.amount,
+                "currency": native_order.currency,
+                "channel": native_order.channel,
+                "metadata": _parse_json_payload(native_order.metadata_json),
+                "raw_request": _parse_json_payload(native_order.raw_request),
+                "raw_response": _parse_json_payload(native_order.raw_response),
+                "raw_notification": _parse_json_payload(native_order.raw_notification),
+            }
+
         pingxx_order = (
             legacy_pingxx_snapshot_query()
             .filter(PingxxOrder.order_bid == order.order_bid)
@@ -1267,6 +1694,96 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             "extra": pingxx_order.extra,
             "charge_object": pingxx_order.charge_object,
         }
+
+
+def success_buy_record_from_native(
+    app: Flask,
+    provider_name: str,
+    notification: PaymentNotificationResult,
+) -> bool:
+    with app.app_context():
+        provider = str(provider_name or "").strip().lower()
+        if provider not in {"alipay", "wechatpay"}:
+            raise_error("server.pay.payChannelNotSupport")
+        provider_attempt_id = str(notification.order_bid or "").strip()
+        transaction_id = str(notification.charge_id or "").strip()
+        native_model = native_snapshot_model(provider)
+        query = legacy_native_snapshot_query(provider)
+        if provider_attempt_id:
+            native_order = (
+                query.filter(native_model.provider_attempt_id == provider_attempt_id)
+                .order_by(native_model.id.desc())
+                .first()
+            )
+        elif transaction_id:
+            native_order = (
+                query.filter(native_model.transaction_id == transaction_id)
+                .order_by(native_model.id.desc())
+                .first()
+            )
+        else:
+            native_order = None
+        if native_order is None:
+            return False
+
+        lock_key = (
+            "success_buy_record_from_native"
+            f":{provider}:{provider_attempt_id or transaction_id or native_order.id}"
+        )
+        lock = cache_provider.lock(lock_key, timeout=10, blocking_timeout=10)
+        if not lock:
+            app.logger.error("native payment success lock unavailable key=%s", lock_key)
+            return False
+        if not lock.acquire(blocking=True):
+            app.logger.error("native payment success lock failed key=%s", lock_key)
+            return False
+
+        try:
+            native_order = native_model.query.filter(
+                native_model.id == native_order.id,
+                native_model.deleted == 0,
+            ).first()
+            if native_order is None:
+                return False
+
+            actual_amount = _extract_native_notification_amount(
+                provider,
+                notification.provider_payload or {},
+            )
+            if (
+                actual_amount is not None
+                and int(native_order.amount or 0) != actual_amount
+            ):
+                raise RuntimeError("Native payment amount mismatch")
+
+            buy_record: Order = Order.query.filter(
+                Order.order_bid == native_order.order_bid,
+                Order.deleted == 0,
+            ).first()
+            if not buy_record:
+                return False
+
+            _apply_native_snapshot_update(
+                snapshot=native_order,
+                provider=provider,
+                notification=notification,
+                source="webhook",
+            )
+            db.session.add(native_order)
+
+            if (
+                _is_native_payment_successful(
+                    provider,
+                    notification.provider_payload or {},
+                )
+                and buy_record.status == ORDER_STATUS_TO_BE_PAID
+            ):
+                success_buy_record(app, buy_record.order_bid)
+            else:
+                db.session.commit()
+            return True
+        finally:
+            lock.release()
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
