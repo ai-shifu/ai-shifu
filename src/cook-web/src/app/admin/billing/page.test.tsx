@@ -284,8 +284,11 @@ describe('AdminBillingPage', () => {
   test('renders tab triggers and defaults to packages tab', async () => {
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
+    const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
+    expect(packagesPanel).toHaveClass('flex-1');
+    expect(packagesPanel).toHaveClass('overflow-y-auto');
     expect(
       within(tabs).getByRole('tab', {
         name: 'module.billing.page.tabs.plans',
@@ -434,6 +437,9 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
+      'overflow-y-auto',
+    );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({
       timezone: 'Asia/Shanghai',
     });
