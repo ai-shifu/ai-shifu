@@ -187,6 +187,31 @@ def _format_promotion_admin_datetime(value: Optional[datetime]) -> str:
     if not value:
         return ""
 
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return ""
+        parsed_value = None
+        for candidate in (
+            normalized.replace("Z", "+00:00"),
+            normalized.replace(" ", "T"),
+        ):
+            try:
+                parsed_value = datetime.fromisoformat(candidate)
+                break
+            except ValueError:
+                continue
+        if parsed_value is None:
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+                try:
+                    parsed_value = datetime.strptime(normalized, fmt)
+                    break
+                except ValueError:
+                    continue
+        if parsed_value is None:
+            raise_param_error("promotion_datetime")
+        value = parsed_value
+
     app = current_app._get_current_object()
     source_tz = get_app_timezone(app, PROMOTION_ADMIN_SOURCE_TIMEZONE)
     target_tz = get_app_timezone(app, "UTC")

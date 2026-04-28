@@ -9,6 +9,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.promo.admin import _format_promotion_admin_datetime
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_SPECIFIC,
     COUPON_STATUS_USED,
@@ -1570,6 +1571,14 @@ def test_admin_promotions_campaign_update_ignores_null_end_time(
         )
         assert campaign.end_at == datetime.strptime(
             "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
+        )
+
+
+def test_format_promotion_admin_datetime_accepts_string_value(app):
+    with app.app_context():
+        assert (
+            _format_promotion_admin_datetime("2026-04-28 14:38:41")
+            == "2026-04-28T06:38:41Z"
         )
 
 
