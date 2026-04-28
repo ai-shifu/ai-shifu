@@ -514,6 +514,7 @@ export const NewChatComponents = ({
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
     !readModeItems.some(item => item.element_bid === 'loading');
+  const isReadModeStreamingDotsFirstElement = readModeItems.length === 0;
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1283,7 +1284,9 @@ export const NewChatComponents = ({
                     style={{
                       margin: readModeItems.length ? '16px auto 0' : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
-                      padding: getReadModeElementPadding(idx === 0),
+                      padding: getReadModeElementPadding(
+                        isReadModeStreamingDotsFirstElement,
+                      ),
                     }}
                   >
                     <StreamingLoadingDotsBar />
