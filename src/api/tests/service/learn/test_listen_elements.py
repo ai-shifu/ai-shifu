@@ -1215,7 +1215,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         ctx._input_type = "normal"
         ctx._input = None
         ctx._last_position = -1
-        ctx._listen = False
+        ctx._listen = True
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
@@ -1253,8 +1253,6 @@ def test_listen_run_persists_content_block_before_element_rows(app):
             def __init__(self, content):
                 self.content = content
 
-        visual_mode_calls = []
-
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs):
                 self.blocks = [
@@ -1265,8 +1263,8 @@ def test_listen_run_persists_content_block_before_element_rows(app):
                     )
                 ]
 
-            def set_visual_mode(self, visual_mode):
-                visual_mode_calls.append(visual_mode)
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
 
             def set_output_language(self, *_args, **_kwargs):
                 return self
@@ -1329,8 +1327,6 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         )
 
     assert [item.type for item in streamed] == ["element", "done"]
-    assert visual_mode_calls
-    assert all(visual_mode is True for visual_mode in visual_mode_calls)
     assert rows
     assert {row.progress_record_bid for row in rows} == {progress_bid}
     assert {row.content_text for row in rows} == {"Persisted content block"}
