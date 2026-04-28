@@ -373,7 +373,7 @@ export function BillingPlanComparisonTable({
                             className={cn(
                               styles.columnAction,
                               col.action.tone === 'current' &&
-                                styles.columnActionCurrent,
+                                'disabled:opacity-100',
                             )}
                             data-testid={col.action.testId}
                             disabled={col.action.disabled || col.action.loading}
@@ -395,7 +395,7 @@ export function BillingPlanComparisonTable({
                     className={cn(
                       styles.columnAction,
                       col.action.tone === 'current' &&
-                        styles.columnActionCurrent,
+                        'disabled:opacity-100',
                     )}
                     data-testid={col.action.testId}
                     disabled={col.action.disabled || col.action.loading}
