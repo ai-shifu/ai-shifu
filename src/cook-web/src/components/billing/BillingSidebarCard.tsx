@@ -80,9 +80,7 @@ export function BillingSidebarCard({
           <span className='shrink-0'>
             {t('module.billing.sidebar.nonMemberBalanceTitle')}
           </span>
-          <span className='truncate pr-1'>
-            {creditsValue}
-          </span>
+          <span className='truncate pr-1'>{creditsValue}</span>
         </div>
         <div className='flex min-w-0 items-center justify-between gap-3 pt-2.5 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[rgba(10,10,10,0.45)]'>
           <div className='min-w-0'>
@@ -95,7 +93,9 @@ export function BillingSidebarCard({
             onClick={event => event.stopPropagation()}
             className='inline-flex shrink-0 items-center gap-1 leading-none transition-colors hover:text-[rgba(10,10,10,0.6)]'
           >
-            <span className='leading-5'>{t('module.billing.sidebar.usageCta')}</span>
+            <span className='leading-5'>
+              {t('module.billing.sidebar.usageCta')}
+            </span>
             <ChevronRight className='h-4 w-4 shrink-0 text-[rgba(10,10,10,0.45)]' />
           </Link>
         </div>
