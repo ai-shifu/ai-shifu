@@ -63,7 +63,10 @@ function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
 
 function shortenIntervalLabel(label: string): string {
   if (!label) return '';
-  return label.replace(/^每\s*/, '').replace(/^per\s*/i, '').trim();
+  return label
+    .replace(/^每\s*/, '')
+    .replace(/^per\s*/i, '')
+    .trim();
 }
 
 function resolveCheckoutProvider(
