@@ -78,13 +78,22 @@ function resolveCheckoutProvider(
   return null;
 }
 
+type ActionTone = 'primary' | 'current' | 'muted';
+
 type ColumnAction = {
   label: string;
   loading: boolean;
   disabled: boolean;
+  tone: ActionTone;
   tooltip?: string;
   onClick?: () => void;
   testId: string;
+};
+
+const TONE_VARIANT: Record<ActionTone, 'default' | 'secondary'> = {
+  primary: 'default',
+  current: 'default',
+  muted: 'secondary',
 };
 
 type ColumnDescriptor = {
@@ -231,6 +240,8 @@ export function BillingPlanComparisonTable({
         ),
         loading: false,
         disabled: true,
+        tone:
+          !hasActiveSubscription || isTrialCurrentPlan ? 'current' : 'muted',
         tooltip: !hasActiveSubscription
           ? t('module.billing.package.actions.nonMemberTooltip')
           : undefined,
@@ -288,6 +299,11 @@ export function BillingPlanComparisonTable({
               : t('module.billing.package.actions.subscribeNow'),
         loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
         disabled: !provider || isCurrentPlan || isDowngradeLocked,
+        tone: isCurrentPlan
+          ? 'current'
+          : isDowngradeLocked
+            ? 'muted'
+            : 'primary',
         tooltip: isDowngradeLocked
           ? t('module.billing.package.actions.upgradeOnlyTooltip')
           : undefined,
@@ -317,73 +333,70 @@ export function BillingPlanComparisonTable({
         </colgroup>
         <thead>
           <tr>
-            {columns.map(col => (
-              <th
-                key={col.key}
-                className={cn(
-                  styles.columnHead,
-                  col.featured && styles.featuredColumn,
-                )}
-                data-testid={col.testId}
-                data-featured={col.featured ? 'true' : 'false'}
-              >
-                <div className={styles.columnTitleRow}>
-                  <span className={styles.columnTitle}>{col.title}</span>
-                  {col.badgeLabel ? (
-                    <span className={styles.columnBadge}>
-                      <Star className={styles.columnBadgeIcon} />
-                      {col.badgeLabel}
-                    </span>
-                  ) : null}
-                </div>
-                <div className={styles.columnPrice}>
-                  {col.periodLabel
-                    ? `${col.priceLabel} / ${col.periodLabel}`
-                    : col.priceLabel}
-                </div>
-                <div className={styles.columnCreditAmount}>
-                  {col.creditAmount}
-                </div>
-                {col.action.tooltip ? (
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={styles.columnActionWrap}
-                          data-testid={`${col.action.testId}-trigger`}
-                          tabIndex={0}
-                        >
-                          <Button
-                            className={styles.columnAction}
-                            data-testid={col.action.testId}
-                            disabled={col.action.disabled || col.action.loading}
-                            onClick={col.action.onClick}
-                            type='button'
-                            variant='secondary'
+            {columns.map(col => {
+              const actionButton = (
+                <Button
+                  className={cn(
+                    styles.columnAction,
+                    col.action.tone === 'current' && 'disabled:opacity-100',
+                  )}
+                  data-testid={col.action.testId}
+                  disabled={col.action.disabled || col.action.loading}
+                  onClick={col.action.onClick}
+                  type='button'
+                  variant={TONE_VARIANT[col.action.tone]}
+                >
+                  {col.action.loading ? processingLabel : col.action.label}
+                </Button>
+              );
+              return (
+                <th
+                  key={col.key}
+                  className={cn(
+                    styles.columnHead,
+                    col.featured && styles.featuredColumn,
+                  )}
+                  data-testid={col.testId}
+                  data-featured={col.featured ? 'true' : 'false'}
+                >
+                  <div className={styles.columnTitleRow}>
+                    <span className={styles.columnTitle}>{col.title}</span>
+                    {col.badgeLabel ? (
+                      <span className={styles.columnBadge}>
+                        <Star className={styles.columnBadgeIcon} />
+                        {col.badgeLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className={styles.columnPrice}>
+                    {col.periodLabel
+                      ? `${col.priceLabel} / ${col.periodLabel}`
+                      : col.priceLabel}
+                  </div>
+                  <div className={styles.columnCreditAmount}>
+                    {col.creditAmount}
+                  </div>
+                  {col.action.tooltip ? (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={styles.columnActionWrap}
+                            data-testid={`${col.action.testId}-trigger`}
+                            tabIndex={0}
                           >
-                            {col.action.loading
-                              ? processingLabel
-                              : col.action.label}
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>{col.action.tooltip}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Button
-                    className={styles.columnAction}
-                    data-testid={col.action.testId}
-                    disabled={col.action.disabled || col.action.loading}
-                    onClick={col.action.onClick}
-                    type='button'
-                    variant='secondary'
-                  >
-                    {col.action.loading ? processingLabel : col.action.label}
-                  </Button>
-                )}
-              </th>
-            ))}
+                            {actionButton}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{col.action.tooltip}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    actionButton
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

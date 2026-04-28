@@ -180,17 +180,6 @@ $color-on-accent: #fff;
   color: $color-accent;
 }
 
-.featuredColumn .columnAction:not(:disabled) {
-  background: $color-accent;
-  color: $color-on-accent;
-}
-
-.featuredColumn .columnAction:disabled {
-  background: $color-accent;
-  color: $color-on-accent;
-  opacity: 0.6;
-}
-
 // ============================================================================
 // Body rows (scenario, data, features)
 // ============================================================================
