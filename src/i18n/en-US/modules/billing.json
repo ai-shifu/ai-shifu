@@ -527,7 +527,7 @@
       },
       "common": {
         "allLearning": "All learning features",
-        "allTeachingAndLearning": "Full teaching and learning features",
+        "allTeachingAndLearning": "All teaching & research features",
         "createDebugPublish": "Create, debug, and publish courses",
         "higherConcurrency": "Higher concurrency support",
         "unlimitedCourses": "Unlimited courses"
@@ -549,7 +549,7 @@
         "concurrencyQuota": "Higher concurrency quota",
         "dedicatedSupport": "Dedicated technical support",
         "includesLabel": "Everything in Pro, and:",
-        "onboarding": "One exclusive course-building training session"
+        "onboarding": "Exclusive course-building training session"
       },
       "pro": {
         "branding": "Custom branding",
@@ -567,7 +567,7 @@
           "branding": "Custom branding",
           "domain": "Custom domain",
           "priority": "Dedicated technical support",
-          "support": "One exclusive course-building training session"
+          "support": "Exclusive course-building training session"
         },
         "pro": {
           "analytics": "Priority technical support",
@@ -596,7 +596,7 @@
     },
     "scale": {
       "advanced": {
-        "students": "Around 300 learners"
+        "students": "Up to ~500 learners"
       },
       "basic": {
         "students": "Around 10 learners"
@@ -608,10 +608,10 @@
         "students": "Around 3 learners"
       },
       "premium": {
-        "students": "Around 1000 learners"
+        "students": "Up to ~1,500 learners"
       },
       "pro": {
-        "students": "Around 500 learners"
+        "students": "Up to ~1,000 learners"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -649,7 +649,7 @@
     "validityTooltip": {
       "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
       "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 2 of the next year). Counted to 23:59 on the expiry day."
+      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 1 of the next year). Counted to 23:59 on the expiry day."
     }
   },
   "page": {

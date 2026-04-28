@@ -527,7 +527,7 @@
       },
       "common": {
         "allLearning": "全部学习功能",
-        "allTeachingAndLearning": "完整授课和学习功能",
+        "allTeachingAndLearning": "全部教研教学功能",
         "createDebugPublish": "创建、调试和发布课程",
         "higherConcurrency": "更高并发支持",
         "unlimitedCourses": "不限课程数"
@@ -549,7 +549,7 @@
         "concurrencyQuota": "更高并发任务配额",
         "dedicatedSupport": "专属技术支持",
         "includesLabel": "享有高阶版全部权益，以及：",
-        "onboarding": "一次专属课程制作培训"
+        "onboarding": "专属课程制作培训"
       },
       "pro": {
         "branding": "自定义品牌标识",
@@ -567,7 +567,7 @@
           "branding": "自定义品牌标识",
           "domain": "自定义域名",
           "priority": "专属技术支持",
-          "support": "一次专属课程制作培训"
+          "support": "专属课程制作培训"
         },
         "pro": {
           "analytics": "技术优先支持",
@@ -596,7 +596,7 @@
     },
     "scale": {
       "advanced": {
-        "students": "300人左右"
+        "students": "约 500 个以内学员"
       },
       "basic": {
         "students": "10人左右"
@@ -608,10 +608,10 @@
         "students": "3人左右"
       },
       "premium": {
-        "students": "1000人左右"
+        "students": "约 1500 个以内学员"
       },
       "pro": {
-        "students": "500人左右"
+        "students": "约 1000 个以内学员"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -649,7 +649,7 @@
     "validityTooltip": {
       "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
       "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
-      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 2 日）。以到期日的 23:59 计算。"
+      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 1 日）。以到期日的 23:59 计算。"
     }
   },
   "page": {

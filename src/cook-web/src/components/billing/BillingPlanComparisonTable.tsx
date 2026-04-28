@@ -61,6 +61,11 @@ function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
   return ordered.findIndex(plan => plan.product_bid === productBid);
 }
 
+function shortenIntervalLabel(label: string): string {
+  if (!label) return '';
+  return label.replace(/^每/, '').replace(/^per\s*/i, '');
+}
+
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
   pingxxAvailable: boolean,
@@ -195,7 +200,7 @@ export function BillingPlanComparisonTable({
               i18n.language,
             )
           : t('module.billing.package.free.priceValue'),
-      periodLabel: t('module.billing.package.creditPeriod.oneTime'),
+      periodLabel: '',
       creditAmount: t('module.billing.package.topup.creditLabel', {
         credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
       }),
@@ -250,7 +255,7 @@ export function BillingPlanComparisonTable({
         plan.currency,
         i18n.language,
       ),
-      periodLabel: formatBillingPlanInterval(t, plan),
+      periodLabel: shortenIntervalLabel(formatBillingPlanInterval(t, plan)),
       creditAmount: t('module.billing.package.topup.creditLabel', {
         credits: formatBillingCreditAmount(plan.credit_amount),
       }),
@@ -317,11 +322,14 @@ export function BillingPlanComparisonTable({
                     </span>
                   ) : null}
                 </div>
-                <div className={styles.columnPrice}>{col.priceLabel}</div>
+                <div className={styles.columnPrice}>
+                  {col.periodLabel
+                    ? `${col.priceLabel} / ${col.periodLabel}`
+                    : col.priceLabel}
+                </div>
                 <div className={styles.columnCreditAmount}>
                   {col.creditAmount}
                 </div>
-                <div className={styles.columnPeriod}>{col.periodLabel}</div>
                 {col.action.tooltip ? (
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>

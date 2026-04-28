@@ -393,7 +393,9 @@ export function BillingOverviewTab({
       : t('module.billing.catalog.labels.providerPingxx')
     : '';
   const loadError = overviewError || catalogError;
-  const renderFreeCard = showcaseTab === 'plans';
+  // Trial column hidden in the comparison table; keep trial data wiring so the
+  // 15-day basic-plan grant flow can re-enable rendering by flipping this flag.
+  const renderFreeCard = false;
 
   return (
     <section
