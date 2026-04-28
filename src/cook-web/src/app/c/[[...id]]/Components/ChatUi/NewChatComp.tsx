@@ -507,6 +507,10 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  const getReadModeElementPadding = useCallback(
+    (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
+    [],
+  );
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1104,7 +1108,7 @@ export const NewChatComponents = ({
                 style={{
                   margin: '0 auto',
                   maxWidth: '1000px',
-                  padding: '24px 20px 0',
+                  padding: getReadModeElementPadding(true),
                 }}
               >
                 <LoadingBar />
@@ -1124,7 +1128,7 @@ export const NewChatComponents = ({
                         position: 'relative',
                         margin: '0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',
-                        padding: '0 20px',
+                        padding: getReadModeElementPadding(idx === 0),
                       }}
                     >
                       <AskBlock
@@ -1174,7 +1178,7 @@ export const NewChatComponents = ({
                       style={{
                         margin: '0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',
-                        padding: '0px 20px',
+                        padding: getReadModeElementPadding(idx === 0),
                       }}
                     >
                       <InteractionBlock
@@ -1239,7 +1243,7 @@ export const NewChatComponents = ({
                           ? '0 auto'
                           : '40px auto 0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
-                      padding: '0 20px',
+                      padding: getReadModeElementPadding(idx === 0),
                     }}
                   >
                     {isLongPressed && mobileStyle && (

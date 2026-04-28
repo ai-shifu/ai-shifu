@@ -33,6 +33,8 @@
 - When listen-mode misses trailing interaction cards, check whether `outline_item_update: completed` arrived before the final `element` events; completion must not cause post-completion interaction markers to be dropped.
 - 当新增共享 loading 动画时，优先放在 `src/components/loading/` 并以命名导出追加能力，不要直接替换已有默认 loading；动画节奏、尺寸和间距用可配置 props 暴露，保证旧调用方零破坏。
 - 听课模式字幕尾部清洗只移除不允许的结束标点，遇到右引号、右括号这类成对符号的结尾符必须保留；即使这些结尾符后面还跟着句号、逗号等待过滤标点，也要按从右向左的顺序先保留结尾符、再剥离无效标点，并补齐 `。”`、`），`、`？”。` 一类回归测试。
+- 听课模式移动端 fullscreen header 的标题文案不要硬编码白色，优先继承 `markdown-flow-ui` 的 `--slide-mobile-fullscreen-chrome-foreground`，这样宿主侧浅色毛玻璃 header 和返回按钮颜色才能保持一致。
+- 阅读模式首个渲染项的顶部留白要在统一容器层处理，优先把 `loading`、首个 content、首个 ask 和首个 interaction 都视为“第一个 element”，共用同一套 top padding，避免只改普通内容块导致首屏间距不一致。
 
 ## Skills Index
 
