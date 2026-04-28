@@ -231,8 +231,10 @@ export const PayModalM = ({
       return;
     }
     let nextOrderId = orderId;
+    let nextSnapshot = null;
     if (!nextOrderId) {
       const snapshot = await initializeOrder();
+      nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
     if (!nextOrderId) {
@@ -248,6 +250,7 @@ export const PayModalM = ({
     await refreshPayment({
       channel: nextChannel,
       paymentChannel: nextChannel.startsWith('stripe') ? 'stripe' : undefined,
+      snapshot: nextSnapshot,
     });
   }, [
     initializeOrder,
@@ -276,7 +279,7 @@ export const PayModalM = ({
       return;
     }
     const payload = await refreshPayment({ channel: payChannel });
-    if (!payload) {
+    if (!payload || !('qr_url' in payload)) {
       return;
     }
 
@@ -400,10 +403,11 @@ export const PayModalM = ({
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!orderId) {
+    if (!orderId && !hookInitLoading && !isLoading) {
+      // Only release the one-shot guard after the current payment bootstrap settles.
       initialPaymentRequestedRef.current = false;
     }
-  }, [orderId]);
+  }, [hookInitLoading, isLoading, orderId]);
 
   useEffect(() => {
     if (!open || isLoggedIn) {

@@ -1332,6 +1332,212 @@ def test_listen_run_persists_content_block_before_element_rows(app):
     assert {row.content_text for row in rows} == {"Persisted content block"}
 
 
+def test_run_inner_emits_next_text_before_finalizing_previous_tts(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.context_v2 import (
+        LLMSettings,
+        RunScriptContextV2,
+        RunScriptInfo,
+        RunType,
+        BlockType as MarkdownFlowBlockType,
+    )
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-stream-text-before-tts"
+    shifu_bid = "shifu-stream-text-before-tts"
+    outline_bid = "outline-stream-text-before-tts"
+    progress_bid = "progress-stream-text-before-tts"
+
+    with app.app_context():
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace_root_span = None
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=outline_bid,
+            shifu_bid=shifu_bid,
+            position=0,
+            title="Stream Text Before TTS",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=user_bid, mobile="", email="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = None
+        ctx._last_position = -1
+        ctx._listen = True
+        ctx._element_index_cursor = 0
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, current_outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, current_outline_bid: LLMSettings(
+                model="fake",
+                temperature=0.0,
+            ),
+            ctx,
+        )
+        ctx.get_system_prompt = types.MethodType(
+            lambda self, current_outline_bid: None,
+            ctx,
+        )
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+        ctx._should_stream_tts = types.MethodType(lambda self: True, ctx)
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class DummyFormattedElement:
+            def __init__(self, content, type_, number):
+                self.content = content
+                self.type = type_
+                self.number = number
+
+        class DummyLLMResult:
+            def __init__(self, content, stream_number):
+                self.content = ""
+                self.formatted_elements = [
+                    DummyFormattedElement(content, "text", stream_number)
+                ]
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "First text.Second text.",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                def _gen():
+                    yield DummyLLMResult("First text.", 0)
+                    yield DummyLLMResult("Second text.", 1)
+
+                return _gen()
+
+        class FakeTtsProcessor:
+            next_element_index = 0
+
+            def __init__(self, generated_block_bid, position):
+                self.generated_block_bid = generated_block_bid
+                self.position = position
+
+            def process_chunk(self, chunk):
+                if False:
+                    yield chunk
+
+            def finalize(self, *, commit=True):
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=self.generated_block_bid,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=f"https://example.com/audio-{self.position}.mp3",
+                        audio_bid=f"audio-{self.position}",
+                        duration_ms=100,
+                        position=self.position,
+                        stream_element_number=self.position,
+                        stream_element_type="text",
+                    ),
+                )
+
+        def fake_create_tts_processor(
+            self,
+            generated_block_bid,
+            *,
+            shifu_bid="",
+            position=0,
+            stream_element_number=None,
+            stream_element_type=None,
+        ):
+            return FakeTtsProcessor(generated_block_bid, position)
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                FakeMarkdownFlow,
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                lambda *args, **kwargs: {},
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                lambda *args, **kwargs: [],
+            )
+            monkeypatch.setattr(
+                RunScriptContextV2,
+                "_try_create_tts_processor",
+                fake_create_tts_processor,
+            )
+            events = list(ctx.run_inner(app))
+
+    assert [event.type for event in events[:3]] == [
+        GeneratedType.CONTENT,
+        GeneratedType.CONTENT,
+        GeneratedType.AUDIO_COMPLETE,
+    ]
+    assert events[0].content == "First text."
+    assert events[1].content == "Second text."
+
+
 def test_listen_run_persists_exception_gate_block_before_element_rows(app):
     _require_app(app)
 

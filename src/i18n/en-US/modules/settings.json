@@ -11,6 +11,7 @@
     "selectBirthday": "Select Birthday",
     "selectGender": "Select Gender"
   },
+  "email": "Email",
   "gender": "Gender",
   "genderPlaceholder": "Please select gender",
   "home": "Home",
@@ -24,6 +25,8 @@
   "passwordPlaceholder": "Set password",
   "passwordSetSuccess": "Password updated",
   "personalInfo": "Personal Settings",
+  "phone": "Phone",
+  "resendCountdown": "{count, plural, one {Resend in # second} other {Resend in # seconds}}",
   "save": "Save",
   "sendCode": "Send code",
   "setPassword": "Set Password",

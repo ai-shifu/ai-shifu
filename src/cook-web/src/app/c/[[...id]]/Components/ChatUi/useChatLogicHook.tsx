@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ComponentType,
   useContext,
   useMemo,
 } from 'react';
@@ -23,7 +22,6 @@ import {
   type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
-  type StudyRecordPayload,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -33,7 +31,6 @@ import {
   LESSON_FEEDBACK_INTERACTION_MARKER,
   LIKE_STATUS,
   BLOCK_TYPE,
-  BlockType,
   checkIsRunning,
   streamGeneratedBlockAudio,
   submitLessonFeedback,
@@ -48,6 +45,7 @@ import {
   type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
@@ -60,7 +58,6 @@ import {
 } from '@/c-utils/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
-import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -87,48 +84,8 @@ const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 
-export enum ChatContentItemType {
-  CONTENT = 'content',
-  INTERACTION = 'interaction',
-  ASK = 'ask',
-  LIKE_STATUS = 'likeStatus',
-  ERROR = 'error',
-}
-
-export interface ChatContentItem {
-  content?: string;
-  customRenderBar?: (() => React.ReactNode | null) | ComponentType<any>;
-  user_input?: string;
-  readonly?: boolean;
-  isHistory?: boolean;
-  element_bid: string;
-  generated_block_bid?: string; // legacy block-level compatibility field
-  ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
-  parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
-  parent_block_bid?: string; // legacy parent block compatibility field
-  like_status?: LikeStatus;
-  type: ChatContentItemType | BlockType | ElementType;
-  ask_list?: ChatContentItem[]; // list of ask records for this content block
-  isAskExpanded?: boolean; // whether the ask panel is expanded
-  generateTime?: number;
-  variables?: PreviewVariablesMap;
-  // Audio properties for TTS
-  audioUrl?: string;
-  audioTracks?: AudioTrack[];
-  isAudioStreaming?: boolean;
-  audioDurationMs?: number;
-  listenSlides?: ListenSlideData[];
-  // Preserve element-level fields from backend records for listen-mode rendering.
-  element_type?: ElementType;
-  sequence_number?: number;
-  is_marker?: boolean;
-  is_new?: boolean;
-  is_renderable?: boolean;
-  is_speakable?: boolean;
-  audio_url?: string;
-  audio_segments?: AudioSegmentData[];
-  payload?: StudyRecordPayload;
-}
+export { ChatContentItemType };
+export type { ChatContentItem };
 
 interface SSEParams {
   input: string | Record<string, any>;

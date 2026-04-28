@@ -1,3 +1,5 @@
+import { loadStaticTextFixture } from '@/lib/mock-fixture';
+
 type MockRunFixtureEvent = {
   type?: string;
   event_type?: string;
@@ -90,8 +92,7 @@ const buildStuckRunFixtureEvents = (events: MockRunFixtureEvent[]) => {
 
 const loadStuckRunFixtureEvents = async () => {
   if (!stuckRunFixtureEventsPromise) {
-    stuckRunFixtureEventsPromise = fetch(MOCK_RUN_FIXTURE_URL)
-      .then(response => response.text())
+    stuckRunFixtureEventsPromise = loadStaticTextFixture(MOCK_RUN_FIXTURE_URL)
       .then(parseMockRunFixtureText)
       .then(buildStuckRunFixtureEvents);
   }
