@@ -1033,7 +1033,10 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
             creator_user_bid="creator-1",
             created_at=updated_at,
             updated_at=updated_at,
-            llm_system_prompt="course system prompt",
+        )
+        DraftShifu.query.filter(DraftShifu.shifu_bid == "course-detail").update(
+            {DraftShifu.llm_system_prompt: "course system prompt"},
+            synchronize_session=False,
         )
         db.session.commit()
 
