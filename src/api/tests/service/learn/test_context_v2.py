@@ -109,6 +109,7 @@ from flaskr.service.learn.context_v2 import (
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
+    _iter_llm_result_content_parts,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
@@ -964,6 +965,22 @@ class StreamTtsTeardownTests(unittest.TestCase):
         self.assertEqual(flush_calls, [])
         self.assertEqual(processor.finalize_calls, 0)
         self.assertEqual(ctx._element_index_cursor, 1)
+
+
+class LLMResultContentPartsTests(unittest.TestCase):
+    def test_formatted_elements_are_preserved_without_raw_splitting(self):
+        result = types.SimpleNamespace(
+            content="",
+            formatted_elements=[
+                types.SimpleNamespace(content="<svg", type="svg", number=7),
+                types.SimpleNamespace(content="</svg>", type="svg", number=7),
+            ],
+        )
+
+        self.assertEqual(
+            list(_iter_llm_result_content_parts(result)),
+            [("<svg", "svg", 7), ("</svg>", "svg", 7)],
+        )
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
