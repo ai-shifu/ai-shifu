@@ -220,18 +220,17 @@ def _outline_position_key(position: object) -> Tuple[Tuple[int, int | str], ...]
 def _build_follow_up_count_by_section_chart(
     shifu_bid: str,
 ) -> List[DashboardCourseDetailFollowUpCountBySectionDTO]:
-    outline_items: List[PublishedOutlineItem] = (
+    outline_items_query = (
         PublishedOutlineItem.query.filter(
             PublishedOutlineItem.shifu_bid == shifu_bid,
             PublishedOutlineItem.deleted == 0,
             PublishedOutlineItem.hidden == 0,
         )
         .order_by(PublishedOutlineItem.id.asc())
-        .all()
     )
     outline_item_map: Dict[str, PublishedOutlineItem] = {}
     visible_parent_bids: Set[str] = set()
-    for item in outline_items:
+    for item in outline_items_query.yield_per(1000):
         outline_item_bid = str(item.outline_item_bid or "").strip()
         parent_bid = str(item.parent_bid or "").strip()
         if not outline_item_bid:
@@ -269,11 +268,10 @@ def _build_follow_up_count_by_section_chart(
             LearnGeneratedBlock.role == ROLE_STUDENT,
         )
         .group_by(LearnGeneratedBlock.outline_item_bid)
-        .all()
     )
     follow_up_count_map = {
         str(outline_item_bid or "").strip(): int(count or 0)
-        for outline_item_bid, count in follow_up_rows
+        for outline_item_bid, count in follow_up_rows.yield_per(1000)
     }
 
     chart_items: List[DashboardCourseDetailFollowUpCountBySectionDTO] = []

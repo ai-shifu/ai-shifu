@@ -100,6 +100,59 @@ jest.mock('@/components/charts/EChart', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    onValueChange: (value: string) => void;
+  }>({
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({
+      id,
+      children,
+    }: React.PropsWithChildren<{ id?: string }>) => (
+      <button
+        id={id}
+        type='button'
+      >
+        {children}
+      </button>
+    ),
+    SelectValue: () => <span />,
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 const getRenderedChartOption = () =>
   JSON.parse(
     screen.getByTestId('follow-up-section-chart').dataset.option || '{}',
@@ -369,12 +422,7 @@ describe('AdminDashboardCourseDetailPage', () => {
 
     await screen.findByText('Course 1');
 
-    fireEvent.change(
-      screen.getByLabelText('module.dashboard.detail.charts.chapterFilter'),
-      {
-        target: { value: 'chapter-1' },
-      },
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Chapter 1' }));
 
     await waitFor(() => {
       const option = getRenderedChartOption();
