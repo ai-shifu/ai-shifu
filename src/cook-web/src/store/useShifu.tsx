@@ -250,8 +250,10 @@ export const ShifuProvider = ({
       setMdflow(cached);
       return;
     }
-    currentMdflow.current = '';
-    setMdflow('');
+    if (currentMdflow.current !== '') {
+      currentMdflow.current = '';
+      setMdflow('');
+    }
   };
   // Debounced autosave for mdflow; kept stable via ref
   const debouncedAutoSaveRef = useRef(
