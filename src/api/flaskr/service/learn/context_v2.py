@@ -3115,12 +3115,12 @@ class RunScriptContextV2:
                         return
                     generated_content += chunk_content
                     self.append_langfuse_output(chunk_content)
-                    yield from _switch_tts_processor(
+                    yield _build_content_event(
+                        chunk_content,
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
                     )
-                    yield _build_content_event(
-                        chunk_content,
+                    yield from _switch_tts_processor(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
                     )
