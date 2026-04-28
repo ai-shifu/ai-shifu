@@ -233,7 +233,7 @@ describe('AdminDashboardCourseDetailPage', () => {
       screen.getByText('module.dashboard.detail.charts.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.dashboard.detail.charts.questionsByChapter'),
+      screen.getByText('module.dashboard.detail.charts.questionsBySection'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('follow-up-section-chart')).toBeInTheDocument();
     expect(

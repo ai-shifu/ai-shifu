@@ -19,6 +19,7 @@
       "otherSections": "其他小节",
       "placeholder": "图表能力建设中，敬请期待",
       "questionsByChapter": "追问数量按章节分布图",
+      "questionsBySection": "追问数量按小节分布图",
       "questionsByTime": "追问数量按时间分布图",
       "title": "图表区",
       "topSectionsDescription": "默认展示追问数最高的 20 个小节，其余小节合并为“其他”。",

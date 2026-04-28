@@ -742,6 +742,7 @@ export type I18nKey =
   | 'module.dashboard.detail.charts.otherSections'
   | 'module.dashboard.detail.charts.placeholder'
   | 'module.dashboard.detail.charts.questionsByChapter'
+  | 'module.dashboard.detail.charts.questionsBySection'
   | 'module.dashboard.detail.charts.questionsByTime'
   | 'module.dashboard.detail.charts.title'
   | 'module.dashboard.detail.charts.topSectionsDescription'

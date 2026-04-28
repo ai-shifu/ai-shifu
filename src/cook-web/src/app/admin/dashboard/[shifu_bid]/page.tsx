@@ -448,7 +448,7 @@ export default function AdminDashboardCourseDetailPage() {
           <div className='grid grid-cols-1 gap-4 xl:grid-cols-2'>
             <ChartCard
               className='xl:col-span-2'
-              title={t('module.dashboard.detail.charts.questionsByChapter')}
+              title={t('module.dashboard.detail.charts.questionsBySection')}
               description={
                 selectedFollowUpChapter === ALL_CHAPTER_FILTER_VALUE
                   ? t('module.dashboard.detail.charts.topSectionsDescription')
