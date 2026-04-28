@@ -359,7 +359,9 @@ export function BillingPlanComparisonTable({
                             type='button'
                             variant='secondary'
                           >
-                            {col.action.loading ? processingLabel : col.action.label}
+                            {col.action.loading
+                              ? processingLabel
+                              : col.action.label}
                           </Button>
                         </span>
                       </TooltipTrigger>
