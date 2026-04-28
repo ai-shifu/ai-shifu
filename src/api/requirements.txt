@@ -19,7 +19,7 @@ blinker==1.8.2
 captcha==0.6.0
 celery==5.6.2
 certifi==2024.7.4
-cffi==1.16.0
+cffi==1.17.1
 cfgv==3.4.0
 chardet==5.2.0
 charset-normalizer==3.3.2

@@ -190,3 +190,4 @@ src/api/logs/
 # Never ignore these files (exceptions to above rules)
 ###############################################################################
 !src/api/tests
+.spec-workflow

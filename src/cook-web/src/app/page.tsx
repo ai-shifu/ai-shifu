@@ -15,7 +15,9 @@ export default function Home() {
     if (!runtimeConfigLoaded) {
       return;
     }
-    redirectToHomeUrlIfRootPath(homeUrl || '/');
+    // If homeUrl is not set or points to root, fall back to /c (course page)
+    const target = homeUrl || '/c';
+    redirectToHomeUrlIfRootPath(target === '/' ? '/c' : target);
   }, [homeUrl, runtimeConfigLoaded]);
 
   return (

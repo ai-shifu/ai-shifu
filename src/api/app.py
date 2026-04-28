@@ -10,7 +10,9 @@ from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 # set timezone to UTC
 # fix windows platform
 if os.name == "nt":
-    os.system('tzutil /s "UTC"')
+    # os.system('tzutil /s "UTC"')
+    if not os.getenv("SKIP_LOAD_DOTENV"):
+        load_dotenv()
 else:
     # Load environment variables first so we can use get_config
     if not os.getenv("SKIP_LOAD_DOTENV"):

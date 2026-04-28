@@ -140,7 +140,8 @@ const loadRuntimeConfig = async () => {
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
   setBillingCreditPrecision(runtimeConfig?.billingCreditPrecision);
-  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
+  const homeUrl = runtimeConfig?.homeUrl || '/c';
+  if (redirectToHomeUrlIfRootPath(homeUrl === '/' ? '/c' : homeUrl)) {
     return;
   }
 
@@ -181,7 +182,7 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
-  await updateHomeUrl(runtimeConfig?.homeUrl || '/');
+  await updateHomeUrl(runtimeConfig?.homeUrl || '/c');
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
   await updateBillingEnabled(
     runtimeConfig?.billingEnabled !== undefined
