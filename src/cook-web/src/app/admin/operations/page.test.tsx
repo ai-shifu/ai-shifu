@@ -631,50 +631,50 @@ describe('OperationsPage', () => {
       .mockReturnValue(0);
 
     try {
-    await renderAndWaitForLoadedPage();
+      await renderAndWaitForLoadedPage();
 
-    const firstRow = screen.getByText('Course 1').closest('tr');
-    expect(firstRow).not.toBeNull();
+      const firstRow = screen.getByText('Course 1').closest('tr');
+      expect(firstRow).not.toBeNull();
 
-    fireEvent.click(
-      within(firstRow as HTMLElement).getByRole('button', {
-        name: 'module.operationsCourse.table.detailAction',
-      }),
-    );
+      fireEvent.click(
+        within(firstRow as HTMLElement).getByRole('button', {
+          name: 'module.operationsCourse.table.detailAction',
+        }),
+      );
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationCoursePrompt).toHaveBeenCalledWith({
-        shifu_bid: 'course-1',
+      await waitFor(() => {
+        expect(mockGetAdminOperationCoursePrompt).toHaveBeenCalledWith({
+          shifu_bid: 'course-1',
+        });
       });
-    });
 
-    expect(
-      screen.getByText('module.operationsCourse.coursePromptDialog.title'),
-    ).toBeInTheDocument();
-    expect(await screen.findByText(LONG_COURSE_PROMPT)).toBeInTheDocument();
-    const promptDialog = screen.getByRole('dialog');
+      expect(
+        screen.getByText('module.operationsCourse.coursePromptDialog.title'),
+      ).toBeInTheDocument();
+      expect(await screen.findByText(LONG_COURSE_PROMPT)).toBeInTheDocument();
+      const promptDialog = screen.getByRole('dialog');
 
-    fireEvent.click(
-      within(promptDialog).getByRole('button', {
-        name: 'module.operationsCourse.coursePromptDialog.copy',
-      }),
-    );
+      fireEvent.click(
+        within(promptDialog).getByRole('button', {
+          name: 'module.operationsCourse.coursePromptDialog.copy',
+        }),
+      );
 
-    await waitFor(() => {
-      expect(mockCopyText).toHaveBeenCalledWith(LONG_COURSE_PROMPT);
-    });
+      await waitFor(() => {
+        expect(mockCopyText).toHaveBeenCalledWith(LONG_COURSE_PROMPT);
+      });
 
-    fireEvent.click(
-      await within(promptDialog).findByRole('button', {
-        name: 'common.core.expand',
-      }),
-    );
+      fireEvent.click(
+        await within(promptDialog).findByRole('button', {
+          name: 'common.core.expand',
+        }),
+      );
 
-    expect(
-      within(promptDialog).getByRole('button', {
-        name: 'common.core.collapse',
-      }),
-    ).toBeInTheDocument();
+      expect(
+        within(promptDialog).getByRole('button', {
+          name: 'common.core.collapse',
+        }),
+      ).toBeInTheDocument();
     } finally {
       scrollHeightSpy.mockRestore();
       clientHeightSpy.mockRestore();
