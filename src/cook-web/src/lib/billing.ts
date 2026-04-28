@@ -1027,6 +1027,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.sidebar.monthlyBalanceTitle'),
     t('module.billing.sidebar.nonMemberBalanceTitle'),
     t('module.billing.sidebar.nonMemberTitle'),
+    t('module.billing.sidebar.summaryTitle'),
     t('module.billing.sidebar.subscriptionPending'),
     t('module.billing.sidebar.subscriptionStatusLabel'),
     t('module.billing.sidebar.yearlyBalanceTitle'),
