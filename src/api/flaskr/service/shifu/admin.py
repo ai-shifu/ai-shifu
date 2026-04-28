@@ -2198,6 +2198,7 @@ def _build_chapter_tree(
     *,
     follow_up_count_map: Dict[str, int],
     rating_count_map: Dict[str, int],
+    rating_score_map: Dict[str, str],
 ) -> list[AdminOperationCourseDetailChapterDTO]:
     node_map: Dict[str, AdminOperationCourseDetailChapterDTO] = {}
     ordered_nodes: list[AdminOperationCourseDetailChapterDTO] = []
@@ -2219,6 +2220,7 @@ def _build_chapter_tree(
             is_visible=not bool(getattr(item, "hidden", 0)),
             content_status=_resolve_content_status(item),
             follow_up_count=int(follow_up_count_map.get(bid, 0) or 0),
+            rating_score=rating_score_map.get(bid, ""),
             rating_count=int(rating_count_map.get(bid, 0) or 0),
             modifier_user_bid=modifier_user_bid,
             modifier_mobile=modifier.get("mobile", ""),
@@ -2260,14 +2262,14 @@ def _build_chapter_tree(
 def _load_outline_learning_stats(
     shifu_bid: str,
     outline_item_bids: Sequence[str],
-) -> tuple[Dict[str, int], Dict[str, int]]:
+) -> tuple[Dict[str, int], Dict[str, int], Dict[str, str]]:
     normalized_outline_item_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in outline_item_bids
         if str(outline_item_bid or "").strip()
     ]
     if not normalized_outline_item_bids:
-        return {}, {}
+        return {}, {}, {}
 
     follow_up_rows = (
         db.session.query(
@@ -2295,6 +2297,7 @@ def _load_outline_learning_stats(
         db.session.query(
             LearnLessonFeedback.outline_item_bid,
             db.func.count(LearnLessonFeedback.id),
+            db.func.avg(LearnLessonFeedback.score),
         )
         .filter(
             LearnLessonFeedback.shifu_bid == shifu_bid,
@@ -2304,13 +2307,16 @@ def _load_outline_learning_stats(
         .group_by(LearnLessonFeedback.outline_item_bid)
         .all()
     )
-    rating_count_map = {
-        str(outline_item_bid or "").strip(): int(count or 0)
-        for outline_item_bid, count in rating_rows
-        if str(outline_item_bid or "").strip()
-    }
+    rating_count_map: Dict[str, int] = {}
+    rating_score_map: Dict[str, str] = {}
+    for outline_item_bid, count, score in rating_rows:
+        normalized_outline_item_bid = str(outline_item_bid or "").strip()
+        if not normalized_outline_item_bid:
+            continue
+        rating_count_map[normalized_outline_item_bid] = int(count or 0)
+        rating_score_map[normalized_outline_item_bid] = _format_average_score(score)
 
-    return follow_up_count_map, rating_count_map
+    return follow_up_count_map, rating_count_map, rating_score_map
 
 
 def _load_operator_course_outline_items(
@@ -2998,7 +3004,7 @@ def get_operator_course_detail(
                 for item in outline_items
             ],
         )
-        follow_up_count_map, rating_count_map = outline_learning_stats
+        follow_up_count_map, rating_count_map, rating_score_map = outline_learning_stats
 
         return AdminOperationCourseDetailDTO(
             basic_info=AdminOperationCourseDetailBasicInfoDTO(
@@ -3027,6 +3033,7 @@ def get_operator_course_detail(
                 detail_user_map,
                 follow_up_count_map=follow_up_count_map,
                 rating_count_map=rating_count_map,
+                rating_score_map=rating_score_map,
             ),
         )
 
