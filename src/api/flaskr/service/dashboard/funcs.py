@@ -220,14 +220,11 @@ def _outline_position_key(position: object) -> Tuple[Tuple[int, int | str], ...]
 def _build_follow_up_count_by_section_chart(
     shifu_bid: str,
 ) -> List[DashboardCourseDetailFollowUpCountBySectionDTO]:
-    outline_items_query = (
-        PublishedOutlineItem.query.filter(
-            PublishedOutlineItem.shifu_bid == shifu_bid,
-            PublishedOutlineItem.deleted == 0,
-            PublishedOutlineItem.hidden == 0,
-        )
-        .order_by(PublishedOutlineItem.id.asc())
-    )
+    outline_items_query = PublishedOutlineItem.query.filter(
+        PublishedOutlineItem.shifu_bid == shifu_bid,
+        PublishedOutlineItem.deleted == 0,
+        PublishedOutlineItem.hidden == 0,
+    ).order_by(PublishedOutlineItem.id.asc())
     outline_item_map: Dict[str, PublishedOutlineItem] = {}
     visible_parent_bids: Set[str] = set()
     for item in outline_items_query.yield_per(1000):
