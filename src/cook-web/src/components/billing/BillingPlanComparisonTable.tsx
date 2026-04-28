@@ -248,7 +248,9 @@ export function BillingPlanComparisonTable({
       currentRank >= 0 &&
       planRank >= 0 &&
       planRank < currentRank;
-    const checkoutKey = provider ? `plan:${provider}:${plan.product_bid}` : '';
+    const checkoutKey = provider
+      ? `plan:${provider}:${plan.product_bid}`
+      : null;
     const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
 
@@ -284,7 +286,7 @@ export function BillingPlanComparisonTable({
             : hasActiveSubscription
               ? t('module.billing.package.actions.upgradeNow')
               : t('module.billing.package.actions.subscribeNow'),
-        loading: checkoutLoadingKey === checkoutKey,
+        loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
         disabled: !provider || isCurrentPlan || isDowngradeLocked,
         tooltip: isDowngradeLocked
           ? t('module.billing.package.actions.upgradeOnlyTooltip')
