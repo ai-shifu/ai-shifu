@@ -120,19 +120,36 @@ def apply_promo_campaigns(
         applications: list[PromoRedemption] = []
         campaign_bids = [campaign.promo_bid for campaign in campaigns]
         existing_by_campaign: dict[str, PromoRedemption] = {}
+        voided_by_campaign: dict[str, PromoRedemption] = {}
         if campaign_bids:
             existing_records = PromoRedemption.query.filter(
                 PromoRedemption.order_bid == order_bid,
                 PromoRedemption.promo_bid.in_(campaign_bids),
                 PromoRedemption.deleted == 0,
             ).all()
-            existing_by_campaign = {
-                record.promo_bid: record for record in existing_records
-            }
+            for record in existing_records:
+                if record.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED:
+                    existing_by_campaign[record.promo_bid] = record
+                elif record.promo_bid not in voided_by_campaign:
+                    voided_by_campaign[record.promo_bid] = record
         for campaign in campaigns:
             existing = existing_by_campaign.get(campaign.promo_bid)
             if existing:
                 applications.append(existing)
+                continue
+
+            voided = voided_by_campaign.get(campaign.promo_bid)
+            if voided:
+                voided.user_bid = user_bid
+                voided.shifu_bid = shifu_bid
+                voided.promo_name = campaign.name
+                voided.discount_type = campaign.discount_type
+                voided.value = campaign.value
+                voided.discount_amount = _calculate_discount_amount(
+                    payable_price, campaign.discount_type, campaign.value
+                )
+                voided.status = PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED
+                applications.append(voided)
                 continue
 
             application = PromoRedemption()

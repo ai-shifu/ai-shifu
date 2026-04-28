@@ -3,6 +3,8 @@ from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 from flaskr.service.order.models import Order
 from flaskr.service.order.funs import success_buy_record, query_buy_record
 from flaskr.service.promo.consts import (
+    COUPON_APPLY_TYPE_SPECIFIC,
+    COUPON_BATCH_STATUS_ACTIVE,
     COUPON_STATUS_USED,
     COUPON_STATUS_ACTIVE,
     COUPON_TYPE_FIXED,
@@ -39,6 +41,12 @@ def _get_course_id_from_filter(coupon: Coupon) -> Optional[str]:
 
 def _coupon_matches_course(coupon: Coupon, shifu_bid: str) -> bool:
     """Check whether coupon is applicable to the given course."""
+    if (
+        not coupon
+        or int(getattr(coupon, "status", 0) or 0) != COUPON_BATCH_STATUS_ACTIVE
+        or int(getattr(coupon, "deleted", 0) or 0) != 0
+    ):
+        return False
     course_id = _get_course_id_from_filter(coupon)
     if not course_id:
         return True
@@ -81,10 +89,22 @@ def _pick_coupon_candidate(
 
     # 3) Finally, look at coupons by code (multi-use scenario without usage)
     for coupon in coupons_by_code:
+        if int(getattr(coupon, "usage_type", 0) or 0) == COUPON_APPLY_TYPE_SPECIFIC:
+            continue
         if _coupon_matches_course(coupon, shifu_bid):
             return None, coupon, has_candidate_with_same_code
 
     return None, None, has_candidate_with_same_code
+
+
+def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) -> bool:
+    if getattr(coupon_usage, "shifu_bid", None) is None:
+        return True
+    if str(getattr(coupon_usage, "shifu_bid", "")) != "":
+        return False
+    if int(getattr(coupon, "usage_type", 0) or 0) != COUPON_APPLY_TYPE_SPECIFIC:
+        return True
+    return _get_course_id_from_filter(coupon) is not None
 
 
 def send_feishu_coupon_code(
@@ -144,6 +164,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
             CouponUsageModel.query.filter(
                 CouponUsageModel.code == coupon_code,
                 CouponUsageModel.status == COUPON_STATUS_ACTIVE,
+                CouponUsageModel.deleted == 0,
             )
             .order_by(CouponUsageModel.id.desc())
             .all()
@@ -151,10 +172,18 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         coupon_bids = {usage.coupon_bid for usage in active_usages if usage.coupon_bid}
         coupons_by_bid = {}
         if coupon_bids:
-            coupons = Coupon.query.filter(Coupon.coupon_bid.in_(coupon_bids)).all()
+            coupons = Coupon.query.filter(
+                Coupon.coupon_bid.in_(coupon_bids),
+                Coupon.deleted == 0,
+            ).all()
             coupons_by_bid = {coupon.coupon_bid: coupon for coupon in coupons}
         coupons_by_code: List[Coupon] = (
-            Coupon.query.filter(Coupon.code == coupon_code)
+            Coupon.query.filter(
+                Coupon.code == coupon_code,
+                Coupon.deleted == 0,
+                Coupon.status == COUPON_BATCH_STATUS_ACTIVE,
+                Coupon.usage_type != COUPON_APPLY_TYPE_SPECIFIC,
+            )
             .order_by(Coupon.id.desc())
             .all()
         )
@@ -213,6 +242,8 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         user_usage_already_bound = coupon_usage.user_bid == user_id
         coupon_usage.user_bid = user_id
         coupon_usage.order_bid = order_id
+        if buy_record.shifu_bid and _should_bind_usage_course(coupon, coupon_usage):
+            coupon_usage.shifu_bid = buy_record.shifu_bid
         if coupon.discount_type == COUPON_TYPE_FIXED:
             buy_record.paid_price = (
                 decimal.Decimal(buy_record.paid_price)
