@@ -120,7 +120,7 @@ from flaskr.service.order.api import (
     get_operator_order_detail,
     list_operator_orders,
 )
-from flaskr.service.promo.api import (
+from flaskr.service.promo.admin import (
     create_operator_promotion_campaign,
     create_operator_promotion_coupon,
     get_operator_promotion_campaign_detail,

@@ -13,11 +13,11 @@ from sqlalchemy import and_, case, func, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.order.api import (
-    OPERATOR_ORDER_STATUS_KEY_MAP,
-    format_operator_decimal,
-    load_operator_shifu_map,
-    load_operator_user_map,
+from flaskr.service.order.admin import (
+    ORDER_STATUS_KEY_MAP,
+    _format_decimal,
+    _load_shifu_map,
+    _load_user_map,
 )
 from flaskr.service.order.models import Order
 from flaskr.service.promo.admin_dtos import (
@@ -446,7 +446,7 @@ def _validate_coupon_scope_course(shifu_bid: str) -> None:
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         raise_param_error("shifu_bid")
-    if not load_operator_shifu_map([normalized_shifu_bid]):
+    if not _load_shifu_map([normalized_shifu_bid]):
         raise_param_error("shifu_bid")
 
 
@@ -536,7 +536,7 @@ def _build_coupon_item(
             int(coupon.discount_type or COUPON_TYPE_FIXED),
             "module.operationsPromotion.discountType.fixed",
         ),
-        value=format_operator_decimal(coupon.value),
+        value=_format_decimal(coupon.value),
         scope_type=scope_type,
         shifu_bid=shifu_bid,
         course_name=getattr(course, "title", "") or "",
@@ -571,7 +571,7 @@ def _build_campaign_item(
             int(campaign.discount_type or COUPON_TYPE_FIXED),
             "module.operationsPromotion.discountType.fixed",
         ),
-        value=format_operator_decimal(campaign.value),
+        value=_format_decimal(campaign.value),
         channel=campaign.channel or "",
         start_at=_format_promotion_admin_datetime(campaign.start_at),
         end_at=_format_promotion_admin_datetime(campaign.end_at),
@@ -579,7 +579,7 @@ def _build_campaign_item(
         computed_status_key=CAMPAIGN_COMPUTED_STATUS_KEY_MAP[computed_status],
         applied_order_count=applied_order_count,
         has_redemptions=has_redemptions,
-        total_discount_amount=format_operator_decimal(total_discount_amount),
+        total_discount_amount=_format_decimal(total_discount_amount),
         created_at=_format_promotion_admin_datetime(campaign.created_at),
         updated_at=_format_promotion_admin_datetime(campaign.updated_at),
     )
@@ -749,7 +749,7 @@ def list_operator_promotion_coupons(
         for coupon in paged
         if _parse_coupon_scope(coupon.filter or "{}")[1]
     ]
-    course_map = load_operator_shifu_map(course_bids)
+    course_map = _load_shifu_map(course_bids)
     items = [_build_coupon_item(coupon, course_map).__json__() for coupon in paged]
     return _build_paged_response(summary, page, page_size, summary.total, items)
 
@@ -999,7 +999,7 @@ def get_operator_promotion_coupon_detail(
     del app
     coupon = _load_coupon_or_404(coupon_bid)
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
-    course_map = load_operator_shifu_map([shifu_bid] if shifu_bid else [])
+    course_map = _load_shifu_map([shifu_bid] if shifu_bid else [])
     user_name_map = _load_user_name_map(
         [
             coupon.created_user_bid,
@@ -1063,7 +1063,7 @@ def _calculate_coupon_usage_discount_amount(
     order: Optional[Order], usage: CouponUsage
 ) -> str:
     if order is None:
-        return format_operator_decimal(usage.value)
+        return _format_decimal(usage.value)
     payable_price = decimal.Decimal(order.payable_price or 0)
     discount_amount = _calculate_discount_amount(
         payable_price,
@@ -1072,7 +1072,7 @@ def _calculate_coupon_usage_discount_amount(
     )
     if discount_amount > payable_price:
         discount_amount = payable_price
-    return format_operator_decimal(discount_amount)
+    return _format_decimal(discount_amount)
 
 
 def list_operator_promotion_coupon_usages(
@@ -1128,16 +1128,14 @@ def list_operator_promotion_coupon_usages(
         .limit(page_size)
         .all()
     )
-    user_map = load_operator_user_map(
-        [usage.user_bid for usage in paged if usage.user_bid]
-    )
+    user_map = _load_user_map([usage.user_bid for usage in paged if usage.user_bid])
     order_map = _load_order_map([usage.order_bid for usage in paged if usage.order_bid])
     course_bids = {
         usage.shifu_bid
         or getattr(order_map.get(usage.order_bid or ""), "shifu_bid", "")
         for usage in paged
     }
-    course_map = load_operator_shifu_map(
+    course_map = _load_shifu_map(
         [course_bid for course_bid in course_bids if course_bid]
     )
     summary = AdminPromotionSummaryDTO(
@@ -1176,15 +1174,13 @@ def list_operator_promotion_coupon_usages(
                 course_name=getattr(course, "title", "") or "",
                 order_bid=usage.order_bid or "",
                 order_status=int(getattr(order, "status", 0) or 0),
-                order_status_key=OPERATOR_ORDER_STATUS_KEY_MAP.get(
+                order_status_key=ORDER_STATUS_KEY_MAP.get(
                     int(getattr(order, "status", 0) or 0),
                     "server.order.orderStatusInit",
                 ),
-                payable_price=format_operator_decimal(
-                    getattr(order, "payable_price", 0)
-                ),
+                payable_price=_format_decimal(getattr(order, "payable_price", 0)),
                 discount_amount=_calculate_coupon_usage_discount_amount(order, usage),
-                paid_price=format_operator_decimal(getattr(order, "paid_price", 0)),
+                paid_price=_format_decimal(getattr(order, "paid_price", 0)),
                 used_at=_format_promotion_admin_datetime(usage.updated_at),
                 updated_at=_format_promotion_admin_datetime(usage.updated_at),
             ).__json__()
@@ -1246,9 +1242,7 @@ def list_operator_promotion_coupon_codes(
         .limit(page_size)
         .all()
     )
-    user_map = load_operator_user_map(
-        [code.user_bid for code in paged if code.user_bid]
-    )
+    user_map = _load_user_map([code.user_bid for code in paged if code.user_bid])
     summary = AdminPromotionSummaryDTO(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
@@ -1470,7 +1464,7 @@ def list_operator_promotion_campaigns(
         usage_count=int(summary_row.usage_count or 0),
         latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_applied_at),
         covered_courses=int(summary_row.covered_courses or 0),
-        discount_amount=format_operator_decimal(
+        discount_amount=_format_decimal(
             decimal.Decimal(summary_row.discount_amount or 0)
         ),
     )
@@ -1479,7 +1473,7 @@ def list_operator_promotion_campaigns(
     stats_map = _load_redemption_stats(
         [campaign.promo_bid for campaign in paged if campaign.promo_bid]
     )
-    course_map = load_operator_shifu_map(
+    course_map = _load_shifu_map(
         [campaign.shifu_bid for campaign in paged if campaign.shifu_bid]
     )
     items = [
@@ -1660,9 +1654,7 @@ def get_operator_promotion_campaign_detail(
 ) -> AdminPromotionCampaignDetailDTO:
     del app
     campaign = _load_campaign_or_404(promo_bid)
-    course_map = load_operator_shifu_map(
-        [campaign.shifu_bid] if campaign.shifu_bid else []
-    )
+    course_map = _load_shifu_map([campaign.shifu_bid] if campaign.shifu_bid else [])
     user_name_map = _load_user_name_map(
         [
             campaign.created_user_bid,
@@ -1782,9 +1774,7 @@ def list_operator_promotion_campaign_redemptions(
         .limit(page_size)
         .all()
     )
-    user_map = load_operator_user_map(
-        [record.user_bid for record in paged if record.user_bid]
-    )
+    user_map = _load_user_map([record.user_bid for record in paged if record.user_bid])
     order_map = _load_order_map(
         [record.order_bid for record in paged if record.order_bid]
     )
@@ -1794,7 +1784,7 @@ def list_operator_promotion_campaign_redemptions(
         usage_count=int(summary_row.active or 0),
         latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
         covered_courses=0,
-        discount_amount=format_operator_decimal(
+        discount_amount=_format_decimal(
             decimal.Decimal(summary_row.discount_amount or 0)
         ),
     )
@@ -1811,15 +1801,13 @@ def list_operator_promotion_campaign_redemptions(
                 user_nickname=user.get("nickname", ""),
                 order_bid=record.order_bid or "",
                 order_status=int(getattr(order, "status", 0) or 0),
-                order_status_key=OPERATOR_ORDER_STATUS_KEY_MAP.get(
+                order_status_key=ORDER_STATUS_KEY_MAP.get(
                     int(getattr(order, "status", 0) or 0),
                     "server.order.orderStatusInit",
                 ),
-                payable_price=format_operator_decimal(
-                    getattr(order, "payable_price", 0)
-                ),
-                discount_amount=format_operator_decimal(record.discount_amount),
-                paid_price=format_operator_decimal(getattr(order, "paid_price", 0)),
+                payable_price=_format_decimal(getattr(order, "payable_price", 0)),
+                discount_amount=_format_decimal(record.discount_amount),
+                paid_price=_format_decimal(getattr(order, "paid_price", 0)),
                 status=int(record.status or PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED),
                 status_key=CAMPAIGN_REDEMPTION_STATUS_KEY_MAP.get(
                     int(record.status or PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED),
