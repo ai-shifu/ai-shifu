@@ -38,6 +38,7 @@ class DummyCourse:
         self.price = price
         self.llm = llm
         self.llm_system_prompt = llm_system_prompt
+        self.has_course_prompt = bool(str(llm_system_prompt or "").strip())
         self.created_user_bid = created_user_bid
         self.updated_user_bid = updated_user_bid
         self.created_at = created_at
