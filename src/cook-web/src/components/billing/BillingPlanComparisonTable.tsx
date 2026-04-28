@@ -78,13 +78,22 @@ function resolveCheckoutProvider(
   return null;
 }
 
+type ActionTone = 'primary' | 'current' | 'muted';
+
 type ColumnAction = {
   label: string;
   loading: boolean;
   disabled: boolean;
+  tone: ActionTone;
   tooltip?: string;
   onClick?: () => void;
   testId: string;
+};
+
+const TONE_VARIANT: Record<ActionTone, 'default' | 'secondary'> = {
+  primary: 'default',
+  current: 'default',
+  muted: 'secondary',
 };
 
 type ColumnDescriptor = {
@@ -231,6 +240,8 @@ export function BillingPlanComparisonTable({
         ),
         loading: false,
         disabled: true,
+        tone:
+          !hasActiveSubscription || isTrialCurrentPlan ? 'current' : 'muted',
         tooltip: !hasActiveSubscription
           ? t('module.billing.package.actions.nonMemberTooltip')
           : undefined,
@@ -288,6 +299,11 @@ export function BillingPlanComparisonTable({
               : t('module.billing.package.actions.subscribeNow'),
         loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
         disabled: !provider || isCurrentPlan || isDowngradeLocked,
+        tone: isCurrentPlan
+          ? 'current'
+          : isDowngradeLocked
+            ? 'muted'
+            : 'primary',
         tooltip: isDowngradeLocked
           ? t('module.billing.package.actions.upgradeOnlyTooltip')
           : undefined,
@@ -354,12 +370,16 @@ export function BillingPlanComparisonTable({
                           tabIndex={0}
                         >
                           <Button
-                            className={styles.columnAction}
+                            className={cn(
+                              styles.columnAction,
+                              col.action.tone === 'current' &&
+                                styles.columnActionCurrent,
+                            )}
                             data-testid={col.action.testId}
                             disabled={col.action.disabled || col.action.loading}
                             onClick={col.action.onClick}
                             type='button'
-                            variant='secondary'
+                            variant={TONE_VARIANT[col.action.tone]}
                           >
                             {col.action.loading
                               ? processingLabel
@@ -372,12 +392,16 @@ export function BillingPlanComparisonTable({
                   </TooltipProvider>
                 ) : (
                   <Button
-                    className={styles.columnAction}
+                    className={cn(
+                      styles.columnAction,
+                      col.action.tone === 'current' &&
+                        styles.columnActionCurrent,
+                    )}
                     data-testid={col.action.testId}
                     disabled={col.action.disabled || col.action.loading}
                     onClick={col.action.onClick}
                     type='button'
-                    variant='secondary'
+                    variant={TONE_VARIANT[col.action.tone]}
                   >
                     {col.action.loading ? processingLabel : col.action.label}
                   </Button>

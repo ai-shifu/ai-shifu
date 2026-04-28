@@ -180,15 +180,10 @@ $color-on-accent: #fff;
   color: $color-accent;
 }
 
-.featuredColumn .columnAction:not(:disabled) {
-  background: $color-accent;
-  color: $color-on-accent;
-}
-
-.featuredColumn .columnAction:disabled {
-  background: $color-accent;
-  color: $color-on-accent;
-  opacity: 0.6;
+// "Current plan" indicator masquerading as a button: stays solid even when
+// disabled so it reads as a status, not a faded CTA.
+.columnActionCurrent:disabled {
+  opacity: 1;
 }
 
 // ============================================================================
