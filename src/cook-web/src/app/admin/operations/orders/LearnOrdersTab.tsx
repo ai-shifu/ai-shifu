@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -101,6 +102,27 @@ const createDefaultFilters = (): OrderFilters => ({
   end_time: '',
 });
 
+const createFiltersFromSearchParams = (searchParams: {
+  get: (key: string) => string | null;
+}): OrderFilters => ({
+  ...createDefaultFilters(),
+  shifu_bid: (searchParams.get('shifu_bid') || '').trim(),
+});
+
+const areOrderFiltersEqual = (
+  left: OrderFilters,
+  right: OrderFilters,
+): boolean =>
+  left.user_keyword === right.user_keyword &&
+  left.order_bid === right.order_bid &&
+  left.shifu_bid === right.shifu_bid &&
+  left.course_name === right.course_name &&
+  left.status === right.status &&
+  left.order_source === right.order_source &&
+  left.payment_channel === right.payment_channel &&
+  left.start_time === right.start_time &&
+  left.end_time === right.end_time;
+
 const formatMoney = (value: string | undefined, currencySymbol: string) => {
   const normalized = String(value || '').trim();
   return `${currencySymbol}${normalized || '0'}`;
@@ -147,6 +169,11 @@ const formatMoney = (value: string | undefined, currencySymbol: string) => {
 export default function LearnOrdersTab() {
   const { t, i18n } = useTranslation();
   const { t: tOperationsOrder } = useTranslation('module.operationsOrder');
+  const searchParams = useSearchParams();
+  const initialFilters = useMemo(
+    () => createFiltersFromSearchParams(searchParams),
+    [searchParams],
+  );
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
@@ -175,14 +202,15 @@ export default function LearnOrdersTab() {
   const [total, setTotal] = useState(0);
   const [selectedOrderBid, setSelectedOrderBid] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
-  const [draftFilters, setDraftFilters] = useState<OrderFilters>(() =>
-    createDefaultFilters(),
+  const [draftFilters, setDraftFilters] = useState<OrderFilters>(
+    () => initialFilters,
   );
-  const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(() =>
-    createDefaultFilters(),
+  const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(
+    () => initialFilters,
   );
   const requestIdRef = useRef(0);
   const lastRequestedPageRef = useRef(1);
+  const initialFiltersRef = useRef(initialFilters);
   const { getColumnStyle, getResizeHandleProps } =
     useAdminResizableColumns<ColumnKey>({
       storageKey: COLUMN_WIDTH_STORAGE_KEY,
@@ -246,6 +274,16 @@ export default function LearnOrdersTab() {
     },
     [t],
   );
+
+  React.useEffect(() => {
+    if (areOrderFiltersEqual(initialFiltersRef.current, initialFilters)) {
+      return;
+    }
+    initialFiltersRef.current = initialFilters;
+    setDraftFilters(initialFilters);
+    setAppliedFilters(initialFilters);
+    setPageIndex(1);
+  }, [initialFilters]);
 
   React.useEffect(() => {
     void fetchOrders(1, appliedFilters);

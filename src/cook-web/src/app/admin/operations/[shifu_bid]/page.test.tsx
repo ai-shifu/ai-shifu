@@ -181,6 +181,14 @@ const createDeferred = <T,>() => {
 };
 
 describe('AdminOperationCourseDetailPage', () => {
+  const openUsersTab = async () => {
+    fireEvent.click(
+      await screen.findByRole('tab', {
+        name: /module\.operationsCourse\.detail\.users/,
+      }),
+    );
+  };
+
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
@@ -260,6 +268,7 @@ describe('AdminOperationCourseDetailPage', () => {
           is_visible: true,
           content_status: 'empty',
           follow_up_count: 3,
+          rating_score: '',
           rating_count: 2,
           modifier_user_bid: 'creator-1',
           modifier_mobile: '13800001234',
@@ -277,6 +286,7 @@ describe('AdminOperationCourseDetailPage', () => {
               is_visible: false,
               content_status: 'has',
               follow_up_count: 3,
+              rating_score: '4.5',
               rating_count: 2,
               modifier_user_bid: 'modifier-1',
               modifier_mobile: '13900001234',
@@ -339,6 +349,12 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('4.5')).toBeInTheDocument();
+    const chapterRow = screen.getByText('Chapter 1').closest('tr');
+    expect(chapterRow).not.toBeNull();
+    expect(
+      within(chapterRow as HTMLElement).getAllByText('--').length,
+    ).toBeGreaterThanOrEqual(3);
     const bobRow = screen.getAllByText('13900001234').at(-1)?.closest('tr');
     expect(bobRow).not.toBeNull();
     expect(within(bobRow as HTMLElement).getByText('Bob')).toBeInTheDocument();
@@ -370,6 +386,22 @@ describe('AdminOperationCourseDetailPage', () => {
 
     expect(mockPush).toHaveBeenCalledWith(
       '/admin/operations/course-1/follow-ups',
+    );
+  });
+
+  test('navigates to order management from the order count metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.orders.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/orders?shifu_bid=course-1',
     );
   });
 
@@ -518,6 +550,7 @@ describe('AdminOperationCourseDetailPage', () => {
           is_visible: true,
           content_status: 'empty',
           follow_up_count: 3,
+          rating_score: '',
           rating_count: 2,
           modifier_user_bid: 'creator-1',
           modifier_mobile: '13800001234',
@@ -542,6 +575,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.change(
@@ -601,7 +635,10 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
-    await screen.findByText('guest-1');
+    await openUsersTab();
+    await waitFor(() => {
+      expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+    });
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
     expect(screen.queryByText('guest@example.com')).not.toBeInTheDocument();
     expect(
@@ -618,6 +655,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     expect(
       screen.getByPlaceholderText(
         'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderEmail',
@@ -629,6 +667,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.click(
@@ -654,6 +693,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.change(
@@ -731,6 +771,7 @@ describe('AdminOperationCourseDetailPage', () => {
         payment_status: 'all',
       });
     });
+    await openUsersTab();
 
     fireEvent.click(
       await screen.findByRole('link', {

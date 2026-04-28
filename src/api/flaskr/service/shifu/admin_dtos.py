@@ -407,6 +407,7 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
     follow_up_count: int = Field(
         ..., description="Follow-up question count", required=False
     )
+    rating_score: str = Field(..., description="Average rating score", required=False)
     rating_count: int = Field(..., description="Rating record count", required=False)
     modifier_user_bid: str = Field(
         ..., description="Last modifier user business identifier", required=False
