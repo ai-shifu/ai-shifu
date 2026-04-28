@@ -5,6 +5,11 @@ from unittest.mock import MagicMock, patch
 from flask import Flask
 from sqlalchemy.sql import column
 
+from flaskr.service.billing.dtos import (
+    OperatorCreditOrderDTO,
+    OperatorCreditOrderDetailDTO,
+    OperatorCreditOrdersPageDTO,
+)
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.order.admin import (
     ORDER_SOURCE_COUPON_REDEEM,
@@ -354,6 +359,158 @@ def test_admin_operation_order_detail_route_requires_operator(
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+def test_admin_operation_credit_orders_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders/credits",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_credit_order_detail_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders/credits/bill-order-1/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_credit_orders_route_returns_operator_page(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    expected = OperatorCreditOrdersPageDTO(
+        items=[
+            OperatorCreditOrderDTO(
+                bill_order_bid="bill-order-1",
+                creator_bid="creator-1",
+                creator_identify="creator@example.com",
+                creator_mobile="",
+                creator_email="creator@example.com",
+                creator_nickname="Creator",
+                credit_order_kind="topup",
+                product_bid="product-1",
+                product_code="creator-topup-small",
+                product_type="topup",
+                product_name_key="module.billing.catalog.topups.creatorSmall.title",
+                credit_amount=20,
+                valid_from="2026-04-27T10:00:00Z",
+                valid_to="2026-05-27T10:00:00Z",
+                order_type="topup",
+                status="paid",
+                payment_provider="pingxx",
+                payment_channel="alipay_qr",
+                payable_amount=19900,
+                paid_amount=19900,
+                currency="CNY",
+                provider_reference_id="charge-1",
+                created_at="2026-04-27T09:00:00Z",
+                paid_at="2026-04-27T10:00:00Z",
+                has_attention=False,
+            )
+        ],
+        page=1,
+        page_count=1,
+        page_size=20,
+        total=1,
+    )
+
+    with patch(
+        "flaskr.service.shifu.route.build_operator_credit_orders_page",
+        return_value=expected,
+    ) as builder_mock:
+        response = test_client.get(
+            "/api/shifu/admin/operations/orders/credits",
+            query_string={
+                "page_index": 1,
+                "page_size": 20,
+                "creator_keyword": "creator@example.com",
+                "credit_order_kind": "topup",
+            },
+            headers={"Token": "test-token"},
+        )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["items"][0]["bill_order_bid"] == "bill-order-1"
+    builder_mock.assert_called_once()
+
+
+def test_admin_operation_credit_order_detail_route_returns_detail(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    expected = OperatorCreditOrderDetailDTO(
+        order=OperatorCreditOrderDTO(
+            bill_order_bid="bill-order-1",
+            creator_bid="creator-1",
+            creator_identify="creator@example.com",
+            creator_mobile="",
+            creator_email="creator@example.com",
+            creator_nickname="Creator",
+            credit_order_kind="topup",
+            product_bid="product-1",
+            product_code="creator-topup-small",
+            product_type="topup",
+            product_name_key="module.billing.catalog.topups.creatorSmall.title",
+            credit_amount=20,
+            valid_from="2026-04-27T10:00:00Z",
+            valid_to="2026-05-27T10:00:00Z",
+            order_type="topup",
+            status="paid",
+            payment_provider="pingxx",
+            payment_channel="alipay_qr",
+            payable_amount=19900,
+            paid_amount=19900,
+            currency="CNY",
+            provider_reference_id="charge-1",
+            created_at="2026-04-27T09:00:00Z",
+            paid_at="2026-04-27T10:00:00Z",
+            has_attention=False,
+        ),
+        metadata={"checkout_type": "topup"},
+        grant=None,
+    )
+
+    with patch(
+        "flaskr.service.shifu.route.get_operator_credit_order_detail",
+        return_value=expected,
+    ) as detail_mock:
+        response = test_client.get(
+            "/api/shifu/admin/operations/orders/credits/bill-order-1/detail",
+            headers={"Token": "test-token"},
+        )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["order"]["bill_order_bid"] == "bill-order-1"
+    detail_mock.assert_called_once()
 
 
 def test_resolve_order_source_prefers_manual_open_api_and_coupon():

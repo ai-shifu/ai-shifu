@@ -104,6 +104,9 @@ const api = {
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
+  getAdminOperationCreditOrderDetail:
+    'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
   getAdminOperationPromotionCoupons:
     'GET /shifu/admin/operations/promotions/coupons',
   createAdminOperationPromotionCoupon:

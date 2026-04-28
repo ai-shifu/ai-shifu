@@ -56,6 +56,10 @@ from flaskr.route.common import make_common_response, bypass_token_validation, f
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
+from flaskr.service.billing.api import (
+    build_operator_credit_orders_page,
+    get_operator_credit_order_detail,
+)
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
@@ -451,10 +455,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         parameters:
             - name: page_index
               type: integer
-              required: true
+              required: false
+              description: Page index, defaults to 1 when omitted
             - name: page_size
               type: integer
-              required: true
+              required: false
+              description: Page size, defaults to 10 when omitted
             - name: is_favorite
               type: boolean
               required: true
@@ -512,10 +518,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         parameters:
             - name: page_index
               type: integer
-              required: true
+              required: false
+              description: Page index, defaults to 1 when omitted
             - name: page_size
               type: integer
-              required: true
+              required: false
+              description: Page size, defaults to 20 when omitted
             - name: shifu_bid
               type: string
               required: false
@@ -793,6 +801,85 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("order_bid")
         return make_common_response(get_operator_order_detail(app, order_bid))
 
+    @app.route(path_prefix + "/admin/operations/orders/credits", methods=["GET"])
+    def admin_operations_credit_orders():
+        """
+        Operator global credit order list
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: page_index
+              type: integer
+              required: false
+              description: Page index, defaults to 1 when omitted
+            - name: page_size
+              type: integer
+              required: false
+              description: Page size, defaults to 20 when omitted and is capped by OPERATOR_ORDER_LIST_MAX_PAGE_SIZE
+            - name: creator_keyword
+              type: string
+              required: false
+            - name: product_keyword
+              type: string
+              required: false
+            - name: bill_order_bid
+              type: string
+              required: false
+            - name: credit_order_kind
+              type: string
+              required: false
+              description: plan or topup
+            - name: status
+              type: string
+              required: false
+            - name: payment_provider
+              type: string
+              required: false
+            - name: start_time
+              type: string
+              required: false
+            - name: end_time
+              type: string
+              required: false
+        responses:
+            200:
+                description: List global operator-visible credit orders
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
+        return make_common_response(
+            build_operator_credit_orders_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                creator_keyword=request.args.get("creator_keyword", ""),
+                product_keyword=request.args.get("product_keyword", ""),
+                bill_order_bid=request.args.get("bill_order_bid", ""),
+                credit_order_kind=request.args.get("credit_order_kind", ""),
+                status=request.args.get("status", ""),
+                payment_provider=request.args.get("payment_provider", ""),
+                start_time=_parse_datetime_filter(
+                    request.args.get("start_time", ""),
+                    is_end=False,
+                ),
+                end_time=_parse_datetime_filter(
+                    request.args.get("end_time", ""),
+                    is_end=True,
+                ),
+            )
+        )
+
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():
         """Operator coupon batch list."""
@@ -850,6 +937,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             update_operator_promotion_coupon(
                 app, request.user.user_id, coupon_bid, payload
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/credits/<bill_order_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_credit_order_detail(bill_order_bid: str):
+        """
+        Get operator credit order detail
+        ---
+        tags:
+            - Order
+        parameters:
+            - name: bill_order_bid
+              in: path
+              type: string
+              required: true
+              description: Billing order business identifier
+        responses:
+            200:
+                description: Operator credit order detail
+        """
+        _require_operator()
+        if not str(bill_order_bid or "").strip():
+            raise_param_error("bill_order_bid")
+        return make_common_response(
+            get_operator_credit_order_detail(
+                app,
+                bill_order_bid=bill_order_bid,
             )
         )
 
