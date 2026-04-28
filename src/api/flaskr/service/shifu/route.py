@@ -460,7 +460,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: page_size
               type: integer
               required: false
-              description: Page size, defaults to 20 when omitted and is capped by OPERATOR_ORDER_LIST_MAX_PAGE_SIZE
+              description: Page size, defaults to 10 when omitted
             - name: is_favorite
               type: boolean
               required: true
@@ -523,7 +523,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: page_size
               type: integer
               required: false
-              description: Page size, defaults to 20 when omitted and is capped by OPERATOR_ORDER_LIST_MAX_PAGE_SIZE
+              description: Page size, defaults to 20 when omitted
             - name: shifu_bid
               type: string
               required: false
