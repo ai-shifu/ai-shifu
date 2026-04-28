@@ -3,10 +3,20 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .models import NativePaymentOrder, PingxxOrder, StripeOrder
+from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
+
+_NATIVE_PAYMENT_MODELS = {
+    "alipay": AlipayOrder,
+    "wechatpay": WechatPayOrder,
+}
+
+_NATIVE_PAYMENT_BID_ATTRS = {
+    "alipay": "alipay_order_bid",
+    "wechatpay": "wechatpay_order_bid",
+}
 
 
 def legacy_stripe_snapshot_query():
@@ -37,18 +47,36 @@ def billing_pingxx_snapshot_query():
     )
 
 
-def legacy_native_snapshot_query():
-    return NativePaymentOrder.query.filter(
-        NativePaymentOrder.deleted == 0,
-        NativePaymentOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
+def native_snapshot_model(payment_provider: str):
+    provider = str(payment_provider or "").strip().lower()
+    model = _NATIVE_PAYMENT_MODELS.get(provider)
+    if model is None:
+        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+    return model
+
+
+def native_snapshot_bid_attr(payment_provider: str) -> str:
+    provider = str(payment_provider or "").strip().lower()
+    attr = _NATIVE_PAYMENT_BID_ATTRS.get(provider)
+    if attr is None:
+        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+    return attr
+
+
+def native_snapshot_query(payment_provider: str, biz_domain: str):
+    model = native_snapshot_model(payment_provider)
+    return model.query.filter(
+        model.deleted == 0,
+        model.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
     )
 
 
-def billing_native_snapshot_query():
-    return NativePaymentOrder.query.filter(
-        NativePaymentOrder.deleted == 0,
-        NativePaymentOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
-    )
+def legacy_native_snapshot_query(payment_provider: str):
+    return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
+
+
+def billing_native_snapshot_query(payment_provider: str):
+    return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_BILLING)
 
 
 def upsert_native_snapshot(
@@ -72,30 +100,23 @@ def upsert_native_snapshot(
     raw_response: Any | None = None,
     raw_notification: Any | None = None,
     metadata: Any | None = None,
-) -> NativePaymentOrder:
-    query = NativePaymentOrder.query.filter(
-        NativePaymentOrder.deleted == 0,
-        NativePaymentOrder.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
-        NativePaymentOrder.payment_provider == str(payment_provider or ""),
+) -> AlipayOrder | WechatPayOrder:
+    model = native_snapshot_model(payment_provider)
+    provider_bid_attr = native_snapshot_bid_attr(payment_provider)
+    query = model.query.filter(
+        model.deleted == 0,
+        model.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
     )
     if provider_attempt_id:
-        query = query.filter(
-            NativePaymentOrder.provider_attempt_id == str(provider_attempt_id)
-        )
+        query = query.filter(model.provider_attempt_id == str(provider_attempt_id))
     elif order_bid:
-        query = query.filter(NativePaymentOrder.order_bid == str(order_bid))
+        query = query.filter(model.order_bid == str(order_bid))
     elif bill_order_bid:
-        query = query.filter(NativePaymentOrder.bill_order_bid == str(bill_order_bid))
+        query = query.filter(model.bill_order_bid == str(bill_order_bid))
 
-    snapshot = query.order_by(NativePaymentOrder.id.desc()).first()
+    snapshot = query.order_by(model.id.desc()).first()
     if snapshot is None:
-        snapshot = NativePaymentOrder(
-            native_payment_order_bid=(
-                native_payment_order_bid
-                or provider_attempt_id
-                or order_bid
-                or bill_order_bid
-            ),
+        snapshot = model(
             biz_domain=str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
             raw_request="{}",
             raw_response="{}",
@@ -103,20 +124,20 @@ def upsert_native_snapshot(
             metadata_json="{}",
         )
 
-    snapshot.native_payment_order_bid = (
+    provider_bid = (
         native_payment_order_bid
-        or snapshot.native_payment_order_bid
+        or getattr(snapshot, provider_bid_attr, "")
         or provider_attempt_id
         or order_bid
         or bill_order_bid
     )
+    setattr(snapshot, provider_bid_attr, provider_bid)
     snapshot.biz_domain = str(biz_domain or snapshot.biz_domain or RAW_BIZ_DOMAIN_ORDER)
     snapshot.order_bid = str(order_bid or snapshot.order_bid or "")
     snapshot.bill_order_bid = str(bill_order_bid or snapshot.bill_order_bid or "")
     snapshot.creator_bid = str(creator_bid or snapshot.creator_bid or "")
     snapshot.user_bid = str(user_bid or snapshot.user_bid or "")
     snapshot.shifu_bid = str(shifu_bid or snapshot.shifu_bid or "")
-    snapshot.payment_provider = str(payment_provider or snapshot.payment_provider or "")
     snapshot.provider_attempt_id = str(
         provider_attempt_id or snapshot.provider_attempt_id or ""
     )

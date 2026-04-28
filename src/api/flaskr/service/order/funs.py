@@ -56,7 +56,6 @@ from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import (
-    NativePaymentOrder,
     Order,
     PingxxOrder,
     StripeOrder,
@@ -66,6 +65,7 @@ from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
+    native_snapshot_model,
     upsert_native_snapshot,
 )
 import pytz
@@ -1174,13 +1174,13 @@ def sync_native_payment_order(
         if provider_name not in {"alipay", "wechatpay"}:
             raise_error("server.pay.payChannelNotSupport")
 
+        native_model = native_snapshot_model(provider_name)
         snapshot = (
-            legacy_native_snapshot_query()
+            legacy_native_snapshot_query(provider_name)
             .filter(
-                NativePaymentOrder.order_bid == order.order_bid,
-                NativePaymentOrder.payment_provider == provider_name,
+                native_model.order_bid == order.order_bid,
             )
-            .order_by(NativePaymentOrder.id.desc())
+            .order_by(native_model.id.desc())
             .first()
         )
         if snapshot is None:
@@ -1260,7 +1260,7 @@ def _is_stripe_payment_successful(
 
 def _apply_native_snapshot_update(
     *,
-    snapshot: NativePaymentOrder,
+    snapshot: Any,
     provider: str,
     notification: PaymentNotificationResult,
     source: str,
@@ -1639,13 +1639,13 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             }
 
         if payment_channel in {"alipay", "wechatpay"}:
+            native_model = native_snapshot_model(payment_channel)
             native_order = (
-                legacy_native_snapshot_query()
+                legacy_native_snapshot_query(payment_channel)
                 .filter(
-                    NativePaymentOrder.order_bid == order.order_bid,
-                    NativePaymentOrder.payment_provider == payment_channel,
+                    native_model.order_bid == order.order_bid,
                 )
-                .order_by(NativePaymentOrder.id.desc())
+                .order_by(native_model.id.desc())
                 .first()
             )
             if not native_order:
@@ -1701,21 +1701,18 @@ def success_buy_record_from_native(
             raise_error("server.pay.payChannelNotSupport")
         provider_attempt_id = str(notification.order_bid or "").strip()
         transaction_id = str(notification.charge_id or "").strip()
-        query = legacy_native_snapshot_query().filter(
-            NativePaymentOrder.payment_provider == provider,
-        )
+        native_model = native_snapshot_model(provider)
+        query = legacy_native_snapshot_query(provider)
         if provider_attempt_id:
             native_order = (
-                query.filter(
-                    NativePaymentOrder.provider_attempt_id == provider_attempt_id
-                )
-                .order_by(NativePaymentOrder.id.desc())
+                query.filter(native_model.provider_attempt_id == provider_attempt_id)
+                .order_by(native_model.id.desc())
                 .first()
             )
         elif transaction_id:
             native_order = (
-                query.filter(NativePaymentOrder.transaction_id == transaction_id)
-                .order_by(NativePaymentOrder.id.desc())
+                query.filter(native_model.transaction_id == transaction_id)
+                .order_by(native_model.id.desc())
                 .first()
             )
         else:

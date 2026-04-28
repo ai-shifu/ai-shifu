@@ -13,7 +13,7 @@ from flaskr.i18n import _ as translate
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
-from flaskr.service.order.models import NativePaymentOrder, PingxxOrder, StripeOrder
+from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
@@ -25,6 +25,7 @@ from flaskr.service.order.raw_snapshots import (
     billing_pingxx_snapshot_query,
     billing_native_snapshot_query,
     billing_stripe_snapshot_query,
+    native_snapshot_model,
     upsert_native_snapshot,
     upsert_billing_pingxx_snapshot,
     upsert_billing_stripe_snapshot,
@@ -1061,13 +1062,13 @@ def _persist_billing_native_raw_snapshot(
     raw_snapshot_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
         int(order.status or BILLING_ORDER_STATUS_INIT), 0
     )
+    native_model = native_snapshot_model(order.payment_provider)
     existing = (
-        billing_native_snapshot_query()
+        billing_native_snapshot_query(order.payment_provider)
         .filter(
-            NativePaymentOrder.bill_order_bid == order.bill_order_bid,
-            NativePaymentOrder.payment_provider == order.payment_provider,
+            native_model.bill_order_bid == order.bill_order_bid,
         )
-        .order_by(NativePaymentOrder.id.desc())
+        .order_by(native_model.id.desc())
         .first()
     )
     if existing is None and not create_if_missing:
@@ -1617,13 +1618,13 @@ def _load_billing_order_for_native_event(
         if order is not None:
             return order
     if transaction_id:
+        native_model = native_snapshot_model(provider)
         snapshot = (
-            billing_native_snapshot_query()
+            billing_native_snapshot_query(provider)
             .filter(
-                NativePaymentOrder.payment_provider == provider,
-                NativePaymentOrder.transaction_id == transaction_id,
+                native_model.transaction_id == transaction_id,
             )
-            .order_by(NativePaymentOrder.id.desc())
+            .order_by(native_model.id.desc())
             .first()
         )
         if snapshot is not None and snapshot.bill_order_bid:

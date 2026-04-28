@@ -386,38 +386,13 @@ class StripeOrder(db.Model):
     )
 
 
-class NativePaymentOrder(db.Model):
+class _NativeProviderOrderBase(db.Model):
     """
-    Raw native Alipay and WeChat Pay payment snapshot.
+    Common raw native payment snapshot fields.
     """
 
-    __tablename__ = "order_native_payment_orders"
-    __table_args__ = (
-        Index(
-            "ix_order_native_payment_orders_biz_domain_order_bid",
-            "biz_domain",
-            "order_bid",
-        ),
-        Index(
-            "ix_order_native_payment_orders_biz_domain_bill_order_bid",
-            "biz_domain",
-            "bill_order_bid",
-        ),
-        Index(
-            "ix_order_native_payment_orders_provider_attempt",
-            "payment_provider",
-            "provider_attempt_id",
-        ),
-        {"comment": "Order native payment provider snapshots"},
-    )
+    __abstract__ = True
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    native_payment_order_bid = Column(
-        String(36),
-        index=True,
-        nullable=False,
-        default="",
-        comment="Native payment snapshot business identifier",
-    )
     biz_domain = Column(
         String(16),
         index=True,
@@ -459,13 +434,6 @@ class NativePaymentOrder(db.Model):
         nullable=False,
         default="",
         comment="Order business identifier",
-    )
-    payment_provider = Column(
-        String(32),
-        index=True,
-        nullable=False,
-        default="",
-        comment="Native payment provider",
     )
     provider_attempt_id = Column(
         String(64),
@@ -538,6 +506,62 @@ class NativePaymentOrder(db.Model):
         default=func.now(),
         comment="Update time",
         onupdate=func.now(),
+    )
+
+
+class AlipayOrder(_NativeProviderOrderBase):
+    """
+    Raw direct Alipay payment snapshot.
+    """
+
+    __tablename__ = "order_alipay_orders"
+    __table_args__ = (
+        Index(
+            "ix_order_alipay_orders_biz_domain_order_bid",
+            "biz_domain",
+            "order_bid",
+        ),
+        Index(
+            "ix_order_alipay_orders_biz_domain_bill_order_bid",
+            "biz_domain",
+            "bill_order_bid",
+        ),
+        {"comment": "Order Alipay payment provider snapshots"},
+    )
+    alipay_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Alipay payment snapshot business identifier",
+    )
+
+
+class WechatPayOrder(_NativeProviderOrderBase):
+    """
+    Raw direct WeChat Pay payment snapshot.
+    """
+
+    __tablename__ = "order_wechatpay_orders"
+    __table_args__ = (
+        Index(
+            "ix_order_wechatpay_orders_biz_domain_order_bid",
+            "biz_domain",
+            "order_bid",
+        ),
+        Index(
+            "ix_order_wechatpay_orders_biz_domain_bill_order_bid",
+            "biz_domain",
+            "bill_order_bid",
+        ),
+        {"comment": "Order WeChat Pay payment provider snapshots"},
+    )
+    wechatpay_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="WeChat Pay payment snapshot business identifier",
     )
 
 

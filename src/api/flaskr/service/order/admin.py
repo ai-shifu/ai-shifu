@@ -34,7 +34,6 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TO_BE_PAID,
 )
 from flaskr.service.order.models import (
-    NativePaymentOrder,
     Order,
     PingxxOrder,
     StripeOrder,
@@ -43,6 +42,7 @@ from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
+    native_snapshot_model,
 )
 from flaskr.service.promo.consts import (
     COUPON_STATUS_ACTIVE,
@@ -1122,13 +1122,13 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
         )
 
     if payment_channel in {"alipay", "wechatpay"}:
+        native_model = native_snapshot_model(payment_channel)
         native_order = (
-            legacy_native_snapshot_query()
+            legacy_native_snapshot_query(payment_channel)
             .filter(
-                NativePaymentOrder.order_bid == order.order_bid,
-                NativePaymentOrder.payment_provider == payment_channel,
+                native_model.order_bid == order.order_bid,
             )
-            .order_by(NativePaymentOrder.id.desc())
+            .order_by(native_model.id.desc())
             .first()
         )
         if not native_order:

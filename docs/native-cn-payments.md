@@ -37,17 +37,22 @@ Native refunds are intentionally unsupported in this release. `refund_payment` r
 
 ## Raw Snapshots
 
-Native provider data is stored in `order_native_payment_orders`.
+Native provider data is stored in independent provider tables:
 
-The table stores:
+- `order_alipay_orders`
+- `order_wechatpay_orders`
+
+Each table stores:
 
 - `biz_domain`: `order` or `billing`.
 - Business order identifiers: `order_bid` and `bill_order_bid`.
-- Provider identifiers: `payment_provider`, `provider_attempt_id`, and `transaction_id`.
+- Provider identifiers: `provider_attempt_id` and `transaction_id`.
 - Payment shape: `channel`, `amount`, `currency`, `status`, and `raw_status`.
 - Raw data: `raw_request`, `raw_response`, `raw_notification`, and `metadata_json`.
 
-Native provider data is not written into `order_pingxx_orders` or `order_stripe_orders`.
+Alipay snapshots use `alipay_order_bid`; WeChat Pay snapshots use
+`wechatpay_order_bid`. Native provider data is not written into
+`order_pingxx_orders`, `order_stripe_orders`, or a shared native payment table.
 
 ## Callback Flow
 
