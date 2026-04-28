@@ -1,0 +1,277 @@
+// ============================================================================
+// Typography & color tokens for the plan comparison table.
+// Adjust here once to update every text slot below.
+// ============================================================================
+
+// --- Font roles ------------------------------------------------------------
+
+@mixin font-headline {
+  font-size: var(--text-2xl-font-size, 24px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--text-2xl-line-height, 32px);
+}
+
+@mixin font-title {
+  font-size: var(--text-lg-font-size, 18px);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: var(--text-lg-line-height, 28px);
+}
+
+@mixin font-body {
+  font-size: var(--text-sm-font-size, 14px);
+  font-weight: var(--font-weight-normal, 400);
+  line-height: var(--text-sm-line-height, 20px);
+}
+
+@mixin font-label {
+  font-size: var(--text-xs-font-size, 12px);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--text-xs-line-height, 16px);
+}
+
+@mixin font-action {
+  font-size: var(--text-sm-font-size, 14px);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+@mixin font-badge {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 16px;
+}
+
+// --- Color roles -----------------------------------------------------------
+
+$color-fg: var(--base-foreground, #0a0a0a);
+$color-muted: var(--base-muted-foreground, #737373);
+$color-accent: #0052d9;
+$color-on-accent: #fff;
+
+// ============================================================================
+// Layout
+// ============================================================================
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--border-radius-rounded-xl, 14px);
+  border: var(--border-width-border, 1px) solid var(--base-border, #e5e5e5);
+  background: var(--base-card, #fff);
+  box-shadow:
+    var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
+      var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
+      var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
+    var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
+      var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px)
+      var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  color: $color-fg;
+  @include font-body;
+
+  th,
+  td {
+    padding: 12px 16px;
+    text-align: center;
+    vertical-align: middle;
+  }
+}
+
+// ============================================================================
+// Column header (price / credit / period / action)
+// ============================================================================
+
+.columnHead {
+  padding: 20px 16px 18px !important;
+  background: var(--base-card, #fff);
+  border-bottom: 1px solid var(--base-border, #e5e5e5);
+  vertical-align: top !important;
+  text-align: center;
+}
+
+.columnTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.columnTitle {
+  color: $color-fg;
+  @include font-title;
+}
+
+.columnBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: $color-on-accent;
+  white-space: nowrap;
+  @include font-badge;
+}
+
+.columnBadgeIcon {
+  width: 12px;
+  height: 12px;
+  fill: currentcolor;
+}
+
+.columnPrice {
+  margin-top: 16px;
+  text-align: center;
+  color: $color-fg;
+  @include font-headline;
+}
+
+.columnCreditAmount {
+  margin-top: 8px;
+  text-align: center;
+  color: $color-fg;
+  @include font-headline;
+}
+
+.columnPeriod {
+  margin-top: 4px;
+  text-align: center;
+  color: $color-fg;
+  @include font-body;
+}
+
+.columnActionWrap {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.columnAction {
+  width: 100%;
+  margin-top: 16px;
+  height: var(--height-h-9, 36px);
+  border-radius: var(--border-radius-rounded-md, 8px);
+  @include font-action;
+}
+
+.columnActionWrap .columnAction {
+  margin-top: 0;
+}
+
+// ============================================================================
+// Featured (current plan) column highlight
+// ============================================================================
+
+.featuredColumn {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 82, 217, 0.06) 0%,
+    rgba(0, 82, 217, 0.02) 100%
+  ) !important;
+}
+
+.featuredColumn .columnTitle {
+  color: $color-accent;
+}
+
+.featuredColumn .columnAction:not(:disabled) {
+  background: $color-accent;
+  color: $color-on-accent;
+}
+
+.featuredColumn .columnAction:disabled {
+  background: $color-accent;
+  color: $color-on-accent;
+  opacity: 0.6;
+}
+
+// ============================================================================
+// Body rows (scenario, data, features)
+// ============================================================================
+
+.scenarioRow td {
+  padding: 14px 16px !important;
+  border-top: 1px solid var(--base-border, #e5e5e5);
+  text-align: left;
+  vertical-align: top;
+  background: rgba(0, 82, 217, 0.03);
+}
+
+.scenarioText {
+  color: $color-fg;
+  @include font-body;
+}
+
+.dataRow td {
+  padding: 14px 16px !important;
+  border-top: 1px solid var(--base-border, #e5e5e5);
+  color: $color-fg;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cellLabel {
+  margin-bottom: 4px;
+  color: $color-muted;
+  @include font-label;
+}
+
+.cellValue {
+  color: $color-fg;
+  @include font-body;
+}
+
+// --- Validity tooltip ------------------------------------------------------
+
+.validityHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.validityIcon {
+  width: 14px;
+  height: 14px;
+  color: $color-muted;
+  flex-shrink: 0;
+}
+
+.validityTooltipBody {
+  max-width: 280px;
+  line-height: 18px;
+}
+
+// --- Feature column list ---------------------------------------------------
+
+.featureColumnRow td {
+  padding: 12px 16px !important;
+  border-top: 1px solid var(--base-border, #e5e5e5);
+  text-align: left;
+  vertical-align: top;
+}
+
+.featureColumnList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.featureColumnItem {
+  min-width: 0;
+}
+
+.featureColumnItemText {
+  color: $color-fg;
+  overflow-wrap: anywhere;
+  @include font-body;
+}
