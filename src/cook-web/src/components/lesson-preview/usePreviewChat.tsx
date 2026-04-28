@@ -6,11 +6,6 @@ import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
-import LoadingBar from '@/app/c/[[...id]]/Components/ChatUi/LoadingBar';
-import {
-  ChatContentItem,
-  ChatContentItemType,
-} from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import {
   ELEMENT_TYPE,
   LIKE_STATUS,
@@ -30,13 +25,15 @@ import {
   upsertAudioComplete,
   upsertAudioSegment,
 } from '@/c-utils/audio-utils';
+import LoadingBar from '@/c-components/ChatUi/LoadingBar';
+import { ChatContentItem, ChatContentItemType } from '@/c-types/chatUi';
+import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
-import { normalizeLegacyBlockCompatList } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import {
   buildPreviewInteractionUserInput,
   resolvePreviewGeneratedBlockBid,

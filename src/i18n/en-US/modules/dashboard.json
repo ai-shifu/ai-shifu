@@ -9,12 +9,23 @@
       "title": "Basic Information"
     },
     "charts": {
+      "allChapters": "All Chapters",
+      "chapterFilter": "Chapter",
       "chapterProgress": "Chapter Progress Distribution",
+      "chapterSectionsDescription": "Shows all sections under the selected chapter, including sections with 0 questions.",
+      "emptyFollowUpSections": "No section follow-up data to display",
+      "followUpCountSeries": "Follow-up Questions",
       "learningTrend": "Learning Activity Trend",
+      "otherSections": "Other Sections",
       "placeholder": "Charts are coming soon",
       "questionsByChapter": "Follow-up Questions by Chapter",
+      "questionsBySection": "Follow-up Questions by Section",
       "questionsByTime": "Follow-up Questions by Time",
-      "title": "Charts"
+      "title": "Charts",
+      "topSectionsDescription": "Shows the top 20 sections by follow-up questions by default. Remaining sections are grouped as Other.",
+      "unassignedSection": "Unassigned Section",
+      "untitledChapter": "Untitled Chapter",
+      "untitledSection": "Untitled Section"
     },
     "courseIdLabel": "Course ID",
     "learners": {

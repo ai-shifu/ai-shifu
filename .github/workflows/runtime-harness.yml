@@ -1,0 +1,121 @@
+name: Runtime Harness
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/runtime-harness.yml"
+      - "docker/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/runtime-harness.yml"
+      - "docker/**"
+      - "scripts/**"
+      - "src/api/**"
+      - "src/cook-web/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AI_SHIFU_COMPOSE_PROJECT: ai-shifu-runtime-harness
+      AI_SHIFU_API_PORT: "5800"
+      AI_SHIFU_WEB_PORT: "8080"
+      AI_SHIFU_LOKI_PORT: "3100"
+      AI_SHIFU_TEMPO_PORT: "3200"
+      AI_SHIFU_TEMPO_OTLP_HTTP_PORT: "4318"
+      AI_SHIFU_OTEL_GRPC_PORT: "4317"
+      AI_SHIFU_PROMETHEUS_PORT: "9090"
+      AI_SHIFU_GRAFANA_PORT: "3001"
+      AI_SHIFU_MYSQL_PORT: "3306"
+      AI_SHIFU_REDIS_PORT: "6379"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: npm
+          cache-dependency-path: src/cook-web/package-lock.json
+
+      - name: Prepare runtime harness env
+        run: |
+          cat > docker/.env <<'EOF'
+          SQLALCHEMY_DATABASE_URI=mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
+          SECRET_KEY=ci-runtime-harness-secret
+          OPENAI_API_KEY=ci-runtime-harness-placeholder
+          UNIVERSAL_VERIFICATION_CODE=1024
+          ENV=development
+          FLASK_APP=app.py
+          MODE=api
+          PORT=5000
+          LOGIN_METHODS_ENABLED=phone
+          DEFAULT_LOGIN_METHOD=phone
+          NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
+          NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
+          REDIS_HOST=ai-shifu-redis
+          REDIS_PORT=6379
+          REDIS_DB=0
+          REDIS_PASSWORD=
+          CELERY_BROKER_URL=redis://ai-shifu-redis:6379/0
+          CELERY_RESULT_BACKEND=redis://ai-shifu-redis:6379/1
+          EOF
+
+      - name: Start dev stack
+        working-directory: docker
+        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build
+
+      - name: Wait for API and observability health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${AI_SHIFU_API_PORT}/health" >/dev/null && \
+               curl -fsS "http://127.0.0.1:${AI_SHIFU_API_PORT}/internal/observability/health" >/dev/null && \
+               curl -fsS "http://127.0.0.1:${AI_SHIFU_LOKI_PORT}/ready" >/dev/null && \
+               curl -fsS "http://127.0.0.1:${AI_SHIFU_TEMPO_PORT}/ready" >/dev/null && \
+               curl -fsS "http://127.0.0.1:${AI_SHIFU_PROMETHEUS_PORT}/-/ready" >/dev/null && \
+               curl -fsS "http://127.0.0.1:${AI_SHIFU_GRAFANA_PORT}/api/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml ps
+          docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
+          exit 1
+
+      - name: Install frontend dependencies
+        working-directory: src/cook-web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke harness
+        working-directory: src/cook-web
+        run: npm run test:e2e
+
+      - name: Capture compose logs
+        if: always()
+        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs > runtime-harness.log
+
+      - name: Stop dev stack
+        if: always()
+        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml down -v
+
+      - name: Upload runtime harness artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-harness-artifacts
+          path: |
+            src/cook-web/test-results
+            runtime-harness.log

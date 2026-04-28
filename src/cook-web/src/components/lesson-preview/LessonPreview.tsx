@@ -5,14 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ScrollText from './ScrollText.svg';
 import Image from 'next/image';
-import ContentBlock from '@/app/c/[[...id]]/Components/ChatUi/ContentBlock';
-import InteractionBlock from '@/app/c/[[...id]]/Components/ChatUi/InteractionBlock';
-import {
-  ChatContentItem,
-  ChatContentItemType,
-} from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
+import ContentBlock from '@/c-components/ChatUi/ContentBlock';
+import InteractionBlock from '@/c-components/ChatUi/InteractionBlock';
+import { ChatContentItem, ChatContentItemType } from '@/c-types/chatUi';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/c-utils/audio-utils';
 import VariableList from './VariableList';

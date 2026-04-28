@@ -21,13 +21,23 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
 )
-from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from flaskr.service.promo.consts import (
+    COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+)
 from flaskr.service.promo.funcs import (
     apply_promo_campaigns,
     query_promo_campaign_applications,
     void_promo_campaign_applications,
 )
-from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
+from flaskr.service.promo.models import (
+    Coupon,
+    CouponUsage as CouponUsageModel,
+    PromoCampaign,
+    PromoRedemption,
+)
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
@@ -271,6 +281,71 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
                 pass
 
 
+def _sync_order_campaign_pricing(
+    app: Flask,
+    *,
+    buy_record: Order,
+    user_id: str,
+    course_id: str,
+    active_id: Optional[str],
+) -> Tuple[List, decimal.Decimal]:
+    """Refresh eligible campaigns for an unpaid order and recalculate paid price."""
+    campaign_applications = apply_promo_campaigns(
+        app,
+        shifu_bid=course_id,
+        user_bid=user_id,
+        order_bid=buy_record.order_bid,
+        promo_bid=active_id,
+        payable_price=buy_record.payable_price,
+    )
+    discount_value = decimal.Decimal("0.00")
+    if campaign_applications:
+        for campaign_application in campaign_applications:
+            discount_value += decimal.Decimal(campaign_application.discount_amount)
+    coupon_discount_value = decimal.Decimal("0.00")
+    coupon_records: List[CouponUsageModel] = CouponUsageModel.query.filter(
+        CouponUsageModel.order_bid == buy_record.order_bid,
+        CouponUsageModel.status == COUPON_STATUS_USED,
+        CouponUsageModel.deleted == 0,
+    ).all()
+    if coupon_records:
+        coupon_bids = [
+            coupon_record.coupon_bid
+            for coupon_record in coupon_records
+            if coupon_record.coupon_bid
+        ]
+        coupon_map: Dict[str, Coupon] = {}
+        if coupon_bids:
+            coupon_map = {
+                coupon.coupon_bid: coupon
+                for coupon in Coupon.query.filter(
+                    Coupon.coupon_bid.in_(coupon_bids)
+                ).all()
+            }
+        for coupon_record in coupon_records:
+            coupon = coupon_map.get(coupon_record.coupon_bid)
+            if not coupon:
+                continue
+            coupon_value = decimal.Decimal(
+                str(getattr(coupon_record, "value", None) or coupon.value or 0)
+            )
+            if coupon.discount_type == COUPON_TYPE_FIXED:
+                coupon_discount_value += coupon_value
+            elif coupon.discount_type == COUPON_TYPE_PERCENT:
+                coupon_discount_value += (
+                    decimal.Decimal(buy_record.payable_price) * coupon_value / 100
+                )
+    total_discount_value = discount_value + coupon_discount_value
+    if total_discount_value > buy_record.payable_price:
+        total_discount_value = buy_record.payable_price
+    buy_record.paid_price = (
+        decimal.Decimal(buy_record.payable_price) - total_discount_value
+    )
+    db.session.add(buy_record)
+    db.session.commit()
+    return campaign_applications, discount_value
+
+
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
@@ -303,6 +378,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             order_timeout_make_new_order = True
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
+            _sync_order_campaign_pricing(
+                app,
+                buy_record=origin_record,
+                user_id=user_id,
+                course_id=course_id,
+                active_id=None,
+            )
             return query_buy_record(app, origin_record.order_bid)
         # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
@@ -317,13 +399,12 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             buy_record = origin_record
             order_id = origin_record.order_bid
-        campaign_applications = apply_promo_campaigns(
+        campaign_applications, discount_value = _sync_order_campaign_pricing(
             app,
-            shifu_bid=course_id,
-            user_bid=user_id,
-            order_bid=order_id,
-            promo_bid=active_id,
-            payable_price=buy_record.payable_price,
+            buy_record=buy_record,
+            user_id=user_id,
+            course_id=course_id,
+            active_id=active_id,
         )
         price_items = []
         price_items.append(
@@ -335,12 +416,8 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 None,
             )
         )
-        discount_value = decimal.Decimal(0.00)
         if campaign_applications:
             for campaign_application in campaign_applications:
-                discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
-                    campaign_application.discount_amount
-                )
                 price_items.append(
                     PayItemDto(
                         _("server.order.payItemPromotion"),
@@ -350,13 +427,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                         None,
                     )
                 )
-        if discount_value > buy_record.payable_price:
-            discount_value = buy_record.payable_price
-        buy_record.paid_price = decimal.Decimal(
-            buy_record.payable_price
-        ) - decimal.Decimal(discount_value)
-        db.session.merge(buy_record)
-        db.session.commit()
         return AICourseBuyRecordDTO(
             buy_record.order_bid,
             buy_record.user_bid,
@@ -1304,6 +1374,89 @@ class DiscountInfo:
         self.items = items
 
 
+def _resolve_coupon_display_name(coupon: Coupon) -> str:
+    coupon_name = str(getattr(coupon, "name", "") or "").strip()
+    coupon_code = str(getattr(coupon, "code", "") or "").strip()
+    if coupon_name and coupon_code and coupon_name != coupon_code:
+        return f"{coupon_name} ({coupon_code})"
+    if coupon_name:
+        return coupon_name
+    if coupon_code:
+        return coupon_code
+    return str(getattr(coupon, "channel", "") or "").strip()
+
+
+def _sum_discount_items(items: list[PayItemDto]) -> decimal.Decimal:
+    total = decimal.Decimal("0.00")
+    for item in items:
+        try:
+            total += decimal.Decimal(str(item.price or 0))
+        except decimal.InvalidOperation:
+            continue
+    return total
+
+
+def _supplement_promo_discount_items(
+    record_id: str,
+    items: list[PayItemDto],
+    expected_discount_value: decimal.Decimal,
+) -> list[PayItemDto]:
+    current_discount_value = _sum_discount_items(items)
+    if current_discount_value >= expected_discount_value:
+        return items
+
+    existing_price_names = {
+        str(getattr(item, "price_name", "") or "").strip() for item in items
+    }
+    promo_records = (
+        PromoRedemption.query.filter(
+            PromoRedemption.order_bid == record_id,
+            PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        )
+        .order_by(PromoRedemption.updated_at.desc(), PromoRedemption.id.desc())
+        .all()
+    )
+    promo_bids = [record.promo_bid for record in promo_records if record.promo_bid]
+    promo_name_map = {}
+    if promo_bids:
+        promo_name_map = {
+            campaign.promo_bid: str(campaign.name or "").strip()
+            for campaign in PromoCampaign.query.filter(
+                PromoCampaign.promo_bid.in_(promo_bids)
+            ).all()
+        }
+    for record in promo_records:
+        remaining_discount = expected_discount_value - current_discount_value
+        if remaining_discount <= 0:
+            break
+        promo_name = (
+            promo_name_map.get(record.promo_bid) or str(record.promo_name or "").strip()
+        )
+        if promo_name and promo_name in existing_price_names:
+            continue
+        try:
+            record_discount = decimal.Decimal(str(record.discount_amount or 0))
+        except decimal.InvalidOperation:
+            continue
+        if record_discount <= 0:
+            continue
+        item_discount = min(record_discount, remaining_discount)
+        items.append(
+            PayItemDto(
+                _("server.order.payItemPromotion"),
+                promo_name,
+                item_discount,
+                True,
+                None,
+            )
+        )
+        current_discount_value += item_discount
+        if promo_name:
+            existing_price_names.add(promo_name)
+    return items
+
+
 def calculate_discount_value(
     app: Flask,
     price: decimal.Decimal,
@@ -1343,10 +1496,10 @@ def calculate_discount_value(
                 items.append(
                     PayItemDto(
                         _("server.order.payItemCoupon"),
-                        discount.channel,
+                        _resolve_coupon_display_name(discount),
                         discount.value,
                         True,
-                        discount.channel,
+                        discount.code,
                     )
                 )
     if discount_value > price:
@@ -1358,7 +1511,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     with app.app_context():
         app.logger.info('query buy record:"{}"'.format(record_id))
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
-        print("buy_record: ", buy_record.payable_price, buy_record.paid_price)
         if buy_record:
             item = []
             item.append(
@@ -1370,10 +1522,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     None,
                 )
             )
-            recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
             if buy_record.payable_price > 0:
                 campaign_applications = query_promo_campaign_applications(
-                    app, record_id, recaul_discount
+                    app, record_id, False
                 )
                 discount_records = CouponUsageModel.query.filter(
                     CouponUsageModel.order_bid == record_id
@@ -1384,19 +1535,14 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     campaign_applications,
                     discount_records,
                 )
-                if (
-                    recaul_discount
-                    and discount_info.discount_value != buy_record.payable_price
-                ):
-                    app.logger.info(
-                        "update discount value for buy record:{}".format(record_id)
-                    )
-                    # buy_record.payable_price = discount_info.discount_value
-                    buy_record.paid_price = decimal.Decimal(
-                        buy_record.payable_price
-                    ) - decimal.Decimal(discount_info.discount_value)
-                    buy_record.updated_at = datetime.datetime.now()
-                    db.session.commit()
+                stored_discount_value = decimal.Decimal(
+                    buy_record.payable_price
+                ) - decimal.Decimal(buy_record.paid_price)
+                discount_info.items = _supplement_promo_discount_items(
+                    record_id,
+                    discount_info.items,
+                    stored_discount_value,
+                )
                 item = discount_info.items
 
             return AICourseBuyRecordDTO(

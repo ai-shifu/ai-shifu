@@ -96,38 +96,51 @@ export function AdminBillingPageClient({
 
   return (
     <div
-      className='flex h-full flex-col gap-6 px-1 pb-6'
+      className='h-full min-h-0 overflow-hidden bg-stone-50 p-0'
       data-testid='admin-billing-page'
     >
-      <Tabs
-        className='space-y-6'
-        value={activeTab}
-        onValueChange={v => updateTab(v as BillingTab)}
-      >
-        <TabsList data-testid='admin-billing-tabs'>
-          <TabsTrigger value='packages'>
-            {t('module.billing.page.tabs.plans')}
-          </TabsTrigger>
-          <TabsTrigger value='details'>
-            {t('module.billing.page.tabs.ledger')}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent
-          className='mt-0'
-          value='packages'
+      <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
+        <Tabs
+          className='flex min-h-0 flex-1 flex-col gap-6'
+          value={activeTab}
+          onValueChange={v => updateTab(v as BillingTab)}
         >
-          <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
-        </TabsContent>
+          <TabsList
+            data-testid='admin-billing-tabs'
+            className='shrink-0'
+          >
+            <TabsTrigger value='packages'>
+              {t('module.billing.page.tabs.plans')}
+            </TabsTrigger>
+            <TabsTrigger value='details'>
+              {t('module.billing.page.tabs.ledger')}
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent
-          className='mt-0 space-y-8'
-          value='details'
-        >
-          <BillingCreditDetailsPanel onUpgrade={() => updateTab('packages')} />
-          <BillingRecentActivitySection />
-        </TabsContent>
-      </Tabs>
+          <TabsContent
+            className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
+            value='packages'
+            data-testid='admin-billing-packages-panel'
+          >
+            <div className='pb-6'>
+              <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
+            value='details'
+            data-testid='admin-billing-details-panel'
+          >
+            <div className='space-y-8 pb-6'>
+              <BillingCreditDetailsPanel
+                onUpgrade={() => updateTab('packages')}
+              />
+              <BillingRecentActivitySection />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
