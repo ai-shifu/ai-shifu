@@ -90,7 +90,7 @@ jest.mock('@/store', () => ({
     selector(mockUserStoreState),
 }));
 
-jest.mock('@/app/c/[[...id]]/Components/NavDrawer/NavFooter', () => ({
+jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
   __esModule: true,
   default: React.forwardRef(function MockNavFooter(
     {
@@ -105,7 +105,7 @@ jest.mock('@/app/c/[[...id]]/Components/NavDrawer/NavFooter', () => ({
   }),
 }));
 
-jest.mock('@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal', () => ({
+jest.mock('@/c-components/NavDrawer/MainMenuModal', () => ({
   __esModule: true,
   default: () => null,
 }));

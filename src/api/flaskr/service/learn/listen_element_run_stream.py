@@ -57,7 +57,7 @@ from flaskr.service.learn.listen_source_span_utils import (
 )
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput
-from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
+from flaskr.service.tts.api import normalize_subtitle_cues
 
 
 class ListenElementRunStreamMixin:

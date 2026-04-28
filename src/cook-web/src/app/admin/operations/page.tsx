@@ -909,15 +909,24 @@ const OperationsPage = () => {
   }
 
   return (
-    <div className='h-full p-0'>
+    <div
+      className='h-full p-0'
+      data-testid='admin-operations-page'
+    >
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='mb-5'>
+        <div
+          className='mb-5'
+          data-testid='admin-operations-header'
+        >
           <h1 className='text-2xl font-semibold text-gray-900'>
             {tOperations('title')}
           </h1>
         </div>
 
-        <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
+        <div
+          className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'
+          data-testid='admin-operations-filters'
+        >
           <div className='space-y-4'>
             <div
               className={cn(

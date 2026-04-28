@@ -1,5 +1,68 @@
 {
   "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits} credits",
+    "detail": {
+      "description": "View credit order details",
+      "labels": {
+        "creatorId": "User ID",
+        "failedAt": "Failed At",
+        "failureCode": "Failure Code",
+        "failureMessage": "Failure Reason",
+        "grantSourceId": "Grant Source ID",
+        "grantSourceType": "Grant Source Type",
+        "grantedCredits": "Granted Credits",
+        "orderType": "Order Type",
+        "paidAt": "Paid At",
+        "productCode": "Product Code",
+        "providerReference": "Provider Reference",
+        "validFrom": "Valid From"
+      },
+      "sections": {
+        "creator": "User Info",
+        "grant": "Grant Record",
+        "metadata": "Metadata",
+        "payment": "Payment Info",
+        "product": "Credit Plan Info",
+        "summary": "Order Info"
+      },
+      "title": "Credit Order Detail"
+    },
+    "emptyList": "No credit order data",
+    "filters": {
+      "creatorKeyword": "User",
+      "creatorKeywordPlaceholderEmail": "User ID / email",
+      "creatorKeywordPlaceholderPhone": "User ID / phone",
+      "orderKind": "Order Type",
+      "paymentProvider": "Provider",
+      "productKeyword": "Product",
+      "productKeywordPlaceholder": "Plan / pack name"
+    },
+    "kind": {
+      "other": "Other",
+      "plan": "Credit Plan",
+      "topup": "Credit Pack"
+    },
+    "longTerm": "Long term",
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "productIntervals": {
+      "day": "Daily",
+      "month": "Monthly",
+      "year": "Yearly"
+    },
+    "productNameFormat": "{interval} - {name}",
+    "table": {
+      "creator": "User",
+      "creditAmount": "Credits",
+      "orderId": "Credit Order ID",
+      "orderKind": "Order Type",
+      "paymentChannel": "Payment Method",
+      "product": "Credit Plan",
+      "validTo": "Valid Until"
+    }
+  },
   "detail": {
     "fallback": "Order Detail",
     "sections": {
@@ -15,24 +78,24 @@
   "emptyList": "No order data",
   "filters": {
     "courseId": "Course ID",
-    "courseIdPlaceholder": "Enter course ID",
-    "courseName": "Course Name",
-    "courseNamePlaceholder": "Enter course name",
-    "createdAt": "Created At",
+    "courseIdPlaceholder": "Course ID",
+    "courseName": "Course",
+    "courseNamePlaceholder": "Course name",
+    "createdAt": "Created",
     "endTime": "End Time",
     "orderId": "Order ID",
-    "orderIdPlaceholder": "Enter order ID",
-    "paymentChannel": "Payment Channel",
+    "orderIdPlaceholder": "Order ID",
+    "paymentChannel": "Payment",
     "reset": "Reset",
     "search": "Search",
-    "source": "Order Source",
+    "source": "Source",
     "startTime": "Start Time",
     "status": "Status",
-    "timeRangePlaceholder": "Select order start and end dates",
-    "userKeyword": "User Search",
-    "userKeywordPlaceholder": "Search by user ID, phone, or email",
-    "userKeywordPlaceholderEmail": "Search by user ID or email",
-    "userKeywordPlaceholderPhone": "Search by user ID or phone"
+    "timeRangePlaceholder": "Date range",
+    "userKeyword": "User",
+    "userKeywordPlaceholder": "User ID / phone / email",
+    "userKeywordPlaceholderEmail": "User ID / email",
+    "userKeywordPlaceholderPhone": "User ID / phone"
   },
   "source": {
     "couponRedeem": "Coupon Redemption",
@@ -56,6 +119,10 @@
     "user": "User",
     "userId": "User ID",
     "view": "View Detail"
+  },
+  "tabs": {
+    "credits": "Credit Orders",
+    "learn": "Learning Orders"
   },
   "title": "Order Management",
   "totalCount": "{count} orders"

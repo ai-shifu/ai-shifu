@@ -969,6 +969,44 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Langfuse host URL",
         group="monitoring",
     ),
+    "OBSERVABILITY_TRACES_ENABLED": EnvVar(
+        name="OBSERVABILITY_TRACES_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable runtime HTTP traces exported through OTLP.",
+        group="monitoring",
+    ),
+    "OTEL_EXPORTER_OTLP_ENDPOINT": EnvVar(
+        name="OTEL_EXPORTER_OTLP_ENDPOINT",
+        default="",
+        description="OTLP HTTP endpoint for runtime traces (for example the local OTEL collector).",
+        group="monitoring",
+    ),
+    "OTEL_SERVICE_NAME": EnvVar(
+        name="OTEL_SERVICE_NAME",
+        default="ai-shifu-api",
+        description="Service name reported to the local runtime observability stack.",
+        group="monitoring",
+    ),
+    "OTEL_TRACE_SAMPLE_RATE": EnvVar(
+        name="OTEL_TRACE_SAMPLE_RATE",
+        default=1.0,
+        type=float,
+        description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
+        group="monitoring",
+    ),
+    "INTERNAL_METRICS_PATH": EnvVar(
+        name="INTERNAL_METRICS_PATH",
+        default="/internal/metrics",
+        description="Local metrics endpoint path scraped by Prometheus in the dev harness.",
+        group="monitoring",
+    ),
+    "INTERNAL_OBSERVABILITY_HEALTH_PATH": EnvVar(
+        name="INTERNAL_OBSERVABILITY_HEALTH_PATH",
+        default="/internal/observability/health",
+        description="Local observability health endpoint path for the dev harness.",
+        group="monitoring",
+    ),
     # Content Detection
     "CHECK_PROVIDER": EnvVar(
         name="CHECK_PROVIDER",

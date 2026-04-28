@@ -17,6 +17,8 @@
     "format:check": "prettier --check .",
     "precommit": "lint-staged",
     "test": "jest",
+    "test:e2e": "npx @playwright/test test",
+    "test:e2e:headed": "npx @playwright/test test --headed",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "i18n:keys": "node ../../scripts/generate_i18n_keys.js"
@@ -101,6 +103,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.0.0",

@@ -34,6 +34,12 @@ class Coupon(db.Model):
         default="",
         comment="Coupon business identifier",
     )
+    name = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Coupon batch name",
+    )
     code = Column(
         String(36), index=True, nullable=False, default="", comment="Coupon code"
     )
@@ -103,6 +109,12 @@ class Coupon(db.Model):
         server_default=func.now(),
         onupdate=func.now(),
         comment="Update timestamp",
+    )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
 
