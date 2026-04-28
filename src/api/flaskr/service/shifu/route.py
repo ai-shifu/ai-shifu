@@ -56,7 +56,7 @@ from flaskr.route.common import make_common_response, bypass_token_validation, f
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.read_models import (
+from flaskr.service.billing.api import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
