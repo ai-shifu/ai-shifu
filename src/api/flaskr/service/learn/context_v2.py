@@ -2417,7 +2417,7 @@ class RunScriptContextV2:
                 usage_scene,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
-            visual_mode=self._listen,
+            visual_mode=True,
         )
         block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(
