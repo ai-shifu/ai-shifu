@@ -51,7 +51,7 @@ interface ShifuCardProps {
 }
 
 const CARD_CONTAINER_CLASS =
-  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ease-in-out hover:shadow-[0_10px_30px_rgba(15,23,42,0.12)]';
+  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background transition-colors duration-200 ease-in-out hover:bg-primary/[0.04]';
 const CARD_CONTENT_CLASS = 'p-4 flex flex-col gap-2 h-full cursor-pointer';
 
 const ShifuCard = ({
@@ -75,7 +75,7 @@ const ShifuCard = ({
           <CardContent className={CARD_CONTENT_CLASS}>
             <div className='flex flex-row items-center justify-between'>
               <div className='flex flex-row items-center mb-2 w-full'>
-                <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+                <div className='h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
                   {image && (
                     <img
                       src={image}
