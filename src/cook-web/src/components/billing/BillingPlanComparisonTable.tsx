@@ -333,80 +333,70 @@ export function BillingPlanComparisonTable({
         </colgroup>
         <thead>
           <tr>
-            {columns.map(col => (
-              <th
-                key={col.key}
-                className={cn(
-                  styles.columnHead,
-                  col.featured && styles.featuredColumn,
-                )}
-                data-testid={col.testId}
-                data-featured={col.featured ? 'true' : 'false'}
-              >
-                <div className={styles.columnTitleRow}>
-                  <span className={styles.columnTitle}>{col.title}</span>
-                  {col.badgeLabel ? (
-                    <span className={styles.columnBadge}>
-                      <Star className={styles.columnBadgeIcon} />
-                      {col.badgeLabel}
-                    </span>
-                  ) : null}
-                </div>
-                <div className={styles.columnPrice}>
-                  {col.periodLabel
-                    ? `${col.priceLabel} / ${col.periodLabel}`
-                    : col.priceLabel}
-                </div>
-                <div className={styles.columnCreditAmount}>
-                  {col.creditAmount}
-                </div>
-                {col.action.tooltip ? (
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={styles.columnActionWrap}
-                          data-testid={`${col.action.testId}-trigger`}
-                          tabIndex={0}
-                        >
-                          <Button
-                            className={cn(
-                              styles.columnAction,
-                              col.action.tone === 'current' &&
-                                'disabled:opacity-100',
-                            )}
-                            data-testid={col.action.testId}
-                            disabled={col.action.disabled || col.action.loading}
-                            onClick={col.action.onClick}
-                            type='button'
-                            variant={TONE_VARIANT[col.action.tone]}
+            {columns.map(col => {
+              const actionButton = (
+                <Button
+                  className={cn(
+                    styles.columnAction,
+                    col.action.tone === 'current' && 'disabled:opacity-100',
+                  )}
+                  data-testid={col.action.testId}
+                  disabled={col.action.disabled || col.action.loading}
+                  onClick={col.action.onClick}
+                  type='button'
+                  variant={TONE_VARIANT[col.action.tone]}
+                >
+                  {col.action.loading ? processingLabel : col.action.label}
+                </Button>
+              );
+              return (
+                <th
+                  key={col.key}
+                  className={cn(
+                    styles.columnHead,
+                    col.featured && styles.featuredColumn,
+                  )}
+                  data-testid={col.testId}
+                  data-featured={col.featured ? 'true' : 'false'}
+                >
+                  <div className={styles.columnTitleRow}>
+                    <span className={styles.columnTitle}>{col.title}</span>
+                    {col.badgeLabel ? (
+                      <span className={styles.columnBadge}>
+                        <Star className={styles.columnBadgeIcon} />
+                        {col.badgeLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className={styles.columnPrice}>
+                    {col.periodLabel
+                      ? `${col.priceLabel} / ${col.periodLabel}`
+                      : col.priceLabel}
+                  </div>
+                  <div className={styles.columnCreditAmount}>
+                    {col.creditAmount}
+                  </div>
+                  {col.action.tooltip ? (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={styles.columnActionWrap}
+                            data-testid={`${col.action.testId}-trigger`}
+                            tabIndex={0}
                           >
-                            {col.action.loading
-                              ? processingLabel
-                              : col.action.label}
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>{col.action.tooltip}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Button
-                    className={cn(
-                      styles.columnAction,
-                      col.action.tone === 'current' && 'disabled:opacity-100',
-                    )}
-                    data-testid={col.action.testId}
-                    disabled={col.action.disabled || col.action.loading}
-                    onClick={col.action.onClick}
-                    type='button'
-                    variant={TONE_VARIANT[col.action.tone]}
-                  >
-                    {col.action.loading ? processingLabel : col.action.label}
-                  </Button>
-                )}
-              </th>
-            ))}
+                            {actionButton}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{col.action.tooltip}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    actionButton
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
