@@ -53,8 +53,7 @@ from flaskr.api.tts import (
 )
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_best_effort,
-    get_audio_duration_ms,
+    assemble_audio_for_upload,
 )
 from flaskr.service.tts.audio_record_utils import (
     build_completed_audio_record,
@@ -63,6 +62,7 @@ from flaskr.service.tts.audio_record_utils import (
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
+    select_subtitle_cues_for_segments,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
@@ -754,6 +754,7 @@ def _finalize_tts_stream_audio(
     *,
     audio_parts: list[bytes],
     subtitle_cues: list[dict] | None,
+    segment_durations_ms: list[int] | None = None,
     audio_bid: str,
     audio_settings,
     voice_settings,
@@ -767,11 +768,31 @@ def _finalize_tts_stream_audio(
     shifu_bid: str = "",
     position: int | None = None,
 ) -> tuple[str, int]:
-    final_audio = concat_audio_best_effort(audio_parts)
+    assembly_result = assemble_audio_for_upload(
+        audio_parts,
+        segment_durations_ms=segment_durations_ms,
+        output_format="mp3",
+    )
+    final_audio = assembly_result.audio_data
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = int(get_audio_duration_ms(final_audio, format="mp3") or 0)
+    duration_ms = int(assembly_result.duration_ms or 0)
+    uploaded_subtitle_cues = select_subtitle_cues_for_segments(
+        subtitle_cues,
+        assembly_result.included_segment_indices,
+        duration_ms=duration_ms,
+    )
+    if subtitle_cues is not None:
+        subtitle_cues[:] = uploaded_subtitle_cues
+    if assembly_result.used_fallback:
+        logger.warning(
+            "TTS final audio fell back to first decodable segment. "
+            "audio_bid=%s included_segments=%s source_segments=%s",
+            audio_bid,
+            assembly_result.included_segment_indices,
+            assembly_result.source_segment_count,
+        )
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
 
     if persist_audio:
@@ -793,8 +814,8 @@ def _finalize_tts_stream_audio(
             voice_settings=voice_settings,
             tts_model=tts_model or "",
             text_length=len(cleaned_text or ""),
-            segment_count=segment_count,
-            subtitle_cues=subtitle_cues,
+            segment_count=assembly_result.segment_count or segment_count,
+            subtitle_cues=uploaded_subtitle_cues,
         )
         save_audio_record(audio_record, commit=True)
 
@@ -1004,6 +1025,10 @@ def _yield_stream_tts_audio_segments(
         stats["total_word_count"] = int(stats.get("total_word_count", 0)) + int(
             word_count or 0
         )
+        stats["total_duration_ms"] = int(stats.get("total_duration_ms", 0)) + int(
+            duration_ms or 0
+        )
+        stats.setdefault("segment_durations_ms", []).append(int(duration_ms or 0))
         _record_stream_segment_usage(
             app,
             usage_context,
@@ -1208,11 +1233,13 @@ def stream_generated_block_audio(
                     )
                     segment_count = int(stats.get("segment_count", 0))
                     total_word_count = int(stats.get("total_word_count", 0))
+                    total_duration_ms = int(stats.get("total_duration_ms", 0))
 
                     oss_url, duration_ms = _finalize_tts_stream_audio(
                         app,
                         audio_parts=audio_parts,
                         subtitle_cues=subtitle_cues,
+                        segment_durations_ms=stats.get("segment_durations_ms", []),
                         audio_bid=audio_bid,
                         audio_settings=audio_settings,
                         voice_settings=voice_settings,
@@ -1236,7 +1263,7 @@ def stream_generated_block_audio(
                         raw_text=speakable_text or "",
                         cleaned_text=cleaned_segment or "",
                         total_word_count=total_word_count,
-                        duration_ms=int(duration_ms or 0),
+                        duration_ms=int(total_duration_ms or duration_ms or 0),
                         segment_count=segment_count,
                         usage_metadata=usage_metadata,
                     )
@@ -1307,11 +1334,13 @@ def stream_generated_block_audio(
             )
             segment_count = int(stats.get("segment_count", 0))
             total_word_count = int(stats.get("total_word_count", 0))
+            total_duration_ms = int(stats.get("total_duration_ms", 0))
 
             oss_url, duration_ms = _finalize_tts_stream_audio(
                 app,
                 audio_parts=audio_parts,
                 subtitle_cues=subtitle_cues,
+                segment_durations_ms=stats.get("segment_durations_ms", []),
                 audio_bid=audio_bid,
                 audio_settings=audio_settings,
                 voice_settings=voice_settings,
@@ -1334,7 +1363,7 @@ def stream_generated_block_audio(
                 raw_text=raw_text,
                 cleaned_text=cleaned_text,
                 total_word_count=total_word_count,
-                duration_ms=int(duration_ms or 0),
+                duration_ms=int(total_duration_ms or duration_ms or 0),
                 segment_count=segment_count,
                 usage_metadata=usage_metadata,
             )
@@ -1417,11 +1446,13 @@ def stream_preview_tts_audio(
             )
             segment_count = int(stats.get("segment_count", 0))
             total_word_count = int(stats.get("total_word_count", 0))
+            total_duration_ms = int(stats.get("total_duration_ms", 0))
 
             oss_url, duration_ms = _finalize_tts_stream_audio(
                 app,
                 audio_parts=audio_parts,
                 subtitle_cues=subtitle_cues,
+                segment_durations_ms=stats.get("segment_durations_ms", []),
                 audio_bid=audio_bid,
                 audio_settings=audio_settings,
                 voice_settings=voice_settings,
@@ -1440,7 +1471,7 @@ def stream_preview_tts_audio(
                 raw_text=text or "",
                 cleaned_text=cleaned_text,
                 total_word_count=total_word_count,
-                duration_ms=int(duration_ms or 0),
+                duration_ms=int(total_duration_ms or duration_ms or 0),
                 segment_count=segment_count,
                 usage_metadata=usage_metadata,
             )
