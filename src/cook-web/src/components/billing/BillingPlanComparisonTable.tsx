@@ -63,7 +63,7 @@ function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
 
 function shortenIntervalLabel(label: string): string {
   if (!label) return '';
-  return label.replace(/^每/, '').replace(/^per\s*/i, '');
+  return label.replace(/^每\s*/, '').replace(/^per\s*/i, '').trim();
 }
 
 function resolveCheckoutProvider(
@@ -111,26 +111,29 @@ function resolvePlanValidityDisplay(
   plan: BillingPlan,
 ): { short: string; tooltip: string } {
   const intervalCount = Math.max(plan.billing_interval_count || 0, 1);
+  const isMultiCycle = intervalCount > 1;
   if (plan.billing_interval === 'month') {
     return {
-      short:
-        intervalCount > 1
-          ? t('module.billing.package.validityShort.monthlyMonths', {
-              count: intervalCount,
-            })
-          : t('module.billing.package.validityShort.monthly'),
-      tooltip: t('module.billing.package.validityTooltip.monthly'),
+      short: isMultiCycle
+        ? t('module.billing.package.validityShort.monthlyMonths', {
+            count: intervalCount,
+          })
+        : t('module.billing.package.validityShort.monthly'),
+      tooltip: isMultiCycle
+        ? ''
+        : t('module.billing.package.validityTooltip.monthly'),
     };
   }
   if (plan.billing_interval === 'year') {
     return {
-      short:
-        intervalCount > 1
-          ? t('module.billing.package.validityShort.yearlyYears', {
-              count: intervalCount,
-            })
-          : t('module.billing.package.validityShort.yearly'),
-      tooltip: t('module.billing.package.validityTooltip.yearly'),
+      short: isMultiCycle
+        ? t('module.billing.package.validityShort.yearlyYears', {
+            count: intervalCount,
+          })
+        : t('module.billing.package.validityShort.yearly'),
+      tooltip: isMultiCycle
+        ? ''
+        : t('module.billing.package.validityTooltip.yearly'),
     };
   }
   return { short: '', tooltip: '' };
@@ -337,6 +340,7 @@ export function BillingPlanComparisonTable({
                         <span
                           className={styles.columnActionWrap}
                           data-testid={`${col.action.testId}-trigger`}
+                          tabIndex={0}
                         >
                           <Button
                             className={styles.columnAction}
@@ -408,7 +412,10 @@ export function BillingPlanComparisonTable({
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={styles.validityHint}>
+                        <span
+                          className={styles.validityHint}
+                          tabIndex={col.validityTooltip ? 0 : -1}
+                        >
                           {col.validityShort || '—'}
                           {col.validityTooltip ? (
                             <InformationCircleIcon
