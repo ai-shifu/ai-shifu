@@ -1382,7 +1382,9 @@ const OperationsPage = () => {
           <DialogContent className='w-[min(88vw,760px)] max-w-[760px] p-0'>
             <DialogHeader className='border-b border-border px-6 py-4 pr-12'>
               <div className='flex items-center justify-between gap-4'>
-                <DialogTitle>{tOperations('coursePromptDialog.title')}</DialogTitle>
+                <DialogTitle>
+                  {tOperations('coursePromptDialog.title')}
+                </DialogTitle>
                 <Button
                   type='button'
                   variant='outline'
