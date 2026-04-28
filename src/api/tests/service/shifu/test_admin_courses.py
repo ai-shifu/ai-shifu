@@ -117,7 +117,7 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
     assert item.course_status == "published"
     assert item.price == "199"
     assert item.course_model == "gpt-4.1-mini"
-    assert item.course_prompt == "You are a patient course assistant."
+    assert item.has_course_prompt is True
     assert item.creator_mobile == "15811112222"
     assert item.creator_email == "creator@example.com"
     assert item.creator_nickname == "Creator Mars"

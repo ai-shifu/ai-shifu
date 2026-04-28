@@ -18,8 +18,10 @@ class AdminOperationCourseSummaryDTO(BaseModel):
     course_status: str = Field(..., description="Course status", required=False)
     price: str = Field(..., description="Course price", required=False)
     course_model: str = Field(..., description="Course model", required=False)
-    course_prompt: str = Field(
-        ..., description="Course-level system prompt", required=False
+    has_course_prompt: bool = Field(
+        ...,
+        description="Whether the course has a course-level system prompt",
+        required=False,
     )
     creator_user_bid: str = Field(
         ..., description="Creator user business identifier", required=False
@@ -43,7 +45,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         course_status: str,
         price: str,
         course_model: str,
-        course_prompt: str,
+        has_course_prompt: bool,
         creator_user_bid: str,
         creator_mobile: str,
         creator_email: str,
@@ -61,7 +63,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             course_status=course_status,
             price=price,
             course_model=course_model,
-            course_prompt=course_prompt,
+            has_course_prompt=has_course_prompt,
             creator_user_bid=creator_user_bid,
             creator_mobile=creator_mobile,
             creator_email=creator_email,
@@ -81,7 +83,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             "course_status": self.course_status,
             "price": self.price,
             "course_model": self.course_model,
-            "course_prompt": self.course_prompt,
+            "has_course_prompt": self.has_course_prompt,
             "creator_user_bid": self.creator_user_bid,
             "creator_mobile": self.creator_mobile,
             "creator_email": self.creator_email,
@@ -475,6 +477,18 @@ class AdminOperationCourseUserDTO(BaseModel):
     )
     last_login_at: str = Field(
         default="", description="Latest login timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCoursePromptDTO(BaseModel):
+    """Operator-facing course prompt payload."""
+
+    course_prompt: str = Field(
+        ..., description="Course-level system prompt", required=False
     )
 
     def __json__(self) -> dict[str, Any]:

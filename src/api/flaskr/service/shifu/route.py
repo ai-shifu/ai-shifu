@@ -106,6 +106,7 @@ from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
+    get_operator_course_prompt,
     get_operator_user_detail,
     get_operator_user_credits,
     grant_operator_user_credits,
@@ -1162,6 +1163,17 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 payload=payload,
             )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/prompt",
+        methods=["GET"],
+    )
+    def admin_operation_course_prompt(shifu_bid: str):
+        """Get operator course prompt."""
+        _require_operator()
+        return make_common_response(
+            get_operator_course_prompt(app, shifu_bid=shifu_bid)
         )
 
     @app.route(

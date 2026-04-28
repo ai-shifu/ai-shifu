@@ -84,6 +84,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseFollowUpSummaryDTO,
     AdminOperationCourseFollowUpTimelineItemDTO,
     AdminOperationCourseDetailMetricsDTO,
+    AdminOperationCoursePromptDTO,
     AdminOperationCourseUserDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
@@ -1369,13 +1370,14 @@ def _build_course_summary(
     ).strip()
     updater = user_map.get(updater_user_bid, {})
     updated_at = resolved_activity.get("updated_at") or course.updated_at
+    course_prompt = str(course.llm_system_prompt or "").strip()
     return AdminOperationCourseSummaryDTO(
         shifu_bid=course.shifu_bid or "",
         course_name=course.title or "",
         course_status=course_status,
         price=_format_decimal(course.price),
         course_model=str(course.llm or "").strip(),
-        course_prompt=str(course.llm_system_prompt or "").strip(),
+        has_course_prompt=bool(course_prompt),
         creator_user_bid=course.created_user_bid or "",
         creator_mobile=creator.get("mobile", ""),
         creator_email=creator.get("email", ""),
@@ -3030,6 +3032,26 @@ def get_operator_course_detail(
                 follow_up_count_map=follow_up_count_map,
                 rating_count_map=rating_count_map,
             ),
+        )
+
+
+def get_operator_course_prompt(
+    app: Flask,
+    *,
+    shifu_bid: str,
+) -> AdminOperationCoursePromptDTO:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        if not normalized_shifu_bid:
+            raise_param_error("shifu_bid is required")
+
+        detail_source = _load_operator_course_detail_source(normalized_shifu_bid)
+        if detail_source is None:
+            raise_error("server.shifu.shifuNotFound")
+
+        course = detail_source["course"]
+        return AdminOperationCoursePromptDTO(
+            course_prompt=str(getattr(course, "llm_system_prompt", "") or "").strip()
         )
 
 

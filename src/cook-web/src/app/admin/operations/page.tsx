@@ -79,6 +79,7 @@ import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
   AdminOperationCourseItem,
   AdminOperationCourseListResponse,
+  AdminOperationCoursePromptResponse,
 } from './operation-course-types';
 import useOperatorGuard from './useOperatorGuard';
 
@@ -354,6 +355,10 @@ const OperationsPage = () => {
   const [coursePromptExpanded, setCoursePromptExpanded] = useState(false);
   const [promptDetailCourse, setPromptDetailCourse] =
     useState<AdminOperationCourseItem | null>(null);
+  const [promptDetailText, setPromptDetailText] = useState('');
+  const [promptDetailLoading, setPromptDetailLoading] = useState(false);
+  const [promptDetailError, setPromptDetailError] = useState('');
+  const [canTogglePromptDetail, setCanTogglePromptDetail] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
@@ -365,6 +370,8 @@ const OperationsPage = () => {
   const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
+  const promptRequestIdRef = useRef(0);
+  const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
   const fetchCoursesRef = useRef<
     | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
     | undefined
@@ -389,11 +396,42 @@ const OperationsPage = () => {
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const displayStatusValue = filters.course_status || ALL_OPTION_VALUE;
-  const promptDetailText = promptDetailCourse?.course_prompt?.trim() || '';
-  const canTogglePromptDetail = promptDetailText.length > 80;
+  const hasPromptDetailText = promptDetailText.trim().length > 0;
+
+  useEffect(() => {
+    if (promptDetailLoading || promptDetailError || !hasPromptDetailText) {
+      setCanTogglePromptDetail(false);
+      return;
+    }
+    if (coursePromptExpanded) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const container = promptDetailContentRef.current;
+      if (!container) {
+        setCanTogglePromptDetail(false);
+        return;
+      }
+      setCanTogglePromptDetail(
+        container.scrollHeight > container.clientHeight ||
+          container.scrollWidth > container.clientWidth,
+      );
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    coursePromptExpanded,
+    hasPromptDetailText,
+    promptDetailError,
+    promptDetailLoading,
+    promptDetailText,
+  ]);
 
   const handleCopyCoursePrompt = useCallback(async () => {
-    if (!promptDetailText) {
+    if (!hasPromptDetailText || promptDetailLoading || promptDetailError) {
       return;
     }
 
@@ -408,7 +446,14 @@ const OperationsPage = () => {
         variant: 'destructive',
       });
     }
-  }, [promptDetailText, tOperations, toast]);
+  }, [
+    hasPromptDetailText,
+    promptDetailError,
+    promptDetailLoading,
+    promptDetailText,
+    tOperations,
+    toast,
+  ]);
 
   const fetchCourses = useCallback(
     async (targetPage: number, nextFilters?: CourseFilters) => {
@@ -500,20 +545,54 @@ const OperationsPage = () => {
 
   const handlePromptDetailOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
+      promptRequestIdRef.current += 1;
       setPromptDetailCourse(null);
       setCoursePromptExpanded(false);
+      setPromptDetailText('');
+      setPromptDetailLoading(false);
+      setPromptDetailError('');
+      setCanTogglePromptDetail(false);
     }
   }, []);
 
   const handlePromptDetailClick = useCallback(
-    (course: AdminOperationCourseItem) => {
-      if (!course.course_prompt?.trim()) {
+    async (course: AdminOperationCourseItem) => {
+      if (!course.has_course_prompt) {
         return;
       }
+
+      const requestId = promptRequestIdRef.current + 1;
+      promptRequestIdRef.current = requestId;
       setPromptDetailCourse(course);
       setCoursePromptExpanded(false);
+      setPromptDetailText('');
+      setPromptDetailError('');
+      setPromptDetailLoading(true);
+
+      try {
+        const response = (await api.getAdminOperationCoursePrompt({
+          shifu_bid: course.shifu_bid,
+        })) as AdminOperationCoursePromptResponse;
+        if (requestId !== promptRequestIdRef.current) {
+          return;
+        }
+        setPromptDetailText(response.course_prompt ?? '');
+      } catch (err) {
+        if (requestId !== promptRequestIdRef.current) {
+          return;
+        }
+        if (err instanceof Error) {
+          setPromptDetailError(err.message);
+        } else {
+          setPromptDetailError(t('common.core.unknownError'));
+        }
+      } finally {
+        if (requestId === promptRequestIdRef.current) {
+          setPromptDetailLoading(false);
+        }
+      }
     },
-    [],
+    [t],
   );
 
   const handleTransferDialogOpenChange = useCallback(
@@ -869,7 +948,7 @@ const OperationsPage = () => {
         price: course => [formatMoney(course.price)],
         model: course => [course.course_model],
         coursePrompt: course => [
-          course.course_prompt?.trim()
+          course.has_course_prompt
             ? tOperations('table.detailAction')
             : EMPTY_STATE_LABEL,
         ],
@@ -1254,7 +1333,7 @@ const OperationsPage = () => {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('coursePrompt')}
                       >
-                        {course.course_prompt?.trim() ? (
+                        {course.has_course_prompt ? (
                           <button
                             type='button'
                             className='text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
@@ -1391,7 +1470,11 @@ const OperationsPage = () => {
                   size='sm'
                   className='gap-2'
                   onClick={handleCopyCoursePrompt}
-                  disabled={!promptDetailText}
+                  disabled={
+                    !hasPromptDetailText ||
+                    promptDetailLoading ||
+                    Boolean(promptDetailError)
+                  }
                 >
                   <Copy className='h-4 w-4' />
                   {tOperations('coursePromptDialog.copy')}
@@ -1401,31 +1484,60 @@ const OperationsPage = () => {
             <div className='min-h-[240px] max-h-[460px] overflow-auto px-6 py-5'>
               <section>
                 <div className='rounded-lg border border-border bg-muted/20 p-4'>
-                  <div
-                    className='break-words whitespace-pre-wrap text-sm leading-6 text-foreground'
-                    style={
-                      coursePromptExpanded || !canTogglePromptDetail
-                        ? undefined
-                        : COLLAPSED_TEXT_STYLE
-                    }
-                  >
-                    {promptDetailText ||
-                      tOperations('coursePromptDialog.empty')}
-                  </div>
-                  {canTogglePromptDetail ? (
-                    <div className='mt-3 flex justify-end'>
+                  {promptDetailLoading ? (
+                    <div className='flex min-h-[180px] items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : null}
+                  {!promptDetailLoading && promptDetailError ? (
+                    <div className='flex min-h-[180px] flex-col items-center justify-center gap-3 text-center'>
+                      <p className='text-sm leading-6 text-destructive'>
+                        {promptDetailError}
+                      </p>
                       <button
                         type='button'
                         className='text-sm font-medium text-primary transition-colors hover:text-primary/80'
-                        onClick={() =>
-                          setCoursePromptExpanded(previous => !previous)
-                        }
+                        onClick={() => {
+                          if (promptDetailCourse) {
+                            void handlePromptDetailClick(promptDetailCourse);
+                          }
+                        }}
                       >
-                        {coursePromptExpanded
-                          ? t('common.core.collapse')
-                          : t('common.core.expand')}
+                        {t('common.core.retry')}
                       </button>
                     </div>
+                  ) : null}
+                  {!promptDetailLoading && !promptDetailError ? (
+                    <>
+                      <div
+                        ref={promptDetailContentRef}
+                        className='break-words whitespace-pre-wrap text-sm leading-6 text-foreground'
+                        style={
+                          coursePromptExpanded || !canTogglePromptDetail
+                            ? undefined
+                            : COLLAPSED_TEXT_STYLE
+                        }
+                      >
+                        {hasPromptDetailText
+                          ? promptDetailText
+                          : tOperations('coursePromptDialog.empty')}
+                      </div>
+                      {canTogglePromptDetail ? (
+                        <div className='mt-3 flex justify-end'>
+                          <button
+                            type='button'
+                            className='text-sm font-medium text-primary transition-colors hover:text-primary/80'
+                            onClick={() =>
+                              setCoursePromptExpanded(previous => !previous)
+                            }
+                          >
+                            {coursePromptExpanded
+                              ? t('common.core.collapse')
+                              : t('common.core.expand')}
+                          </button>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
                 </div>
               </section>
