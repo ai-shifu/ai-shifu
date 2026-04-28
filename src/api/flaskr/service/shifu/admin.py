@@ -1365,9 +1365,7 @@ def _load_latest_shifus(
 
 
 def _attach_course_prompt_flags(model, rows) -> None:
-    course_ids = [
-        getattr(row, "id", None) for row in rows if getattr(row, "id", None)
-    ]
+    course_ids = [getattr(row, "id", None) for row in rows if getattr(row, "id", None)]
     if not course_ids:
         return
 
