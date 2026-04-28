@@ -8,6 +8,14 @@ from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
 
+_NATIVE_STATUS_PRECEDENCE = {
+    0: 0,
+    4: 1,
+    3: 1,
+    1: 2,
+    2: 3,
+}
+
 _NATIVE_PAYMENT_MODELS = {
     "alipay": AlipayOrder,
     "wechatpay": WechatPayOrder,
@@ -103,16 +111,30 @@ def upsert_native_snapshot(
 ) -> AlipayOrder | WechatPayOrder:
     model = native_snapshot_model(payment_provider)
     provider_bid_attr = native_snapshot_bid_attr(payment_provider)
+    provider_bid_value = str(native_payment_order_bid or "").strip()
+    provider_attempt_value = str(provider_attempt_id or "").strip()
+    order_bid_value = str(order_bid or "").strip()
+    bill_order_bid_value = str(bill_order_bid or "").strip()
+    if not (
+        provider_bid_value
+        or provider_attempt_value
+        or order_bid_value
+        or bill_order_bid_value
+    ):
+        raise ValueError("Native payment snapshot requires a stable identifier")
+
     query = model.query.filter(
         model.deleted == 0,
         model.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
     )
-    if provider_attempt_id:
-        query = query.filter(model.provider_attempt_id == str(provider_attempt_id))
-    elif order_bid:
-        query = query.filter(model.order_bid == str(order_bid))
-    elif bill_order_bid:
-        query = query.filter(model.bill_order_bid == str(bill_order_bid))
+    if provider_bid_value:
+        query = query.filter(getattr(model, provider_bid_attr) == provider_bid_value)
+    elif provider_attempt_value:
+        query = query.filter(model.provider_attempt_id == provider_attempt_value)
+    elif order_bid_value:
+        query = query.filter(model.order_bid == order_bid_value)
+    elif bill_order_bid_value:
+        query = query.filter(model.bill_order_bid == bill_order_bid_value)
 
     snapshot = query.order_by(model.id.desc()).first()
     if snapshot is None:
@@ -143,10 +165,18 @@ def upsert_native_snapshot(
     )
     snapshot.transaction_id = str(transaction_id or snapshot.transaction_id or "")
     snapshot.channel = str(channel or snapshot.channel or "")
-    snapshot.amount = int(amount or snapshot.amount or 0)
+    snapshot.amount = int(
+        amount
+        if amount is not None
+        else snapshot.amount
+        if snapshot.amount is not None
+        else 0
+    )
     snapshot.currency = str(currency or snapshot.currency or "CNY")
-    snapshot.status = int(raw_snapshot_status)
-    snapshot.raw_status = str(raw_status or snapshot.raw_status or "")
+    incoming_status = int(raw_snapshot_status)
+    if should_update_native_snapshot_status(snapshot.status, incoming_status):
+        snapshot.status = incoming_status
+        snapshot.raw_status = str(raw_status or snapshot.raw_status or "")
 
     if raw_request is not None:
         snapshot.raw_request = _stringify_payload(raw_request)
@@ -176,6 +206,17 @@ def upsert_native_snapshot(
         snapshot.metadata_json = "{}"
 
     return snapshot
+
+
+def should_update_native_snapshot_status(
+    existing_status: int | None,
+    incoming_status: int | None,
+) -> bool:
+    existing = int(existing_status or 0)
+    incoming = int(incoming_status or 0)
+    return _NATIVE_STATUS_PRECEDENCE.get(incoming, 0) >= _NATIVE_STATUS_PRECEDENCE.get(
+        existing, 0
+    )
 
 
 def upsert_billing_stripe_snapshot(

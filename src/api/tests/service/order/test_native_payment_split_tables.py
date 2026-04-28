@@ -5,6 +5,7 @@ from decimal import Decimal
 from flask import Flask
 import pytest
 from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 
 import flaskr.dao as dao
 from flaskr.service.billing.checkout import (
@@ -113,6 +114,113 @@ def test_native_snapshot_upsert_routes_each_provider_to_own_table(
         assert "order_native_payment_orders" not in table_names
 
 
+def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
+    native_payment_split_app,
+) -> None:
+    with native_payment_split_app.app_context():
+        snapshot = upsert_native_snapshot(
+            biz_domain="order",
+            payment_provider="alipay",
+            native_payment_order_bid="ali-zero-1",
+            provider_attempt_id="ali-zero-1",
+            order_bid="order-zero-1",
+            amount=19900,
+            currency="CNY",
+            raw_status="pending",
+            raw_snapshot_status=0,
+        )
+        dao.db.session.add(snapshot)
+        dao.db.session.commit()
+
+        updated = upsert_native_snapshot(
+            biz_domain="order",
+            payment_provider="alipay",
+            provider_attempt_id="ali-zero-1",
+            amount=0,
+            currency="CNY",
+            raw_status="pending",
+            raw_snapshot_status=0,
+        )
+        dao.db.session.add(updated)
+        dao.db.session.commit()
+
+        assert (
+            AlipayOrder.query.filter_by(provider_attempt_id="ali-zero-1").one().amount
+            == 0
+        )
+
+        with pytest.raises(ValueError):
+            upsert_native_snapshot(
+                biz_domain="order",
+                payment_provider="alipay",
+                provider_attempt_id="",
+                amount=0,
+                currency="CNY",
+                raw_status="pending",
+                raw_snapshot_status=0,
+            )
+
+
+def test_native_snapshot_status_does_not_regress_after_success(
+    native_payment_split_app,
+) -> None:
+    with native_payment_split_app.app_context():
+        paid_snapshot = upsert_native_snapshot(
+            biz_domain="order",
+            payment_provider="wechatpay",
+            native_payment_order_bid="wx-monotonic-1",
+            provider_attempt_id="wx-monotonic-1",
+            order_bid="order-monotonic-1",
+            amount=100,
+            currency="CNY",
+            raw_status="SUCCESS",
+            raw_snapshot_status=1,
+        )
+        dao.db.session.add(paid_snapshot)
+        dao.db.session.commit()
+
+        pending_snapshot = upsert_native_snapshot(
+            biz_domain="order",
+            payment_provider="wechatpay",
+            provider_attempt_id="wx-monotonic-1",
+            amount=100,
+            currency="CNY",
+            raw_status="USERPAYING",
+            raw_snapshot_status=0,
+        )
+        dao.db.session.add(pending_snapshot)
+        dao.db.session.commit()
+
+        snapshot = WechatPayOrder.query.filter_by(
+            provider_attempt_id="wx-monotonic-1"
+        ).one()
+        assert snapshot.status == 1
+        assert snapshot.raw_status == "SUCCESS"
+
+
+def test_native_provider_bid_is_unique_per_provider_table(
+    native_payment_split_app,
+) -> None:
+    with native_payment_split_app.app_context():
+        dao.db.session.add_all(
+            [
+                AlipayOrder(
+                    alipay_order_bid="ali-unique-1",
+                    biz_domain="order",
+                    provider_attempt_id="ali-unique-1",
+                ),
+                AlipayOrder(
+                    alipay_order_bid="ali-unique-1",
+                    biz_domain="billing",
+                    provider_attempt_id="ali-unique-2",
+                ),
+            ]
+        )
+        with pytest.raises(IntegrityError):
+            dao.db.session.commit()
+        dao.db.session.rollback()
+
+
 def test_learner_sync_and_admin_payment_detail_read_alipay_table(
     native_payment_split_app,
     monkeypatch,
@@ -191,6 +299,70 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
         assert admin_payment is not None
         assert admin_payment.payment_channel == "alipay"
         assert admin_payment.transaction_no == "ali-sync-1"
+
+
+def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
+    native_payment_split_app,
+    monkeypatch,
+) -> None:
+    class FakeAlipayProvider:
+        def sync_reference(self, *, provider_reference, reference_type, app):
+            assert reference_type == "payment"
+            return PaymentNotificationResult(
+                order_bid=provider_reference,
+                status="TRADE_SUCCESS",
+                provider_payload={
+                    "trade": {
+                        "out_trade_no": provider_reference,
+                        "trade_status": "TRADE_SUCCESS",
+                        "total_amount": "1.00",
+                    }
+                },
+                charge_id="ali-mismatch-tx-1",
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda provider_name: FakeAlipayProvider(),
+    )
+
+    with native_payment_split_app.app_context():
+        order = Order(
+            order_bid="order-native-mismatch-1",
+            shifu_bid="shifu-sync-1",
+            user_bid="user-sync-1",
+            payable_price=Decimal("199.00"),
+            paid_price=Decimal("199.00"),
+            payment_channel="alipay",
+            status=ORDER_STATUS_TO_BE_PAID,
+        )
+        snapshot = AlipayOrder(
+            alipay_order_bid="ali-mismatch-1",
+            biz_domain="order",
+            user_bid="user-sync-1",
+            shifu_bid="shifu-sync-1",
+            order_bid="order-native-mismatch-1",
+            provider_attempt_id="ali-mismatch-1",
+            amount=19900,
+            currency="CNY",
+            status=0,
+            raw_status="pending",
+        )
+        dao.db.session.add_all([order, snapshot])
+        dao.db.session.commit()
+
+    sync_native_payment_order(
+        native_payment_split_app,
+        "order-native-mismatch-1",
+        expected_user="user-sync-1",
+    )
+
+    with native_payment_split_app.app_context():
+        order = Order.query.filter_by(order_bid="order-native-mismatch-1").one()
+        snapshot = AlipayOrder.query.filter_by(order_bid=order.order_bid).one()
+        assert order.status == ORDER_STATUS_TO_BE_PAID
+        assert snapshot.status == 1
+        assert snapshot.transaction_id == "ali-mismatch-tx-1"
 
 
 def test_billing_native_snapshot_and_transaction_lookup_use_wechat_table(

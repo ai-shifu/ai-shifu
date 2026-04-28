@@ -50,6 +50,11 @@ from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
+from flaskr.service.common.native_payment_status import (
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    native_snapshot_status,
+)
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
 from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
@@ -66,6 +71,7 @@ from flaskr.service.order.raw_snapshots import (
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
     native_snapshot_model,
+    should_update_native_snapshot_status,
     upsert_native_snapshot,
 )
 import pytz
@@ -1200,8 +1206,24 @@ def sync_native_payment_order(
             notification=sync_result,
             source="sync",
         )
+        actual_amount = _extract_native_notification_amount(
+            provider_name,
+            sync_result.provider_payload or {},
+        )
+        amount_matches = True
+        if actual_amount is not None and int(snapshot.amount or 0) != actual_amount:
+            amount_matches = False
+            app.logger.warning(
+                "native payment sync amount mismatch provider=%s order_bid=%s provider_attempt_id=%s expected=%s actual=%s",
+                provider_name,
+                order.order_bid,
+                snapshot.provider_attempt_id,
+                snapshot.amount,
+                actual_amount,
+            )
         if (
             _is_native_payment_successful(provider_name, sync_result.provider_payload)
+            and amount_matches
             and order.status != ORDER_STATUS_SUCCESS
         ):
             success_buy_record(app, order.order_bid)
@@ -1267,8 +1289,10 @@ def _apply_native_snapshot_update(
 ) -> None:
     payload = notification.provider_payload or {}
     raw_status = _native_raw_status(provider, payload, notification.status)
-    snapshot.raw_status = raw_status
-    snapshot.status = _native_snapshot_status(provider, payload, raw_status)
+    incoming_status = _native_snapshot_status(provider, payload, raw_status)
+    if should_update_native_snapshot_status(snapshot.status, incoming_status):
+        snapshot.raw_status = raw_status
+        snapshot.status = incoming_status
     if notification.charge_id:
         snapshot.transaction_id = notification.charge_id
     if notification.order_bid:
@@ -1290,19 +1314,7 @@ def _native_raw_status(
     payload: Dict[str, Any],
     fallback: str = "",
 ) -> str:
-    if provider == "alipay":
-        trade = payload.get("trade", {}) if isinstance(payload, dict) else {}
-        if isinstance(trade, dict) and trade:
-            return str(trade.get("trade_status") or fallback or "")
-        return str(payload.get("trade_status") or fallback or "")
-    if provider == "wechatpay":
-        trade = payload.get("trade", {}) if isinstance(payload, dict) else {}
-        resource = payload.get("resource", {}) if isinstance(payload, dict) else {}
-        if isinstance(resource, dict) and resource:
-            return str(resource.get("trade_state") or fallback or "")
-        if isinstance(trade, dict):
-            return str(trade.get("trade_state") or fallback or "")
-    return str(fallback or "")
+    return extract_native_trade_status(provider, payload) or str(fallback or "")
 
 
 def _native_snapshot_status(
@@ -1310,23 +1322,13 @@ def _native_snapshot_status(
     payload: Dict[str, Any],
     raw_status: str,
 ) -> int:
-    del payload
-    status = str(raw_status or "").upper()
-    if provider == "alipay":
-        if status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
-            return 1
-        if status == "TRADE_CLOSED":
-            return 3
-        return 0
-    if provider == "wechatpay":
-        if status == "SUCCESS":
-            return 1
-        if status in {"CLOSED", "REVOKED"}:
-            return 3
-        if status == "PAYERROR":
-            return 4
-        return 0
-    return 0
+    if raw_status and not extract_native_trade_status(provider, payload):
+        payload = (
+            {"trade_status": raw_status}
+            if provider == "alipay"
+            else {"trade_state": raw_status}
+        )
+    return native_snapshot_status(provider, payload)
 
 
 def _is_native_payment_successful(
@@ -1341,16 +1343,20 @@ def _extract_native_notification_amount(
     provider: str,
     payload: Dict[str, Any],
 ) -> Optional[int]:
+    trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         total_amount = (
-            payload.get("total_amount") if isinstance(payload, dict) else None
+            trade_payload.get("total_amount")
+            if isinstance(trade_payload, dict)
+            else None
         )
         if total_amount in (None, ""):
             return None
         return int((decimal.Decimal(str(total_amount)) * 100).to_integral_value())
     if provider == "wechatpay":
-        resource = payload.get("resource", {}) if isinstance(payload, dict) else {}
-        amount = resource.get("amount", {}) if isinstance(resource, dict) else {}
+        amount = (
+            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
+        )
         if not isinstance(amount, dict):
             return None
         value = amount.get("payer_total", amount.get("total"))
@@ -1720,39 +1726,64 @@ def success_buy_record_from_native(
         if native_order is None:
             return False
 
-        actual_amount = _extract_native_notification_amount(
-            provider,
-            notification.provider_payload or {},
+        lock_key = (
+            "success_buy_record_from_native"
+            f":{provider}:{provider_attempt_id or transaction_id or native_order.id}"
         )
-        if actual_amount is not None and int(native_order.amount or 0) != actual_amount:
-            raise RuntimeError("Native payment amount mismatch")
-
-        buy_record: Order = Order.query.filter(
-            Order.order_bid == native_order.order_bid,
-            Order.deleted == 0,
-        ).first()
-        if not buy_record:
+        lock = cache_provider.lock(lock_key, timeout=10, blocking_timeout=10)
+        if not lock:
+            app.logger.error("native payment success lock unavailable key=%s", lock_key)
+            return False
+        if not lock.acquire(blocking=True):
+            app.logger.error("native payment success lock failed key=%s", lock_key)
             return False
 
-        _apply_native_snapshot_update(
-            snapshot=native_order,
-            provider=provider,
-            notification=notification,
-            source="webhook",
-        )
-        db.session.add(native_order)
+        try:
+            native_order = native_model.query.filter(
+                native_model.id == native_order.id,
+                native_model.deleted == 0,
+            ).first()
+            if native_order is None:
+                return False
 
-        if (
-            _is_native_payment_successful(
+            actual_amount = _extract_native_notification_amount(
                 provider,
                 notification.provider_payload or {},
             )
-            and buy_record.status == ORDER_STATUS_TO_BE_PAID
-        ):
-            success_buy_record(app, buy_record.order_bid)
-        else:
-            db.session.commit()
-        return True
+            if (
+                actual_amount is not None
+                and int(native_order.amount or 0) != actual_amount
+            ):
+                raise RuntimeError("Native payment amount mismatch")
+
+            buy_record: Order = Order.query.filter(
+                Order.order_bid == native_order.order_bid,
+                Order.deleted == 0,
+            ).first()
+            if not buy_record:
+                return False
+
+            _apply_native_snapshot_update(
+                snapshot=native_order,
+                provider=provider,
+                notification=notification,
+                source="webhook",
+            )
+            db.session.add(native_order)
+
+            if (
+                _is_native_payment_successful(
+                    provider,
+                    notification.provider_payload or {},
+                )
+                and buy_record.status == ORDER_STATUS_TO_BE_PAID
+            ):
+                success_buy_record(app, buy_record.order_bid)
+            else:
+                db.session.commit()
+            return True
+        finally:
+            lock.release()
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):

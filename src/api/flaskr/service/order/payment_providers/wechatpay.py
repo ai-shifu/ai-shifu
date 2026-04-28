@@ -27,8 +27,6 @@ from .base import (
     PaymentRequest,
 )
 
-_WECHATPAY_BASE_URL = "https://api.mch.weixin.qq.com"
-
 
 class WechatPayProvider(PaymentProvider):
     """Direct WeChat Pay API v3 provider implementation."""
@@ -207,7 +205,7 @@ class WechatPayProvider(PaymentProvider):
         }
         response = requests.request(
             method,
-            f"{_WECHATPAY_BASE_URL}{path}",
+            f"{_wechatpay_base_url()}{path}",
             data=body.encode("utf-8") if body else None,
             headers=headers,
             timeout=10,
@@ -309,6 +307,13 @@ def _required_config(name: str) -> str:
     if not value:
         raise RuntimeError(f"{name} must be configured")
     return value
+
+
+def _wechatpay_base_url() -> str:
+    return str(
+        get_config("WECHATPAY_BASE_URL", "https://api.mch.weixin.qq.com")
+        or "https://api.mch.weixin.qq.com"
+    ).rstrip("/")
 
 
 def _sign_with_merchant_key(message: str) -> str:

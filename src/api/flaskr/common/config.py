@@ -823,6 +823,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="WeChat Pay merchant identifier",
         group="payment",
     ),
+    "WECHATPAY_BASE_URL": EnvVar(
+        name="WECHATPAY_BASE_URL",
+        default="https://api.mch.weixin.qq.com",
+        description="WeChat Pay API base URL",
+        group="payment",
+    ),
     "WECHATPAY_API_V3_KEY": EnvVar(
         name="WECHATPAY_API_V3_KEY",
         default="",

@@ -280,4 +280,16 @@ describe('extractBillingPingxxQrCode', () => {
       url: 'weixin://wxpay/bizpayurl',
     });
   });
+
+  test('returns null when requested QR credential is missing or empty', () => {
+    expect(
+      extractBillingPingxxQrCode(buildCheckoutResult({}), 'alipay_qr'),
+    ).toBeNull();
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ alipay_qr: '' }),
+        'alipay_qr',
+      ),
+    ).toBeNull();
+  });
 });

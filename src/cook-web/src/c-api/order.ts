@@ -15,8 +15,8 @@ export interface NativePaymentPayload {
   mode?: 'jsapi';
   prepay_id?: string;
   jsapi_params?: Record<string, string>;
-  credential?: Record<string, string>;
-  qr_url?: string;
+  credential?: Record<string, unknown>;
+  qr_url?: string | Record<string, string>;
 }
 
 export interface PayUrlResponse {
@@ -24,7 +24,7 @@ export interface PayUrlResponse {
   user_id: string;
   price: string;
   channel: string;
-  qr_url: string;
+  qr_url: string | Record<string, string>;
   payment_channel?: PaymentChannel;
   payment_payload?:
     | StripePaymentPayload

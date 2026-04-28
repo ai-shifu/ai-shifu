@@ -12,6 +12,14 @@ from flaskr.service.order.payment_providers import (
     PaymentNotificationResult,
     get_payment_provider,
 )
+from flaskr.service.common.native_payment_status import (
+    NATIVE_PAYMENT_STATE_CANCELED,
+    NATIVE_PAYMENT_STATE_FAILED,
+    NATIVE_PAYMENT_STATE_PAID,
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    resolve_native_payment_state,
+)
 
 from .checkout import (
     load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
@@ -50,6 +58,12 @@ _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
+}
+
+_BILLING_STATUS_BY_NATIVE_STATE = {
+    NATIVE_PAYMENT_STATE_PAID: BILLING_ORDER_STATUS_PAID,
+    NATIVE_PAYMENT_STATE_CANCELED: BILLING_ORDER_STATUS_CANCELED,
+    NATIVE_PAYMENT_STATE_FAILED: BILLING_ORDER_STATUS_FAILED,
 }
 
 
@@ -383,7 +397,7 @@ def apply_billing_native_notification(
     provider_attempt_id = _normalize_bid(notification.order_bid)
     transaction_id = _normalize_bid(notification.charge_id)
     provider_payload = notification.provider_payload or {}
-    trade_payload = _native_trade_payload(provider_payload)
+    trade_payload = extract_native_trade_payload(provider_payload)
 
     with app.app_context():
         order = _load_billing_order_for_native_event(
@@ -423,7 +437,11 @@ def apply_billing_native_notification(
             create_if_missing=False,
             provider_attempt_id=provider_attempt_id or order.provider_reference_id,
             transaction_id=transaction_id,
-            raw_status=_native_status(normalized_provider, trade_payload),
+            raw_status=extract_native_trade_status(normalized_provider, trade_payload),
+            raw_snapshot_status=_native_raw_snapshot_status(
+                target_status,
+                order.status,
+            ),
             raw_notification=provider_payload,
             metadata={"latest_source": "webhook"},
         )
@@ -456,56 +474,45 @@ def apply_billing_native_notification(
         )
 
 
-def _native_trade_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    if not isinstance(payload, dict):
-        return {}
-    trade = payload.get("trade", {})
-    if isinstance(trade, dict) and trade:
-        return trade
-    resource = payload.get("resource", {})
-    if isinstance(resource, dict) and resource:
-        return resource
-    return payload
-
-
-def _native_status(provider: str, payload: dict[str, Any]) -> str:
-    if provider == "alipay":
-        return str(payload.get("trade_status") or "")
-    if provider == "wechatpay":
-        return str(payload.get("trade_state") or "")
-    return ""
-
-
 def _native_target_status(provider: str, payload: dict[str, Any]) -> int | None:
-    status = _native_status(provider, payload).upper()
-    if provider == "alipay":
-        if status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
-            return BILLING_ORDER_STATUS_PAID
-        if status == "TRADE_CLOSED":
-            return BILLING_ORDER_STATUS_CANCELED
-        return None
-    if provider == "wechatpay":
-        if status == "SUCCESS":
-            return BILLING_ORDER_STATUS_PAID
-        if status in {"CLOSED", "REVOKED"}:
-            return BILLING_ORDER_STATUS_CANCELED
-        if status == "PAYERROR":
-            return BILLING_ORDER_STATUS_FAILED
-        return None
-    return None
+    return _BILLING_STATUS_BY_NATIVE_STATE.get(
+        resolve_native_payment_state(provider, payload)
+    )
+
+
+def _native_raw_snapshot_status(
+    target_status: int | None,
+    current_status: int | None,
+) -> int:
+    status = int(target_status or current_status or 0)
+    if status == BILLING_ORDER_STATUS_PAID:
+        return 1
+    if status == BILLING_ORDER_STATUS_CANCELED:
+        return 3
+    if status == BILLING_ORDER_STATUS_FAILED:
+        return 4
+    if status == BILLING_ORDER_STATUS_REFUNDED:
+        return 2
+    return 0
 
 
 def _extract_native_amount(provider: str, payload: dict[str, Any]) -> int | None:
+    trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
-        value = payload.get("total_amount") if isinstance(payload, dict) else None
+        value = (
+            trade_payload.get("total_amount")
+            if isinstance(trade_payload, dict)
+            else None
+        )
         if value in (None, ""):
             return None
         from decimal import Decimal
 
         return int((Decimal(str(value)) * 100).to_integral_value())
     if provider == "wechatpay":
-        resource = payload.get("resource", {}) if isinstance(payload, dict) else {}
-        amount = resource.get("amount", {}) if isinstance(resource, dict) else {}
+        amount = (
+            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
+        )
         if not isinstance(amount, dict):
             return None
         value = amount.get("payer_total", amount.get("total"))

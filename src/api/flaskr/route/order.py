@@ -71,7 +71,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     $ref: "#/components/schemas/BuyRecordDTO"
 
         """
-        payload = request.get_json() or {}
+        payload = request.get_json(silent=True) or {}
         order_id = payload.get("order_id", "")
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")

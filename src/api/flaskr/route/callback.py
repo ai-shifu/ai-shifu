@@ -58,7 +58,15 @@ def register_callback_handler(app: Flask, path_prefix: str):
                     notification,
                 )
                 if not matched:
-                    return _plain_text_response("failure")
+                    app.logger.warning(
+                        "alipay-notify unmatched local payment provider=%s order_bid=%s charge_id=%s status=%s reason=%s",
+                        "alipay",
+                        notification.order_bid,
+                        notification.charge_id,
+                        notification.status,
+                        "billing_and_order_not_matched",
+                    )
+                    return _plain_text_response("success")
         except Exception as exc:
             app.logger.exception("alipay-notify failed: %s", exc)
             return _plain_text_response("failure")
@@ -88,13 +96,18 @@ def register_callback_handler(app: Flask, path_prefix: str):
                     notification,
                 )
                 if not matched:
-                    return (
-                        jsonify({"code": "FAIL", "message": "order not found"}),
-                        404,
+                    app.logger.warning(
+                        "wechatpay-notify unmatched local payment provider=%s order_bid=%s charge_id=%s status=%s reason=%s",
+                        "wechatpay",
+                        notification.order_bid,
+                        notification.charge_id,
+                        notification.status,
+                        "billing_and_order_not_matched",
                     )
+                    return jsonify({"code": "SUCCESS", "message": "成功"})
         except Exception as exc:
             app.logger.exception("wechatpay-notify failed: %s", exc)
-            return jsonify({"code": "FAIL", "message": str(exc)}), 400
+            return jsonify({"code": "FAIL", "message": "processing error"}), 400
         return jsonify({"code": "SUCCESS", "message": "成功"})
 
     return app

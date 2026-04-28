@@ -451,7 +451,7 @@ export const PayModal = ({
             }
           ).WeixinJSBridge;
           if (!bridge) {
-            reject(new Error('WeixinJSBridge is not ready'));
+            reject(new Error('wechat_bridge_unavailable'));
             return;
           }
           bridge.invoke(
@@ -462,7 +462,7 @@ export const PayModal = ({
                 resolve();
                 return;
               }
-              reject(new Error(result.err_msg || 'wechat pay failed'));
+              reject(new Error(result.err_msg || 'wechat_pay_failed'));
             },
           );
         };
@@ -480,11 +480,13 @@ export const PayModal = ({
       await syncOrderStatus({ paymentChannel: 'wechatpay' });
       toast({ title: t('module.pay.paySuccess') });
     } catch (error) {
+      console.error('WeChat JSAPI payment failed', error);
       toast({
         title:
-          error instanceof Error
-            ? error.message
-            : t('module.pay.wechatJsapiUnavailable'),
+          error instanceof Error &&
+          error.message === 'wechat_bridge_unavailable'
+            ? t('module.pay.wechatJsapiUnavailable')
+            : t('module.pay.payFailed'),
         variant: 'destructive',
       });
     }
@@ -723,7 +725,7 @@ export const PayModal = ({
                                     )}
                                   />
                                 ) : null}
-                                {qrcodeStatus === 'error' ? (
+                                {qrcodeStatus === 'expired' ? (
                                   <Button
                                     className='pointer-events-auto bg-white/95 text-black shadow'
                                     variant='outline'

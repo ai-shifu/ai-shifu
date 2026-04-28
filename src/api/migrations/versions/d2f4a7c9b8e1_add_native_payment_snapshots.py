@@ -276,7 +276,7 @@ def _create_provider_table(
         op.f(f"ix_{table_name}_{provider_bid_column}"),
         table_name,
         [provider_bid_column],
-        unique=False,
+        unique=True,
     )
     for column_name in (
         "biz_domain",

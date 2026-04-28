@@ -63,9 +63,8 @@ export const PayChannelSwitch = ({
   availableChannels,
 }: PayChannelSwitchProps) => {
   const { t } = useTranslation();
-  const enabledChannels = availableChannels?.length
-    ? new Set(availableChannels)
-    : null;
+  const enabledChannels =
+    availableChannels == null ? null : new Set(availableChannels);
   return (
     <div className={styles.channelSwitch}>
       {!enabledChannels || enabledChannels.has(PAY_CHANNEL_WECHAT) ? (

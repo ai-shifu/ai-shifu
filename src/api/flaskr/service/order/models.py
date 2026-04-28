@@ -531,6 +531,7 @@ class AlipayOrder(_NativeProviderOrderBase):
     alipay_order_bid = Column(
         String(36),
         index=True,
+        unique=True,
         nullable=False,
         default="",
         comment="Alipay payment snapshot business identifier",
@@ -559,6 +560,7 @@ class WechatPayOrder(_NativeProviderOrderBase):
     wechatpay_order_bid = Column(
         String(36),
         index=True,
+        unique=True,
         nullable=False,
         default="",
         comment="WeChat Pay payment snapshot business identifier",

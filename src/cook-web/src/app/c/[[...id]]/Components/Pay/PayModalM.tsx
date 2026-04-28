@@ -75,6 +75,31 @@ const defaultMobileChannel = inWechat()
   ? PAY_CHANNEL_WECHAT_JSAPI
   : PAY_CHANNEL_ZHIFUBAO;
 
+const isJsapiParams = (value: unknown): value is Record<string, string> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  return Object.values(value).every(item => typeof item === 'string');
+};
+
+const resolveJsapiParams = (
+  qrUrl: unknown,
+  paymentPayload: NativePaymentPayload,
+) => {
+  if (isJsapiParams(paymentPayload.jsapi_params)) {
+    return paymentPayload.jsapi_params;
+  }
+  const credential = paymentPayload.credential || {};
+  const wxPubCredential = credential.wx_pub;
+  if (isJsapiParams(wxPubCredential)) {
+    return wxPubCredential;
+  }
+  if (isJsapiParams(qrUrl)) {
+    return qrUrl;
+  }
+  return null;
+};
+
 export const PayModalM = ({
   open = false,
   onCancel,
@@ -366,10 +391,14 @@ export const PayModalM = ({
 
     const paymentPayload = (payload.payment_payload ||
       nativePayload) as NativePaymentPayload;
-    if (paymentPayload.mode === 'jsapi' && paymentPayload.jsapi_params) {
+    const jsapiParams = resolveJsapiParams(payload.qr_url, paymentPayload);
+    if (jsapiParams) {
       try {
-        await payByJsApi(paymentPayload.jsapi_params);
-        await syncOrderStatus({ paymentChannel: 'wechatpay' });
+        await payByJsApi(jsapiParams);
+        const syncPaymentChannel = payload.payment_channel || paymentChannel;
+        await syncOrderStatus(
+          syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
+        );
         toast({
           title: t('module.pay.paySuccess'),
         });
@@ -380,7 +409,7 @@ export const PayModalM = ({
           variant: 'destructive',
         });
       }
-    } else if (payload.qr_url) {
+    } else if (typeof payload.qr_url === 'string' && payload.qr_url) {
       window.open(payload.qr_url);
     }
   }, [

@@ -21,6 +21,14 @@ from flaskr.service.order.payment_providers import (
     PaymentRequest,
     get_payment_provider,
 )
+from flaskr.service.common.native_payment_status import (
+    NATIVE_PAYMENT_STATE_CANCELED,
+    NATIVE_PAYMENT_STATE_FAILED,
+    NATIVE_PAYMENT_STATE_PAID,
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    resolve_native_payment_state,
+)
 from flaskr.service.order.raw_snapshots import (
     billing_pingxx_snapshot_query,
     billing_native_snapshot_query,
@@ -93,6 +101,12 @@ _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
     BILLING_ORDER_STATUS_CANCELED: 3,
     BILLING_ORDER_STATUS_TIMEOUT: 3,
     BILLING_ORDER_STATUS_FAILED: 4,
+}
+
+_BILLING_STATUS_BY_NATIVE_STATE = {
+    NATIVE_PAYMENT_STATE_PAID: BILLING_ORDER_STATUS_PAID,
+    NATIVE_PAYMENT_STATE_CANCELED: BILLING_ORDER_STATUS_CANCELED,
+    NATIVE_PAYMENT_STATE_FAILED: BILLING_ORDER_STATUS_FAILED,
 }
 
 _CHECKOUT_PLAN_SUBJECT_PREFIX_KEYS = {
@@ -554,6 +568,16 @@ def sync_billing_order(
             return BillingOrderSyncResultDTO(
                 bill_order_bid=order.bill_order_bid,
                 status="pending",
+            )
+        if order.status == BILLING_ORDER_STATUS_CANCELED:
+            return BillingOrderSyncResultDTO(
+                bill_order_bid=order.bill_order_bid,
+                status="canceled",
+            )
+        if order.status == BILLING_ORDER_STATUS_FAILED:
+            return BillingOrderSyncResultDTO(
+                bill_order_bid=order.bill_order_bid,
+                status="failed",
             )
         raise_error("server.order.orderStatusError")
 
@@ -1054,13 +1078,18 @@ def _persist_billing_native_raw_snapshot(
     provider_attempt_id: str = "",
     transaction_id: str = "",
     raw_status: str = "",
+    raw_snapshot_status: int | None = None,
     raw_request: Any | None = None,
     raw_response: Any | None = None,
     raw_notification: Any | None = None,
     metadata: Any | None = None,
 ) -> None:
-    raw_snapshot_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-        int(order.status or BILLING_ORDER_STATUS_INIT), 0
+    resolved_raw_snapshot_status = (
+        int(raw_snapshot_status)
+        if raw_snapshot_status is not None
+        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            int(order.status or BILLING_ORDER_STATUS_INIT), 0
+        )
     )
     native_model = native_snapshot_model(order.payment_provider)
     existing = (
@@ -1084,7 +1113,7 @@ def _persist_billing_native_raw_snapshot(
         amount=int(order.payable_amount or 0),
         currency=str(order.currency or "CNY"),
         raw_status=raw_status,
-        raw_snapshot_status=raw_snapshot_status,
+        raw_snapshot_status=resolved_raw_snapshot_status,
         transaction_id=transaction_id,
         channel=str(order.channel or ""),
         raw_request=raw_request,
@@ -1411,12 +1440,12 @@ def _sync_native_order(
         reference_type="payment",
         app=app,
     )
-    trade_payload = _extract_native_trade_payload(sync_result.provider_payload)
+    trade_payload = extract_native_trade_payload(sync_result.provider_payload)
     target_status = _resolve_native_billing_order_status(
         provider_name,
         trade_payload,
     )
-    raw_status = _extract_native_trade_status(provider_name, trade_payload)
+    raw_status = extract_native_trade_status(provider_name, trade_payload)
 
     order_update = _apply_billing_order_provider_update(
         order,
@@ -1442,6 +1471,10 @@ def _sync_native_order(
             or ""
         ),
         raw_status=raw_status,
+        raw_snapshot_status=_RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            target_status or order.status,
+            0,
+        ),
         raw_response={"trade": trade_payload},
         metadata={"latest_source": "sync"},
     )
@@ -1459,44 +1492,13 @@ def _sync_native_order(
     return order_update
 
 
-def _extract_native_trade_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    trade = payload.get("trade", {}) if isinstance(payload, dict) else {}
-    if isinstance(trade, dict) and trade:
-        return trade
-    resource = payload.get("resource", {}) if isinstance(payload, dict) else {}
-    if isinstance(resource, dict):
-        return resource
-    return {}
-
-
-def _extract_native_trade_status(provider: str, payload: dict[str, Any]) -> str:
-    if provider == "alipay":
-        return str(payload.get("trade_status") or "")
-    if provider == "wechatpay":
-        return str(payload.get("trade_state") or "")
-    return ""
-
-
 def _resolve_native_billing_order_status(
     provider: str,
     payload: dict[str, Any],
-) -> int:
-    raw_status = _extract_native_trade_status(provider, payload).upper()
-    if provider == "alipay":
-        if raw_status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
-            return BILLING_ORDER_STATUS_PAID
-        if raw_status == "TRADE_CLOSED":
-            return BILLING_ORDER_STATUS_CANCELED
-        return BILLING_ORDER_STATUS_PENDING
-    if provider == "wechatpay":
-        if raw_status == "SUCCESS":
-            return BILLING_ORDER_STATUS_PAID
-        if raw_status in {"CLOSED", "REVOKED"}:
-            return BILLING_ORDER_STATUS_CANCELED
-        if raw_status == "PAYERROR":
-            return BILLING_ORDER_STATUS_FAILED
-        return BILLING_ORDER_STATUS_PENDING
-    return BILLING_ORDER_STATUS_PENDING
+) -> int | None:
+    return _BILLING_STATUS_BY_NATIVE_STATE.get(
+        resolve_native_payment_state(provider, payload)
+    )
 
 
 def _load_billing_order_for_stripe_event(

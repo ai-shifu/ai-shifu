@@ -204,7 +204,7 @@ export const usePaymentFlow = ({
         }
         setPaymentInfo({
           channel: payload.channel,
-          qrUrl: payload.qr_url,
+          qrUrl: typeof payload.qr_url === 'string' ? payload.qr_url : '',
           status: payload.status,
           paymentChannel: payload.payment_channel,
           paymentPayload: payload.payment_payload || {},
