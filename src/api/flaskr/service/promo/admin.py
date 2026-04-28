@@ -183,7 +183,7 @@ def _resolve_update_datetime(
     return _parse_datetime(value, field_name, is_end=is_end)
 
 
-def _format_promotion_admin_datetime(value: Optional[datetime]) -> str:
+def _format_promotion_admin_datetime(value: datetime | str | None) -> str:
     if not value:
         return ""
 
@@ -192,24 +192,24 @@ def _format_promotion_admin_datetime(value: Optional[datetime]) -> str:
         if not normalized:
             return ""
         parsed_value = None
-        for candidate in (
-            normalized.replace("Z", "+00:00"),
-            normalized.replace(" ", "T"),
-        ):
-            try:
-                parsed_value = datetime.fromisoformat(candidate)
-                break
-            except ValueError:
-                continue
+        candidate = normalized.replace("Z", "+00:00").replace(" ", "T")
+        try:
+            parsed_value = datetime.fromisoformat(candidate)
+        except ValueError:
+            parsed_value = None
         if parsed_value is None:
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
                 try:
                     parsed_value = datetime.strptime(normalized, fmt)
                     break
                 except ValueError:
                     continue
         if parsed_value is None:
-            raise_param_error("promotion_datetime")
+            current_app.logger.warning(
+                "Failed to parse promotion admin datetime string: %s",
+                normalized,
+            )
+            return ""
         value = parsed_value
 
     app = current_app._get_current_object()

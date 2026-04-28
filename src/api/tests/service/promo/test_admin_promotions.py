@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -1580,6 +1581,15 @@ def test_format_promotion_admin_datetime_accepts_string_value(app):
             _format_promotion_admin_datetime("2026-04-28 14:38:41")
             == "2026-04-28T06:38:41Z"
         )
+
+
+def test_format_promotion_admin_datetime_returns_empty_for_invalid_string(app):
+    with app.app_context():
+        warning = Mock()
+        app.logger.warning = warning
+
+        assert _format_promotion_admin_datetime("not-a-datetime") == ""
+        warning.assert_called_once()
 
 
 def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemption(
