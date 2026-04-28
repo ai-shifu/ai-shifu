@@ -397,10 +397,11 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
               ? meta.revision
               : null;
         const currentBaseRevision = baseRevisionRef.current;
+        const hasKnownBaseRevision = typeof currentBaseRevision === 'number';
         const remoteRevisionIsNewer =
           latestRevision != null &&
-          (typeof currentBaseRevision !== 'number' ||
-            latestRevision > currentBaseRevision);
+          hasKnownBaseRevision &&
+          latestRevision > currentBaseRevision;
         if (
           currentShifuBidRef.current !== shifuBid ||
           currentLessonBidRef.current !== outlineBid
