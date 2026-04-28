@@ -38,8 +38,7 @@ from flaskr.api.tts import (
 )
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_best_effort,
-    get_audio_duration_ms,
+    assemble_audio_for_upload,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.common.log import AppLoggerProxy
@@ -773,6 +772,7 @@ def synthesize_long_text_to_oss(
 
     if max_workers == 1:
         audio_parts: list[bytes] = []
+        audio_durations_ms: list[int] = []
         with app.app_context():
             for index, segment_text in enumerate(segments):
                 segment_start = time.monotonic()
@@ -784,6 +784,8 @@ def synthesize_long_text_to_oss(
                     provider_name=provider,
                 )
                 audio_parts.append(result.audio_data)
+                result_duration_ms = int(result.duration_ms or 0)
+                audio_durations_ms.append(result_duration_ms)
                 if usage_context is not None:
                     segment_length = len(segment_text or "")
                     total_word_count += int(result.word_count or 0)
@@ -798,7 +800,7 @@ def synthesize_long_text_to_oss(
                         output=segment_length,
                         total=segment_length,
                         word_count=int(result.word_count or 0),
-                        duration_ms=int(result.duration_ms or 0),
+                        duration_ms=result_duration_ms,
                         latency_ms=latency_ms,
                         record_level=1,
                         parent_usage_bid=usage_parent_bid,
@@ -815,6 +817,7 @@ def synthesize_long_text_to_oss(
                 provider,
             )
         audio_parts = [b""] * len(segments)
+        audio_durations_ms = [0] * len(segments)
         segment_map = {idx: segment for idx, segment in enumerate(segments)}
 
         def _synthesize_in_app_context(segment_text: str):
@@ -842,6 +845,8 @@ def synthesize_long_text_to_oss(
                 index = future_map[future]
                 result = future.result()
                 audio_parts[index] = result.audio_data
+                result_duration_ms = int(result.duration_ms or 0)
+                audio_durations_ms[index] = result_duration_ms
                 if usage_context is not None:
                     segment_text = segment_map.get(index, "")
                     segment_length = len(segment_text or "")
@@ -856,7 +861,7 @@ def synthesize_long_text_to_oss(
                         output=segment_length,
                         total=segment_length,
                         word_count=int(result.word_count or 0),
-                        duration_ms=int(result.duration_ms or 0),
+                        duration_ms=result_duration_ms,
                         latency_ms=0,
                         record_level=1,
                         parent_usage_bid=usage_parent_bid,
@@ -865,11 +870,18 @@ def synthesize_long_text_to_oss(
                         extra=usage_metadata,
                     )
 
-    final_audio = concat_audio_best_effort(audio_parts)
+    assembly_result = assemble_audio_for_upload(
+        audio_parts,
+        segment_durations_ms=audio_durations_ms,
+        output_format="mp3",
+    )
+    final_audio = assembly_result.audio_data
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+    duration_ms = assembly_result.duration_ms
+    generated_duration_ms = sum(int(item or 0) for item in audio_durations_ms)
+    metered_duration_ms = generated_duration_ms or duration_ms
 
     audio_bid = (audio_bid or "").strip() or uuid.uuid4().hex
     with app.app_context():
@@ -889,7 +901,7 @@ def synthesize_long_text_to_oss(
             output=cleaned_length,
             total=cleaned_length,
             word_count=total_word_count,
-            duration_ms=int(duration_ms or 0),
+            duration_ms=int(metered_duration_ms or 0),
             latency_ms=0,
             record_level=0,
             parent_usage_bid="",
