@@ -170,6 +170,8 @@ export function BillingPlanComparisonTable({
   onSelectPlanCheckout,
 }: BillingPlanComparisonTableProps) {
   const { t, i18n } = useTranslation();
+  const processingLabel = t('module.billing.catalog.actions.processing');
+  const emptyValue = t('module.billing.package.table.emptyValue');
   const trialFeatureKeys = getFreeFeatureData().items;
   const featureRows = buildFeatureRows(trialFeatureKeys, paidPlans);
   const provider = resolveCheckoutProvider(stripeAvailable, pingxxAvailable);
@@ -293,6 +295,10 @@ export function BillingPlanComparisonTable({
     });
   });
 
+  if (columns.length === 0) {
+    return null;
+  }
+
   return (
     <div
       className={styles.tableWrapper}
@@ -353,7 +359,7 @@ export function BillingPlanComparisonTable({
                             type='button'
                             variant='secondary'
                           >
-                            {col.action.loading ? '...' : col.action.label}
+                            {col.action.loading ? processingLabel : col.action.label}
                           </Button>
                         </span>
                       </TooltipTrigger>
@@ -369,7 +375,7 @@ export function BillingPlanComparisonTable({
                     type='button'
                     variant='secondary'
                   >
-                    {col.action.loading ? '...' : col.action.label}
+                    {col.action.loading ? processingLabel : col.action.label}
                   </Button>
                 )}
               </th>
@@ -397,7 +403,7 @@ export function BillingPlanComparisonTable({
                   {t('module.billing.package.table.studentsRowLabel')}
                 </div>
                 <div className={styles.cellValue}>
-                  {col.studentLabel || '—'}
+                  {col.studentLabel || emptyValue}
                 </div>
               </td>
             ))}
@@ -419,7 +425,7 @@ export function BillingPlanComparisonTable({
                           className={styles.validityHint}
                           tabIndex={col.validityTooltip ? 0 : -1}
                         >
-                          {col.validityShort || '—'}
+                          {col.validityShort || emptyValue}
                           {col.validityTooltip ? (
                             <InformationCircleIcon
                               className={styles.validityIcon}

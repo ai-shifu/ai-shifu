@@ -618,6 +618,7 @@
     "subtitle": "Choose the right credit plan.",
     "table": {
       "creditsRowLabel": "Credits per cycle",
+      "emptyValue": "—",
       "featuresRowLabel": "Entitlements",
       "studentsRowLabel": "Estimated learners",
       "validityRowLabel": "Credit validity"

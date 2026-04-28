@@ -618,6 +618,7 @@
     "subtitle": "请选择合适的积分套餐",
     "table": {
       "creditsRowLabel": "周期积分",
+      "emptyValue": "—",
       "featuresRowLabel": "权益",
       "studentsRowLabel": "预估支持学员",
       "validityRowLabel": "积分有效期"
