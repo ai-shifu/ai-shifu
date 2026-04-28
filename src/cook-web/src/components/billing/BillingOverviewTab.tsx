@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -151,7 +151,7 @@ export function BillingOverviewTab({
     })),
   );
 
-  const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('monthly');
+  const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('plans');
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
   const [pingxxCheckout, setPingxxCheckout] =
@@ -194,9 +194,6 @@ export function BillingOverviewTab({
     plans.find(
       item => item.product_bid === overview?.subscription?.product_bid,
     ) || null;
-  const dailyPlans = plans.filter(
-    product => product.billing_interval === 'day',
-  );
   const monthlyPlans = plans.filter(
     product => product.billing_interval === 'month',
   );
@@ -223,29 +220,6 @@ export function BillingOverviewTab({
         return provider ? { product: topups[0], provider } : null;
       })()
     : null;
-
-  useEffect(() => {
-    if (currentPlan?.billing_interval) {
-      setShowcaseTab(currentTab => {
-        if (currentTab === 'topup') {
-          return currentTab;
-        }
-        if (currentPlan.billing_interval === 'day') {
-          return 'daily';
-        }
-        if (currentPlan.billing_interval === 'year') {
-          return 'yearly';
-        }
-        return 'monthly';
-      });
-    }
-  }, [currentPlan?.billing_interval]);
-
-  useEffect(() => {
-    if (showcaseTab === 'daily' && dailyPlans.length === 0) {
-      setShowcaseTab('monthly');
-    }
-  }, [dailyPlans.length, showcaseTab]);
 
   async function handleCheckout() {
     if (!checkoutTarget) {
@@ -467,7 +441,9 @@ export function BillingOverviewTab({
     ? resolveBillingProviderLabel(t, checkoutTarget.provider)
     : '';
   const loadError = overviewError || catalogError;
-  const renderFreeCard = showcaseTab === 'monthly';
+  // Trial column hidden in the comparison table; keep trial data wiring so the
+  // 15-day basic-plan grant flow can re-enable rendering by flipping this flag.
+  const renderFreeCard = false;
 
   return (
     <section
@@ -505,7 +481,6 @@ export function BillingOverviewTab({
       <BillingOverviewShowcase
         checkoutLoadingKey={checkoutLoadingKey}
         currentPlan={currentPlan}
-        dailyPlans={dailyPlans}
         hasActiveSubscription={hasActiveSubscription}
         isTrialCurrentPlan={isTrialCurrentPlan}
         isLoading={overviewLoading || catalogLoading}

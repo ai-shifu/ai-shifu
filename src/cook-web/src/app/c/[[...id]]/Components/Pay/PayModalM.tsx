@@ -110,6 +110,7 @@ export const PayModalM = ({
     priceItems,
     couponCode: appliedCouponCode,
     paymentInfo,
+    isLoading,
     initLoading: hookInitLoading,
     isCompleted,
     initializeOrder,
@@ -292,8 +293,10 @@ export const PayModalM = ({
       return;
     }
     let nextOrderId = orderId;
+    let nextSnapshot = null;
     if (!nextOrderId) {
       const snapshot = await initializeOrder();
+      nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
     if (!nextOrderId) {
@@ -318,6 +321,7 @@ export const PayModalM = ({
     await refreshPayment({
       channel: resolveRequestChannel(nextChannel),
       paymentChannel: resolvePaymentChannel(nextChannel),
+      snapshot: nextSnapshot,
     });
   }, [
     alipayPaymentAvailable,
@@ -356,7 +360,7 @@ export const PayModalM = ({
       channel: resolveRequestChannel(payChannel),
       paymentChannel,
     });
-    if (!payload) {
+    if (!payload || !('qr_url' in payload)) {
       return;
     }
 
@@ -496,10 +500,11 @@ export const PayModalM = ({
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!orderId) {
+    if (!orderId && !hookInitLoading && !isLoading) {
+      // Only release the one-shot guard after the current payment bootstrap settles.
       initialPaymentRequestedRef.current = false;
     }
-  }, [orderId]);
+  }, [hookInitLoading, isLoading, orderId]);
 
   useEffect(() => {
     if (!open || isLoggedIn) {

@@ -48,6 +48,7 @@ interface OrderSnapshot {
 export interface PaymentActionParams {
   channel: string;
   paymentChannel?: PaymentChannel;
+  snapshot?: OrderSnapshot | null;
 }
 
 export interface PaymentCouponParams extends PaymentActionParams {
@@ -170,16 +171,20 @@ export const usePaymentFlow = ({
   }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
 
   const refreshPayment = useCallback(
-    async ({ channel, paymentChannel }: PaymentActionParams) => {
+    async ({ channel, paymentChannel, snapshot }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
       setIsLoading(true);
       try {
-        const current = await queryOrder({ orderId: orderIdRef.current });
+        const current =
+          snapshot ||
+          ((await queryOrder({
+            orderId: orderIdRef.current,
+          })) as OrderSnapshot | null);
         if (!mountedRef.current || !current) {
           return current;
         }
-        updateFromOrder(current as OrderSnapshot);
-        const currentSnapshot = current as OrderSnapshot;
+        updateFromOrder(current);
+        const currentSnapshot = current;
         const valueToPayNumber = Number(currentSnapshot.value_to_pay);
         const isFreeOrder =
           !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
@@ -239,7 +244,11 @@ export const usePaymentFlow = ({
         resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
         resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
       ) {
-        await refreshPayment({ channel, paymentChannel });
+        await refreshPayment({
+          channel,
+          paymentChannel,
+          snapshot: resp as OrderSnapshot,
+        });
       }
       return resp;
     },

@@ -1,35 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {
-  formatBillingCreditAmount,
-  formatBillingPlanInterval,
-  formatBillingPrice,
-  resolveBillingPlanCreditsLabel,
-  resolveBillingPlanValidityLabel,
-  resolveBillingProductDescription,
-  resolveBillingProductTitle,
-} from '@/lib/billing';
+import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
 import type {
   BillingPlan,
   BillingProvider,
   BillingTopupProduct,
   BillingTrialOffer,
 } from '@/types/billing';
-import {
-  getFreeFeatureData,
-  getPlanFeatureData,
-  getPlanScaleKeys,
-  PlanFeatureList,
-  PlanShowcaseCard,
-  TopupCard,
-} from './BillingOverviewCards';
+import { TopupCard } from './BillingOverviewCards';
 import type { ShowcaseTab } from './BillingOverviewCards';
+import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
 
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
   currentPlan: BillingPlan | null;
-  dailyPlans: BillingPlan[];
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   isLoading: boolean;
@@ -52,6 +37,19 @@ type BillingOverviewShowcaseProps = {
   onShowcaseTabChange: (tab: ShowcaseTab) => void;
 };
 
+function sortPlansByOrderedIndex(
+  plans: BillingPlan[],
+  ordered: BillingPlan[],
+): BillingPlan[] {
+  const indexOf = new Map<string, number>();
+  ordered.forEach((plan, idx) => indexOf.set(plan.product_bid, idx));
+  return [...plans].sort((a, b) => {
+    const ai = indexOf.get(a.product_bid) ?? Number.MAX_SAFE_INTEGER;
+    const bi = indexOf.get(b.product_bid) ?? Number.MAX_SAFE_INTEGER;
+    return ai - bi;
+  });
+}
+
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
   pingxxAvailable: boolean,
@@ -73,20 +71,9 @@ function resolveCheckoutProvider(
   return null;
 }
 
-function resolvePlanRank(
-  plans: BillingPlan[],
-  productBid: string | null,
-): number {
-  if (!productBid) {
-    return -1;
-  }
-  return plans.findIndex(plan => plan.product_bid === productBid);
-}
-
 export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
-  dailyPlans,
   hasActiveSubscription,
   isTrialCurrentPlan,
   isLoading,
@@ -106,36 +93,10 @@ export function BillingOverviewShowcase({
   onShowcaseTabChange,
 }: BillingOverviewShowcaseProps) {
   const { t, i18n } = useTranslation();
-  const currentPlanRank = resolvePlanRank(
+  const paidPlans = sortPlansByOrderedIndex(
+    [...monthlyPlans, ...yearlyPlans],
     orderedPlans,
-    currentPlan?.product_bid || null,
   );
-  const freeCreditSummary = t('module.billing.package.free.creditSummary', {
-    credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
-  });
-  const freeCreditValidityLabel = t('module.billing.package.validity.free');
-  const freeFeatureData = getFreeFeatureData(trialOffer?.highlights);
-  const freeCardFeatureKeys = freeFeatureData.items;
-  const freeCardPriceLabel =
-    trialOffer && trialOffer.currency
-      ? formatBillingPrice(
-          trialOffer.price_amount,
-          trialOffer.currency,
-          i18n.language,
-        )
-      : t('module.billing.package.free.priceValue');
-  const freeCardTitle = resolveBillingProductTitle(
-    t,
-    trialOffer,
-    t('module.billing.package.free.title'),
-  );
-  const freeCardDescription = resolveBillingProductDescription(
-    t,
-    trialOffer,
-    t('module.billing.package.free.description'),
-  );
-
-  const freePriceMetaLabel = '';
 
   return (
     <>
@@ -146,25 +107,11 @@ export function BillingOverviewShowcase({
           value={showcaseTab}
         >
           <TabsList className='h-[var(--height-h-9,36px)] rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]'>
-            {dailyPlans.length > 0 ? (
-              <TabsTrigger
-                className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-                value='daily'
-              >
-                {t('module.billing.package.intervalTabs.daily')}
-              </TabsTrigger>
-            ) : null}
             <TabsTrigger
               className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-              value='monthly'
+              value='plans'
             >
-              {t('module.billing.package.intervalTabs.monthly')}
-            </TabsTrigger>
-            <TabsTrigger
-              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
-              value='yearly'
-            >
-              {t('module.billing.package.intervalTabs.yearly')}
+              {t('module.billing.package.intervalTabs.plans')}
             </TabsTrigger>
             <TabsTrigger
               className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
@@ -198,7 +145,7 @@ export function BillingOverviewShowcase({
           </div>
 
           <div
-            className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
+            className='grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]'
             data-testid='billing-topup-grid'
           >
             {topups.map(product => {
@@ -237,119 +184,21 @@ export function BillingOverviewShowcase({
           </div>
         </div>
       ) : (
-        <div
-          className='grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]'
-          data-testid='billing-plan-grid'
-        >
-          {renderFreeCard
-            ? (() => {
-                const freeScale = getPlanScaleKeys(
-                  trialOffer?.product_code || 'creator-plan-trial',
-                );
-                return (
-                  <PlanShowcaseCard
-                    actionLabel={t(
-                      !hasActiveSubscription || isTrialCurrentPlan
-                        ? 'module.billing.package.actions.currentUsing'
-                        : 'module.billing.package.actions.freeTrial',
-                    )}
-                    actionTooltip={
-                      !hasActiveSubscription
-                        ? t('module.billing.package.actions.nonMemberTooltip')
-                        : undefined
-                    }
-                    creditSummary={freeCreditSummary}
-                    creditValidityLabel={freeCreditValidityLabel}
-                    description={freeCardDescription}
-                    disabled
-                    featured={isTrialCurrentPlan || !hasActiveSubscription}
-                    footer={<PlanFeatureList items={freeCardFeatureKeys} />}
-                    priceLabel={freeCardPriceLabel}
-                    priceMetaLabel={freePriceMetaLabel}
-                    studentCapacity={
-                      freeScale ? t(freeScale.students) : undefined
-                    }
-                    testId='billing-plan-card-free'
-                    title={freeCardTitle}
-                  />
-                );
-              })()
-            : null}
-
-          {(showcaseTab === 'daily'
-            ? dailyPlans
-            : showcaseTab === 'yearly'
-              ? yearlyPlans
-              : monthlyPlans
-          ).map(plan => {
-            const provider = resolveCheckoutProvider(
-              stripeAvailable,
-              pingxxAvailable,
-              alipayAvailable,
-              wechatpayAvailable,
-            );
-            const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
-            const planRank = resolvePlanRank(orderedPlans, plan.product_bid);
-            const isDowngradeLocked =
-              hasActiveSubscription &&
-              !isCurrentPlan &&
-              currentPlanRank >= 0 &&
-              planRank >= 0 &&
-              planRank < currentPlanRank;
-            const isFeatured = isCurrentPlan;
-            const checkoutKey = provider
-              ? `plan:${provider}:${plan.product_bid}`
-              : '';
-            const planScale = getPlanScaleKeys(plan.product_code);
-            const planBadgeKey = plan.status_badge_key;
-            const planFeatureData = getPlanFeatureData(plan);
-
-            return (
-              <PlanShowcaseCard
-                key={plan.product_bid}
-                actionLabel={
-                  isCurrentPlan
-                    ? t('module.billing.package.actions.currentSubscription')
-                    : isDowngradeLocked
-                      ? t('module.billing.package.actions.downgradeDisabled')
-                      : hasActiveSubscription
-                        ? t('module.billing.package.actions.upgradeNow')
-                        : t('module.billing.package.actions.subscribeNow')
-                }
-                actionLoading={checkoutLoadingKey === checkoutKey}
-                actionTooltip={
-                  isDowngradeLocked
-                    ? t('module.billing.package.actions.upgradeOnlyTooltip')
-                    : undefined
-                }
-                badgeLabel={planBadgeKey ? t(planBadgeKey) : undefined}
-                creditSummary={resolveBillingPlanCreditsLabel(t, plan)}
-                creditValidityLabel={resolveBillingPlanValidityLabel(t, plan)}
-                description={resolveBillingProductDescription(t, plan)}
-                disabled={!provider || isCurrentPlan || isDowngradeLocked}
-                featured={isFeatured}
-                footer={
-                  <PlanFeatureList
-                    includesLabel={planFeatureData.includesLabel}
-                    items={planFeatureData.items}
-                  />
-                }
-                onAction={() =>
-                  provider && onSelectPlanCheckout(plan, provider)
-                }
-                priceLabel={formatBillingPrice(
-                  plan.price_amount,
-                  plan.currency,
-                  i18n.language,
-                )}
-                priceMetaLabel={formatBillingPlanInterval(t, plan)}
-                studentCapacity={planScale ? t(planScale.students) : undefined}
-                testId={`billing-plan-card-${plan.product_bid}`}
-                title={resolveBillingProductTitle(t, plan)}
-              />
-            );
-          })}
-        </div>
+        <BillingPlanComparisonTable
+          checkoutLoadingKey={checkoutLoadingKey}
+          currentPlan={currentPlan}
+          alipayAvailable={alipayAvailable}
+          hasActiveSubscription={hasActiveSubscription}
+          isTrialCurrentPlan={isTrialCurrentPlan}
+          orderedPlans={orderedPlans}
+          paidPlans={paidPlans}
+          pingxxAvailable={pingxxAvailable}
+          renderFreeColumn={renderFreeCard}
+          stripeAvailable={stripeAvailable}
+          trialOffer={trialOffer}
+          wechatpayAvailable={wechatpayAvailable}
+          onSelectPlanCheckout={onSelectPlanCheckout}
+        />
       )}
     </>
   );

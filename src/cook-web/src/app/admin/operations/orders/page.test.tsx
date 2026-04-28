@@ -1,43 +1,27 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import api from '@/api';
+import { fireEvent, render, screen } from '@testing-library/react';
 import AdminOperationOrdersPage from './page';
 
-const translationCache = new Map<string, { t: (key: string) => string }>();
-const baseTranslation = (namespace?: string | string[]) => {
-  const ns = Array.isArray(namespace) ? namespace[0] : namespace;
-  const cacheKey = ns || 'translation';
-  if (!translationCache.has(cacheKey)) {
-    translationCache.set(cacheKey, {
-      t: (key: string) => {
-        return ns && ns !== 'translation' ? `${ns}.${key}` : key;
-      },
-    });
-  }
-  return translationCache.get(cacheKey)!;
-};
+let mockSearchParamsValue = '';
+const mockReplace = jest.fn();
+const LEARN_TAB_CONTENT = 'learn-orders-tab';
+const CREDIT_TAB_CONTENT = 'credit-orders-tab';
 
-jest.mock('next/link', () => ({
-  __esModule: true,
-  default: ({
-    href,
-    children,
-    ...props
-  }: React.PropsWithChildren<{ href: string }>) => (
-    <a
-      href={href}
-      {...props}
-    >
-      {children}
-    </a>
-  ),
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/admin/operations/orders',
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
-jest.mock('@/api', () => ({
-  __esModule: true,
-  default: {
-    getAdminOperationOrders: jest.fn(),
-  },
+jest.mock('react-i18next', () => ({
+  useTranslation: (namespace?: string | string[]) => ({
+    t: (key: string) => {
+      const ns = Array.isArray(namespace) ? namespace[0] : namespace;
+      return ns ? `${ns}.${key}` : key;
+    },
+  }),
 }));
 
 jest.mock('../useOperatorGuard', () => ({
@@ -47,92 +31,46 @@ jest.mock('../useOperatorGuard', () => ({
   }),
 }));
 
-jest.mock('@/c-store', () => ({
-  __esModule: true,
-  useEnvStore: (
-    selector: (state: {
-      loginMethodsEnabled: string[];
-      defaultLoginMethod: string;
-      currencySymbol: string;
-    }) => unknown,
-  ) =>
-    selector({
-      loginMethodsEnabled: ['phone'],
-      defaultLoginMethod: 'phone',
-      currencySymbol: '¥',
-    }),
-}));
-
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
-}));
-
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
 }));
 
-jest.mock('@/components/ErrorDisplay', () => ({
-  __esModule: true,
-  default: ({ errorMessage }: { errorMessage: string }) => (
-    <div>{errorMessage}</div>
-  ),
-}));
-
-jest.mock('./OperatorOrderDetailSheet', () => ({
-  __esModule: true,
-  default: ({ open, orderBid }: { open: boolean; orderBid?: string }) => {
-    const detailLabel = `detail:${orderBid || ''}`;
-    return open ? <div>{detailLabel}</div> : null;
-  },
-}));
-
-jest.mock('@/components/ui/Select', () => {
+jest.mock('@/components/ui/Tabs', () => {
   const ReactModule = jest.requireActual('react') as typeof React;
-  const SelectContext = ReactModule.createContext<{
+  const TabsContext = ReactModule.createContext<{
     value: string;
-    onValueChange: (value: string) => void;
+    onValueChange?: (value: string) => void;
   }>({
     value: '',
-    onValueChange: () => undefined,
   });
 
   return {
     __esModule: true,
-    Select: ({
+    Tabs: ({
       value,
       onValueChange,
       children,
     }: React.PropsWithChildren<{
       value: string;
-      onValueChange: (value: string) => void;
+      onValueChange?: (value: string) => void;
     }>) => (
-      <SelectContext.Provider value={{ value, onValueChange }}>
+      <TabsContext.Provider value={{ value, onValueChange }}>
         <div>{children}</div>
-      </SelectContext.Provider>
+      </TabsContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    SelectValue: ({ placeholder }: { placeholder?: string }) => (
-      <span>{placeholder}</span>
-    ),
-    SelectContent: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    SelectItem: ({
+    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsTrigger: ({
       value,
       children,
     }: React.PropsWithChildren<{ value: string }>) => {
-      const context = ReactModule.useContext(SelectContext);
+      const context = ReactModule.useContext(TabsContext);
       return (
         <button
+          role='tab'
           type='button'
-          onClick={() => context.onValueChange(value)}
+          aria-selected={context.value === value}
+          onClick={() => context.onValueChange?.(value)}
         >
           {children}
         </button>
@@ -141,133 +79,50 @@ jest.mock('@/components/ui/Select', () => {
   };
 });
 
-jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+jest.mock('./LearnOrdersTab', () => ({
   __esModule: true,
-  default: ({ placeholder }: { placeholder: string }) => (
-    <div>{placeholder}</div>
-  ),
+  default: () => {
+    const label = 'learn-orders-tab';
+    return <div>{label}</div>;
+  },
 }));
 
-const mockGetAdminOperationOrders = api.getAdminOperationOrders as jest.Mock;
+jest.mock('./CreditOrdersTab', () => ({
+  __esModule: true,
+  default: () => {
+    const label = 'credit-orders-tab';
+    return <div>{label}</div>;
+  },
+}));
 
 describe('AdminOperationOrdersPage', () => {
   beforeEach(() => {
-    mockGetAdminOperationOrders.mockReset();
-    window.localStorage.clear();
-    mockGetAdminOperationOrders.mockResolvedValue({
-      items: [
-        {
-          order_bid: 'order-1',
-          shifu_bid: 'course-1',
-          shifu_name: 'Course 1',
-          user_bid: 'user-1',
-          user_mobile: '13800138000',
-          user_email: '',
-          user_nickname: 'Tester',
-          payable_price: '99',
-          paid_price: '79',
-          discount_amount: '20',
-          status: 502,
-          status_key: 'server.order.orderStatusSuccess',
-          payment_channel: 'stripe',
-          payment_channel_key: 'module.order.paymentChannel.stripe',
-          order_source: 'user_purchase',
-          order_source_key: 'module.operationsOrder.source.userPurchase',
-          coupon_codes: ['FREE100'],
-          created_at: '2026-04-23T10:00:00Z',
-          updated_at: '2026-04-23T11:00:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 20,
-      total: 1,
-    });
+    mockSearchParamsValue = '';
+    mockReplace.mockReset();
   });
 
-  test('requests operator orders on first render with default filters', async () => {
+  test('defaults to learn tab without tab query', () => {
     render(<AdminOperationOrdersPage />);
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
-        page_index: 1,
-        page_size: 20,
-        user_keyword: '',
-        order_bid: '',
-        shifu_bid: '',
-        course_name: '',
-        status: '502',
-        order_source: '',
-        payment_channel: '',
-        start_time: '',
-        end_time: '',
-      });
-    });
-
-    expect(await screen.findByText('order-1')).toBeInTheDocument();
-    expect(
-      screen.getByText('module.operationsOrder.totalCount'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(LEARN_TAB_CONTENT)).toBeInTheDocument();
+    expect(screen.queryByText(CREDIT_TAB_CONTENT)).not.toBeInTheDocument();
   });
 
-  test('submits filters and opens detail drawer', async () => {
-    render(<AdminOperationOrdersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        'module.operationsOrder.filters.userKeywordPlaceholderPhone',
-      ),
-      {
-        target: { value: '13800138000' },
-      },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'common.core.expand',
-      }),
-    );
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        'module.operationsOrder.filters.orderIdPlaceholder',
-      ),
-      {
-        target: { value: 'order-1' },
-      },
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsOrder.filters.search',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          user_keyword: '13800138000',
-          order_bid: 'order-1',
-        }),
-      );
-    });
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.operationsOrder.table.view',
-      }),
-    );
-
-    expect(await screen.findByText('detail:order-1')).toBeInTheDocument();
-  });
-
-  test('shows error UI when getAdminOperationOrders fails', async () => {
-    mockGetAdminOperationOrders.mockRejectedValueOnce(new Error('network'));
+  test('renders credits tab from query and updates url when switching', () => {
+    mockSearchParamsValue = 'tab=credits';
 
     render(<AdminOperationOrdersPage />);
 
-    expect(await screen.findByText('network')).toBeInTheDocument();
+    expect(screen.getByText(CREDIT_TAB_CONTENT)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('tab', {
+        name: 'module.operationsOrder.tabs.learn',
+      }),
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith('/admin/operations/orders', {
+      scroll: false,
+    });
   });
 });

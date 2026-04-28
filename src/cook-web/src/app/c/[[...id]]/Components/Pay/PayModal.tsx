@@ -261,8 +261,10 @@ export const PayModal = ({
 
   const loadPayInfo = useCallback(async () => {
     let nextOrderId = orderId;
+    let nextSnapshot = null;
     if (!nextOrderId) {
       const snapshot = await initializeOrder();
+      nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
     if (!nextOrderId) {
@@ -283,6 +285,7 @@ export const PayModal = ({
     await refreshPayment({
       channel: resolveRequestChannel(nextChannel),
       paymentChannel: resolvePaymentChannel(nextChannel),
+      snapshot: nextSnapshot,
     });
   }, [
     availableQrChannels,
@@ -514,10 +517,11 @@ export const PayModal = ({
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!orderId) {
+    if (!orderId && !initLoading && !isLoading) {
+      // Only release the one-shot guard after the current payment bootstrap settles.
       initialPaymentRequestedRef.current = false;
     }
-  }, [orderId]);
+  }, [initLoading, isLoading, orderId]);
 
   const currencyCode = useMemo(
     () => getCurrencyCode(currencySymbol),
