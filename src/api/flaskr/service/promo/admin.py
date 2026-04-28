@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, func, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.order.admin import (
+from flaskr.service.order.api import (
     ORDER_STATUS_KEY_MAP,
     _format_decimal,
     _load_shifu_map,
