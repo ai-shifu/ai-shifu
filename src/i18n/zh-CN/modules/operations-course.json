@@ -106,7 +106,7 @@
         "reset": "重置",
         "resultCount": "共 {count} 条",
         "search": "查询",
-        "timePlaceholder": "追问时间",
+        "timePlaceholder": "追问开始/结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
@@ -176,7 +176,7 @@
         "sortBy": "排序",
         "sortByLatest": "最新优先",
         "sortByLowScore": "低分优先",
-        "timePlaceholder": "评分时间",
+        "timePlaceholder": "评分开始/结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
         "userKeywordPlaceholderPhone": "手机号 / 昵称"

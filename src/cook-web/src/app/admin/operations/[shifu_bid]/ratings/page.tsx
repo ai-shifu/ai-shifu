@@ -627,7 +627,6 @@ export default function AdminOperationCourseRatingsPage() {
         <AdminDateRangeFilter
           startValue={filtersDraft.startTime}
           endValue={filtersDraft.endTime}
-          numberOfMonths={1}
           triggerAriaLabel={ratingTimeFilterAriaLabel}
           placeholder={tOperations('detail.ratings.filters.timePlaceholder')}
           resetLabel={tOperations('detail.ratings.filters.reset')}

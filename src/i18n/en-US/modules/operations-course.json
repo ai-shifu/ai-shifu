@@ -106,7 +106,7 @@
         "reset": "Reset",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
-        "timePlaceholder": "Follow-up Time",
+        "timePlaceholder": "Follow-up Start / End Time",
         "userKeyword": "User Search",
         "userKeywordPlaceholder": "Phone / Email / Nickname",
         "userKeywordPlaceholderEmail": "Email / Nickname",
@@ -176,7 +176,7 @@
         "sortBy": "Sort",
         "sortByLatest": "Latest First",
         "sortByLowScore": "Lowest Rating First",
-        "timePlaceholder": "Rating Time",
+        "timePlaceholder": "Rating Start / End Time",
         "userKeyword": "User Search",
         "userKeywordPlaceholderEmail": "Email / Nickname",
         "userKeywordPlaceholderPhone": "Phone / Nickname"
