@@ -6,8 +6,8 @@ import {
   initActiveOrder,
   initOrder,
   queryOrder,
+  syncPaymentOrder,
   type PayUrlRequest,
-  type PayUrlResponse,
   type PaymentChannel,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
@@ -53,6 +53,10 @@ export interface PaymentActionParams {
 
 export interface PaymentCouponParams extends PaymentActionParams {
   code: string;
+}
+
+export interface PaymentSyncParams {
+  paymentChannel?: PaymentChannel;
 }
 
 const defaultPaymentInfo: PaymentInfoState = {
@@ -200,7 +204,7 @@ export const usePaymentFlow = ({
         }
         setPaymentInfo({
           channel: payload.channel,
-          qrUrl: payload.qr_url,
+          qrUrl: typeof payload.qr_url === 'string' ? payload.qr_url : '',
           status: payload.status,
           paymentChannel: payload.payment_channel,
           paymentPayload: payload.payment_payload || {},
@@ -221,7 +225,7 @@ export const usePaymentFlow = ({
         }
       }
     },
-    [onOrderPaid],
+    [onOrderPaid, updateFromOrder],
   );
 
   const applyCoupon = useCallback(
@@ -274,17 +278,26 @@ export const usePaymentFlow = ({
     isLoggedIn && pollingActive ? COUNTDOWN_INTERVAL : null,
   );
 
-  const syncOrderStatus = useCallback(async () => {
-    if (!orderIdRef.current) {
-      return null;
-    }
-    const resp = await queryOrder({ orderId: orderIdRef.current });
-    if (!mountedRef.current || !resp) {
+  const syncOrderStatus = useCallback(
+    async (params: PaymentSyncParams = {}) => {
+      if (!orderIdRef.current) {
+        return null;
+      }
+      if (params.paymentChannel) {
+        await syncPaymentOrder({
+          orderId: orderIdRef.current,
+          paymentChannel: params.paymentChannel,
+        });
+      }
+      const resp = await queryOrder({ orderId: orderIdRef.current });
+      if (!mountedRef.current || !resp) {
+        return resp;
+      }
+      updateFromOrder(resp as OrderSnapshot);
       return resp;
-    }
-    updateFromOrder(resp as OrderSnapshot);
-    return resp;
-  }, [updateFromOrder]);
+    },
+    [updateFromOrder],
+  );
 
   const resetState = useCallback(() => {
     updateOrderId('');

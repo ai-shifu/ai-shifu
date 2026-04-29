@@ -72,8 +72,12 @@ function shortenIntervalLabel(label: string): string {
 function resolveCheckoutProvider(
   stripeAvailable: boolean,
   pingxxAvailable: boolean,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
 ): BillingProvider | null {
   if (stripeAvailable) return 'stripe';
+  if (alipayAvailable) return 'alipay';
+  if (wechatpayAvailable) return 'wechatpay';
   if (pingxxAvailable) return 'pingxx';
   return null;
 }
@@ -162,6 +166,8 @@ export type BillingPlanComparisonTableProps = {
   checkoutLoadingKey: string;
   stripeAvailable: boolean;
   pingxxAvailable: boolean;
+  alipayAvailable: boolean;
+  wechatpayAvailable: boolean;
   onSelectPlanCheckout: (plan: BillingPlan, provider: BillingProvider) => void;
 };
 
@@ -176,6 +182,8 @@ export function BillingPlanComparisonTable({
   checkoutLoadingKey,
   stripeAvailable,
   pingxxAvailable,
+  alipayAvailable,
+  wechatpayAvailable,
   onSelectPlanCheckout,
 }: BillingPlanComparisonTableProps) {
   const { t, i18n } = useTranslation();
@@ -183,7 +191,12 @@ export function BillingPlanComparisonTable({
   const emptyValue = t('module.billing.package.table.emptyValue');
   const trialFeatureKeys = getFreeFeatureData().items;
   const featureRows = buildFeatureRows(trialFeatureKeys, paidPlans);
-  const provider = resolveCheckoutProvider(stripeAvailable, pingxxAvailable);
+  const provider = resolveCheckoutProvider(
+    stripeAvailable,
+    pingxxAvailable,
+    alipayAvailable,
+    wechatpayAvailable,
+  );
   const currentRank = planRankIn(
     orderedPlans,
     currentPlan?.product_bid || null,

@@ -274,9 +274,11 @@
       "perDay": "每日",
       "perMonth": "每月",
       "perYear": "每年",
+      "providerAlipay": "支付宝",
       "providerManual": "人工开通",
       "providerPingxx": "Pingxx / 支付宝二维码",
-      "providerStripe": "Stripe"
+      "providerStripe": "Stripe",
+      "providerWechatpay": "微信支付"
     },
     "plans": {
       "creatorMonthly": {

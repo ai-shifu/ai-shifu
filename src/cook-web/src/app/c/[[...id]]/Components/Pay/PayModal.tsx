@@ -16,11 +16,16 @@ import { Button } from '@/components/ui/Button';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
 import {
-  ORDER_STATUS,
   PAY_CHANNEL_STRIPE,
   PAY_CHANNEL_WECHAT,
+  PAY_CHANNEL_WECHAT_JSAPI,
+  PAY_CHANNEL_ZHIFUBAO,
 } from './constans';
-import type { StripePaymentPayload } from '@/c-api/order';
+import type {
+  NativePaymentPayload,
+  PaymentChannel,
+  StripePaymentPayload,
+} from '@/c-api/order';
 
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
@@ -36,6 +41,7 @@ import { useToast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCurrencyCode } from '@/c-utils/currency';
+import { inWechat } from '@/c-constants/uiConstants';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
 import payInfoBgCn from '@/c-assets/newchat/pay-info-bg-cn.png';
@@ -136,36 +142,98 @@ export const PayModal = ({
     [paymentChannels],
   );
   const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
+  const alipayChannelEnabled = normalizedPaymentChannels.includes('alipay');
+  const wechatpayChannelEnabled =
+    normalizedPaymentChannels.includes('wechatpay');
   const stripeChannelEnabled = normalizedPaymentChannels.includes('stripe');
   const isStripeAvailable =
     stripeChannelEnabled &&
     stripeEnabled === 'true' &&
     Boolean(stripePublishableKey);
+  const isWechatBrowser = useMemo(
+    () => typeof navigator !== 'undefined' && inWechat(),
+    [],
+  );
+  const isWechatQrAvailable = pingxxChannelEnabled || wechatpayChannelEnabled;
+  const isAlipayQrAvailable = pingxxChannelEnabled || alipayChannelEnabled;
+  const qrChannelEnabled = isWechatQrAvailable || isAlipayQrAvailable;
+  const availableQrChannels = useMemo(() => {
+    const channels: string[] = [];
+    if (isWechatQrAvailable) {
+      channels.push(PAY_CHANNEL_WECHAT);
+    }
+    if (isAlipayQrAvailable) {
+      channels.push(PAY_CHANNEL_ZHIFUBAO);
+    }
+    return channels;
+  }, [isAlipayQrAvailable, isWechatQrAvailable]);
   const isStripeSelected = payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo.paymentPayload ||
     {}) as StripePaymentPayload;
+  const nativePayload = (paymentInfo.paymentPayload ||
+    {}) as NativePaymentPayload;
   const stripeCheckoutUrl =
     stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
+  const isWechatJsapiMode =
+    paymentInfo.paymentChannel === 'wechatpay' &&
+    nativePayload.mode === 'jsapi' &&
+    Boolean(nativePayload.jsapi_params);
 
   const { previewMode } = useSystemStore(
     useShallow(state => ({ previewMode: state.previewMode })),
   );
 
   const resolveDefaultChannel = useCallback(() => {
-    if (pingxxChannelEnabled) {
+    if (isWechatQrAvailable) {
       return PAY_CHANNEL_WECHAT;
+    }
+    if (isAlipayQrAvailable) {
+      return PAY_CHANNEL_ZHIFUBAO;
     }
     if (isStripeAvailable) {
       return PAY_CHANNEL_STRIPE;
     }
     return PAY_CHANNEL_WECHAT;
-  }, [pingxxChannelEnabled, isStripeAvailable]);
+  }, [isAlipayQrAvailable, isStripeAvailable, isWechatQrAvailable]);
+
+  const resolveRequestChannel = useCallback(
+    (channel: string) => {
+      if (
+        channel === PAY_CHANNEL_WECHAT &&
+        wechatpayChannelEnabled &&
+        isWechatBrowser
+      ) {
+        return PAY_CHANNEL_WECHAT_JSAPI;
+      }
+      return channel;
+    },
+    [isWechatBrowser, wechatpayChannelEnabled],
+  );
+
+  const resolvePaymentChannel = useCallback(
+    (channel: string): PaymentChannel | undefined => {
+      if (channel.startsWith('stripe')) {
+        return 'stripe';
+      }
+      if (channel === PAY_CHANNEL_ZHIFUBAO) {
+        return alipayChannelEnabled ? 'alipay' : 'pingxx';
+      }
+      if (
+        channel === PAY_CHANNEL_WECHAT ||
+        channel === PAY_CHANNEL_WECHAT_JSAPI
+      ) {
+        return wechatpayChannelEnabled ? 'wechatpay' : 'pingxx';
+      }
+      return undefined;
+    },
+    [alipayChannelEnabled, wechatpayChannelEnabled],
+  );
 
   useEffect(() => {
     const isCurrentSupported =
       (isStripeSelected && isStripeAvailable) ||
-      (!isStripeSelected && pingxxChannelEnabled);
+      (!isStripeSelected && availableQrChannels.includes(payChannel));
     if (isCurrentSupported) {
       return;
     }
@@ -174,18 +242,18 @@ export const PayModal = ({
       setPayChannel(fallbackChannel);
       if (orderId) {
         refreshPayment({
-          channel: fallbackChannel,
-          paymentChannel: fallbackChannel.startsWith('stripe')
-            ? 'stripe'
-            : undefined,
+          channel: resolveRequestChannel(fallbackChannel),
+          paymentChannel: resolvePaymentChannel(fallbackChannel),
         });
       }
     }
   }, [
+    availableQrChannels,
     isStripeSelected,
     isStripeAvailable,
-    pingxxChannelEnabled,
     resolveDefaultChannel,
+    resolvePaymentChannel,
+    resolveRequestChannel,
     payChannel,
     orderId,
     refreshPayment,
@@ -203,24 +271,32 @@ export const PayModal = ({
       return;
     }
     let nextChannel = payChannel;
-    if (!pingxxChannelEnabled && isStripeAvailable) {
+    if (!availableQrChannels.includes(nextChannel) && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
+      if (nextChannel !== payChannel) {
+        setPayChannel(nextChannel);
+      }
+    } else if (!availableQrChannels.includes(nextChannel)) {
+      nextChannel = resolveDefaultChannel();
       if (nextChannel !== payChannel) {
         setPayChannel(nextChannel);
       }
     }
     await refreshPayment({
-      channel: nextChannel,
-      paymentChannel: nextChannel.startsWith('stripe') ? 'stripe' : undefined,
+      channel: resolveRequestChannel(nextChannel),
+      paymentChannel: resolvePaymentChannel(nextChannel),
       snapshot: nextSnapshot,
     });
   }, [
+    availableQrChannels,
     initializeOrder,
     isStripeAvailable,
     orderId,
     payChannel,
-    pingxxChannelEnabled,
     refreshPayment,
+    resolveDefaultChannel,
+    resolvePaymentChannel,
+    resolveRequestChannel,
   ]);
 
   const loadCourseInfo = useCallback(async () => {
@@ -243,10 +319,16 @@ export const PayModal = ({
       return;
     }
     refreshPayment({
-      channel: payChannel,
-      paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
+      channel: resolveRequestChannel(payChannel),
+      paymentChannel: resolvePaymentChannel(payChannel),
     });
-  }, [orderId, payChannel, refreshPayment]);
+  }, [
+    orderId,
+    payChannel,
+    refreshPayment,
+    resolvePaymentChannel,
+    resolveRequestChannel,
+  ]);
 
   let qrcodeStatus = 'active';
   if (effectiveLoading) {
@@ -294,8 +376,8 @@ export const PayModal = ({
     async values => {
       await applyCoupon({
         code: values.couponCode,
-        channel: payChannel,
-        paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
+        channel: resolveRequestChannel(payChannel),
+        paymentChannel: resolvePaymentChannel(payChannel),
       });
       trackEvent('learner_coupon_apply', {
         shifu_bid: courseId,
@@ -303,7 +385,15 @@ export const PayModal = ({
       });
       onCouponCodeModalClose();
     },
-    [applyCoupon, courseId, onCouponCodeModalClose, payChannel, trackEvent],
+    [
+      applyCoupon,
+      courseId,
+      onCouponCodeModalClose,
+      payChannel,
+      resolvePaymentChannel,
+      resolveRequestChannel,
+      trackEvent,
+    ],
   );
 
   const handleStripeSuccess = useCallback(async () => {
@@ -333,6 +423,75 @@ export const PayModal = ({
     [toast],
   );
 
+  const handleWechatJsapiPay = useCallback(async () => {
+    const jsapiParams = nativePayload.jsapi_params;
+    if (!jsapiParams || typeof window === 'undefined') {
+      return;
+    }
+    if (!isWechatBrowser) {
+      toast({
+        title: t('module.pay.wechatJsapiUnavailable'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const invokePayment = () => {
+          const bridge = (
+            window as typeof window & {
+              WeixinJSBridge?: {
+                invoke: (
+                  name: string,
+                  params: Record<string, string>,
+                  callback: (result: { err_msg?: string }) => void,
+                ) => void;
+              };
+            }
+          ).WeixinJSBridge;
+          if (!bridge) {
+            reject(new Error('wechat_bridge_unavailable'));
+            return;
+          }
+          bridge.invoke(
+            'getBrandWCPayRequest',
+            jsapiParams,
+            (result: { err_msg?: string }) => {
+              if (result.err_msg === 'get_brand_wcpay_request:ok') {
+                resolve();
+                return;
+              }
+              reject(new Error(result.err_msg || 'wechat_pay_failed'));
+            },
+          );
+        };
+
+        const bridge = (window as typeof window & { WeixinJSBridge?: unknown })
+          .WeixinJSBridge;
+        if (bridge) {
+          invokePayment();
+          return;
+        }
+        document.addEventListener('WeixinJSBridgeReady', invokePayment, {
+          once: true,
+        });
+      });
+      await syncOrderStatus({ paymentChannel: 'wechatpay' });
+      toast({ title: t('module.pay.paySuccess') });
+    } catch (error) {
+      console.error('WeChat JSAPI payment failed', error);
+      toast({
+        title:
+          error instanceof Error &&
+          error.message === 'wechat_bridge_unavailable'
+            ? t('module.pay.wechatJsapiUnavailable')
+            : t('module.pay.payFailed'),
+        variant: 'destructive',
+      });
+    }
+  }, [isWechatBrowser, nativePayload.jsapi_params, syncOrderStatus, t, toast]);
+
   const onPayChannelSelectChange = useCallback(
     ({ channel }: { channel: string }) => {
       setPayChannel(channel);
@@ -340,11 +499,11 @@ export const PayModal = ({
         return;
       }
       refreshPayment({
-        channel,
-        paymentChannel: channel.startsWith('stripe') ? 'stripe' : undefined,
+        channel: resolveRequestChannel(channel),
+        paymentChannel: resolvePaymentChannel(channel),
       });
     },
-    [orderId, refreshPayment],
+    [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
 
   useEffect(() => {
@@ -485,13 +644,14 @@ export const PayModal = ({
                   {isLoggedIn ? (
                     <>
                       <div
-                        className={`${styles.channelSelectors} ${pingxxChannelEnabled ? styles.pingxxSelected : ''}`}
+                        className={`${styles.channelSelectors} ${qrChannelEnabled ? styles.pingxxSelected : ''}`}
                       >
-                        {pingxxChannelEnabled ? (
+                        {qrChannelEnabled ? (
                           <div className={styles.channelSwitchWrapper}>
                             <PayChannelSwitch
                               channel={payChannel}
                               onChange={onPayChannelSelectChange}
+                              availableChannels={availableQrChannels}
                             />
                           </div>
                         ) : null}
@@ -534,36 +694,51 @@ export const PayModal = ({
                             />
                           )}
                         </div>
-                      ) : pingxxChannelEnabled ? (
-                        <div className={cn(styles.qrcodeWrapper, 'relative')}>
-                          <QRCodeSVG
-                            value={paymentInfo.qrUrl || DEFAULT_QRCODE}
-                            size={175}
-                            level={'M'}
-                          />
-                          {qrcodeStatus !== 'active' ? (
-                            <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
-                              {qrcodeStatus === 'loading' ? (
-                                <LoaderIcon
-                                  className={cn(
-                                    'animation-spin h-8 w-8 drop-shadow',
-                                    styles.price,
-                                  )}
-                                />
-                              ) : null}
-                              {qrcodeStatus === 'error' ? (
-                                <Button
-                                  className='pointer-events-auto bg-white/95 text-black shadow'
-                                  variant='outline'
-                                  onClick={onQrcodeRefresh}
-                                >
-                                  <LoaderCircleIcon />
-                                  {t('module.pay.clickRefresh')}
-                                </Button>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
+                      ) : qrChannelEnabled ? (
+                        isWechatJsapiMode ? (
+                          <div className='space-y-3 text-center'>
+                            <p className={styles.stripeHint}>
+                              {t('module.pay.wechatJsapiHint')}
+                            </p>
+                            <Button
+                              className={styles.stripeCheckoutButton}
+                              onClick={handleWechatJsapiPay}
+                              disabled={effectiveLoading}
+                            >
+                              {t('module.pay.wechatJsapiPay')}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className={cn(styles.qrcodeWrapper, 'relative')}>
+                            <QRCodeSVG
+                              value={paymentInfo.qrUrl || DEFAULT_QRCODE}
+                              size={175}
+                              level={'M'}
+                            />
+                            {qrcodeStatus !== 'active' ? (
+                              <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
+                                {qrcodeStatus === 'loading' ? (
+                                  <LoaderIcon
+                                    className={cn(
+                                      'animation-spin h-8 w-8 drop-shadow',
+                                      styles.price,
+                                    )}
+                                  />
+                                ) : null}
+                                {qrcodeStatus === 'expired' ? (
+                                  <Button
+                                    className='pointer-events-auto bg-white/95 text-black shadow'
+                                    variant='outline'
+                                    onClick={onQrcodeRefresh}
+                                  >
+                                    <LoaderCircleIcon />
+                                    {t('module.pay.clickRefresh')}
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        )
                       ) : (
                         <div className={styles.stripeHint}>
                           {t('module.pay.stripeError')}
