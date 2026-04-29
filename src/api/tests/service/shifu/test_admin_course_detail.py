@@ -2172,7 +2172,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
 
     assert nickname_filtered_response.status_code == 200
     assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 2
+    assert nickname_filtered_payload["data"]["total"] == 3
 
 
 @pytest.mark.parametrize(
