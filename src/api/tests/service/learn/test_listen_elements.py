@@ -1,4 +1,5 @@
 import json
+import time
 import types
 
 import pytest
@@ -1358,6 +1359,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
     outline_bid = "outline-listen-run-visual-before-tts"
     progress_bid = "progress-listen-run-visual-before-tts"
     audio_url = "https://example.com/intro-after-visual.mp3"
+    later_audio_url = "https://example.com/later-after-visual.mp3"
 
     with app.app_context():
         LearnGeneratedElement.query.delete()
@@ -1472,8 +1474,12 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                     yield DummyLLMResult(
                         [DummyFormattedElement("<div>Visual start\n", "html", 1)]
                     )
+                    time.sleep(0.08)
                     yield DummyLLMResult(
                         [DummyFormattedElement("Visual end</div>\n", "html", 1)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Later narration.\n", "text", 2)]
                     )
 
                 return _gen()
@@ -1497,14 +1503,23 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                 if False:
                     yield chunk_content
 
+            def drain_ready_segments(self):
+                if False:
+                    yield None
+
             def finalize(self, *, commit=True):
+                if self.stream_element_number == 0:
+                    time.sleep(0.02)
+                resolved_audio_url = (
+                    audio_url if self.stream_element_number == 0 else later_audio_url
+                )
                 yield RunMarkdownFlowDTO(
                     outline_bid=outline_bid,
                     generated_block_bid=self.generated_block_bid,
                     type=GeneratedType.AUDIO_COMPLETE,
                     content=AudioCompleteDTO(
-                        audio_url=audio_url,
-                        audio_bid="intro-after-visual-audio",
+                        audio_url=resolved_audio_url,
+                        audio_bid=f"audio-{self.stream_element_number}",
                         duration_ms=240,
                         position=self.position,
                         stream_element_number=self.stream_element_number,
@@ -1552,6 +1567,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
                 lambda *args, **kwargs: [],
             )
+            monkeypatch.setitem(app.config, "STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.005)
             streamed = list(adapter.process(ctx.run_inner(app)))
 
         indexed_elements = [
@@ -1569,11 +1585,19 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             for index, element in indexed_elements
             if element.element_type == ElementType.HTML and not element.is_final
         ]
+        last_html_index = max(html_indexes)
         text_audio_index, text_audio_patch = next(
             (index, element)
             for index, element in indexed_elements
             if element.element_type == ElementType.TEXT
             and element.audio_url == audio_url
+        )
+        later_text_index, _later_text_element = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.TEXT
+            and element.content_text == "Later narration.\n"
+            and not element.audio_url
         )
 
         rows = (
@@ -1590,7 +1614,8 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
         )
 
         assert html_index < text_audio_index
-        assert max(html_indexes) < text_audio_index
+        assert text_audio_index < last_html_index
+        assert text_audio_index < later_text_index
         assert html_element.audio_url == ""
         assert html_element.audio_segments == []
         assert text_audio_patch.content_text == "Intro narration.\n"
@@ -1603,8 +1628,16 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
     first_audio_patch_seq = min(
         row.run_event_seq for row in rows if row.audio_url and row.is_final == 1
     )
+    later_text_seq = min(
+        row.run_event_seq
+        for row in rows
+        if row.element_type == ElementType.TEXT.value
+        and row.content_text == "Later narration.\n"
+        and row.is_final == 0
+    )
     assert min(html_seqs) < first_audio_patch_seq
-    assert max(html_seqs) < first_audio_patch_seq
+    assert first_audio_patch_seq < max(html_seqs)
+    assert first_audio_patch_seq < later_text_seq
 
 
 def test_listen_run_persists_exception_gate_block_before_element_rows(app):
