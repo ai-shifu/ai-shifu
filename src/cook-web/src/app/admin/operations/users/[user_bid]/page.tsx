@@ -873,7 +873,7 @@ export default function AdminOperationUserDetailPage() {
               </h1>
               <AdminTimezoneHint
                 namespace='module.operationsUser'
-                textKey='detail.timezoneHint'
+                textKey='timezoneHint'
                 className='mt-1'
               />
             </div>

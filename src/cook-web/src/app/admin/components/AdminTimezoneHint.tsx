@@ -18,7 +18,6 @@ type AdminTimezoneHintProps = {
  * t('module.operationsOrder.timezoneHint')
  * t('module.operationsPromotion.timezoneHint')
  * t('module.operationsUser.timezoneHint')
- * t('module.operationsUser.detail.timezoneHint')
  */
 
 export default function AdminTimezoneHint({
@@ -28,7 +27,9 @@ export default function AdminTimezoneHint({
   className,
 }: AdminTimezoneHintProps) {
   const { t } = useTranslation(namespace);
-  const [viewerTimeZone, setViewerTimeZone] = React.useState('UTC');
+  const [viewerTimeZone, setViewerTimeZone] = React.useState<string | null>(
+    null,
+  );
 
   React.useEffect(() => {
     const nextTimeZone = getBrowserTimeZone();
@@ -38,6 +39,10 @@ export default function AdminTimezoneHint({
   }, []);
 
   const Component = as;
+
+  if (!viewerTimeZone) {
+    return null;
+  }
 
   return (
     <Component className={cn('text-sm text-muted-foreground', className)}>
