@@ -40,6 +40,7 @@ import {
   getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
   mergeAudioSegmentDataList,
+  sortAudioTracksByPosition,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
@@ -83,6 +84,7 @@ interface LessonFeedbackPopupState {
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
+const DEFAULT_LISTEN_AUDIO_POSITION = 0;
 
 export { ChatContentItemType };
 export type { ChatContentItem };
@@ -93,6 +95,97 @@ interface SSEParams {
   reload_generated_block_bid?: string;
   reload_element_bid?: string;
 }
+
+const normalizeOptionalNumber = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
+const resolveStudyRecordAudioComplete = (
+  record: StudyRecordItem,
+): Partial<AudioCompleteData> | null => {
+  const audioPayload = record.payload?.audio as
+    | Record<string, unknown>
+    | undefined;
+  const audioUrl =
+    (typeof record.audio_url === 'string' && record.audio_url.trim()) ||
+    (typeof audioPayload?.audio_url === 'string' &&
+      audioPayload.audio_url.trim()) ||
+    '';
+
+  if (!audioUrl) {
+    return null;
+  }
+
+  const audioBid =
+    typeof audioPayload?.audio_bid === 'string'
+      ? audioPayload.audio_bid
+      : undefined;
+  const durationMs = normalizeOptionalNumber(audioPayload?.duration_ms);
+  const position = normalizeOptionalNumber(audioPayload?.position);
+  const slideId =
+    typeof audioPayload?.slide_id === 'string'
+      ? audioPayload.slide_id
+      : undefined;
+  const avContract =
+    audioPayload?.av_contract &&
+    typeof audioPayload.av_contract === 'object' &&
+    !Array.isArray(audioPayload.av_contract)
+      ? (audioPayload.av_contract as Record<string, any>)
+      : undefined;
+
+  return {
+    audio_url: audioUrl,
+    ...(audioBid ? { audio_bid: audioBid } : {}),
+    ...(durationMs === undefined ? {} : { duration_ms: durationMs }),
+    ...(position === undefined ? {} : { position }),
+    ...(slideId ? { slide_id: slideId } : {}),
+    ...(avContract ? { av_contract: avContract } : {}),
+  };
+};
+
+const hydrateAudioTracksWithCompleteUrl = (
+  tracks: AudioTrack[] = [],
+  audioComplete?: Partial<AudioCompleteData> | null,
+): AudioTrack[] => {
+  if (!audioComplete?.audio_url) {
+    return tracks;
+  }
+
+  const position =
+    normalizeOptionalNumber(audioComplete.position) ??
+    DEFAULT_LISTEN_AUDIO_POSITION;
+  const targetIndex = tracks.findIndex(track => track.position === position);
+  const targetTrack =
+    targetIndex >= 0
+      ? { ...tracks[targetIndex] }
+      : {
+          position,
+          audioSegments: [],
+          isAudioStreaming: false,
+        };
+
+  const nextTrack: AudioTrack = {
+    ...targetTrack,
+    audioUrl: audioComplete.audio_url,
+    durationMs: audioComplete.duration_ms ?? targetTrack.durationMs,
+    isAudioStreaming: false,
+    slideId: audioComplete.slide_id ?? targetTrack.slideId,
+    avContract: audioComplete.av_contract ?? targetTrack.avContract,
+  };
+  const nextTracks =
+    targetIndex >= 0
+      ? tracks.map((track, index) =>
+          index === targetIndex ? nextTrack : track,
+        )
+      : [...tracks, nextTrack];
+
+  return sortAudioTracksByPosition(nextTracks);
+};
 
 export interface UseChatSessionParams {
   shifuBid: string;
@@ -635,9 +728,12 @@ function useChatLogicHook({
   );
 
   const normalizeHistoryAudioTracks = useCallback(
-    (audios: AudioSegmentData[] = []): AudioTrack[] => {
+    (
+      audios: AudioSegmentData[] = [],
+      audioComplete?: Partial<AudioCompleteData> | null,
+    ): AudioTrack[] => {
       if (!audios.length) {
-        return [];
+        return hydrateAudioTracksWithCompleteUrl([], audioComplete);
       }
 
       const trackByPosition = new Map<number, AudioTrack>();
@@ -676,7 +772,10 @@ function useChatLogicHook({
           trackByPosition.set(position, track);
         });
 
-      return [...trackByPosition.values()];
+      return hydrateAudioTracksWithCompleteUrl(
+        [...trackByPosition.values()],
+        audioComplete,
+      );
     },
     [],
   );
@@ -708,7 +807,10 @@ function useChatLogicHook({
         ...previousTrackAudioSegments,
         ...incomingAudioSegments,
       ]);
-      const historyTracks = normalizeHistoryAudioTracks(mergedAudioSegments);
+      const historyTracks = normalizeHistoryAudioTracks(
+        mergedAudioSegments,
+        resolveStudyRecordAudioComplete(record),
+      );
       const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
