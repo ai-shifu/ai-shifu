@@ -62,6 +62,7 @@ export type AdminOperationCourseDetailChapter = {
   is_visible: boolean;
   content_status: 'has' | 'empty' | LooseString;
   follow_up_count: number;
+  rating_score: string;
   rating_count: number;
   modifier_user_bid: string;
   modifier_mobile: string;

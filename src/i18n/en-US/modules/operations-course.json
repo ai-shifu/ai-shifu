@@ -34,6 +34,7 @@
       "name": "Chapter",
       "position": "Position",
       "ratingCount": "Ratings",
+      "ratingScore": "Rating",
       "type": "Type",
       "updatedAt": "Updated",
       "visibility": "Visibility"
@@ -150,6 +151,9 @@
       "ratingScore": "Rating",
       "visitCount30d": "Visitors (30d)"
     },
+    "orders": {
+      "openMetric": "Open order data"
+    },
     "title": "Course Detail",
     "userLearningStatus": {
       "completed": "Completed",
@@ -172,9 +176,9 @@
       "paymentStatus": "Payment",
       "paymentUnpaid": "Unpaid",
       "userKeyword": "User Search",
-      "userKeywordPlaceholder": "Search by user ID, phone, email, or nickname",
-      "userKeywordPlaceholderEmail": "Search by user ID, email, or nickname",
-      "userKeywordPlaceholderPhone": "Search by user ID, phone, or nickname",
+      "userKeywordPlaceholder": "Search by phone, email, or nickname",
+      "userKeywordPlaceholderEmail": "Search by email or nickname",
+      "userKeywordPlaceholderPhone": "Search by phone or nickname",
       "userRole": "User Role"
     },
     "usersTable": {

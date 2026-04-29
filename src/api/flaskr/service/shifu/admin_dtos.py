@@ -419,7 +419,16 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
     follow_up_count: int = Field(
         ..., description="Follow-up question count", required=False
     )
-    rating_count: int = Field(..., description="Rating record count", required=False)
+    rating_score: str = Field(
+        ...,
+        description="Lesson-level average rating score; empty for chapter nodes",
+        required=False,
+    )
+    rating_count: int = Field(
+        ...,
+        description="Lesson-level rating record count; 0 for chapter nodes",
+        required=False,
+    )
     modifier_user_bid: str = Field(
         ..., description="Last modifier user business identifier", required=False
     )

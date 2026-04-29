@@ -34,6 +34,7 @@
       "name": "章节名称",
       "position": "序号",
       "ratingCount": "评分次数",
+      "ratingScore": "评分",
       "type": "类型",
       "updatedAt": "更新时间",
       "visibility": "可见性"
@@ -150,6 +151,9 @@
       "ratingScore": "评分",
       "visitCount30d": "近30天访问人数"
     },
+    "orders": {
+      "openMetric": "查看订单数据"
+    },
     "title": "课程详情",
     "userLearningStatus": {
       "completed": "已完成",
@@ -172,9 +176,9 @@
       "paymentStatus": "是否付费",
       "paymentUnpaid": "未付费",
       "userKeyword": "用户搜索",
-      "userKeywordPlaceholder": "输入用户ID / 手机号 / 邮箱 / 昵称",
-      "userKeywordPlaceholderEmail": "输入用户ID / 邮箱 / 昵称",
-      "userKeywordPlaceholderPhone": "输入用户ID / 手机号 / 昵称",
+      "userKeywordPlaceholder": "输入手机号 / 邮箱 / 昵称",
+      "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
+      "userKeywordPlaceholderPhone": "输入手机号 / 昵称",
       "userRole": "用户身份"
     },
     "usersTable": {
