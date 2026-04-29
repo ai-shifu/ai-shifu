@@ -996,6 +996,7 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
 @pytest.mark.parametrize(
     "path",
     [
+        "/api/shifu/admin/operations/courses/course-detail/prompt",
         "/api/shifu/admin/operations/courses/course-detail/detail",
         "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
         "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
@@ -1015,6 +1016,41 @@ def test_admin_operation_course_detail_routes_require_operator(
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+def test_admin_operation_course_prompt_route_returns_course_prompt(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        DraftShifu.query.filter(DraftShifu.shifu_bid == "course-detail").update(
+            {DraftShifu.llm_system_prompt: "course system prompt"},
+            synchronize_session=False,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/prompt",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "course_prompt": "course system prompt",
+    }
 
 
 def test_admin_operation_course_chapter_detail_route_returns_prompt_content(

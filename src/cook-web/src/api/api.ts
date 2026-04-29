@@ -140,6 +140,8 @@ const api = {
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
+  getAdminOperationCoursePrompt:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',
   getAdminOperationCourseDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
