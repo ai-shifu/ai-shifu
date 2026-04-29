@@ -1332,6 +1332,281 @@ def test_listen_run_persists_content_block_before_element_rows(app):
     assert {row.content_text for row in rows} == {"Persisted content block"}
 
 
+def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.context_v2 import (
+        BlockType as MarkdownFlowBlockType,
+        RunScriptContextV2,
+        RunScriptInfo,
+        RunType,
+    )
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-run-visual-before-tts"
+    shifu_bid = "shifu-listen-run-visual-before-tts"
+    outline_bid = "outline-listen-run-visual-before-tts"
+    progress_bid = "progress-listen-run-visual-before-tts"
+    audio_url = "https://example.com/intro-after-visual.mp3"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=outline_bid,
+            shifu_bid=shifu_bid,
+            position=0,
+            title="Visual Before TTS",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=user_bid, mobile="", email="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = None
+        ctx._last_position = -1
+        ctx._listen = True
+        ctx._element_index_cursor = 0
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, current_outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, current_outline_bid: LLMSettings(
+                model="fake",
+                temperature=0.0,
+            ),
+            ctx,
+        )
+        ctx.get_system_prompt = types.MethodType(
+            lambda self, current_outline_bid: None,
+            ctx,
+        )
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+        ctx._should_stream_tts = types.MethodType(lambda self: True, ctx)
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class DummyFormattedElement:
+            def __init__(self, content, element_type, number):
+                self.content = content
+                self.type = element_type
+                self.number = number
+
+        class DummyLLMResult:
+            def __init__(self, formatted_elements):
+                self.formatted_elements = formatted_elements
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "visual before tts",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                def _gen():
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Intro narration.\n", "text", 0)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("<div>Visual start\n", "html", 1)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Visual end</div>\n", "html", 1)]
+                    )
+
+                return _gen()
+
+        class FakeTTSProcessor:
+            next_element_index = 0
+
+            def __init__(
+                self,
+                generated_block_bid,
+                position,
+                stream_element_number,
+                stream_element_type,
+            ):
+                self.generated_block_bid = generated_block_bid
+                self.position = position
+                self.stream_element_number = stream_element_number
+                self.stream_element_type = stream_element_type
+
+            def process_chunk(self, chunk_content):
+                if False:
+                    yield chunk_content
+
+            def finalize(self, *, commit=True):
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=self.generated_block_bid,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=audio_url,
+                        audio_bid="intro-after-visual-audio",
+                        duration_ms=240,
+                        position=self.position,
+                        stream_element_number=self.stream_element_number,
+                        stream_element_type=self.stream_element_type,
+                    ),
+                )
+
+        def _fake_try_create_tts_processor(
+            self,
+            generated_block_bid,
+            *,
+            position,
+            stream_element_number,
+            stream_element_type,
+            **_kwargs,
+        ):
+            return FakeTTSProcessor(
+                generated_block_bid,
+                position,
+                stream_element_number,
+                stream_element_type,
+            )
+
+        ctx._try_create_tts_processor = types.MethodType(
+            _fake_try_create_tts_processor,
+            ctx,
+        )
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                FakeMarkdownFlow,
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                lambda *args, **kwargs: {},
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                lambda *args, **kwargs: [],
+            )
+            streamed = list(adapter.process(ctx.run_inner(app)))
+
+        indexed_elements = [
+            (index, item.content)
+            for index, item in enumerate(streamed)
+            if item.type == "element"
+        ]
+        html_index, html_element = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.HTML and not element.is_final
+        )
+        html_indexes = [
+            index
+            for index, element in indexed_elements
+            if element.element_type == ElementType.HTML and not element.is_final
+        ]
+        text_audio_index, text_audio_patch = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.TEXT
+            and element.audio_url == audio_url
+        )
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+
+        assert html_index < text_audio_index
+        assert max(html_indexes) < text_audio_index
+        assert html_element.audio_url == ""
+        assert html_element.audio_segments == []
+        assert text_audio_patch.content_text == "Intro narration.\n"
+
+    html_seqs = [
+        row.run_event_seq
+        for row in rows
+        if row.element_type == ElementType.HTML.value and row.is_final == 0
+    ]
+    first_audio_patch_seq = min(
+        row.run_event_seq for row in rows if row.audio_url and row.is_final == 1
+    )
+    assert min(html_seqs) < first_audio_patch_seq
+    assert max(html_seqs) < first_audio_patch_seq
+
+
 def test_listen_run_persists_exception_gate_block_before_element_rows(app):
     _require_app(app)
 
