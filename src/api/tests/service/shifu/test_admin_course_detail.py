@@ -1868,8 +1868,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 2
     assert [
-        item["generated_block_bid"]
-        for item in phone_filtered_payload["data"]["items"]
+        item["generated_block_bid"] for item in phone_filtered_payload["data"]["items"]
     ] == [
         "ask-2",
         "ask-1",

@@ -3525,14 +3525,14 @@ def get_operator_course_ratings(
         if str(filters.get("sort_by", "") or "").strip() and not sort_by:
             raise_param_error("sort_by")
 
-        filtered_items: list[tuple[datetime, int, AdminOperationCourseRatingItemDTO]] = []
+        filtered_items: list[
+            tuple[datetime, int, AdminOperationCourseRatingItemDTO]
+        ] = []
         total_score = 0
         latest_rated_at: Optional[datetime] = None
         for row in rating_rows:
             user_bid = str(getattr(row, "user_bid", "") or "").strip()
-            outline_item_bid = str(
-                getattr(row, "outline_item_bid", "") or ""
-            ).strip()
+            outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
             score = int(getattr(row, "score", 0) or 0)
             comment = str(getattr(row, "comment", "") or "")
             mode = _resolve_course_rating_mode(str(getattr(row, "mode", "") or ""))

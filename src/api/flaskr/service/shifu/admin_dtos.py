@@ -683,7 +683,9 @@ class AdminOperationCourseRatingItemDTO(BaseModel):
     )
     lesson_title: str = Field(default="", description="Lesson title", required=False)
     score: int = Field(default=0, description="Lesson rating score", required=False)
-    comment: str = Field(default="", description="Lesson rating comment", required=False)
+    comment: str = Field(
+        default="", description="Lesson rating comment", required=False
+    )
     mode: str = Field(default="", description="Rating mode", required=False)
     rated_at: str = Field(default="", description="Rated at", required=False)
 

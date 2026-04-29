@@ -188,6 +188,7 @@
         "read": "阅读"
       },
       "openMetric": "查看评分数据",
+      "scoreValue": "{count}分",
       "summary": {
         "averageScore": "平均评分",
         "latestRatedAt": "最近评分时间",
@@ -195,7 +196,6 @@
         "scopeHint": "以下统计基于当前筛选结果",
         "userCount": "评分用户数"
       },
-      "scoreValue": "{count}分",
       "table": {
         "chapter": "章节",
         "comment": "评语",

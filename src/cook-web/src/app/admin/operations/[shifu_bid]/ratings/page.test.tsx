@@ -119,11 +119,15 @@ jest.mock('@/components/ui/Select', () => {
         <div>{children}</div>
       </SelectContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     SelectValue: ({ placeholder }: { placeholder?: string }) => (
       <span>{placeholder}</span>
     ),
-    SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     SelectItem: ({
       value,
       children,
@@ -208,7 +212,9 @@ describe('AdminOperationCourseRatingsPage', () => {
       await screen.findByText('module.operationsCourse.detail.ratings.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.operationsCourse.detail.ratings.summary.scopeHint'),
+      screen.getByText(
+        'module.operationsCourse.detail.ratings.summary.scopeHint',
+      ),
     ).toBeInTheDocument();
 
     await waitFor(() => {
@@ -270,10 +276,14 @@ describe('AdminOperationCourseRatingsPage', () => {
       }),
     );
     fireEvent.click(
-      screen.getAllByText('module.operationsCourse.detail.ratings.scoreValue')[0],
+      screen.getAllByText(
+        'module.operationsCourse.detail.ratings.scoreValue',
+      )[0],
     );
     fireEvent.click(
-      screen.getAllByText('module.operationsCourse.detail.ratings.modes.read')[0],
+      screen.getAllByText(
+        'module.operationsCourse.detail.ratings.modes.read',
+      )[0],
     );
     fireEvent.click(
       screen.getByText(
@@ -360,7 +370,9 @@ describe('AdminOperationCourseRatingsPage', () => {
     await screen.findByText('Guest rating');
 
     expect(
-      screen.getByText('module.operationsCourse.detail.ratings.table.guestUser'),
+      screen.getByText(
+        'module.operationsCourse.detail.ratings.table.guestUser',
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText('--')).not.toBeInTheDocument();
   });

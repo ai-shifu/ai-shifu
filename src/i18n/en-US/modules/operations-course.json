@@ -188,6 +188,7 @@
         "read": "Read"
       },
       "openMetric": "Open rating data",
+      "scoreValue": "{count}-star",
       "summary": {
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
@@ -195,7 +196,6 @@
         "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
-      "scoreValue": "{count}-star",
       "table": {
         "chapter": "Chapter",
         "comment": "Comment",

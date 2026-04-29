@@ -270,10 +270,7 @@ export default function AdminOperationCourseRatingsPage() {
     [shifuBid],
   );
 
-  const {
-    getColumnStyle,
-    getResizeHandleProps,
-  } = useAdminResizableColumns({
+  const { getColumnStyle, getResizeHandleProps } = useAdminResizableColumns({
     storageKey: COLUMN_WIDTH_STORAGE_KEY,
     defaultWidths: COLUMN_DEFAULT_WIDTHS,
     minWidth: COLUMN_MIN_WIDTH,
@@ -620,9 +617,7 @@ export default function AdminOperationCourseRatingsPage() {
               {tOperations('detail.ratings.filters.commentStatusAll')}
             </SelectItem>
             <SelectItem value={COMMENT_FILTER_COMMENTED_OPTION}>
-              {tOperations(
-                'detail.ratings.filters.commentStatusCommented',
-              )}
+              {tOperations('detail.ratings.filters.commentStatusCommented')}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -783,14 +778,14 @@ export default function AdminOperationCourseRatingsPage() {
                             <span className="mr-2 w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']">
                               {item.label}
                             </span>
-                            <div className='min-w-0 flex-1'>{item.component}</div>
+                            <div className='min-w-0 flex-1'>
+                              {item.component}
+                            </div>
                           </div>
                         ))}
                         <div className='hidden xl:block' />
                       </div>
-                    ) : (
-                      null
-                    )}
+                    ) : null}
 
                     <div className='flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between'>
                       <div className='flex min-h-9 items-end text-sm text-muted-foreground'>
@@ -931,7 +926,8 @@ export default function AdminOperationCourseRatingsPage() {
                                 });
                                 const secondaryAccount =
                                   resolveUserSecondary(item);
-                                const isGuestAccount = primaryAccount === emptyValue;
+                                const isGuestAccount =
+                                  primaryAccount === emptyValue;
                                 const primaryLessonDisplay =
                                   resolvePrimaryLessonDisplay({
                                     lessonTitle: item.lesson_title,
@@ -951,7 +947,9 @@ export default function AdminOperationCourseRatingsPage() {
                                       style={getColumnStyle('ratedAt')}
                                     >
                                       <AdminTooltipText
-                                        text={formatAdminUtcDateTime(item.rated_at)}
+                                        text={formatAdminUtcDateTime(
+                                          item.rated_at,
+                                        )}
                                         emptyValue={emptyValue}
                                         className='mx-auto block max-w-full'
                                       />
@@ -963,9 +961,7 @@ export default function AdminOperationCourseRatingsPage() {
                                       <div className='flex flex-col gap-0.5 leading-tight'>
                                         {isGuestAccount ? (
                                           <div className='flex justify-center text-sm text-muted-foreground'>
-                                            <span>
-                                              {guestUserLabel}
-                                            </span>
+                                            <span>{guestUserLabel}</span>
                                           </div>
                                         ) : (
                                           <div className='font-medium text-foreground'>
@@ -1012,9 +1008,12 @@ export default function AdminOperationCourseRatingsPage() {
                                       className='whitespace-nowrap border-r border-border py-3 text-center align-top text-sm font-medium text-foreground last:border-r-0'
                                       style={getColumnStyle('score')}
                                     >
-                                      {tOperations('detail.ratings.scoreValue', {
-                                        count: item.score,
-                                      })}
+                                      {tOperations(
+                                        'detail.ratings.scoreValue',
+                                        {
+                                          count: item.score,
+                                        },
+                                      )}
                                     </TableCell>
                                     <TableCell
                                       className='border-r border-border py-3 align-top last:border-r-0'
