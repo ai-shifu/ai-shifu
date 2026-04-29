@@ -67,6 +67,17 @@ cp docker/.env.example.full src/cook-web/.env
 | LLM key | 至少一个，如 `OPENAI_API_KEY="sk-..."` |
 | `REDIS_HOST` | Docker 环境把 `ai-shifu-redis` 改为 `127.0.0.1` |
 | `LOCAL_STORAGE_ROOT` | Linux 改为 `/home/ai-shifu-TTS/storage` |
+| `I18N_ROOT` | 指向 i18n 目录，解决 standalone 模式下 `/api/i18n` 返回 500 |
+| `SHARED_I18N_ROOT` | 同上，构建时需要 |
+
+**⚠️ 注意**：`I18N_ROOT` 不能只写在 `.env` 文件里。因为 `server.js` 内部会执行 `process.chdir()` 把 CWD 改成 `.next/standalone/`，导致 `.env` 无法被加载。必须通过命令行或 systemd 传递：
+
+```bash
+# macOS/Linux
+I18N_ROOT="$(cd src/cook-web && pwd)/../i18n" node .next/standalone/server.js
+```
+
+或者在 systemd 服务文件中使用 `Environment=I18N_ROOT=...`。
 
 ### 5. 后端
 
@@ -89,7 +100,12 @@ cd src/cook-web
 
 npm install
 npm run build
+
+# 修复 standalone 模式下 CSS 等静态资源 404
+cp -r .next/static .next/standalone/.next/static
 ```
+
+> 这是 Next.js standalone 构建的已知限制——`npm run build` 不会把 `.next/static/` 自动复制到 standalone 输出目录。每次重新构建后都需要执行一次。
 
 ### 7. 创建存储目录
 
@@ -106,10 +122,18 @@ cd src/api
 
 # 终端 2 - 前端（Next.js standalone server）
 cd src/cook-web
-node .next/standalone/server.js &
 
-# 或使用 npm（效果相同）
-# cd src/cook-web && npm run start
+# server.js 内部会改变工作目录，.env 无法被加载，所以先 export 环境变量
+export I18N_ROOT="$(pwd)/../i18n"
+node .next/standalone/server.js
+```
+
+Windows PowerShell：
+
+```powershell
+cd src/cook-web
+$env:I18N_ROOT="$PWD\..\i18n"
+node .next\standalone\server.js
 ```
 
 验证：
@@ -134,7 +158,7 @@ server_name _ benben.local;    # Mac 局域网
 server_name your-domain.com;   # Linux 云服务器
 
 # 第 30 行：alias 路径（指向你的实际项目路径）
-alias /home/ai-shifu-TTS/src/cook-web/.next/static/;
+alias /home/ai-shifu-TTS/src/cook-web/.next/standalone/.next/static/;
 ```
 
 Mac 局域网用 `benben.local` 访问，需在 `/etc/hosts` 确认：
@@ -179,7 +203,7 @@ git pull
 cd src/api && uv pip sync requirements.txt && cd ../..
 
 # 前端
-cd src/cook-web && npm install && npm run build && cd ../..
+cd src/cook-web && npm install && npm run build && cp -r .next/static .next/standalone/.next/static && cd ../..
 
 # 重启应用进程（kill 旧的再启动，或 systemd restart）
 ```
@@ -217,7 +241,7 @@ After=network.target ai-shifu-api.service
 Type=simple
 User=www-data
 WorkingDirectory=/home/ai-shifu-TTS/src/cook-web
-EnvironmentFile=/home/ai-shifu-TTS/src/cook-web/.env
+Environment=I18N_ROOT=/home/ai-shifu-TTS/src/i18n
 ExecStart=/usr/bin/node /home/ai-shifu-TTS/src/cook-web/.next/standalone/server.js
 Restart=on-failure
 
