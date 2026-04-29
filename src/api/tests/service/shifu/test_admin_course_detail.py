@@ -2175,6 +2175,45 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     assert nickname_filtered_payload["data"]["total"] == 2
 
 
+@pytest.mark.parametrize(
+    ("query_string", "expected_param"),
+    [
+        ("score=999", "score"),
+        ("mode=invalid_mode", "mode"),
+        ("has_comment=not_bool", "has_comment"),
+        ("sort_by=bad_sort", "sort_by"),
+    ],
+)
+def test_admin_operation_course_ratings_route_rejects_invalid_filters(
+    app,
+    test_client,
+    monkeypatch,
+    query_string,
+    expected_param,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20&{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == f"Params Error {expected_param}"
+
+
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
     app,
     test_client,
