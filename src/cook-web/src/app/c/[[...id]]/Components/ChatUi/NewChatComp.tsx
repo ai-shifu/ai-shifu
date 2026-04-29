@@ -507,9 +507,14 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  const getReadModeElementPadding = useCallback(
+    (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
+    [],
+  );
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
     !readModeItems.some(item => item.element_bid === 'loading');
+  const isReadModeStreamingDotsFirstElement = readModeItems.length === 0;
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1107,7 +1112,7 @@ export const NewChatComponents = ({
                 style={{
                   margin: '0 auto',
                   maxWidth: '1000px',
-                  padding: '24px 20px 0',
+                  padding: getReadModeElementPadding(true),
                 }}
               >
                 <LoadingBar />
@@ -1248,7 +1253,7 @@ export const NewChatComponents = ({
                             ? '0 auto'
                             : '40px auto 0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',
-                        padding: '0 20px',
+                        padding: getReadModeElementPadding(idx === 0),
                       }}
                     >
                       {isLongPressed && mobileStyle && (
@@ -1279,7 +1284,9 @@ export const NewChatComponents = ({
                     style={{
                       margin: readModeItems.length ? '16px auto 0' : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
-                      padding: '0 20px',
+                      padding: getReadModeElementPadding(
+                        isReadModeStreamingDotsFirstElement,
+                      ),
                     }}
                   >
                     <StreamingLoadingDotsBar />
