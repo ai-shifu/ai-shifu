@@ -16,7 +16,6 @@ same shifu_bid values, then inserts the fresh data.
 
 import sys
 import json
-import base64
 from datetime import datetime, date
 from decimal import Decimal
 from pathlib import Path
@@ -32,31 +31,31 @@ COURSE_TABLES = [
 ]
 
 
-def serialize_value(value):
-    """Convert a value to a Python literal suitable for source code."""
+
+def to_sql_literal(value):
+    """Convert a value to a SQL literal string."""
     if value is None:
-        return "None"
+        return "NULL"
     if isinstance(value, bool):
-        return "True" if value else "False"
+        return "1" if value else "0"
     if isinstance(value, int):
         return str(value)
     if isinstance(value, float):
         return repr(value)
     if isinstance(value, str):
-        return repr(value)
+        inner = value.replace("'", "''")
+        return f"'{inner}'"
     if isinstance(value, datetime):
-        return f"datetime({value.isoformat()!r})"
+        return f"'{value.strftime('%Y-%m-%d %H:%M:%S')}'"
     if isinstance(value, date):
-        return f"datetime({value.isoformat()!r})"
+        return f"'{value.strftime('%Y-%m-%d %H:%M:%S')}'"
     if isinstance(value, Decimal):
-        return f"Decimal('{value}')"
-    if isinstance(value, bytes):
-        return f"base64.b64decode({base64.b64encode(value).decode()!r})"
-    if isinstance(value, bytearray):
-        return f"base64.b64decode({base64.b64encode(bytes(value)).decode()!r})"
+        return str(value)
     if isinstance(value, (dict, list)):
-        return repr(json.dumps(value, ensure_ascii=False))
-    return repr(value)
+        inner = json.dumps(value, ensure_ascii=False).replace("'", "''")
+        return f"'{inner}'"
+    inner = str(value).replace("'", "''")
+    return f"'{inner}'"
 
 
 def generate_migration_file(app, migration_name):
@@ -112,7 +111,7 @@ def generate_migration_file(app, migration_name):
                 }
                 total_rows += len(rows)
 
-                # Collect shifu_bid values
+                # Collect shifu_bid values (skip tables without shifu_bid column)
                 for row in rows:
                     bid = row._mapping.get("shifu_bid")
                     if bid:
@@ -124,46 +123,78 @@ def generate_migration_file(app, migration_name):
 
         print(f"\nFound shifu_bids: {shifu_bids}")
 
+        # Separate tables: those with shifu_bid vs those that need subquery DELETE
+        tables_with_shifu_bid = []
+        tables_without_shifu_bid = []
+        for table_name in COURSE_TABLES:
+            cols = tables_data.get(table_name, {}).get("columns", [])
+            if "shifu_bid" in cols:
+                tables_with_shifu_bid.append(table_name)
+            else:
+                tables_without_shifu_bid.append(table_name)
+
         # Generate DELETE + INSERT statements
         lines = []
 
-        # DELETE existing data for the same shifu_bids
+        # DELETE existing data for tables that have shifu_bid
         lines.append("    # Delete existing data for the same shifu_bids")
         lines.append(
             f'    shifu_bids = {repr(list(shifu_bids))}'
         )
-        lines.append("    for table_name in [")
-        for table_name in COURSE_TABLES:
-            lines.append(f'        "{table_name}",')
-        lines.append("    ]:")
-        lines.append("        bind.execute(")
-        lines.append(
-            '            sa.text(f"DELETE FROM {table_name} WHERE shifu_bid IN :bids")'
-        )
-        lines.append(
-            "            .bindparams(sa.bindparam('bids', expanding=True)),"
-        )
-        lines.append("            {'bids': shifu_bids}")
-        lines.append("        )")
-        lines.append("")
+        if tables_with_shifu_bid:
+            lines.append("    for table_name in [")
+            for table_name in tables_with_shifu_bid:
+                lines.append(f'        "{table_name}",')
+            lines.append("    ]:")
+            lines.append("        bind.execute(")
+            lines.append(
+                '            sa.text(f"DELETE FROM {table_name} WHERE shifu_bid IN :bids")'
+            )
+            lines.append(
+                "            .bindparams(sa.bindparam('bids', expanding=True)),"
+            )
+            lines.append("            {'bids': shifu_bids}")
+            lines.append("        )")
+            lines.append("")
 
-        # INSERT all rows
+        # DELETE for tables without shifu_bid (use scenario_id subquery)
+        for table_name in tables_without_shifu_bid:
+            lines.append(
+                f"    # Delete {table_name} rows linked via scenario_id"
+            )
+            lines.append(
+                "    bind.execute("
+            )
+            lines.append(
+                "        sa.text("
+            )
+            lines.append(
+                '            f"DELETE FROM {table_name} WHERE scenario_id IN :bids"'
+            )
+            lines.append(
+                "        ).bindparams(sa.bindparam('bids', expanding=True)),"
+            )
+            lines.append("        {'bids': shifu_bids}")
+            lines.append("    )")
+            lines.append("")
+
         for table_name, data in tables_data.items():
             columns = data["columns"]
             rows = data["rows"]
 
-            lines.append(f"    # --- {table_name}: {len(rows)} rows ---")
+            cols_sql = ", ".join([f"`{c}`" for c in columns])
 
+            lines.append(f"    # --- {table_name}: {len(rows)} rows ---")
             for row in rows:
-                cols_str = ", ".join(f"`{c}`" for c in columns)
-                vals_parts = []
+                sql_vals = []
                 for col in columns:
                     val = row.get(col)
-                    vals_parts.append(f"            {serialize_value(val)}")
-
-                vals_str = ",\n".join(vals_parts)
+                    sql_vals.append(to_sql_literal(val))
+                vals_str = ",\n            ".join(sql_vals)
                 lines.append(
-                    f'    bind.execute(sa.text("""INSERT INTO {table_name} ({cols_str}) VALUES ({vals_str})"""))'
+                    f'    bind.execute(sa.text("""INSERT INTO {table_name} ({cols_sql}) VALUES (\n'
+                    f'            {vals_str}\n'
+                    f'        )"""))'
                 )
 
         inserts_block = "\n".join(lines)
@@ -189,9 +220,6 @@ NOTE:
 
 from alembic import op
 import sqlalchemy as sa
-from datetime import datetime
-from decimal import Decimal
-import base64
 
 # revision identifiers, used by Alembic.
 revision = "{new_rev_id}"
