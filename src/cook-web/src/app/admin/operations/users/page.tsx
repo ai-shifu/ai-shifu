@@ -72,7 +72,6 @@ import type {
 } from '../operation-user-types';
 
 type UserFilters = {
-  user_bid: string;
   identifier: string;
   nickname: string;
   user_status: string;
@@ -110,7 +109,6 @@ const DEFAULT_COLUMN_WIDTHS = {
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
-  user_bid: '',
   identifier: '',
   nickname: '',
   user_status: '',
@@ -209,7 +207,6 @@ const CourseListPreview = ({
 /**
  * t('module.operationsUser.title')
  * t('module.operationsUser.emptyList')
- * t('module.operationsUser.filters.userId')
  * t('module.operationsUser.filters.mobile')
  * t('module.operationsUser.filters.email')
  * t('module.operationsUser.filters.nickname')
@@ -219,6 +216,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.userId')
  * t('module.operationsUser.table.mobile')
  * t('module.operationsUser.table.email')
+ * t('module.operationsUser.table.guestUser')
  * t('module.operationsUser.table.nickname')
  * t('module.operationsUser.table.status')
  * t('module.operationsUser.table.role')
@@ -378,6 +376,10 @@ export default function AdminOperationUsersPage() {
         : tOperationsUsers('table.mobile'),
     [contactType, tOperationsUsers],
   );
+  const guestUserLabel = React.useMemo(
+    () => tOperationsUsers('table.guestUser'),
+    [tOperationsUsers],
+  );
   const resolveCreditsExpireAtLabel = React.useCallback(
     (user: AdminOperationUserItem) => {
       if (user.credits_expire_at) {
@@ -402,7 +404,6 @@ export default function AdminOperationUsersPage() {
         const response = (await api.getAdminOperationUsers({
           page_index: targetPage,
           page_size: PAGE_SIZE,
-          user_bid: filters.user_bid.trim(),
           identifier: filters.identifier.trim(),
           nickname: filters.nickname.trim(),
           user_status: filters.user_status,
@@ -521,23 +522,6 @@ export default function AdminOperationUsersPage() {
   ];
 
   const primaryFilterItems = [
-    {
-      key: 'user_bid',
-      label: tOperationsUsers('filters.userId'),
-      component: (
-        <ClearableTextInput
-          value={draftFilters.user_bid}
-          placeholder={tOperationsUsers('filters.userId')}
-          clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_bid: value,
-            }))
-          }
-        />
-      ),
-    },
     {
       key: 'identifier',
       label: identifierLabel,
@@ -933,6 +917,7 @@ export default function AdminOperationUsersPage() {
                       contactType === 'email'
                         ? user.email || user.mobile || ''
                         : user.mobile || user.email || '';
+                    const isGuestUser = !primaryContact;
                     const userDetailUrl = buildAdminOperationsUserDetailUrl(
                       user.user_bid,
                     );
@@ -965,7 +950,11 @@ export default function AdminOperationUsersPage() {
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('mobile')}
                         >
-                          {userDetailUrl && primaryContact ? (
+                          {isGuestUser ? (
+                            <span className='text-sm text-muted-foreground'>
+                              {guestUserLabel}
+                            </span>
+                          ) : userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
@@ -973,9 +962,7 @@ export default function AdminOperationUsersPage() {
                               {renderTooltipText(primaryContact)}
                             </Link>
                           ) : (
-                            renderTooltipText(
-                              primaryContact || EMPTY_STATE_LABEL,
-                            )
+                            renderTooltipText(primaryContact)
                           )}
                         </TableCell>
                         <TableCell

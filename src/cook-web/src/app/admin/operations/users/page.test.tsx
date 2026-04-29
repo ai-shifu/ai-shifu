@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationUsersPage from './page';
 
@@ -324,7 +330,6 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
-        user_bid: '',
         identifier: '',
         nickname: '',
         user_status: '',
@@ -436,8 +441,10 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
     });
 
-    const userIdInput = screen.getAllByRole('textbox')[0];
-    fireEvent.change(userIdInput, { target: { value: 'user-22' } });
+    const identifierInput = screen.getAllByRole('textbox')[0];
+    fireEvent.change(identifierInput, {
+      target: { value: 'user-22@example.com' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
 
     fireEvent.click(
@@ -453,8 +460,7 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith({
         page_index: 1,
         page_size: 20,
-        user_bid: 'user-22',
-        identifier: '',
+        identifier: 'user-22@example.com',
         nickname: '',
         user_status: '',
         user_role: 'creator',
@@ -541,6 +547,19 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByRole('link', { name: 'user-no-contact' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-no-contact');
+    const row = screen.getByRole('link', { name: 'user-no-contact' }).closest(
+      'tr',
+    );
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLTableRowElement).getAllByRole('cell');
+    expect(
+      within(cells[1] as HTMLTableCellElement).getByText(
+        'module.operationsUser.table.guestUser',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(cells[1] as HTMLTableCellElement).queryByText('--'),
+    ).not.toBeInTheDocument();
   });
 
   test('uses course status translations for unknown course states in the dialog', async () => {
