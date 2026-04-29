@@ -18,7 +18,6 @@
   "credits": {
     "longTerm": "长期有效"
   },
-  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "detail": {
     "back": "返回用户管理",
     "basicInfo": "基础信息",
@@ -106,12 +105,12 @@
     "learningProgress": "学习进度",
     "loadingCredits": "加载中",
     "overview": "数据概览",
-    "timezoneHint": "时间按浏览器时区显示：{timezone}",
     "tabs": {
       "createdCourses": "创作课程",
       "credits": "积分明细",
       "learningCourses": "学习课程"
     },
+    "timezoneHint": "时间按浏览器时区显示：{timezone}",
     "title": "用户详情"
   },
   "emptyList": "暂无用户",
@@ -227,5 +226,6 @@
     "updatedAt": "更新时间",
     "userId": "用户ID"
   },
+  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "title": "用户管理"
 }

@@ -14,7 +14,6 @@
     "viewDetail": "View Detail",
     "viewOrders": "View Orders"
   },
-  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "campaign": {
     "appliedOrderCount": "Applied Orders",
     "applyType": "Grant Type",
@@ -172,6 +171,7 @@
     "campaigns": "Campaigns",
     "coupons": "Coupon Codes"
   },
+  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "title": "Promotions",
   "usageType": {
     "generic": "Generic",

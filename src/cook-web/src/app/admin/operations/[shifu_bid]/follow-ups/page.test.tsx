@@ -347,9 +347,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.title',
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('module.operationsCourse.timezoneHint')).toHaveLength(
-      2,
-    );
+    expect(
+      screen.getAllByText('module.operationsCourse.timezoneHint'),
+    ).toHaveLength(2);
     expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.drawer.currentRecordHint',
