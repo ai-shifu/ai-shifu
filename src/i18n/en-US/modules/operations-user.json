@@ -110,7 +110,6 @@
       "credits": "Credits Detail",
       "learningCourses": "Learning Courses"
     },
-    "timezoneHint": "Times are shown in your browser timezone: {timezone}",
     "title": "User Detail"
   },
   "emptyList": "No users",

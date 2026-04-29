@@ -110,7 +110,6 @@
       "credits": "积分明细",
       "learningCourses": "学习课程"
     },
-    "timezoneHint": "时间按浏览器时区显示：{timezone}",
     "title": "用户详情"
   },
   "emptyList": "暂无用户",
