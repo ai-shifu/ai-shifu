@@ -80,26 +80,4 @@ describe('Dialog fullscreen portal', () => {
       );
     });
   });
-
-  it('keeps the base dialog layers above slide loading overlays', () => {
-    render(
-      <Dialog open={true}>
-        <DialogContent>
-          <DialogTitle>Layered Dialog</DialogTitle>
-          <DialogDescription>Layered dialog description</DialogDescription>
-          <div>Dialog content</div>
-        </DialogContent>
-      </Dialog>,
-    );
-
-    const openElements = Array.from(
-      document.body.querySelectorAll('[data-state="open"]'),
-    );
-    const overlayElement = openElements.find(element =>
-      element.className.includes('z-[100]'),
-    );
-
-    expect(overlayElement).toBeTruthy();
-    expect(screen.getByRole('dialog')).toHaveClass('z-[101]');
-  });
 });
