@@ -376,4 +376,50 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('--')).not.toBeInTheDocument();
   });
+
+  test('does not show guest label when alternate contact exists', async () => {
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      summary: {
+        average_score: '4.0',
+        rating_count: 1,
+        user_count: 1,
+        latest_rated_at: '2026-04-05T11:02:00Z',
+      },
+      items: [
+        {
+          lesson_feedback_bid: 'feedback-phone-only-1',
+          progress_record_bid: 'progress-phone-only-1',
+          user_bid: 'phone-only-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Phone User',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          score: 4,
+          comment: 'Phone-only rating',
+          mode: 'read',
+          rated_at: '2026-04-05T11:02:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    await screen.findByText('Phone-only rating');
+
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.ratings.table.guestUser',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('13900001235')).not.toBeInTheDocument();
+  });
 });

@@ -972,7 +972,7 @@ export default function AdminOperationCourseRatingsPage() {
                                 const secondaryAccount =
                                   resolveUserSecondary(item);
                                 const isGuestAccount =
-                                  primaryAccount === emptyValue;
+                                  !item.mobile?.trim() && !item.email?.trim();
                                 const primaryLessonDisplay =
                                   resolvePrimaryLessonDisplay({
                                     lessonTitle: item.lesson_title,
