@@ -31,8 +31,8 @@ git clone <repo> /home/ai-shifu-TTS
 cd /home/ai-shifu-TTS
 
 # Mac 本地
-git clone <repo> /home/benben/ai-shifu-TTS
-cd /home/benben/ai-shifu-TTS
+git clone <repo> /Users/benben/ai-shifu-TTS
+cd /Users/benben/ai-shifu-TTS
 ```
 
 ### 2. 启动 MySQL 和 Redis
@@ -66,18 +66,36 @@ cp docker/.env.example.full src/cook-web/.env
 | `SQLALCHEMY_DATABASE_URI` | 设 MySQL 密码，Docker 环境把 `ai-shifu-mysql` 改为 `127.0.0.1` |
 | LLM key | 至少一个，如 `OPENAI_API_KEY="sk-..."` |
 | `REDIS_HOST` | Docker 环境把 `ai-shifu-redis` 改为 `127.0.0.1` |
-| `LOCAL_STORAGE_ROOT` | Linux 改为 `/home/ai-shifu-TTS/storage` |
+| `LOCAL_STORAGE_ROOT` | Linux 改为 `/home/ai-shifu-TTS/storage` / Mac 改为 `/Users/benben/ai-shifu-TTS/storage` |
 | `I18N_ROOT` | 指向 i18n 目录，解决 standalone 模式下 `/api/i18n` 返回 500 |
 | `SHARED_I18N_ROOT` | 同上，构建时需要 |
 
-**⚠️ 注意**：`I18N_ROOT` 不能只写在 `.env` 文件里。因为 `server.js` 内部会执行 `process.chdir()` 把 CWD 改成 `.next/standalone/`，导致 `.env` 无法被加载。必须通过命令行或 systemd 传递：
+**⚠️ `I18N_ROOT` 不能只写在 `.env` 里。**因为 `server.js` 内部会执行 `process.chdir()` 把 CWD 改成 `.next/standalone/`，导致 `.env` 无法被加载。必须通过命令行传递：
 
 ```bash
-# macOS/Linux
-I18N_ROOT="$(cd src/cook-web && pwd)/../i18n" node .next/standalone/server.js
+export I18N_ROOT="$(cd src/cook-web && pwd)/../i18n"
+node .next/standalone/server.js
 ```
 
-或者在 systemd 服务文件中使用 `Environment=I18N_ROOT=...`。
+Windows PowerShell：
+
+```powershell
+$env:I18N_ROOT="$PWD\..\i18n"
+node .next\standalone\server.js
+```
+
+### 局域网访问
+
+如果从其他设备直接访问（不走 Nginx），前端会自动用 `window.location.hostname` 拼接后端地址 `hostname:5800`，无需额外配置。
+
+如果通过 Nginx（端口 80）访问，所有 `/api/...` 请求由 Nginx 路由。
+
+如果之前 `.env` 中有 `NEXT_PUBLIC_API_BASE_URL="http://localhost:5800/"`，请删除或注释，然后 **rebuild**：
+```bash
+cd src/cook-web
+npm run build
+cp -r .next/static .next/standalone/.next/static
+```
 
 ### 5. 后端
 
@@ -158,7 +176,8 @@ server_name _ benben.local;    # Mac 局域网
 server_name your-domain.com;   # Linux 云服务器
 
 # 第 30 行：alias 路径（指向你的实际项目路径）
-alias /home/ai-shifu-TTS/src/cook-web/.next/standalone/.next/static/;
+alias /Users/benben/ai-shifu-TTS/src/cook-web/.next/standalone/.next/static/;   # Mac 路径
+alias /home/ai-shifu-TTS/src/cook-web/.next/standalone/.next/static/;         # Linux 路径
 ```
 
 Mac 局域网用 `benben.local` 访问，需在 `/etc/hosts` 确认：
@@ -196,7 +215,7 @@ nginx -t && sudo nginx -s reload
 ## 更新代码
 
 ```bash
-cd /home/ai-shifu-TTS   # Mac: /home/benben/ai-shifu-TTS
+cd /home/ai-shifu-TTS   # Mac: /Users/benben/ai-shifu-TTS
 git pull
 
 # 后端
