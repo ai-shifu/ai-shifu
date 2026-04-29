@@ -125,4 +125,23 @@ describe('AdminOperationOrdersPage', () => {
       scroll: false,
     });
   });
+
+  test('preserves course filters when switching tabs', () => {
+    mockSearchParamsValue = 'shifu_bid=course-1';
+
+    render(<AdminOperationOrdersPage />);
+
+    fireEvent.click(
+      screen.getByRole('tab', {
+        name: 'module.operationsOrder.tabs.credits',
+      }),
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      '/admin/operations/orders?shifu_bid=course-1&tab=credits',
+      {
+        scroll: false,
+      },
+    );
+  });
 });

@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
 from sqlalchemy import and_, case, or_
+from sqlalchemy.orm import defer
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
@@ -84,6 +85,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseFollowUpSummaryDTO,
     AdminOperationCourseFollowUpTimelineItemDTO,
     AdminOperationCourseDetailMetricsDTO,
+    AdminOperationCoursePromptDTO,
     AdminOperationCourseUserDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
@@ -1329,6 +1331,7 @@ def _load_latest_shifus(
     updated_start_time: Optional[datetime],
     updated_end_time: Optional[datetime],
 ):
+    is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
     )
@@ -1338,6 +1341,8 @@ def _load_latest_shifus(
     latest_rows = db.session.query(model).filter(
         model.id.in_(db.session.query(latest_subquery.c.max_id))
     )
+    if is_mapped_model:
+        latest_rows = latest_rows.options(defer(model.llm_system_prompt))
     if course_name:
         latest_rows = latest_rows.filter(model.title.ilike(f"%{course_name}%"))
     if creator_bids is not None:
@@ -1353,7 +1358,44 @@ def _load_latest_shifus(
     if updated_end_time:
         latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
 
-    return latest_rows.order_by(model.updated_at.desc(), model.id.desc()).all()
+    rows = latest_rows.order_by(model.updated_at.desc(), model.id.desc()).all()
+    if is_mapped_model:
+        _attach_course_prompt_flags(model, rows)
+    return rows
+
+
+def _attach_course_prompt_flags(model, rows) -> None:
+    course_ids = [getattr(row, "id", None) for row in rows if getattr(row, "id", None)]
+    if not course_ids:
+        return
+
+    has_course_prompt_rows = (
+        db.session.query(
+            model.id,
+            case(
+                (
+                    db.func.length(
+                        db.func.trim(db.func.coalesce(model.llm_system_prompt, ""))
+                    )
+                    > 0,
+                    True,
+                ),
+                else_=False,
+            ).label("has_course_prompt"),
+        )
+        .filter(model.id.in_(course_ids))
+        .all()
+    )
+    has_course_prompt_map = {
+        row_id: bool(has_course_prompt)
+        for row_id, has_course_prompt in has_course_prompt_rows
+    }
+    for row in rows:
+        setattr(
+            row,
+            "has_course_prompt",
+            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        )
 
 
 def _build_course_summary(
@@ -1369,11 +1411,18 @@ def _build_course_summary(
     ).strip()
     updater = user_map.get(updater_user_bid, {})
     updated_at = resolved_activity.get("updated_at") or course.updated_at
+    has_course_prompt = getattr(course, "has_course_prompt", None)
+    if has_course_prompt is None:
+        has_course_prompt = bool(
+            str(getattr(course, "llm_system_prompt", "") or "").strip()
+        )
     return AdminOperationCourseSummaryDTO(
         shifu_bid=course.shifu_bid or "",
         course_name=course.title or "",
         course_status=course_status,
         price=_format_decimal(course.price),
+        course_model=str(course.llm or "").strip(),
+        has_course_prompt=bool(has_course_prompt),
         creator_user_bid=course.created_user_bid or "",
         creator_mobile=creator.get("mobile", ""),
         creator_email=creator.get("email", ""),
@@ -2198,6 +2247,7 @@ def _build_chapter_tree(
     *,
     follow_up_count_map: Dict[str, int],
     rating_count_map: Dict[str, int],
+    rating_score_map: Dict[str, str],
 ) -> list[AdminOperationCourseDetailChapterDTO]:
     node_map: Dict[str, AdminOperationCourseDetailChapterDTO] = {}
     ordered_nodes: list[AdminOperationCourseDetailChapterDTO] = []
@@ -2219,6 +2269,7 @@ def _build_chapter_tree(
             is_visible=not bool(getattr(item, "hidden", 0)),
             content_status=_resolve_content_status(item),
             follow_up_count=int(follow_up_count_map.get(bid, 0) or 0),
+            rating_score=rating_score_map.get(bid, ""),
             rating_count=int(rating_count_map.get(bid, 0) or 0),
             modifier_user_bid=modifier_user_bid,
             modifier_mobile=modifier.get("mobile", ""),
@@ -2260,14 +2311,14 @@ def _build_chapter_tree(
 def _load_outline_learning_stats(
     shifu_bid: str,
     outline_item_bids: Sequence[str],
-) -> tuple[Dict[str, int], Dict[str, int]]:
+) -> tuple[Dict[str, int], Dict[str, int], Dict[str, str]]:
     normalized_outline_item_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in outline_item_bids
         if str(outline_item_bid or "").strip()
     ]
     if not normalized_outline_item_bids:
-        return {}, {}
+        return {}, {}, {}
 
     follow_up_rows = (
         db.session.query(
@@ -2295,6 +2346,7 @@ def _load_outline_learning_stats(
         db.session.query(
             LearnLessonFeedback.outline_item_bid,
             db.func.count(LearnLessonFeedback.id),
+            db.func.avg(LearnLessonFeedback.score),
         )
         .filter(
             LearnLessonFeedback.shifu_bid == shifu_bid,
@@ -2304,13 +2356,16 @@ def _load_outline_learning_stats(
         .group_by(LearnLessonFeedback.outline_item_bid)
         .all()
     )
-    rating_count_map = {
-        str(outline_item_bid or "").strip(): int(count or 0)
-        for outline_item_bid, count in rating_rows
-        if str(outline_item_bid or "").strip()
-    }
+    rating_count_map: Dict[str, int] = {}
+    rating_score_map: Dict[str, str] = {}
+    for outline_item_bid, count, score in rating_rows:
+        normalized_outline_item_bid = str(outline_item_bid or "").strip()
+        if not normalized_outline_item_bid:
+            continue
+        rating_count_map[normalized_outline_item_bid] = int(count or 0)
+        rating_score_map[normalized_outline_item_bid] = _format_average_score(score)
 
-    return follow_up_count_map, rating_count_map
+    return follow_up_count_map, rating_count_map, rating_score_map
 
 
 def _load_operator_course_outline_items(
@@ -2998,7 +3053,7 @@ def get_operator_course_detail(
                 for item in outline_items
             ],
         )
-        follow_up_count_map, rating_count_map = outline_learning_stats
+        follow_up_count_map, rating_count_map, rating_score_map = outline_learning_stats
 
         return AdminOperationCourseDetailDTO(
             basic_info=AdminOperationCourseDetailBasicInfoDTO(
@@ -3027,7 +3082,28 @@ def get_operator_course_detail(
                 detail_user_map,
                 follow_up_count_map=follow_up_count_map,
                 rating_count_map=rating_count_map,
+                rating_score_map=rating_score_map,
             ),
+        )
+
+
+def get_operator_course_prompt(
+    app: Flask,
+    *,
+    shifu_bid: str,
+) -> AdminOperationCoursePromptDTO:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        if not normalized_shifu_bid:
+            raise_param_error("shifu_bid is required")
+
+        detail_source = _load_operator_course_detail_source(normalized_shifu_bid)
+        if detail_source is None:
+            raise_error("server.shifu.shifuNotFound")
+
+        course = detail_source["course"]
+        return AdminOperationCoursePromptDTO(
+            course_prompt=str(getattr(course, "llm_system_prompt", "") or "").strip()
         )
 
 
