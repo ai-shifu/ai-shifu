@@ -175,8 +175,7 @@ const resolvePrimaryAccount = ({
   emptyValue: string;
 }) => {
   const preferred = contactMode === 'email' ? email : mobile;
-  const alternate = contactMode === 'email' ? mobile : email;
-  return formatValue(preferred || alternate, emptyValue);
+  return formatValue(preferred, emptyValue);
 };
 
 function ClearableTextInput({
@@ -226,6 +225,53 @@ function ClearableTextInput({
   );
 }
 
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * t('module.operationsCourse.detail.ratings.back')
+ * t('module.operationsCourse.detail.ratings.title')
+ * t('module.operationsCourse.detail.ratings.openMetric')
+ * t('module.operationsCourse.detail.ratings.emptyValue')
+ * t('module.operationsCourse.detail.ratings.summary.averageScore')
+ * t('module.operationsCourse.detail.ratings.summary.ratingCount')
+ * t('module.operationsCourse.detail.ratings.summary.userCount')
+ * t('module.operationsCourse.detail.ratings.summary.latestRatedAt')
+ * t('module.operationsCourse.detail.ratings.summary.scopeHint')
+ * t('module.operationsCourse.detail.ratings.filters.userKeyword')
+ * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone')
+ * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderEmail')
+ * t('module.operationsCourse.detail.ratings.filters.chapterKeyword')
+ * t('module.operationsCourse.detail.ratings.filters.chapterKeywordPlaceholder')
+ * t('module.operationsCourse.detail.ratings.filters.lessonKeyword')
+ * t('module.operationsCourse.detail.ratings.filters.lessonKeywordPlaceholder')
+ * t('module.operationsCourse.detail.ratings.filters.score')
+ * t('module.operationsCourse.detail.ratings.filters.scoreAll')
+ * t('module.operationsCourse.detail.ratings.filters.mode')
+ * t('module.operationsCourse.detail.ratings.filters.modeAll')
+ * t('module.operationsCourse.detail.ratings.filters.ratingTime')
+ * t('module.operationsCourse.detail.ratings.filters.timePlaceholder')
+ * t('module.operationsCourse.detail.ratings.filters.commentStatus')
+ * t('module.operationsCourse.detail.ratings.filters.commentStatusAll')
+ * t('module.operationsCourse.detail.ratings.filters.commentStatusCommented')
+ * t('module.operationsCourse.detail.ratings.filters.sortBy')
+ * t('module.operationsCourse.detail.ratings.filters.sortByLatest')
+ * t('module.operationsCourse.detail.ratings.filters.sortByLowScore')
+ * t('module.operationsCourse.detail.ratings.filters.resultCount')
+ * t('module.operationsCourse.detail.ratings.filters.reset')
+ * t('module.operationsCourse.detail.ratings.filters.search')
+ * t('module.operationsCourse.detail.ratings.modes.read')
+ * t('module.operationsCourse.detail.ratings.modes.listen')
+ * t('module.operationsCourse.detail.ratings.scoreValue')
+ * t('module.operationsCourse.detail.ratings.table.title')
+ * t('module.operationsCourse.detail.ratings.table.ratedAt')
+ * t('module.operationsCourse.detail.ratings.table.user')
+ * t('module.operationsCourse.detail.ratings.table.chapter')
+ * t('module.operationsCourse.detail.ratings.table.lesson')
+ * t('module.operationsCourse.detail.ratings.table.score')
+ * t('module.operationsCourse.detail.ratings.table.comment')
+ * t('module.operationsCourse.detail.ratings.table.mode')
+ * t('module.operationsCourse.detail.ratings.table.empty')
+ * t('module.operationsCourse.detail.ratings.table.guestUser')
+ */
 export default function AdminOperationCourseRatingsPage() {
   const { t } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');

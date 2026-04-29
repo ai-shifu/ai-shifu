@@ -2071,7 +2071,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
                     bid="feedback-3",
                     lesson_feedback_bid="feedback-3",
                     shifu_bid="course-detail",
-                    outline_item_bid="lesson-1",
+                    outline_item_bid="lesson-2",
                     progress_record_bid="progress-4",
                     user_bid="student-1",
                     score=4,

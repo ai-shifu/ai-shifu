@@ -247,6 +247,8 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.metricsLabels.followUpCount')
  * t('module.operationsCourse.detail.metricsLabels.ratingScore')
  * t('module.operationsCourse.detail.orders.openMetric')
+ * t('module.operationsCourse.detail.followUps.openMetric')
+ * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.chaptersTable.position')
  * t('module.operationsCourse.detail.chaptersTable.name')
  * t('module.operationsCourse.detail.chaptersTable.type')

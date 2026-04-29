@@ -107,7 +107,6 @@
         "resultCount": "共 {count} 条",
         "search": "查询",
         "timePlaceholder": "追问时间",
-        "timeRangePlaceholder": "选择追问开始时间 / 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
@@ -178,7 +177,6 @@
         "sortByLatest": "最新优先",
         "sortByLowScore": "低分优先",
         "timePlaceholder": "评分时间",
-        "timeRangePlaceholder": "选择评分开始时间 / 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
         "userKeywordPlaceholderPhone": "手机号 / 昵称"

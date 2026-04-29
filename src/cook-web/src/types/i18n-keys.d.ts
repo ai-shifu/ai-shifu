@@ -861,7 +861,7 @@ export type I18nKey =
   | 'module.operationsCourse.detail.followUps.filters.reset'
   | 'module.operationsCourse.detail.followUps.filters.resultCount'
   | 'module.operationsCourse.detail.followUps.filters.search'
-  | 'module.operationsCourse.detail.followUps.filters.timeRangePlaceholder'
+  | 'module.operationsCourse.detail.followUps.filters.timePlaceholder'
   | 'module.operationsCourse.detail.followUps.filters.userKeyword'
   | 'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholder'
   | 'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderEmail'

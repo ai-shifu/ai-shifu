@@ -107,7 +107,6 @@
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
         "timePlaceholder": "Follow-up Time",
-        "timeRangePlaceholder": "Select follow-up start and end dates",
         "userKeyword": "User Search",
         "userKeywordPlaceholder": "Phone / Email / Nickname",
         "userKeywordPlaceholderEmail": "Email / Nickname",
@@ -178,7 +177,6 @@
         "sortByLatest": "Latest First",
         "sortByLowScore": "Lowest Rating First",
         "timePlaceholder": "Rating Time",
-        "timeRangePlaceholder": "Select rating start and end dates",
         "userKeyword": "User Search",
         "userKeywordPlaceholderEmail": "Email / Nickname",
         "userKeywordPlaceholderPhone": "Phone / Nickname"
