@@ -48,7 +48,6 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
-
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
 }));

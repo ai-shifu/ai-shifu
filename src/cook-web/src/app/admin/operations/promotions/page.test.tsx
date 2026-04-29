@@ -47,7 +47,6 @@ jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
 }));
 
-
 jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
   useToast: () => ({
