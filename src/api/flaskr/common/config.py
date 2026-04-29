@@ -163,6 +163,16 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
+    "HOST_URL": EnvVar(
+        name="HOST_URL",
+        default="",
+        description=(
+            "Canonical public web origin used to derive third-party callback "
+            "and payment return URLs, e.g. https://your-domain.com. Required "
+            "outside local/test environments."
+        ),
+        group="frontend",
+    ),
     "LOGO_WIDE_URL": EnvVar(
         name="LOGO_WIDE_URL",
         default="",
@@ -805,12 +815,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Alipay OpenAPI gateway URL",
         group="payment",
     ),
-    "ALIPAY_NOTIFY_URL": EnvVar(
-        name="ALIPAY_NOTIFY_URL",
-        default="",
-        description="Public callback URL for Alipay asynchronous payment notifications",
-        group="payment",
-    ),
     "WECHATPAY_APP_ID": EnvVar(
         name="WECHATPAY_APP_ID",
         default="",
@@ -855,12 +859,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Filesystem path to the WeChat Pay platform certificate for notification verification",
         group="payment",
     ),
-    "WECHATPAY_NOTIFY_URL": EnvVar(
-        name="WECHATPAY_NOTIFY_URL",
-        default="",
-        description="Public callback URL for WeChat Pay asynchronous payment notifications",
-        group="payment",
-    ),
     "STRIPE_SECRET_KEY": EnvVar(
         name="STRIPE_SECRET_KEY",
         default="",
@@ -885,18 +883,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="STRIPE_API_VERSION",
         default="",
         description="Stripe API version to lock requests against",
-        group="payment",
-    ),
-    "STRIPE_SUCCESS_URL": EnvVar(
-        name="STRIPE_SUCCESS_URL",
-        default="",
-        description="Stripe Checkout success redirect URL",
-        group="payment",
-    ),
-    "STRIPE_CANCEL_URL": EnvVar(
-        name="STRIPE_CANCEL_URL",
-        default="",
-        description="Stripe Checkout cancellation redirect URL",
         group="payment",
     ),
     "STRIPE_DEFAULT_CURRENCY": EnvVar(

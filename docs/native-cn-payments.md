@@ -88,20 +88,24 @@ Billing checkout:
 
 New backend configuration keys:
 
+- `HOST_URL`
 - `ALIPAY_APP_ID`
 - `ALIPAY_APP_PRIVATE_KEY_PATH`
 - `ALIPAY_PUBLIC_KEY_PATH`
 - `ALIPAY_GATEWAY_URL`
-- `ALIPAY_NOTIFY_URL`
 - `WECHATPAY_APP_ID`
 - `WECHATPAY_MCH_ID`
 - `WECHATPAY_API_V3_KEY`
 - `WECHATPAY_MERCHANT_SERIAL_NO`
 - `WECHATPAY_PRIVATE_KEY_PATH`
 - `WECHATPAY_PLATFORM_CERT_PATH`
-- `WECHATPAY_NOTIFY_URL`
 
 `WECHATPAY_APP_ID` falls back to `WECHAT_APP_ID` when empty.
+`HOST_URL` is required outside local/test environments. Alipay and WeChat Pay
+notification URLs are derived from `HOST_URL` and `PATH_PREFIX` as
+`/api/callback/alipay-notify` and `/api/callback/wechatpay-notify` by default.
+Stripe webhooks still must be registered in Stripe Dashboard as
+`https://your-domain.com/api/order/stripe/webhook`.
 
 ## Verification Focus
 

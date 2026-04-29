@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 
 from flask import Flask
 
+from flaskr.common.public_urls import build_alipay_notify_url
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -47,13 +48,8 @@ class AlipayProvider(PaymentProvider):
         )
 
         precreate_request = sdk["AlipayTradePrecreateRequest"](biz_model=biz_model)
-        notify_url = str(
-            (request.extra or {}).get("notify_url")
-            or get_config("ALIPAY_NOTIFY_URL", "")
-            or ""
-        ).strip()
-        if notify_url:
-            precreate_request.notify_url = notify_url
+        notify_url = build_alipay_notify_url()
+        precreate_request.notify_url = notify_url
 
         raw_response = client.execute(precreate_request)
         response_payload = _parse_alipay_response(

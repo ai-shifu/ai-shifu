@@ -1056,8 +1056,6 @@ interface BillingPaymentProviderAdapter {
     product_bid: string;
     payment_provider: string;
     channel: string;
-    success_url?: string;
-    cancel_url?: string;
   }): Promise<ProviderCheckoutResult>;
 
   create_recurring_subscription(input: {
@@ -1208,7 +1206,7 @@ v1 前端不新建全局 billing store，默认采用：
 v1 前端方案：
 
 - 新增 `src/cook-web/src/app/payment/stripe/billing-result/page.tsx`
-- billing checkout 的 `success_url` / `cancel_url` 指向新的 billing result 页
+- 后端从 `HOST_URL` 派生 Stripe billing result URL
 - billing result 页职责：
   - 从 query 读取 `bill_order_bid` / `session_id`
   - 先调用 `POST /billing/orders/{bill_order_bid}/sync`

@@ -359,18 +359,6 @@ export function resolveBillingProductDescription(
   return t(product.description);
 }
 
-export function buildBillingStripeResultUrls(origin: string): {
-  cancelUrl: string;
-  successUrl: string;
-} {
-  const normalizedOrigin = String(origin || '').replace(/\/+$/, '');
-  const base = `${normalizedOrigin}/payment/stripe/billing-result`;
-  return {
-    successUrl: base,
-    cancelUrl: `${base}?canceled=1`,
-  };
-}
-
 export function buildBillingSwrKey(
   baseKey: string,
   timezone: string,

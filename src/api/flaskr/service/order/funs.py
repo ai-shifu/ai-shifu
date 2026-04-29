@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from flask import Flask
 
+from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.service.config import get_config
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.i18n import _
@@ -801,16 +802,12 @@ def _generate_stripe_charge(
     }
 
     if resolved_mode == "checkout_session":
-        success_url = get_config("STRIPE_SUCCESS_URL")
-        cancel_url = get_config("STRIPE_CANCEL_URL")
-        if success_url:
-            provider_options["success_url"] = _inject_order_query(
-                success_url, buy_record.order_bid
-            )
-        if cancel_url:
-            provider_options["cancel_url"] = _inject_order_query(
-                cancel_url, buy_record.order_bid
-            )
+        provider_options["success_url"] = _inject_order_query(
+            build_stripe_learner_result_url(), buy_record.order_bid
+        )
+        provider_options["cancel_url"] = _inject_order_query(
+            build_stripe_learner_result_url(canceled=True), buy_record.order_bid
+        )
         provider_options["line_items"] = [
             {
                 "price_data": {

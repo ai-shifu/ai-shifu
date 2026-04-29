@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask
 
+from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.i18n import _ as translate
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -192,8 +193,6 @@ def create_billing_subscription_checkout(
         payload,
         default_pingxx_channel="alipay_qr",
     )
-    success_url = _normalize_bid(payload.get("success_url"))
-    cancel_url = _normalize_bid(payload.get("cancel_url"))
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
@@ -265,8 +264,6 @@ def create_billing_subscription_checkout(
             payment_provider=payment_provider,
             payment_mode="subscription",
             channel=channel,
-            success_url=success_url,
-            cancel_url=cancel_url,
         )
         db.session.commit()
         return checkout_result
@@ -285,8 +282,6 @@ def create_billing_topup_checkout(
         payload,
         default_pingxx_channel="alipay_qr",
     )
-    success_url = _normalize_bid(payload.get("success_url"))
-    cancel_url = _normalize_bid(payload.get("cancel_url"))
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
@@ -318,8 +313,6 @@ def create_billing_topup_checkout(
             payment_provider=payment_provider,
             payment_mode="one_time",
             channel=channel,
-            success_url=success_url,
-            cancel_url=cancel_url,
         )
         db.session.commit()
         return checkout_result
@@ -375,8 +368,6 @@ def create_billing_order_checkout(
             payment_provider=order.payment_provider,
             payment_mode=_resolve_billing_order_payment_mode(order),
             channel=order.channel,
-            success_url="",
-            cancel_url="",
         )
         db.session.commit()
         return checkout_result
@@ -744,8 +735,6 @@ def _create_provider_checkout(
     payment_provider: str,
     payment_mode: str,
     channel: str,
-    success_url: str,
-    cancel_url: str,
 ) -> BillingCheckoutResultDTO:
     provider = get_payment_provider(payment_provider)
     product_name = _resolve_checkout_product_name(product)
@@ -760,11 +749,11 @@ def _create_provider_checkout(
     if payment_provider == "stripe":
         provider_options["mode"] = "checkout_session"
         provider_options["success_url"] = _inject_billing_query(
-            success_url or "",
+            build_stripe_billing_result_url(),
             order.bill_order_bid,
         )
         provider_options["cancel_url"] = _inject_billing_query(
-            cancel_url or success_url or "",
+            build_stripe_billing_result_url(canceled=True),
             order.bill_order_bid,
         )
         provider_options["session_params"] = {

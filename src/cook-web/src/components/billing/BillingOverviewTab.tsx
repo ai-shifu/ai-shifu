@@ -24,7 +24,6 @@ import type {
 } from '@/types/billing';
 import {
   buildBillingSwrKey,
-  buildBillingStripeResultUrls,
   extractBillingPingxxQrCode,
   formatBillingCredits,
   formatBillingPrice,
@@ -230,10 +229,6 @@ export function BillingOverviewTab({
     setCheckoutLoadingKey(loadingKey);
     try {
       let result: BillingCheckoutResult;
-      const stripeUrls =
-        checkoutTarget.provider === 'stripe'
-          ? buildBillingStripeResultUrls(window.location.origin)
-          : { cancelUrl: '', successUrl: '' };
       const checkoutChannel = isQrBillingProvider(checkoutTarget.provider)
         ? checkoutTarget.provider === 'pingxx'
           ? selectedPingxxChannel
@@ -242,19 +237,15 @@ export function BillingOverviewTab({
 
       if (checkoutTarget.kind === 'plan') {
         result = (await api.checkoutBillingSubscription({
-          cancel_url: stripeUrls.cancelUrl || undefined,
           channel: checkoutChannel,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
-          success_url: stripeUrls.successUrl || undefined,
         })) as BillingCheckoutResult;
       } else {
         result = (await api.checkoutBillingTopup({
-          cancel_url: stripeUrls.cancelUrl || undefined,
           channel: checkoutChannel,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
-          success_url: stripeUrls.successUrl || undefined,
         })) as BillingCheckoutResult;
       }
 

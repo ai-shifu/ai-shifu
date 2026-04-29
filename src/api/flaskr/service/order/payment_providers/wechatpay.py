@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from flask import Flask
 
+from flaskr.common.public_urls import build_wechatpay_notify_url
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -153,13 +154,7 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def _build_transaction_body(self, request: PaymentRequest) -> dict[str, Any]:
-        notify_url = str(
-            (request.extra or {}).get("notify_url")
-            or get_config("WECHATPAY_NOTIFY_URL", "")
-            or ""
-        ).strip()
-        if not notify_url:
-            raise RuntimeError("WECHATPAY_NOTIFY_URL must be configured")
+        notify_url = build_wechatpay_notify_url()
         return {
             "appid": _wechatpay_app_id(),
             "mchid": _required_config("WECHATPAY_MCH_ID"),
