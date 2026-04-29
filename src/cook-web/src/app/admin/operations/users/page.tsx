@@ -521,7 +521,7 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
-  const primaryFilterItems = [
+  const collapsedFilterItems = [
     {
       key: 'identifier',
       label: identifierLabel,
@@ -539,10 +539,6 @@ export default function AdminOperationUsersPage() {
         />
       ),
     },
-  ];
-
-  const expandedPrimaryFilterItems = [
-    ...primaryFilterItems,
     {
       key: 'nickname',
       label: tOperationsUsers('filters.nickname'),
@@ -562,7 +558,8 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
-  const expandedSecondaryFilterItems = [
+  const expandedFirstRowFilterItems = [
+    ...collapsedFilterItems,
     {
       key: 'user_status',
       label: tOperationsUsers('filters.status'),
@@ -592,6 +589,9 @@ export default function AdminOperationUsersPage() {
         </Select>
       ),
     },
+  ];
+
+  const expandedSecondRowFilterItems = [
     {
       key: 'user_role',
       label: tOperationsUsers('filters.role'),
@@ -682,8 +682,8 @@ export default function AdminOperationUsersPage() {
                 )}
               >
                 {(expanded
-                  ? expandedPrimaryFilterItems
-                  : primaryFilterItems
+                  ? expandedFirstRowFilterItems
+                  : collapsedFilterItems
                 ).map(item => (
                   <div
                     key={item.key}
@@ -732,7 +732,7 @@ export default function AdminOperationUsersPage() {
               {expanded ? (
                 <div className='space-y-4'>
                   <div className='grid gap-4 xl:grid-cols-3'>
-                    {expandedSecondaryFilterItems.map(item => (
+                    {expandedSecondRowFilterItems.map(item => (
                       <div
                         key={item.key}
                         className='flex items-center'
@@ -748,31 +748,30 @@ export default function AdminOperationUsersPage() {
                         <div className='flex-1 min-w-0'>{item.component}</div>
                       </div>
                     ))}
-                  </div>
-
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {t('module.order.filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {t('module.order.filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(false)}
-                    >
-                      {t('common.core.collapse')}
-                      <ChevronUp className='ml-1 h-4 w-4' />
-                    </Button>
+                    <div className='flex items-center justify-end gap-2 xl:self-end'>
+                      <Button
+                        size='sm'
+                        variant='outline'
+                        onClick={handleReset}
+                      >
+                        {t('module.order.filters.reset')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        onClick={handleSearch}
+                      >
+                        {t('module.order.filters.search')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        className='px-2 text-primary'
+                        onClick={() => setExpanded(false)}
+                      >
+                        {t('common.core.collapse')}
+                        <ChevronUp className='ml-1 h-4 w-4' />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -915,9 +914,10 @@ export default function AdminOperationUsersPage() {
                   {users.map(user => {
                     const primaryContact =
                       contactType === 'email'
-                        ? user.email || user.mobile || ''
-                        : user.mobile || user.email || '';
-                    const isGuestUser = !primaryContact;
+                        ? user.email?.trim() || ''
+                        : user.mobile?.trim() || '';
+                    const isGuestUser =
+                      !user.mobile?.trim() && !user.email?.trim();
                     const userDetailUrl = buildAdminOperationsUserDetailUrl(
                       user.user_bid,
                     );
