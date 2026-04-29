@@ -805,7 +805,7 @@ export default function AdminOperationCourseRatingsPage() {
                           key={item.key}
                           className='flex items-center'
                         >
-                          <span className="mr-2 w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']">
+                          <span className='mr-2 w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[":"]'>
                             {item.label}
                           </span>
                           <div className='min-w-0 flex-1'>{item.component}</div>
@@ -820,7 +820,7 @@ export default function AdminOperationCourseRatingsPage() {
                             key={item.key}
                             className='flex items-center'
                           >
-                            <span className="mr-2 w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']">
+                            <span className='mr-2 w-20 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[":"]'>
                               {item.label}
                             </span>
                             <div className='min-w-0 flex-1'>
@@ -1087,15 +1087,13 @@ export default function AdminOperationCourseRatingsPage() {
                         pageIndex={currentPage}
                         pageCount={pageCount}
                         onPageChange={handlePageChange}
-                        prevLabel={t('module.order.paginationPrev', 'Previous')}
-                        nextLabel={t('module.order.paginationNext', 'Next')}
+                        prevLabel={t('module.order.paginationPrev')}
+                        nextLabel={t('module.order.paginationNext')}
                         prevAriaLabel={t(
                           'module.order.paginationPrevAriaLabel',
-                          'Go to previous page',
                         )}
                         nextAriaLabel={t(
                           'module.order.paginationNextAriaLabel',
-                          'Go to next page',
                         )}
                         className='mx-0 w-auto justify-end'
                         hideWhenSinglePage
