@@ -113,6 +113,7 @@ from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interacti
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
 from flaskr.common.shifu_context import (
@@ -3034,8 +3035,10 @@ class RunScriptContextV2:
                 tts_enabled = bool(self._should_stream_tts())
                 current_tts_stream_key: tuple[str, int] | None = None
                 next_tts_position = 0
-                # Finalize prior text TTS after visual chunks keep flowing.
-                pending_tts_processors = []
+                tts_finalize_drainer = StreamTTSFinalizeDrainer(
+                    self,
+                    log_prefix="Finalize streaming TTS failed",
+                )
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
@@ -3075,8 +3078,7 @@ class RunScriptContextV2:
                         tts_processor, \
                         tts_enabled, \
                         current_tts_stream_key, \
-                        next_tts_position, \
-                        pending_tts_processors
+                        next_tts_position
                     next_key = _normalize_tts_stream_key(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
@@ -3084,7 +3086,7 @@ class RunScriptContextV2:
                     if current_tts_stream_key == next_key:
                         return
                     if tts_processor:
-                        pending_tts_processors.append(tts_processor)
+                        tts_finalize_drainer.submit(tts_processor)
                         tts_processor = None
                         current_tts_stream_key = None
                     if not tts_enabled or next_key is None:
@@ -3125,9 +3127,11 @@ class RunScriptContextV2:
                         stream_element_number=stream_element_number,
                     )
                     if not tts_processor or current_tts_stream_key is None:
+                        yield from _drain_tts_ready_events()
                         return
                     try:
                         yield from tts_processor.process_chunk(chunk_content)
+                        yield from _drain_tts_ready_events()
                     except Exception as exc:
                         app.logger.warning(
                             "Streaming TTS failed; disable for this block: %s",
@@ -3138,38 +3142,38 @@ class RunScriptContextV2:
                         current_tts_stream_key = None
                         tts_enabled = False
 
-                def _drain_tts_ready_events():
-                    nonlocal tts_processor, current_tts_stream_key, tts_enabled
-                    processors = [
-                        *pending_tts_processors,
-                        *([tts_processor] if tts_processor else []),
-                    ]
-                    if not processors:
-                        return
-                    for processor in processors:
-                        try:
-                            yield from processor.drain_ready_segments()
-                        except Exception as exc:
-                            app.logger.warning(
-                                "Idle streaming TTS drain failed; disable for this block: %s",
-                                exc,
-                                exc_info=True,
-                            )
-                            if processor is tts_processor:
-                                tts_processor = None
-                                current_tts_stream_key = None
-                                tts_enabled = False
-                            elif processor in pending_tts_processors:
-                                pending_tts_processors.remove(processor)
+                def _disable_current_tts_processor() -> None:
+                    nonlocal tts_processor, current_tts_stream_key
+                    tts_processor = None
+                    current_tts_stream_key = None
 
-                def _finalize_pending_tts_processors():
-                    nonlocal pending_tts_processors
-                    while pending_tts_processors:
-                        pending_tts_processor = pending_tts_processors.pop(0)
-                        yield from self._finalize_stream_tts_processor(
-                            pending_tts_processor,
-                            log_prefix="Finalize streaming TTS failed",
-                        )
+                def _disable_all_tts() -> None:
+                    nonlocal tts_enabled
+                    _disable_current_tts_processor()
+                    tts_enabled = False
+
+                def _handle_current_tts_drain_error(exc: Exception) -> None:
+                    app.logger.warning(
+                        "Idle streaming TTS drain failed; disable for this block: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    _disable_all_tts()
+
+                def _drain_current_tts_ready_events():
+                    if not tts_processor:
+                        return
+                    if not hasattr(tts_processor, "drain_ready_segments"):
+                        return
+                    try:
+                        yield from tts_processor.drain_ready_segments()
+                    except Exception as exc:
+                        _handle_current_tts_drain_error(exc)
+
+                def _drain_tts_ready_events():
+                    yield from tts_finalize_drainer.drain()
+                    yield from _drain_current_tts_ready_events()
+                    yield from tts_finalize_drainer.drain()
 
                 stream_exc: BaseException | None = None
                 try:
@@ -3227,9 +3231,12 @@ class RunScriptContextV2:
                     raise
                 finally:
                     if not isinstance(stream_exc, GeneratorExit):
-                        yield from _finalize_pending_tts_processors()
+                        yield from tts_finalize_drainer.drain(wait=True)
+                    else:
+                        tts_finalize_drainer.close()
                     yield from self._teardown_stream_tts_state(
                         tts_processor=tts_processor,
+                        flush_content_cache=_drain_current_tts_ready_events,
                         log_prefix="Finalize streaming TTS failed",
                         skip_emit=isinstance(stream_exc, GeneratorExit),
                     )
