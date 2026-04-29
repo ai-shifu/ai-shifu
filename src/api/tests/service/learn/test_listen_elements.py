@@ -1470,7 +1470,10 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                         [DummyFormattedElement("Intro narration.\n", "text", 0)]
                     )
                     yield DummyLLMResult(
-                        [DummyFormattedElement("<div>Visual</div>\n", "html", 1)]
+                        [DummyFormattedElement("<div>Visual start\n", "html", 1)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Visual end</div>\n", "html", 1)]
                     )
 
                 return _gen()
@@ -1561,6 +1564,11 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             for index, element in indexed_elements
             if element.element_type == ElementType.HTML and not element.is_final
         )
+        html_indexes = [
+            index
+            for index, element in indexed_elements
+            if element.element_type == ElementType.HTML and not element.is_final
+        ]
         text_audio_index, text_audio_patch = next(
             (index, element)
             for index, element in indexed_elements
@@ -1581,18 +1589,22 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             .all()
         )
 
-    assert html_index < text_audio_index
-    assert html_element.audio_url == ""
-    assert html_element.audio_segments == []
-    assert text_audio_patch.content_text == "Intro narration.\n"
+        assert html_index < text_audio_index
+        assert max(html_indexes) < text_audio_index
+        assert html_element.audio_url == ""
+        assert html_element.audio_segments == []
+        assert text_audio_patch.content_text == "Intro narration.\n"
 
-    first_html_seq = min(
-        row.run_event_seq for row in rows if row.element_type == ElementType.HTML.value
-    )
+    html_seqs = [
+        row.run_event_seq
+        for row in rows
+        if row.element_type == ElementType.HTML.value and row.is_final == 0
+    ]
     first_audio_patch_seq = min(
         row.run_event_seq for row in rows if row.audio_url and row.is_final == 1
     )
-    assert first_html_seq < first_audio_patch_seq
+    assert min(html_seqs) < first_audio_patch_seq
+    assert max(html_seqs) < first_audio_patch_seq
 
 
 def test_listen_run_persists_exception_gate_block_before_element_rows(app):
