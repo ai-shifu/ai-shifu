@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
@@ -1301,10 +1300,6 @@ export default function AdminOperationCourseDetailPage() {
             <h1 className='text-2xl font-semibold text-gray-900'>
               {tOperations('detail.title')}
             </h1>
-            <AdminTimezoneHint
-              namespace='module.operationsCourse'
-              textKey='timezoneHint'
-            />
           </div>
           <Button
             variant='outline'

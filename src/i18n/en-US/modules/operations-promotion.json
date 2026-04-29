@@ -171,7 +171,6 @@
     "campaigns": "Campaigns",
     "coupons": "Coupon Codes"
   },
-  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "title": "Promotions",
   "usageType": {
     "generic": "Generic",

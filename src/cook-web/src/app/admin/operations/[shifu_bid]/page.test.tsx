@@ -82,9 +82,6 @@ jest.mock('@/hooks/useToast', () => ({
   show: (...args: unknown[]) => mockToastShow(...args),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
@@ -366,9 +363,6 @@ describe('AdminOperationCourseDetailPage', () => {
 
     expect(
       await screen.findByText('module.operationsCourse.detail.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.operationsCourse.timezoneHint'),
     ).toBeInTheDocument();
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',

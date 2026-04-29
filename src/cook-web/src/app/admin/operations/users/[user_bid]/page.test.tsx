@@ -292,9 +292,6 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       await screen.findByText('module.operationsUser.detail.title'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.operationsUser.timezoneHint'),
-    ).toBeInTheDocument();
     expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(
@@ -367,9 +364,6 @@ describe('AdminOperationUserDetailPage', () => {
 
     await screen.findByText('module.operationsUser.detail.title');
 
-    expect(
-      screen.getByText('module.operationsUser.timezoneHint'),
-    ).toBeInTheDocument();
     expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();

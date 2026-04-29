@@ -39,9 +39,6 @@ jest.mock('uuid', () => ({
   v4: () => 'test-request-id',
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
 
 jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
@@ -261,9 +258,6 @@ describe('UserCreditGrantDialog', () => {
       />,
     );
 
-    expect(
-      screen.getByText('module.operationsUser.timezoneHint'),
-    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.confirmButton',

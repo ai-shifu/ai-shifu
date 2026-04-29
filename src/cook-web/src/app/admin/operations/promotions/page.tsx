@@ -6,7 +6,6 @@ import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import {
@@ -2428,11 +2427,6 @@ export default function AdminOperationPromotionsPage() {
         <h1 className='text-2xl font-semibold text-foreground'>
           {tPromotion('title')}
         </h1>
-        <AdminTimezoneHint
-          namespace='module.operationsPromotion'
-          textKey='timezoneHint'
-          className='mt-1'
-        />
       </div>
 
       <Tabs

@@ -3,7 +3,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -210,10 +209,6 @@ export default function CreditOrderDetailDialog({
           <SheetTitle className='text-base font-semibold text-foreground'>
             {tOperationsOrder('creditOrders.detail.title')}
           </SheetTitle>
-          <AdminTimezoneHint
-            namespace='module.operationsOrder'
-            textKey='timezoneHint'
-          />
           <SheetDescription className='sr-only'>
             {tOperationsOrder('creditOrders.detail.description')}
           </SheetDescription>

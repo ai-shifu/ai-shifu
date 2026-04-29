@@ -225,6 +225,5 @@
     "updatedAt": "更新时间",
     "userId": "用户ID"
   },
-  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "title": "用户管理"
 }

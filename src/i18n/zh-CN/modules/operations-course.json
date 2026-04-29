@@ -235,7 +235,6 @@
     "status": "状态",
     "updatedAt": "更新时间"
   },
-  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "title": "课程管理",
   "transferCreatorDialog": {
     "confirm": "确认转移",

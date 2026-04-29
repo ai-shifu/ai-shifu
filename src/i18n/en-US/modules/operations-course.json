@@ -235,7 +235,6 @@
     "status": "Status",
     "updatedAt": "Updated At"
   },
-  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",

@@ -225,6 +225,5 @@
     "updatedAt": "Updated At",
     "userId": "User ID"
   },
-  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "title": "User Management"
 }

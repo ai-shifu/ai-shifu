@@ -24,9 +24,6 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
 
 jest.mock('../useOperatorGuard', () => ({
   __esModule: true,
@@ -108,9 +105,6 @@ describe('AdminOperationOrdersPage', () => {
   test('defaults to learn tab without tab query', () => {
     render(<AdminOperationOrdersPage />);
 
-    expect(
-      screen.getByText('module.operationsOrder.timezoneHint'),
-    ).toBeInTheDocument();
     expect(screen.getByText(LEARN_TAB_CONTENT)).toBeInTheDocument();
     expect(screen.queryByText(CREDIT_TAB_CONTENT)).not.toBeInTheDocument();
   });

@@ -8,7 +8,6 @@ import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
@@ -634,10 +633,6 @@ export default function AdminOperationCourseFollowUpsPage() {
               {tOperations('detail.followUps.title')}
             </h1>
             <p className='text-sm text-muted-foreground'>{summaryScopeHint}</p>
-            <AdminTimezoneHint
-              namespace='module.operationsCourse'
-              textKey='timezoneHint'
-            />
           </div>
           <Button
             variant='outline'

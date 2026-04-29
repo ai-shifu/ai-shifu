@@ -124,7 +124,6 @@
     "credits": "Credit Orders",
     "learn": "Learning Orders"
   },
-  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "title": "Order Management",
   "totalCount": "{count} orders"
 }

@@ -48,9 +48,6 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
@@ -147,9 +144,6 @@ describe('OperatorOrderDetailSheet', () => {
 
     expect(
       await screen.findByText('module.operationsOrder.detail.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.operationsOrder.timezoneHint'),
     ).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
     expect(
