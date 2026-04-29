@@ -458,6 +458,20 @@ describe('AdminOperationCourseDetailPage', () => {
     );
   });
 
+  test('navigates to ratings page from the rating metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1/ratings');
+  });
+
   test('renders static metric cards with non-interactive semantics', async () => {
     render(<AdminOperationCourseDetailPage />);
 

@@ -15,6 +15,7 @@ type AdminDateRangeFilterProps = {
   placeholder: string;
   resetLabel: string;
   clearLabel: string;
+  numberOfMonths?: number;
   triggerAriaLabel?: string;
   popoverContainer?: HTMLElement | null;
   popoverModal?: boolean;
@@ -45,6 +46,7 @@ const AdminDateRangeFilter = ({
   placeholder,
   resetLabel,
   clearLabel,
+  numberOfMonths = 2,
   triggerAriaLabel,
   popoverContainer,
   popoverModal,
@@ -129,7 +131,7 @@ const AdminDateRangeFilter = ({
       >
         <Calendar
           mode='range'
-          numberOfMonths={2}
+          numberOfMonths={numberOfMonths}
           selected={selectedRange}
           onSelect={range =>
             onChange({

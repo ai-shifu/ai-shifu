@@ -752,10 +752,9 @@ export default function AdminOperationCourseFollowUpsPage() {
                       <AdminDateRangeFilter
                         startValue={filtersDraft.startTime}
                         endValue={filtersDraft.endTime}
+                        numberOfMonths={1}
                         triggerAriaLabel={followUpTimeFilterAriaLabel}
-                        placeholder={tOperations(
-                          'detail.followUps.filters.timeRangePlaceholder',
-                        )}
+                        placeholder={tOperations('detail.followUps.filters.timePlaceholder')}
                         resetLabel={tOperations(
                           'detail.followUps.filters.reset',
                         )}

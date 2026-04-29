@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
+  buildAdminOperationsCourseRatingsUrl,
 } from '../operation-course-routes';
 import type {
   AdminOperationCourseChapterDetailResponse,
@@ -385,6 +386,10 @@ export default function AdminOperationCourseDetailPage() {
     () => buildAdminOperationsCourseFollowUpsUrl(shifuBid),
     [shifuBid],
   );
+  const ratingsPageUrl = useMemo(
+    () => buildAdminOperationsCourseRatingsUrl(shifuBid),
+    [shifuBid],
+  );
   const ordersPageUrl = useMemo(
     () => buildAdminOperationsOrdersUrl(shifuBid),
     [shifuBid],
@@ -658,6 +663,8 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.metricsLabels.ratingScore'),
         value: detail.metrics.rating_score || emptyValue,
+        onClick: ratingsPageUrl ? () => router.push(ratingsPageUrl) : undefined,
+        actionLabel: tOperations('detail.ratings.openMetric'),
       },
     ],
     [
@@ -666,6 +673,7 @@ export default function AdminOperationCourseDetailPage() {
       emptyValue,
       followUpPageUrl,
       ordersPageUrl,
+      ratingsPageUrl,
       router,
       tOperations,
     ],

@@ -155,6 +155,39 @@ export type AdminOperationCourseFollowUpListResponse = {
   page_count: number;
 };
 
+export type AdminOperationCourseRatingSummary = {
+  average_score: string;
+  rating_count: number;
+  user_count: number;
+  latest_rated_at: string;
+};
+
+export type AdminOperationCourseRatingItem = {
+  lesson_feedback_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  score: number;
+  comment: string;
+  mode: 'read' | 'listen' | LooseString;
+  rated_at: string;
+};
+
+export type AdminOperationCourseRatingListResponse = {
+  summary: AdminOperationCourseRatingSummary;
+  items: AdminOperationCourseRatingItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  page_count: number;
+};
+
 export type AdminOperationCourseFollowUpDetailBasicInfo = {
   generated_block_bid: string;
   progress_record_bid: string;

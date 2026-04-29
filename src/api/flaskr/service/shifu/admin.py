@@ -86,6 +86,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseFollowUpTimelineItemDTO,
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCoursePromptDTO,
+    AdminOperationCourseRatingItemDTO,
+    AdminOperationCourseRatingListDTO,
+    AdminOperationCourseRatingSummaryDTO,
     AdminOperationCourseUserDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
@@ -170,6 +173,7 @@ OPERATOR_USER_REGISTRATION_SOURCE_WECHAT = "wechat"
 OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED = "imported"
 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
 COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE = 100
+COURSE_RATING_LIST_MAX_PAGE_SIZE = 100
 OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
 OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION = "align_subscription"
@@ -231,6 +235,22 @@ def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
     return "{0:.1f}".format(value)
+
+
+def _resolve_course_rating_mode(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"read", "listen"}:
+        return normalized
+    return ""
+
+
+def _resolve_course_rating_sort_by(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"", "latest_desc"}:
+        return "latest_desc"
+    if normalized == "score_asc":
+        return normalized
+    return ""
 
 
 def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
@@ -3360,7 +3380,6 @@ def get_operator_course_follow_ups(
 
             if keyword:
                 haystack = [
-                    user_bid.lower(),
                     str(user.get("mobile", "") or "").lower(),
                     str(user.get("email", "") or "").lower(),
                     str(user.get("nickname", "") or "").lower(),
@@ -3432,6 +3451,191 @@ def get_operator_course_follow_ups(
             latest_follow_up_at=latest_follow_up_at,
         )
         return AdminOperationCourseFollowUpListDTO(
+            summary=summary,
+            items=rows[start:end],
+            page=safe_page_index,
+            page_size=safe_page_size,
+            total=total,
+            page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
+        )
+
+
+def get_operator_course_ratings(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    page_index: int,
+    page_size: int,
+    filters: Optional[dict] = None,
+) -> AdminOperationCourseRatingListDTO:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        if not normalized_shifu_bid:
+            raise_param_error("shifu_bid is required")
+
+        safe_page_index = max(int(page_index or 1), 1)
+        safe_page_size = min(
+            max(int(page_size or 20), 1),
+            COURSE_RATING_LIST_MAX_PAGE_SIZE,
+        )
+        filters = filters or {}
+
+        _detail_source, outline_items = _load_operator_course_outline_items(
+            normalized_shifu_bid
+        )
+        outline_context_map = _build_course_outline_context_map(outline_items)
+        rating_rows = (
+            LearnLessonFeedback.query.filter(
+                LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
+                LearnLessonFeedback.deleted == 0,
+            )
+            .order_by(
+                LearnLessonFeedback.updated_at.desc(),
+                LearnLessonFeedback.id.desc(),
+            )
+            .all()
+        )
+        user_bids = sorted(
+            {
+                str(getattr(row, "user_bid", "") or "").strip()
+                for row in rating_rows
+                if str(getattr(row, "user_bid", "") or "").strip()
+            }
+        )
+        user_map = _load_user_map(user_bids)
+
+        keyword = _normalize_identifier(str(filters.get("keyword", "") or "")).lower()
+        chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
+        score_filter = str(filters.get("score", "") or "").strip()
+        mode_filter = _resolve_course_rating_mode(str(filters.get("mode", "") or ""))
+        has_comment_filter = str(filters.get("has_comment", "") or "").strip().lower()
+        sort_by = _resolve_course_rating_sort_by(str(filters.get("sort_by", "") or ""))
+        start_time = filters.get("start_time")
+        end_time = filters.get("end_time")
+
+        normalized_score_filter: Optional[int] = None
+        if score_filter:
+            if score_filter not in {"1", "2", "3", "4", "5"}:
+                raise_param_error("score")
+            normalized_score_filter = int(score_filter)
+        if str(filters.get("mode", "") or "").strip() and not mode_filter:
+            raise_param_error("mode")
+        if has_comment_filter and has_comment_filter != "true":
+            raise_param_error("has_comment")
+        if str(filters.get("sort_by", "") or "").strip() and not sort_by:
+            raise_param_error("sort_by")
+
+        filtered_items: list[tuple[datetime, int, AdminOperationCourseRatingItemDTO]] = []
+        total_score = 0
+        latest_rated_at: Optional[datetime] = None
+        for row in rating_rows:
+            user_bid = str(getattr(row, "user_bid", "") or "").strip()
+            outline_item_bid = str(
+                getattr(row, "outline_item_bid", "") or ""
+            ).strip()
+            score = int(getattr(row, "score", 0) or 0)
+            comment = str(getattr(row, "comment", "") or "")
+            mode = _resolve_course_rating_mode(str(getattr(row, "mode", "") or ""))
+            rated_at = getattr(row, "updated_at", None) or getattr(
+                row, "created_at", None
+            )
+            context = outline_context_map.get(
+                outline_item_bid,
+                {
+                    "chapter_outline_item_bid": "",
+                    "chapter_title": "",
+                    "lesson_outline_item_bid": outline_item_bid,
+                    "lesson_title": "",
+                },
+            )
+            user = user_map.get(user_bid, {})
+
+            if keyword:
+                haystack = [
+                    str(user.get("mobile", "") or "").lower(),
+                    str(user.get("email", "") or "").lower(),
+                    str(user.get("nickname", "") or "").lower(),
+                ]
+                if not any(keyword in value for value in haystack if value):
+                    continue
+
+            if chapter_keyword:
+                chapter_haystack = [
+                    str(context.get("chapter_title", "") or "").lower(),
+                    str(context.get("lesson_title", "") or "").lower(),
+                ]
+                if not any(
+                    chapter_keyword in value for value in chapter_haystack if value
+                ):
+                    continue
+
+            if normalized_score_filter is not None and score != normalized_score_filter:
+                continue
+            if mode_filter and mode != mode_filter:
+                continue
+            if has_comment_filter == "true" and not comment.strip():
+                continue
+            if start_time and (rated_at is None or rated_at < start_time):
+                continue
+            if end_time and (rated_at is None or rated_at > end_time):
+                continue
+
+            if rated_at is not None and (
+                latest_rated_at is None or rated_at > latest_rated_at
+            ):
+                latest_rated_at = rated_at
+            filtered_items.append(
+                (
+                    rated_at or datetime.min,
+                    int(getattr(row, "id", 0) or 0),
+                    AdminOperationCourseRatingItemDTO(
+                        lesson_feedback_bid=str(
+                            getattr(row, "lesson_feedback_bid", "") or ""
+                        ),
+                        progress_record_bid=str(
+                            getattr(row, "progress_record_bid", "") or ""
+                        ),
+                        user_bid=user_bid,
+                        mobile=str(user.get("mobile", "") or ""),
+                        email=str(user.get("email", "") or ""),
+                        nickname=str(user.get("nickname", "") or ""),
+                        chapter_outline_item_bid=str(
+                            context.get("chapter_outline_item_bid", "") or ""
+                        ),
+                        chapter_title=str(context.get("chapter_title", "") or ""),
+                        lesson_outline_item_bid=str(
+                            context.get("lesson_outline_item_bid", "") or ""
+                        ),
+                        lesson_title=str(context.get("lesson_title", "") or ""),
+                        score=score,
+                        comment=comment,
+                        mode=mode,
+                        rated_at=_format_operator_datetime(rated_at),
+                    ),
+                )
+            )
+            total_score += score
+
+        filtered_items.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        if sort_by == "score_asc":
+            filtered_items.sort(key=lambda item: item[2].score)
+
+        rows = [item for _, _, item in filtered_items]
+        total = len(rows)
+        start = (safe_page_index - 1) * safe_page_size
+        end = start + safe_page_size
+        average_score = (
+            _format_average_score(Decimal(total_score) / Decimal(total))
+            if total
+            else ""
+        )
+        summary = AdminOperationCourseRatingSummaryDTO(
+            average_score=average_score,
+            rating_count=total,
+            user_count=len({item.user_bid for item in rows if item.user_bid}),
+            latest_rated_at=_format_operator_datetime(latest_rated_at),
+        )
+        return AdminOperationCourseRatingListDTO(
             summary=summary,
             items=rows[start:end],
             page=safe_page_index,
