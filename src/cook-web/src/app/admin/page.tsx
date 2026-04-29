@@ -51,7 +51,7 @@ interface ShifuCardProps {
 }
 
 const CARD_CONTAINER_CLASS =
-  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background transition-colors duration-200 ease-in-out hover:bg-primary/[0.04]';
+  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ease-in-out hover:shadow-[0_10px_30px_rgba(15,23,42,0.12)]';
 const CARD_CONTENT_CLASS = 'p-4 flex flex-col gap-2 h-full cursor-pointer';
 
 const ShifuCard = ({
@@ -75,7 +75,7 @@ const ShifuCard = ({
           <CardContent className={CARD_CONTENT_CLASS}>
             <div className='flex flex-row items-center justify-between'>
               <div className='flex flex-row items-center mb-2 w-full'>
-                <div className='h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+                <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
                   {image && (
                     <img
                       src={image}
@@ -497,6 +497,7 @@ const ScriptManagementPage = () => {
           <div className='flex items-center gap-3 mb-5'>
             <Button
               size='sm'
+              variant='outline'
               onClick={handleCreateShifuModal}
             >
               <PlusIcon className='w-5 h-5 mr-1' />
@@ -521,17 +522,9 @@ const ScriptManagementPage = () => {
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'all' | 'archived')}
             >
-              <TabsList className='h-9 rounded-md bg-muted/40'>
-                <TabsTrigger
-                  value='all'
-                  className='rounded-md'
-                >
-                  {t('common.core.all')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value='archived'
-                  className='rounded-md'
-                >
+              <TabsList className='h-9 rounded-full bg-muted/40'>
+                <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
+                <TabsTrigger value='archived'>
                   {t('common.core.archived')}
                 </TabsTrigger>
               </TabsList>
@@ -543,7 +536,7 @@ const ScriptManagementPage = () => {
             />
           </div>
           <div className='flex-1 overflow-auto'>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
               {shifus.map(shifu => (
                 <ShifuCard
                   id={shifu.bid + ''}

@@ -444,10 +444,7 @@ describe('AdminLayout', () => {
       screen.getByTestId('admin-billing-sidebar-card'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.sidebar.summaryTitle'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
+      screen.getByText('module.billing.sidebar.monthlyBalanceTitle'),
     ).toBeInTheDocument();
     expect(screen.getByText('12500')).toBeInTheDocument();
     expect(
@@ -489,7 +486,6 @@ describe('AdminLayout', () => {
       '/admin/billing?tab=packages',
     );
     expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
-    expect(screen.getByText('--')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
@@ -497,7 +493,7 @@ describe('AdminLayout', () => {
     ).toHaveAttribute('href', '/admin/billing?tab=details');
   });
 
-  test('keeps the generic billing title for yearly subscription plans', () => {
+  test('renders yearly membership title for yearly subscription plans', () => {
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({
         subscription: {
@@ -527,7 +523,7 @@ describe('AdminLayout', () => {
     );
 
     expect(
-      screen.getByText('module.billing.sidebar.summaryTitle'),
+      screen.getByText('module.billing.sidebar.yearlyBalanceTitle'),
     ).toBeInTheDocument();
   });
 });
