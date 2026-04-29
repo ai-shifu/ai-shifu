@@ -14,6 +14,7 @@
     "viewDetail": "View Detail",
     "viewOrders": "View Orders"
   },
+  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "campaign": {
     "appliedOrderCount": "Applied Orders",
     "applyType": "Grant Type",

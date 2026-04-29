@@ -18,6 +18,7 @@
   "credits": {
     "longTerm": "Long-term valid"
   },
+  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "detail": {
     "back": "Back to User Management",
     "basicInfo": "Basic Information",
@@ -105,6 +106,7 @@
     "learningProgress": "Progress",
     "loadingCredits": "Loading",
     "overview": "Overview",
+    "timezoneHint": "Times are shown in your browser timezone: {timezone}",
     "tabs": {
       "createdCourses": "Created Courses",
       "credits": "Credits Detail",

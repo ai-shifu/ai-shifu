@@ -7,6 +7,7 @@ import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
@@ -870,6 +871,11 @@ export default function AdminOperationUserDetailPage() {
               <h1 className='text-2xl font-semibold text-gray-900'>
                 {tOperationsUsers('detail.title')}
               </h1>
+              <AdminTimezoneHint
+                namespace='module.operationsUser'
+                textKey='detail.timezoneHint'
+                className='mt-1'
+              />
             </div>
             <Button
               variant='outline'

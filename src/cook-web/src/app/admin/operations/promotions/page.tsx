@@ -6,6 +6,7 @@ import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import {
@@ -1642,6 +1643,16 @@ const PromotionCouponDialog = ({
               }
             />
           </FormField>
+          {isEditing ? (
+            <div className='space-y-1 md:col-span-2'>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.partialTimeEditHint')}
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.couponEditPolicyHint')}
+              </p>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -1953,6 +1964,16 @@ const PromotionCampaignDialog = ({
               />
             </FormField>
           </div>
+          {isEditing ? (
+            <div className='space-y-1 md:col-span-2'>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.partialTimeEditHint')}
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.campaignEditPolicyHint')}
+              </p>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -2407,6 +2428,11 @@ export default function AdminOperationPromotionsPage() {
         <h1 className='text-2xl font-semibold text-foreground'>
           {tPromotion('title')}
         </h1>
+        <AdminTimezoneHint
+          namespace='module.operationsPromotion'
+          textKey='timezoneHint'
+          className='mt-1'
+        />
       </div>
 
       <Tabs

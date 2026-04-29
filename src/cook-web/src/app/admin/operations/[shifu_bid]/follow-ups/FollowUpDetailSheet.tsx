@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/Sheet';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation-course-types';
 
@@ -257,6 +258,10 @@ export default function FollowUpDetailSheet({
           <SheetTitle className='text-base font-semibold text-foreground'>
             {t('detail.followUps.drawer.title')}
           </SheetTitle>
+          <AdminTimezoneHint
+            namespace='module.operationsCourse'
+            textKey='timezoneHint'
+          />
         </SheetHeader>
 
         <div className='flex-1 overflow-y-auto px-6 py-5'>

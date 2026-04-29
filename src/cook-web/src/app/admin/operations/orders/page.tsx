@@ -3,6 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import Loading from '@/components/loading';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import useOperatorGuard from '../useOperatorGuard';
@@ -64,6 +65,11 @@ export default function AdminOperationOrdersPage() {
     <div className='flex h-full flex-col gap-5 p-0'>
       <div>
         <h1 className='text-2xl font-semibold text-gray-900'>{t('title')}</h1>
+        <AdminTimezoneHint
+          namespace='module.operationsOrder'
+          textKey='timezoneHint'
+          className='mt-1'
+        />
       </div>
 
       <Tabs

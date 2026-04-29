@@ -125,5 +125,6 @@
     "learn": "学习订单"
   },
   "title": "订单管理",
+  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "totalCount": "共 {count} 条订单"
 }

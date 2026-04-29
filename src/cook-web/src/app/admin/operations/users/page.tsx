@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -685,6 +686,11 @@ export default function AdminOperationUsersPage() {
             <h1 className='text-2xl font-semibold text-gray-900'>
               {tOperationsUsers('title')}
             </h1>
+            <AdminTimezoneHint
+              namespace='module.operationsUser'
+              textKey='timezoneHint'
+              className='mt-1'
+            />
           </div>
 
           <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>

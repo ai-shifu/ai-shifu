@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import api from '@/api';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -176,6 +177,10 @@ const OperatorOrderDetailSheet = ({
               {summary?.order_bid || tOperationsOrder('detail.fallback')}
             </span>
           </SheetTitle>
+          <AdminTimezoneHint
+            namespace='module.operationsOrder'
+            textKey='timezoneHint'
+          />
         </SheetHeader>
 
         <div className='flex-1 overflow-y-auto px-6 py-5'>

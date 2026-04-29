@@ -367,6 +367,9 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(
       await screen.findByText('module.operationsCourse.detail.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.timezoneHint'),
+    ).toBeInTheDocument();
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
     });

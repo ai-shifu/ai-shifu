@@ -10,6 +10,7 @@
     "empty": "暂无课程提示词",
     "title": "课程提示词"
   },
+  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "detail": {
     "back": "返回课程列表",
     "basicInfo": "基础信息",

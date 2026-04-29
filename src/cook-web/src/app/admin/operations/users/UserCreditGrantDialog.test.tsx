@@ -261,6 +261,9 @@ describe('UserCreditGrantDialog', () => {
       />,
     );
 
+    expect(
+      screen.getByText('module.operationsUser.timezoneHint'),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.confirmButton',

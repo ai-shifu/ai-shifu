@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import AdminTimezoneHint from '@/app/admin/components/AdminTimezoneHint';
 import { Input } from '@/components/ui/Input';
 import {
   Select,
@@ -329,6 +330,10 @@ export default function UserCreditGrantDialog({
             <DialogDescription>
               {tOperationsUsers('grantDialog.description')}
             </DialogDescription>
+            <AdminTimezoneHint
+              namespace='module.operationsUser'
+              textKey='timezoneHint'
+            />
           </DialogHeader>
 
           <div className='min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4'>

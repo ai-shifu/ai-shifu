@@ -337,6 +337,9 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByText('module.operationsUser.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsUser.timezoneHint'),
+    ).toBeInTheDocument();
     expect(await screen.findByText('user-1')).toBeInTheDocument();
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Nick')).toBeInTheDocument();

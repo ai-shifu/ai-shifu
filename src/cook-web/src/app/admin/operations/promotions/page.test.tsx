@@ -47,6 +47,10 @@ jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
   useToast: () => ({
@@ -492,6 +496,9 @@ describe('AdminOperationPromotionsPage', () => {
   test('loads coupon tab by default', async () => {
     render(<AdminOperationPromotionsPage />);
 
+    expect(
+      screen.getByText('module.operationsPromotion.timezoneHint'),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetCoupons).toHaveBeenCalledWith({
         page_index: 1,

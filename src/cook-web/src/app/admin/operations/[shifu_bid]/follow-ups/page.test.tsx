@@ -255,6 +255,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
       await screen.findByText('module.operationsCourse.detail.followUps.title'),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('module.operationsCourse.timezoneHint'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.summary.scopeHint',
       ),
@@ -344,6 +347,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.title',
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('module.operationsCourse.timezoneHint')).toHaveLength(
+      2,
+    );
     expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.drawer.currentRecordHint',

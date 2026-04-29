@@ -10,6 +10,7 @@
     "empty": "No course prompt",
     "title": "Course Prompt"
   },
+  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "detail": {
     "back": "Back to list",
     "basicInfo": "Basic Info",

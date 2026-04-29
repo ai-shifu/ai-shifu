@@ -125,5 +125,6 @@
     "learn": "Learning Orders"
   },
   "title": "Order Management",
+  "timezoneHint": "Times are shown in your browser timezone: {timezone}",
   "totalCount": "{count} orders"
 }

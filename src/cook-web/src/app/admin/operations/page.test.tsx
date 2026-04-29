@@ -476,6 +476,9 @@ describe('OperationsPage', () => {
   test('loads and renders operator course list in email mode', async () => {
     await renderAndWaitForLoadedPage();
 
+    expect(
+      screen.getByText('module.operationsCourse.timezoneHint'),
+    ).toBeInTheDocument();
     expect(mockGetAdminOperationCourses).toHaveBeenCalledWith(
       expect.objectContaining({
         page_index: 1,

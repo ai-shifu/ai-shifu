@@ -14,6 +14,7 @@
     "viewDetail": "查看详情",
     "viewOrders": "查看订单"
   },
+  "timezoneHint": "时间按浏览器时区显示：{timezone}",
   "campaign": {
     "appliedOrderCount": "应用订单数",
     "applyType": "发放方式",

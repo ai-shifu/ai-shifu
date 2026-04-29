@@ -148,6 +148,9 @@ describe('OperatorOrderDetailSheet', () => {
     expect(
       await screen.findByText('module.operationsOrder.detail.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsOrder.timezoneHint'),
+    ).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsOrder.source.importActivation'),

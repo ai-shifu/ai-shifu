@@ -402,6 +402,9 @@ describe('CreditOrdersTab', () => {
         'module.operationsOrder.creditOrders.detail.title',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsOrder.timezoneHint'),
+    ).toBeInTheDocument();
   });
 
   test('shows detail error state when detail request fails', async () => {
