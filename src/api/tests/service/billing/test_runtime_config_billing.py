@@ -15,7 +15,10 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.dtos import RuntimeBillingContextDTO, RuntimeConfigDTO
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
-from flaskr.service.billing.runtime_config import build_runtime_billing_context
+from flaskr.service.billing.runtime_config import (
+    build_default_runtime_billing_context,
+    build_runtime_billing_context,
+)
 
 
 @pytest.fixture
@@ -292,15 +295,54 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     }
 
 
+def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("entitlement resolver must not run in default builder")
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_runtime_domain_result",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("domain resolver must not run in default builder")
+        ),
+    )
+    payload = build_default_runtime_billing_context(
+        creator_bid="creator-1",
+        request_host="creator.example.com",
+    ).__json__()
+
+    assert payload == {
+        "entitlements": {
+            "branding_enabled": False,
+            "custom_domain_enabled": False,
+            "priority_class": "standard",
+            "analytics_tier": "basic",
+            "support_tier": "self_serve",
+        },
+        "branding": {
+            "logo_wide_url": None,
+            "logo_square_url": None,
+            "favicon_url": None,
+            "home_url": None,
+        },
+        "domain": {
+            "request_host": "creator.example.com",
+            "matched": False,
+            "is_custom_domain": False,
+            "creator_bid": "creator-1",
+            "domain_binding_bid": None,
+            "host": None,
+            "binding_status": None,
+        },
+    }
+
+
 def test_runtime_config_reports_disabled_billing_flag(
     runtime_config_client,
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        config_route,
-        "get_config",
-        lambda key, default="": False if key == "BILL_ENABLED" else default,
-    )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
         lambda key, default="": False if key == "BILL_ENABLED" else default,
@@ -309,8 +351,70 @@ def test_runtime_config_reports_disabled_billing_flag(
         "flaskr.service.billing.primitives.get_common_config",
         lambda key, default=None: False if key == "BILL_ENABLED" else default,
     )
+    monkeypatch.setattr(
+        config_route,
+        "build_runtime_billing_context",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("billing builder should not run when disabled")
+        ),
+    )
 
     response = runtime_config_client.get("/api/runtime-config")
     payload = response.get_json(force=True)["data"]
 
     assert payload["billingEnabled"] is False
+    assert payload["entitlements"] == {
+        "branding_enabled": False,
+        "custom_domain_enabled": False,
+        "priority_class": "standard",
+        "analytics_tier": "basic",
+        "support_tier": "self_serve",
+    }
+    assert payload["domain"] == {
+        "request_host": None,
+        "matched": False,
+        "is_custom_domain": False,
+        "creator_bid": None,
+        "domain_binding_bid": None,
+        "host": None,
+        "binding_status": None,
+    }
+
+
+def test_runtime_config_falls_back_when_billing_context_build_fails(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        config_route,
+        "build_runtime_billing_context",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    response = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["billingEnabled"] is True
+    assert payload["logoWideUrl"] == "https://cdn.example.com/global-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
+    assert payload["homeUrl"] == "/"
+    assert payload["entitlements"] == {
+        "branding_enabled": False,
+        "custom_domain_enabled": False,
+        "priority_class": "standard",
+        "analytics_tier": "basic",
+        "support_tier": "self_serve",
+    }
+    assert payload["domain"] == {
+        "request_host": "creator.example.com",
+        "matched": False,
+        "is_custom_domain": False,
+        "creator_bid": "creator-1",
+        "domain_binding_bid": None,
+        "host": None,
+        "binding_status": None,
+    }

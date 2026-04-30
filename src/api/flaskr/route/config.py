@@ -11,7 +11,10 @@ from flaskr.service.billing.primitives import (
     get_billing_credit_precision,
     is_billing_enabled,
 )
-from flaskr.service.billing.runtime_config import build_runtime_billing_context
+from flaskr.service.billing.runtime_config import (
+    build_default_runtime_billing_context,
+    build_runtime_billing_context,
+)
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -64,6 +67,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @with_shifu_context()
     def get_runtime_config():
         creator_bid = str(get_shifu_creator_bid() or "").strip()
+        request_host = _extract_request_host()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
                 **{
@@ -78,11 +82,31 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 }
             ),
         )
-        runtime_billing = build_runtime_billing_context(
-            app,
-            creator_bid=creator_bid,
-            request_host=_extract_request_host(),
-        )
+        runtime_billing = None
+        billing_enabled = is_billing_enabled()
+        if billing_enabled:
+            try:
+                runtime_billing = build_runtime_billing_context(
+                    app,
+                    creator_bid=creator_bid,
+                    request_host=request_host,
+                )
+            except Exception:
+                # Runtime config is a shared bootstrap dependency. Fall back
+                # to a stable empty billing payload instead of failing the
+                # whole endpoint when billing data is unavailable.
+                app.logger.exception(
+                    "Failed to build billing runtime config; using default payload "
+                    "creator_bid=%s request_host=%s",
+                    creator_bid or "-",
+                    request_host or "-",
+                )
+
+        if runtime_billing is None:
+            runtime_billing = build_default_runtime_billing_context(
+                creator_bid=creator_bid,
+                request_host=request_host,
+            )
         branding = runtime_billing.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
@@ -94,7 +118,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
             wechatAppId=get_config("WECHAT_APP_ID", ""),
             enableWechatCode=bool(get_config("WECHAT_APP_ID", "")),
-            billingEnabled=is_billing_enabled(),
+            billingEnabled=billing_enabled,
             billingCreditPrecision=get_billing_credit_precision(),
             stripePublishableKey=get_config("STRIPE_PUBLISHABLE_KEY", ""),
             stripeEnabled=_to_bool(get_config("STRIPE_ENABLED", False), False),
