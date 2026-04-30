@@ -77,6 +77,38 @@ const getIsLandscapeViewport = () => {
   );
 };
 
+const isEditableElement = (element: Element | null) => {
+  if (!element) {
+    return false;
+  }
+
+  if (element instanceof HTMLInputElement) {
+    const inputType = element.type;
+    return ![
+      'button',
+      'checkbox',
+      'file',
+      'hidden',
+      'radio',
+      'reset',
+      'submit',
+    ].includes(inputType);
+  }
+
+  return (
+    element instanceof HTMLTextAreaElement ||
+    (element instanceof HTMLElement && element.isContentEditable)
+  );
+};
+
+const isEditableElementFocused = () => {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  return isEditableElement(document.activeElement);
+};
+
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
@@ -177,7 +209,14 @@ export default function ChatPage() {
   }, [isListenMode, mobileStyle]);
 
   useEffect(() => {
-    const handleViewportChange = () => {
+    const shouldIgnoreKeyboardResize = (event?: Event) =>
+      mobileStyle && event?.type === 'resize' && isEditableElementFocused();
+
+    const handleViewportChange = (event?: Event) => {
+      if (shouldIgnoreKeyboardResize(event)) {
+        return;
+      }
+
       setIsLandscapeViewport(getIsLandscapeViewport());
     };
     const mediaQueryList = window.matchMedia(
@@ -210,7 +249,7 @@ export default function ChatPage() {
         mediaQueryList.removeListener?.(handleViewportChange);
       }
     };
-  }, []);
+  }, [mobileStyle]);
 
   useEffect(() => {
     const root = document.getElementById('root');
@@ -235,8 +274,20 @@ export default function ChatPage() {
 
   // check the frame layout
   useEffect(() => {
-    const onResize = () => {
+    const onResize = (event?: Event) => {
+      if (
+        mobileStyle &&
+        event?.type === 'resize' &&
+        isEditableElementFocused()
+      ) {
+        return;
+      }
+
       const frameLayout = calcFrameLayout('#root');
+      if (frameLayout === useUiLayoutStore.getState().frameLayout) {
+        return;
+      }
+
       updateFrameLayout(frameLayout);
     };
     window.addEventListener('resize', onResize);
@@ -244,7 +295,7 @@ export default function ChatPage() {
     return () => {
       window.removeEventListener('resize', onResize);
     };
-  }, [updateFrameLayout]);
+  }, [mobileStyle, updateFrameLayout]);
 
   const {
     open: navOpen,
