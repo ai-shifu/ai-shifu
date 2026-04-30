@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import LearnOrdersTab from './LearnOrdersTab';
 
+let mockSearchParamsValue = '';
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -31,6 +32,10 @@ jest.mock('next/link', () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
 jest.mock('@/api', () => ({
@@ -145,6 +150,7 @@ const mockGetAdminOperationOrders = api.getAdminOperationOrders as jest.Mock;
 
 describe('LearnOrdersTab', () => {
   beforeEach(() => {
+    mockSearchParamsValue = '';
     mockGetAdminOperationOrders.mockReset();
     window.localStorage.clear();
     mockGetAdminOperationOrders.mockResolvedValue({
@@ -201,6 +207,30 @@ describe('LearnOrdersTab', () => {
     expect(
       screen.getByText('module.operationsOrder.totalCount'),
     ).toBeInTheDocument();
+  });
+
+  test('hydrates the course filter from the url query', async () => {
+    mockSearchParamsValue = 'shifu_bid=course-1';
+
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: 'course-1',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(screen.getByDisplayValue('course-1')).toBeInTheDocument();
   });
 
   test('submits filters and opens detail drawer', async () => {

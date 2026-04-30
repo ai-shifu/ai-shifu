@@ -396,13 +396,16 @@ export const PayModalM = ({
       try {
         await payByJsApi(jsapiParams);
         const syncPaymentChannel = payload.payment_channel || paymentChannel;
-        await syncOrderStatus(
-          syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
-        );
+        try {
+          await syncOrderStatus(
+            syncPaymentChannel ? { paymentChannel: syncPaymentChannel } : {},
+          );
+        } catch {
+          // The polling loop continues syncing native payments after the bridge reports success.
+        }
         toast({
           title: t('module.pay.paySuccess'),
         });
-        onOk();
       } catch {
         toast({
           title: t('module.pay.payFailed'),
@@ -415,7 +418,6 @@ export const PayModalM = ({
   }, [
     isStripeSelected,
     nativePayload,
-    onOk,
     payByJsApi,
     payChannel,
     refreshPayment,
