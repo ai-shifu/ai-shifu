@@ -344,11 +344,6 @@ def test_runtime_config_reports_disabled_billing_flag(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        config_route,
-        "get_config",
-        lambda key, default="": False if key == "BILL_ENABLED" else default,
-    )
-    monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
         lambda key, default="": False if key == "BILL_ENABLED" else default,
     )

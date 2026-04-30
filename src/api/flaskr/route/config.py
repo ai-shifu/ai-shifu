@@ -82,6 +82,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 }
             ),
         )
+        runtime_billing = None
         billing_enabled = is_billing_enabled()
         if billing_enabled:
             try:
@@ -91,14 +92,17 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     request_host=request_host,
                 )
             except Exception:
+                # Runtime config is a shared bootstrap dependency. Fall back
+                # to a stable empty billing payload instead of failing the
+                # whole endpoint when billing data is unavailable.
                 app.logger.exception(
-                    "Failed to build billing runtime config; using default payload"
+                    "Failed to build billing runtime config; using default payload "
+                    "creator_bid=%s request_host=%s",
+                    creator_bid or "-",
+                    request_host or "-",
                 )
-                runtime_billing = build_default_runtime_billing_context(
-                    creator_bid=creator_bid,
-                    request_host=request_host,
-                )
-        else:
+
+        if runtime_billing is None:
             runtime_billing = build_default_runtime_billing_context(
                 creator_bid=creator_bid,
                 request_host=request_host,

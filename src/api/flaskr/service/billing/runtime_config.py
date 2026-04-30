@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from flask import Flask
 
+from .consts import (
+    BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
+    BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
+    BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS,
+    BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
+    BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
+    BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
+)
 from .dtos import (
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
@@ -57,9 +65,18 @@ def build_default_runtime_billing_context(
         entitlements=RuntimeBillingEntitlementsDTO(
             branding_enabled=False,
             custom_domain_enabled=False,
-            priority_class="standard",
-            analytics_tier="basic",
-            support_tier="self_serve",
+            priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_LABELS.get(
+                BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
+                "standard",
+            ),
+            analytics_tier=BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS.get(
+                BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
+                "basic",
+            ),
+            support_tier=BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS.get(
+                BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
+                "self_serve",
+            ),
         ),
         branding=RuntimeBillingBrandingDTO(
             logo_wide_url=None,
