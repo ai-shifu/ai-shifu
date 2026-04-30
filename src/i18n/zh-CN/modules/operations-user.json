@@ -119,8 +119,7 @@
     "mobile": "手机号",
     "nickname": "昵称",
     "role": "用户身份",
-    "status": "用户状态",
-    "userId": "用户ID"
+    "status": "用户状态"
   },
   "grantDialog": {
     "confirmButton": "确认增加",
@@ -210,6 +209,7 @@
     "createdCourses": "创作课程",
     "creditsExpireAt": "积分到期时间",
     "email": "邮箱",
+    "guestUser": "游客",
     "lastLearningAt": "最近学习时间",
     "lastLoginAt": "最近登录时间",
     "learningCourses": "学习课程",

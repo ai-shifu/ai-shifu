@@ -14,10 +14,13 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
+const mockCopyText = jest.fn();
 const originalLocation = window.location;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
+const LONG_COURSE_PROMPT =
+  'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
 
 const mockUserState: {
   isInitialized: boolean;
@@ -42,6 +45,7 @@ jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationCourses: jest.fn(),
+    getAdminOperationCoursePrompt: jest.fn(),
     transferAdminOperationCourseCreator: jest.fn(),
   },
 }));
@@ -86,6 +90,10 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({
     toast: mockToast,
   }),
+}));
+
+jest.mock('@/c-utils/textutils', () => ({
+  copyText: (...args: unknown[]) => mockCopyText(...args),
 }));
 
 jest.mock('@/components/ErrorDisplay', () => ({
@@ -336,6 +344,8 @@ jest.mock('@/components/ui/DropdownMenu', () => {
 });
 
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
+const mockGetAdminOperationCoursePrompt =
+  api.getAdminOperationCoursePrompt as jest.Mock;
 const mockTransferAdminOperationCourseCreator =
   api.transferAdminOperationCourseCreator as jest.Mock;
 
@@ -386,7 +396,9 @@ describe('OperationsPage', () => {
     mockPush.mockReset();
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
+    mockCopyText.mockReset();
     mockGetAdminOperationCourses.mockReset();
+    mockGetAdminOperationCoursePrompt.mockReset();
     mockTransferAdminOperationCourseCreator.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
@@ -406,6 +418,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
+          course_model: 'gpt-4.1-mini',
+          has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
           creator_email: 'creator@example.com',
@@ -414,14 +428,16 @@ describe('OperationsPage', () => {
           updater_mobile: '15833334444',
           updater_email: 'editor@example.com',
           updater_nickname: '',
-          created_at: '2025-04-01 10:00:00',
-          updated_at: '2025-04-02 10:00:00',
+          created_at: '2025-04-01T10:00:00Z',
+          updated_at: '2025-04-02T10:00:00Z',
         },
         {
           shifu_bid: 'course-system-custom',
           course_name: 'Custom System Course',
           course_status: 'unpublished',
           price: '0',
+          course_model: '',
+          has_course_prompt: false,
           creator_user_bid: 'system',
           creator_mobile: '',
           creator_email: '',
@@ -430,14 +446,17 @@ describe('OperationsPage', () => {
           updater_mobile: '',
           updater_email: '',
           updater_nickname: '',
-          created_at: '2025-04-03 10:00:00',
-          updated_at: '2025-04-03 10:00:00',
+          created_at: '2025-04-03T10:00:00Z',
+          updated_at: '2025-04-03T10:00:00Z',
         },
       ],
       page: 1,
       page_count: 1,
       page_size: 20,
       total: 2,
+    });
+    mockGetAdminOperationCoursePrompt.mockResolvedValue({
+      course_prompt: LONG_COURSE_PROMPT,
     });
     mockTransferAdminOperationCourseCreator.mockResolvedValue({});
   });
@@ -469,6 +488,12 @@ describe('OperationsPage', () => {
     );
 
     expect(screen.getByText('Course 1')).toBeInTheDocument();
+    expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.table.detailAction',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText('creator@example.com')).toBeInTheDocument();
     expect(screen.getByText('Creator Mars')).toBeInTheDocument();
     expect(screen.getByText('editor@example.com')).toBeInTheDocument();
@@ -585,6 +610,73 @@ describe('OperationsPage', () => {
     expect(
       screen.queryByText('module.operationsCourse.transferCreatorDialog.title'),
     ).not.toBeInTheDocument();
+  });
+
+  test('opens course prompt detail dialog and toggles expand state', async () => {
+    const scrollHeightSpy = jest
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(160);
+    const clientHeightSpy = jest
+      .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+      .mockReturnValue(72);
+    const scrollWidthSpy = jest
+      .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+      .mockReturnValue(0);
+    const clientWidthSpy = jest
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockReturnValue(0);
+
+    try {
+      await renderAndWaitForLoadedPage();
+
+      const firstRow = screen.getByText('Course 1').closest('tr');
+      expect(firstRow).not.toBeNull();
+
+      fireEvent.click(
+        within(firstRow as HTMLElement).getByRole('button', {
+          name: 'module.operationsCourse.table.detailAction',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationCoursePrompt).toHaveBeenCalledWith({
+          shifu_bid: 'course-1',
+        });
+      });
+
+      expect(
+        screen.getByText('module.operationsCourse.coursePromptDialog.title'),
+      ).toBeInTheDocument();
+      expect(await screen.findByText(LONG_COURSE_PROMPT)).toBeInTheDocument();
+      const promptDialog = screen.getByRole('dialog');
+
+      fireEvent.click(
+        within(promptDialog).getByRole('button', {
+          name: 'module.operationsCourse.coursePromptDialog.copy',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockCopyText).toHaveBeenCalledWith(LONG_COURSE_PROMPT);
+      });
+
+      fireEvent.click(
+        await within(promptDialog).findByRole('button', {
+          name: 'common.core.expand',
+        }),
+      );
+
+      expect(
+        within(promptDialog).getByRole('button', {
+          name: 'common.core.collapse',
+        }),
+      ).toBeInTheDocument();
+    } finally {
+      scrollHeightSpy.mockRestore();
+      clientHeightSpy.mockRestore();
+      scrollWidthSpy.mockRestore();
+      clientWidthSpy.mockRestore();
+    }
   });
 
   test('clears search input with the right-side clear action', async () => {
@@ -715,6 +807,8 @@ describe('OperationsPage', () => {
           course_name: 'Course 1',
           course_status: 'published',
           price: '99',
+          course_model: 'gpt-4.1-mini',
+          has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15811112222',
           creator_email: 'creator@example.com',
@@ -723,8 +817,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15833334444',
           updater_email: 'editor@example.com',
           updater_nickname: '',
-          created_at: '2025-04-01 10:00:00',
-          updated_at: '2025-04-02 10:00:00',
+          created_at: '2025-04-01T10:00:00Z',
+          updated_at: '2025-04-02T10:00:00Z',
         },
       ],
       page: 1,
@@ -773,14 +867,14 @@ describe('OperationsPage', () => {
 
   test('ignores stale responses when a newer search finishes later', async () => {
     const firstSearch = createDeferred<{
-      items: Array<Record<string, string>>;
+      items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
       page_size: number;
       total: number;
     }>();
     const secondSearch = createDeferred<{
-      items: Array<Record<string, string>>;
+      items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
       page_size: number;
@@ -824,6 +918,8 @@ describe('OperationsPage', () => {
           course_name: 'Course Second',
           course_status: 'published',
           price: '29',
+          course_model: 'gpt-4.1',
+          has_course_prompt: true,
           creator_user_bid: 'creator-2',
           creator_mobile: '15899990000',
           creator_email: 'second@example.com',
@@ -832,8 +928,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15899991111',
           updater_email: 'editor-second@example.com',
           updater_nickname: '',
-          created_at: '2025-04-05 10:00:00',
-          updated_at: '2025-04-06 10:00:00',
+          created_at: '2025-04-05T10:00:00Z',
+          updated_at: '2025-04-06T10:00:00Z',
         },
       ],
       page: 1,
@@ -851,6 +947,8 @@ describe('OperationsPage', () => {
           course_name: 'Course First',
           course_status: 'published',
           price: '19',
+          course_model: 'gpt-4.1',
+          has_course_prompt: true,
           creator_user_bid: 'creator-1',
           creator_mobile: '15888880000',
           creator_email: 'first@example.com',
@@ -859,8 +957,8 @@ describe('OperationsPage', () => {
           updater_mobile: '15888881111',
           updater_email: 'editor-first@example.com',
           updater_nickname: '',
-          created_at: '2025-04-03 10:00:00',
-          updated_at: '2025-04-04 10:00:00',
+          created_at: '2025-04-03T10:00:00Z',
+          updated_at: '2025-04-04T10:00:00Z',
         },
       ],
       page: 1,

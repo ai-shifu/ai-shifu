@@ -1,140 +1,71 @@
 # AI Collaboration Rules
 
-This repository uses layered AI instructions. Start at the nearest
-`AGENTS.md`, inherit parent guidance only when the local file does not
-override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
+This root file is the repository entry point for coding agents. Start here,
+then move to the nearest subtree `AGENTS.md` and the knowledge docs it points
+to.
 
 ## Scope
 
-- This root file owns repository-wide AI collaboration rules that apply across
-  backend, frontend, scripts, Docker, shared i18n assets, and future
-  first-class development surfaces.
-
-- Shared engineering conventions live in the
-  [engineering baseline](docs/engineering-baseline.md). Keep this file focused
-  on AI execution behavior and hard-rule entry points, while the baseline keeps
-  the full engineering handbook and examples.
-
-- Keep shared rules here only when both Codex and Claude should follow them.
-  Move subsystem details into [src/api/AGENTS.md](src/api/AGENTS.md),
-  [src/cook-web/AGENTS.md](src/cook-web/AGENTS.md), or deeper module files.
-
-- Any new directory that becomes a primary engineering surface must add its
-  own `AGENTS.md` and `CLAUDE.md` before the split is considered complete for
-  that area.
+- Apply this file across the repository unless a deeper `AGENTS.md` narrows
+  the rules.
+- Treat `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as
+  the main source documents behind this entry point.
+- Use `docs/QUALITY_SCORE.md`, `docs/RELIABILITY.md`, and `docs/SECURITY.md`
+  to understand repository-wide quality gaps and harness constraints.
 
 ## Do
 
-- Start every task by locating the nearest `AGENTS.md`, then inherit the root
-  rules only for topics not redefined in the local scope.
-
-- Before modifying code, inspect the current implementation, adjacent call
-  sites, and the nearest tests or docs so decisions are grounded in the
-  existing system instead of assumptions.
-
-- Maximize reuse of existing modules, utilities, stores, DTOs, provider
-  layers, and established patterns. Extend the current implementation before
-  creating a new abstraction.
-
-- Use English for code, comments, commit subjects, and instruction files.
-  User-facing text still belongs in shared i18n JSON under `src/i18n/`.
-
-- Use [docs/engineering-baseline.md](docs/engineering-baseline.md) for
-  repository-wide engineering conventions such as architecture, testing,
-  naming, i18n, API contracts, migrations, and environment workflow.
-
-- Treat `AGENTS.md` and `CLAUDE.md` as the primary instruction source. Before
-  each commit, review the touched ones and keep Cursor, Copilot, and Claude
-  routing docs aligned when shared guidance changes or becomes stale.
-
-- Before implementing a complex design or cross-module architecture change,
-  create the design doc at `docs/<topic>.md` and track the active checklist
-  in repository-root `tasks.md`.
-
-- Keep repository-root `tasks.md` current while implementation is active. Use
-  it as the single active execution source for the current complex topic on
-  the branch.
-
-- Once every checklist item is complete and the topic no longer needs active
-  execution tracking, deleting `tasks.md` is required.
-
-- When a task changes shared contracts or AI collaboration guidance, update the
-  touched `AGENTS.md`, `CLAUDE.md`, and generated Cursor or Copilot mirrors in
-  the same change so the primary instruction surfaces stay aligned.
-
-- Run the smallest relevant verification first, then widen to shared checks
-  when a change crosses API boundaries, shared DTOs, i18n files, or common
-  frontend libraries.
+- Read the nearest `AGENTS.md` before editing and use `ARCHITECTURE.md` to
+  orient yourself when work crosses multiple surfaces.
+- Inspect the current implementation, adjacent call sites, and nearby tests or
+  docs before changing behavior.
+- Reuse existing modules, DTOs, stores, provider wrappers, and request paths
+  before creating new abstractions.
+- Use ExecPlans for complex work. `PLANS.md` defines the format, and active
+  plans live under `docs/exec-plans/active/`.
+- Keep shared instruction surfaces aligned. When shared rules move, update the
+  touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
+  `.github` instructions in the same change.
+- Keep code-facing text in English and keep user-facing text in shared i18n
+  JSON under `src/i18n/`.
 
 ## Avoid
 
-- Do not duplicate the same rule in multiple `AGENTS.md` files. Promote
-  shared rules upward and keep local files additive instead of repetitive.
-
-- Do not start modifying code based on guesswork when the local
-  implementation, references, or tests have not been inspected yet.
-
-- Do not build a new helper, abstraction, or code path when an existing one
-  can be reused or extended cleanly.
-
-- Do not hardcode user-facing strings, secrets, or environment-specific URLs
-  in code or docs. Route text through i18n and credentials through the
-  existing configuration layers.
-
-- Do not create a commit that changes implementation contracts while leaving
-  the affected `AGENTS.md`, `CLAUDE.md`, or compatibility instructions
-  outdated.
-
-- Do not start a complex design implementation without a design doc at
-  `docs/<topic>.md` and a linked repository-root `tasks.md` checklist that
-  tracks done and pending work.
-
-- Do not delete `tasks.md` while any checklist item is still pending or while
-  it is still the active execution tracker for the topic.
-
-- Do not start a new complex design topic while repository-root `tasks.md`
-  still tracks another topic unless you intentionally replace that checklist.
-
-- Do not place long troubleshooting runbooks in `AGENTS.md`. Use `SKILL.md`
-  for repeatable workflows that need step-by-step guidance.
+- Do not rely on chat-only context for repository decisions that should be
+  discoverable from versioned files.
+- Do not start modifying code from guesswork when the local implementation and
+  neighboring tests have not been inspected.
+- Do not hardcode user-facing strings, secrets, or environment-specific URLs.
+- Do not create new root `tasks.md` checklists. Complex execution now belongs
+  in ExecPlans under `docs/exec-plans/`.
+- Do not let shared guidance drift from generated mirrors or from the current
+  repository structure.
 
 ## Commands
 
-- `pre-commit run -a` from the repository root is the shared quality gate
-  before any commit-sized change lands.
-
-- `cd src/api && pytest -q` is the broad backend verification baseline when a
-  change touches shared backend contracts or multiple services.
-
-- `cd src/cook-web && npm run type-check && npm run lint` is the broad
-  frontend verification baseline for shared Cook Web changes.
-
-- `python scripts/check_ai_collab_docs.py` validates the layered AI-doc layout
-  and the hand-maintained engineering baseline links.
+- `python scripts/generate_ai_collab_docs.py` regenerates compatibility
+  instruction surfaces.
+- `python scripts/build_repo_knowledge_index.py` regenerates repository
+  knowledge indexes and the doc inventory.
+- `python scripts/check_repo_harness.py` validates AI-doc ownership, knowledge
+  metadata, and generated harness artifacts.
+- `python scripts/check_architecture_boundaries.py` validates the committed
+  frontend/backend boundary baseline and blocks new drift.
+- `pre-commit run -a` is the repository-wide verification gate before a
+  commit-sized change lands.
 
 ## Tests
 
-- Run targeted backend pytest modules under `src/api/tests/` when a change
-  touches Flask services, models, DTOs, or migration-related code.
-
-- Run targeted Jest or React tests under `src/cook-web/src/` when a change
-  touches frontend pages, stores, shared hooks, or request code.
-
-- Run translation validation scripts whenever shared i18n namespaces or
-  translation file inventories change.
-
-- When a task updates only docs or instruction files, at minimum run the
-  AI-doc validation script and note that no runtime code changed.
+- Run the smallest relevant backend, frontend, or script checks first, then
+  widen only when the change crosses a shared contract or multiple surfaces.
+- When a task touches only docs or instruction files, at minimum run
+  `python scripts/check_repo_harness.py`.
+- When a task changes shared boundaries or introduces new app/service
+  dependencies, run `python scripts/check_architecture_boundaries.py`.
+- When a task touches the browser harness, run `cd src/cook-web && npm run test:e2e`.
 
 ## Related Skills
 
-- `SKILL.md` is the repository-level skill index and boundary map.
-
-- `src/api/SKILL.md` is the backend skill entry for Flask services and
-  backend-specific recurring workflows.
-
-- `src/cook-web/SKILL.md` is the frontend skill entry for Cook Web and its
-  focused troubleshooting skills.
-
-- Claude-only path routing belongs under `/.claude/rules/`; Cursor and
-  Copilot mirrors live under `/.cursor/rules/` and `/.github/`.
+- `SKILL.md` is the repository-level skill routing index.
+- `src/api/SKILL.md` owns backend workflow skills.
+- `src/cook-web/SKILL.md` owns frontend workflow skills.

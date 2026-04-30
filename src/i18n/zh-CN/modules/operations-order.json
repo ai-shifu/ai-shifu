@@ -1,5 +1,68 @@
 {
   "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits} 积分",
+    "detail": {
+      "description": "查看积分订单详情",
+      "labels": {
+        "creatorId": "用户ID",
+        "failedAt": "失败时间",
+        "failureCode": "失败码",
+        "failureMessage": "失败原因",
+        "grantSourceId": "发放来源ID",
+        "grantSourceType": "发放来源类型",
+        "grantedCredits": "到账积分",
+        "orderType": "订单类型",
+        "paidAt": "支付时间",
+        "productCode": "商品编码",
+        "providerReference": "支付流水号",
+        "validFrom": "生效时间"
+      },
+      "sections": {
+        "creator": "用户信息",
+        "grant": "到账记录",
+        "metadata": "扩展信息",
+        "payment": "支付信息",
+        "product": "积分套餐信息",
+        "summary": "订单信息"
+      },
+      "title": "积分订单详情"
+    },
+    "emptyList": "暂无积分订单数据",
+    "filters": {
+      "creatorKeyword": "用户",
+      "creatorKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
+      "creatorKeywordPlaceholderPhone": "输入用户 ID / 手机号",
+      "orderKind": "订单类型",
+      "paymentProvider": "支付服务商",
+      "productKeyword": "积分套餐搜索",
+      "productKeywordPlaceholder": "输入积分套餐 / 积分包名称"
+    },
+    "kind": {
+      "other": "其他",
+      "plan": "积分套餐",
+      "topup": "积分包"
+    },
+    "longTerm": "长期有效",
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "productIntervals": {
+      "day": "日度",
+      "month": "月度",
+      "year": "年度"
+    },
+    "productNameFormat": "{interval}-{name}",
+    "table": {
+      "creator": "用户",
+      "creditAmount": "积分数",
+      "orderId": "积分订单ID",
+      "orderKind": "订单类型",
+      "paymentChannel": "支付方式",
+      "product": "积分套餐",
+      "validTo": "有效至"
+    }
+  },
   "detail": {
     "fallback": "订单详情",
     "sections": {
@@ -29,7 +92,7 @@
     "startTime": "开始时间",
     "status": "状态",
     "timeRangePlaceholder": "选择下单开始时间 / 结束时间",
-    "userKeyword": "用户搜索",
+    "userKeyword": "用户",
     "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
     "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
     "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
@@ -56,6 +119,10 @@
     "user": "用户",
     "userId": "用户ID",
     "view": "查看详情"
+  },
+  "tabs": {
+    "credits": "积分订单",
+    "learn": "学习订单"
   },
   "title": "订单管理",
   "totalCount": "共 {count} 条订单"

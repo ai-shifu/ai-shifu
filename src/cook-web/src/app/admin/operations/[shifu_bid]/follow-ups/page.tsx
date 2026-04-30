@@ -17,6 +17,7 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -126,7 +127,10 @@ const formatValue = (value: string | undefined | null, emptyValue: string) => {
 };
 
 const splitTimestampValue = (value: string) => {
-  const normalizedValue = value.trim();
+  const normalizedValue = value
+    .replace(/[,\u202F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalizedValue) {
     return [];
   }
@@ -263,7 +267,7 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.followUps.filters.lessonKeywordPlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.followUpTime')
  * t('module.operationsCourse.detail.followUps.filters.resultCount')
- * t('module.operationsCourse.detail.followUps.filters.timeRangePlaceholder')
+ * t('module.operationsCourse.detail.followUps.filters.timePlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.search')
  * t('module.operationsCourse.detail.followUps.filters.reset')
  * t('module.operationsCourse.detail.followUps.table.title')
@@ -510,7 +514,9 @@ export default function AdminOperationCourseFollowUpsPage() {
       {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(followUps.summary.latest_follow_up_at, emptyValue),
+        value:
+          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at) ||
+          emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -748,7 +754,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                         endValue={filtersDraft.endTime}
                         triggerAriaLabel={followUpTimeFilterAriaLabel}
                         placeholder={tOperations(
-                          'detail.followUps.filters.timeRangePlaceholder',
+                          'detail.followUps.filters.timePlaceholder',
                         )}
                         resetLabel={tOperations(
                           'detail.followUps.filters.reset',
@@ -915,7 +921,9 @@ export default function AdminOperationCourseFollowUpsPage() {
                                       style={getColumnStyle('createdAt')}
                                     >
                                       <AdminTooltipText
-                                        text={item.created_at}
+                                        text={formatAdminUtcDateTime(
+                                          item.created_at,
+                                        )}
                                         emptyValue={emptyValue}
                                         className='mx-auto block max-w-full'
                                       />

@@ -80,6 +80,19 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _pin_app_timezone_to_utc(app):
+    original_tz = app.config.get("TZ")
+    app.config["TZ"] = "UTC"
+    try:
+        yield
+    finally:
+        if original_tz is None:
+            app.config.pop("TZ", None)
+        else:
+            app.config["TZ"] = original_tz
+
+
+@pytest.fixture(autouse=True)
 def _mock_bcrypt_module(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
@@ -835,8 +848,8 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "creator_mobile": "13800001234",
         "creator_email": "",
         "creator_nickname": "user-creato",
-        "created_at": "2026-04-01 09:00:00",
-        "updated_at": "2026-04-03 15:30:00",
+        "created_at": "2026-04-01T09:00:00Z",
+        "updated_at": "2026-04-03T15:30:00Z",
     }
     assert payload["data"]["metrics"] == {
         "visit_count_30d": 7,
@@ -857,12 +870,13 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
             "is_visible": True,
             "content_status": "empty",
             "follow_up_count": 1,
+            "rating_score": "",
             "rating_count": 2,
             "modifier_user_bid": "creator-1",
             "modifier_mobile": "13800001234",
             "modifier_email": "",
             "modifier_nickname": "user-creato",
-            "updated_at": "2026-04-03 15:30:00",
+            "updated_at": "2026-04-03T15:30:00Z",
             "children": [
                 {
                     "outline_item_bid": "lesson-1",
@@ -874,12 +888,13 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     "is_visible": True,
                     "content_status": "has",
                     "follow_up_count": 1,
+                    "rating_score": "5.0",
                     "rating_count": 1,
                     "modifier_user_bid": "modifier-1",
                     "modifier_mobile": "13900001234",
                     "modifier_email": "",
                     "modifier_nickname": "user-modifi",
-                    "updated_at": "2026-04-03 15:30:00",
+                    "updated_at": "2026-04-03T15:30:00Z",
                     "children": [],
                 },
                 {
@@ -892,12 +907,13 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
                     "is_visible": False,
                     "content_status": "empty",
                     "follow_up_count": 0,
+                    "rating_score": "3.0",
                     "rating_count": 1,
                     "modifier_user_bid": "modifier-1",
                     "modifier_mobile": "13900001234",
                     "modifier_email": "",
                     "modifier_nickname": "user-modifi",
-                    "updated_at": "2026-04-03 15:30:00",
+                    "updated_at": "2026-04-03T15:30:00Z",
                     "children": [],
                 },
             ],
@@ -983,9 +999,11 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
 @pytest.mark.parametrize(
     "path",
     [
+        "/api/shifu/admin/operations/courses/course-detail/prompt",
         "/api/shifu/admin/operations/courses/course-detail/detail",
         "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
         "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20",
         "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-1/detail",
     ],
@@ -1002,6 +1020,41 @@ def test_admin_operation_course_detail_routes_require_operator(
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+def test_admin_operation_course_prompt_route_returns_course_prompt(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    updated_at = datetime(2026, 4, 3, 15, 30, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=updated_at,
+            updated_at=updated_at,
+        )
+        DraftShifu.query.filter(DraftShifu.shifu_bid == "course-detail").update(
+            {DraftShifu.llm_system_prompt: "course system prompt"},
+            synchronize_session=False,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/prompt",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"] == {
+        "course_prompt": "course system prompt",
+    }
 
 
 def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
@@ -1476,8 +1529,8 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert creator_item["learning_status"] == "not_started"
     assert creator_item["learned_lesson_count"] == 0
     assert creator_item["total_lesson_count"] == 2
-    assert creator_item["joined_at"] == "2026-04-01 09:00:00"
-    assert creator_item["last_login_at"] == "2026-04-06 09:00:00"
+    assert creator_item["joined_at"] == "2026-04-01T09:00:00Z"
+    assert creator_item["last_login_at"] == "2026-04-06T09:00:00Z"
 
     paid_item = items_by_user_bid["student-1"]
     assert paid_item["mobile"] == "13900001234"
@@ -1487,9 +1540,9 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert paid_item["learning_status"] == "learning"
     assert paid_item["is_paid"] is True
     assert paid_item["total_paid_amount"] == "99"
-    assert paid_item["joined_at"] == "2026-04-04 10:00:00"
-    assert paid_item["last_learning_at"] == "2026-04-04 10:05:00"
-    assert paid_item["last_login_at"] == "2026-04-05 09:00:00"
+    assert paid_item["joined_at"] == "2026-04-04T10:00:00Z"
+    assert paid_item["last_learning_at"] == "2026-04-04T10:05:00Z"
+    assert paid_item["last_login_at"] == "2026-04-05T09:00:00Z"
 
     completed_item = items_by_user_bid["student-2"]
     assert completed_item["email"] == "student2@example.com"
@@ -1498,7 +1551,7 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     assert completed_item["total_lesson_count"] == 2
     assert completed_item["learning_status"] == "completed"
     assert completed_item["is_paid"] is False
-    assert completed_item["joined_at"] == "2026-04-02 08:30:00"
+    assert completed_item["joined_at"] == "2026-04-02T08:30:00Z"
 
 
 def test_admin_operation_course_users_route_applies_filters(
@@ -1761,7 +1814,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "follow_up_count": 3,
         "user_count": 2,
         "lesson_count": 2,
-        "latest_follow_up_at": "2026-04-05 11:01:00",
+        "latest_follow_up_at": "2026-04-05T11:01:00Z",
     }
     assert payload["data"]["total"] == 3
     assert [item["generated_block_bid"] for item in payload["data"]["items"]] == [
@@ -1788,7 +1841,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "follow_up_count": 1,
         "user_count": 1,
         "lesson_count": 1,
-        "latest_follow_up_at": "2026-04-05 11:01:00",
+        "latest_follow_up_at": "2026-04-05T11:01:00Z",
     }
     assert filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
@@ -1804,23 +1857,33 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert lesson_filtered_payload["data"]["total"] == 1
     assert lesson_filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
-    nickname_filtered_response = test_client.get(
+    phone_filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&keyword=STUDENT-1",
+        "&keyword=13900001235",
         headers={"Token": "test-token"},
     )
-    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
+    phone_filtered_payload = phone_filtered_response.get_json(force=True)
 
-    assert nickname_filtered_response.status_code == 200
-    assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 2
+    assert phone_filtered_response.status_code == 200
+    assert phone_filtered_payload["code"] == 0
+    assert phone_filtered_payload["data"]["total"] == 2
     assert [
-        item["generated_block_bid"]
-        for item in nickname_filtered_payload["data"]["items"]
+        item["generated_block_bid"] for item in phone_filtered_payload["data"]["items"]
     ] == [
         "ask-2",
         "ask-1",
     ]
+
+    user_bid_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&keyword=student-1",
+        headers={"Token": "test-token"},
+    )
+    user_bid_filtered_payload = user_bid_filtered_response.get_json(force=True)
+
+    assert user_bid_filtered_response.status_code == 200
+    assert user_bid_filtered_payload["code"] == 0
+    assert user_bid_filtered_payload["data"]["total"] == 0
 
 
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
@@ -1911,6 +1974,244 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
     assert payload["data"]["total"] == 1
     assert payload["data"]["items"][0]["user_bid"] == "google-student-1"
     assert payload["data"]["items"][0]["email"] == "google-student@example.com"
+
+
+def test_admin_operation_course_ratings_route_returns_summary_and_filters(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(
+            app,
+            user_bid="student-1",
+            phone="13900001235",
+            email="student1@example.com",
+        )
+        _seed_user(
+            app,
+            user_bid="student-2",
+            phone="13900001236",
+            email="student2@example.com",
+        )
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-2",
+            title="Chapter 2",
+            position="2",
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            parent_bid="chapter-1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-2",
+            position="2.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.add_all(
+            [
+                LearnLessonFeedback(
+                    bid="feedback-1",
+                    lesson_feedback_bid="feedback-1",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    progress_record_bid="progress-1",
+                    user_bid="student-1",
+                    score=5,
+                    comment="Very helpful",
+                    mode="read",
+                    created_at=datetime(2026, 4, 4, 10, 0, 0),
+                    updated_at=datetime(2026, 4, 4, 10, 3, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-2",
+                    lesson_feedback_bid="feedback-2",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-2",
+                    user_bid="student-2",
+                    score=3,
+                    comment="Needs more examples",
+                    mode="listen",
+                    created_at=datetime(2026, 4, 5, 11, 0, 0),
+                    updated_at=datetime(2026, 4, 5, 11, 2, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-3",
+                    lesson_feedback_bid="feedback-3",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-4",
+                    user_bid="student-1",
+                    score=4,
+                    comment="",
+                    mode="read",
+                    created_at=datetime(2026, 4, 6, 9, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 9, 5, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-deleted",
+                    lesson_feedback_bid="feedback-deleted",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-3",
+                    user_bid="student-2",
+                    score=1,
+                    comment="Ignore deleted feedback",
+                    mode="read",
+                    deleted=1,
+                    created_at=datetime(2026, 4, 6, 11, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 11, 2, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["summary"] == {
+        "average_score": "4.0",
+        "rating_count": 3,
+        "user_count": 2,
+        "latest_rated_at": "2026-04-06T09:05:00Z",
+    }
+    assert [item["lesson_feedback_bid"] for item in payload["data"]["items"]] == [
+        "feedback-3",
+        "feedback-2",
+        "feedback-1",
+    ]
+    assert payload["data"]["items"][1]["chapter_title"] == "Chapter 2"
+    assert payload["data"]["items"][1]["lesson_title"] == "Lesson 2"
+    assert payload["data"]["items"][1]["mode"] == "listen"
+    assert payload["data"]["items"][1]["rated_at"] == "2026-04-05T11:02:00Z"
+
+    filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&keyword=student2@example.com&chapter_keyword=Chapter 2"
+        "&score=3&mode=listen&start_time=2026-04-05&end_time=2026-04-05",
+        headers={"Token": "test-token"},
+    )
+    filtered_payload = filtered_response.get_json(force=True)
+
+    assert filtered_response.status_code == 200
+    assert filtered_payload["code"] == 0
+    assert filtered_payload["data"]["summary"] == {
+        "average_score": "3.0",
+        "rating_count": 1,
+        "user_count": 1,
+        "latest_rated_at": "2026-04-05T11:02:00Z",
+    }
+    assert filtered_payload["data"]["items"][0]["lesson_feedback_bid"] == "feedback-2"
+
+    commented_low_score_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&has_comment=true&sort_by=score_asc",
+        headers={"Token": "test-token"},
+    )
+    commented_low_score_payload = commented_low_score_response.get_json(force=True)
+
+    assert commented_low_score_response.status_code == 200
+    assert commented_low_score_payload["code"] == 0
+    assert commented_low_score_payload["data"]["summary"] == {
+        "average_score": "4.0",
+        "rating_count": 2,
+        "user_count": 2,
+        "latest_rated_at": "2026-04-05T11:02:00Z",
+    }
+    assert [
+        item["lesson_feedback_bid"]
+        for item in commented_low_score_payload["data"]["items"]
+    ] == [
+        "feedback-2",
+        "feedback-1",
+    ]
+
+    nickname_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&keyword=user-st",
+        headers={"Token": "test-token"},
+    )
+    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
+
+    assert nickname_filtered_response.status_code == 200
+    assert nickname_filtered_payload["code"] == 0
+    assert nickname_filtered_payload["data"]["total"] == 3
+
+
+@pytest.mark.parametrize(
+    ("query_string", "expected_param"),
+    [
+        ("score=999", "score"),
+        ("mode=invalid_mode", "mode"),
+        ("has_comment=not_bool", "has_comment"),
+        ("sort_by=bad_sort", "sort_by"),
+    ],
+)
+def test_admin_operation_course_ratings_route_rejects_invalid_filters(
+    app,
+    test_client,
+    monkeypatch,
+    query_string,
+    expected_param,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20&{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == f"Params Error {expected_param}"
 
 
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
@@ -2024,25 +2325,25 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
         {
             "role": "student",
             "content": "First follow-up question",
-            "created_at": "2026-04-04 10:01:00",
+            "created_at": "2026-04-04T10:01:00Z",
             "is_current": False,
         },
         {
             "role": "teacher",
             "content": "First follow-up answer",
-            "created_at": "2026-04-04 10:01:03",
+            "created_at": "2026-04-04T10:01:03Z",
             "is_current": False,
         },
         {
             "role": "student",
             "content": "Second follow-up question",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "Second follow-up answer",
-            "created_at": "2026-04-04 10:02:02",
+            "created_at": "2026-04-04T10:02:02Z",
             "is_current": True,
         },
     ]
@@ -2159,13 +2460,13 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
         {
             "role": "student",
             "content": "Question with an intermediate block",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "Answer after an intermediate block",
-            "created_at": "2026-04-04 10:02:03",
+            "created_at": "2026-04-04T10:02:03Z",
             "is_current": True,
         },
     ]
@@ -2350,13 +2651,13 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
         {
             "role": "student",
             "content": "Can you restate that content answer?",
-            "created_at": "2026-04-04 10:02:00",
+            "created_at": "2026-04-04T10:02:00Z",
             "is_current": True,
         },
         {
             "role": "teacher",
             "content": "The content answer is stored in block_content_conf.",
-            "created_at": "2026-04-04 10:02:02",
+            "created_at": "2026-04-04T10:02:02Z",
             "is_current": True,
         },
     ]

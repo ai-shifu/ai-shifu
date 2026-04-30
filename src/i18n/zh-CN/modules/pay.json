@@ -38,5 +38,8 @@
   "virtualProductDesc": "说明：",
   "virtualProductPoint1": "1. 购买即表示已阅读并同意<modelServiceAgreement>{modelServiceAgreement}</modelServiceAgreement>和<userPrivacyPolicy>{userPrivacyPolicy}</userPrivacyPolicy>。",
   "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。",
+  "wechatJsapiHint": "将在当前微信会话内发起微信支付。",
+  "wechatJsapiPay": "微信支付",
+  "wechatJsapiUnavailable": "微信支付仅支持在微信内完成。",
   "wechatPay": "微信支付"
 }

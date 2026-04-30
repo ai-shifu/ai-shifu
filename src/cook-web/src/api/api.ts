@@ -104,6 +104,35 @@ const api = {
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
+  getAdminOperationCreditOrderDetail:
+    'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
+  getAdminOperationPromotionCoupons:
+    'GET /shifu/admin/operations/promotions/coupons',
+  createAdminOperationPromotionCoupon:
+    'POST /shifu/admin/operations/promotions/coupons',
+  updateAdminOperationPromotionCoupon:
+    'POST /shifu/admin/operations/promotions/coupons/{coupon_bid}',
+  getAdminOperationPromotionCouponDetail:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}',
+  updateAdminOperationPromotionCouponStatus:
+    'POST /shifu/admin/operations/promotions/coupons/{coupon_bid}/status',
+  getAdminOperationPromotionCouponUsages:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}/usages',
+  getAdminOperationPromotionCouponCodes:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}/codes',
+  getAdminOperationPromotionCampaigns:
+    'GET /shifu/admin/operations/promotions/campaigns',
+  createAdminOperationPromotionCampaign:
+    'POST /shifu/admin/operations/promotions/campaigns',
+  getAdminOperationPromotionCampaignDetail:
+    'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}',
+  updateAdminOperationPromotionCampaign:
+    'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}',
+  updateAdminOperationPromotionCampaignStatus:
+    'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}/status',
+  getAdminOperationPromotionCampaignRedemptions:
+    'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
@@ -111,10 +140,14 @@ const api = {
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
+  getAdminOperationCoursePrompt:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',
   getAdminOperationCourseDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseRatings:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
     'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups',
   getAdminOperationCourseFollowUpDetail:

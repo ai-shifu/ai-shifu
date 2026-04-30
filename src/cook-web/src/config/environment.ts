@@ -303,12 +303,6 @@ function getDefaultLoginMethod(): string {
 }
 
 /**
- * Resolve Google OAuth redirect URI.
- * The value always falls back to the canonical callback path so the front end
- * does not need to know the full deployment origin. When necessary, the value
- * can still be overridden with an absolute URL via `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`.
- */
-/**
  * Gets home URL
  */
 function getHomeUrl(): string {

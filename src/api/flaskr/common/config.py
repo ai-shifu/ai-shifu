@@ -163,6 +163,16 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
+    "HOST_URL": EnvVar(
+        name="HOST_URL",
+        default="",
+        description=(
+            "Canonical public web origin used to derive third-party callback "
+            "and payment return URLs, e.g. https://your-domain.com. Required "
+            "outside local/test environments."
+        ),
+        group="frontend",
+    ),
     "LOGO_WIDE_URL": EnvVar(
         name="LOGO_WIDE_URL",
         default="",
@@ -794,6 +804,75 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Ping++ application identifier",
         group="payment",
     ),
+    "ALIPAY_APP_ID": EnvVar(
+        name="ALIPAY_APP_ID",
+        default="",
+        description="Alipay Open Platform application identifier",
+        group="payment",
+    ),
+    "ALIPAY_APP_PRIVATE_KEY_PATH": EnvVar(
+        name="ALIPAY_APP_PRIVATE_KEY_PATH",
+        default="",
+        description="Filesystem path to the Alipay application private key",
+        secret=True,
+        group="payment",
+    ),
+    "ALIPAY_PUBLIC_KEY_PATH": EnvVar(
+        name="ALIPAY_PUBLIC_KEY_PATH",
+        default="",
+        description="Filesystem path to the Alipay platform public key",
+        group="payment",
+    ),
+    "ALIPAY_GATEWAY_URL": EnvVar(
+        name="ALIPAY_GATEWAY_URL",
+        default="https://openapi.alipay.com/gateway.do",
+        description="Alipay OpenAPI gateway URL",
+        group="payment",
+    ),
+    "WECHATPAY_APP_ID": EnvVar(
+        name="WECHATPAY_APP_ID",
+        default="",
+        description="WeChat Pay app identifier, defaults to WECHAT_APP_ID if empty",
+        group="payment",
+    ),
+    "WECHATPAY_MCH_ID": EnvVar(
+        name="WECHATPAY_MCH_ID",
+        default="",
+        description="WeChat Pay merchant identifier",
+        group="payment",
+    ),
+    "WECHATPAY_BASE_URL": EnvVar(
+        name="WECHATPAY_BASE_URL",
+        default="https://api.mch.weixin.qq.com",
+        description="WeChat Pay API base URL",
+        group="payment",
+    ),
+    "WECHATPAY_API_V3_KEY": EnvVar(
+        name="WECHATPAY_API_V3_KEY",
+        default="",
+        description="WeChat Pay API v3 key used to decrypt notifications",
+        secret=True,
+        group="payment",
+    ),
+    "WECHATPAY_MERCHANT_SERIAL_NO": EnvVar(
+        name="WECHATPAY_MERCHANT_SERIAL_NO",
+        default="",
+        description="WeChat Pay merchant certificate serial number",
+        group="payment",
+    ),
+    "WECHATPAY_PRIVATE_KEY_PATH": EnvVar(
+        name="WECHATPAY_PRIVATE_KEY_PATH",
+        default="",
+        description="Filesystem path to the WeChat Pay merchant private key",
+        secret=True,
+        group="payment",
+    ),
+    "WECHATPAY_PLATFORM_CERT_PATH": EnvVar(
+        name="WECHATPAY_PLATFORM_CERT_PATH",
+        default="",
+        description="Filesystem path to the WeChat Pay platform certificate for notification verification",
+        group="payment",
+    ),
     "STRIPE_SECRET_KEY": EnvVar(
         name="STRIPE_SECRET_KEY",
         default="",
@@ -820,18 +899,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Stripe API version to lock requests against",
         group="payment",
     ),
-    "STRIPE_SUCCESS_URL": EnvVar(
-        name="STRIPE_SUCCESS_URL",
-        default="",
-        description="Stripe Checkout success redirect URL",
-        group="payment",
-    ),
-    "STRIPE_CANCEL_URL": EnvVar(
-        name="STRIPE_CANCEL_URL",
-        default="",
-        description="Stripe Checkout cancellation redirect URL",
-        group="payment",
-    ),
     "STRIPE_DEFAULT_CURRENCY": EnvVar(
         name="STRIPE_DEFAULT_CURRENCY",
         default="usd",
@@ -855,7 +922,10 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "PAYMENT_CHANNELS_ENABLED": EnvVar(
         name="PAYMENT_CHANNELS_ENABLED",
         default="pingxx,stripe",
-        description="Comma-separated list of enabled payment providers (e.g., pingxx,stripe)",
+        description=(
+            "Comma-separated list of enabled payment providers "
+            "(e.g., wechatpay,alipay,pingxx,stripe)"
+        ),
         group="payment",
     ),
     "PAY_ORDER_EXPIRE_TIME": EnvVar(
@@ -981,6 +1051,44 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="LANGFUSE_HOST",
         default="",
         description="Langfuse host URL",
+        group="monitoring",
+    ),
+    "OBSERVABILITY_TRACES_ENABLED": EnvVar(
+        name="OBSERVABILITY_TRACES_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable runtime HTTP traces exported through OTLP.",
+        group="monitoring",
+    ),
+    "OTEL_EXPORTER_OTLP_ENDPOINT": EnvVar(
+        name="OTEL_EXPORTER_OTLP_ENDPOINT",
+        default="",
+        description="OTLP HTTP endpoint for runtime traces (for example the local OTEL collector).",
+        group="monitoring",
+    ),
+    "OTEL_SERVICE_NAME": EnvVar(
+        name="OTEL_SERVICE_NAME",
+        default="ai-shifu-api",
+        description="Service name reported to the local runtime observability stack.",
+        group="monitoring",
+    ),
+    "OTEL_TRACE_SAMPLE_RATE": EnvVar(
+        name="OTEL_TRACE_SAMPLE_RATE",
+        default=1.0,
+        type=float,
+        description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
+        group="monitoring",
+    ),
+    "INTERNAL_METRICS_PATH": EnvVar(
+        name="INTERNAL_METRICS_PATH",
+        default="/internal/metrics",
+        description="Local metrics endpoint path scraped by Prometheus in the dev harness.",
+        group="monitoring",
+    ),
+    "INTERNAL_OBSERVABILITY_HEALTH_PATH": EnvVar(
+        name="INTERNAL_OBSERVABILITY_HEALTH_PATH",
+        default="/internal/observability/health",
+        description="Local observability health endpoint path for the dev harness.",
         group="monitoring",
     ),
     # Content Detection

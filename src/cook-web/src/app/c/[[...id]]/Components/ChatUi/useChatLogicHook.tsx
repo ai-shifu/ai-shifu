@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ComponentType,
   useContext,
   useMemo,
 } from 'react';
@@ -23,7 +22,6 @@ import {
   type AudioSegmentData,
   type ListenSlideData,
   type ElementType,
-  type StudyRecordPayload,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -33,7 +31,6 @@ import {
   LESSON_FEEDBACK_INTERACTION_MARKER,
   LIKE_STATUS,
   BLOCK_TYPE,
-  BlockType,
   checkIsRunning,
   streamGeneratedBlockAudio,
   submitLessonFeedback,
@@ -43,11 +40,13 @@ import {
   getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
   mergeAudioSegmentDataList,
+  sortAudioTracksByPosition,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
@@ -60,7 +59,6 @@ import {
 } from '@/c-utils/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
-import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -86,49 +84,10 @@ interface LessonFeedbackPopupState {
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
+const DEFAULT_LISTEN_AUDIO_POSITION = 0;
 
-export enum ChatContentItemType {
-  CONTENT = 'content',
-  INTERACTION = 'interaction',
-  ASK = 'ask',
-  LIKE_STATUS = 'likeStatus',
-  ERROR = 'error',
-}
-
-export interface ChatContentItem {
-  content?: string;
-  customRenderBar?: (() => React.ReactNode | null) | ComponentType<any>;
-  user_input?: string;
-  readonly?: boolean;
-  isHistory?: boolean;
-  element_bid: string;
-  generated_block_bid?: string; // legacy block-level compatibility field
-  ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
-  parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
-  parent_block_bid?: string; // legacy parent block compatibility field
-  like_status?: LikeStatus;
-  type: ChatContentItemType | BlockType | ElementType;
-  ask_list?: ChatContentItem[]; // list of ask records for this content block
-  isAskExpanded?: boolean; // whether the ask panel is expanded
-  generateTime?: number;
-  variables?: PreviewVariablesMap;
-  // Audio properties for TTS
-  audioUrl?: string;
-  audioTracks?: AudioTrack[];
-  isAudioStreaming?: boolean;
-  audioDurationMs?: number;
-  listenSlides?: ListenSlideData[];
-  // Preserve element-level fields from backend records for listen-mode rendering.
-  element_type?: ElementType;
-  sequence_number?: number;
-  is_marker?: boolean;
-  is_new?: boolean;
-  is_renderable?: boolean;
-  is_speakable?: boolean;
-  audio_url?: string;
-  audio_segments?: AudioSegmentData[];
-  payload?: StudyRecordPayload;
-}
+export { ChatContentItemType };
+export type { ChatContentItem };
 
 interface SSEParams {
   input: string | Record<string, any>;
@@ -136,6 +95,97 @@ interface SSEParams {
   reload_generated_block_bid?: string;
   reload_element_bid?: string;
 }
+
+const normalizeOptionalNumber = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
+const resolveStudyRecordAudioComplete = (
+  record: StudyRecordItem,
+): Partial<AudioCompleteData> | null => {
+  const audioPayload = record.payload?.audio as
+    | Record<string, unknown>
+    | undefined;
+  const audioUrl =
+    (typeof record.audio_url === 'string' && record.audio_url.trim()) ||
+    (typeof audioPayload?.audio_url === 'string' &&
+      audioPayload.audio_url.trim()) ||
+    '';
+
+  if (!audioUrl) {
+    return null;
+  }
+
+  const audioBid =
+    typeof audioPayload?.audio_bid === 'string'
+      ? audioPayload.audio_bid
+      : undefined;
+  const durationMs = normalizeOptionalNumber(audioPayload?.duration_ms);
+  const position = normalizeOptionalNumber(audioPayload?.position);
+  const slideId =
+    typeof audioPayload?.slide_id === 'string'
+      ? audioPayload.slide_id
+      : undefined;
+  const avContract =
+    audioPayload?.av_contract &&
+    typeof audioPayload.av_contract === 'object' &&
+    !Array.isArray(audioPayload.av_contract)
+      ? (audioPayload.av_contract as Record<string, any>)
+      : undefined;
+
+  return {
+    audio_url: audioUrl,
+    ...(audioBid ? { audio_bid: audioBid } : {}),
+    ...(durationMs === undefined ? {} : { duration_ms: durationMs }),
+    ...(position === undefined ? {} : { position }),
+    ...(slideId ? { slide_id: slideId } : {}),
+    ...(avContract ? { av_contract: avContract } : {}),
+  };
+};
+
+const hydrateAudioTracksWithCompleteUrl = (
+  tracks: AudioTrack[] = [],
+  audioComplete?: Partial<AudioCompleteData> | null,
+): AudioTrack[] => {
+  if (!audioComplete?.audio_url) {
+    return tracks;
+  }
+
+  const position =
+    normalizeOptionalNumber(audioComplete.position) ??
+    DEFAULT_LISTEN_AUDIO_POSITION;
+  const targetIndex = tracks.findIndex(track => track.position === position);
+  const targetTrack =
+    targetIndex >= 0
+      ? { ...tracks[targetIndex] }
+      : {
+          position,
+          audioSegments: [],
+          isAudioStreaming: false,
+        };
+
+  const nextTrack: AudioTrack = {
+    ...targetTrack,
+    audioUrl: audioComplete.audio_url,
+    durationMs: audioComplete.duration_ms ?? targetTrack.durationMs,
+    isAudioStreaming: false,
+    slideId: audioComplete.slide_id ?? targetTrack.slideId,
+    avContract: audioComplete.av_contract ?? targetTrack.avContract,
+  };
+  const nextTracks =
+    targetIndex >= 0
+      ? tracks.map((track, index) =>
+          index === targetIndex ? nextTrack : track,
+        )
+      : [...tracks, nextTrack];
+
+  return sortAudioTracksByPosition(nextTracks);
+};
 
 export interface UseChatSessionParams {
   shifuBid: string;
@@ -678,9 +728,12 @@ function useChatLogicHook({
   );
 
   const normalizeHistoryAudioTracks = useCallback(
-    (audios: AudioSegmentData[] = []): AudioTrack[] => {
+    (
+      audios: AudioSegmentData[] = [],
+      audioComplete?: Partial<AudioCompleteData> | null,
+    ): AudioTrack[] => {
       if (!audios.length) {
-        return [];
+        return hydrateAudioTracksWithCompleteUrl([], audioComplete);
       }
 
       const trackByPosition = new Map<number, AudioTrack>();
@@ -719,7 +772,10 @@ function useChatLogicHook({
           trackByPosition.set(position, track);
         });
 
-      return [...trackByPosition.values()];
+      return hydrateAudioTracksWithCompleteUrl(
+        [...trackByPosition.values()],
+        audioComplete,
+      );
     },
     [],
   );
@@ -751,7 +807,10 @@ function useChatLogicHook({
         ...previousTrackAudioSegments,
         ...incomingAudioSegments,
       ]);
-      const historyTracks = normalizeHistoryAudioTracks(mergedAudioSegments);
+      const historyTracks = normalizeHistoryAudioTracks(
+        mergedAudioSegments,
+        resolveStudyRecordAudioComplete(record),
+      );
       const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;

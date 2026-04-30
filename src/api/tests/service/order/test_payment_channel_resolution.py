@@ -94,6 +94,100 @@ class TestResolvePaymentChannel:
                 stored_channel="pingxx",
             )
 
+    def test_alipay_qr_prefers_native_when_enabled(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "alipay,pingxx"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint=None,
+            channel_hint="alipay_qr",
+            stored_channel=None,
+        )
+        assert provider == "alipay"
+        assert sub_channel == "alipay_qr"
+
+    def test_alipay_qr_falls_back_to_pingxx_when_native_disabled(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "pingxx"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint=None,
+            channel_hint="alipay_qr",
+            stored_channel=None,
+        )
+        assert provider == "pingxx"
+        assert sub_channel == "alipay_qr"
+
+    def test_wechat_jsapi_prefers_native_when_enabled(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "wechatpay,pingxx"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint=None,
+            channel_hint="wx_pub",
+            stored_channel=None,
+        )
+        assert provider == "wechatpay"
+        assert sub_channel == "wx_pub"
+
+    def test_explicit_wechatpay_defaults_to_qr_channel(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "wechatpay"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint="wechatpay",
+            channel_hint="",
+            stored_channel=None,
+        )
+        assert provider == "wechatpay"
+        assert sub_channel == "wx_pub_qr"
+
+    def test_explicit_native_provider_rejects_unsupported_channel(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "alipay"
+            return default
+
+        monkeypatch.setattr(
+            "flaskr.service.order.payment_channel_resolution.get_config",
+            fake_get_config,
+        )
+
+        with pytest.raises(AppException):
+            _resolve_payment_channel(
+                payment_channel_hint="alipay",
+                channel_hint="wx_pub_qr",
+                stored_channel=None,
+            )
+
     def test_extract_pingxx_redirect_url_from_channel_key(self):
         assert (
             _extract_pingxx_redirect_url(

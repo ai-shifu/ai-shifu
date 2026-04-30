@@ -62,9 +62,21 @@ export default {
           '0%': { transform: 'translateX(-100%)', opacity: '0' },
           '100%': { transform: 'translateX(0)', opacity: '1' },
         },
+        'loading-dot-bounce': {
+          '0%, 100%': {
+            transform: 'scale(1)',
+            opacity: 'var(--loading-dot-rest-opacity, 0.32)',
+          },
+          '35%': {
+            transform: 'scale(var(--loading-dot-active-scale, 1.7))',
+            opacity: '1',
+          },
+        },
       },
       animation: {
         'slide-in': 'slide-in 0.3s ease-out',
+        'loading-dot-bounce':
+          'loading-dot-bounce var(--loading-dot-duration, 0.9s) ease-in-out infinite',
       },
     },
   },
