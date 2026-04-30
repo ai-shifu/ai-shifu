@@ -54,7 +54,7 @@ export function ImageCaptchaInput({
           type='button'
           aria-label={refreshLabel}
           title={refreshLabel}
-          className='h-8 w-28 shrink-0 overflow-hidden rounded-md border border-input bg-background disabled:cursor-not-allowed disabled:opacity-50'
+          className='h-10 w-36 shrink-0 overflow-hidden rounded-md border border-input bg-background disabled:cursor-not-allowed disabled:opacity-50'
           onClick={onRefresh}
           disabled={disabled || isLoading}
         >
@@ -63,10 +63,10 @@ export function ImageCaptchaInput({
               data-testid='captcha-image'
               src={image}
               alt={t('module.auth.captcha')}
-              width={112}
-              height={32}
+              width={144}
+              height={40}
               unoptimized
-              className='h-full w-full object-cover'
+              className='h-full w-full object-contain'
             />
           ) : null}
         </button>
@@ -74,7 +74,7 @@ export function ImageCaptchaInput({
           type='button'
           variant='outline'
           size='icon'
-          className='h-8 w-8 shrink-0'
+          className='h-10 w-10 shrink-0'
           aria-label={refreshLabel}
           title={refreshLabel}
           onClick={onRefresh}

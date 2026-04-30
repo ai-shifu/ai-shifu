@@ -6,27 +6,28 @@ import hmac
 import json
 import random
 import secrets
-import string
 from io import BytesIO
 from typing import Any
 
 from flask import Flask
 from PIL import Image, ImageDraw, ImageFont
 
-try:
-    from captcha.image import ImageCaptcha
-except ModuleNotFoundError:  # pragma: no cover - exercised only in slim envs
-    ImageCaptcha = None
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.service.common.models import raise_error
 
 
-_CAPTCHA_ALPHABET = "".join(
-    character
-    for character in string.ascii_uppercase + string.digits
-    if character not in {"0", "O", "1", "I"}
+_CAPTCHA_ALPHABET = "ACDEFHJKLMNPRTUVWXY3479"
+_CAPTCHA_IMAGE_WIDTH = 160
+_CAPTCHA_IMAGE_HEIGHT = 48
+_CAPTCHA_FONT_SIZE = 34
+_CAPTCHA_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+    "DejaVuSans-Bold.ttf",
 )
+_RANDOM = random.SystemRandom()
 
 
 def _is_production(app: Flask) -> bool:
@@ -108,33 +109,77 @@ def _generate_code(app: Flask) -> str:
     override = app.config.get("CAPTCHA_CODE_OVERRIDE")
     if override and not _is_production(app):
         return _normalize_code(str(override))[:4]
-    return "".join(random.SystemRandom().choice(_CAPTCHA_ALPHABET) for _ in range(4))
+    return "".join(_RANDOM.choice(_CAPTCHA_ALPHABET) for _ in range(4))
+
+
+def _load_captcha_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for font_path in _CAPTCHA_FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(font_path, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def _render_captcha_png(code: str) -> bytes:
-    if ImageCaptcha is not None:
-        image = ImageCaptcha(width=120, height=40)
-        return image.generate(code, format="png").getvalue()
-
-    image = Image.new("RGB", (120, 40), color=(245, 247, 250))
+    image = Image.new(
+        "RGB",
+        (_CAPTCHA_IMAGE_WIDTH, _CAPTCHA_IMAGE_HEIGHT),
+        color=(250, 252, 255),
+    )
     draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
-    for _ in range(6):
+    font = _load_captcha_font(_CAPTCHA_FONT_SIZE)
+    resample_filter = getattr(getattr(Image, "Resampling", Image), "BICUBIC")
+
+    for y in (13, 25, 37):
         draw.line(
             (
-                random.randint(0, 120),
-                random.randint(0, 40),
-                random.randint(0, 120),
-                random.randint(0, 40),
+                8,
+                y + _RANDOM.randint(-2, 2),
+                _CAPTCHA_IMAGE_WIDTH - 8,
+                y + _RANDOM.randint(-2, 2),
             ),
-            fill=(
-                random.randint(120, 190),
-                random.randint(120, 190),
-                random.randint(120, 190),
-            ),
+            fill=(226, 233, 242),
             width=1,
         )
-    draw.text((28, 12), code, fill=(28, 39, 58), font=font)
+
+    char_cell_width = 34
+    char_layer_size = (40, 44)
+    start_x = 12
+    text_colors = ((28, 39, 58), (41, 63, 96), (32, 79, 114), (65, 74, 91))
+    for index, character in enumerate(code):
+        layer = Image.new("RGBA", char_layer_size, (255, 255, 255, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        bbox = layer_draw.textbbox((0, 0), character, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        x = (char_layer_size[0] - text_width) / 2 - bbox[0]
+        y = (char_layer_size[1] - text_height) / 2 - bbox[1] - 1
+        color = _RANDOM.choice(text_colors)
+        layer_draw.text((x, y), character, fill=(*color, 255), font=font)
+        rotated = layer.rotate(
+            _RANDOM.uniform(-3.0, 3.0),
+            resample=resample_filter,
+            expand=False,
+        )
+        image.paste(
+            rotated,
+            (start_x + index * char_cell_width + _RANDOM.randint(-1, 1), 2),
+            rotated,
+        )
+
+    for _ in range(22):
+        draw.point(
+            (
+                _RANDOM.randint(0, _CAPTCHA_IMAGE_WIDTH - 1),
+                _RANDOM.randint(0, _CAPTCHA_IMAGE_HEIGHT - 1),
+            ),
+            fill=(204, 214, 228),
+        )
+    draw.rectangle(
+        (0, 0, _CAPTCHA_IMAGE_WIDTH - 1, _CAPTCHA_IMAGE_HEIGHT - 1),
+        outline=(221, 228, 238),
+    )
     output = BytesIO()
     image.save(output, format="PNG")
     return output.getvalue()

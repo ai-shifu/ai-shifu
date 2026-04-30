@@ -1,4 +1,8 @@
+import base64
 import json
+from io import BytesIO
+
+from PIL import Image
 
 
 def _post_json(client, path: str, payload: dict):
@@ -40,6 +44,10 @@ def test_get_captcha_returns_image_payload(test_client, app):
 
     assert captcha["captcha_id"]
     assert captcha["image"].startswith("data:image/png;base64,")
+    with Image.open(
+        BytesIO(base64.b64decode(captcha["image"].split(",", maxsplit=1)[1]))
+    ) as image:
+        assert image.size == (160, 48)
     assert captcha["expires_in"] == app.config["CAPTCHA_EXPIRE_TIME"]
 
 
