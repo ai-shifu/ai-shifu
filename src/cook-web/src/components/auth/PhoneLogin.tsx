@@ -333,7 +333,7 @@ export function PhoneLogin({
                 !!phoneError ||
                 !captchaCode.trim()
               }
-              className='h-8 w-[100px] px-2 whitespace-nowrap'
+              className='h-8 min-w-[100px] px-2 whitespace-nowrap'
             >
               {isLoading && !showOtpInput ? (
                 <Loader2 className='h-4 w-4 animate-spin mr-2' />

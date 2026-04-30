@@ -27,7 +27,7 @@
 - admin 课程卡片如果要提升 hover 反馈，优先避免再叠加强 box-shadow；默认保留现有静态阴影，并改用 `primary` 的低透明度淡蓝背景来表达 hover 态，减少界面抖动。
 - admin 课程卡片如果产品要求更扁平的视觉，优先直接去掉 box-shadow，只保留边框和 hover 淡蓝底色，不要同时保留阴影和背景变色造成层级过重。
 - 课程设置这类 `Sheet` 表单弹层如果头部下方有分隔线，表单滚动内容区优先显式补 `padding-top: 24px`，不要让第一组字段紧贴分隔线开始。
-- 登录页图形验证码图片按钮如果设计要求跟随验证码图片宽度自适应，优先让按钮固定目标高度、图片使用 `h-full w-auto`，不要保留固定宽度；刷新入口优先合并到验证码图片按钮的 hover/focus 蒙层，不要额外放独立刷新按钮；验证码图片按钮和获取验证码按钮需要视觉对齐到精确宽度时，要检查通用 Button 默认 padding 是否撑开实际宽度，必要时在具体按钮上覆盖 `width` 和 `padding`。
+- 登录页图形验证码图片按钮如果设计要求跟随验证码图片宽度自适应，优先让按钮固定目标高度、图片使用 `h-full w-auto`，不要保留固定宽度；刷新入口优先合并到验证码图片按钮的 hover/focus 蒙层，不要额外放独立刷新按钮；验证码图片按钮和获取验证码按钮需要视觉对齐时，优先统一 `min-width` 并允许倒计时等长文案自适应撑开，必要时在具体按钮上覆盖默认 padding。
 - 登录页表单新增字段标题或提示文案时，必须同步更新 `zh-CN/en-US` 翻译文件和 `src/types/i18n-keys.d.ts`，不要在组件里写死中文或英文。
 - 对于明确暂不支持移动端的页面，优先复用共享的国际化弹窗组件统一提示，避免在多个页面分别写一套移动端拦截文案和状态逻辑。
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
