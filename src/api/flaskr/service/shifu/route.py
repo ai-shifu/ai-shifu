@@ -904,6 +904,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
             "usage_type": request.args.get("usage_type", ""),
+            "ops_state": request.args.get("ops_state", ""),
             "discount_type": request.args.get("discount_type", ""),
             "status": request.args.get("status", ""),
             "start_time": _parse_datetime_filter(
@@ -1074,6 +1075,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "course_query": request.args.get("course_query", ""),
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
+            "apply_type": request.args.get("apply_type", ""),
+            "channel": request.args.get("channel", ""),
             "discount_type": request.args.get("discount_type", ""),
             "status": request.args.get("status", ""),
             "start_time": _parse_datetime_filter(

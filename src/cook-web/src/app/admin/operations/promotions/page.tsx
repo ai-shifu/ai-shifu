@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -26,6 +26,17 @@ import type {
 } from '@/app/admin/operations/operation-promotion-types';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -70,6 +81,7 @@ type CouponFilters = {
   name: string;
   course_query: string;
   usage_type: string;
+  ops_state: string;
   discount_type: string;
   status: string;
   start_time: string;
@@ -79,6 +91,8 @@ type CouponFilters = {
 type CampaignFilters = {
   keyword: string;
   course_query: string;
+  apply_type: string;
+  channel: string;
   discount_type: string;
   status: string;
   start_time: string;
@@ -113,22 +127,34 @@ type CampaignFormState = {
 };
 
 type ErrorState = { message: string } | null;
+type PromotionStatusChangeTarget =
+  | {
+      entityType: 'coupon';
+      enabling: boolean;
+      item: AdminPromotionCouponItem;
+    }
+  | {
+      entityType: 'campaign';
+      enabling: boolean;
+      item: AdminPromotionCampaignItem;
+    };
 
 const PAGE_SIZE = 20;
 const EMPTY_VALUE = '--';
 const ALL_OPTION_VALUE = '__all__';
+const PROMOTION_EXPIRING_SOON_DAYS = 7;
 const COLUMN_MIN_WIDTH = 90;
 const COLUMN_MAX_WIDTH = 420;
 const COUPON_COLUMN_WIDTH_STORAGE_KEY = 'adminPromotionCouponsColumnWidths';
 const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY = 'adminPromotionCampaignsColumnWidths';
 const COUPON_DEFAULT_COLUMN_WIDTHS = {
-  name: 180,
+  name: 200,
   status: 110,
   usageType: 120,
   discountRule: 120,
   code: 180,
   scope: 120,
-  course: 220,
+  course: 240,
   activeTime: 260,
   usageProgress: 110,
   codesEntry: 110,
@@ -138,13 +164,13 @@ const COUPON_DEFAULT_COLUMN_WIDTHS = {
   action: 120,
 } as const;
 const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
-  name: 180,
+  name: 200,
   status: 110,
   applyType: 120,
-  channel: 140,
-  course: 220,
+  channel: 180,
+  course: 240,
   discountRule: 120,
-  campaignTime: 260,
+  campaignTime: 280,
   appliedOrderCount: 130,
   promoBid: 220,
   updatedAt: 170,
@@ -154,7 +180,12 @@ const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const SEARCH_LABEL_CLASS =
-  "shrink-0 mr-2 w-20 text-right text-sm font-medium whitespace-nowrap text-foreground after:ml-0.5 after:content-[':']";
+  "shrink-0 mr-2 w-[5.5rem] 2xl:w-24 text-right text-sm font-medium whitespace-nowrap text-foreground after:ml-0.5 after:content-[':']";
+const SEARCH_FILTER_GRID_CLASS = 'grid gap-x-5 gap-y-4 xl:grid-cols-4';
+const COUPON_COLLAPSED_FILTER_GRID_CLASS =
+  'grid gap-x-5 gap-y-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.88fr)_minmax(0,1.18fr)]';
+const CAMPAIGN_COLLAPSED_FILTER_GRID_CLASS =
+  'grid gap-x-5 gap-y-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.18fr)_minmax(220px,0.88fr)_minmax(220px,0.95fr)]';
 const TABLE_HEAD_CLASS = ADMIN_TABLE_HEADER_CELL_CENTER_CLASS;
 const TABLE_ACTION_HEAD_CLASS = getAdminStickyRightHeaderClass('text-center');
 const TABLE_CELL_CLASS =
@@ -172,6 +203,7 @@ const createDefaultCouponFilters = (): CouponFilters => ({
   name: '',
   course_query: '',
   usage_type: '',
+  ops_state: '',
   discount_type: '',
   status: '',
   start_time: '',
@@ -181,6 +213,8 @@ const createDefaultCouponFilters = (): CouponFilters => ({
 const createDefaultCampaignFilters = (): CampaignFilters => ({
   keyword: '',
   course_query: '',
+  apply_type: '',
+  channel: '',
   discount_type: '',
   status: '',
   start_time: '',
@@ -385,6 +419,42 @@ const resolvePromotionStatusLabel = (
   return translated && translated !== statusKey ? translated : EMPTY_VALUE;
 };
 
+const resolvePromotionStatusBadgeClassName = (status?: string) => {
+  switch (status) {
+    case 'active':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50';
+    case 'not_started':
+      return 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50';
+    case 'inactive':
+      return 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100';
+    case 'expired':
+    case 'ended':
+      return 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-50';
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-50';
+  }
+};
+
+const renderPromotionStatusBadge = ({
+  tPromotion,
+  statusKey,
+  status,
+}: {
+  tPromotion: (key: string) => string;
+  statusKey?: string;
+  status?: string;
+}) => (
+  <Badge
+    variant='outline'
+    className={cn(
+      'rounded-full px-2 py-0.5 text-xs font-medium',
+      resolvePromotionStatusBadgeClassName(status),
+    )}
+  >
+    {resolvePromotionStatusLabel(tPromotion, statusKey)}
+  </Badge>
+);
+
 const resolveCampaignApplyTypeLabel = (
   tPromotion: (key: string) => string,
   applyType: number | string,
@@ -477,6 +547,56 @@ const parseDateValue = (value: string) => {
     return undefined;
   }
   return parsed;
+};
+
+const isPromotionExpiringSoon = (endAt?: string) => {
+  const endDate = parseDateValue(endAt || '');
+  if (!endDate) {
+    return false;
+  }
+  const now = new Date();
+  const diff = endDate.getTime() - now.getTime();
+  return (
+    diff >= 0 && diff <= PROMOTION_EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000
+  );
+};
+
+const isCouponUsedUp = (item: AdminPromotionCouponItem) =>
+  Number(item.used_count || 0) >= Number(item.total_count || 0);
+
+const renderCouponAttentionBadges = (
+  item: AdminPromotionCouponItem,
+  tPromotion: (key: string) => string,
+) => {
+  if (item.computed_status !== 'active') {
+    return [];
+  }
+
+  if (isCouponUsedUp(item)) {
+    return [
+      <Badge
+        key='used-up'
+        variant='outline'
+        className='rounded-full border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50'
+      >
+        {tPromotion('opsState.usedUp')}
+      </Badge>,
+    ];
+  }
+
+  if (isPromotionExpiringSoon(item.end_at)) {
+    return [
+      <Badge
+        key='expiring-soon'
+        variant='outline'
+        className='rounded-full border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-50'
+      >
+        {tPromotion('opsState.expiringSoon')}
+      </Badge>,
+    ];
+  }
+
+  return [];
 };
 
 const DEFAULT_START_TIME = '00:00';
@@ -619,6 +739,128 @@ const SearchActions = ({
     </Button>
   </div>
 );
+
+const PromotionEditPolicyNotice = ({
+  title,
+  partialTimeHint,
+  summary,
+  editableFieldsLabel,
+  editableFields,
+  conditionalFieldsLabel,
+  conditionalFields,
+  lockedFieldsLabel,
+  lockedFields,
+  lockedReason,
+}: {
+  title: string;
+  partialTimeHint: string;
+  summary: string;
+  editableFieldsLabel: string;
+  editableFields: string;
+  conditionalFieldsLabel?: string;
+  conditionalFields?: string;
+  lockedFieldsLabel: string;
+  lockedFields: string;
+  lockedReason: string;
+}) => (
+  <div className='rounded-lg border border-amber-200 bg-amber-50/70 p-4 md:col-span-2'>
+    <div className='space-y-2 text-sm text-amber-950'>
+      <p className='font-medium'>{title}</p>
+      <p>{partialTimeHint}</p>
+      <p>{summary}</p>
+      <p>
+        <span className='font-medium'>{editableFieldsLabel}</span>
+        {editableFields}
+      </p>
+      {conditionalFieldsLabel && conditionalFields ? (
+        <p>
+          <span className='font-medium'>{conditionalFieldsLabel}</span>
+          {conditionalFields}
+        </p>
+      ) : null}
+      <p>
+        <span className='font-medium'>{lockedFieldsLabel}</span>
+        {lockedFields}
+      </p>
+      <p className='text-amber-800'>{lockedReason}</p>
+    </div>
+  </div>
+);
+
+const PromotionStatusConfirmDialog = ({
+  changeTarget,
+  submitting,
+  onOpenChange,
+  onConfirm,
+}: {
+  changeTarget: PromotionStatusChangeTarget | null;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void>;
+}) => {
+  const { t } = useTranslation();
+  const { t: tPromotion } = useTranslation('module.operationsPromotion');
+  const itemName = React.useMemo(() => {
+    if (!changeTarget) {
+      return '';
+    }
+    return (
+      changeTarget.item.name ||
+      (changeTarget.entityType === 'coupon'
+        ? changeTarget.item.coupon_bid
+        : changeTarget.item.promo_bid)
+    );
+  }, [changeTarget]);
+
+  return (
+    <AlertDialog
+      open={Boolean(changeTarget)}
+      onOpenChange={onOpenChange}
+    >
+      <AlertDialogContent className='sm:max-w-[440px]'>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {changeTarget?.enabling
+              ? tPromotion('messages.enableConfirmTitle')
+              : tPromotion('messages.disableConfirmTitle')}
+          </AlertDialogTitle>
+          <AlertDialogDescription className='text-left text-sm text-muted-foreground'>
+            {changeTarget ? (
+              <Trans
+                ns='module.operationsPromotion'
+                i18nKey={
+                  changeTarget.enabling
+                    ? 'messages.enableConfirmDescription'
+                    : 'messages.disableConfirmDescription'
+                }
+                values={{ name: itemName }}
+                components={{
+                  strong: <span className='font-semibold text-foreground' />,
+                }}
+              />
+            ) : null}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>
+            {t('common.core.cancel')}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={submitting}
+            onClick={event => {
+              event.preventDefault();
+              void onConfirm();
+            }}
+          >
+            {changeTarget?.enabling
+              ? tPromotion('actions.confirmEnable')
+              : tPromotion('actions.confirmDisable')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
 
 const PromotionDateTimePicker = ({
   value,
@@ -890,13 +1132,13 @@ const PromotionCouponCodesDialog = ({
         setPageCount(0);
         toast({
           description:
-            (error as Error).message || t('common.core.submitFailed'),
+            (error as Error).message || tPromotion('messages.loadCodesFailed'),
         });
       } finally {
         setLoading(false);
       }
     },
-    [couponBid, t, toast],
+    [couponBid, tPromotion, toast],
   );
 
   useEffect(() => {
@@ -1063,13 +1305,14 @@ const PromotionCampaignRedemptionsDialog = ({
         setPageCount(0);
         toast({
           description:
-            (error as Error).message || t('common.core.submitFailed'),
+            (error as Error).message ||
+            tPromotion('messages.loadRedemptionsFailed'),
         });
       } finally {
         setLoading(false);
       }
     },
-    [promoBid, t, toast],
+    [promoBid, tPromotion, toast],
   );
 
   useEffect(() => {
@@ -1210,13 +1453,13 @@ const PromotionCouponUsageDialog = ({
         setPageCount(0);
         toast({
           description:
-            (error as Error).message || t('common.core.submitFailed'),
+            (error as Error).message || tPromotion('messages.loadUsagesFailed'),
         });
       } finally {
         setLoading(false);
       }
     },
-    [couponBid, t, toast],
+    [couponBid, tPromotion, toast],
   );
 
   useEffect(() => {
@@ -1643,14 +1886,16 @@ const PromotionCouponDialog = ({
             />
           </FormField>
           {isEditing ? (
-            <div className='space-y-1 md:col-span-2'>
-              <p className='text-sm text-muted-foreground'>
-                {tPromotion('messages.partialTimeEditHint')}
-              </p>
-              <p className='text-sm text-muted-foreground'>
-                {tPromotion('messages.couponEditPolicyHint')}
-              </p>
-            </div>
+            <PromotionEditPolicyNotice
+              title={tPromotion('messages.editPolicyTitle')}
+              partialTimeHint={tPromotion('messages.partialTimeEditHint')}
+              summary={tPromotion('messages.couponEditPolicyHint')}
+              editableFieldsLabel={tPromotion('messages.editableFieldsLabel')}
+              editableFields={tPromotion('messages.couponEditableFields')}
+              lockedFieldsLabel={tPromotion('messages.lockedFieldsLabel')}
+              lockedFields={tPromotion('messages.couponLockedFields')}
+              lockedReason={tPromotion('messages.couponLockedReason')}
+            />
           ) : null}
         </div>
         <DialogFooter>
@@ -1964,14 +2209,22 @@ const PromotionCampaignDialog = ({
             </FormField>
           </div>
           {isEditing ? (
-            <div className='space-y-1 md:col-span-2'>
-              <p className='text-sm text-muted-foreground'>
-                {tPromotion('messages.partialTimeEditHint')}
-              </p>
-              <p className='text-sm text-muted-foreground'>
-                {tPromotion('messages.campaignEditPolicyHint')}
-              </p>
-            </div>
+            <PromotionEditPolicyNotice
+              title={tPromotion('messages.editPolicyTitle')}
+              partialTimeHint={tPromotion('messages.partialTimeEditHint')}
+              summary={tPromotion('messages.campaignEditPolicyHint')}
+              editableFieldsLabel={tPromotion('messages.editableFieldsLabel')}
+              editableFields={tPromotion('messages.campaignEditableFields')}
+              conditionalFieldsLabel={tPromotion(
+                'messages.conditionalEditableFieldsLabel',
+              )}
+              conditionalFields={tPromotion(
+                'messages.campaignConditionalFields',
+              )}
+              lockedFieldsLabel={tPromotion('messages.lockedFieldsLabel')}
+              lockedFields={tPromotion('messages.campaignLockedFields')}
+              lockedReason={tPromotion('messages.campaignLockedReason')}
+            />
           ) : null}
         </div>
         <DialogFooter>
@@ -2039,6 +2292,9 @@ export default function AdminOperationPromotionsPage() {
   const [selectedPromoName, setSelectedPromoName] = useState('');
   const [couponUsageOpen, setCouponUsageOpen] = useState(false);
   const [campaignRedemptionsOpen, setCampaignRedemptionsOpen] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] =
+    useState<PromotionStatusChangeTarget | null>(null);
+  const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
   const [couponFiltersExpanded, setCouponFiltersExpanded] = useState(false);
   const [campaignFiltersExpanded, setCampaignFiltersExpanded] = useState(false);
   const {
@@ -2086,6 +2342,7 @@ export default function AdminOperationPromotionsPage() {
           name: filters.name.trim(),
           course_query: filters.course_query.trim(),
           usage_type: filters.usage_type,
+          ops_state: filters.ops_state,
           discount_type: filters.discount_type,
           status: filters.status,
           start_time: filters.start_time,
@@ -2111,7 +2368,9 @@ export default function AdminOperationPromotionsPage() {
         setCouponPageCount(response.page_count || 0);
       } catch (error) {
         setCouponError({
-          message: (error as Error).message || 'Failed to load coupons',
+          message:
+            (error as Error).message ||
+            tPromotion('messages.loadCouponsFailed'),
         });
         setCoupons([]);
         setCouponPage(pageIndex);
@@ -2120,7 +2379,7 @@ export default function AdminOperationPromotionsPage() {
         setCouponLoading(false);
       }
     },
-    [],
+    [tPromotion],
   );
 
   const fetchCampaigns = useCallback(
@@ -2133,6 +2392,8 @@ export default function AdminOperationPromotionsPage() {
           page_size: PAGE_SIZE,
           keyword: filters.keyword.trim(),
           course_query: filters.course_query.trim(),
+          apply_type: filters.apply_type,
+          channel: filters.channel.trim(),
           discount_type: filters.discount_type,
           status: filters.status,
           start_time: filters.start_time,
@@ -2158,7 +2419,9 @@ export default function AdminOperationPromotionsPage() {
         setCampaignPageCount(response.page_count || 0);
       } catch (error) {
         setCampaignError({
-          message: (error as Error).message || 'Failed to load campaigns',
+          message:
+            (error as Error).message ||
+            tPromotion('messages.loadCampaignsFailed'),
         });
         setCampaigns([]);
         setCampaignPage(pageIndex);
@@ -2167,7 +2430,7 @@ export default function AdminOperationPromotionsPage() {
         setCampaignLoading(false);
       }
     },
-    [],
+    [tPromotion],
   );
 
   useEffect(() => {
@@ -2324,45 +2587,59 @@ export default function AdminOperationPromotionsPage() {
     setEditingCampaign(null);
   };
 
-  const handleCouponStatusToggle = async (item: AdminPromotionCouponItem) => {
-    const enabling = item.computed_status === 'inactive';
-    try {
-      await api.updateAdminOperationPromotionCouponStatus({
-        coupon_bid: item.coupon_bid,
-        enabled: enabling,
-      });
-      toast({
-        description: tPromotion(
-          enabling ? 'messages.enabledSuccess' : 'messages.disabledSuccess',
-        ),
-      });
-      await fetchCoupons(couponPage, couponFilters);
-    } catch (error) {
-      toast({
-        description: (error as Error).message || t('common.core.submitFailed'),
-      });
-    }
+  const handleCouponStatusToggle = (item: AdminPromotionCouponItem) => {
+    setPendingStatusChange({
+      entityType: 'coupon',
+      enabling: item.computed_status === 'inactive',
+      item,
+    });
   };
 
-  const handleCampaignStatusToggle = async (
-    item: AdminPromotionCampaignItem,
-  ) => {
-    const enabling = item.computed_status === 'inactive';
+  const handleCampaignStatusToggle = (item: AdminPromotionCampaignItem) => {
+    setPendingStatusChange({
+      entityType: 'campaign',
+      enabling: item.computed_status === 'inactive',
+      item,
+    });
+  };
+
+  const handleConfirmStatusToggle = async () => {
+    if (!pendingStatusChange) {
+      return;
+    }
+
+    setStatusChangeSubmitting(true);
     try {
-      await api.updateAdminOperationPromotionCampaignStatus({
-        promo_bid: item.promo_bid,
-        enabled: enabling,
-      });
-      toast({
-        description: tPromotion(
-          enabling ? 'messages.enabledSuccess' : 'messages.disabledSuccess',
-        ),
-      });
-      await fetchCampaigns(campaignPage, campaignFilters);
+      if (pendingStatusChange.entityType === 'coupon') {
+        await api.updateAdminOperationPromotionCouponStatus({
+          coupon_bid: pendingStatusChange.item.coupon_bid,
+          enabled: pendingStatusChange.enabling,
+        });
+        toast({
+          description: pendingStatusChange.enabling
+            ? tPromotion('messages.couponEnabledSuccess')
+            : tPromotion('messages.couponDisabledSuccess'),
+        });
+        await fetchCoupons(couponPage, couponFilters);
+      } else {
+        await api.updateAdminOperationPromotionCampaignStatus({
+          promo_bid: pendingStatusChange.item.promo_bid,
+          enabled: pendingStatusChange.enabling,
+        });
+        toast({
+          description: pendingStatusChange.enabling
+            ? tPromotion('messages.campaignEnabledSuccess')
+            : tPromotion('messages.campaignDisabledSuccess'),
+        });
+        await fetchCampaigns(campaignPage, campaignFilters);
+      }
+      setPendingStatusChange(null);
     } catch (error) {
       toast({
         description: (error as Error).message || t('common.core.submitFailed'),
       });
+    } finally {
+      setStatusChangeSubmitting(false);
     }
   };
 
@@ -2378,11 +2655,12 @@ export default function AdminOperationPromotionsPage() {
       } catch (error) {
         toast({
           description:
-            (error as Error).message || t('common.core.submitFailed'),
+            (error as Error).message ||
+            tPromotion('messages.loadCouponDetailFailed'),
         });
       }
     },
-    [t, toast],
+    [tPromotion, toast],
   );
 
   const handleOpenCampaignRedemptions = useCallback(
@@ -2410,11 +2688,12 @@ export default function AdminOperationPromotionsPage() {
       } catch (error) {
         toast({
           description:
-            (error as Error).message || t('common.core.submitFailed'),
+            (error as Error).message ||
+            tPromotion('messages.loadCampaignDetailFailed'),
         });
       }
     },
-    [t, toast],
+    [tPromotion, toast],
   );
 
   if (!isReady) {
@@ -2460,14 +2739,7 @@ export default function AdminOperationPromotionsPage() {
             }
           >
             <div className='space-y-4'>
-              <div
-                className={cn(
-                  'grid gap-4',
-                  couponFiltersExpanded
-                    ? 'grid-cols-1 xl:grid-cols-3'
-                    : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                )}
-              >
+              <div className={COUPON_COLLAPSED_FILTER_GRID_CLASS}>
                 <SearchField label={tPromotion('filters.keyword')}>
                   <ClearableInput
                     value={couponFilters.keyword}
@@ -2538,37 +2810,37 @@ export default function AdminOperationPromotionsPage() {
                     </SelectContent>
                   </Select>
                 </SearchField>
-
-                {!couponFiltersExpanded ? (
-                  <SearchActions
-                    expanded={false}
-                    onReset={handleCouponReset}
-                    onSearch={handleCouponSearch}
-                    onToggle={() => setCouponFiltersExpanded(true)}
-                    resetLabel={t('module.order.filters.reset')}
-                    searchLabel={t('module.order.filters.search')}
-                    expandLabel={t('common.core.expand')}
-                    collapseLabel={t('common.core.collapse')}
+                <SearchField label={tPromotion('filters.courseId')}>
+                  <ClearableInput
+                    value={couponFilters.course_query}
+                    onChange={value =>
+                      setCouponFilters(current => ({
+                        ...current,
+                        course_query: value,
+                      }))
+                    }
+                    placeholder={tPromotion('filters.courseIdPlaceholder')}
+                    clearLabel={clearLabel}
                   />
-                ) : null}
+                </SearchField>
               </div>
+
+              {!couponFiltersExpanded ? (
+                <SearchActions
+                  expanded={false}
+                  onReset={handleCouponReset}
+                  onSearch={handleCouponSearch}
+                  onToggle={() => setCouponFiltersExpanded(true)}
+                  resetLabel={t('module.order.filters.reset')}
+                  searchLabel={t('module.order.filters.search')}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                />
+              ) : null}
 
               {couponFiltersExpanded ? (
                 <div className='space-y-4'>
-                  <div className='grid gap-4 xl:grid-cols-3 2xl:grid-cols-5'>
-                    <SearchField label={tPromotion('filters.courseId')}>
-                      <ClearableInput
-                        value={couponFilters.course_query}
-                        onChange={value =>
-                          setCouponFilters(current => ({
-                            ...current,
-                            course_query: value,
-                          }))
-                        }
-                        placeholder={tPromotion('filters.courseIdPlaceholder')}
-                        clearLabel={clearLabel}
-                      />
-                    </SearchField>
+                  <div className={SEARCH_FILTER_GRID_CLASS}>
                     <SearchField label={tPromotion('filters.usageType')}>
                       <Select
                         value={couponFilters.usage_type || ALL_OPTION_VALUE}
@@ -2602,6 +2874,43 @@ export default function AdminOperationPromotionsPage() {
                             className={SINGLE_SELECT_ITEM_CLASS}
                           >
                             {tPromotion('usageType.singleUse')}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </SearchField>
+                    <SearchField label={tPromotion('filters.opsState')}>
+                      <Select
+                        value={couponFilters.ops_state || ALL_OPTION_VALUE}
+                        onValueChange={value =>
+                          setCouponFilters(current => ({
+                            ...current,
+                            ops_state: value === ALL_OPTION_VALUE ? '' : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className='h-9'>
+                          <SelectValue
+                            placeholder={tPromotion('filters.opsState')}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem
+                            value={ALL_OPTION_VALUE}
+                            className={SINGLE_SELECT_ITEM_CLASS}
+                          >
+                            {t('common.core.all')}
+                          </SelectItem>
+                          <SelectItem
+                            value='expiring_soon'
+                            className={SINGLE_SELECT_ITEM_CLASS}
+                          >
+                            {tPromotion('opsState.expiringSoon')}
+                          </SelectItem>
+                          <SelectItem
+                            value='used_up'
+                            className={SINGLE_SELECT_ITEM_CLASS}
+                          >
+                            {tPromotion('opsState.usedUp')}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -2646,7 +2955,7 @@ export default function AdminOperationPromotionsPage() {
                     </SearchField>
                     <SearchField
                       label={tPromotion('filters.activeTime')}
-                      contentClassName='max-w-[280px]'
+                      contentClassName='min-w-0'
                     >
                       <AdminDateRangeFilter
                         startValue={couponFilters.start_time}
@@ -2807,15 +3116,17 @@ export default function AdminOperationPromotionsPage() {
                         {renderTooltipText(item.name)}
                       </TableCell>
                       <TableCell
-                        className={TABLE_CELL_CLASS}
+                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
                         style={getCouponColumnStyle('status')}
                       >
-                        {renderTooltipText(
-                          resolvePromotionStatusLabel(
+                        <div className='flex flex-wrap items-center justify-center gap-1'>
+                          {renderPromotionStatusBadge({
                             tPromotion,
-                            item.computed_status_key,
-                          ),
-                        )}
+                            statusKey: item.computed_status_key,
+                            status: item.computed_status,
+                          })}
+                          {renderCouponAttentionBadges(item, tPromotion)}
+                        </div>
                       </TableCell>
                       <TableCell
                         className={TABLE_CELL_CLASS}
@@ -3025,14 +3336,7 @@ export default function AdminOperationPromotionsPage() {
             }
           >
             <div className='space-y-4'>
-              <div
-                className={cn(
-                  'grid gap-4',
-                  campaignFiltersExpanded
-                    ? 'grid-cols-1 xl:grid-cols-3'
-                    : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                )}
-              >
+              <div className={CAMPAIGN_COLLAPSED_FILTER_GRID_CLASS}>
                 <SearchField label={tPromotion('filters.campaignName')}>
                   <ClearableInput
                     value={campaignFilters.keyword}
@@ -3106,24 +3410,82 @@ export default function AdminOperationPromotionsPage() {
                     </SelectContent>
                   </Select>
                 </SearchField>
-
-                {!campaignFiltersExpanded ? (
-                  <SearchActions
-                    expanded={false}
-                    onReset={handleCampaignReset}
-                    onSearch={handleCampaignSearch}
-                    onToggle={() => setCampaignFiltersExpanded(true)}
-                    resetLabel={t('module.order.filters.reset')}
-                    searchLabel={t('module.order.filters.search')}
-                    expandLabel={t('common.core.expand')}
-                    collapseLabel={t('common.core.collapse')}
-                  />
-                ) : null}
+                <SearchField label={tPromotion('campaign.applyType')}>
+                  <Select
+                    value={campaignFilters.apply_type || ALL_OPTION_VALUE}
+                    onValueChange={value =>
+                      setCampaignFilters(current => ({
+                        ...current,
+                        apply_type: value === ALL_OPTION_VALUE ? '' : value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className='h-9'>
+                      <SelectValue
+                        placeholder={tPromotion(
+                          'campaign.applyTypePlaceholder',
+                        )}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value={ALL_OPTION_VALUE}
+                        className={SINGLE_SELECT_ITEM_CLASS}
+                      >
+                        {t('common.core.all')}
+                      </SelectItem>
+                      <SelectItem
+                        value='2101'
+                        className={SINGLE_SELECT_ITEM_CLASS}
+                      >
+                        {tPromotion('campaign.applyTypeAuto')}
+                      </SelectItem>
+                      <SelectItem
+                        value='2102'
+                        className={SINGLE_SELECT_ITEM_CLASS}
+                      >
+                        {tPromotion('campaign.applyTypeEvent')}
+                      </SelectItem>
+                      <SelectItem
+                        value='2103'
+                        className={SINGLE_SELECT_ITEM_CLASS}
+                      >
+                        {tPromotion('campaign.applyTypeManual')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SearchField>
               </div>
+
+              {!campaignFiltersExpanded ? (
+                <SearchActions
+                  expanded={false}
+                  onReset={handleCampaignReset}
+                  onSearch={handleCampaignSearch}
+                  onToggle={() => setCampaignFiltersExpanded(true)}
+                  resetLabel={t('module.order.filters.reset')}
+                  searchLabel={t('module.order.filters.search')}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                />
+              ) : null}
 
               {campaignFiltersExpanded ? (
                 <div className='space-y-4'>
-                  <div className='grid gap-4 xl:grid-cols-3 2xl:grid-cols-5'>
+                  <div className={SEARCH_FILTER_GRID_CLASS}>
+                    <SearchField label={tPromotion('campaign.channel')}>
+                      <ClearableInput
+                        value={campaignFilters.channel}
+                        onChange={value =>
+                          setCampaignFilters(current => ({
+                            ...current,
+                            channel: value,
+                          }))
+                        }
+                        placeholder={tPromotion('campaign.channelPlaceholder')}
+                        clearLabel={clearLabel}
+                      />
+                    </SearchField>
                     <SearchField label={tPromotion('filters.discountType')}>
                       <Select
                         value={
@@ -3166,7 +3528,7 @@ export default function AdminOperationPromotionsPage() {
                     </SearchField>
                     <SearchField
                       label={tPromotion('filters.campaignTime')}
-                      contentClassName='max-w-[280px]'
+                      contentClassName='min-w-0'
                     >
                       <AdminDateRangeFilter
                         startValue={campaignFilters.start_time}
@@ -3313,15 +3675,16 @@ export default function AdminOperationPromotionsPage() {
                         {renderTooltipText(item.name)}
                       </TableCell>
                       <TableCell
-                        className={TABLE_CELL_CLASS}
+                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
                         style={getCampaignColumnStyle('status')}
                       >
-                        {renderTooltipText(
-                          resolvePromotionStatusLabel(
+                        <div className='flex flex-wrap items-center justify-center gap-1'>
+                          {renderPromotionStatusBadge({
                             tPromotion,
-                            item.computed_status_key,
-                          ),
-                        )}
+                            statusKey: item.computed_status_key,
+                            status: item.computed_status,
+                          })}
+                        </div>
                       </TableCell>
                       <TableCell
                         className={TABLE_CELL_CLASS}
@@ -3543,6 +3906,16 @@ export default function AdminOperationPromotionsPage() {
         }}
         promoBid={selectedPromoBid}
         campaignName={selectedPromoName}
+      />
+      <PromotionStatusConfirmDialog
+        changeTarget={pendingStatusChange}
+        submitting={statusChangeSubmitting}
+        onOpenChange={open => {
+          if (!open && !statusChangeSubmitting) {
+            setPendingStatusChange(null);
+          }
+        }}
+        onConfirm={handleConfirmStatusToggle}
       />
     </div>
   );
