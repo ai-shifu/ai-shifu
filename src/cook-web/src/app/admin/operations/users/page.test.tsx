@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationUsersPage from './page';
 
@@ -324,7 +330,6 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
-        user_bid: '',
         identifier: '',
         nickname: '',
         user_status: '',
@@ -436,8 +441,10 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
     });
 
-    const userIdInput = screen.getAllByRole('textbox')[0];
-    fireEvent.change(userIdInput, { target: { value: 'user-22' } });
+    const identifierInput = screen.getAllByRole('textbox')[0];
+    fireEvent.change(identifierInput, {
+      target: { value: 'user-22@example.com' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
 
     fireEvent.click(
@@ -453,8 +460,7 @@ describe('AdminOperationUsersPage', () => {
       expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith({
         page_index: 1,
         page_size: 20,
-        user_bid: 'user-22',
-        identifier: '',
+        identifier: 'user-22@example.com',
         nickname: '',
         user_status: '',
         user_role: 'creator',
@@ -462,6 +468,32 @@ describe('AdminOperationUsersPage', () => {
         end_time: '',
       });
     });
+  });
+
+  test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    expect(screen.getAllByRole('textbox')).toHaveLength(2);
+    expect(
+      screen.getByText('module.operationsUser.filters.nickname'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.filters.status'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.expand' }));
+
+    expect(
+      screen.getAllByText('module.operationsUser.filters.status').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.operationsUser.filters.role').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.operationsUser.filters.createdAt').length,
+    ).toBeGreaterThan(0);
   });
 
   test('redirects non-operators back to admin', async () => {
@@ -541,6 +573,73 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByRole('link', { name: 'user-no-contact' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-no-contact');
+    const row = screen
+      .getByRole('link', { name: 'user-no-contact' })
+      .closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLTableRowElement).getAllByRole('cell');
+    expect(
+      within(cells[1] as HTMLTableCellElement).getByText(
+        'module.operationsUser.table.guestUser',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(cells[1] as HTMLTableCellElement).queryByText('--'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not mark users as guests when only the alternate contact exists', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-phone-only',
+          mobile: '13812345678',
+          email: '',
+          nickname: 'Phone Only',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '',
+          subscription_credits: '',
+          topup_credits: '',
+          credits_expire_at: '',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    const row = (
+      await screen.findByRole('link', { name: 'user-phone-only' })
+    ).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLTableRowElement).getAllByRole('cell');
+
+    expect(
+      within(cells[1] as HTMLTableCellElement).queryByText(
+        'module.operationsUser.table.guestUser',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(cells[1] as HTMLTableCellElement).getByText('--'),
+    ).toBeInTheDocument();
+    expect(
+      within(cells[1] as HTMLTableCellElement).queryByText('13812345678'),
+    ).not.toBeInTheDocument();
   });
 
   test('uses course status translations for unknown course states in the dialog', async () => {

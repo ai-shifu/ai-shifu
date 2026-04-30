@@ -6,6 +6,7 @@ import AdminOperationUserDetailPage from './page';
 const mockPush = jest.fn();
 const mockRefresh = jest.fn();
 const mockScrollIntoView = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 let currentUserBid = 'user-1';
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
@@ -87,7 +88,7 @@ jest.mock('@/c-store', () => ({
 }));
 
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -262,6 +263,8 @@ describe('AdminOperationUserDetailPage', () => {
     mockPush.mockReset();
     mockRefresh.mockReset();
     mockScrollIntoView.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationUserDetail.mockReset();
     mockGetAdminOperationUserCredits.mockReset();
     mockUserState.isInitialized = true;
@@ -331,6 +334,44 @@ describe('AdminOperationUserDetailPage', () => {
     ).toHaveAttribute('href', '/admin/operations/course-1');
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
     expect(pageContainer).not.toHaveClass('overflow-auto');
+  });
+
+  test('renders detail timestamps in the viewer timezone when UTC crosses local day boundaries', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      ...detailResponse,
+      last_login_at: '2026-04-15T01:30:00Z',
+      last_learning_at: '2026-04-15T02:30:00Z',
+      created_at: '2026-04-14T01:15:00Z',
+      updated_at: '2026-04-14T03:45:00Z',
+    });
+    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+      ...creditsResponse,
+      summary: {
+        ...creditsResponse.summary,
+        credits_expire_at: '2026-05-01T01:00:00Z',
+      },
+      items: [
+        {
+          ...creditsResponse.items[0],
+          created_at: '2026-04-18T01:00:00Z',
+          expires_at: '2026-05-01T01:00:00Z',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    await screen.findByText('module.operationsUser.detail.title');
+
+    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-13 20:45:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {
