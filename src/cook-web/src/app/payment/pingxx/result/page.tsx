@@ -5,10 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { queryOrder } from '@/c-api/order';
-import { ORDER_STATUS } from '@/app/c/[[...id]]/Components/Pay/constans';
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 15;
+const ORDER_STATUS = {
+  BUY_STATUS_INIT: 501,
+  BUY_STATUS_SUCCESS: 502,
+  BUY_STATUS_REFUND: 503,
+  BUY_STATUS_TO_BE_PAID: 504,
+} as const;
 
 interface PingxxResultState {
   status: 'loading' | 'success' | 'pending' | 'error';
@@ -23,7 +28,7 @@ interface OrderSnapshot {
   status: number;
 }
 
-const PINGXX_PENDING_STATUSES = new Set([
+const PINGXX_PENDING_STATUSES = new Set<number>([
   ORDER_STATUS.BUY_STATUS_INIT,
   ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
 ]);
