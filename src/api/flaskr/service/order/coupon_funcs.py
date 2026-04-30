@@ -9,7 +9,7 @@ from flaskr.service.promo.consts import (
     COUPON_TYPE_FIXED,
     COUPON_TYPE_PERCENT,
 )
-from flaskr.service.promo.funcs import (
+from flaskr.service.promo.api import (
     build_coupon_enabled_expression,
     is_coupon_enabled_for_runtime,
 )

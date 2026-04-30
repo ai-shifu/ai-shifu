@@ -1141,6 +1141,54 @@ def test_admin_promotions_campaign_route_rejects_overlap(app, test_client, monke
     assert second_payload["code"] != 0
 
 
+def test_admin_promotions_campaign_route_rejects_overlap_with_legacy_enabled_campaign(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-legacy-overlap", "Legacy Overlap Course")
+        db.session.add(
+            PromoCampaign(
+                promo_bid="legacy-overlap-campaign",
+                shifu_bid="course-legacy-overlap",
+                name="Legacy Auto Campaign",
+                description="Legacy overlap campaign",
+                apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+                status=0,
+                start_at=datetime.strptime("2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                end_at=datetime.strptime("2026-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                discount_type=COUPON_TYPE_FIXED,
+                value=Decimal("10"),
+                channel="app",
+                filter="{}",
+                created_user_bid="",
+                updated_user_bid="",
+            )
+        )
+        db.session.commit()
+
+    overlap_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Window Two",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            "shifu_bid": "course-legacy-overlap",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "5",
+            "start_at": "2026-05-01 10:00:00",
+            "end_at": "2026-05-20 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    overlap_payload = overlap_response.get_json(force=True)
+
+    assert overlap_response.status_code == 200
+    assert overlap_payload["code"] != 0
+
+
 def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
     app, test_client, monkeypatch
 ):
@@ -1165,8 +1213,8 @@ def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
                     total_count=20,
                     used_count=3,
                     status=0,
-                    created_user_bid="",
-                    updated_user_bid="",
+                    created_user_bid=" ",
+                    updated_user_bid="\t",
                 ),
                 Coupon(
                     coupon_bid="legacy-coupon-future",
@@ -1284,8 +1332,8 @@ def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
                     value=Decimal("20"),
                     channel="app",
                     filter="{}",
-                    created_user_bid="",
-                    updated_user_bid="",
+                    created_user_bid=" ",
+                    updated_user_bid="\t",
                 ),
                 PromoCampaign(
                     promo_bid="legacy-campaign-future",

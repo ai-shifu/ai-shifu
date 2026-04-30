@@ -1549,7 +1549,7 @@ def _validate_campaign_overlap(
         PromoCampaign.deleted == 0,
         PromoCampaign.apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
         PromoCampaign.shifu_bid == shifu_bid,
-        PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+        build_campaign_enabled_expression(PromoCampaign),
         PromoCampaign.start_at <= end_at,
         PromoCampaign.end_at >= start_at,
     )
@@ -1666,7 +1666,7 @@ def update_operator_promotion_campaign(
         ):
             raise_param_error("apply_type")
         if (
-            int(campaign.status or 0) == PROMO_CAMPAIGN_STATUS_ACTIVE
+            is_campaign_enabled_for_runtime(campaign)
             and apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO
         ):
             _validate_campaign_overlap(

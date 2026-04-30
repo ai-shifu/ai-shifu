@@ -54,13 +54,21 @@ def is_campaign_enabled_for_runtime(campaign) -> bool:
     )
 
 
+def _blank_legacy_bid_expression(column):
+    normalized = func.coalesce(column, "")
+    normalized = func.replace(normalized, "\t", "")
+    normalized = func.replace(normalized, "\n", "")
+    normalized = func.replace(normalized, "\r", "")
+    return func.trim(normalized) == ""
+
+
 def build_coupon_enabled_expression(model_or_columns):
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
         and_(
             model_or_columns.status == COUPON_BATCH_STATUS_INACTIVE,
-            func.coalesce(model_or_columns.created_user_bid, "") == "",
-            func.coalesce(model_or_columns.updated_user_bid, "") == "",
+            _blank_legacy_bid_expression(model_or_columns.created_user_bid),
+            _blank_legacy_bid_expression(model_or_columns.updated_user_bid),
         ),
     )
 
@@ -70,8 +78,8 @@ def build_campaign_enabled_expression(model_or_columns):
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
         and_(
             model_or_columns.status == PROMO_CAMPAIGN_STATUS_INACTIVE,
-            func.coalesce(model_or_columns.created_user_bid, "") == "",
-            func.coalesce(model_or_columns.updated_user_bid, "") == "",
+            _blank_legacy_bid_expression(model_or_columns.created_user_bid),
+            _blank_legacy_bid_expression(model_or_columns.updated_user_bid),
         ),
     )
 
