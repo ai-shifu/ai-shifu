@@ -626,6 +626,7 @@ def generate_charge(
                 subject=subject,
                 body=body,
                 order_no=order_no,
+                return_url=return_url,
             )
 
         app.logger.error("payment channel not support: %s", payment_channel)
@@ -1081,6 +1082,7 @@ def _generate_wechatpay_charge(
     subject: str,
     body: str,
     order_no: str,
+    return_url: str = "",
 ) -> BuyRecordDTO:
     provider = get_payment_provider("wechatpay")
     sanitized_subject = _sanitize_pingxx_text(
@@ -1106,6 +1108,8 @@ def _generate_wechatpay_charge(
         if not open_id:
             raise_error("server.pay.wechatOpenIdRequired")
         extra["open_id"] = open_id
+    if channel == "wx_h5" and return_url:
+        extra["return_url"] = return_url
 
     payment_request = PaymentRequest(
         order_bid=order_no,
@@ -1122,6 +1126,8 @@ def _generate_wechatpay_charge(
     result = provider.create_payment(request=payment_request, app=app)
     credential = result.extra.get("credential", {}) or {}
     qr_url = str(result.extra.get("qr_url") or credential.get("wx_pub_qr") or "")
+    h5_url = str(result.extra.get("h5_url") or credential.get("wx_h5") or "")
+    redirect_url = str(result.extra.get("redirect_url") or "")
 
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     metadata = {
@@ -1153,6 +1159,8 @@ def _generate_wechatpay_charge(
 
     payment_payload: Dict[str, Any] = {
         "qr_url": qr_url,
+        "h5_url": h5_url,
+        "redirect_url": redirect_url,
         "credential": credential,
     }
     if result.extra.get("mode") == "jsapi":
@@ -1169,7 +1177,7 @@ def _generate_wechatpay_charge(
         buy_record.user_bid,
         buy_record.paid_price,
         channel,
-        qr_url,
+        redirect_url or qr_url or h5_url,
         payment_channel="wechatpay",
         payment_payload=payment_payload,
     )

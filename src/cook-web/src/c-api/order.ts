@@ -19,6 +19,8 @@ export interface NativePaymentPayload {
   jsapi_params?: Record<string, string>;
   credential?: Record<string, unknown>;
   qr_url?: PayUrlValue;
+  h5_url?: string;
+  redirect_url?: string;
 }
 
 export interface PingxxPaymentPayload {

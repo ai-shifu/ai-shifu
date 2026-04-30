@@ -102,13 +102,13 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 订单id
                     channel:
                         type: string
-                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、wx_wap、alipay_qr、alipay_wap等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、wx_h5、wx_wap、alipay_qr、alipay_wap等；Stripe通道请输入stripe或stripe:checkout_session等格式
                     payment_channel:
                         type: string
                         description: 目标支付提供方，可选值为pingxx、stripe、alipay、wechatpay（不填则按配置解析）
                     return_url:
                         type: string
-                        description: Ping++ WAP return URL. Only same-origin URLs or site-relative paths are allowed.
+                        description: Mobile payment return URL. Only same-origin URLs or site-relative paths are allowed.
                     cancel_url:
                         type: string
                         description: Ping++ cancel URL. Only same-origin URLs or site-relative paths are allowed.
