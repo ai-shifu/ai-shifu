@@ -156,7 +156,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   ) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.verifySmsCode({
+        apiService.skillLogin({
           mobile,
           sms_code,
           language,
@@ -187,10 +187,10 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   // Send SMS verification code with automatic token refresh
-  const sendSmsCode = async (mobile: string, language: string) => {
+  const sendSmsCode = async (mobile: string, captchaTicket: string) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.sendSmsCode({ mobile, language }),
+        apiService.sendSmsCode({ mobile, captcha_ticket: captchaTicket }),
       );
 
       if (response.code !== 0) {

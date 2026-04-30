@@ -32,6 +32,10 @@ from ..service.user.utils import (
     send_email_code,
     send_sms_code,
 )
+from flaskr.service.user.captcha import (
+    create_captcha_challenge,
+    verify_captcha_code,
+)
 from flaskr.service.user.verification_codes import consume_verification_code
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
@@ -271,6 +275,36 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         resp = make_response(make_common_response(user_token))
         return resp
 
+    @app.route(path_prefix + "/captcha", methods=["GET"])
+    @bypass_token_validation
+    def captcha_api():
+        """
+        Create image captcha
+        ---
+        tags:
+           - user
+        """
+        return make_common_response(create_captcha_challenge(app))
+
+    @app.route(path_prefix + "/captcha/verify", methods=["POST"])
+    @bypass_token_validation
+    def captcha_verify_api():
+        """
+        Verify image captcha and return one-time ticket
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        captcha_id = payload.get("captcha_id", None)
+        captcha_code = payload.get("captcha_code", None)
+        if not captcha_id:
+            raise_param_error("captcha_id")
+        if not captcha_code:
+            raise_param_error("captcha_code")
+        return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
+
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -289,8 +323,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mobile:
                   type: string
                   description: mobile phone number
+                captcha_ticket:
+                  type: string
+                  description: one-time image captcha ticket
               required:
                 - mobile
+                - captcha_ticket
         responses:
             200:
                 description: sent success
@@ -317,14 +355,19 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 description: parameter error
 
         """
-        mobile = request.get_json().get("mobile", None)
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        mobile = payload.get("mobile", None)
+        captcha_ticket = payload.get("captcha_ticket", None)
         if not mobile:
             raise_param_error("mobile")
         if "X-Forwarded-For" in request.headers:
             client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
         else:
             client_ip = request.remote_addr
-        return make_common_response(send_sms_code(app, mobile, client_ip))
+        return make_common_response(
+            send_sms_code(app, mobile, client_ip, captcha_ticket)
+        )
 
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
@@ -355,12 +398,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         return make_common_response(send_email_code(app, email, client_ip, language))
 
-    @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
+    @app.route(path_prefix + "/skill-login", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def verify_sms_code_api():
+    def skill_login_api():
         """
-        Send verify email code
+        Login through SMS verification code for skill-compatible callers
         ---
         tags:
            - user

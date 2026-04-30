@@ -12,6 +12,7 @@ from ..common.models import raise_error
 from flaskr.common.cache_provider import cache as redis
 from ...dao import db
 from flaskr.api.sms.aliyun import send_sms_code_ali
+from flaskr.service.user.captcha import consume_captcha_ticket
 from .models import UserVerifyCode
 
 import json
@@ -92,8 +93,10 @@ def generate_token(app: Flask, user_id: str) -> str:
 
 
 # send sms code
-def send_sms_code(app: Flask, phone: str, ip: str = None):
+def send_sms_code(app: Flask, phone: str, ip: str = None, captcha_ticket: str = None):
     with app.app_context():
+        consume_captcha_ticket(app, captcha_ticket)
+
         # Check IP ban status
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip
