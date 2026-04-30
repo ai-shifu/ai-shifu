@@ -37,6 +37,43 @@ FRONTEND_PATTERNS = [
     re.compile(r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
 ]
 
+USE_TRANSLATION_ALIAS_PATTERN = re.compile(
+    r"""
+    \{\s*t
+    (?:\s*:\s*([A-Za-z_][A-Za-z0-9_]*))?
+    [^}]*\}
+    \s*=\s*useTranslation\(
+      \s*(?:
+        ['"]([A-Za-z0-9_.-]+)['"] |
+        \[\s*['"]([A-Za-z0-9_.-]+)['"]
+      )
+    """,
+    re.VERBOSE,
+)
+
+
+def collect_frontend_namespaced_keys(text: str) -> Set[str]:
+    used: Set[str] = set()
+    alias_to_namespace: Dict[str, str] = {}
+
+    for match in USE_TRANSLATION_ALIAS_PATTERN.finditer(text):
+        alias = match.group(1) or "t"
+        namespace = match.group(2) or match.group(3)
+        if namespace:
+            alias_to_namespace[alias] = namespace
+
+    for alias, namespace in alias_to_namespace.items():
+        call_pattern = re.compile(
+            rf"\b{re.escape(alias)}\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"
+        )
+        for key in call_pattern.findall(text):
+            if key.startswith(("common.", "component.", "module.", "server.")):
+                used.add(key)
+            else:
+                used.add(f"{namespace}.{key}")
+
+    return used
+
 
 def iter_locale_dirs() -> Iterable[Path]:
     if not I18N_DIR.exists():
@@ -173,6 +210,7 @@ def collect_frontend_keys() -> Set[str]:
             for pattern in patterns:
                 for match in pattern.findall(text):
                     used.add(match)
+            used.update(collect_frontend_namespaced_keys(text))
             # Catch translation keys referenced as bare string literals
             # (e.g. in arrays or maps) that are later passed to t().
             for match in STRING_LITERAL.findall(text):

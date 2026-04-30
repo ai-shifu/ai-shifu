@@ -143,6 +143,10 @@ def test_admin_promotions_coupons_route_requires_operator(test_client, monkeypat
 
 def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.promo.admin._now_local_naive",
+        lambda: datetime(2026, 5, 20, 12, 0, 0),
+    )
 
     with app.app_context():
         _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
@@ -221,6 +225,22 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert filtered_list_payload["data"]["total"] == 1
     assert filtered_list_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
 
+    expiring_coupon_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "expiring_soon",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+        },
+        headers={"Token": "test-token"},
+    )
+    expiring_coupon_payload = expiring_coupon_response.get_json(force=True)
+
+    assert expiring_coupon_payload["code"] == 0
+    assert expiring_coupon_payload["data"]["total"] == 1
+    assert expiring_coupon_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+
     code_filtered_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
         query_string={
@@ -298,6 +318,27 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
 
     assert codes_payload["code"] == 0
     assert codes_payload["data"]["total"] == 3
+
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        coupon.used_count = 3
+        db.session.commit()
+
+    used_up_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "used_up",
+        },
+        headers={"Token": "test-token"},
+    )
+    used_up_payload = used_up_response.get_json(force=True)
+
+    assert used_up_payload["code"] == 0
+    assert used_up_payload["data"]["total"] == 1
+    assert used_up_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
 
     status_response = test_client.post(
         f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/status",
@@ -878,6 +919,22 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
     assert list_payload["data"]["total"] == 1
     assert list_payload["data"]["summary"]["usage_count"] == 1
     assert list_payload["data"]["items"][0]["name"] == "Early Bird"
+
+    filtered_list_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "channel": "ap",
+        },
+        headers={"Token": "test-token"},
+    )
+    filtered_list_payload = filtered_list_response.get_json(force=True)
+
+    assert filtered_list_payload["code"] == 0
+    assert filtered_list_payload["data"]["total"] == 1
+    assert filtered_list_payload["data"]["items"][0]["promo_bid"] == promo_bid
 
     course_query_by_id_response = test_client.get(
         "/api/shifu/admin/operations/promotions/campaigns",

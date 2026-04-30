@@ -4,7 +4,7 @@ import decimal
 import json
 import secrets
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 from typing import Dict, Optional
 
@@ -104,6 +104,7 @@ CAMPAIGN_REDEMPTION_STATUS_KEY_MAP = {
 
 MAX_PROMOTION_PAGE_SIZE = 100
 MAX_SPECIFIC_COUPON_BATCH_SIZE = 2000
+PROMOTION_EXPIRING_SOON_DAYS = 7
 
 
 def _now_local_naive() -> datetime:
@@ -659,9 +660,18 @@ def list_operator_promotion_coupons(
         or ""
     ).strip()
     usage_type = str(filters.get("usage_type", "") or "").strip()
+    ops_state = str(filters.get("ops_state", "") or "").strip()
     discount_type = str(filters.get("discount_type", "") or "").strip()
     if usage_type:
         query = query.filter(Coupon.usage_type == int(usage_type))
+    if ops_state == "expiring_soon":
+        now = _now_local_naive()
+        query = query.filter(
+            Coupon.end >= now,
+            Coupon.end <= now + timedelta(days=PROMOTION_EXPIRING_SOON_DAYS),
+        )
+    elif ops_state == "used_up":
+        query = query.filter(Coupon.used_count >= Coupon.total_count)
     if discount_type:
         query = query.filter(Coupon.discount_type == int(discount_type))
     if keyword:
@@ -1396,7 +1406,13 @@ def list_operator_promotion_campaigns(
         or filters.get("shifu_bid")
         or ""
     ).strip()
+    apply_type = str(filters.get("apply_type", "") or "").strip()
+    channel = str(filters.get("channel", "") or "").strip()
     discount_type = str(filters.get("discount_type", "") or "").strip()
+    if apply_type:
+        query = query.filter(PromoCampaign.apply_type == int(apply_type))
+    if channel:
+        query = query.filter(PromoCampaign.channel.ilike(f"%{channel}%"))
     if discount_type:
         query = query.filter(PromoCampaign.discount_type == int(discount_type))
     if keyword:

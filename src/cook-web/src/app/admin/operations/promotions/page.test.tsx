@@ -151,6 +151,62 @@ jest.mock('@/components/ui/Dialog', () => {
   };
 });
 
+jest.mock('@/components/ui/AlertDialog', () => ({
+  __esModule: true,
+  AlertDialog: ({
+    open = true,
+    children,
+  }: React.PropsWithChildren<{ open?: boolean }>) =>
+    open ? <div>{children}</div> : null,
+  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogCancel: ({
+    children,
+    onClick,
+    disabled = false,
+  }: React.PropsWithChildren<{
+    onClick?: () => void;
+    disabled?: boolean;
+  }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  ),
+  AlertDialogAction: ({
+    children,
+    onClick,
+    disabled = false,
+  }: React.PropsWithChildren<{
+    onClick?: (event: { preventDefault: () => void }) => void;
+    disabled?: boolean;
+  }>) => (
+    <button
+      type='button'
+      onClick={() => onClick?.({ preventDefault: () => undefined })}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  ),
+}));
+
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
   DropdownMenu: ({ children }: React.PropsWithChildren) => (
@@ -500,6 +556,7 @@ describe('AdminOperationPromotionsPage', () => {
         name: '',
         course_query: '',
         usage_type: '',
+        ops_state: '',
         discount_type: '',
         status: '',
         start_time: '',
@@ -637,6 +694,8 @@ describe('AdminOperationPromotionsPage', () => {
         page_size: 20,
         keyword: '',
         course_query: '',
+        apply_type: '',
+        channel: '',
         discount_type: '',
         status: '',
         start_time: '',
@@ -680,6 +739,8 @@ describe('AdminOperationPromotionsPage', () => {
         page_size: 20,
         keyword: 'Retention',
         course_query: '',
+        apply_type: '',
+        channel: '',
         discount_type: '',
         status: '',
         start_time: '',
@@ -835,6 +896,8 @@ describe('AdminOperationPromotionsPage', () => {
         page_size: 20,
         keyword: '',
         course_query: '',
+        apply_type: '',
+        channel: '',
         discount_type: '',
         status: '',
         start_time: '',
@@ -862,8 +925,9 @@ describe('AdminOperationPromotionsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.operationsPromotion.campaign.applyTypeEvent'),
-    ).toBeInTheDocument();
+      screen.getAllByText('module.operationsPromotion.campaign.applyTypeEvent')
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('app')).toBeInTheDocument();
 
     fireEvent.click(
@@ -1040,9 +1104,11 @@ describe('AdminOperationPromotionsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
-        name: 'module.operationsPromotion.campaign.applyTypeEvent',
-      }),
+      screen
+        .getAllByRole('button', {
+          name: 'module.operationsPromotion.campaign.applyTypeEvent',
+        })
+        .at(-1),
     ).not.toBeDisabled();
   });
 
@@ -1136,11 +1202,10 @@ describe('AdminOperationPromotionsPage', () => {
       });
     });
 
-    expect(
-      await screen.findByRole('button', {
-        name: 'module.operationsPromotion.campaign.applyTypeEvent',
-      }),
-    ).toBeDisabled();
+    const applyTypeButtons = await screen.findAllByRole('button', {
+      name: 'module.operationsPromotion.campaign.applyTypeEvent',
+    });
+    expect(applyTypeButtons.at(-1)).toBeDisabled();
   });
 
   test('uses detail payload to refresh campaign edit locks when list data is stale', async () => {
@@ -1233,11 +1298,10 @@ describe('AdminOperationPromotionsPage', () => {
       });
     });
 
-    expect(
-      await screen.findByRole('button', {
-        name: 'module.operationsPromotion.campaign.applyTypeEvent',
-      }),
-    ).toBeDisabled();
+    const staleApplyTypeButtons = await screen.findAllByRole('button', {
+      name: 'module.operationsPromotion.campaign.applyTypeEvent',
+    });
+    expect(staleApplyTypeButtons.at(-1)).toBeDisabled();
   });
 
   test('shows toast when campaign status update is rejected', async () => {
@@ -1260,6 +1324,11 @@ describe('AdminOperationPromotionsPage', () => {
         name: 'module.operationsPromotion.actions.disable',
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -1278,6 +1347,11 @@ describe('AdminOperationPromotionsPage', () => {
         name: 'module.operationsPromotion.actions.disable',
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockUpdateCouponStatus).toHaveBeenCalledWith({
@@ -1286,7 +1360,7 @@ describe('AdminOperationPromotionsPage', () => {
       });
     });
     expect(mockToast).toHaveBeenCalledWith({
-      description: 'module.operationsPromotion.messages.disabledSuccess',
+      description: 'module.operationsPromotion.messages.couponDisabledSuccess',
     });
   });
 
@@ -1308,6 +1382,11 @@ describe('AdminOperationPromotionsPage', () => {
         name: 'module.operationsPromotion.actions.disable',
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockUpdateCampaignStatus).toHaveBeenCalledWith({
@@ -1316,7 +1395,8 @@ describe('AdminOperationPromotionsPage', () => {
       });
     });
     expect(mockToast).toHaveBeenCalledWith({
-      description: 'module.operationsPromotion.messages.disabledSuccess',
+      description:
+        'module.operationsPromotion.messages.campaignDisabledSuccess',
     });
   });
 
@@ -1447,6 +1527,228 @@ describe('AdminOperationPromotionsPage', () => {
         'module.operationsPromotion.filters.courseIdPlaceholder',
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  test('shows only used-up attention badge when an active coupon is both used up and expiring soon', async () => {
+    const soonEndAt = new Date(
+      Date.now() + 2 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    mockGetCoupons.mockResolvedValueOnce({
+      summary: {
+        total: 1,
+        active: 1,
+        usage_count: 10,
+        latest_usage_at: '2026-04-24T12:00:00Z',
+        covered_courses: 1,
+        discount_amount: '0',
+      },
+      items: [
+        {
+          coupon_bid: 'coupon-used-up-soon',
+          name: 'Soon Exhausted Coupon',
+          code: 'SOONUSED',
+          usage_type: 801,
+          usage_type_key: 'module.operationsPromotion.usageType.generic',
+          discount_type: 701,
+          discount_type_key: 'module.operationsPromotion.discountType.fixed',
+          value: '20',
+          scope_type: 'single_course',
+          shifu_bid: 'course-1',
+          course_name: 'Coupon Course',
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: soonEndAt,
+          total_count: 10,
+          used_count: 10,
+          computed_status: 'active',
+          computed_status_key: 'module.operationsPromotion.status.active',
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Soon Exhausted Coupon');
+
+    expect(
+      screen.getByText('module.operationsPromotion.opsState.usedUp'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.expiringSoon'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not show coupon attention badges when the coupon is not active', async () => {
+    const soonEndAt = new Date(
+      Date.now() + 2 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    mockGetCoupons.mockResolvedValueOnce({
+      summary: {
+        total: 2,
+        active: 0,
+        usage_count: 0,
+        latest_usage_at: '',
+        covered_courses: 1,
+        discount_amount: '0',
+      },
+      items: [
+        {
+          coupon_bid: 'coupon-not-started',
+          name: 'Upcoming Coupon',
+          code: 'UPCOMING',
+          usage_type: 801,
+          usage_type_key: 'module.operationsPromotion.usageType.generic',
+          discount_type: 701,
+          discount_type_key: 'module.operationsPromotion.discountType.fixed',
+          value: '20',
+          scope_type: 'single_course',
+          shifu_bid: 'course-1',
+          course_name: 'Coupon Course',
+          start_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          end_at: soonEndAt,
+          total_count: 10,
+          used_count: 0,
+          computed_status: 'not_started',
+          computed_status_key: 'module.operationsPromotion.status.notStarted',
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+        {
+          coupon_bid: 'coupon-inactive',
+          name: 'Inactive Coupon',
+          code: 'INACTIVE',
+          usage_type: 801,
+          usage_type_key: 'module.operationsPromotion.usageType.generic',
+          discount_type: 701,
+          discount_type_key: 'module.operationsPromotion.discountType.fixed',
+          value: '20',
+          scope_type: 'single_course',
+          shifu_bid: 'course-1',
+          course_name: 'Coupon Course',
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: soonEndAt,
+          total_count: 10,
+          used_count: 10,
+          computed_status: 'inactive',
+          computed_status_key: 'module.operationsPromotion.status.inactive',
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 2,
+    });
+
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Upcoming Coupon');
+    await screen.findByText('Inactive Coupon');
+
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.usedUp'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.expiringSoon'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('passes coupon usage type and ops state filters to the list request', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Spring Batch');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /common\.core\.expand/i }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.usageType.singleUse',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.opsState.usedUp',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetCoupons).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        name: '',
+        course_query: '',
+        usage_type: '802',
+        ops_state: 'used_up',
+        discount_type: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('passes campaign apply type and channel filters to the list request', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.campaigns',
+      }),
+    );
+
+    await screen.findByText('Early Bird');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /common\.core\.expand/i }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.applyTypeEvent',
+      }),
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsPromotion.campaign.channelPlaceholder',
+      ),
+      { target: { value: 'app' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetCampaigns).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        course_query: '',
+        apply_type: '2102',
+        channel: 'app',
+        discount_type: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
   });
 
   test('only keeps name quantity and active time editable in coupon edit dialog', async () => {
@@ -2326,6 +2628,11 @@ describe('AdminOperationPromotionsPage', () => {
         name: 'module.operationsPromotion.actions.disable',
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetCoupons).toHaveBeenLastCalledWith({
@@ -2335,6 +2642,7 @@ describe('AdminOperationPromotionsPage', () => {
         name: '',
         course_query: '',
         usage_type: '',
+        ops_state: '',
         discount_type: '',
         status: '',
         start_time: '',
@@ -2459,6 +2767,11 @@ describe('AdminOperationPromotionsPage', () => {
         name: 'module.operationsPromotion.actions.disable',
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetCampaigns).toHaveBeenLastCalledWith({
@@ -2466,6 +2779,8 @@ describe('AdminOperationPromotionsPage', () => {
         page_size: 20,
         keyword: '',
         course_query: '',
+        apply_type: '',
+        channel: '',
         discount_type: '',
         status: '',
         start_time: '',
