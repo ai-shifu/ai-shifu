@@ -82,10 +82,6 @@ jest.mock('@/hooks/useToast', () => ({
   show: (...args: unknown[]) => mockToastShow(...args),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
-
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
