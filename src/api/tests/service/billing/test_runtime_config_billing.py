@@ -295,7 +295,19 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     }
 
 
-def test_default_runtime_billing_context_is_database_free() -> None:
+def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("entitlement resolver must not run in default builder")
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_runtime_domain_result",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("domain resolver must not run in default builder")
+        ),
+    )
     payload = build_default_runtime_billing_context(
         creator_bid="creator-1",
         request_host="creator.example.com",
