@@ -245,7 +245,8 @@ export const PayModalM = ({
     '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
   const isPingxxRedirectChannel =
-    payChannel === PAY_CHANNEL_WECHAT_WAP || payChannel === PAY_CHANNEL_WECHAT_H5;
+    payChannel === PAY_CHANNEL_WECHAT_WAP ||
+    payChannel === PAY_CHANNEL_WECHAT_H5;
 
   const resolveDefaultChannel = useCallback(() => {
     if (wechatPaymentAvailable) {
@@ -296,9 +297,9 @@ export const PayModalM = ({
           : channel === PAY_CHANNEL_WECHAT_JSAPI ||
               channel === PAY_CHANNEL_WECHAT_WAP
             ? 'pingxx'
-          : channel.startsWith('stripe')
-            ? 'stripe'
-            : undefined;
+            : channel.startsWith('stripe')
+              ? 'stripe'
+              : undefined;
       const needsRedirect =
         channel === PAY_CHANNEL_WECHAT_WAP || channel === PAY_CHANNEL_WECHAT_H5;
 
@@ -362,7 +363,10 @@ export const PayModalM = ({
       if (nextChannel !== payChannel) {
         setPayChannel(nextChannel);
       }
-    } else if (wechatPaymentAvailable && nextChannel !== effectiveWechatChannel) {
+    } else if (
+      wechatPaymentAvailable &&
+      nextChannel !== effectiveWechatChannel
+    ) {
       nextChannel = effectiveWechatChannel;
       if (nextChannel !== payChannel) {
         setPayChannel(nextChannel);
@@ -415,8 +419,9 @@ export const PayModalM = ({
     }
 
     if (payChannel === PAY_CHANNEL_WECHAT_JSAPI) {
-      const paymentPayload = (payload.payment_payload ||
-        {}) as NativePaymentPayload | PingxxPaymentPayload;
+      const paymentPayload = (payload.payment_payload || {}) as
+        | NativePaymentPayload
+        | PingxxPaymentPayload;
       const jsapiParams = resolveJsapiParams(payload.qr_url, paymentPayload);
       if (!jsapiParams) {
         toast({
@@ -445,8 +450,9 @@ export const PayModalM = ({
         });
       }
     } else if (isPingxxRedirectChannel) {
-      const paymentPayload = (payload.payment_payload ||
-        {}) as PingxxPaymentPayload | NativePaymentPayload;
+      const paymentPayload = (payload.payment_payload || {}) as
+        | PingxxPaymentPayload
+        | NativePaymentPayload;
       const h5Url =
         'h5_url' in paymentPayload && typeof paymentPayload.h5_url === 'string'
           ? paymentPayload.h5_url

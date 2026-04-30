@@ -2,7 +2,10 @@ import request from '@/lib/request';
 
 export type PaymentChannel = 'pingxx' | 'stripe' | 'alipay' | 'wechatpay';
 export type PingxxJsApiCredential = Record<string, unknown>;
-export type PayUrlValue = string | Record<string, string> | PingxxJsApiCredential;
+export type PayUrlValue =
+  | string
+  | Record<string, string>
+  | PingxxJsApiCredential;
 
 export interface StripePaymentPayload {
   mode?: 'payment_intent' | 'checkout_session';

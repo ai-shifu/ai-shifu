@@ -160,15 +160,12 @@ export const PayModal = ({
     return PAY_CHANNEL_WECHAT;
   }, [pingxxChannelEnabled, isStripeAvailable]);
 
-  const resolvePaymentChannel = useCallback(
-    (channel: string) => {
-      if (channel.startsWith('stripe')) {
-        return 'stripe';
-      }
-      return 'pingxx';
-    },
-    [],
-  );
+  const resolvePaymentChannel = useCallback((channel: string) => {
+    if (channel.startsWith('stripe')) {
+      return 'stripe';
+    }
+    return 'pingxx';
+  }, []);
 
   useEffect(() => {
     const isCurrentSupported =
