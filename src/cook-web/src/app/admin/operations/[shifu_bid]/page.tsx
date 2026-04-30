@@ -1296,11 +1296,9 @@ export default function AdminOperationCourseDetailPage() {
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
         <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperations('detail.title')}
-            </h1>
-          </div>
+          <h1 className='text-2xl font-semibold text-gray-900'>
+            {tOperations('detail.title')}
+          </h1>
           <Button
             variant='outline'
             className='sm:mr-3'
