@@ -57,6 +57,8 @@ _SUPPORTED_FEISHU_ORDER_TYPES = {
 _FEISHU_CHANNEL_LABELS = {
     "pingxx": "用户购买 (Pingxx)",
     "stripe": "用户购买 (Stripe)",
+    "alipay": "用户购买 (支付宝)",
+    "wechatpay": "用户购买 (微信支付)",
     "manual": "手动导入",
     "open_api": "Open API",
 }
