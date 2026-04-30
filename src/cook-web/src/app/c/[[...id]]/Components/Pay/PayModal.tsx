@@ -477,9 +477,14 @@ export const PayModal = ({
           once: true,
         });
       });
-      await syncOrderStatus({ paymentChannel: 'wechatpay' });
+      try {
+        await syncOrderStatus({ paymentChannel: 'wechatpay' });
+      } catch {
+        // The polling loop continues syncing native payments after the bridge reports success.
+      }
       toast({ title: t('module.pay.paySuccess') });
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('WeChat JSAPI payment failed', error);
       toast({
         title:

@@ -238,6 +238,39 @@ def _create_legacy_pingxx_records(
     return order, pingxx_order
 
 
+def _create_legacy_wechatpay_records(
+    order_bid: str, provider_attempt_id: str
+) -> tuple[Order, WechatPayOrder]:
+    order = Order(
+        order_bid=order_bid,
+        shifu_bid="legacy-shifu-1",
+        user_bid="legacy-user-1",
+        payable_price=Decimal("199.00"),
+        paid_price=Decimal("199.00"),
+        payment_channel="wechatpay",
+        status=ORDER_STATUS_TO_BE_PAID,
+    )
+    wechatpay_order = WechatPayOrder(
+        wechatpay_order_bid=f"wechatpay-{order_bid}",
+        biz_domain="order",
+        user_bid=order.user_bid,
+        shifu_bid=order.shifu_bid,
+        order_bid=order.order_bid,
+        provider_attempt_id=provider_attempt_id,
+        transaction_id="",
+        channel="wx_pub",
+        amount=19900,
+        currency="CNY",
+        status=0,
+        raw_status="pending",
+        raw_request="{}",
+        raw_response="{}",
+        raw_notification="{}",
+        metadata_json="{}",
+    )
+    return order, wechatpay_order
+
+
 class TestBillingPingxxCallbacks:
     def test_pingxx_callback_marks_billing_order_paid(
         self, billing_callback_app
@@ -633,6 +666,71 @@ class TestBillingNativeCallbacks:
 
         assert response.status_code == 200
         assert response.data.decode("utf-8") == "success"
+
+    def test_wechatpay_callback_route_updates_legacy_order_when_not_billing(
+        self, billing_callback_app, monkeypatch
+    ) -> None:
+        class FakeWechatPayProvider:
+            def verify_webhook(self, *, headers, raw_body, app):
+                return _wechatpay_notification("legacy-wechatpay-attempt-1", "SUCCESS")
+
+        monkeypatch.setattr(
+            "flaskr.route.callback.get_payment_provider",
+            lambda provider_name: FakeWechatPayProvider(),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.order.funs.get_shifu_creator_bid",
+            lambda *args, **kwargs: "creator-legacy-1",
+        )
+        monkeypatch.setattr(
+            "flaskr.service.order.funs.set_user_state",
+            lambda *args, **kwargs: None,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.order.funs.send_order_feishu",
+            lambda *args, **kwargs: None,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.order.funs.query_buy_record",
+            lambda *args, **kwargs: {},
+        )
+
+        with billing_callback_app.app_context():
+            legacy_order, legacy_wechatpay_order = _create_legacy_wechatpay_records(
+                "legacy-wechatpay-order-1",
+                "legacy-wechatpay-attempt-1",
+            )
+            dao.db.session.add(legacy_order)
+            dao.db.session.add(legacy_wechatpay_order)
+            dao.db.session.commit()
+
+        with billing_callback_app.test_client() as client:
+            response = client.post(
+                "/api/callback/wechatpay-notify",
+                data=b"{}",
+                headers={
+                    "Wechatpay-Timestamp": "1",
+                    "Wechatpay-Nonce": "nonce",
+                    "Wechatpay-Signature": "signature",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.get_json() == {"code": "SUCCESS", "message": "成功"}
+
+        with billing_callback_app.app_context():
+            legacy_order = Order.query.filter_by(
+                order_bid="legacy-wechatpay-order-1"
+            ).one()
+            legacy_wechatpay_order = WechatPayOrder.query.filter_by(
+                provider_attempt_id="legacy-wechatpay-attempt-1",
+            ).one()
+            assert legacy_order.status == ORDER_STATUS_SUCCESS
+            assert legacy_wechatpay_order.status == 1
+            assert legacy_wechatpay_order.raw_status == "SUCCESS"
+            assert (
+                legacy_wechatpay_order.transaction_id == "wx-legacy-wechatpay-attempt-1"
+            )
 
     def test_wechatpay_callback_route_hides_exception_details(
         self, billing_callback_app, monkeypatch
