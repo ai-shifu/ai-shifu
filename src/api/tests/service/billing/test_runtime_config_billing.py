@@ -204,6 +204,36 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     }
 
 
+def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    original_route_get_config = config_route.get_config
+
+    def get_config_override(key, default=""):
+        if key == "HOST_URL":
+            return ""
+        return original_route_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config_override)
+    monkeypatch.setattr(public_urls, "get_config", get_config_override)
+
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={
+            "Origin": "https://frontend-origin.example.com",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "forwarded.example.com",
+        },
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload["googleOauthRedirect"] == (
+        "https://frontend-origin.example.com/login/google-callback"
+    )
+
+
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
     runtime_config_client,
 ) -> None:
