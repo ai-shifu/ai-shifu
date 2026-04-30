@@ -102,11 +102,13 @@
   "paginationPrev": "上一页",
   "paginationPrevAriaLabel": "前往上一页",
   "paymentChannel": {
+    "alipay": "支付宝",
     "manual": "人工",
     "open_api": "Open API",
     "pingxx": "Ping++",
     "stripe": "Stripe",
-    "unknown": "未知"
+    "unknown": "未知",
+    "wechatpay": "微信支付"
   },
   "paymentStatus": {
     "closed": "已关闭",

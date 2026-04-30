@@ -1,6 +1,6 @@
 import request from '@/lib/request';
 
-export type PaymentChannel = 'pingxx' | 'stripe';
+export type PaymentChannel = 'pingxx' | 'stripe' | 'alipay' | 'wechatpay';
 
 export interface StripePaymentPayload {
   mode?: 'payment_intent' | 'checkout_session';
@@ -11,14 +11,25 @@ export interface StripePaymentPayload {
   latest_charge_id?: string;
 }
 
+export interface NativePaymentPayload {
+  mode?: 'jsapi';
+  prepay_id?: string;
+  jsapi_params?: Record<string, string>;
+  credential?: Record<string, unknown>;
+  qr_url?: string | Record<string, string>;
+}
+
 export interface PayUrlResponse {
   order_id: string;
   user_id: string;
   price: string;
   channel: string;
-  qr_url: string;
+  qr_url: string | Record<string, string>;
   payment_channel?: PaymentChannel;
-  payment_payload?: StripePaymentPayload | Record<string, any>;
+  payment_payload?:
+    | StripePaymentPayload
+    | NativePaymentPayload
+    | Record<string, any>;
   status?: number;
 }
 
@@ -57,7 +68,27 @@ export interface PingxxPaymentDetail {
   charge_object: Record<string, any>;
 }
 
-export type PaymentDetailResponse = StripePaymentDetail | PingxxPaymentDetail;
+export interface NativePaymentDetail {
+  payment_channel: 'alipay' | 'wechatpay';
+  order_bid: string;
+  course_id: string;
+  provider_attempt_id: string;
+  transaction_id: string;
+  status: number;
+  raw_status: string;
+  amount: number;
+  currency: string;
+  channel: string;
+  metadata: Record<string, any>;
+  raw_request: Record<string, any>;
+  raw_response: Record<string, any>;
+  raw_notification: Record<string, any>;
+}
+
+export type PaymentDetailResponse =
+  | StripePaymentDetail
+  | PingxxPaymentDetail
+  | NativePaymentDetail;
 
 // Create order
 export const initOrder = (course_id: string) => {
@@ -119,5 +150,18 @@ export const syncStripeCheckout = ({
   return request.post('/api/order/stripe/sync', {
     order_id: orderId,
     session_id: sessionId,
+  }) as Promise<PaymentDetailResponse>;
+};
+
+export const syncPaymentOrder = ({
+  orderId,
+  paymentChannel,
+}: {
+  orderId: string;
+  paymentChannel?: PaymentChannel;
+}): Promise<PaymentDetailResponse> => {
+  return request.post('/api/order/payment/sync', {
+    order_id: orderId,
+    payment_channel: paymentChannel,
   }) as Promise<PaymentDetailResponse>;
 };
