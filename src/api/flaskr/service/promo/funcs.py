@@ -42,8 +42,7 @@ def _is_legacy_operator_promotion(record: object) -> bool:
 def is_coupon_enabled_for_runtime(coupon) -> bool:
     status = int(getattr(coupon, "status", 0) or 0)
     return status == COUPON_BATCH_STATUS_ACTIVE or (
-        status == COUPON_BATCH_STATUS_INACTIVE
-        and _is_legacy_operator_promotion(coupon)
+        status == COUPON_BATCH_STATUS_INACTIVE and _is_legacy_operator_promotion(coupon)
     )
 
 

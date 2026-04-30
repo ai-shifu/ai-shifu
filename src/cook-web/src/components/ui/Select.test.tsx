@@ -31,7 +31,11 @@ describe('Select layering', () => {
         <DialogContent>
           <DialogTitle>Select Layering</DialogTitle>
           <DialogDescription>Select layering description</DialogDescription>
-          <Select open={true} value='2101' onValueChange={() => undefined}>
+          <Select
+            open={true}
+            value='2101'
+            onValueChange={() => undefined}
+          >
             <SelectTrigger>
               <SelectValue placeholder='Select grant type' />
             </SelectTrigger>
@@ -43,13 +47,16 @@ describe('Select layering', () => {
       </Dialog>,
     );
 
-    const selectContentElement = Array.from(document.body.querySelectorAll('*'))
-      .find(element =>
-        String(element.className).includes(SELECT_CONTENT_LAYER_CLASS),
-      );
+    const selectContentElement = Array.from(
+      document.body.querySelectorAll('*'),
+    ).find(element =>
+      String(element.className).includes(SELECT_CONTENT_LAYER_CLASS),
+    );
 
     expect(selectContentElement).toBeTruthy();
-    expect(selectContentElement?.className).toContain(SELECT_CONTENT_LAYER_CLASS);
+    expect(selectContentElement?.className).toContain(
+      SELECT_CONTENT_LAYER_CLASS,
+    );
     expect(selectContentElement?.className).not.toContain('z-50');
     expect(selectContentElement?.className).not.toContain('z-[101]');
     expect(selectContentElement?.className).not.toContain(

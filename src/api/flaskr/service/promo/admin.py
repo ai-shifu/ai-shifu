@@ -378,6 +378,7 @@ def _build_campaign_status_filter(status: str):
         )
     return None
 
+
 def _generate_random_coupon_code(length: int = 12) -> str:
     charset = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(charset) for _ in range(length))

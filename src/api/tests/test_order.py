@@ -209,7 +209,9 @@ def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
         db.session.add(campaign)
         db.session.commit()
 
-        result = init_buy_record(app, "user-legacy-runtime-1", "course-legacy-runtime-1")
+        result = init_buy_record(
+            app, "user-legacy-runtime-1", "course-legacy-runtime-1"
+        )
 
         assert Decimal(result.discount) == Decimal("120.00")
         assert Decimal(result.value_to_pay) == Decimal("380.00")
@@ -221,7 +223,9 @@ def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
         assert redemptions[0].promo_bid == "promo-legacy-runtime-1"
 
 
-def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculating(app):
+def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculating(
+    app,
+):
     from flaskr.service.promo.funcs import query_promo_campaign_applications
 
     now = datetime.now()
