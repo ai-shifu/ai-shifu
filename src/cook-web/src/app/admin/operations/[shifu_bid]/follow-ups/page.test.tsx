@@ -312,7 +312,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.followUps.filters.timeRangePlaceholder',
+        name: 'module.operationsCourse.detail.followUps.filters.timePlaceholder',
       }),
     );
     fireEvent.click(

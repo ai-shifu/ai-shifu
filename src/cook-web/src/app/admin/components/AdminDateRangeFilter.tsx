@@ -15,6 +15,7 @@ type AdminDateRangeFilterProps = {
   placeholder: string;
   resetLabel: string;
   clearLabel: string;
+  numberOfMonths?: number;
   triggerAriaLabel?: string;
   popoverContainer?: HTMLElement | null;
   popoverModal?: boolean;
@@ -45,6 +46,7 @@ const AdminDateRangeFilter = ({
   placeholder,
   resetLabel,
   clearLabel,
+  numberOfMonths = 2,
   triggerAriaLabel,
   popoverContainer,
   popoverModal,
@@ -125,11 +127,11 @@ const AdminDateRangeFilter = ({
       <PopoverContent
         align='start'
         container={popoverContainer}
-        className='w-auto max-w-[90vw] p-0'
+        className='w-auto max-w-[calc(100vw-2rem)] max-h-[min(80vh,42rem)] overflow-auto p-0'
       >
         <Calendar
           mode='range'
-          numberOfMonths={2}
+          numberOfMonths={numberOfMonths}
           selected={selectedRange}
           onSelect={range =>
             onChange({
@@ -137,9 +139,14 @@ const AdminDateRangeFilter = ({
               end: range?.to ? formatDateValue(range.to) : '',
             })
           }
-          className='p-3 md:p-4 [--cell-size:2.4rem]'
+          classNames={{
+            months: 'relative flex flex-row gap-2',
+            month: 'flex w-full flex-col gap-2',
+            week: 'mt-1 flex w-full',
+          }}
+          className='p-1.5 md:p-2 [--cell-size:1.9rem] lg:[--cell-size:2rem] xl:[--cell-size:2.1rem]'
         />
-        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
+        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-1.5'>
           <Button
             size='sm'
             variant='ghost'

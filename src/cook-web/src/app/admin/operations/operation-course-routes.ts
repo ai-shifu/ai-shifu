@@ -18,6 +18,16 @@ export const buildAdminOperationsCourseFollowUpsUrl = (
   return `/admin/operations/${encodeURIComponent(normalizedShifuBid)}/follow-ups`;
 };
 
+export const buildAdminOperationsCourseRatingsUrl = (
+  shifuBid: string,
+): string | null => {
+  const normalizedShifuBid = shifuBid.trim();
+  if (!normalizedShifuBid) {
+    return null;
+  }
+  return `/admin/operations/${encodeURIComponent(normalizedShifuBid)}/ratings`;
+};
+
 export const buildAdminOperationsOrdersUrl = (
   shifuBid: string,
 ): string | null => {
