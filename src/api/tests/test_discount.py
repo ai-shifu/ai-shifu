@@ -19,6 +19,8 @@ def _make_coupon(course_id: str | None = None) -> Coupon:
     coupon.coupon_bid = "coupon-1"
     coupon.code = "CODE"
     coupon.status = COUPON_BATCH_STATUS_ACTIVE
+    coupon.created_user_bid = "operator-1"
+    coupon.updated_user_bid = "operator-1"
     return coupon
 
 
@@ -51,6 +53,15 @@ def test_coupon_matches_course_returns_false_for_inactive_coupon():
     coupon.status = 0
 
     assert _coupon_matches_course(coupon, "course-1") is False
+
+
+def test_coupon_matches_course_returns_true_for_legacy_inactive_coupon():
+    coupon = _make_coupon("course-1")
+    coupon.status = 0
+    coupon.created_user_bid = ""
+    coupon.updated_user_bid = ""
+
+    assert _coupon_matches_course(coupon, "course-1") is True
 
 
 def test_coupon_matches_course_returns_false_for_deleted_coupon():
