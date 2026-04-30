@@ -54,23 +54,59 @@ USE_TRANSLATION_ALIAS_PATTERN = re.compile(
 
 def collect_frontend_namespaced_keys(text: str) -> Set[str]:
     used: Set[str] = set()
-    alias_to_namespace: Dict[str, str] = {}
+    alias_declarations: Dict[str, list[tuple[int, str]]] = {}
 
     for match in USE_TRANSLATION_ALIAS_PATTERN.finditer(text):
         alias = match.group(1) or "t"
         namespace = match.group(2) or match.group(3)
         if namespace:
-            alias_to_namespace[alias] = namespace
+            alias_declarations.setdefault(alias, []).append((match.start(), namespace))
 
-    for alias, namespace in alias_to_namespace.items():
+    for alias, declarations in alias_declarations.items():
         call_pattern = re.compile(
             rf"\b{re.escape(alias)}\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"
         )
-        for key in call_pattern.findall(text):
+        for match in call_pattern.finditer(text):
+            key = match.group(1)
+            namespace = None
+            for declaration_pos, declaration_namespace in declarations:
+                if declaration_pos > match.start():
+                    break
+                namespace = declaration_namespace
+            if not namespace:
+                continue
             if key.startswith(("common.", "component.", "module.", "server.")):
                 used.add(key)
             else:
                 used.add(f"{namespace}.{key}")
+
+    return used
+
+
+def collect_frontend_trans_keys(text: str) -> Set[str]:
+    used: Set[str] = set()
+    direct_key_pattern = re.compile(
+        r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]",
+        re.DOTALL,
+    )
+    expression_key_pattern = re.compile(r"i18nKey\s*=\s*\{([^}]+)\}", re.DOTALL)
+    namespace_pattern = re.compile(r"ns\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]")
+
+    for match in direct_key_pattern.finditer(text):
+        used.add(match.group(1))
+
+    for match in expression_key_pattern.finditer(text):
+        expr = match.group(1)
+        trans_start = text.rfind("<Trans", 0, match.start())
+        trans_segment = text[trans_start : match.start()] if trans_start >= 0 else ""
+        namespace_match = namespace_pattern.search(trans_segment)
+        namespace = namespace_match.group(1) if namespace_match else None
+
+        for literal in re.findall(r"['\"]([A-Za-z0-9_.-]+)['\"]", expr):
+            if literal.startswith(("common.", "component.", "module.", "server.")):
+                used.add(literal)
+            elif namespace:
+                used.add(f"{namespace}.{literal}")
 
     return used
 
@@ -211,6 +247,7 @@ def collect_frontend_keys() -> Set[str]:
                 for match in pattern.findall(text):
                     used.add(match)
             used.update(collect_frontend_namespaced_keys(text))
+            used.update(collect_frontend_trans_keys(text))
             # Catch translation keys referenced as bare string literals
             # (e.g. in arrays or maps) that are later passed to t().
             for match in STRING_LITERAL.findall(text):

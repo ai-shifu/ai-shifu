@@ -1410,7 +1410,11 @@ def list_operator_promotion_campaigns(
     channel = str(filters.get("channel", "") or "").strip()
     discount_type = str(filters.get("discount_type", "") or "").strip()
     if apply_type:
-        query = query.filter(PromoCampaign.apply_type == int(apply_type))
+        try:
+            apply_type_value = int(apply_type)
+        except (TypeError, ValueError):
+            raise_param_error("apply_type")
+        query = query.filter(PromoCampaign.apply_type == apply_type_value)
     if channel:
         query = query.filter(PromoCampaign.channel.ilike(f"%{channel}%"))
     if discount_type:

@@ -12,6 +12,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.promo.admin import _format_promotion_admin_datetime
 from flaskr.service.promo.consts import (
+    COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
@@ -240,6 +241,21 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert expiring_coupon_payload["code"] == 0
     assert expiring_coupon_payload["data"]["total"] == 1
     assert expiring_coupon_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+
+    non_matching_expiring_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "expiring_soon",
+            "usage_type": COUPON_APPLY_TYPE_ALL,
+        },
+        headers={"Token": "test-token"},
+    )
+    non_matching_expiring_payload = non_matching_expiring_response.get_json(force=True)
+
+    assert non_matching_expiring_payload["code"] == 0
+    assert non_matching_expiring_payload["data"]["total"] == 0
 
     code_filtered_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
@@ -935,6 +951,21 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
     assert filtered_list_payload["code"] == 0
     assert filtered_list_payload["data"]["total"] == 1
     assert filtered_list_payload["data"]["items"][0]["promo_bid"] == promo_bid
+
+    non_matching_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            "channel": "miniapp",
+        },
+        headers={"Token": "test-token"},
+    )
+    non_matching_filtered_payload = non_matching_filtered_response.get_json(force=True)
+
+    assert non_matching_filtered_payload["code"] == 0
+    assert non_matching_filtered_payload["data"]["total"] == 0
 
     course_query_by_id_response = test_client.get(
         "/api/shifu/admin/operations/promotions/campaigns",

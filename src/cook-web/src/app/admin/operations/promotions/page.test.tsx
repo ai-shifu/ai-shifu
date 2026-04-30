@@ -45,6 +45,13 @@ jest.mock('@/app/admin/operations/useOperatorGuard', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+  Trans: ({
+    i18nKey,
+    values,
+  }: {
+    i18nKey: string;
+    values?: Record<string, string>;
+  }) => <span>{values?.name ? `${i18nKey}:${values.name}` : i18nKey}</span>,
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -1364,6 +1371,27 @@ describe('AdminOperationPromotionsPage', () => {
     });
   });
 
+  test('does not update coupon status when disable confirmation is canceled', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Spring Batch');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.disable',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.cancel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCouponStatus).not.toHaveBeenCalled();
+    });
+  });
+
   test('shows specific success toast when campaign is disabled', async () => {
     render(<AdminOperationPromotionsPage />);
 
@@ -1397,6 +1425,35 @@ describe('AdminOperationPromotionsPage', () => {
     expect(mockToast).toHaveBeenCalledWith({
       description:
         'module.operationsPromotion.messages.campaignDisabledSuccess',
+    });
+  });
+
+  test('does not update campaign status when disable confirmation is canceled', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.campaigns',
+      }),
+    );
+
+    await screen.findByText('Early Bird');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.disable',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.cancel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCampaignStatus).not.toHaveBeenCalled();
     });
   });
 

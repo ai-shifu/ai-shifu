@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -812,13 +812,6 @@ const PromotionStatusConfirmDialog = ({
     );
   }, [changeTarget]);
 
-  const descriptionPrefix = changeTarget?.enabling
-    ? tPromotion('messages.enableConfirmDescriptionPrefix')
-    : tPromotion('messages.disableConfirmDescriptionPrefix');
-  const descriptionSuffix = changeTarget?.enabling
-    ? tPromotion('messages.enableConfirmDescriptionSuffix')
-    : tPromotion('messages.disableConfirmDescriptionSuffix');
-
   return (
     <AlertDialog
       open={Boolean(changeTarget)}
@@ -832,9 +825,20 @@ const PromotionStatusConfirmDialog = ({
               : tPromotion('messages.disableConfirmTitle')}
           </AlertDialogTitle>
           <AlertDialogDescription className='text-left text-sm text-muted-foreground'>
-            {descriptionPrefix}
-            <span className='font-semibold text-foreground'>{itemName}</span>
-            {descriptionSuffix}
+            {changeTarget ? (
+              <Trans
+                ns='module.operationsPromotion'
+                i18nKey={
+                  changeTarget.enabling
+                    ? 'messages.enableConfirmDescription'
+                    : 'messages.disableConfirmDescription'
+                }
+                values={{ name: itemName }}
+                components={{
+                  strong: <span className='font-semibold text-foreground' />,
+                }}
+              />
+            ) : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
