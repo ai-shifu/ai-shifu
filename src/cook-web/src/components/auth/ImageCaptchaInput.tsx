@@ -4,7 +4,6 @@ import { Loader2, RefreshCcw } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { cn } from '@/lib/utils';
@@ -54,7 +53,7 @@ export function ImageCaptchaInput({
           type='button'
           aria-label={refreshLabel}
           title={refreshLabel}
-          className='h-10 w-36 shrink-0 overflow-hidden rounded-md border border-input bg-background disabled:cursor-not-allowed disabled:opacity-50'
+          className='group relative h-8 w-auto min-w-[100px] shrink-0 overflow-hidden rounded-md border border-input bg-background disabled:cursor-not-allowed disabled:opacity-50'
           onClick={onRefresh}
           disabled={disabled || isLoading}
         >
@@ -66,26 +65,17 @@ export function ImageCaptchaInput({
               width={144}
               height={40}
               unoptimized
-              className='h-full w-full object-contain'
+              className='h-full w-auto object-contain'
             />
           ) : null}
+          <span className='pointer-events-none absolute inset-0 flex items-center justify-center bg-muted/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100'>
+            {isLoading ? (
+              <Loader2 className='h-4 w-4 animate-spin text-foreground' />
+            ) : (
+              <RefreshCcw className='h-4 w-4 text-foreground' />
+            )}
+          </span>
         </button>
-        <Button
-          type='button'
-          variant='outline'
-          size='icon'
-          className='h-10 w-10 shrink-0'
-          aria-label={refreshLabel}
-          title={refreshLabel}
-          onClick={onRefresh}
-          disabled={disabled || isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className='h-4 w-4 animate-spin' />
-          ) : (
-            <RefreshCcw className='h-4 w-4' />
-          )}
-        </Button>
       </div>
       {error ? <p className='text-xs text-red-500'>{error}</p> : null}
     </div>

@@ -303,44 +303,47 @@ export function PhoneLogin({
           }}
         />
 
-        <div className='flex space-x-2'>
-          <div className='flex-1'>
-            <Input
-              id='otp'
-              type='text'
-              placeholder={t('module.auth.otpPlaceholder')}
-              value={phoneOtp}
-              onChange={handleOtpChange}
-              onKeyDown={handleOtpKeyDown}
-              disabled={isLoading || !showOtpInput}
-              inputMode='numeric'
-              autoComplete='one-time-code'
-              name='one-time-code'
-              pattern='[0-9]*'
-              enterKeyHint='done'
-              className='text-base sm:text-sm'
-            />
+        <div className='space-y-2'>
+          <Label htmlFor='otp'>{t('module.auth.smsCode')}</Label>
+          <div className='flex space-x-2'>
+            <div className='flex-1'>
+              <Input
+                id='otp'
+                type='text'
+                placeholder={t('module.auth.otpPlaceholder')}
+                value={phoneOtp}
+                onChange={handleOtpChange}
+                onKeyDown={handleOtpKeyDown}
+                disabled={isLoading || !showOtpInput}
+                inputMode='numeric'
+                autoComplete='one-time-code'
+                name='one-time-code'
+                pattern='[0-9]*'
+                enterKeyHint='done'
+                className='text-base sm:text-sm'
+              />
+            </div>
+            <Button
+              onClick={handleSendOtp}
+              disabled={
+                isLoading ||
+                isCaptchaLoading ||
+                countdown > 0 ||
+                !phoneNumber ||
+                !!phoneError ||
+                !captchaCode.trim()
+              }
+              className='h-8 w-[100px] px-2 whitespace-nowrap'
+            >
+              {isLoading && !showOtpInput ? (
+                <Loader2 className='h-4 w-4 animate-spin mr-2' />
+              ) : countdown > 0 ? (
+                t('module.auth.secondsLater', { count: countdown })
+              ) : (
+                t('module.auth.getOtp')
+              )}
+            </Button>
           </div>
-          <Button
-            onClick={handleSendOtp}
-            disabled={
-              isLoading ||
-              isCaptchaLoading ||
-              countdown > 0 ||
-              !phoneNumber ||
-              !!phoneError ||
-              !captchaCode.trim()
-            }
-            className='whitespace-nowrap h-8'
-          >
-            {isLoading && !showOtpInput ? (
-              <Loader2 className='h-4 w-4 animate-spin mr-2' />
-            ) : countdown > 0 ? (
-              t('module.auth.secondsLater', { count: countdown })
-            ) : (
-              t('module.auth.getOtp')
-            )}
-          </Button>
         </div>
 
         <div className='mt-2'>

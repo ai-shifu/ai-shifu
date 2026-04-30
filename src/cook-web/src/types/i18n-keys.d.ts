@@ -193,6 +193,7 @@ export type I18nKey =
   | 'module.auth.sendSuccess'
   | 'module.auth.sending'
   | 'module.auth.serviceAgreement'
+  | 'module.auth.smsCode'
   | 'module.auth.submitFeedback'
   | 'module.auth.success'
   | 'module.auth.termsDialogDescription'
