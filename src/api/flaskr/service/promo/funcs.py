@@ -7,8 +7,7 @@ from datetime import datetime
 import decimal
 
 import pytz
-from sqlalchemy import and_, or_
-from sqlalchemy.sql import func
+from sqlalchemy import and_, func, or_
 
 from .models import (
     CouponUsage as CouponUsageModel,
@@ -34,8 +33,8 @@ from .consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 
 def _is_legacy_operator_promotion(record: object) -> bool:
     return (
-        not str(getattr(record, "created_user_bid", "") or "").strip()
-        and not str(getattr(record, "updated_user_bid", "") or "").strip()
+        not (record.created_user_bid or "").strip()
+        and not (record.updated_user_bid or "").strip()
     )
 
 

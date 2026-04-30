@@ -13,6 +13,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DIALOG_CONTENT_LAYER_CLASS,
   DialogTitle,
 } from '@/components/ui/Dialog';
 
@@ -57,10 +58,19 @@ describe('Select layering', () => {
     expect(selectContentElement?.className).toContain(
       SELECT_CONTENT_LAYER_CLASS,
     );
-    expect(selectContentElement?.className).not.toContain('z-50');
-    expect(selectContentElement?.className).not.toContain('z-[101]');
-    expect(selectContentElement?.className).not.toContain(
-      ALERT_DIALOG_CONTENT_LAYER_CLASS,
+    expect(extractZIndex(SELECT_CONTENT_LAYER_CLASS)).toBeGreaterThan(
+      extractZIndex(DIALOG_CONTENT_LAYER_CLASS),
+    );
+    expect(extractZIndex(SELECT_CONTENT_LAYER_CLASS)).toBeGreaterThan(
+      extractZIndex(ALERT_DIALOG_CONTENT_LAYER_CLASS),
     );
   });
 });
+
+function extractZIndex(layerClass: string): number {
+  const match = layerClass.match(/z-\[(\d+)\]/);
+  if (!match) {
+    throw new Error(`Unexpected z-index layer class: ${layerClass}`);
+  }
+  return Number(match[1]);
+}

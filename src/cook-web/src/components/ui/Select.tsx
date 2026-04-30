@@ -6,6 +6,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
+// Keep Select content above dialog (`101`) and alert dialog (`111`) layers.
 const SELECT_CONTENT_LAYER_CLASS = 'z-[112]';
 
 const Select = SelectPrimitive.Root;
