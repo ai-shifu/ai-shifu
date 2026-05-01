@@ -10,10 +10,12 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
+import { ImageCaptchaInput } from '@/components/auth/ImageCaptchaInput';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
+import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import { cn } from '@/lib/utils';
 
 import type { UserInfo } from '@/c-types';
@@ -36,6 +38,7 @@ export function PhoneLogin({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const { t } = useTranslation();
   const { loginWithSmsCode, sendSmsCode } = useAuth({
@@ -43,6 +46,14 @@ export function PhoneLogin({
     loginContext,
     courseId,
   });
+  const {
+    captchaImage,
+    captchaCode,
+    setCaptchaCode,
+    isCaptchaLoading,
+    refreshCaptcha,
+    verifyCaptcha,
+  } = useCaptchaTicket();
 
   const startOtpFlow = () => {
     setShowOtpInput(true);
@@ -118,14 +129,54 @@ export function PhoneLogin({
     setPhoneOtp(normalizeOtp(e.target.value));
   };
 
+  const refreshCaptchaSilently = async () => {
+    try {
+      await refreshCaptcha();
+    } catch {
+      // The API request layer displays failures; keep the current UI stable.
+    }
+  };
+
+  const getCaptchaTicket = async () => {
+    if (!captchaCode.trim()) {
+      setCaptchaError(t('module.auth.captchaRequired'));
+      toast({
+        title: t('module.auth.captchaRequired'),
+        variant: 'destructive',
+      });
+      return '';
+    }
+
+    try {
+      setCaptchaError('');
+      return await verifyCaptcha();
+    } catch (error: any) {
+      const message = error?.message || t('module.auth.captchaVerifyFailed');
+      setCaptchaError(message);
+      toast({
+        title: t('module.auth.captchaVerifyFailed'),
+        description: message,
+        variant: 'destructive',
+      });
+      await refreshCaptchaSilently();
+      return '';
+    }
+  };
+
   const doSendSmsCode = async () => {
     try {
       setIsLoading(true);
 
-      const response = await sendSmsCode(phoneNumber, i18n.language);
+      const captchaTicket = await getCaptchaTicket();
+      if (!captchaTicket) {
+        return;
+      }
+
+      const response = await sendSmsCode(phoneNumber, captchaTicket);
 
       if (response.code == 0) {
         startOtpFlow();
+        void refreshCaptchaSilently();
         toast({
           title: t('module.auth.sendSuccess'),
           description: t('module.auth.checkYourSms'),
@@ -134,12 +185,14 @@ export function PhoneLogin({
     } catch (error) {
       if (isSmsRateLimitedError(error)) {
         startOtpFlow();
+        void refreshCaptchaSilently();
         toast({
           title: t('module.auth.checkYourSms'),
           description: t('server.user.smsSendTooFrequent'),
         });
         return;
       }
+      void refreshCaptchaSilently();
       // Error already handled in sendSmsCode
     } finally {
       setIsLoading(false);
@@ -232,39 +285,65 @@ export function PhoneLogin({
           {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}
         </div>
 
-        <div className='flex space-x-2'>
-          <div className='flex-1'>
-            <Input
-              id='otp'
-              type='text'
-              placeholder={t('module.auth.otpPlaceholder')}
-              value={phoneOtp}
-              onChange={handleOtpChange}
-              onKeyDown={handleOtpKeyDown}
-              disabled={isLoading || !showOtpInput}
-              inputMode='numeric'
-              autoComplete='one-time-code'
-              name='one-time-code'
-              pattern='[0-9]*'
-              enterKeyHint='done'
-              className='text-base sm:text-sm'
-            />
-          </div>
-          <Button
-            onClick={handleSendOtp}
-            disabled={
-              isLoading || countdown > 0 || !phoneNumber || !!phoneError
+        <ImageCaptchaInput
+          value={captchaCode}
+          image={captchaImage}
+          isLoading={isCaptchaLoading}
+          disabled={isLoading}
+          error={captchaError}
+          onChange={value => {
+            setCaptchaCode(value);
+            if (captchaError) {
+              setCaptchaError('');
             }
-            className='whitespace-nowrap h-8'
-          >
-            {isLoading && !showOtpInput ? (
-              <Loader2 className='h-4 w-4 animate-spin mr-2' />
-            ) : countdown > 0 ? (
-              t('module.auth.secondsLater', { count: countdown })
-            ) : (
-              t('module.auth.getOtp')
-            )}
-          </Button>
+          }}
+          onRefresh={() => {
+            setCaptchaError('');
+            void refreshCaptchaSilently();
+          }}
+        />
+
+        <div className='space-y-2'>
+          <Label htmlFor='otp'>{t('module.auth.smsCode')}</Label>
+          <div className='flex space-x-2'>
+            <div className='flex-1'>
+              <Input
+                id='otp'
+                type='text'
+                placeholder={t('module.auth.otpPlaceholder')}
+                value={phoneOtp}
+                onChange={handleOtpChange}
+                onKeyDown={handleOtpKeyDown}
+                disabled={isLoading || !showOtpInput}
+                inputMode='numeric'
+                autoComplete='one-time-code'
+                name='one-time-code'
+                pattern='[0-9]*'
+                enterKeyHint='done'
+                className='text-base sm:text-sm'
+              />
+            </div>
+            <Button
+              onClick={handleSendOtp}
+              disabled={
+                isLoading ||
+                isCaptchaLoading ||
+                countdown > 0 ||
+                !phoneNumber ||
+                !!phoneError ||
+                !captchaCode.trim()
+              }
+              className='h-8 min-w-[100px] px-2 whitespace-nowrap'
+            >
+              {isLoading && !showOtpInput ? (
+                <Loader2 className='h-4 w-4 animate-spin mr-2' />
+              ) : countdown > 0 ? (
+                t('module.auth.secondsLater', { count: countdown })
+              ) : (
+                t('module.auth.getOtp')
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className='mt-2'>

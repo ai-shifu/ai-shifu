@@ -663,6 +663,36 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Expire time for phone verification code in seconds",
         group="auth",
     ),
+    "CAPTCHA_EXPIRE_TIME": EnvVar(
+        name="CAPTCHA_EXPIRE_TIME",
+        default=300,
+        type=int,
+        description="Expire time for image captcha challenges in seconds",
+        group="auth",
+    ),
+    "CAPTCHA_TICKET_EXPIRE_TIME": EnvVar(
+        name="CAPTCHA_TICKET_EXPIRE_TIME",
+        default=300,
+        type=int,
+        description="Expire time for one-time captcha tickets in seconds",
+        group="auth",
+    ),
+    "CAPTCHA_MAX_VERIFY_ATTEMPTS": EnvVar(
+        name="CAPTCHA_MAX_VERIFY_ATTEMPTS",
+        default=5,
+        type=int,
+        description="Maximum attempts allowed for a single image captcha challenge",
+        group="auth",
+    ),
+    "CAPTCHA_CODE_OVERRIDE": EnvVar(
+        name="CAPTCHA_CODE_OVERRIDE",
+        default="",
+        description=(
+            "Fixed image captcha code for local development and automated tests. "
+            "Ignored when ENV/MODE is production."
+        ),
+        group="auth",
+    ),
     "GOOGLE_OAUTH_CLIENT_ID": EnvVar(
         name="GOOGLE_OAUTH_CLIENT_ID",
         default="",
@@ -1355,6 +1385,8 @@ REDIS_KEY_SUFFIXES: Dict[str, str] = {
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
     "REDIS_KEY_PREFIX_PHONE_CODE": "phone_code:",
+    "REDIS_KEY_PREFIX_CAPTCHA": "captcha:",
+    "REDIS_KEY_PREFIX_CAPTCHA_TICKET": "captcha_ticket:",
     "REDIS_KEY_PREFIX_MAIL_CODE": "mail_code:",
     "REDIS_KEY_PREFIX_MAIL_LIMIT": "mail_limit:",
     "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",

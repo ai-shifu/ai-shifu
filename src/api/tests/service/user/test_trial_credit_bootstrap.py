@@ -165,7 +165,7 @@ def _assert_trial_bootstrapped(user_bid: str) -> None:
     assert ledgers[0].source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
 
 
-def test_verify_sms_code_admin_login_bootstraps_trial_once(
+def test_skill_login_admin_login_bootstraps_trial_once(
     user_trial_client,
 ):
     app = user_trial_client.application
@@ -174,7 +174,7 @@ def test_verify_sms_code_admin_login_bootstraps_trial_once(
 
     first_response = _post_json(
         user_trial_client,
-        "/api/user/verify_sms_code",
+        "/api/user/skill-login",
         {
             "mobile": phone,
             "sms_code": "9999",
@@ -183,7 +183,7 @@ def test_verify_sms_code_admin_login_bootstraps_trial_once(
     )
     second_response = _post_json(
         user_trial_client,
-        "/api/user/verify_sms_code",
+        "/api/user/skill-login",
         {
             "mobile": phone,
             "sms_code": "9999",

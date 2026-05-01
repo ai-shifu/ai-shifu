@@ -27,7 +27,12 @@ class PhoneAuthProvider(AuthProvider):
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
-        response = send_sms_code(app, request.identifier, request.metadata.get("ip"))
+        response = send_sms_code(
+            app,
+            request.identifier,
+            request.metadata.get("ip"),
+            request.metadata.get("captcha_ticket"),
+        )
         metadata = {"ip": request.metadata.get("ip")}
         return ChallengeResponse(
             identifier=request.identifier,
