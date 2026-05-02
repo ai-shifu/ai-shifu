@@ -224,7 +224,7 @@ def _build_section_learning_chart(
         PublishedOutlineItem.shifu_bid == shifu_bid,
         PublishedOutlineItem.deleted == 0,
         PublishedOutlineItem.hidden == 0,
-    ).order_by(PublishedOutlineItem.id.asc())
+    )
     outline_item_map: Dict[str, PublishedOutlineItem] = {}
     visible_parent_bids: Set[str] = set()
     for item in outline_items_query.yield_per(1000):
@@ -247,8 +247,8 @@ def _build_section_learning_chart(
             for outline_item_bid in visible_section_bids
         ],
         key=lambda item: (
-            _outline_position_key(getattr(item, "position", "")),
-            int(getattr(item, "id", 0) or 0),
+            _outline_position_key(item.position),
+            int(item.id or 0),
         ),
     )
 
@@ -313,13 +313,13 @@ def _build_section_learning_chart(
         cur = outline_item_bid
         visited: Set[str] = set()
         chapter_bid = outline_item_bid
-        chapter_title = str(outline_item_map[outline_item_bid].title or "").strip()
+        chapter_title = ""
         while cur and cur not in visited:
             visited.add(cur)
             item = outline_item_map.get(cur)
             if item is None:
                 break
-            parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
+            parent_bid = str(item.parent_bid or "").strip()
             if not parent_bid or parent_bid not in outline_item_map:
                 break
             chapter_bid = parent_bid
@@ -328,10 +328,8 @@ def _build_section_learning_chart(
         section_chapter[outline_item_bid] = (chapter_bid, chapter_title)
 
     chart_items: List[DashboardCourseDetailSectionChartDTO] = []
-    for section_outline_item_bid in [
-        str(s.outline_item_bid or "").strip() for s in ordered_sections
-    ]:
-        section = outline_item_map[section_outline_item_bid]
+    for section in ordered_sections:
+        section_outline_item_bid = str(section.outline_item_bid or "").strip()
         learning_user, learning_record = learning_stats_map.get(
             section_outline_item_bid, (0, 0)
         )

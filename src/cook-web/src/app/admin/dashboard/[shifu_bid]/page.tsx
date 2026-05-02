@@ -164,8 +164,14 @@ export default function AdminDashboardCourseDetailPage() {
       const response = (await api.getDashboardCourseDetail({
         shifu_bid: shifuBid,
         ...(timezone ? { timezone } : {}),
-      })) as DashboardCourseDetailResponse;
-      setDetail(response || EMPTY_DETAIL);
+      })) as Partial<DashboardCourseDetailResponse> | null;
+      setDetail({
+        ...EMPTY_DETAIL,
+        ...(response ?? {}),
+        basic_info: { ...EMPTY_DETAIL.basic_info, ...(response?.basic_info ?? {}) },
+        metrics: { ...EMPTY_DETAIL.metrics, ...(response?.metrics ?? {}) },
+        charts: { sections: response?.charts?.sections ?? [] },
+      });
     } catch (err) {
       setDetail(EMPTY_DETAIL);
       if (err instanceof ErrorWithCode) {
