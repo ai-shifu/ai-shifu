@@ -168,7 +168,10 @@ export default function AdminDashboardCourseDetailPage() {
       setDetail({
         ...EMPTY_DETAIL,
         ...(response ?? {}),
-        basic_info: { ...EMPTY_DETAIL.basic_info, ...(response?.basic_info ?? {}) },
+        basic_info: {
+          ...EMPTY_DETAIL.basic_info,
+          ...(response?.basic_info ?? {}),
+        },
         metrics: { ...EMPTY_DETAIL.metrics, ...(response?.metrics ?? {}) },
         charts: { sections: response?.charts?.sections ?? [] },
       });
