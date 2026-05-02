@@ -174,6 +174,66 @@ class DashboardCourseDetailMetricsDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class DashboardCourseDetailSectionChartDTO(BaseModel):
+    """Dashboard chart point for per-section learning and follow-up stats."""
+
+    chapter_outline_item_bid: str = Field(
+        ..., description="Parent chapter outline item bid", required=False
+    )
+    chapter_title: str = Field(..., description="Parent chapter title", required=False)
+    section_outline_item_bid: str = Field(
+        ..., description="Section outline item bid", required=False
+    )
+    section_title: str = Field(..., description="Section title", required=False)
+    position: str = Field(..., description="Section outline position", required=False)
+    learning_user_count: int = Field(
+        ..., description="Distinct learner count for this section", required=False
+    )
+    learning_record_count: int = Field(
+        ..., description="Total learning record count for this section", required=False
+    )
+    follow_up_user_count: int = Field(
+        ...,
+        description="Distinct follow-up user count for this section",
+        required=False,
+    )
+    follow_up_question_count: int = Field(
+        ...,
+        description="Total follow-up question count for this section",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "chapter_outline_item_bid": self.chapter_outline_item_bid,
+            "chapter_title": self.chapter_title,
+            "section_outline_item_bid": self.section_outline_item_bid,
+            "section_title": self.section_title,
+            "position": self.position,
+            "learning_user_count": self.learning_user_count,
+            "learning_record_count": self.learning_record_count,
+            "follow_up_user_count": self.follow_up_user_count,
+            "follow_up_question_count": self.follow_up_question_count,
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailChartsDTO(BaseModel):
+    """Dashboard detail chart data."""
+
+    sections: List[DashboardCourseDetailSectionChartDTO] = Field(
+        default_factory=list,
+        description="Per-section learning and follow-up stats",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "sections": [item.__json__() for item in self.sections],
+        }
+
+
+@register_schema_to_swagger
 class DashboardCourseDetailDTO(BaseModel):
     """Dashboard detail response payload."""
 
@@ -183,9 +243,15 @@ class DashboardCourseDetailDTO(BaseModel):
     metrics: DashboardCourseDetailMetricsDTO = Field(
         ..., description="Course detail metrics", required=False
     )
+    charts: DashboardCourseDetailChartsDTO = Field(
+        default_factory=DashboardCourseDetailChartsDTO,
+        description="Course detail chart data",
+        required=False,
+    )
 
     def __json__(self) -> Dict[str, Any]:
         return {
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
+            "charts": self.charts.__json__(),
         }

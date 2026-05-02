@@ -90,6 +90,21 @@ jest.mock('@/components/ErrorDisplay', () => ({
   ),
 }));
 
+jest.mock('@/components/charts/EChart', () => ({
+  __esModule: true,
+  default: ({ option }: { option: unknown }) => (
+    <div
+      data-testid='section-learning-chart'
+      data-option={JSON.stringify(option)}
+    />
+  ),
+}));
+
+const getRenderedChartOption = () =>
+  JSON.parse(
+    screen.getByTestId('section-learning-chart').dataset.option || '{}',
+  );
+
 describe('AdminDashboardCourseDetailPage', () => {
   beforeEach(() => {
     mockParams = { shifu_bid: 'shifu-1' };
@@ -97,7 +112,7 @@ describe('AdminDashboardCourseDetailPage', () => {
     mockPush.mockReset();
   });
 
-  test('renders real course detail data and keeps placeholder sections', async () => {
+  test('renders real course detail with section learning stacked bar chart', async () => {
     mockGetDashboardCourseDetail.mockResolvedValue({
       basic_info: {
         shifu_bid: 'shifu-1',
@@ -116,6 +131,32 @@ describe('AdminDashboardCourseDetailPage', () => {
         total_follow_up_count: 8,
         avg_follow_up_count_per_learner: '4.00',
         avg_learning_duration_seconds: 3661,
+      },
+      charts: {
+        sections: [
+          {
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            section_outline_item_bid: 'lesson-1',
+            section_title: 'Lesson 1',
+            position: '1.1',
+            learning_user_count: 10,
+            learning_record_count: 25,
+            follow_up_user_count: 3,
+            follow_up_question_count: 8,
+          },
+          {
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            section_outline_item_bid: 'lesson-2',
+            section_title: 'Lesson 2',
+            position: '1.2',
+            learning_user_count: 5,
+            learning_record_count: 12,
+            follow_up_user_count: 0,
+            follow_up_question_count: 0,
+          },
+        ],
       },
     });
 
@@ -153,8 +194,34 @@ describe('AdminDashboardCourseDetailPage', () => {
       screen.getByText('module.dashboard.detail.charts.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.dashboard.detail.charts.placeholder').length,
-    ).toBe(4);
+      screen.getByText('module.dashboard.detail.charts.sectionLearningTitle'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('section-learning-chart')).toBeInTheDocument();
+
+    const option = getRenderedChartOption();
+    expect(option.series).toHaveLength(4);
+    expect(option.series[0].name).toBe(
+      'module.dashboard.detail.charts.learningUserCount',
+    );
+    expect(option.series[1].name).toBe(
+      'module.dashboard.detail.charts.learningRecordCount',
+    );
+    expect(option.series[2].name).toBe(
+      'module.dashboard.detail.charts.followUpUserCount',
+    );
+    expect(option.series[3].name).toBe(
+      'module.dashboard.detail.charts.followUpQuestionCount',
+    );
+    expect(option.series[0].data).toEqual([10, 5]);
+    expect(option.series[1].data).toEqual([25, 12]);
+    expect(option.series[2].data).toEqual([3, 0]);
+    expect(option.series[3].data).toEqual([8, 0]);
+    expect(option.xAxis.data).toEqual(['Lesson 1', 'Lesson 2']);
+    expect(option.series[0].stack).toBe('total');
+    expect(option.series[1].stack).toBe('total');
+    expect(option.series[2].stack).toBe('total');
+    expect(option.series[3].stack).toBe('total');
+
     expect(
       screen.getByText('module.dashboard.detail.learners.empty'),
     ).toBeInTheDocument();
@@ -179,6 +246,9 @@ describe('AdminDashboardCourseDetailPage', () => {
         total_follow_up_count: 8,
         avg_follow_up_count_per_learner: '4.00',
         avg_learning_duration_seconds: 3661,
+      },
+      charts: {
+        sections: [],
       },
     });
 
@@ -220,6 +290,9 @@ describe('AdminDashboardCourseDetailPage', () => {
           total_follow_up_count: 0,
           avg_follow_up_count_per_learner: '0.00',
           avg_learning_duration_seconds: 0,
+        },
+        charts: {
+          sections: [],
         },
       });
 
