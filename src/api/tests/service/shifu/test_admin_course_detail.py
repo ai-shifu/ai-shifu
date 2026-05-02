@@ -1003,6 +1003,7 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
         "/api/shifu/admin/operations/courses/course-detail/detail",
         "/api/shifu/admin/operations/courses/course-detail/chapters/lesson-1/detail",
         "/api/shifu/admin/operations/courses/course-detail/users?page=1&page_size=20",
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20",
         "/api/shifu/admin/operations/courses/course-detail/follow-ups/ask-1/detail",
     ],
@@ -1856,23 +1857,33 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert lesson_filtered_payload["data"]["total"] == 1
     assert lesson_filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
-    nickname_filtered_response = test_client.get(
+    phone_filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
-        "&keyword=STUDENT-1",
+        "&keyword=13900001235",
         headers={"Token": "test-token"},
     )
-    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
+    phone_filtered_payload = phone_filtered_response.get_json(force=True)
 
-    assert nickname_filtered_response.status_code == 200
-    assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 2
+    assert phone_filtered_response.status_code == 200
+    assert phone_filtered_payload["code"] == 0
+    assert phone_filtered_payload["data"]["total"] == 2
     assert [
-        item["generated_block_bid"]
-        for item in nickname_filtered_payload["data"]["items"]
+        item["generated_block_bid"] for item in phone_filtered_payload["data"]["items"]
     ] == [
         "ask-2",
         "ask-1",
     ]
+
+    user_bid_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&keyword=student-1",
+        headers={"Token": "test-token"},
+    )
+    user_bid_filtered_payload = user_bid_filtered_response.get_json(force=True)
+
+    assert user_bid_filtered_response.status_code == 200
+    assert user_bid_filtered_payload["code"] == 0
+    assert user_bid_filtered_payload["data"]["total"] == 0
 
 
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
@@ -1963,6 +1974,244 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
     assert payload["data"]["total"] == 1
     assert payload["data"]["items"][0]["user_bid"] == "google-student-1"
     assert payload["data"]["items"][0]["email"] == "google-student@example.com"
+
+
+def test_admin_operation_course_ratings_route_returns_summary_and_filters(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(
+            app,
+            user_bid="student-1",
+            phone="13900001235",
+            email="student1@example.com",
+        )
+        _seed_user(
+            app,
+            user_bid="student-2",
+            phone="13900001236",
+            email="student2@example.com",
+        )
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-2",
+            title="Chapter 2",
+            position="2",
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            parent_bid="chapter-1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-2",
+            position="2.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.add_all(
+            [
+                LearnLessonFeedback(
+                    bid="feedback-1",
+                    lesson_feedback_bid="feedback-1",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-1",
+                    progress_record_bid="progress-1",
+                    user_bid="student-1",
+                    score=5,
+                    comment="Very helpful",
+                    mode="read",
+                    created_at=datetime(2026, 4, 4, 10, 0, 0),
+                    updated_at=datetime(2026, 4, 4, 10, 3, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-2",
+                    lesson_feedback_bid="feedback-2",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-2",
+                    user_bid="student-2",
+                    score=3,
+                    comment="Needs more examples",
+                    mode="listen",
+                    created_at=datetime(2026, 4, 5, 11, 0, 0),
+                    updated_at=datetime(2026, 4, 5, 11, 2, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-3",
+                    lesson_feedback_bid="feedback-3",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-4",
+                    user_bid="student-1",
+                    score=4,
+                    comment="",
+                    mode="read",
+                    created_at=datetime(2026, 4, 6, 9, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 9, 5, 0),
+                ),
+                LearnLessonFeedback(
+                    bid="feedback-deleted",
+                    lesson_feedback_bid="feedback-deleted",
+                    shifu_bid="course-detail",
+                    outline_item_bid="lesson-2",
+                    progress_record_bid="progress-3",
+                    user_bid="student-2",
+                    score=1,
+                    comment="Ignore deleted feedback",
+                    mode="read",
+                    deleted=1,
+                    created_at=datetime(2026, 4, 6, 11, 0, 0),
+                    updated_at=datetime(2026, 4, 6, 11, 2, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["summary"] == {
+        "average_score": "4.0",
+        "rating_count": 3,
+        "user_count": 2,
+        "latest_rated_at": "2026-04-06T09:05:00Z",
+    }
+    assert [item["lesson_feedback_bid"] for item in payload["data"]["items"]] == [
+        "feedback-3",
+        "feedback-2",
+        "feedback-1",
+    ]
+    assert payload["data"]["items"][1]["chapter_title"] == "Chapter 2"
+    assert payload["data"]["items"][1]["lesson_title"] == "Lesson 2"
+    assert payload["data"]["items"][1]["mode"] == "listen"
+    assert payload["data"]["items"][1]["rated_at"] == "2026-04-05T11:02:00Z"
+
+    filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&keyword=student2@example.com&chapter_keyword=Chapter 2"
+        "&score=3&mode=listen&start_time=2026-04-05&end_time=2026-04-05",
+        headers={"Token": "test-token"},
+    )
+    filtered_payload = filtered_response.get_json(force=True)
+
+    assert filtered_response.status_code == 200
+    assert filtered_payload["code"] == 0
+    assert filtered_payload["data"]["summary"] == {
+        "average_score": "3.0",
+        "rating_count": 1,
+        "user_count": 1,
+        "latest_rated_at": "2026-04-05T11:02:00Z",
+    }
+    assert filtered_payload["data"]["items"][0]["lesson_feedback_bid"] == "feedback-2"
+
+    commented_low_score_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&has_comment=true&sort_by=score_asc",
+        headers={"Token": "test-token"},
+    )
+    commented_low_score_payload = commented_low_score_response.get_json(force=True)
+
+    assert commented_low_score_response.status_code == 200
+    assert commented_low_score_payload["code"] == 0
+    assert commented_low_score_payload["data"]["summary"] == {
+        "average_score": "4.0",
+        "rating_count": 2,
+        "user_count": 2,
+        "latest_rated_at": "2026-04-05T11:02:00Z",
+    }
+    assert [
+        item["lesson_feedback_bid"]
+        for item in commented_low_score_payload["data"]["items"]
+    ] == [
+        "feedback-2",
+        "feedback-1",
+    ]
+
+    nickname_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&keyword=user-st",
+        headers={"Token": "test-token"},
+    )
+    nickname_filtered_payload = nickname_filtered_response.get_json(force=True)
+
+    assert nickname_filtered_response.status_code == 200
+    assert nickname_filtered_payload["code"] == 0
+    assert nickname_filtered_payload["data"]["total"] == 3
+
+
+@pytest.mark.parametrize(
+    ("query_string", "expected_param"),
+    [
+        ("score=999", "score"),
+        ("mode=invalid_mode", "mode"),
+        ("has_comment=not_bool", "has_comment"),
+        ("sort_by=bad_sort", "sort_by"),
+    ],
+)
+def test_admin_operation_course_ratings_route_rejects_invalid_filters(
+    app,
+    test_client,
+    monkeypatch,
+    query_string,
+    expected_param,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20&{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == f"Params Error {expected_param}"
 
 
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(

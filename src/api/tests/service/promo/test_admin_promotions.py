@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -12,6 +12,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.promo.admin import _format_promotion_admin_datetime
 from flaskr.service.promo.consts import (
+    COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
@@ -143,6 +144,10 @@ def test_admin_promotions_coupons_route_requires_operator(test_client, monkeypat
 
 def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.promo.admin._now_local_naive",
+        lambda: datetime(2026, 5, 20, 12, 0, 0),
+    )
 
     with app.app_context():
         _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
@@ -221,6 +226,37 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert filtered_list_payload["data"]["total"] == 1
     assert filtered_list_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
 
+    expiring_coupon_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "expiring_soon",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+        },
+        headers={"Token": "test-token"},
+    )
+    expiring_coupon_payload = expiring_coupon_response.get_json(force=True)
+
+    assert expiring_coupon_payload["code"] == 0
+    assert expiring_coupon_payload["data"]["total"] == 1
+    assert expiring_coupon_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+
+    non_matching_expiring_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "expiring_soon",
+            "usage_type": COUPON_APPLY_TYPE_ALL,
+        },
+        headers={"Token": "test-token"},
+    )
+    non_matching_expiring_payload = non_matching_expiring_response.get_json(force=True)
+
+    assert non_matching_expiring_payload["code"] == 0
+    assert non_matching_expiring_payload["data"]["total"] == 0
+
     code_filtered_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
         query_string={
@@ -298,6 +334,27 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
 
     assert codes_payload["code"] == 0
     assert codes_payload["data"]["total"] == 3
+
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        coupon.used_count = 3
+        db.session.commit()
+
+    used_up_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "ops_state": "used_up",
+        },
+        headers={"Token": "test-token"},
+    )
+    used_up_payload = used_up_response.get_json(force=True)
+
+    assert used_up_payload["code"] == 0
+    assert used_up_payload["data"]["total"] == 1
+    assert used_up_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
 
     status_response = test_client.post(
         f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/status",
@@ -879,6 +936,37 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
     assert list_payload["data"]["summary"]["usage_count"] == 1
     assert list_payload["data"]["items"][0]["name"] == "Early Bird"
 
+    filtered_list_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+            "channel": "ap",
+        },
+        headers={"Token": "test-token"},
+    )
+    filtered_list_payload = filtered_list_response.get_json(force=True)
+
+    assert filtered_list_payload["code"] == 0
+    assert filtered_list_payload["data"]["total"] == 1
+    assert filtered_list_payload["data"]["items"][0]["promo_bid"] == promo_bid
+
+    non_matching_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            "channel": "miniapp",
+        },
+        headers={"Token": "test-token"},
+    )
+    non_matching_filtered_payload = non_matching_filtered_response.get_json(force=True)
+
+    assert non_matching_filtered_payload["code"] == 0
+    assert non_matching_filtered_payload["data"]["total"] == 0
+
     course_query_by_id_response = test_client.get(
         "/api/shifu/admin/operations/promotions/campaigns",
         query_string={
@@ -1139,6 +1227,292 @@ def test_admin_promotions_campaign_route_rejects_overlap(app, test_client, monke
 
     assert second_response.status_code == 200
     assert second_payload["code"] != 0
+
+
+def test_admin_promotions_campaign_route_rejects_overlap_with_legacy_enabled_campaign(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-legacy-overlap", "Legacy Overlap Course")
+        db.session.add(
+            PromoCampaign(
+                promo_bid="legacy-overlap-campaign",
+                shifu_bid="course-legacy-overlap",
+                name="Legacy Auto Campaign",
+                description="Legacy overlap campaign",
+                apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+                status=0,
+                start_at=datetime.strptime("2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                end_at=datetime.strptime("2026-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                discount_type=COUPON_TYPE_FIXED,
+                value=Decimal("10"),
+                channel="app",
+                filter="{}",
+                created_user_bid="",
+                updated_user_bid="",
+            )
+        )
+        db.session.commit()
+
+    overlap_response = test_client.post(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        json={
+            "name": "Window Two",
+            "apply_type": PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            "shifu_bid": "course-legacy-overlap",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "5",
+            "start_at": "2026-05-01 10:00:00",
+            "end_at": "2026-05-20 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    overlap_payload = overlap_response.get_json(force=True)
+
+    assert overlap_response.status_code == 200
+    assert overlap_payload["code"] != 0
+
+
+def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("legacy-course-1", "Legacy Coupon Course")
+        now = datetime.now()
+        db.session.add_all(
+            [
+                Coupon(
+                    coupon_bid="legacy-coupon-active",
+                    name="Legacy Active Coupon",
+                    code="LEGACYACTIVE",
+                    discount_type=COUPON_TYPE_FIXED,
+                    usage_type=801,
+                    value=Decimal("10"),
+                    start=now - timedelta(days=1),
+                    end=now + timedelta(days=1),
+                    filter='{"course_id":"legacy-course-1"}',
+                    total_count=20,
+                    used_count=3,
+                    status=0,
+                    created_user_bid=" ",
+                    updated_user_bid="\t",
+                ),
+                Coupon(
+                    coupon_bid="legacy-coupon-future",
+                    name="Legacy Future Coupon",
+                    code="LEGACYFUTURE",
+                    discount_type=COUPON_TYPE_FIXED,
+                    usage_type=801,
+                    value=Decimal("10"),
+                    start=now + timedelta(days=1),
+                    end=now + timedelta(days=2),
+                    filter='{"course_id":"legacy-course-1"}',
+                    total_count=20,
+                    used_count=0,
+                    status=0,
+                    created_user_bid="",
+                    updated_user_bid="",
+                ),
+                Coupon(
+                    coupon_bid="legacy-coupon-expired",
+                    name="Legacy Expired Coupon",
+                    code="LEGACYEXPIRED",
+                    discount_type=COUPON_TYPE_FIXED,
+                    usage_type=801,
+                    value=Decimal("10"),
+                    start=now - timedelta(days=3),
+                    end=now - timedelta(days=1),
+                    filter='{"course_id":"legacy-course-1"}',
+                    total_count=20,
+                    used_count=0,
+                    status=0,
+                    created_user_bid="",
+                    updated_user_bid="",
+                ),
+                Coupon(
+                    coupon_bid="operator-inactive-coupon",
+                    name="Operator Inactive Coupon",
+                    code="OPINACTIVE",
+                    discount_type=COUPON_TYPE_FIXED,
+                    usage_type=801,
+                    value=Decimal("10"),
+                    start=now - timedelta(days=1),
+                    end=now + timedelta(days=1),
+                    filter='{"course_id":"legacy-course-1"}',
+                    total_count=20,
+                    used_count=0,
+                    status=0,
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    list_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    list_payload = list_response.get_json(force=True)
+
+    assert list_payload["code"] == 0
+    assert list_payload["data"]["summary"]["active"] == 1
+    status_map = {
+        item["name"]: item["computed_status"] for item in list_payload["data"]["items"]
+    }
+    assert status_map["Legacy Active Coupon"] == "active"
+    assert status_map["Legacy Future Coupon"] == "not_started"
+    assert status_map["Legacy Expired Coupon"] == "expired"
+    assert status_map["Operator Inactive Coupon"] == "inactive"
+
+    active_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={"page_index": 1, "page_size": 20, "status": "active"},
+        headers={"Token": "test-token"},
+    )
+    active_payload = active_response.get_json(force=True)
+
+    assert active_payload["code"] == 0
+    assert active_payload["data"]["total"] == 1
+    assert active_payload["data"]["items"][0]["name"] == "Legacy Active Coupon"
+
+    inactive_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={"page_index": 1, "page_size": 20, "status": "inactive"},
+        headers={"Token": "test-token"},
+    )
+    inactive_payload = inactive_response.get_json(force=True)
+
+    assert inactive_payload["code"] == 0
+    assert inactive_payload["data"]["total"] == 1
+    assert inactive_payload["data"]["items"][0]["name"] == "Operator Inactive Coupon"
+
+
+def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("legacy-course-2", "Legacy Campaign Course")
+        now = datetime.now()
+        db.session.add_all(
+            [
+                PromoCampaign(
+                    promo_bid="legacy-campaign-active",
+                    shifu_bid="legacy-course-2",
+                    name="Legacy Active Campaign",
+                    description="Legacy active",
+                    apply_type=PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+                    status=0,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    channel="app",
+                    filter="{}",
+                    created_user_bid=" ",
+                    updated_user_bid="\t",
+                ),
+                PromoCampaign(
+                    promo_bid="legacy-campaign-future",
+                    shifu_bid="legacy-course-2",
+                    name="Legacy Future Campaign",
+                    description="Legacy future",
+                    apply_type=PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+                    status=0,
+                    start_at=now + timedelta(days=1),
+                    end_at=now + timedelta(days=2),
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    channel="app",
+                    filter="{}",
+                    created_user_bid="",
+                    updated_user_bid="",
+                ),
+                PromoCampaign(
+                    promo_bid="legacy-campaign-ended",
+                    shifu_bid="legacy-course-2",
+                    name="Legacy Ended Campaign",
+                    description="Legacy ended",
+                    apply_type=PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+                    status=0,
+                    start_at=now - timedelta(days=3),
+                    end_at=now - timedelta(days=1),
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    channel="app",
+                    filter="{}",
+                    created_user_bid="",
+                    updated_user_bid="",
+                ),
+                PromoCampaign(
+                    promo_bid="operator-inactive-campaign",
+                    shifu_bid="legacy-course-2",
+                    name="Operator Inactive Campaign",
+                    description="Operator inactive",
+                    apply_type=PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
+                    status=0,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    discount_type=COUPON_TYPE_FIXED,
+                    value=Decimal("20"),
+                    channel="app",
+                    filter="{}",
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                ),
+            ]
+        )
+        db.session.commit()
+
+    list_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    list_payload = list_response.get_json(force=True)
+
+    assert list_payload["code"] == 0
+    assert list_payload["data"]["summary"]["active"] == 1
+    status_map = {
+        item["name"]: item["computed_status"] for item in list_payload["data"]["items"]
+    }
+    assert status_map["Legacy Active Campaign"] == "active"
+    assert status_map["Legacy Future Campaign"] == "not_started"
+    assert status_map["Legacy Ended Campaign"] == "ended"
+    assert status_map["Operator Inactive Campaign"] == "inactive"
+
+    active_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={"page_index": 1, "page_size": 20, "status": "active"},
+        headers={"Token": "test-token"},
+    )
+    active_payload = active_response.get_json(force=True)
+
+    assert active_payload["code"] == 0
+    assert active_payload["data"]["total"] == 1
+    assert active_payload["data"]["items"][0]["name"] == "Legacy Active Campaign"
+
+    inactive_response = test_client.get(
+        "/api/shifu/admin/operations/promotions/campaigns",
+        query_string={"page_index": 1, "page_size": 20, "status": "inactive"},
+        headers={"Token": "test-token"},
+    )
+    inactive_payload = inactive_response.get_json(force=True)
+
+    assert inactive_payload["code"] == 0
+    assert inactive_payload["data"]["total"] == 1
+    assert inactive_payload["data"]["items"][0]["name"] == "Operator Inactive Campaign"
 
 
 def test_admin_promotions_coupon_update_rejects_locked_fields(

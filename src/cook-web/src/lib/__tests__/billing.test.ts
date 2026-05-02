@@ -3,6 +3,7 @@ import {
   formatBillingCreditBalance,
   formatBillingCredits,
   formatBillingPlanInterval,
+  extractBillingPingxxQrCode,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
@@ -11,6 +12,7 @@ import {
   setBillingCreditPrecision,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
+import type { BillingCheckoutResult } from '@/types/billing';
 
 const monthlyPlan: BillingPlan = {
   product_bid: 'bill-product-plan-monthly',
@@ -239,5 +241,55 @@ describe('parseBillingDateValue', () => {
     expect(
       parseBillingDateValue('2026-04-14T07:32:00+08:00')?.toISOString(),
     ).toBe('2026-04-13T23:32:00.000Z');
+  });
+});
+
+describe('extractBillingPingxxQrCode', () => {
+  function buildCheckoutResult(
+    credential: Record<string, string>,
+  ): BillingCheckoutResult {
+    return {
+      bill_order_bid: 'bill-order-native',
+      payment_mode: 'one_time',
+      payment_payload: { credential },
+      provider: 'alipay',
+      status: 'pending',
+    };
+  }
+
+  test('extracts an Alipay native QR credential', () => {
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ alipay_qr: 'https://qr.example/alipay' }),
+        'alipay_qr',
+      ),
+    ).toEqual({
+      channel: 'alipay_qr',
+      url: 'https://qr.example/alipay',
+    });
+  });
+
+  test('extracts a WeChat Pay native QR credential', () => {
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ wx_pub_qr: 'weixin://wxpay/bizpayurl' }),
+        'wx_pub_qr',
+      ),
+    ).toEqual({
+      channel: 'wx_pub_qr',
+      url: 'weixin://wxpay/bizpayurl',
+    });
+  });
+
+  test('returns null when requested QR credential is missing or empty', () => {
+    expect(
+      extractBillingPingxxQrCode(buildCheckoutResult({}), 'alipay_qr'),
+    ).toBeNull();
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ alipay_qr: '' }),
+        'alipay_qr',
+      ),
+    ).toBeNull();
   });
 });

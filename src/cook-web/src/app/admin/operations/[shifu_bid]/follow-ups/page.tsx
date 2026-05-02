@@ -267,7 +267,7 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.followUps.filters.lessonKeywordPlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.followUpTime')
  * t('module.operationsCourse.detail.followUps.filters.resultCount')
- * t('module.operationsCourse.detail.followUps.filters.timeRangePlaceholder')
+ * t('module.operationsCourse.detail.followUps.filters.timePlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.search')
  * t('module.operationsCourse.detail.followUps.filters.reset')
  * t('module.operationsCourse.detail.followUps.table.title')
@@ -754,7 +754,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                         endValue={filtersDraft.endTime}
                         triggerAriaLabel={followUpTimeFilterAriaLabel}
                         placeholder={tOperations(
-                          'detail.followUps.filters.timeRangePlaceholder',
+                          'detail.followUps.filters.timePlaceholder',
                         )}
                         resetLabel={tOperations(
                           'detail.followUps.filters.reset',

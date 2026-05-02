@@ -261,6 +261,8 @@ const OrdersPage = () => {
       { value: '', label: t('module.order.filters.all') },
       { value: 'pingxx', label: t('module.order.paymentChannel.pingxx') },
       { value: 'stripe', label: t('module.order.paymentChannel.stripe') },
+      { value: 'alipay', label: t('module.order.paymentChannel.alipay') },
+      { value: 'wechatpay', label: t('module.order.paymentChannel.wechatpay') },
       { value: 'manual', label: t('module.order.paymentChannel.manual') },
       { value: 'open_api', label: t('module.order.paymentChannel.open_api') },
     ],

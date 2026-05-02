@@ -6,8 +6,8 @@ import {
   initActiveOrder,
   initOrder,
   queryOrder,
+  syncPaymentOrder,
   type PayUrlRequest,
-  type PayUrlResponse,
   type PaymentChannel,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
@@ -20,6 +20,19 @@ interface PriceItem {
 
 const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
+const NATIVE_SYNC_INTERVAL = 1000 * 5;
+const DIRECT_NATIVE_PAYMENT_CHANNELS = new Set<PaymentChannel>([
+  'alipay',
+  'wechatpay',
+]);
+
+function shouldSyncNativePaymentChannel(
+  paymentChannel?: PaymentChannel,
+): paymentChannel is 'alipay' | 'wechatpay' {
+  return Boolean(
+    paymentChannel && DIRECT_NATIVE_PAYMENT_CHANNELS.has(paymentChannel),
+  );
+}
 
 export interface PaymentInfoState {
   channel: string;
@@ -55,6 +68,10 @@ export interface PaymentCouponParams extends PaymentActionParams {
   code: string;
 }
 
+export interface PaymentSyncParams {
+  paymentChannel?: PaymentChannel;
+}
+
 const defaultPaymentInfo: PaymentInfoState = {
   channel: '',
   qrUrl: '',
@@ -71,6 +88,7 @@ export const usePaymentFlow = ({
   onOrderPaid,
 }: UsePaymentFlowOptions) => {
   const mountedRef = useRef(true);
+  const nativeSyncLastAtRef = useRef(0);
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -146,6 +164,7 @@ export const usePaymentFlow = ({
     setIsTimeout(false);
     setCountDownMs(MAX_TIMEOUT);
     setPaymentInfo(defaultPaymentInfo);
+    nativeSyncLastAtRef.current = 0;
     try {
       const snapshot = await initOrderUniform();
       if (!mountedRef.current || !snapshot) {
@@ -200,11 +219,12 @@ export const usePaymentFlow = ({
         }
         setPaymentInfo({
           channel: payload.channel,
-          qrUrl: payload.qr_url,
+          qrUrl: typeof payload.qr_url === 'string' ? payload.qr_url : '',
           status: payload.status,
           paymentChannel: payload.payment_channel,
           paymentPayload: payload.payment_payload || {},
         });
+        nativeSyncLastAtRef.current = 0;
         setIsTimeout(false);
         setCountDownMs(MAX_TIMEOUT);
         if (payload.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
@@ -221,7 +241,7 @@ export const usePaymentFlow = ({
         }
       }
     },
-    [onOrderPaid],
+    [onOrderPaid, updateFromOrder],
   );
 
   const applyCoupon = useCallback(
@@ -265,7 +285,24 @@ export const usePaymentFlow = ({
       if (!orderIdRef.current) {
         return;
       }
-      const resp = await queryOrder({ orderId: orderIdRef.current });
+      const currentOrderId = orderIdRef.current;
+      const nativePaymentChannel = paymentInfo.paymentChannel;
+      if (shouldSyncNativePaymentChannel(nativePaymentChannel)) {
+        const now = Date.now();
+        if (now - nativeSyncLastAtRef.current >= NATIVE_SYNC_INTERVAL) {
+          nativeSyncLastAtRef.current = now;
+          try {
+            await syncPaymentOrder({
+              orderId: currentOrderId,
+              paymentChannel: nativePaymentChannel,
+            });
+          } catch {
+            // The regular order query below keeps polling while the provider sync is transiently unavailable.
+          }
+        }
+      }
+
+      const resp = await queryOrder({ orderId: currentOrderId });
       if (!mountedRef.current || !resp) {
         return;
       }
@@ -274,17 +311,31 @@ export const usePaymentFlow = ({
     isLoggedIn && pollingActive ? COUNTDOWN_INTERVAL : null,
   );
 
-  const syncOrderStatus = useCallback(async () => {
-    if (!orderIdRef.current) {
-      return null;
-    }
-    const resp = await queryOrder({ orderId: orderIdRef.current });
-    if (!mountedRef.current || !resp) {
+  const syncOrderStatus = useCallback(
+    async (params: PaymentSyncParams = {}) => {
+      if (!orderIdRef.current) {
+        return null;
+      }
+      const syncPaymentChannel =
+        params.paymentChannel ||
+        (shouldSyncNativePaymentChannel(paymentInfo.paymentChannel)
+          ? paymentInfo.paymentChannel
+          : undefined);
+      if (syncPaymentChannel) {
+        await syncPaymentOrder({
+          orderId: orderIdRef.current,
+          paymentChannel: syncPaymentChannel,
+        });
+      }
+      const resp = await queryOrder({ orderId: orderIdRef.current });
+      if (!mountedRef.current || !resp) {
+        return resp;
+      }
+      updateFromOrder(resp as OrderSnapshot);
       return resp;
-    }
-    updateFromOrder(resp as OrderSnapshot);
-    return resp;
-  }, [updateFromOrder]);
+    },
+    [paymentInfo.paymentChannel, updateFromOrder],
+  );
 
   const resetState = useCallback(() => {
     updateOrderId('');
@@ -293,6 +344,7 @@ export const usePaymentFlow = ({
     setPriceItems([]);
     setCouponCode('');
     setPaymentInfo(defaultPaymentInfo);
+    nativeSyncLastAtRef.current = 0;
     setIsTimeout(false);
     setIsCompleted(false);
     setCountDownMs(MAX_TIMEOUT);

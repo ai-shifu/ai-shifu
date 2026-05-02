@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.pay",
   "__flat__": {
-    "payChannelNotSupport": "不支持的支付渠道"
+    "payChannelNotSupport": "不支持的支付渠道",
+    "wechatOpenIdRequired": "微信 JSAPI 支付需要 OpenID，请从微信授权入口重新进入。"
   }
 }

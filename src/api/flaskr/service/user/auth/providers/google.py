@@ -9,10 +9,10 @@ from typing import Any, Dict
 from authlib.integrations.requests_client import OAuth2Session
 import jwt
 from typing import Optional
-from urllib.parse import urljoin
 
 from flask import current_app, request
 
+from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.auth.base import (
     AuthProvider,
@@ -106,15 +106,8 @@ def _extract_browser_language() -> Optional[str]:
 
 
 def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
-    if explicit_uri:
-        return explicit_uri
-
-    forwarded_proto = request.headers.get("X-Forwarded-Proto")
-    scheme = forwarded_proto or request.scheme
-    forwarded_host = request.headers.get("X-Forwarded-Host")
-    host = forwarded_host or request.host
-    base_url = f"{scheme}://{host}"
-    return urljoin(f"{base_url}/", "login/google-callback")
+    del app, explicit_uri
+    return build_google_oauth_callback_url()
 
 
 class GoogleAuthProvider(AuthProvider):

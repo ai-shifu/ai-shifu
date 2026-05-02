@@ -99,18 +99,18 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章/节搜索",
-        "chapterKeywordPlaceholder": "输入章/节标题",
+        "chapterKeywordPlaceholder": "章/节标题",
         "followUpTime": "追问时间",
         "lessonKeyword": "节搜索",
-        "lessonKeywordPlaceholder": "输入节标题",
+        "lessonKeywordPlaceholder": "节标题",
         "reset": "重置",
         "resultCount": "共 {count} 条",
         "search": "查询",
-        "timeRangePlaceholder": "选择追问开始时间 / 结束时间",
+        "timePlaceholder": "追问开始/结束时间",
         "userKeyword": "用户搜索",
-        "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱 / 昵称",
-        "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱 / 昵称",
-        "userKeywordPlaceholderPhone": "输入用户 ID / 手机号 / 昵称"
+        "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "openMetric": "查看追问数据",
       "summary": {
@@ -153,6 +153,60 @@
     },
     "orders": {
       "openMetric": "查看订单数据"
+    },
+    "ratings": {
+      "back": "返回课程详情",
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "章/节搜索",
+        "chapterKeywordPlaceholder": "章/节标题",
+        "commentStatus": "评语",
+        "commentStatusAll": "全部",
+        "commentStatusCommented": "仅看有评语",
+        "lessonKeyword": "节搜索",
+        "lessonKeywordPlaceholder": "节标题",
+        "mode": "学习模式",
+        "modeAll": "全部模式",
+        "ratingTime": "评分时间",
+        "reset": "重置",
+        "resultCount": "共 {count} 条",
+        "score": "评分",
+        "scoreAll": "全部评分",
+        "search": "查询",
+        "sortBy": "排序",
+        "sortByLatest": "最新优先",
+        "sortByLowScore": "低分优先",
+        "timePlaceholder": "评分开始/结束时间",
+        "userKeyword": "用户搜索",
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
+      },
+      "modes": {
+        "listen": "听课",
+        "read": "阅读"
+      },
+      "openMetric": "查看评分数据",
+      "scoreValue": "{count}分",
+      "summary": {
+        "averageScore": "平均评分",
+        "latestRatedAt": "最近评分时间",
+        "ratingCount": "评分次数",
+        "scopeHint": "以下统计基于当前筛选结果",
+        "userCount": "评分用户数"
+      },
+      "table": {
+        "chapter": "章节",
+        "comment": "评语",
+        "empty": "暂无评分数据",
+        "guestUser": "游客",
+        "lesson": "节",
+        "mode": "学习模式",
+        "ratedAt": "评分时间",
+        "score": "评分",
+        "title": "评分列表",
+        "user": "用户"
+      },
+      "title": "评分数据"
     },
     "title": "课程详情",
     "userLearningStatus": {

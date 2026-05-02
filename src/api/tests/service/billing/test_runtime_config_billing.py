@@ -6,6 +6,7 @@ from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+import flaskr.common.public_urls as public_urls
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
@@ -14,7 +15,10 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.dtos import RuntimeBillingContextDTO, RuntimeConfigDTO
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
-from flaskr.service.billing.runtime_config import build_runtime_billing_context
+from flaskr.service.billing.runtime_config import (
+    build_default_runtime_billing_context,
+    build_runtime_billing_context,
+)
 
 
 @pytest.fixture
@@ -52,6 +56,7 @@ def runtime_config_client(monkeypatch):
         "LOGIN_METHODS_ENABLED": "phone",
         "DEFAULT_LOGIN_METHOD": "phone",
         "HOME_URL": "/",
+        "HOST_URL": "https://app.example.com",
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
@@ -62,6 +67,11 @@ def runtime_config_client(monkeypatch):
 
     monkeypatch.setattr(
         config_route,
+        "get_config",
+        lambda key, default="": config_values.get(key, default),
+    )
+    monkeypatch.setattr(
+        public_urls,
         "get_config",
         lambda key, default="": config_values.get(key, default),
     )
@@ -163,6 +173,9 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["homeUrl"] == "https://creator.example.com/home"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    assert payload["googleOauthRedirect"] == (
+        "https://app.example.com/login/google-callback"
+    )
     assert payload["entitlements"] == {
         "branding_enabled": True,
         "custom_domain_enabled": True,
@@ -189,6 +202,36 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "host": "creator.example.com",
         "binding_status": "verified",
     }
+
+
+def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    original_route_get_config = config_route.get_config
+
+    def get_config_override(key, default=""):
+        if key == "HOST_URL":
+            return ""
+        return original_route_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config_override)
+    monkeypatch.setattr(public_urls, "get_config", get_config_override)
+
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={
+            "Origin": "https://frontend-origin.example.com",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "forwarded.example.com",
+        },
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload["googleOauthRedirect"] == (
+        "https://frontend-origin.example.com/login/google-callback"
+    )
 
 
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
@@ -282,15 +325,54 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     }
 
 
+def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("entitlement resolver must not run in default builder")
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.runtime_config.resolve_runtime_domain_result",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("domain resolver must not run in default builder")
+        ),
+    )
+    payload = build_default_runtime_billing_context(
+        creator_bid="creator-1",
+        request_host="creator.example.com",
+    ).__json__()
+
+    assert payload == {
+        "entitlements": {
+            "branding_enabled": False,
+            "custom_domain_enabled": False,
+            "priority_class": "standard",
+            "analytics_tier": "basic",
+            "support_tier": "self_serve",
+        },
+        "branding": {
+            "logo_wide_url": None,
+            "logo_square_url": None,
+            "favicon_url": None,
+            "home_url": None,
+        },
+        "domain": {
+            "request_host": "creator.example.com",
+            "matched": False,
+            "is_custom_domain": False,
+            "creator_bid": "creator-1",
+            "domain_binding_bid": None,
+            "host": None,
+            "binding_status": None,
+        },
+    }
+
+
 def test_runtime_config_reports_disabled_billing_flag(
     runtime_config_client,
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        config_route,
-        "get_config",
-        lambda key, default="": False if key == "BILL_ENABLED" else default,
-    )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
         lambda key, default="": False if key == "BILL_ENABLED" else default,
@@ -299,8 +381,70 @@ def test_runtime_config_reports_disabled_billing_flag(
         "flaskr.service.billing.primitives.get_common_config",
         lambda key, default=None: False if key == "BILL_ENABLED" else default,
     )
+    monkeypatch.setattr(
+        config_route,
+        "build_runtime_billing_context",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("billing builder should not run when disabled")
+        ),
+    )
 
     response = runtime_config_client.get("/api/runtime-config")
     payload = response.get_json(force=True)["data"]
 
     assert payload["billingEnabled"] is False
+    assert payload["entitlements"] == {
+        "branding_enabled": False,
+        "custom_domain_enabled": False,
+        "priority_class": "standard",
+        "analytics_tier": "basic",
+        "support_tier": "self_serve",
+    }
+    assert payload["domain"] == {
+        "request_host": None,
+        "matched": False,
+        "is_custom_domain": False,
+        "creator_bid": None,
+        "domain_binding_bid": None,
+        "host": None,
+        "binding_status": None,
+    }
+
+
+def test_runtime_config_falls_back_when_billing_context_build_fails(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        config_route,
+        "build_runtime_billing_context",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    response = runtime_config_client.get(
+        "/api/runtime-config?shifu_bid=shifu-1",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["billingEnabled"] is True
+    assert payload["logoWideUrl"] == "https://cdn.example.com/global-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
+    assert payload["homeUrl"] == "/"
+    assert payload["entitlements"] == {
+        "branding_enabled": False,
+        "custom_domain_enabled": False,
+        "priority_class": "standard",
+        "analytics_tier": "basic",
+        "support_tier": "self_serve",
+    }
+    assert payload["domain"] == {
+        "request_host": "creator.example.com",
+        "matched": False,
+        "is_custom_domain": False,
+        "creator_bid": "creator-1",
+        "domain_binding_bid": None,
+        "host": None,
+        "binding_status": None,
+    }

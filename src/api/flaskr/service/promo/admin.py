@@ -4,12 +4,12 @@ import decimal
 import json
 import secrets
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 from typing import Dict, Optional
 
 from flask import Flask, current_app
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import and_, case, func, not_, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -50,7 +50,13 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_STATUS_ACTIVE,
     PROMO_CAMPAIGN_STATUS_INACTIVE,
 )
-from flaskr.service.promo.funcs import _calculate_discount_amount
+from flaskr.service.promo.funcs import (
+    _calculate_discount_amount,
+    build_campaign_enabled_expression,
+    build_coupon_enabled_expression,
+    is_campaign_enabled_for_runtime,
+    is_coupon_enabled_for_runtime,
+)
 from flaskr.service.promo.models import (
     Coupon,
     CouponUsage,
@@ -98,6 +104,7 @@ CAMPAIGN_REDEMPTION_STATUS_KEY_MAP = {
 
 MAX_PROMOTION_PAGE_SIZE = 100
 MAX_SPECIFIC_COUPON_BATCH_SIZE = 2000
+PROMOTION_EXPIRING_SOON_DAYS = 7
 
 
 def _now_local_naive() -> datetime:
@@ -324,22 +331,23 @@ def _build_coupon_status_filter(status: str):
     if not normalized:
         return None
     now = _now_local_naive()
+    enabled_filter = build_coupon_enabled_expression(Coupon)
     if normalized == "inactive":
-        return Coupon.status != COUPON_BATCH_STATUS_ACTIVE
+        return not_(enabled_filter)
     if normalized == "not_started":
         return and_(
-            Coupon.status == COUPON_BATCH_STATUS_ACTIVE,
+            enabled_filter,
             Coupon.start > now,
         )
     if normalized == "active":
         return and_(
-            Coupon.status == COUPON_BATCH_STATUS_ACTIVE,
+            enabled_filter,
             Coupon.start <= now,
             Coupon.end >= now,
         )
     if normalized == "expired":
         return and_(
-            Coupon.status == COUPON_BATCH_STATUS_ACTIVE,
+            enabled_filter,
             Coupon.end < now,
         )
     return None
@@ -350,22 +358,23 @@ def _build_campaign_status_filter(status: str):
     if not normalized:
         return None
     now = _now_local_naive()
+    enabled_filter = build_campaign_enabled_expression(PromoCampaign)
     if normalized == "inactive":
-        return PromoCampaign.status != PROMO_CAMPAIGN_STATUS_ACTIVE
+        return not_(enabled_filter)
     if normalized == "not_started":
         return and_(
-            PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+            enabled_filter,
             PromoCampaign.start_at > now,
         )
     if normalized == "active":
         return and_(
-            PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+            enabled_filter,
             PromoCampaign.start_at <= now,
             PromoCampaign.end_at >= now,
         )
     if normalized == "ended":
         return and_(
-            PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+            enabled_filter,
             PromoCampaign.end_at < now,
         )
     return None
@@ -521,7 +530,7 @@ def _resolve_batch_coupon_code(
 
 def _compute_coupon_status(coupon: Coupon) -> str:
     now = _now_local_naive()
-    if int(coupon.status or 0) != COUPON_BATCH_STATUS_ACTIVE:
+    if not is_coupon_enabled_for_runtime(coupon):
         return "inactive"
     if coupon.start and coupon.start > now:
         return "not_started"
@@ -532,7 +541,7 @@ def _compute_coupon_status(coupon: Coupon) -> str:
 
 def _compute_campaign_status(campaign: PromoCampaign) -> str:
     now = _now_local_naive()
-    if int(campaign.status or 0) != PROMO_CAMPAIGN_STATUS_ACTIVE:
+    if not is_campaign_enabled_for_runtime(campaign):
         return "inactive"
     if campaign.start_at and campaign.start_at > now:
         return "not_started"
@@ -651,9 +660,18 @@ def list_operator_promotion_coupons(
         or ""
     ).strip()
     usage_type = str(filters.get("usage_type", "") or "").strip()
+    ops_state = str(filters.get("ops_state", "") or "").strip()
     discount_type = str(filters.get("discount_type", "") or "").strip()
     if usage_type:
         query = query.filter(Coupon.usage_type == int(usage_type))
+    if ops_state == "expiring_soon":
+        now = _now_local_naive()
+        query = query.filter(
+            Coupon.end >= now,
+            Coupon.end <= now + timedelta(days=PROMOTION_EXPIRING_SOON_DAYS),
+        )
+    elif ops_state == "used_up":
+        query = query.filter(Coupon.used_count >= Coupon.total_count)
     if discount_type:
         query = query.filter(Coupon.discount_type == int(discount_type))
     if keyword:
@@ -708,6 +726,8 @@ def list_operator_promotion_coupons(
         Coupon.status.label("status"),
         Coupon.start.label("start"),
         Coupon.end.label("end"),
+        Coupon.created_user_bid.label("created_user_bid"),
+        Coupon.updated_user_bid.label("updated_user_bid"),
     ).subquery()
     latest_usage = (
         db.session.query(CouponUsage.updated_at)
@@ -722,6 +742,7 @@ def list_operator_promotion_coupons(
         .first()
     )
     now = _now_local_naive()
+    active_coupon_expression = build_coupon_enabled_expression(filtered_subquery.c)
     summary_row = db.session.query(
         func.count(filtered_subquery.c.coupon_bid).label("total"),
         func.coalesce(
@@ -729,7 +750,7 @@ def list_operator_promotion_coupons(
                 case(
                     (
                         and_(
-                            filtered_subquery.c.status == COUPON_BATCH_STATUS_ACTIVE,
+                            active_coupon_expression,
                             filtered_subquery.c.start <= now,
                             filtered_subquery.c.end >= now,
                         ),
@@ -1385,7 +1406,17 @@ def list_operator_promotion_campaigns(
         or filters.get("shifu_bid")
         or ""
     ).strip()
+    apply_type = str(filters.get("apply_type", "") or "").strip()
+    channel = str(filters.get("channel", "") or "").strip()
     discount_type = str(filters.get("discount_type", "") or "").strip()
+    if apply_type:
+        try:
+            apply_type_value = int(apply_type)
+        except (TypeError, ValueError):
+            raise_param_error("apply_type")
+        query = query.filter(PromoCampaign.apply_type == apply_type_value)
+    if channel:
+        query = query.filter(PromoCampaign.channel.ilike(f"%{channel}%"))
     if discount_type:
         query = query.filter(PromoCampaign.discount_type == int(discount_type))
     if keyword:
@@ -1415,12 +1446,15 @@ def list_operator_promotion_campaigns(
         PromoCampaign.status.label("status"),
         PromoCampaign.start_at.label("start_at"),
         PromoCampaign.end_at.label("end_at"),
+        PromoCampaign.created_user_bid.label("created_user_bid"),
+        PromoCampaign.updated_user_bid.label("updated_user_bid"),
     ).subquery()
     now = _now_local_naive()
+    active_campaign_expression = build_campaign_enabled_expression(filtered_subquery.c)
     active_campaign_case = case(
         (
             and_(
-                filtered_subquery.c.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+                active_campaign_expression,
                 filtered_subquery.c.start_at <= now,
                 filtered_subquery.c.end_at >= now,
             ),
@@ -1535,7 +1569,7 @@ def _validate_campaign_overlap(
         PromoCampaign.deleted == 0,
         PromoCampaign.apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
         PromoCampaign.shifu_bid == shifu_bid,
-        PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+        build_campaign_enabled_expression(PromoCampaign),
         PromoCampaign.start_at <= end_at,
         PromoCampaign.end_at >= start_at,
     )
@@ -1652,7 +1686,7 @@ def update_operator_promotion_campaign(
         ):
             raise_param_error("apply_type")
         if (
-            int(campaign.status or 0) == PROMO_CAMPAIGN_STATUS_ACTIVE
+            is_campaign_enabled_for_runtime(campaign)
             and apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO
         ):
             _validate_campaign_overlap(

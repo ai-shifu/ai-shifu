@@ -150,7 +150,7 @@ services:
       - ./observability/otel-collector-config.yml:/etc/otel-collector-config.yml
 
   ai-shifu-prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:latest
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus

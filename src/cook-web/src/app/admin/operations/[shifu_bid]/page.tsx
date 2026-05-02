@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
+  buildAdminOperationsCourseRatingsUrl,
 } from '../operation-course-routes';
 import type {
   AdminOperationCourseChapterDetailResponse,
@@ -246,6 +247,8 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.metricsLabels.followUpCount')
  * t('module.operationsCourse.detail.metricsLabels.ratingScore')
  * t('module.operationsCourse.detail.orders.openMetric')
+ * t('module.operationsCourse.detail.followUps.openMetric')
+ * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.chaptersTable.position')
  * t('module.operationsCourse.detail.chaptersTable.name')
  * t('module.operationsCourse.detail.chaptersTable.type')
@@ -383,6 +386,10 @@ export default function AdminOperationCourseDetailPage() {
     : params?.shifu_bid || '';
   const followUpPageUrl = useMemo(
     () => buildAdminOperationsCourseFollowUpsUrl(shifuBid),
+    [shifuBid],
+  );
+  const ratingsPageUrl = useMemo(
+    () => buildAdminOperationsCourseRatingsUrl(shifuBid),
     [shifuBid],
   );
   const ordersPageUrl = useMemo(
@@ -658,6 +665,8 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.metricsLabels.ratingScore'),
         value: detail.metrics.rating_score || emptyValue,
+        onClick: ratingsPageUrl ? () => router.push(ratingsPageUrl) : undefined,
+        actionLabel: tOperations('detail.ratings.openMetric'),
       },
     ],
     [
@@ -666,6 +675,7 @@ export default function AdminOperationCourseDetailPage() {
       emptyValue,
       followUpPageUrl,
       ordersPageUrl,
+      ratingsPageUrl,
       router,
       tOperations,
     ],

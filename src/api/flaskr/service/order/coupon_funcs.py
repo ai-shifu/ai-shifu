@@ -4,11 +4,14 @@ from flaskr.service.order.models import Order
 from flaskr.service.order.funs import success_buy_record, query_buy_record
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_SPECIFIC,
-    COUPON_BATCH_STATUS_ACTIVE,
     COUPON_STATUS_USED,
     COUPON_STATUS_ACTIVE,
     COUPON_TYPE_FIXED,
     COUPON_TYPE_PERCENT,
+)
+from flaskr.service.promo.api import (
+    build_coupon_enabled_expression,
+    is_coupon_enabled_for_runtime,
 )
 from flaskr.service.common import raise_error
 from flaskr.util import generate_id
@@ -43,7 +46,7 @@ def _coupon_matches_course(coupon: Coupon, shifu_bid: str) -> bool:
     """Check whether coupon is applicable to the given course."""
     if (
         not coupon
-        or int(getattr(coupon, "status", 0) or 0) != COUPON_BATCH_STATUS_ACTIVE
+        or not is_coupon_enabled_for_runtime(coupon)
         or int(getattr(coupon, "deleted", 0) or 0) != 0
     ):
         return False
@@ -181,7 +184,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
             Coupon.query.filter(
                 Coupon.code == coupon_code,
                 Coupon.deleted == 0,
-                Coupon.status == COUPON_BATCH_STATUS_ACTIVE,
+                build_coupon_enabled_expression(Coupon),
                 Coupon.usage_type != COUPON_APPLY_TYPE_SPECIFIC,
             )
             .order_by(Coupon.id.desc())
