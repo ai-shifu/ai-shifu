@@ -1498,7 +1498,9 @@ class TestDashboardRoutes:
         sections = payload["data"]["charts"]["sections"]
         assert len(sections) == 2
 
-        lesson1 = next(s for s in sections if s["section_outline_item_bid"] == "lesson-1")
+        lesson1 = next(
+            s for s in sections if s["section_outline_item_bid"] == "lesson-1"
+        )
         assert lesson1["section_title"] == "Lesson 1"
         assert lesson1["chapter_title"] == "Chapter 1"
         assert lesson1["learning_user_count"] == 2
@@ -1506,7 +1508,9 @@ class TestDashboardRoutes:
         assert lesson1["follow_up_user_count"] == 2
         assert lesson1["follow_up_question_count"] == 3
 
-        lesson2 = next(s for s in sections if s["section_outline_item_bid"] == "lesson-2")
+        lesson2 = next(
+            s for s in sections if s["section_outline_item_bid"] == "lesson-2"
+        )
         assert lesson2["section_title"] == "Lesson 2"
         assert lesson2["chapter_title"] == "Chapter 1"
         assert lesson2["learning_user_count"] == 1

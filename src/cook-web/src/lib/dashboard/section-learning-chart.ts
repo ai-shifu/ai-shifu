@@ -97,10 +97,26 @@ export const buildSectionLearningChartOption = (
       : undefined,
     series: (
       [
-        [labels.learningUserCount, (s: DashboardCourseDetailSectionChart) => s.learning_user_count, '#2563eb'],
-        [labels.learningRecordCount, (s: DashboardCourseDetailSectionChart) => s.learning_record_count, '#60a5fa'],
-        [labels.followUpUserCount, (s: DashboardCourseDetailSectionChart) => s.follow_up_user_count, '#16a34a'],
-        [labels.followUpQuestionCount, (s: DashboardCourseDetailSectionChart) => s.follow_up_question_count, '#86efac'],
+        [
+          labels.learningUserCount,
+          (s: DashboardCourseDetailSectionChart) => s.learning_user_count,
+          '#2563eb',
+        ],
+        [
+          labels.learningRecordCount,
+          (s: DashboardCourseDetailSectionChart) => s.learning_record_count,
+          '#60a5fa',
+        ],
+        [
+          labels.followUpUserCount,
+          (s: DashboardCourseDetailSectionChart) => s.follow_up_user_count,
+          '#16a34a',
+        ],
+        [
+          labels.followUpQuestionCount,
+          (s: DashboardCourseDetailSectionChart) => s.follow_up_question_count,
+          '#86efac',
+        ],
       ] as const
     ).map(([name, extract, color]) => ({
       type: 'bar',

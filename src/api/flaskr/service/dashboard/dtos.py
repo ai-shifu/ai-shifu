@@ -180,18 +180,12 @@ class DashboardCourseDetailSectionChartDTO(BaseModel):
     chapter_outline_item_bid: str = Field(
         ..., description="Parent chapter outline item bid", required=False
     )
-    chapter_title: str = Field(
-        ..., description="Parent chapter title", required=False
-    )
+    chapter_title: str = Field(..., description="Parent chapter title", required=False)
     section_outline_item_bid: str = Field(
         ..., description="Section outline item bid", required=False
     )
-    section_title: str = Field(
-        ..., description="Section title", required=False
-    )
-    position: str = Field(
-        ..., description="Section outline position", required=False
-    )
+    section_title: str = Field(..., description="Section title", required=False)
+    position: str = Field(..., description="Section outline position", required=False)
     learning_user_count: int = Field(
         ..., description="Distinct learner count for this section", required=False
     )
@@ -199,10 +193,14 @@ class DashboardCourseDetailSectionChartDTO(BaseModel):
         ..., description="Total learning record count for this section", required=False
     )
     follow_up_user_count: int = Field(
-        ..., description="Distinct follow-up user count for this section", required=False
+        ...,
+        description="Distinct follow-up user count for this section",
+        required=False,
     )
     follow_up_question_count: int = Field(
-        ..., description="Total follow-up question count for this section", required=False
+        ...,
+        description="Total follow-up question count for this section",
+        required=False,
     )
 
     def __json__(self) -> Dict[str, Any]:

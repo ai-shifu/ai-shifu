@@ -10,6 +10,7 @@
     },
     "charts": {
       "chapterProgress": "章节学习进度分布图",
+      "emptySections": "暂无小节数据",
       "followUpQuestionCount": "追问次数",
       "followUpUserCount": "追问人数",
       "learningRecordCount": "学习次数",
@@ -18,7 +19,6 @@
       "placeholder": "图表能力建设中，敬请期待",
       "questionsByChapter": "追问数量按章节分布图",
       "questionsByTime": "追问数量按时间分布图",
-      "emptySections": "暂无小节数据",
       "sectionLearningTitle": "各小节学习与追问统计",
       "title": "图表区"
     },

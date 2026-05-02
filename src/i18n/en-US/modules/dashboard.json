@@ -10,6 +10,7 @@
     },
     "charts": {
       "chapterProgress": "Chapter Progress Distribution",
+      "emptySections": "No section data",
       "followUpQuestionCount": "Follow-Up Questions",
       "followUpUserCount": "Follow-Up Users",
       "learningRecordCount": "Learning Records",
@@ -18,7 +19,6 @@
       "placeholder": "Charts are coming soon",
       "questionsByChapter": "Follow-up Questions by Chapter",
       "questionsByTime": "Follow-up Questions by Time",
-      "emptySections": "No section data",
       "sectionLearningTitle": "Learning & Follow-Up by Section",
       "title": "Charts"
     },

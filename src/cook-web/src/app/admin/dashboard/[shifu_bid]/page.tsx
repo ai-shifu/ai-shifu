@@ -123,15 +123,11 @@ export default function AdminDashboardCourseDetailPage() {
 
   const sectionChartLabels = useMemo<SectionChartLabels>(
     () => ({
-      learningUserCount: t(
-        'module.dashboard.detail.charts.learningUserCount',
-      ),
+      learningUserCount: t('module.dashboard.detail.charts.learningUserCount'),
       learningRecordCount: t(
         'module.dashboard.detail.charts.learningRecordCount',
       ),
-      followUpUserCount: t(
-        'module.dashboard.detail.charts.followUpUserCount',
-      ),
+      followUpUserCount: t('module.dashboard.detail.charts.followUpUserCount'),
       followUpQuestionCount: t(
         'module.dashboard.detail.charts.followUpQuestionCount',
       ),
