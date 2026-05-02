@@ -10,10 +10,16 @@
     },
     "charts": {
       "chapterProgress": "Chapter Progress Distribution",
+      "followUpQuestionCount": "Follow-Up Questions",
+      "followUpUserCount": "Follow-Up Users",
+      "learningRecordCount": "Learning Records",
       "learningTrend": "Learning Activity Trend",
+      "learningUserCount": "Learning Users",
       "placeholder": "Charts are coming soon",
       "questionsByChapter": "Follow-up Questions by Chapter",
       "questionsByTime": "Follow-up Questions by Time",
+      "emptySections": "No section data",
+      "sectionLearningTitle": "Learning & Follow-Up by Section",
       "title": "Charts"
     },
     "courseIdLabel": "Course ID",

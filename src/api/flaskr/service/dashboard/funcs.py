@@ -13,8 +13,10 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
+    DashboardCourseDetailChartsDTO,
     DashboardCourseDetailDTO,
     DashboardCourseDetailMetricsDTO,
+    DashboardCourseDetailSectionChartDTO,
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
@@ -196,6 +198,165 @@ def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
         for outline_item_bid in visible_bids
         if outline_item_bid not in visible_parent_bids
     )
+
+
+def _outline_position_key(position: object) -> Tuple[Tuple[int, int | str], ...]:
+    normalized_position = str(position or "").strip()
+    if not normalized_position:
+        return ()
+
+    key_parts: List[Tuple[int, int | str]] = []
+    for part in normalized_position.split("."):
+        normalized_part = part.strip()
+        if not normalized_part:
+            continue
+        if normalized_part.isdigit():
+            key_parts.append((0, int(normalized_part)))
+        else:
+            key_parts.append((1, normalized_part))
+    return tuple(key_parts)
+
+
+def _build_section_learning_chart(
+    shifu_bid: str,
+) -> List[DashboardCourseDetailSectionChartDTO]:
+    outline_items_query = PublishedOutlineItem.query.filter(
+        PublishedOutlineItem.shifu_bid == shifu_bid,
+        PublishedOutlineItem.deleted == 0,
+        PublishedOutlineItem.hidden == 0,
+    ).order_by(PublishedOutlineItem.id.asc())
+    outline_item_map: Dict[str, PublishedOutlineItem] = {}
+    visible_parent_bids: Set[str] = set()
+    for item in outline_items_query.yield_per(1000):
+        outline_item_bid = str(item.outline_item_bid or "").strip()
+        parent_bid = str(item.parent_bid or "").strip()
+        if not outline_item_bid:
+            continue
+        outline_item_map[outline_item_bid] = item
+        if parent_bid:
+            visible_parent_bids.add(parent_bid)
+
+    visible_section_bids = {
+        outline_item_bid
+        for outline_item_bid in outline_item_map.keys()
+        if outline_item_bid not in visible_parent_bids
+    }
+    ordered_sections = sorted(
+        [
+            outline_item_map[outline_item_bid]
+            for outline_item_bid in visible_section_bids
+        ],
+        key=lambda item: (
+            _outline_position_key(getattr(item, "position", "")),
+            int(getattr(item, "id", 0) or 0),
+        ),
+    )
+
+    learning_user_rows = (
+        db.session.query(
+            LearnProgressRecord.outline_item_bid,
+            db.func.count(db.func.distinct(LearnProgressRecord.user_bid)),
+            db.func.count(LearnProgressRecord.id),
+        )
+        .filter(
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .group_by(LearnProgressRecord.outline_item_bid)
+    )
+    learning_stats_map: Dict[str, Tuple[int, int]] = {}
+    for (
+        outline_item_bid,
+        user_count,
+        record_count,
+    ) in learning_user_rows.yield_per(1000):
+        normalized_bid = str(outline_item_bid or "").strip()
+        if not normalized_bid:
+            continue
+        learning_stats_map[normalized_bid] = (
+            int(user_count or 0),
+            int(record_count or 0),
+        )
+
+    follow_up_user_rows = (
+        db.session.query(
+            LearnGeneratedBlock.outline_item_bid,
+            db.func.count(db.func.distinct(LearnGeneratedBlock.user_bid)),
+            db.func.count(LearnGeneratedBlock.id),
+        )
+        .filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .group_by(LearnGeneratedBlock.outline_item_bid)
+    )
+    follow_up_stats_map: Dict[str, Tuple[int, int]] = {}
+    for (
+        outline_item_bid,
+        user_count,
+        question_count,
+    ) in follow_up_user_rows.yield_per(1000):
+        normalized_bid = str(outline_item_bid or "").strip()
+        if not normalized_bid:
+            continue
+        follow_up_stats_map[normalized_bid] = (
+            int(user_count or 0),
+            int(question_count or 0),
+        )
+
+    section_chapter: Dict[str, Tuple[str, str]] = {}
+    for outline_item_bid in visible_section_bids:
+        cur = outline_item_bid
+        visited: Set[str] = set()
+        chapter_bid = outline_item_bid
+        chapter_title = str(outline_item_map[outline_item_bid].title or "").strip()
+        while cur and cur not in visited:
+            visited.add(cur)
+            item = outline_item_map.get(cur)
+            if item is None:
+                break
+            parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
+            if not parent_bid or parent_bid not in outline_item_map:
+                break
+            chapter_bid = parent_bid
+            chapter_title = str(outline_item_map[parent_bid].title or "").strip()
+            cur = parent_bid
+        section_chapter[outline_item_bid] = (chapter_bid, chapter_title)
+
+    chart_items: List[DashboardCourseDetailSectionChartDTO] = []
+    for section_outline_item_bid in [
+        str(s.outline_item_bid or "").strip() for s in ordered_sections
+    ]:
+        section = outline_item_map[section_outline_item_bid]
+        learning_user, learning_record = learning_stats_map.get(
+            section_outline_item_bid, (0, 0)
+        )
+        follow_up_user, follow_up_question = follow_up_stats_map.get(
+            section_outline_item_bid, (0, 0)
+        )
+        chapter_outline_item_bid, chapter_title = section_chapter[
+            section_outline_item_bid
+        ]
+
+        chart_items.append(
+            DashboardCourseDetailSectionChartDTO(
+                chapter_outline_item_bid=chapter_outline_item_bid,
+                chapter_title=chapter_title,
+                section_outline_item_bid=section_outline_item_bid,
+                section_title=str(section.title or "").strip(),
+                position=str(section.position or "").strip(),
+                learning_user_count=learning_user,
+                learning_record_count=learning_record,
+                follow_up_user_count=follow_up_user,
+                follow_up_question_count=follow_up_question,
+            )
+        )
+
+    return chart_items
 
 
 def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
@@ -671,6 +832,7 @@ def build_dashboard_course_detail(
             normalized_shifu_bid,
             learner_count,
         )
+        sections = _build_section_learning_chart(normalized_shifu_bid)
 
         return DashboardCourseDetailDTO(
             basic_info=DashboardCourseDetailBasicInfoDTO(
@@ -708,4 +870,5 @@ def build_dashboard_course_detail(
                 ),
                 avg_learning_duration_seconds=avg_learning_duration_seconds,
             ),
+            charts=DashboardCourseDetailChartsDTO(sections=sections),
         )

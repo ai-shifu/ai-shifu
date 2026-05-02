@@ -17,6 +17,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/Breadcrumb';
 import { Card, CardContent } from '@/components/ui/Card';
+import ChartCard from '@/components/charts/ChartCard';
+import EChart from '@/components/charts/EChart';
 import {
   Table,
   TableBody,
@@ -27,6 +29,8 @@ import {
 } from '@/components/ui/Table';
 import { ErrorWithCode } from '@/lib/request';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { buildSectionLearningChartOption } from '@/lib/dashboard/section-learning-chart';
+import type { SectionChartLabels } from '@/lib/dashboard/section-learning-chart';
 import { useUserStore } from '@/store';
 import type { DashboardCourseDetailResponse } from '@/types/dashboard';
 import { buildAdminOrdersUrl } from '../admin-dashboard-routes';
@@ -51,6 +55,9 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
     total_follow_up_count: 0,
     avg_follow_up_count_per_learner: '0.00',
     avg_learning_duration_seconds: 0,
+  },
+  charts: {
+    sections: [],
   },
 };
 
@@ -114,12 +121,34 @@ export default function AdminDashboardCourseDetailPage() {
   const emptyValue = '--';
   const orderListUrl = buildAdminOrdersUrl(shifuBid);
 
-  const chartLabels = [
-    t('module.dashboard.detail.charts.questionsByChapter'),
-    t('module.dashboard.detail.charts.questionsByTime'),
-    t('module.dashboard.detail.charts.learningTrend'),
-    t('module.dashboard.detail.charts.chapterProgress'),
-  ];
+  const sectionChartLabels = useMemo<SectionChartLabels>(
+    () => ({
+      learningUserCount: t(
+        'module.dashboard.detail.charts.learningUserCount',
+      ),
+      learningRecordCount: t(
+        'module.dashboard.detail.charts.learningRecordCount',
+      ),
+      followUpUserCount: t(
+        'module.dashboard.detail.charts.followUpUserCount',
+      ),
+      followUpQuestionCount: t(
+        'module.dashboard.detail.charts.followUpQuestionCount',
+      ),
+    }),
+    [t],
+  );
+
+  const sectionChartOption = useMemo(
+    () =>
+      buildSectionLearningChartOption(
+        detail.charts.sections || [],
+        sectionChartLabels,
+      ),
+    [detail.charts.sections, sectionChartLabels],
+  );
+
+  const sectionChartHasData = (detail.charts.sections || []).length > 0;
   const learnerTableColumnLabels = [
     t('module.dashboard.detail.learners.columns.name'),
     t('module.dashboard.detail.learners.columns.progress'),
@@ -371,20 +400,22 @@ export default function AdminDashboardCourseDetailPage() {
           <h2 className='text-base font-semibold text-foreground'>
             {t('module.dashboard.detail.charts.title')}
           </h2>
-          <div className='grid grid-cols-1 gap-4 xl:grid-cols-2'>
-            {chartLabels.map(chartLabel => (
-              <Card key={chartLabel}>
-                <CardContent className='flex h-56 flex-col p-5'>
-                  <div className='text-sm font-medium text-foreground'>
-                    {chartLabel}
-                  </div>
-                  <div className='mt-4 flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground'>
-                    {t('module.dashboard.detail.charts.placeholder')}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <ChartCard
+            title={t('module.dashboard.detail.charts.sectionLearningTitle')}
+            contentClassName='min-h-[380px]'
+          >
+            {sectionChartHasData ? (
+              <EChart
+                option={sectionChartOption}
+                style={{ height: 360, width: '100%' }}
+                notMerge
+              />
+            ) : (
+              <div className='flex h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground'>
+                {t('module.dashboard.detail.charts.emptySections')}
+              </div>
+            )}
+          </ChartCard>
         </div>
 
         <Card>
