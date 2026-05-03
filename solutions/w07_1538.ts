@@ -32,13 +32,13 @@ def generate_architecture_doc():
         ],
         "data_flow": "Nodes communicate via P2P, transactions are validated and added to blocks"
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "architecture"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "overview.json", "w") as f:
         json.dump(arch, f, indent=2)
-    
+
     print(f"Generated architecture docs at {output_dir}")
 
 def generate_plans_doc():
@@ -60,13 +60,13 @@ def generate_plans_doc():
             }
         ]
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "plans"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "development_plan.json", "w") as f:
         json.dump(plans, f, indent=2)
-    
+
     print(f"Generated plans docs at {output_dir}")
 
 def generate_design_docs():
@@ -84,13 +84,13 @@ def generate_design_docs():
             }
         ]
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "design"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "design_specs.json", "w") as f:
         json.dump(designs, f, indent=2)
-    
+
     print(f"Generated design docs at {output_dir}")
 
 def generate_product_specs():
@@ -110,13 +110,13 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "product_specs"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "features.json", "w") as f:
         json.dump(specs, f, indent=2)
-    
+
     print(f"Generated product specs at {output_dir}")
 
 def generate_references():
@@ -134,13 +134,13 @@ def generate_references():
             }
         ]
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "references"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "external_refs.json", "w") as f:
         json.dump(refs, f, indent=2)
-    
+
     print(f"Generated references at {output_dir}")
 
 def generate_inventory():
@@ -150,7 +150,7 @@ def generate_inventory():
         "directories": [],
         "files": []
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         if ".git" in root or "__pycache__" in root:
             continue
@@ -160,13 +160,13 @@ def generate_inventory():
         for file in files:
             file_path = os.path.join(rel_path, file)
             inventory["files"].append(file_path)
-    
+
     output_dir = REPO_ROOT / "docs" / "inventory"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "repo_inventory.json", "w") as f:
         json.dump(inventory, f, indent=2)
-    
+
     print(f"Generated inventory at {output_dir}")
 
 def generate_exec_plans():
@@ -179,19 +179,19 @@ def generate_exec_plans():
             "deadline": "2024-03-01"
         }
     }
-    
+
     output_dir = REPO_ROOT / "docs" / "exec_plans"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_dir / "sprint_plan.json", "w") as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     print(f"Generated exec plans at {output_dir}")
 
 def main():
     """Main function to generate all documentation."""
     print("Generating AI collaboration documentation...")
-    
+
     generate_architecture_doc()
     generate_plans_doc()
     generate_design_docs()
@@ -199,7 +199,7 @@ def main():
     generate_references()
     generate_inventory()
     generate_exec_plans()
-    
+
     print("Documentation generation complete!")
 
 if __name__ == "__main__":

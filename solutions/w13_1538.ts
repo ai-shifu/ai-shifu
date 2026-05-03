@@ -23,16 +23,16 @@ def create_directory_structure():
     """Create the directory structure for AI collaboration docs."""
     docs_dir = REPO_ROOT / "docs"
     docs_dir.mkdir(exist_ok=True)
-    
+
     for category, files in STRUCTURE.items():
         category_dir = docs_dir / category
         category_dir.mkdir(exist_ok=True)
-        
+
         for file_name in files:
             file_path = category_dir / file_name
             if not file_path.exists():
                 file_path.write_text(f"# {file_name.replace('_', ' ').replace('.md', '').title()}\n\n*Auto-generated on {datetime.now().isoformat()}*\n")
-    
+
     return docs_dir
 
 def generate_manifest():
@@ -42,11 +42,11 @@ def generate_manifest():
         "version": "1.0.0",
         "structure": STRUCTURE
     }
-    
+
     manifest_path = REPO_ROOT / "docs" / "manifest.json"
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
-    
+
     return manifest_path
 
 def main():
