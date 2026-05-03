@@ -37,7 +37,7 @@ def generate_architecture_doc():
             {"from": "backend_services", "to": "blockchain", "protocol": "Web3"}
         ]
     }
-    
+
     output_path = REPO_ROOT / "architecture" / "architecture.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -79,7 +79,7 @@ def generate_plans_doc():
             }
         ]
     }
-    
+
     output_path = REPO_ROOT / "plans" / "plans.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -111,7 +111,7 @@ def generate_design_docs():
             "block_time": "2 seconds"
         }
     }
-    
+
     output_path = REPO_ROOT / "design_docs" / "design.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -159,7 +159,7 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     output_path = REPO_ROOT / "product_specs" / "specs.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -187,7 +187,7 @@ def generate_references():
             {"name": "ERC-20", "description": "Token standard"}
         ]
     }
-    
+
     output_path = REPO_ROOT / "references" / "references.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -202,18 +202,18 @@ def generate_inventory():
         "directories": [],
         "files": []
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         # Skip hidden directories and common build artifacts
         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv']]
-        
+
         rel_path = os.path.relpath(root, REPO_ROOT)
         if rel_path != '.':
             inventory["directories"].append({
                 "path": rel_path,
                 "file_count": len(files)
             })
-        
+
         for file in files:
             file_path = os.path.join(rel_path, file)
             if not file.startswith('.'):
@@ -221,7 +221,7 @@ def generate_inventory():
                     "path": file_path,
                     "size": os.path.getsize(os.path.join(root, file))
                 })
-    
+
     output_path = REPO_ROOT / "generated_inventory" / "inventory.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -260,7 +260,7 @@ def generate_exec_plans():
             }
         ]
     }
-    
+
     output_path = REPO_ROOT / "exec_plans" / "exec_plans.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
@@ -270,7 +270,7 @@ def generate_exec_plans():
 def main():
     """Main function to generate all documentation."""
     print("Generating AI collaboration documentation...")
-    
+
     generate_architecture_doc()
     generate_plans_doc()
     generate_design_docs()
@@ -278,7 +278,7 @@ def main():
     generate_references()
     generate_inventory()
     generate_exec_plans()
-    
+
     print("\nAll documentation generated successfully!")
 
 if __name__ == "__main__":
