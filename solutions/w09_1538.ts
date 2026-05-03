@@ -35,7 +35,7 @@ def generate_architecture_doc():
             "Backend -> Database/Blockchain -> Response"
         ]
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "architecture", exist_ok=True)
     with open(REPO_ROOT / "docs" / "architecture" / "overview.json", "w") as f:
         json.dump(arch, f, indent=2)
@@ -61,7 +61,7 @@ def generate_plans_doc():
             ]
         }
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "plans", exist_ok=True)
     with open(REPO_ROOT / "docs" / "plans" / "sprint_plans.json", "w") as f:
         json.dump(plans, f, indent=2)
@@ -85,7 +85,7 @@ def generate_design_docs():
             ]
         }
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "design", exist_ok=True)
     with open(REPO_ROOT / "docs" / "design" / "system_design.json", "w") as f:
         json.dump(design, f, indent=2)
@@ -116,7 +116,7 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "product_specs", exist_ok=True)
     with open(REPO_ROOT / "docs" / "product_specs" / "features.json", "w") as f:
         json.dump(specs, f, indent=2)
@@ -135,7 +135,7 @@ def generate_references():
             {"name": "System Design", "path": "docs/design/system_design.json"}
         ]
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "references", exist_ok=True)
     with open(REPO_ROOT / "docs" / "references" / "references.json", "w") as f:
         json.dump(refs, f, indent=2)
@@ -146,7 +146,7 @@ def generate_inventory():
         "directories": [],
         "files": []
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         if '.git' in root or '__pycache__' in root or 'node_modules' in root:
             continue
@@ -156,7 +156,7 @@ def generate_inventory():
         for file in files:
             file_path = os.path.join(rel_path, file)
             inventory["files"].append(file_path)
-    
+
     os.makedirs(REPO_ROOT / "docs" / "generated_inventory", exist_ok=True)
     with open(REPO_ROOT / "docs" / "generated_inventory" / "inventory.json", "w") as f:
         json.dump(inventory, f, indent=2)
@@ -196,7 +196,7 @@ def generate_exec_plans():
             "status": "pending"
         }
     }
-    
+
     os.makedirs(REPO_ROOT / "docs" / "exec_plans", exist_ok=True)
     with open(REPO_ROOT / "docs" / "exec_plans" / "execution_plan.json", "w") as f:
         json.dump(exec_plans, f, indent=2)
@@ -204,28 +204,28 @@ def generate_exec_plans():
 def main():
     """Main execution function."""
     print("Generating AI collaboration documentation...")
-    
+
     generate_architecture_doc()
     print("✓ Architecture documentation generated")
-    
+
     generate_plans_doc()
     print("✓ Plans documentation generated")
-    
+
     generate_design_docs()
     print("✓ Design documentation generated")
-    
+
     generate_product_specs()
     print("✓ Product specifications generated")
-    
+
     generate_references()
     print("✓ References generated")
-    
+
     generate_inventory()
     print("✓ Inventory generated")
-    
+
     generate_exec_plans()
     print("✓ Execution plans generated")
-    
+
     print("\nAll documentation generated successfully!")
 
 if __name__ == "__main__":
