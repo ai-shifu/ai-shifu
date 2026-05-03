@@ -20,7 +20,7 @@ EXEC_DIR = REPO_ROOT / "exec-plans"
 
 def ensure_directories():
     """Create required directory structure."""
-    for directory in [ARCHITECTURE_DIR, PLANS_DIR, DESIGN_DIR, SPECS_DIR, 
+    for directory in [ARCHITECTURE_DIR, PLANS_DIR, DESIGN_DIR, SPECS_DIR,
                       REFERENCES_DIR, INVENTORY_DIR, EXEC_DIR]:
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +52,7 @@ def generate_architecture_docs():
             "P2P Node -> Gossip Protocol -> Consensus"
         ]
     }
-    
+
     with open(ARCHITECTURE_DIR / "overview.md", "w") as f:
         f.write(f"# Architecture Overview\n\n")
         f.write(f"Last Updated: {datetime.now().isoformat()}\n\n")
