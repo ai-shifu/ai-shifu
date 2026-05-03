@@ -42,12 +42,12 @@ def generate_architecture_doc():
             "blockchain_event": "Smart Contract -> Backend Listener -> Frontend"
         }
     }
-    
+
     output_path = REPO_ROOT / "architecture" / "system_architecture.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(arch, f, indent=2)
-    
+
     return output_path
 
 def generate_plans_doc():
@@ -77,12 +77,12 @@ def generate_plans_doc():
             }
         ]
     }
-    
+
     output_path = REPO_ROOT / "plans" / "development_plans.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(plans, f, indent=2)
-    
+
     return output_path
 
 def generate_design_docs():
@@ -119,12 +119,12 @@ def generate_design_docs():
             }
         }
     }
-    
+
     output_path = REPO_ROOT / "design" / "technical_design.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(design, f, indent=2)
-    
+
     return output_path
 
 def generate_product_specs():
@@ -165,12 +165,12 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     output_path = REPO_ROOT / "product_specs" / "product_specifications.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(specs, f, indent=2)
-    
+
     return output_path
 
 def generate_references():
@@ -207,12 +207,12 @@ def generate_references():
             }
         }
     }
-    
+
     output_path = REPO_ROOT / "references" / "api_reference.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(references, f, indent=2)
-    
+
     return output_path
 
 def generate_inventory():
@@ -223,15 +223,15 @@ def generate_inventory():
         "files": [],
         "total_size_bytes": 0
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         # Skip hidden directories and node_modules
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'node_modules']
-        
+
         rel_path = os.path.relpath(root, REPO_ROOT)
         if rel_path != '.':
             inventory["directories"].append(rel_path)
-        
+
         for file in files:
             file_path = os.path.join(root, file)
             rel_file_path = os.path.relpath(file_path, REPO_ROOT)
@@ -241,12 +241,12 @@ def generate_inventory():
                 "extension": os.path.splitext(file)[1]
             })
             inventory["total_size_bytes"] += os.path.getsize(file_path)
-    
+
     output_path = REPO_ROOT / "inventory" / "repository_inventory.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(inventory, f, indent=2)
-    
+
     return output_path
 
 def generate_exec_plans():
@@ -285,40 +285,40 @@ def generate_exec_plans():
             ]
         }
     }
-    
+
     output_path = REPO_ROOT / "exec_plans" / "execution_plans.json"
     output_path.parent.mkdir(exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     return output_path
 
 def main():
     """Main execution function."""
     print("Generating AI collaboration documentation...")
-    
+
     # Generate all documentation
     arch_path = generate_architecture_doc()
     print(f"✓ Architecture docs: {arch_path}")
-    
+
     plans_path = generate_plans_doc()
     print(f"✓ Plans docs: {plans_path}")
-    
+
     design_path = generate_design_docs()
     print(f"✓ Design docs: {design_path}")
-    
+
     specs_path = generate_product_specs()
     print(f"✓ Product specs: {specs_path}")
-    
+
     refs_path = generate_references()
     print(f"✓ References: {refs_path}")
-    
+
     inv_path = generate_inventory()
     print(f"✓ Inventory: {inv_path}")
-    
+
     exec_path = generate_exec_plans()
     print(f"✓ Exec plans: {exec_path}")
-    
+
     print("\nAll documentation generated successfully!")
 
 if __name__ == "__main__":
