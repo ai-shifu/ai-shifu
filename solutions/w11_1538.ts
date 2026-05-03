@@ -43,12 +43,12 @@ def generate_architecture_doc():
             "Responses flow back through the same chain"
         ]
     }
-    
+
     arch_path = REPO_ROOT / "docs" / "architecture" / "architecture.json"
     arch_path.parent.mkdir(parents=True, exist_ok=True)
     with open(arch_path, 'w') as f:
         json.dump(arch, f, indent=2)
-    
+
     return arch_path
 
 def generate_plans_doc():
@@ -87,12 +87,12 @@ def generate_plans_doc():
             }
         ]
     }
-    
+
     plans_path = REPO_ROOT / "docs" / "plans" / "development_plans.json"
     plans_path.parent.mkdir(parents=True, exist_ok=True)
     with open(plans_path, 'w') as f:
         json.dump(plans, f, indent=2)
-    
+
     return plans_path
 
 def generate_design_docs():
@@ -138,12 +138,12 @@ def generate_design_docs():
             ]
         }
     }
-    
+
     design_path = REPO_ROOT / "docs" / "design" / "api_design.json"
     design_path.parent.mkdir(parents=True, exist_ok=True)
     with open(design_path, 'w') as f:
         json.dump(design, f, indent=2)
-    
+
     return design_path
 
 def generate_product_specs():
@@ -182,12 +182,12 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     specs_path = REPO_ROOT / "docs" / "product" / "specifications.json"
     specs_path.parent.mkdir(parents=True, exist_ok=True)
     with open(specs_path, 'w') as f:
         json.dump(specs, f, indent=2)
-    
+
     return specs_path
 
 def generate_references():
@@ -223,12 +223,12 @@ def generate_references():
             }
         ]
     }
-    
+
     refs_path = REPO_ROOT / "docs" / "references" / "references.json"
     refs_path.parent.mkdir(parents=True, exist_ok=True)
     with open(refs_path, 'w') as f:
         json.dump(refs, f, indent=2)
-    
+
     return refs_path
 
 def generate_inventory():
@@ -238,11 +238,11 @@ def generate_inventory():
         "generated_at": datetime.utcnow().isoformat(),
         "files": []
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         # Skip hidden directories and node_modules
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'node_modules' and d != '__pycache__']
-        
+
         for file in files:
             if file.endswith(('.py', '.js', '.ts', '.jsx', '.tsx', '.json', '.md', '.html', '.css')):
                 file_path = Path(root) / file
@@ -252,12 +252,12 @@ def generate_inventory():
                     "size": file_path.stat().st_size,
                     "modified": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
                 })
-    
+
     inventory_path = REPO_ROOT / "docs" / "inventory" / "file_inventory.json"
     inventory_path.parent.mkdir(parents=True, exist_ok=True)
     with open(inventory_path, 'w') as f:
         json.dump(inventory, f, indent=2)
-    
+
     return inventory_path
 
 def generate_exec_plans():
@@ -292,18 +292,18 @@ def generate_exec_plans():
             }
         ]
     }
-    
+
     exec_path = REPO_ROOT / "docs" / "exec" / "execution_plans.json"
     exec_path.parent.mkdir(parents=True, exist_ok=True)
     with open(exec_path, 'w') as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     return exec_path
 
 def main():
     """Main execution function."""
     print("Generating AI collaboration documentation...")
-    
+
     generated_files = [
         generate_architecture_doc(),
         generate_plans_doc(),
@@ -313,11 +313,11 @@ def main():
         generate_inventory(),
         generate_exec_plans()
     ]
-    
+
     print(f"Generated {len(generated_files)} documentation files:")
     for file_path in generated_files:
         print(f"  - {file_path.relative_to(REPO_ROOT)}")
-    
+
     print("\nDocumentation generation complete!")
 
 if __name__ == "__main__":
