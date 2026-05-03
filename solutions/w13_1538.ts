@@ -43,7 +43,7 @@ def generate_ai_collab_docs():
             "testing_strategy.md": "# Testing Strategy\n\n## Test Types\n- Unit tests\n- Integration tests\n- E2E smoke tests"
         }
     }
-    
+
     base_path = Path("docs")
     for category, files in docs_structure.items():
         category_path = base_path / category
@@ -52,7 +52,7 @@ def generate_ai_collab_docs():
             file_path = category_path / filename
             file_path.write_text(content)
             print(f"Generated: {file_path}")
-    
+
     print("\nAI collaboration docs generated successfully!")
 
 if __name__ == "__main__":
