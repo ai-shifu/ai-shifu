@@ -15,11 +15,11 @@ def generate_architecture_docs():
             "data_flow": []
         }
     }
-    
+
     # Scan for key directories and files
     for root, dirs, files in os.walk(REPO_ROOT):
         rel_path = Path(root).relative_to(REPO_ROOT)
-        
+
         # Identify components
         if "src" in dirs or "lib" in dirs:
             docs["architecture"]["components"].append({
@@ -27,7 +27,7 @@ def generate_architecture_docs():
                 "type": "source",
                 "language": detect_language(root)
             })
-        
+
         # Identify config files
         for f in files:
             if f.endswith((".json", ".yaml", ".yml", ".toml", ".cfg")):
@@ -35,7 +35,7 @@ def generate_architecture_docs():
                     "path": str(rel_path / f),
                     "type": "configuration"
                 })
-    
+
     return docs
 
 def detect_language(path):
@@ -48,7 +48,7 @@ def detect_language(path):
         ".go": "Go",
         ".rs": "Rust"
     }
-    
+
     for f in os.listdir(path):
         ext = Path(f).suffix
         if ext in extensions:
@@ -157,16 +157,16 @@ def generate_inventory():
             "total_size": 0
         }
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         rel_path = Path(root).relative_to(REPO_ROOT)
-        
+
         # Skip hidden directories and __pycache__
         if any(part.startswith('.') or part == '__pycache__' for part in rel_path.parts):
             continue
-            
+
         inventory["inventory"]["directories"].append(str(rel_path))
-        
+
         for f in files:
             file_path = rel_path / f
             file_size = os.path.getsize(os.path.join(root, f))
@@ -176,14 +176,14 @@ def generate_inventory():
                 "extension": Path(f).suffix
             })
             inventory["inventory"]["total_size"] += file_size
-    
+
     return inventory
 
 def main():
     """Main execution function"""
     docs_dir = REPO_ROOT / "docs"
     docs_dir.mkdir(exist_ok=True)
-    
+
     # Generate all documentation
     docs = {
         "architecture": generate_architecture_docs(),
@@ -193,24 +193,24 @@ def main():
         "references": generate_references(),
         "inventory": generate_inventory()
     }
-    
+
     # Write documentation files
     for doc_type, content in docs.items():
         doc_path = docs_dir / f"{doc_type}.json"
         with open(doc_path, 'w') as f:
             json.dump(content, f, indent=2)
         print(f"Generated: {doc_path}")
-    
+
     # Generate index file
     index = {
         "generated_at": __import__('datetime').datetime.now().isoformat(),
         "documentation": list(docs.keys()),
         "total_docs": len(docs)
     }
-    
+
     with open(docs_dir / "index.json", 'w') as f:
         json.dump(index, f, indent=2)
-    
+
     print("Documentation generation complete!")
 
 if __name__ == "__main__":
