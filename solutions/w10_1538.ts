@@ -13,7 +13,7 @@ def generate_architecture_docs():
             "components": []
         }
     }
-    
+
     # Scan source directories
     src_dirs = ['src', 'contracts', 'tests']
     for dir_name in src_dirs:
@@ -28,7 +28,7 @@ def generate_architecture_docs():
                         "type": "module"
                     })
             docs["architecture"]["components"].extend(components)
-    
+
     return docs
 
 def generate_plans():
@@ -132,33 +132,33 @@ def generate_inventory():
             "files": []
         }
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         # Skip hidden directories and __pycache__
         dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
-        
+
         rel_path = Path(root).relative_to(REPO_ROOT)
         if str(rel_path) == '.':
             continue
-            
+
         if dirs:
             inventory["inventory"]["directories"].extend([
                 str(Path(rel_path) / d) for d in dirs
             ])
-        
+
         for file in files:
             if not file.startswith('.'):
                 inventory["inventory"]["files"].append(
                     str(Path(rel_path) / file)
                 )
-    
+
     return inventory
 
 def main():
     """Main function to generate all documentation"""
     output_dir = REPO_ROOT / 'docs' / 'generated'
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Generate all documentation
     docs = {
         **generate_architecture_docs(),
@@ -168,12 +168,12 @@ def main():
         **generate_references(),
         **generate_inventory()
     }
-    
+
     # Write to file
     output_file = output_dir / 'ai_collab_docs.json'
     with open(output_file, 'w') as f:
         json.dump(docs, f, indent=2)
-    
+
     print(f"Generated AI collaboration docs at {output_file}")
 
 if __name__ == "__main__":
