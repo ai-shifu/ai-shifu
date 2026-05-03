@@ -12,7 +12,7 @@ def generate_architecture_docs():
     """Generate architecture documentation."""
     arch_dir = REPO_ROOT / "docs" / "architecture"
     arch_dir.mkdir(parents=True, exist_ok=True)
-    
+
     architecture = {
         "name": "P2P Blockchain Network",
         "version": "1.0.0",
@@ -43,17 +43,17 @@ def generate_architecture_docs():
             "p2p": "libp2p streams"
         }
     }
-    
+
     with open(arch_dir / "system_architecture.json", "w") as f:
         json.dump(architecture, f, indent=2)
-    
+
     return architecture
 
 def generate_plans():
     """Generate development plans."""
     plans_dir = REPO_ROOT / "docs" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
-    
+
     plans = {
         "milestones": [
             {
@@ -81,17 +81,17 @@ def generate_plans():
             {"number": 3, "duration": "2 weeks", "focus": "Storage integration"}
         ]
     }
-    
+
     with open(plans_dir / "development_plan.json", "w") as f:
         json.dump(plans, f, indent=2)
-    
+
     return plans
 
 def generate_design_docs():
     """Generate design documentation."""
     design_dir = REPO_ROOT / "docs" / "design"
     design_dir.mkdir(parents=True, exist_ok=True)
-    
+
     design_doc = {
         "title": "P2P Network Design",
         "version": "1.0",
@@ -113,17 +113,17 @@ def generate_design_docs():
             }
         ]
     }
-    
+
     with open(design_dir / "p2p_design.json", "w") as f:
         json.dump(design_doc, f, indent=2)
-    
+
     return design_doc
 
 def generate_product_specs():
     """Generate product specifications."""
     specs_dir = REPO_ROOT / "docs" / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     specs = {
         "product": "Decentralized Data Platform",
         "version": "0.1.0",
@@ -160,17 +160,17 @@ def generate_product_specs():
             }
         }
     }
-    
+
     with open(specs_dir / "product_spec.json", "w") as f:
         json.dump(specs, f, indent=2)
-    
+
     return specs
 
 def generate_references():
     """Generate reference documentation."""
     refs_dir = REPO_ROOT / "docs" / "references"
     refs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     references = {
         "standards": [
             {"name": "libp2p", "url": "https://libp2p.io"},
@@ -187,24 +187,24 @@ def generate_references():
             {"name": "substrate", "version": "1.0"}
         ]
     }
-    
+
     with open(refs_dir / "references.json", "w") as f:
         json.dump(references, f, indent=2)
-    
+
     return references
 
 def generate_inventory():
     """Generate repository inventory."""
     inventory_dir = REPO_ROOT / "docs" / "inventory"
     inventory_dir.mkdir(parents=True, exist_ok=True)
-    
+
     inventory = {
         "generated_at": "2024-01-15T00:00:00Z",
         "total_files": 0,
         "directories": [],
         "file_types": {}
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         if '.git' in root or '__pycache__' in root:
             continue
@@ -215,17 +215,17 @@ def generate_inventory():
             inventory["total_files"] += 1
             ext = os.path.splitext(file)[1]
             inventory["file_types"][ext] = inventory["file_types"].get(ext, 0) + 1
-    
+
     with open(inventory_dir / "repository_inventory.json", "w") as f:
         json.dump(inventory, f, indent=2)
-    
+
     return inventory
 
 def generate_exec_plans():
     """Generate execution plans."""
     exec_dir = REPO_ROOT / "docs" / "exec"
     exec_dir.mkdir(parents=True, exist_ok=True)
-    
+
     exec_plans = {
         "current_sprint": {
             "number": 1,
@@ -244,37 +244,37 @@ def generate_exec_plans():
             "planned_tasks": ["Consensus implementation", "State management", "Integration tests"]
         }
     }
-    
+
     with open(exec_dir / "execution_plan.json", "w") as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     return exec_plans
 
 def main():
     """Main entry point."""
     print("Generating AI collaboration documentation...")
-    
+
     generate_architecture_docs()
     print("✓ Architecture docs generated")
-    
+
     generate_plans()
     print("✓ Plans generated")
-    
+
     generate_design_docs()
     print("✓ Design docs generated")
-    
+
     generate_product_specs()
     print("✓ Product specs generated")
-    
+
     generate_references()
     print("✓ References generated")
-    
+
     generate_inventory()
     print("✓ Inventory generated")
-    
+
     generate_exec_plans()
     print("✓ Execution plans generated")
-    
+
     print("\nAll documentation generated successfully!")
 
 if __name__ == "__main__":
