@@ -41,13 +41,13 @@ def generate_architecture_doc():
             "Peer -> P2P Network -> Message Handler -> Blockchain Core"
         ]
     }
-    
+
     arch_dir = REPO_ROOT / "docs" / "architecture"
     arch_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(arch_dir / "architecture.json", "w") as f:
         json.dump(arch, f, indent=2)
-    
+
     print(f"Generated architecture doc at {arch_dir / 'architecture.json'}")
 
 def generate_plans_doc():
@@ -76,13 +76,13 @@ def generate_plans_doc():
             }
         ]
     }
-    
+
     plans_dir = REPO_ROOT / "docs" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(plans_dir / "plans.json", "w") as f:
         json.dump(plans, f, indent=2)
-    
+
     print(f"Generated plans doc at {plans_dir / 'plans.json'}")
 
 def generate_design_docs():
@@ -110,13 +110,13 @@ def generate_design_docs():
             }
         ]
     }
-    
+
     design_dir = REPO_ROOT / "docs" / "design"
     design_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(design_dir / "design_specs.json", "w") as f:
         json.dump(designs, f, indent=2)
-    
+
     print(f"Generated design docs at {design_dir / 'design_specs.json'}")
 
 def generate_product_specs():
@@ -145,13 +145,13 @@ def generate_product_specs():
             }
         ]
     }
-    
+
     specs_dir = REPO_ROOT / "docs" / "product_specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(specs_dir / "product_specs.json", "w") as f:
         json.dump(specs, f, indent=2)
-    
+
     print(f"Generated product specs at {specs_dir / 'product_specs.json'}")
 
 def generate_references():
@@ -183,13 +183,13 @@ def generate_references():
             }
         ]
     }
-    
+
     refs_dir = REPO_ROOT / "docs" / "references"
     refs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(refs_dir / "references.json", "w") as f:
         json.dump(refs, f, indent=2)
-    
+
     print(f"Generated references at {refs_dir / 'references.json'}")
 
 def generate_inventory():
@@ -200,25 +200,25 @@ def generate_inventory():
         "directories": [],
         "files": []
     }
-    
+
     for root, dirs, files in os.walk(REPO_ROOT):
         rel_path = Path(root).relative_to(REPO_ROOT)
         if rel_path.parts and rel_path.parts[0] in ['.git', '__pycache__', 'node_modules']:
             continue
-        
+
         for d in dirs:
             inventory["directories"].append(str(Path(rel_path) / d))
-        
+
         for f in files:
             if not f.endswith('.pyc') and not f.startswith('.'):
                 inventory["files"].append(str(Path(rel_path) / f))
-    
+
     inventory_dir = REPO_ROOT / "docs" / "inventory"
     inventory_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(inventory_dir / "inventory.json", "w") as f:
         json.dump(inventory, f, indent=2)
-    
+
     print(f"Generated inventory at {inventory_dir / 'inventory.json'}")
 
 def generate_exec_plans():
@@ -245,19 +245,19 @@ def generate_exec_plans():
             "status": "planned"
         }
     }
-    
+
     exec_dir = REPO_ROOT / "docs" / "exec_plans"
     exec_dir.mkdir(parents=True, exist_ok=True)
-    
+
     with open(exec_dir / "exec_plans.json", "w") as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     print(f"Generated exec plans at {exec_dir / 'exec_plans.json'}")
 
 def main():
     """Main entry point."""
     print("Generating AI collaboration documentation...")
-    
+
     generate_architecture_doc()
     generate_plans_doc()
     generate_design_docs()
@@ -265,7 +265,7 @@ def main():
     generate_references()
     generate_inventory()
     generate_exec_plans()
-    
+
     print("Documentation generation complete!")
 
 if __name__ == "__main__":
