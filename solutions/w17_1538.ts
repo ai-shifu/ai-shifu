@@ -36,16 +36,16 @@ def generate_ai_collab_docs():
             "sprint2": "Sprint 2 execution plan"
         }
     }
-    
+
     output_dir = Path("docs/ai_collab")
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     for category, content in docs.items():
         filepath = output_dir / f"{category}.json"
         with open(filepath, 'w') as f:
             json.dump(content, f, indent=2)
         print(f"Generated: {filepath}")
-    
+
     print("AI collaboration documentation generated successfully")
 
 if __name__ == "__main__":
