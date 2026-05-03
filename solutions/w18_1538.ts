@@ -104,14 +104,14 @@ def generate_inventory():
         "directories": [],
         "total_size": 0
     }
-    
+
     for path in repo_path.rglob("*"):
         if path.is_file() and not str(path).startswith("."):
             inventory["files"].append(str(path))
             inventory["total_size"] += path.stat().st_size
         elif path.is_dir() and not str(path).startswith("."):
             inventory["directories"].append(str(path))
-    
+
     return inventory
 
 def generate_exec_plans():
@@ -138,7 +138,7 @@ def main():
     """Main documentation generation function"""
     output_dir = Path("docs")
     output_dir.mkdir(exist_ok=True)
-    
+
     # Generate all documentation
     docs = {
         "architecture": generate_architecture_docs(),
@@ -149,14 +149,14 @@ def main():
         "inventory": generate_inventory(),
         "exec_plans": generate_exec_plans()
     }
-    
+
     # Write documentation files
     for doc_type, content in docs.items():
         file_path = output_dir / f"{doc_type}.json"
         with open(file_path, 'w') as f:
             json.dump(content, f, indent=2)
         print(f"Generated: {file_path}")
-    
+
     print("Documentation generation complete!")
 
 if __name__ == "__main__":
