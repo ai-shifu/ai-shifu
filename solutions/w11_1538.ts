@@ -22,11 +22,11 @@ def generate_architecture_docs():
             ]
         }
     }
-    
+
     os.makedirs("docs/architecture", exist_ok=True)
     with open("docs/architecture/overview.json", "w") as f:
         json.dump(docs, f, indent=2)
-    
+
     return docs
 
 def generate_plans():
@@ -64,11 +64,11 @@ def generate_plans():
             }
         }
     }
-    
+
     os.makedirs("docs/plans", exist_ok=True)
     with open("docs/plans/execution_plan.json", "w") as f:
         json.dump(plans, f, indent=2)
-    
+
     return plans
 
 def generate_design_docs():
@@ -94,11 +94,11 @@ def generate_design_docs():
             }
         }
     }
-    
+
     os.makedirs("docs/design", exist_ok=True)
     with open("docs/design/harness_design.json", "w") as f:
         json.dump(design, f, indent=2)
-    
+
     return design
 
 def generate_product_specs():
@@ -120,11 +120,11 @@ def generate_product_specs():
             ]
         }
     }
-    
+
     os.makedirs("docs/product_specs", exist_ok=True)
     with open("docs/product_specs/specifications.json", "w") as f:
         json.dump(specs, f, indent=2)
-    
+
     return specs
 
 def generate_references():
@@ -144,11 +144,11 @@ def generate_references():
             }
         }
     }
-    
+
     os.makedirs("docs/references", exist_ok=True)
     with open("docs/references/api_reference.json", "w") as f:
         json.dump(references, f, indent=2)
-    
+
     return references
 
 def generate_inventory():
@@ -174,11 +174,11 @@ def generate_inventory():
             ]
         }
     }
-    
+
     os.makedirs("docs/generated_inventory", exist_ok=True)
     with open("docs/generated_inventory/inventory.json", "w") as f:
         json.dump(inventory, f, indent=2)
-    
+
     return inventory
 
 def generate_exec_plans():
@@ -198,17 +198,17 @@ def generate_exec_plans():
             }
         }
     }
-    
+
     os.makedirs("docs/exec_plans", exist_ok=True)
     with open("docs/exec_plans/current_plan.json", "w") as f:
         json.dump(exec_plans, f, indent=2)
-    
+
     return exec_plans
 
 def main():
     """Main execution function"""
     print("Generating AI collaboration documentation...")
-    
+
     # Generate all documentation
     generate_architecture_docs()
     generate_plans()
@@ -217,7 +217,7 @@ def main():
     generate_references()
     generate_inventory()
     generate_exec_plans()
-    
+
     print("Documentation generated successfully!")
     print("Directories created:")
     print("  - docs/architecture")
