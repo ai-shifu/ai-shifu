@@ -96,7 +96,7 @@ export function AdminBillingPageClient({
 
   return (
     <div
-      className='h-full min-h-0 overflow-hidden bg-stone-50 p-0'
+      className='h-full min-h-0 overflow-hidden overscroll-none bg-stone-50 p-0'
       data-testid='admin-billing-page'
     >
       <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
