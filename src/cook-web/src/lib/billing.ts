@@ -250,44 +250,49 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 const BILLING_OFFSETLESS_DATETIME_RE =
   /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
 const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
-const DEFAULT_BILL_CREDIT_PRECISION = 2;
-const MAX_BILL_CREDIT_PRECISION = 10;
 
-let billingCreditPrecision = DEFAULT_BILL_CREDIT_PRECISION;
+const BILLING_DISPLAY_RULE = {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+} as const;
 
-function normalizeBillingCreditPrecision(value?: number | null): number {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return DEFAULT_BILL_CREDIT_PRECISION;
-  }
-  return Math.min(
-    MAX_BILL_CREDIT_PRECISION,
-    Math.max(0, Math.trunc(numericValue)),
-  );
-}
+type FormatBillingNumberOptions = {
+  currency?: string;
+  maximumFractionDigits?: number;
+};
 
-export function setBillingCreditPrecision(value?: number | null): void {
-  billingCreditPrecision = normalizeBillingCreditPrecision(value);
-}
-
-export function formatBillingCredits(
-  value: number,
+export function formatBillingNumber(
+  value: unknown,
   locale: string,
-  precision: number = billingCreditPrecision,
+  options?: FormatBillingNumberOptions,
 ): string {
-  const normalizedPrecision = normalizeBillingCreditPrecision(precision);
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: normalizedPrecision,
-    maximumFractionDigits: normalizedPrecision,
-  }).format(Number(value || 0));
+  const n = Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat(locale || 'en-US', {
+    minimumFractionDigits: BILLING_DISPLAY_RULE.minimumFractionDigits,
+    maximumFractionDigits:
+      options?.maximumFractionDigits ??
+      BILLING_DISPLAY_RULE.maximumFractionDigits,
+    ...(options?.currency
+      ? {
+          style: 'currency',
+          currency: options.currency,
+          currencyDisplay: 'narrowSymbol',
+        }
+      : {}),
+  }).format(safe);
+}
+
+export function formatBillingCredits(value: number, locale: string): string {
+  return formatBillingNumber(value, locale);
 }
 
 export function formatBillingCreditBalance(value: number): string {
-  return String(Math.trunc(Number(value || 0)));
+  return formatBillingNumber(value, 'en-US');
 }
 
 export function formatBillingCreditAmount(value: number): string {
-  return String(Math.trunc(Number(value || 0)));
+  return formatBillingNumber(value, 'en-US');
 }
 
 export function formatBillingPrice(
@@ -295,11 +300,20 @@ export function formatBillingPrice(
   currency: string,
   locale: string,
 ): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currency || 'CNY',
-    maximumFractionDigits: 2,
-  }).format(Number(amountInMinor || 0) / 100);
+  const resolvedCurrency = currency || 'CNY';
+  const fractionDigits =
+    new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency',
+      currency: resolvedCurrency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  return formatBillingNumber(
+    Number(amountInMinor || 0) / 10 ** fractionDigits,
+    locale,
+    {
+      currency: resolvedCurrency,
+      maximumFractionDigits: fractionDigits,
+    },
+  );
 }
 
 export function resolveBillingSubscriptionStatusLabel(

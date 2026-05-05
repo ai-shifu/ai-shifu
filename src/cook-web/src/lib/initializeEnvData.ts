@@ -5,7 +5,6 @@ import { EnvStoreState } from '@/c-types/store';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { setBillingCreditPrecision } from '@/lib/billing';
 
 const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
   if (Array.isArray(value)) {
@@ -139,7 +138,6 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
-  setBillingCreditPrecision(runtimeConfig?.billingCreditPrecision);
   if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
     return;
   }

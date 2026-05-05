@@ -54,7 +54,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
-import { buildBillingSwrKey } from '@/lib/billing';
+import { buildBillingSwrKey, formatBillingCredits } from '@/lib/billing';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
@@ -266,7 +266,7 @@ const CourseListPreview = ({
  * t('module.user.defaultUserName')
  */
 export default function AdminOperationUsersPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { t: tOperationsCourse } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
@@ -1051,12 +1051,22 @@ export default function AdminOperationUsersPage() {
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(
-                                user.available_credits || EMPTY_STATE_LABEL,
+                                user.available_credits
+                                  ? formatBillingCredits(
+                                      Number(user.available_credits),
+                                      i18n.language,
+                                    )
+                                  : EMPTY_STATE_LABEL,
                               )}
                             </Link>
                           ) : (
                             renderTooltipText(
-                              user.available_credits || EMPTY_STATE_LABEL,
+                              user.available_credits
+                                ? formatBillingCredits(
+                                    Number(user.available_credits),
+                                    i18n.language,
+                                  )
+                                : EMPTY_STATE_LABEL,
                             )
                           )}
                         </TableCell>
