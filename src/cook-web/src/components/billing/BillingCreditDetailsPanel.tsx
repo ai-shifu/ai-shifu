@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
 import {
   Tooltip,
   TooltipContent,
@@ -220,7 +221,7 @@ export function BillingCreditDetailsPanel({
       data-testid='billing-credit-details-panel'
     >
       <div>
-        <h1 className='text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl'>
+        <h1 className={BILLING_SECTION_TITLE_CLASS}>
           {t('module.billing.details.title')}
         </h1>
       </div>

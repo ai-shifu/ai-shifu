@@ -57,9 +57,102 @@ from flaskr.service.learn.listen_source_span_utils import (
 )
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput
+from flaskr.service.tts.api import normalize_subtitle_cues
 
 
 class ListenElementRunStreamMixin:
+    @staticmethod
+    def _normalize_live_audio_position(position: Any) -> int:
+        try:
+            return max(int(position or 0), 0)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _resolved_live_subtitle_cues(
+        previous_audio: ElementAudioDTO | None,
+        current_audio: ElementAudioDTO | None,
+    ) -> list[dict[str, Any]]:
+        current_cues = normalize_subtitle_cues(
+            getattr(current_audio, "subtitle_cues", None)
+        )
+        if current_cues:
+            return current_cues
+        return normalize_subtitle_cues(getattr(previous_audio, "subtitle_cues", None))
+
+    def _freeze_live_audio_payload(
+        self,
+        state: BlockState,
+        *,
+        position: int,
+        current_audio: ElementAudioDTO | None,
+    ) -> ElementAudioDTO | None:
+        normalized_position = self._normalize_live_audio_position(position)
+        previous_audio = state.live_audio_by_position.get(normalized_position)
+        if current_audio is None:
+            if previous_audio is None:
+                return None
+            return previous_audio.model_copy(deep=True)
+
+        resolved_subtitle_cues = self._resolved_live_subtitle_cues(
+            previous_audio,
+            current_audio,
+        )
+        if resolved_subtitle_cues:
+            frozen_duration_ms = int(resolved_subtitle_cues[-1].get("end_ms", 0) or 0)
+        else:
+            frozen_duration_ms = max(
+                int(getattr(previous_audio, "duration_ms", 0) or 0),
+                int(getattr(current_audio, "duration_ms", 0) or 0),
+            )
+        frozen_audio = ElementAudioDTO(
+            audio_url=(
+                str(current_audio.audio_url or "")
+                or str(getattr(previous_audio, "audio_url", "") or "")
+            ),
+            audio_bid=(
+                str(current_audio.audio_bid or "")
+                or str(getattr(previous_audio, "audio_bid", "") or "")
+            ),
+            duration_ms=frozen_duration_ms,
+            position=normalized_position,
+            subtitle_cues=resolved_subtitle_cues,
+        )
+        state.live_audio_by_position[normalized_position] = frozen_audio
+        return frozen_audio.model_copy(deep=True)
+
+    def _freeze_live_audio_map(
+        self,
+        state: BlockState,
+        *,
+        prefer_positions: list[int] | None = None,
+    ) -> dict[int, ElementAudioDTO]:
+        frozen_audio_by_position: dict[int, ElementAudioDTO] = {}
+        positions: list[int] = []
+
+        for raw_position in prefer_positions or []:
+            position = self._normalize_live_audio_position(raw_position)
+            if position not in positions:
+                positions.append(position)
+        for raw_position in state.audio_by_position.keys():
+            position = self._normalize_live_audio_position(raw_position)
+            if position not in positions:
+                positions.append(position)
+        for raw_position in state.live_audio_by_position.keys():
+            position = self._normalize_live_audio_position(raw_position)
+            if position not in positions:
+                positions.append(position)
+
+        for position in positions:
+            frozen_audio = self._freeze_live_audio_payload(
+                state,
+                position=position,
+                current_audio=state.audio_by_position.get(position),
+            )
+            if frozen_audio is not None:
+                frozen_audio_by_position[position] = frozen_audio
+        return frozen_audio_by_position
+
     def _make_retire_element_message(
         self,
         *,
@@ -112,6 +205,15 @@ class ListenElementRunStreamMixin:
             state,
             state.fallback_element_bid,
         )
+        frozen_audio = (
+            self._freeze_live_audio_payload(
+                state,
+                position=getattr(audio, "position", 0),
+                current_audio=audio,
+            )
+            if audio is not None
+            else None
+        )
         return ElementDTO(
             event_type="element",
             element_bid=state.fallback_element_bid,
@@ -126,13 +228,13 @@ class ListenElementRunStreamMixin:
             is_navigable=1,
             is_final=False,
             is_speakable=_default_is_speakable(ElementType.TEXT, state.raw_content),
-            audio_url=audio.audio_url if audio is not None else "",
+            audio_url=frozen_audio.audio_url if frozen_audio is not None else "",
             audio_segments=_prepare_audio_segments_for_element(
                 audio_segments,
                 is_final=False,
             ),
             content_text=state.raw_content,
-            payload=ElementPayloadDTO(audio=audio, previous_visuals=[]),
+            payload=ElementPayloadDTO(audio=frozen_audio, previous_visuals=[]),
         )
 
     def _retire_fallback_element(
@@ -221,6 +323,38 @@ class ListenElementRunStreamMixin:
             return None
         return self._element_message(patch_element)
 
+    def _resolve_or_buffer_audio_target_element_bid(
+        self,
+        state: BlockState,
+        *,
+        position: int,
+        stream_element_number: Any = None,
+        stream_element_type: str | None = None,
+    ) -> str | None:
+        existing_target = state.audio_target_element_bid_by_position.get(position)
+        if existing_target:
+            state.pending_stream_audio_target_by_position.pop(position, None)
+            return existing_target
+        if stream_element_number is not None:
+            target_element_bid = _resolve_audio_target_element_bid_for_stream_number(
+                state,
+                stream_element_number,
+                stream_element_type,
+            )
+            if target_element_bid:
+                state.pending_stream_audio_target_by_position.pop(position, None)
+                return target_element_bid
+            try:
+                normalized_stream_number = int(stream_element_number)
+            except (TypeError, ValueError):
+                return None
+            state.pending_stream_audio_target_by_position[position] = (
+                normalized_stream_number,
+                str(stream_element_type or "").strip().lower(),
+            )
+            return None
+        return _resolve_audio_target_element_bid(state, position)
+
     def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.run_session_bid == self.run_session_bid,
@@ -265,10 +399,19 @@ class ListenElementRunStreamMixin:
         audio: ElementAudioDTO | None = None,
         audio_segments: list[dict[str, Any]] | None = None,
     ) -> ElementDTO:
+        frozen_audio = (
+            self._freeze_live_audio_payload(
+                state,
+                position=getattr(audio, "position", 0),
+                current_audio=audio,
+            )
+            if audio is not None
+            else None
+        )
         payload = _payload_from_stream_element(
             stream_state.element_type,
             stream_state.content_text,
-            audio=audio,
+            audio=frozen_audio,
         )
         return ElementDTO(
             event_type="element",
@@ -288,7 +431,7 @@ class ListenElementRunStreamMixin:
                 stream_state.content_text,
                 stored_is_speakable=bool(audio is not None or audio_segments),
             ),
-            audio_url=audio.audio_url if audio is not None else "",
+            audio_url=frozen_audio.audio_url if frozen_audio is not None else "",
             audio_segments=_prepare_audio_segments_for_element(
                 audio_segments,
                 is_final=is_final,
@@ -491,21 +634,21 @@ class ListenElementRunStreamMixin:
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
             return
-        target_element_bid = None
-        stream_element_number = getattr(content, "stream_element_number", None)
-        if stream_element_number is not None:
-            target_element_bid = _resolve_audio_target_element_bid_for_stream_number(
-                state,
-                stream_element_number,
-                getattr(content, "stream_element_type", None),
-            )
-        if target_element_bid is None:
-            target_element_bid = _resolve_audio_target_element_bid(state, position)
+        target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
+            state,
+            position=position,
+            stream_element_number=getattr(content, "stream_element_number", None),
+            stream_element_type=getattr(content, "stream_element_type", None),
+        )
         if target_element_bid:
             state.audio_target_element_bid_by_position[position] = target_element_bid
         if target_element_bid and content.audio_url:
             self._backfill_audio_url(target_element_bid, content.audio_url)
-            audio_payload = _make_audio_payload(content)
+            audio_payload = self._freeze_live_audio_payload(
+                state,
+                position=position,
+                current_audio=state.audio_by_position.get(position),
+            )
             patch_element = self._build_audio_patch_element(
                 target_element_bid,
                 audio_segments=finalized_audio_segments,
@@ -568,18 +711,12 @@ class ListenElementRunStreamMixin:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
                 return
-            target_element_bid = None
-            stream_element_number = getattr(content, "stream_element_number", None)
-            if stream_element_number is not None:
-                target_element_bid = (
-                    _resolve_audio_target_element_bid_for_stream_number(
-                        state,
-                        stream_element_number,
-                        getattr(content, "stream_element_type", None),
-                    )
-                )
-            if target_element_bid is None:
-                target_element_bid = _resolve_audio_target_element_bid(state, position)
+            target_element_bid = self._resolve_or_buffer_audio_target_element_bid(
+                state,
+                position=position,
+                stream_element_number=getattr(content, "stream_element_number", None),
+                stream_element_type=getattr(content, "stream_element_type", None),
+            )
             if target_element_bid:
                 state.audio_target_element_bid_by_position[position] = (
                     target_element_bid
@@ -587,7 +724,11 @@ class ListenElementRunStreamMixin:
                 patch_message = self._build_audio_segment_patch_message(
                     target_element_bid,
                     audio_segments=[segment_data],
-                    audio=state.audio_by_position.get(position),
+                    audio=self._freeze_live_audio_payload(
+                        state,
+                        position=position,
+                        current_audio=state.audio_by_position.get(position),
+                    ),
                 )
                 if patch_message is not None:
                     yield patch_message
@@ -665,7 +806,7 @@ class ListenElementRunStreamMixin:
                     raw_content=state.raw_content,
                     av_contract=state.latest_av_contract,
                     visual_segments=visual_segments,
-                    audio_by_position=state.audio_by_position,
+                    audio_by_position=self._freeze_live_audio_map(state),
                     audio_segments_by_position=state.audio_segments_by_position,
                     position_to_segment_id=pos_to_seg_id,
                     element_index_offset=max(self._max_element_index + 1, 0),
@@ -680,11 +821,15 @@ class ListenElementRunStreamMixin:
                     state.audio_by_position,
                     state.audio_segments_by_position,
                 )
-                default_audio = (
-                    state.audio_by_position.get(default_audio_position)
-                    if default_audio_position is not None
-                    else None
-                )
+                default_audio = None
+                if default_audio_position is not None:
+                    default_audio = self._freeze_live_audio_payload(
+                        state,
+                        position=default_audio_position,
+                        current_audio=state.audio_by_position.get(
+                            default_audio_position
+                        ),
+                    )
                 element = ElementDTO(
                     event_type="element",
                     element_bid=state.fallback_element_bid,

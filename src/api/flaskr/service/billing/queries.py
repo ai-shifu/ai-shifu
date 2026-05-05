@@ -108,7 +108,7 @@ def normalize_payment_provider_hint(value: Any) -> str:
     provider = str(value or "").strip().lower()
     if not provider:
         return ""
-    if provider not in {"stripe", "pingxx"}:
+    if provider not in {"stripe", "pingxx", "alipay", "wechatpay"}:
         raise_error("server.pay.payChannelNotSupport")
     return provider
 

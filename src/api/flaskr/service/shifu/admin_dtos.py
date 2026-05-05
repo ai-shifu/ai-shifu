@@ -17,6 +17,12 @@ class AdminOperationCourseSummaryDTO(BaseModel):
     course_name: str = Field(..., description="Course name", required=False)
     course_status: str = Field(..., description="Course status", required=False)
     price: str = Field(..., description="Course price", required=False)
+    course_model: str = Field(..., description="Course model", required=False)
+    has_course_prompt: bool = Field(
+        ...,
+        description="Whether the course has a course-level system prompt",
+        required=False,
+    )
     creator_user_bid: str = Field(
         ..., description="Creator user business identifier", required=False
     )
@@ -38,6 +44,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         course_name: str,
         course_status: str,
         price: str,
+        course_model: str,
+        has_course_prompt: bool,
         creator_user_bid: str,
         creator_mobile: str,
         creator_email: str,
@@ -54,6 +62,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             course_name=course_name,
             course_status=course_status,
             price=price,
+            course_model=course_model,
+            has_course_prompt=has_course_prompt,
             creator_user_bid=creator_user_bid,
             creator_mobile=creator_mobile,
             creator_email=creator_email,
@@ -72,6 +82,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
             "course_name": self.course_name,
             "course_status": self.course_status,
             "price": self.price,
+            "course_model": self.course_model,
+            "has_course_prompt": self.has_course_prompt,
             "creator_user_bid": self.creator_user_bid,
             "creator_mobile": self.creator_mobile,
             "creator_email": self.creator_email,
@@ -407,7 +419,16 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
     follow_up_count: int = Field(
         ..., description="Follow-up question count", required=False
     )
-    rating_count: int = Field(..., description="Rating record count", required=False)
+    rating_score: str = Field(
+        ...,
+        description="Lesson-level average rating score; empty for chapter nodes",
+        required=False,
+    )
+    rating_count: int = Field(
+        ...,
+        description="Lesson-level rating record count; 0 for chapter nodes",
+        required=False,
+    )
     modifier_user_bid: str = Field(
         ..., description="Last modifier user business identifier", required=False
     )
@@ -465,6 +486,18 @@ class AdminOperationCourseUserDTO(BaseModel):
     )
     last_login_at: str = Field(
         default="", description="Latest login timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCoursePromptDTO(BaseModel):
+    """Operator-facing course prompt payload."""
+
+    course_prompt: str = Field(
+        ..., description="Course-level system prompt", required=False
     )
 
     def __json__(self) -> dict[str, Any]:
@@ -584,6 +617,92 @@ class AdminOperationCourseFollowUpListDTO(BaseModel):
     items: list[AdminOperationCourseFollowUpItemDTO] = Field(
         default_factory=list,
         description="Paginated follow-up rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary.__json__(),
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationCourseRatingSummaryDTO(BaseModel):
+    """Operator-facing course rating summary."""
+
+    average_score: str = Field(
+        default="", description="Filtered average rating score", required=False
+    )
+    rating_count: int = Field(
+        default=0, description="Filtered rating record count", required=False
+    )
+    user_count: int = Field(
+        default=0, description="Distinct rating user count", required=False
+    )
+    latest_rated_at: str = Field(
+        default="", description="Latest rating timestamp", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseRatingItemDTO(BaseModel):
+    """Operator-facing course rating row."""
+
+    lesson_feedback_bid: str = Field(
+        ..., description="Lesson feedback business identifier", required=False
+    )
+    progress_record_bid: str = Field(
+        ..., description="Progress record business identifier", required=False
+    )
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    chapter_outline_item_bid: str = Field(
+        default="",
+        description="Chapter outline item business identifier",
+        required=False,
+    )
+    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    lesson_outline_item_bid: str = Field(
+        default="",
+        description="Lesson outline item business identifier",
+        required=False,
+    )
+    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    score: int = Field(default=0, description="Lesson rating score", required=False)
+    comment: str = Field(
+        default="", description="Lesson rating comment", required=False
+    )
+    mode: str = Field(default="", description="Rating mode", required=False)
+    rated_at: str = Field(default="", description="Rated at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseRatingListDTO(BaseModel):
+    """Operator-facing course rating list payload."""
+
+    summary: AdminOperationCourseRatingSummaryDTO = Field(
+        ..., description="Rating summary", required=False
+    )
+    items: list[AdminOperationCourseRatingItemDTO] = Field(
+        default_factory=list,
+        description="Paginated rating rows",
         required=False,
     )
     page: int = Field(..., description="Page index", required=False)

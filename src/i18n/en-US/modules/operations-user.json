@@ -119,8 +119,7 @@
     "mobile": "Mobile",
     "nickname": "Nickname",
     "role": "Role",
-    "status": "Status",
-    "userId": "User ID"
+    "status": "Status"
   },
   "grantDialog": {
     "confirmButton": "Confirm Addition",
@@ -210,6 +209,7 @@
     "createdCourses": "Created Courses",
     "creditsExpireAt": "Credits Expire At",
     "email": "Email",
+    "guestUser": "Guest",
     "lastLearningAt": "Last Learning",
     "lastLoginAt": "Last Login",
     "learningCourses": "Learning Courses",

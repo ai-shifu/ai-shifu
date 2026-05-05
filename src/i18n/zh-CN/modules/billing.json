@@ -268,19 +268,21 @@
       "recommended": "热门"
     },
     "labels": {
-      "everyDays": "/ 每 {count} 天",
-      "everyMonths": "/ 每 {count} 个月",
-      "everyYears": "/ 每 {count} 年",
-      "perDay": "/ 每日",
-      "perMonth": "/ 每月",
-      "perYear": "/ 每年",
+      "everyDays": "每 {count} 天",
+      "everyMonths": "每 {count} 个月",
+      "everyYears": "每 {count} 年",
+      "perDay": "每日",
+      "perMonth": "每月",
+      "perYear": "每年",
+      "providerAlipay": "支付宝",
       "providerManual": "人工开通",
       "providerPingxx": "Pingxx / 支付宝二维码",
-      "providerStripe": "Stripe"
+      "providerStripe": "Stripe",
+      "providerWechatpay": "微信支付"
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合在交付期之外做课程迭代和维护",
+        "description": "适合轻量级课程迭代",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
@@ -507,6 +509,9 @@
       "upgradeNow": "立即升级",
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
     },
+    "creditPeriod": {
+      "oneTime": "一次性"
+    },
     "creditSummary": {
       "daily": "日积分数 {credits}",
       "days": "每 {count} 天积分数 {credits}",
@@ -524,6 +529,7 @@
       },
       "common": {
         "allLearning": "全部学习功能",
+        "allTeachingAndLearning": "全部教研教学功能",
         "createDebugPublish": "创建、调试和发布课程",
         "higherConcurrency": "更高并发支持",
         "unlimitedCourses": "不限课程数"
@@ -545,7 +551,7 @@
         "concurrencyQuota": "更高并发任务配额",
         "dedicatedSupport": "专属技术支持",
         "includesLabel": "享有高阶版全部权益，以及：",
-        "onboarding": "一次专属课程制作培训"
+        "onboarding": "专属课程制作培训"
       },
       "pro": {
         "branding": "自定义品牌标识",
@@ -563,7 +569,7 @@
           "branding": "自定义品牌标识",
           "domain": "自定义域名",
           "priority": "专属技术支持",
-          "support": "一次专属课程制作培训"
+          "support": "专属课程制作培训"
         },
         "pro": {
           "analytics": "技术优先支持",
@@ -577,7 +583,7 @@
     "featuresTitle": "享有权益：",
     "free": {
       "creditSummary": "赠送积分数 {credits}",
-      "description": "适合首次体验，跑通教研教学全流程",
+      "description": "适合首次体验",
       "priceNote": "/ 新注册 {days} 日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
       "priceValue": "¥0",
@@ -586,31 +592,39 @@
     "intervalTabs": {
       "daily": "日度套餐",
       "monthly": "月度套餐",
-      "topup": "积分充值",
+      "plans": "套餐",
+      "topup": "充值",
       "yearly": "年度套餐"
     },
     "scale": {
       "advanced": {
-        "students": "预估支持学员数：300人左右"
+        "students": "约 500 个以内学员"
       },
       "basic": {
-        "students": "预估支持学员数：10人左右"
+        "students": "10人左右"
       },
       "free": {
-        "students": "预估支持学员数：10人左右"
+        "students": "10人左右"
       },
       "lite": {
-        "students": "预估支持学员数：3人左右"
+        "students": "3人左右"
       },
       "premium": {
-        "students": "预估支持学员数：1000人左右"
+        "students": "约 1500 个以内学员"
       },
       "pro": {
-        "students": "预估支持学员数：500人左右"
+        "students": "约 1000 个以内学员"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
     "subtitle": "请选择合适的积分套餐",
+    "table": {
+      "creditsRowLabel": "周期积分",
+      "emptyValue": "—",
+      "featuresRowLabel": "权益",
+      "studentsRowLabel": "预估支持学员",
+      "validityRowLabel": "积分有效期"
+    },
     "title": "积分套餐",
     "topup": {
       "creditLabel": "{credits} 积分",
@@ -627,6 +641,18 @@
       "months": "有效期：自购买当月起每 {count} 个月续期",
       "yearly": "有效期：当月购买起计算日起，每年有效",
       "years": "有效期：自购买当月起每 {count} 年续期"
+    },
+    "validityShort": {
+      "free": "{days} 天",
+      "monthly": "30 天",
+      "monthlyMonths": "{count} 个月",
+      "yearly": "1 年",
+      "yearlyYears": "{count} 年"
+    },
+    "validityTooltip": {
+      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
+      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
+      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 1 日）。以到期日的 23:59 计算。"
     }
   },
   "page": {
@@ -711,6 +737,7 @@
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",
+    "summaryTitle": "积分",
     "upgradeCta": "升级",
     "usageCta": "查看详情",
     "yearlyBalanceTitle": "年套餐余额",
@@ -728,7 +755,7 @@
   },
   "welcomeTrial": {
     "confirm": "好的，开始使用！",
-    "description": "新用户赠送体验版，包含 {credits} 积分，有效期 {days} 天。现在就开始创建你的第一门课程吧！",
+    "description": "新用户赠送 {days} 天基础版套餐，包含 {credits} 积分。现在就开始创建你的第一门课程吧！",
     "title": "欢迎来到 {appName}"
   }
 }

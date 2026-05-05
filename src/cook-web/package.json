@@ -1,6 +1,6 @@
 {
   "name": "cook-web",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "engines": {
     "node": "22.16.0"
@@ -17,6 +17,8 @@
     "format:check": "prettier --check .",
     "precommit": "lint-staged",
     "test": "jest",
+    "test:e2e": "npx @playwright/test test",
+    "test:e2e:headed": "npx @playwright/test test --headed",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "i18n:keys": "node ../../scripts/generate_i18n_keys.js"
@@ -66,7 +68,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "markdown-flow-ui": "^0.1.114",
+    "markdown-flow-ui": "^0.1.115",
     "next": "15.5.7",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
@@ -101,6 +103,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.0.0",

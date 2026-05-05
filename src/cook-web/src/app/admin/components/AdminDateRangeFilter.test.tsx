@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import AdminDateRangeFilter from './AdminDateRangeFilter';
 
+const CALENDAR_LABEL = 'calendar';
+
 jest.mock('@/components/ui/Button', () => ({
   __esModule: true,
   Button: ({
@@ -23,7 +25,7 @@ jest.mock('@/components/ui/Popover', () => ({
 
 jest.mock('@/components/ui/Calendar', () => ({
   __esModule: true,
-  Calendar: () => <div>calendar</div>,
+  Calendar: () => <div>{CALENDAR_LABEL}</div>,
 }));
 
 describe('AdminDateRangeFilter', () => {

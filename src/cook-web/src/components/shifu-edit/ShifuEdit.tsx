@@ -390,6 +390,18 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
         const latestMeta =
           (await actionsRef.current.loadDraftMeta(shifuBid, outlineBid)) ??
           meta;
+        const latestRevision =
+          latestMeta && typeof latestMeta.revision === 'number'
+            ? latestMeta.revision
+            : typeof meta?.revision === 'number'
+              ? meta.revision
+              : null;
+        const currentBaseRevision = baseRevisionRef.current;
+        const hasKnownBaseRevision = typeof currentBaseRevision === 'number';
+        const remoteRevisionIsNewer =
+          latestRevision != null &&
+          hasKnownBaseRevision &&
+          latestRevision > currentBaseRevision;
         if (
           currentShifuBidRef.current !== shifuBid ||
           currentLessonBidRef.current !== outlineBid
@@ -399,9 +411,17 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
         if (!didApplyRemote) {
           if (
             !options?.forceApply &&
+            remoteRevisionIsNewer &&
             actionsRef.current.hasUnsavedMdflow(outlineBid)
           ) {
             markDraftConflict(latestMeta ?? meta, mode);
+            return;
+          }
+          if (latestRevision != null) {
+            actionsRef.current.setBaseRevision(latestRevision);
+            if (latestMeta) {
+              actionsRef.current.setLatestDraftMeta(latestMeta);
+            }
           }
           return;
         }

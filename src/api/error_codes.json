@@ -54,6 +54,7 @@
   "server.shifu.shifuNotFound": 4008,
   "server.shifu.outlineItemNotFound": 4009,
   "server.pay.payChannelNotSupport": 5001,
+  "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,
   "server.billing.subscriptionInactive": 7102,
   "server.billing.disabled": 7103,

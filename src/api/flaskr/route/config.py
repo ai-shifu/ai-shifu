@@ -1,5 +1,6 @@
 from flask import Flask, request
 
+from flaskr.common.public_urls import build_google_oauth_callback_url
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
 from flaskr.service.billing.dtos import (
     RuntimeConfigDTO,
@@ -62,7 +63,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @with_shifu_context()
     def get_runtime_config():
-        origin = request.host_url.rstrip("/")
         creator_bid = str(get_shifu_creator_bid() or "").strip()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -130,7 +130,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 ["phone"],
             ),
             defaultLoginMethod=get_config("DEFAULT_LOGIN_METHOD", "phone"),
-            googleOauthRedirect=f"{origin}/login/google-callback",
+            googleOauthRedirect=build_google_oauth_callback_url(),
             homeUrl=home_url,
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,

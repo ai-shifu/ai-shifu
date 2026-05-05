@@ -11,6 +11,7 @@
     "selectBirthday": "选择生日",
     "selectGender": "选择性别"
   },
+  "email": "邮箱",
   "gender": "性别",
   "genderPlaceholder": "请选择性别",
   "home": "主页",
@@ -24,6 +25,8 @@
   "passwordPlaceholder": "设置密码",
   "passwordSetSuccess": "密码设置成功",
   "personalInfo": "个性化设置",
+  "phone": "手机号",
+  "resendCountdown": "{count} 秒后重发",
   "save": "保存",
   "sendCode": "发送验证码",
   "setPassword": "设置密码",

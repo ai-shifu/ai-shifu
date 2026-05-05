@@ -102,11 +102,13 @@
   "paginationPrev": "Previous",
   "paginationPrevAriaLabel": "Go to previous page",
   "paymentChannel": {
+    "alipay": "Alipay",
     "manual": "Manual",
     "open_api": "Open API",
     "pingxx": "Ping++",
     "stripe": "Stripe",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "wechatpay": "WeChat Pay"
   },
   "paymentStatus": {
     "closed": "Closed",

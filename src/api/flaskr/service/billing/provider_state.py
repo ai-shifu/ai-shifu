@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -23,6 +24,11 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
 )
 from .models import BillingOrder, BillingSubscription
+from .paid_side_effects import (
+    BillingPaidOrderSideEffects,
+    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
+)
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
@@ -66,6 +72,35 @@ _STRIPE_SUBSCRIPTION_STATUS_MAP = {
 }
 
 
+@dataclass(slots=True)
+class BillingOrderProviderUpdateResult:
+    applied: bool = False
+    previous_status: int | None = None
+    paid_order_side_effects: BillingPaidOrderSideEffects = field(
+        default_factory=BillingPaidOrderSideEffects
+    )
+
+    def __bool__(self) -> bool:
+        return self.applied
+
+    def stage_after_state_changes(
+        self,
+        app: Flask,
+        order: BillingOrder | None,
+    ) -> None:
+        self.paid_order_side_effects = _stage_billing_paid_order_side_effects(
+            app,
+            order,
+            previous_status=self.previous_status,
+        )
+
+    def dispatch_after_commit(self, app: Flask) -> None:
+        _dispatch_billing_paid_order_side_effects(
+            app,
+            self.paid_order_side_effects,
+        )
+
+
 def _apply_billing_order_provider_update(
     order: BillingOrder,
     *,
@@ -77,7 +112,10 @@ def _apply_billing_order_provider_update(
     target_status: int | None,
     failure_code: str = "",
     failure_message: str = "",
-) -> bool:
+) -> BillingOrderProviderUpdateResult:
+    result = BillingOrderProviderUpdateResult(
+        previous_status=int(order.status or 0),
+    )
     event_time = _extract_provider_event_time(payload)
     if provider_reference_id:
         order.provider_reference_id = provider_reference_id
@@ -95,35 +133,36 @@ def _apply_billing_order_provider_update(
         target_status=target_status,
         source=source,
     ):
-        return False
+        return result
 
     now = event_time or datetime.now()
     order.status = int(target_status or order.status or 0)
     order.updated_at = datetime.now()
+    result.applied = True
     if target_status == BILLING_ORDER_STATUS_PENDING:
-        return True
+        return result
     if target_status == BILLING_ORDER_STATUS_PAID:
         order.paid_amount = int(order.payable_amount or 0)
         order.paid_at = order.paid_at or now
         order.failed_at = None
         order.failure_code = ""
         order.failure_message = ""
-        return True
+        return result
     if target_status == BILLING_ORDER_STATUS_FAILED:
         order.failed_at = order.failed_at or now
         order.failure_code = failure_code or order.failure_code
         order.failure_message = failure_message or order.failure_message
-        return True
+        return result
     if target_status == BILLING_ORDER_STATUS_REFUNDED:
         order.refunded_at = order.refunded_at or now
-        return True
+        return result
     if target_status in {
         BILLING_ORDER_STATUS_CANCELED,
         BILLING_ORDER_STATUS_TIMEOUT,
     }:
         order.failed_at = order.failed_at or now
-        return True
-    return True
+        return result
+    return result
 
 
 def _can_transition_billing_order_status(

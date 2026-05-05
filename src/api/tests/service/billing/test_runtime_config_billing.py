@@ -6,6 +6,7 @@ from flask import Flask
 import pytest
 
 import flaskr.dao as dao
+import flaskr.common.public_urls as public_urls
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
@@ -52,6 +53,7 @@ def runtime_config_client(monkeypatch):
         "LOGIN_METHODS_ENABLED": "phone",
         "DEFAULT_LOGIN_METHOD": "phone",
         "HOME_URL": "/",
+        "HOST_URL": "https://app.example.com",
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
@@ -62,6 +64,11 @@ def runtime_config_client(monkeypatch):
 
     monkeypatch.setattr(
         config_route,
+        "get_config",
+        lambda key, default="": config_values.get(key, default),
+    )
+    monkeypatch.setattr(
+        public_urls,
         "get_config",
         lambda key, default="": config_values.get(key, default),
     )
@@ -163,6 +170,9 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["homeUrl"] == "https://creator.example.com/home"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
+    assert payload["googleOauthRedirect"] == (
+        "https://app.example.com/login/google-callback"
+    )
     assert payload["entitlements"] == {
         "branding_enabled": True,
         "custom_domain_enabled": True,

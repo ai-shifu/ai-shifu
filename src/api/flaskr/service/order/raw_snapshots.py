@@ -3,10 +3,28 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .models import PingxxOrder, StripeOrder
+from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
+
+_NATIVE_STATUS_PRECEDENCE = {
+    0: 0,
+    4: 1,
+    3: 1,
+    1: 2,
+    2: 3,
+}
+
+_NATIVE_PAYMENT_MODELS = {
+    "alipay": AlipayOrder,
+    "wechatpay": WechatPayOrder,
+}
+
+_NATIVE_PAYMENT_BID_ATTRS = {
+    "alipay": "alipay_order_bid",
+    "wechatpay": "wechatpay_order_bid",
+}
 
 
 def legacy_stripe_snapshot_query():
@@ -34,6 +52,170 @@ def billing_pingxx_snapshot_query():
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
+    )
+
+
+def native_snapshot_model(payment_provider: str):
+    provider = str(payment_provider or "").strip().lower()
+    model = _NATIVE_PAYMENT_MODELS.get(provider)
+    if model is None:
+        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+    return model
+
+
+def native_snapshot_bid_attr(payment_provider: str) -> str:
+    provider = str(payment_provider or "").strip().lower()
+    attr = _NATIVE_PAYMENT_BID_ATTRS.get(provider)
+    if attr is None:
+        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+    return attr
+
+
+def native_snapshot_query(payment_provider: str, biz_domain: str):
+    model = native_snapshot_model(payment_provider)
+    return model.query.filter(
+        model.deleted == 0,
+        model.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
+    )
+
+
+def legacy_native_snapshot_query(payment_provider: str):
+    return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
+
+
+def billing_native_snapshot_query(payment_provider: str):
+    return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_BILLING)
+
+
+def upsert_native_snapshot(
+    *,
+    biz_domain: str,
+    payment_provider: str,
+    provider_attempt_id: str,
+    amount: int,
+    currency: str,
+    raw_status: str,
+    raw_snapshot_status: int,
+    native_payment_order_bid: str = "",
+    order_bid: str = "",
+    bill_order_bid: str = "",
+    creator_bid: str = "",
+    user_bid: str = "",
+    shifu_bid: str = "",
+    transaction_id: str = "",
+    channel: str = "",
+    raw_request: Any | None = None,
+    raw_response: Any | None = None,
+    raw_notification: Any | None = None,
+    metadata: Any | None = None,
+) -> AlipayOrder | WechatPayOrder:
+    model = native_snapshot_model(payment_provider)
+    provider_bid_attr = native_snapshot_bid_attr(payment_provider)
+    provider_bid_value = str(native_payment_order_bid or "").strip()
+    provider_attempt_value = str(provider_attempt_id or "").strip()
+    order_bid_value = str(order_bid or "").strip()
+    bill_order_bid_value = str(bill_order_bid or "").strip()
+    if not (
+        provider_bid_value
+        or provider_attempt_value
+        or order_bid_value
+        or bill_order_bid_value
+    ):
+        raise ValueError("Native payment snapshot requires a stable identifier")
+
+    query = model.query.filter(
+        model.deleted == 0,
+        model.biz_domain == str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
+    )
+    if provider_bid_value:
+        query = query.filter(getattr(model, provider_bid_attr) == provider_bid_value)
+    elif provider_attempt_value:
+        query = query.filter(model.provider_attempt_id == provider_attempt_value)
+    elif order_bid_value:
+        query = query.filter(model.order_bid == order_bid_value)
+    elif bill_order_bid_value:
+        query = query.filter(model.bill_order_bid == bill_order_bid_value)
+
+    snapshot = query.order_by(model.id.desc()).first()
+    if snapshot is None:
+        snapshot = model(
+            biz_domain=str(biz_domain or RAW_BIZ_DOMAIN_ORDER),
+            raw_request="{}",
+            raw_response="{}",
+            raw_notification="{}",
+            metadata_json="{}",
+        )
+
+    provider_bid = (
+        native_payment_order_bid
+        or getattr(snapshot, provider_bid_attr, "")
+        or provider_attempt_id
+        or order_bid
+        or bill_order_bid
+    )
+    setattr(snapshot, provider_bid_attr, provider_bid)
+    snapshot.biz_domain = str(biz_domain or snapshot.biz_domain or RAW_BIZ_DOMAIN_ORDER)
+    snapshot.order_bid = str(order_bid or snapshot.order_bid or "")
+    snapshot.bill_order_bid = str(bill_order_bid or snapshot.bill_order_bid or "")
+    snapshot.creator_bid = str(creator_bid or snapshot.creator_bid or "")
+    snapshot.user_bid = str(user_bid or snapshot.user_bid or "")
+    snapshot.shifu_bid = str(shifu_bid or snapshot.shifu_bid or "")
+    snapshot.provider_attempt_id = str(
+        provider_attempt_id or snapshot.provider_attempt_id or ""
+    )
+    snapshot.transaction_id = str(transaction_id or snapshot.transaction_id or "")
+    snapshot.channel = str(channel or snapshot.channel or "")
+    snapshot.amount = int(
+        amount
+        if amount is not None
+        else snapshot.amount
+        if snapshot.amount is not None
+        else 0
+    )
+    snapshot.currency = str(currency or snapshot.currency or "CNY")
+    incoming_status = int(raw_snapshot_status)
+    if should_update_native_snapshot_status(snapshot.status, incoming_status):
+        snapshot.status = incoming_status
+        snapshot.raw_status = str(raw_status or snapshot.raw_status or "")
+
+    if raw_request is not None:
+        snapshot.raw_request = _stringify_payload(raw_request)
+    elif not snapshot.raw_request:
+        snapshot.raw_request = "{}"
+    if raw_response is not None:
+        snapshot.raw_response = _stringify_payload(raw_response)
+    elif not snapshot.raw_response:
+        snapshot.raw_response = "{}"
+    if raw_notification is not None:
+        snapshot.raw_notification = _stringify_payload(raw_notification)
+    elif not snapshot.raw_notification:
+        snapshot.raw_notification = "{}"
+
+    if metadata is not None:
+        existing_metadata = _parse_json_payload(snapshot.metadata_json)
+        if isinstance(existing_metadata, dict) and isinstance(metadata, dict):
+            snapshot.metadata_json = _stringify_payload(
+                {
+                    **existing_metadata,
+                    **metadata,
+                }
+            )
+        else:
+            snapshot.metadata_json = _stringify_payload(metadata)
+    elif not snapshot.metadata_json:
+        snapshot.metadata_json = "{}"
+
+    return snapshot
+
+
+def should_update_native_snapshot_status(
+    existing_status: int | None,
+    incoming_status: int | None,
+) -> bool:
+    existing = int(existing_status or 0)
+    incoming = int(incoming_status or 0)
+    return _NATIVE_STATUS_PRECEDENCE.get(incoming, 0) >= _NATIVE_STATUS_PRECEDENCE.get(
+        existing, 0
     )
 
 

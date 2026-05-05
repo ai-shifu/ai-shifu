@@ -67,6 +67,8 @@ def optional_token_validation(f):
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.before_request
     def before_request():
+        if request.path.startswith("/internal/"):
+            return
         if (
             request.endpoint
             in [

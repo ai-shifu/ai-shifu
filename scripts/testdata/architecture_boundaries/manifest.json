@@ -1,0 +1,32 @@
+{
+  "fixtures": [
+    {
+      "name": "clean-fixture",
+      "path": "clean",
+      "expected_rule_ids": []
+    },
+    {
+      "name": "violating-fixture",
+      "path": "violating",
+      "expected_rule_ids": [
+        "backend.cross_service_import",
+        "backend.imports_service_route_adapter",
+        "backend.service_imports_root_route",
+        "frontend.component_imports_route_internal",
+        "frontend.cross_route_app_import",
+        "frontend.disallowed_fetch_callsite"
+      ]
+    },
+    {
+      "name": "relative-violating-fixture",
+      "path": "relative_violating",
+      "expected_rule_ids": [
+        "backend.cross_service_import",
+        "backend.imports_service_route_adapter",
+        "backend.service_imports_root_route",
+        "frontend.component_imports_route_internal",
+        "frontend.cross_route_app_import"
+      ]
+    }
+  ]
+}

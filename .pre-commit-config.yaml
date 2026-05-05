@@ -38,6 +38,18 @@ repos:
         additional_dependencies: ['prettier@3.7.4']
 -   repo: local
     hooks:
+    -   id: check-repo-harness
+        name: Validate repository harness
+        entry: python3 scripts/check_repo_harness.py
+        language: system
+        pass_filenames: false
+        files: ^(AGENTS\.md|CLAUDE\.md|ARCHITECTURE\.md|PLANS\.md|docs/|scripts/(build_repo_knowledge_index|check_repo_harness|check_ai_collab_docs|generate_ai_collab_docs)\.py|\.claude/|\.cursor/|\.github/)
+    -   id: check-architecture-boundaries
+        name: Validate architecture boundaries
+        entry: python3 scripts/check_architecture_boundaries.py
+        language: system
+        pass_filenames: false
+        files: ^(docs/generated/architecture-boundary-baseline\.json|docs/references/architecture-boundaries\.md|scripts/check_architecture_boundaries\.py|scripts/testdata/architecture_boundaries/|src/api/|src/cook-web/src/)
     -   id: check-shared-translations
         name: Validate shared translation parity
         entry: python3 scripts/check_translations.py

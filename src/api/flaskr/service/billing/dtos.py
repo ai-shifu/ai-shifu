@@ -485,6 +485,64 @@ class AdminBillingOrdersPageDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class OperatorCreditOrderGrantDTO(BillingBaseDTO):
+    granted_credits: int | float
+    valid_from: str | None = None
+    valid_to: str | None = None
+    source_type: str
+    source_bid: str
+
+
+@register_schema_to_swagger
+class OperatorCreditOrderDTO(BillingBaseDTO):
+    bill_order_bid: str
+    creator_bid: str
+    creator_identify: str = ""
+    creator_mobile: str = ""
+    creator_email: str = ""
+    creator_nickname: str = ""
+    credit_order_kind: str
+    product_bid: str
+    product_code: str
+    product_type: str
+    product_name_key: str
+    credit_amount: int | float
+    valid_from: str | None = None
+    valid_to: str | None = None
+    order_type: str
+    status: str
+    payment_provider: str
+    payment_channel: str
+    payable_amount: int
+    paid_amount: int
+    currency: str
+    provider_reference_id: str
+    failure_code: str = ""
+    failure_message: str = ""
+    created_at: str
+    paid_at: str | None = None
+    failed_at: str | None = None
+    refunded_at: str | None = None
+    has_attention: bool
+
+
+@register_schema_to_swagger
+class OperatorCreditOrdersPageDTO(BillingBaseDTO):
+    items: list[OperatorCreditOrderDTO]
+    page: int
+    page_count: int
+    page_size: int
+    total: int
+
+
+@register_schema_to_swagger
+class OperatorCreditOrderDetailDTO(BillingBaseDTO):
+    order: OperatorCreditOrderDTO
+    metadata: dict[str, Any] | None = None
+    grant: OperatorCreditOrderGrantDTO | None = None
+
+
+@register_schema_to_swagger
 class AdminBillingDailyUsageMetricDTO(BillingDailyUsageMetricDTO):
     creator_bid: str
 

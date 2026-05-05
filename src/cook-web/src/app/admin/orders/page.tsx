@@ -12,6 +12,7 @@ import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
   ADMIN_TABLE_HEADER_LAST_CELL_CLASS,
@@ -260,6 +261,8 @@ const OrdersPage = () => {
       { value: '', label: t('module.order.filters.all') },
       { value: 'pingxx', label: t('module.order.paymentChannel.pingxx') },
       { value: 'stripe', label: t('module.order.paymentChannel.stripe') },
+      { value: 'alipay', label: t('module.order.paymentChannel.alipay') },
+      { value: 'wechatpay', label: t('module.order.paymentChannel.wechatpay') },
       { value: 'manual', label: t('module.order.paymentChannel.manual') },
       { value: 'open_api', label: t('module.order.paymentChannel.open_api') },
     ],
@@ -1154,7 +1157,9 @@ const OrdersPage = () => {
                       className='whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('createdAt')}
                     >
-                      {renderTooltipText(order.created_at)}
+                      {renderTooltipText(
+                        formatAdminUtcDateTime(order.created_at),
+                      )}
                     </TableCell>
                     <TableCell
                       className={getAdminStickyRightCellClass(

@@ -43,6 +43,34 @@ export function PhoneLogin({
     loginContext,
     courseId,
   });
+
+  const startOtpFlow = () => {
+    setShowOtpInput(true);
+    setCountdown(60);
+    const timer = setInterval(() => {
+      setCountdown(prevCountdown => {
+        if (prevCountdown <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prevCountdown - 1;
+      });
+    }, 1000);
+  };
+
+  const isSmsRateLimitedError = (error: unknown) => {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    const code =
+      typeof (error as { code?: unknown }).code === 'number'
+        ? Number((error as { code?: unknown }).code)
+        : NaN;
+    return (
+      code === 9999 && error.message === t('server.user.smsSendTooFrequent')
+    );
+  };
+
   const validatePhone = (phone: string) => {
     if (!phone) {
       setPhoneError(t('module.auth.phoneEmpty'));
@@ -97,24 +125,21 @@ export function PhoneLogin({
       const response = await sendSmsCode(phoneNumber, i18n.language);
 
       if (response.code == 0) {
-        setShowOtpInput(true);
-        setCountdown(60);
-        const timer = setInterval(() => {
-          setCountdown(prevCountdown => {
-            if (prevCountdown <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
-            return prevCountdown - 1;
-          });
-        }, 1000);
-
+        startOtpFlow();
         toast({
           title: t('module.auth.sendSuccess'),
           description: t('module.auth.checkYourSms'),
         });
       }
-    } catch {
+    } catch (error) {
+      if (isSmsRateLimitedError(error)) {
+        startOtpFlow();
+        toast({
+          title: t('module.auth.checkYourSms'),
+          description: t('server.user.smsSendTooFrequent'),
+        });
+        return;
+      }
       // Error already handled in sendSmsCode
     } finally {
       setIsLoading(false);

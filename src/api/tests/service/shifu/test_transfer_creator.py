@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
+from flaskr.common import config as config_module
 from flaskr.common.shifu_context import _get_shifu_creator_bid_cached
 from flaskr.dao import db
 from flaskr.service.shifu.admin import transfer_operator_course_creator
@@ -111,6 +112,18 @@ def _mock_operator(monkeypatch, user_id: str = "operator-1"):
         raising=False,
     )
     return dummy_user
+
+
+def _clear_config_caches() -> None:
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass
 
 
 def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
@@ -242,6 +255,7 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
 
     _mock_operator(monkeypatch)
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
+    _clear_config_caches()
 
     response = test_client.post(
         f"/api/shifu/admin/operations/courses/{shifu_bid}/transfer-creator",

@@ -30,10 +30,15 @@ class DummyCourse:
         updated_user_bid: str,
         created_at: datetime,
         updated_at: datetime,
+        llm: str = "",
+        llm_system_prompt: str = "",
     ):
         self.shifu_bid = shifu_bid
         self.title = title
         self.price = price
+        self.llm = llm
+        self.llm_system_prompt = llm_system_prompt
+        self.has_course_prompt = bool(str(llm_system_prompt or "").strip())
         self.created_user_bid = created_user_bid
         self.updated_user_bid = updated_user_bid
         self.created_at = created_at
@@ -52,6 +57,8 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
         updated_user_bid="editor-1",
         created_at=datetime(2025, 4, 1, 10, 0, 0),
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
+        llm="gpt-4.1-mini",
+        llm_system_prompt="You are a patient course assistant.",
     )
     published_course = DummyCourse(
         shifu_bid="course-1",
@@ -110,6 +117,8 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
     assert item.course_name == "Draft Course"
     assert item.course_status == "published"
     assert item.price == "199"
+    assert item.course_model == "gpt-4.1-mini"
+    assert item.has_course_prompt is True
     assert item.creator_mobile == "15811112222"
     assert item.creator_email == "creator@example.com"
     assert item.creator_nickname == "Creator Mars"
@@ -241,7 +250,7 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     assert result.data[0].updater_user_bid == "editor-9"
     assert result.data[0].updater_mobile == "13223532334"
     assert result.data[0].updater_nickname == "Editor Nine"
-    assert result.data[0].updated_at == "2025-04-05 09:00:00"
+    assert result.data[0].updated_at == "2025-04-05T09:00:00Z"
 
 
 def test_list_operator_courses_filters_by_latest_activity_updated_range():
@@ -300,7 +309,7 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
     assert result.total == 1
     assert len(result.data) == 1
     assert result.data[0].shifu_bid == "course-activity-filter"
-    assert result.data[0].updated_at == "2025-04-05 09:00:00"
+    assert result.data[0].updated_at == "2025-04-05T09:00:00Z"
     assert latest_mock.call_args_list[0].kwargs["updated_start_time"] is None
     assert latest_mock.call_args_list[0].kwargs["updated_end_time"] is None
 

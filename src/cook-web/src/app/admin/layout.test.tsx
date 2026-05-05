@@ -90,7 +90,7 @@ jest.mock('@/store', () => ({
     selector(mockUserStoreState),
 }));
 
-jest.mock('@/app/c/[[...id]]/Components/NavDrawer/NavFooter', () => ({
+jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
   __esModule: true,
   default: React.forwardRef(function MockNavFooter(
     {
@@ -105,7 +105,7 @@ jest.mock('@/app/c/[[...id]]/Components/NavDrawer/NavFooter', () => ({
   }),
 }));
 
-jest.mock('@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal', () => ({
+jest.mock('@/c-components/NavDrawer/MainMenuModal', () => ({
   __esModule: true,
   default: () => null,
 }));
@@ -444,7 +444,10 @@ describe('AdminLayout', () => {
       screen.getByTestId('admin-billing-sidebar-card'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.sidebar.monthlyBalanceTitle'),
+      screen.getByText('module.billing.sidebar.summaryTitle'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
     ).toBeInTheDocument();
     expect(screen.getByText('12500')).toBeInTheDocument();
     expect(
@@ -486,6 +489,7 @@ describe('AdminLayout', () => {
       '/admin/billing?tab=packages',
     );
     expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
+    expect(screen.getByText('--')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
@@ -493,7 +497,7 @@ describe('AdminLayout', () => {
     ).toHaveAttribute('href', '/admin/billing?tab=details');
   });
 
-  test('renders yearly membership title for yearly subscription plans', () => {
+  test('keeps the generic billing title for yearly subscription plans', () => {
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({
         subscription: {
@@ -523,7 +527,7 @@ describe('AdminLayout', () => {
     );
 
     expect(
-      screen.getByText('module.billing.sidebar.yearlyBalanceTitle'),
+      screen.getByText('module.billing.sidebar.summaryTitle'),
     ).toBeInTheDocument();
   });
 });

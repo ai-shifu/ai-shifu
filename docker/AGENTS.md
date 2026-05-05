@@ -61,6 +61,20 @@ environment examples.
 - `cd docker && docker compose -f docker-compose.dev.yml config` validates the
   local-dev compose file after edits.
 
+- `cd docker && docker compose -f docker-compose.dev.yml up -d` should bring up
+  the default app plus observability stack together for Phase 2 harness work.
+
+- For parallel worktrees, set a stable compose project name and override host
+  ports before starting the dev stack. Use the pattern
+  `ai-shifu-<worktree-slug>` for the project name; CI uses
+  `ai-shifu-runtime-harness`. For example:
+  `cd docker && docker compose -p ai-shifu-$(basename "$(git rev-parse --show-toplevel)" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-') -f docker-compose.dev.yml up -d`.
+  Override ports with `AI_SHIFU_WEB_PORT`, `AI_SHIFU_API_PORT`,
+  `AI_SHIFU_MYSQL_PORT`, `AI_SHIFU_REDIS_PORT`, `AI_SHIFU_GRAFANA_PORT`,
+  `AI_SHIFU_LOKI_PORT`, `AI_SHIFU_TEMPO_PORT`,
+  `AI_SHIFU_TEMPO_OTLP_HTTP_PORT`, `AI_SHIFU_OTEL_GRPC_PORT`, and
+  `AI_SHIFU_PROMETHEUS_PORT`.
+
 - `cd docker && docker compose -f docker-compose.latest.yml config` validates
   the freshest-published-image compose file after edits.
 
@@ -82,9 +96,11 @@ environment examples.
 - When startup commands, entrypoints, or mounts change, review the affected
   backend and frontend boot assumptions and note any runtime smoke checks that
   were not exercised locally.
+- When observability services change, verify Grafana, Loki, Tempo, Prometheus,
+  and the OTEL collector all stay internally reachable from the dev stack.
 
 - When only Docker-side docs or AI instructions change, run
-  `python scripts/check_ai_collab_docs.py` and note that containers were not
+  `python scripts/check_repo_harness.py` and note that containers were not
   started.
 
 ## Related Skills

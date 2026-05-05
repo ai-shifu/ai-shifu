@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -24,12 +24,12 @@ import type {
 } from '@/types/billing';
 import {
   buildBillingSwrKey,
-  buildBillingStripeResultUrls,
   extractBillingPingxxQrCode,
   formatBillingCredits,
   formatBillingPrice,
   openBillingCheckoutUrl,
   registerBillingTranslationUsage,
+  resolveBillingProviderLabel,
   withBillingTimezone,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
@@ -67,9 +67,53 @@ type PingxxCheckoutState = {
   currency: string;
   description: string;
   productName: string;
+  provider: BillingProvider;
   qrUrl: string;
   selectedChannel: BillingPingxxChannel;
 };
+
+const QR_BILLING_PROVIDERS = new Set<BillingProvider>([
+  'pingxx',
+  'alipay',
+  'wechatpay',
+]);
+
+function isQrBillingProvider(provider: BillingProvider): boolean {
+  return QR_BILLING_PROVIDERS.has(provider);
+}
+
+function resolveDefaultBillingQrChannel(
+  provider: BillingProvider,
+): BillingPingxxChannel {
+  if (provider === 'wechatpay') {
+    return 'wx_pub_qr';
+  }
+  if (provider === 'alipay') {
+    return 'alipay_qr';
+  }
+  return 'wx_pub_qr';
+}
+
+function resolveFirstBillingProvider(
+  stripeAvailable: boolean,
+  pingxxAvailable: boolean,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
+): BillingProvider | null {
+  if (stripeAvailable) {
+    return 'stripe';
+  }
+  if (alipayAvailable) {
+    return 'alipay';
+  }
+  if (wechatpayAvailable) {
+    return 'wechatpay';
+  }
+  if (pingxxAvailable) {
+    return 'pingxx';
+  }
+  return null;
+}
 
 export function BillingOverviewTab({
   onOpenOrdersTab,
@@ -106,7 +150,7 @@ export function BillingOverviewTab({
     })),
   );
 
-  const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('monthly');
+  const [showcaseTab, setShowcaseTab] = useState<ShowcaseTab>('plans');
   const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>(null);
   const [checkoutLoadingKey, setCheckoutLoadingKey] = useState('');
   const [pingxxCheckout, setPingxxCheckout] =
@@ -140,6 +184,8 @@ export function BillingOverviewTab({
     normalizedPaymentChannels.includes('stripe') &&
     (stripeEnabled === 'true' || !runtimeConfigLoaded);
   const pingxxAvailable = normalizedPaymentChannels.includes('pingxx');
+  const alipayAvailable = normalizedPaymentChannels.includes('alipay');
+  const wechatpayAvailable = normalizedPaymentChannels.includes('wechatpay');
   const plans = catalog?.plans || [];
   const topups = catalog?.topups || [];
   const trialOffer = overview?.trial_offer;
@@ -147,9 +193,6 @@ export function BillingOverviewTab({
     plans.find(
       item => item.product_bid === overview?.subscription?.product_bid,
     ) || null;
-  const dailyPlans = plans.filter(
-    product => product.billing_interval === 'day',
-  );
   const monthlyPlans = plans.filter(
     product => product.billing_interval === 'month',
   );
@@ -166,35 +209,16 @@ export function BillingOverviewTab({
     overview?.subscription?.product_bid === trialOffer.product_bid,
   );
   const firstAvailableTopup = topups[0]
-    ? stripeAvailable
-      ? { product: topups[0], provider: 'stripe' as const }
-      : pingxxAvailable
-        ? { product: topups[0], provider: 'pingxx' as const }
-        : null
+    ? (() => {
+        const provider = resolveFirstBillingProvider(
+          stripeAvailable,
+          pingxxAvailable,
+          alipayAvailable,
+          wechatpayAvailable,
+        );
+        return provider ? { product: topups[0], provider } : null;
+      })()
     : null;
-
-  useEffect(() => {
-    if (currentPlan?.billing_interval) {
-      setShowcaseTab(currentTab => {
-        if (currentTab === 'topup') {
-          return currentTab;
-        }
-        if (currentPlan.billing_interval === 'day') {
-          return 'daily';
-        }
-        if (currentPlan.billing_interval === 'year') {
-          return 'yearly';
-        }
-        return 'monthly';
-      });
-    }
-  }, [currentPlan?.billing_interval]);
-
-  useEffect(() => {
-    if (showcaseTab === 'daily' && dailyPlans.length === 0) {
-      setShowcaseTab('monthly');
-    }
-  }, [dailyPlans.length, showcaseTab]);
 
   async function handleCheckout() {
     if (!checkoutTarget) {
@@ -205,32 +229,23 @@ export function BillingOverviewTab({
     setCheckoutLoadingKey(loadingKey);
     try {
       let result: BillingCheckoutResult;
-      const stripeUrls =
-        checkoutTarget.provider === 'stripe'
-          ? buildBillingStripeResultUrls(window.location.origin)
-          : { cancelUrl: '', successUrl: '' };
+      const checkoutChannel = isQrBillingProvider(checkoutTarget.provider)
+        ? checkoutTarget.provider === 'pingxx'
+          ? selectedPingxxChannel
+          : resolveDefaultBillingQrChannel(checkoutTarget.provider)
+        : undefined;
 
       if (checkoutTarget.kind === 'plan') {
         result = (await api.checkoutBillingSubscription({
-          cancel_url: stripeUrls.cancelUrl || undefined,
-          channel:
-            checkoutTarget.provider === 'pingxx'
-              ? selectedPingxxChannel
-              : undefined,
+          channel: checkoutChannel,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
-          success_url: stripeUrls.successUrl || undefined,
         })) as BillingCheckoutResult;
       } else {
         result = (await api.checkoutBillingTopup({
-          cancel_url: stripeUrls.cancelUrl || undefined,
-          channel:
-            checkoutTarget.provider === 'pingxx'
-              ? selectedPingxxChannel
-              : undefined,
+          channel: checkoutChannel,
           payment_provider: checkoutTarget.provider,
           product_bid: checkoutTarget.product.product_bid,
-          success_url: stripeUrls.successUrl || undefined,
         })) as BillingCheckoutResult;
       }
 
@@ -255,11 +270,8 @@ export function BillingOverviewTab({
         return;
       }
 
-      if (checkoutTarget.provider === 'pingxx') {
-        const qrCode = extractBillingPingxxQrCode(
-          result,
-          selectedPingxxChannel,
-        );
+      if (isQrBillingProvider(checkoutTarget.provider) && checkoutChannel) {
+        const qrCode = extractBillingPingxxQrCode(result, checkoutChannel);
         if (!qrCode) {
           toast({
             title: t('module.billing.checkout.unsupported'),
@@ -278,6 +290,7 @@ export function BillingOverviewTab({
               : 'module.billing.checkout.topupDescription',
           ),
           productName: t(checkoutTarget.product.display_name),
+          provider: checkoutTarget.provider,
           qrUrl: qrCode.url,
           selectedChannel: qrCode.channel,
         });
@@ -381,8 +394,10 @@ export function BillingOverviewTab({
     if (alert.action_type === 'checkout_topup') {
       if (firstAvailableTopup) {
         setShowcaseTab('topup');
-        if (firstAvailableTopup.provider === 'pingxx') {
-          setSelectedPingxxChannel('wx_pub_qr');
+        if (isQrBillingProvider(firstAvailableTopup.provider)) {
+          setSelectedPingxxChannel(
+            resolveDefaultBillingQrChannel(firstAvailableTopup.provider),
+          );
         }
         setCheckoutTarget({
           kind: 'topup',
@@ -414,12 +429,12 @@ export function BillingOverviewTab({
     ? formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
     : '';
   const dialogProviderLabel = checkoutTarget
-    ? checkoutTarget.provider === 'stripe'
-      ? t('module.billing.catalog.labels.providerStripe')
-      : t('module.billing.catalog.labels.providerPingxx')
+    ? resolveBillingProviderLabel(t, checkoutTarget.provider)
     : '';
   const loadError = overviewError || catalogError;
-  const renderFreeCard = showcaseTab === 'monthly';
+  // Trial column hidden in the comparison table; keep trial data wiring so the
+  // 15-day basic-plan grant flow can re-enable rendering by flipping this flag.
+  const renderFreeCard = false;
 
   return (
     <section
@@ -457,22 +472,23 @@ export function BillingOverviewTab({
       <BillingOverviewShowcase
         checkoutLoadingKey={checkoutLoadingKey}
         currentPlan={currentPlan}
-        dailyPlans={dailyPlans}
         hasActiveSubscription={hasActiveSubscription}
         isTrialCurrentPlan={isTrialCurrentPlan}
         isLoading={overviewLoading || catalogLoading}
         monthlyPlans={monthlyPlans}
         orderedPlans={plans}
+        alipayAvailable={alipayAvailable}
         pingxxAvailable={pingxxAvailable}
         renderFreeCard={renderFreeCard}
         showcaseTab={showcaseTab}
         stripeAvailable={stripeAvailable}
         topups={topups}
         trialOffer={trialOffer}
+        wechatpayAvailable={wechatpayAvailable}
         yearlyPlans={yearlyPlans}
         onSelectPlanCheckout={(plan, provider) => {
-          if (provider === 'pingxx') {
-            setSelectedPingxxChannel('wx_pub_qr');
+          if (isQrBillingProvider(provider)) {
+            setSelectedPingxxChannel(resolveDefaultBillingQrChannel(provider));
           }
           setCheckoutTarget({
             kind: 'plan',
@@ -481,8 +497,8 @@ export function BillingOverviewTab({
           });
         }}
         onSelectTopupCheckout={(product, provider) => {
-          if (provider === 'pingxx') {
-            setSelectedPingxxChannel('wx_pub_qr');
+          if (isQrBillingProvider(provider)) {
+            setSelectedPingxxChannel(resolveDefaultBillingQrChannel(provider));
           }
           setCheckoutTarget({
             kind: 'topup',
@@ -528,6 +544,7 @@ export function BillingOverviewTab({
         isLoading={Boolean(checkoutLoadingKey)}
         open={Boolean(pingxxCheckout)}
         productName={pingxxCheckout?.productName || ''}
+        provider={pingxxCheckout?.provider || 'pingxx'}
         qrUrl={pingxxCheckout?.qrUrl || ''}
         selectedChannel={pingxxCheckout?.selectedChannel || 'wx_pub_qr'}
         onChannelChange={channel => void handlePingxxQrChannelChange(channel)}

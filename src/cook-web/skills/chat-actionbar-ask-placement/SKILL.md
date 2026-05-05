@@ -43,6 +43,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useChatLogicHook.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
 - 移动端阅读模式通过 `custom-button-after-content` 给正文补追问入口时，不能把 `loading` 占位块或“紧跟在 interaction 后的正文块”当成普通内容；交互块后的后续输出阶段应始终不出现追问按钮。
+- 历史记录若在听课模式下完成初始化，切回阅读模式时也必须对当前内存里的 `contentList` 重新同步 `custom-button-after-content`，不能只依赖“阅读模式下新生成流”去补按钮，否则会出现历史正文没有追问入口、只有新流有入口的模式切换不一致。
 - `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
 - 当听课模式的 `elementList` 需要感知追问时，优先把 `ask_list` 直接挂到对应 `element` 上；锚点匹配优先取 `anchor_element_bid`，缺失时再回退到归一化后的 `parent_element_bid`。
 - 移动端 `AskBlock` 只有在真正渲染遮罩 + 底部弹层时才允许锁定 `document.body` 滚动；内联展开的输入框不能顺手把页面主滚动一起锁死。

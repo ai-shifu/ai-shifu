@@ -164,6 +164,26 @@ describe('listenModeUtils', () => {
                 start_ms: 4000,
                 end_ms: 5000,
               },
+              {
+                text: '句号后跟双引号。”',
+                start_ms: 5000,
+                end_ms: 6000,
+              },
+              {
+                text: '右括号后跟句号）。',
+                start_ms: 6000,
+                end_ms: 7000,
+              },
+              {
+                text: '问号双引号后再跟句号？”。',
+                start_ms: 7000,
+                end_ms: 8000,
+              },
+              {
+                text: '双引号后跟逗号”，',
+                start_ms: 8000,
+                end_ms: 9000,
+              },
             ],
           },
         },
@@ -199,6 +219,30 @@ describe('listenModeUtils', () => {
         text: '双引号保留”',
         start_ms: 4000,
         end_ms: 5000,
+        segment_index: 0,
+      },
+      {
+        text: '句号后跟双引号”',
+        start_ms: 5000,
+        end_ms: 6000,
+        segment_index: 0,
+      },
+      {
+        text: '右括号后跟句号）',
+        start_ms: 6000,
+        end_ms: 7000,
+        segment_index: 0,
+      },
+      {
+        text: '问号双引号后再跟句号？”',
+        start_ms: 7000,
+        end_ms: 8000,
+        segment_index: 0,
+      },
+      {
+        text: '双引号后跟逗号”',
+        start_ms: 8000,
+        end_ms: 9000,
         segment_index: 0,
       },
     ]);

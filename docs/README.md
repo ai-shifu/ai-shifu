@@ -1,56 +1,34 @@
-# Design Docs And Root Task Checklist
+# Repository Knowledge Store
 
-For complex design work, create a flat design doc at `docs/<topic>.md` and
-track active implementation in repository-root `tasks.md`.
+This repository treats versioned files as the system of record for product
+intent, engineering rules, and long-running execution context.
 
-Repository-wide evergreen references such as `docs/engineering-baseline.md`
-may live directly under `docs/`. One branch should track only one active
-complex topic in `tasks.md` at a time.
+## Layout
 
-## Required Structure
+- `../ARCHITECTURE.md`: top-level map of product surfaces and knowledge entry
+  points
+- `../PLANS.md`: canonical ExecPlan specification for complex work
+- `engineering-baseline.md`: stable engineering handbook
+- `QUALITY_SCORE.md`: current quality grades and next cleanup actions
+- `RELIABILITY.md`: current validation loop and reliability constraints
+- `SECURITY.md`: repository security rules for harness and diagnostics work
+- `design-docs/`: architecture and implementation decision records
+- `product-specs/`: product workflow and page behavior specifications
+- `references/`: evergreen operational references
+- `exec-plans/active/`: currently active ExecPlans
+- `exec-plans/completed/`: archived ExecPlans
+- `generated/`: generated indexes and inventory files
+  Includes `doc-inventory.md`, `harness-health.md`, and the committed
+  architecture-boundary baseline.
 
-- Active implementation topics:
-  `docs/<topic>.md` and `tasks.md`
-- Completed topics:
-  `docs/<topic>.md` remains required, and `tasks.md` must be deleted after
-  the checklist is fully complete
+## Workflow
 
-## Rules
-
-- Write the design first, then implement.
-- Use repository-root `tasks.md` as the active checklist for the current
-  complex topic.
-- Reference the active design doc at the top of `tasks.md`.
-- When `tasks.md` exists, execute the implementation against its checklist and
-  keep the file current as the visible progress tracker.
-- Use markdown checkboxes in `tasks.md`:
-  - `- [ ]` for pending work
-  - `- [x]` for completed work
-- Update `tasks.md` as work progresses instead of keeping a separate hidden
-  checklist.
-- After finishing one checklist item, update `tasks.md` immediately and create
-  one atomic commit for that completed item before starting the next item.
-- Do not start a second complex topic on the same branch until `tasks.md` is
-  completed and deleted or intentionally replaced.
-- Once every checklist item is complete and the topic no longer needs active
-  execution tracking, deleting `tasks.md` is required.
-- Do not delete `tasks.md` while any item remains pending.
-
-## Minimal Example
-
-`docs/ai-collab-split.md`
-
-`tasks.md`
-
-```md
-# Tasks
-
-Design: [AI collaboration split design](./docs/ai-collab-split.md)
-
-- [x] Finalize scope and folder layout
-- [ ] Implement generated AGENTS.md files
-- [ ] Validate coverage and formatting
-```
-
-After every checklist item is marked `- [x]` and the topic no longer needs
-active execution tracking, deleting repository-root `tasks.md` is required.
+- Complex work must start from an ExecPlan under `exec-plans/active/`.
+- `PLANS.md` defines the required ExecPlan structure and maintenance rules.
+- Generated knowledge docs are owned by scripts and must not be edited
+  manually.
+- Architecture boundary rules live in `references/architecture-boundaries.md`,
+  and the committed baseline is checked by
+  `python scripts/check_architecture_boundaries.py`.
+- Historical flat topic docs are retired; new docs should be placed in the
+  directory that matches their ownership and purpose.

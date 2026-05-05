@@ -3,6 +3,13 @@
   "actions": {
     "transferCreator": "Transfer creator"
   },
+  "coursePromptDialog": {
+    "copy": "Copy",
+    "copyFailed": "Failed to copy course prompt",
+    "copySuccess": "Course prompt copied",
+    "empty": "No course prompt",
+    "title": "Course Prompt"
+  },
   "detail": {
     "back": "Back to list",
     "basicInfo": "Basic Info",
@@ -27,6 +34,7 @@
       "name": "Chapter",
       "position": "Position",
       "ratingCount": "Ratings",
+      "ratingScore": "Rating",
       "type": "Type",
       "updatedAt": "Updated",
       "visibility": "Visibility"
@@ -91,18 +99,18 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
-        "chapterKeywordPlaceholder": "Search by chapter or lesson title",
+        "chapterKeywordPlaceholder": "Chapter / Lesson Title",
         "followUpTime": "Follow-up Time",
         "lessonKeyword": "Lesson Search",
-        "lessonKeywordPlaceholder": "Search by lesson title",
+        "lessonKeywordPlaceholder": "Lesson Title",
         "reset": "Reset",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
-        "timeRangePlaceholder": "Select follow-up start and end dates",
+        "timePlaceholder": "Follow-up Start / End Time",
         "userKeyword": "User Search",
-        "userKeywordPlaceholder": "Search by user ID, phone, email, or nickname",
-        "userKeywordPlaceholderEmail": "Search by user ID, email, or nickname",
-        "userKeywordPlaceholderPhone": "Search by user ID, phone, or nickname"
+        "userKeywordPlaceholder": "Phone / Email / Nickname",
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Phone / Nickname"
       },
       "openMetric": "Open follow-up data",
       "summary": {
@@ -143,6 +151,63 @@
       "ratingScore": "Rating",
       "visitCount30d": "Visitors (30d)"
     },
+    "orders": {
+      "openMetric": "Open order data"
+    },
+    "ratings": {
+      "back": "Back to course detail",
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Chapter / Lesson Search",
+        "chapterKeywordPlaceholder": "Chapter / Lesson Title",
+        "commentStatus": "Comment",
+        "commentStatusAll": "All",
+        "commentStatusCommented": "With Comment",
+        "lessonKeyword": "Lesson Search",
+        "lessonKeywordPlaceholder": "Lesson Title",
+        "mode": "Learning Mode",
+        "modeAll": "All Modes",
+        "ratingTime": "Rating Time",
+        "reset": "Reset",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
+        "score": "Rating",
+        "scoreAll": "All Ratings",
+        "search": "Search",
+        "sortBy": "Sort",
+        "sortByLatest": "Latest First",
+        "sortByLowScore": "Lowest Rating First",
+        "timePlaceholder": "Rating Start / End Time",
+        "userKeyword": "User Search",
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Phone / Nickname"
+      },
+      "modes": {
+        "listen": "Listen",
+        "read": "Read"
+      },
+      "openMetric": "Open rating data",
+      "scoreValue": "{count}-star",
+      "summary": {
+        "averageScore": "Average Rating",
+        "latestRatedAt": "Latest Rating",
+        "ratingCount": "Ratings",
+        "scopeHint": "These summary metrics reflect the current filtered result set.",
+        "userCount": "Users"
+      },
+      "table": {
+        "chapter": "Chapter",
+        "comment": "Comment",
+        "empty": "No rating data",
+        "guestUser": "Guest",
+        "lesson": "Lesson",
+        "mode": "Mode",
+        "ratedAt": "Rating Time",
+        "score": "Rating",
+        "title": "Rating List",
+        "user": "User"
+      },
+      "title": "Rating Data"
+    },
     "title": "Course Detail",
     "userLearningStatus": {
       "completed": "Completed",
@@ -165,9 +230,9 @@
       "paymentStatus": "Payment",
       "paymentUnpaid": "Unpaid",
       "userKeyword": "User Search",
-      "userKeywordPlaceholder": "Search by user ID, phone, email, or nickname",
-      "userKeywordPlaceholderEmail": "Search by user ID, email, or nickname",
-      "userKeywordPlaceholderPhone": "Search by user ID, phone, or nickname",
+      "userKeywordPlaceholder": "Search by phone, email, or nickname",
+      "userKeywordPlaceholderEmail": "Search by email or nickname",
+      "userKeywordPlaceholderPhone": "Search by phone or nickname",
       "userRole": "User Role"
     },
     "usersTable": {
@@ -214,8 +279,11 @@
     "action": "Action",
     "courseId": "Course ID",
     "courseName": "Course Name",
+    "coursePrompt": "Course Prompt",
     "createdAt": "Created At",
     "creator": "Creator",
+    "detailAction": "Detail",
+    "model": "Model",
     "modifier": "Modifier",
     "price": "Price",
     "status": "Status",

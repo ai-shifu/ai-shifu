@@ -116,6 +116,63 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/Tabs', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const TabsContext = ReactModule.createContext<{
+    value: string;
+    onValueChange?: (value: string) => void;
+  }>({
+    value: '',
+  });
+
+  return {
+    __esModule: true,
+    Tabs: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange?: (value: string) => void;
+    }>) => (
+      <TabsContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </TabsContext.Provider>
+    ),
+    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    TabsTrigger: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(TabsContext);
+      return (
+        <button
+          role='tab'
+          type='button'
+          aria-selected={context.value === value}
+          onClick={() => context.onValueChange?.(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+    TabsContent: ({
+      value,
+      children,
+      className,
+    }: React.PropsWithChildren<{
+      value: string;
+      className?: string;
+    }>) => {
+      const context = ReactModule.useContext(TabsContext);
+      if (context.value !== value) {
+        return null;
+      }
+      return <div className={className}>{children}</div>;
+    },
+  };
+});
+
 jest.mock('@/components/ui/Select', () => {
   const ReactModule = jest.requireActual('react') as typeof React;
   const SelectContext = ReactModule.createContext<{
@@ -177,6 +234,17 @@ const createDeferred = <T,>() => {
 };
 
 describe('AdminOperationCourseDetailPage', () => {
+  const openUsersTab = async () => {
+    fireEvent.click(
+      await screen.findByRole('tab', {
+        name: /module\.operationsCourse\.detail\.users/,
+      }),
+    );
+    await screen.findByRole('button', {
+      name: 'module.order.filters.search',
+    });
+  };
+
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
@@ -215,9 +283,9 @@ describe('AdminOperationCourseDetailPage', () => {
           learning_status: 'learning',
           is_paid: true,
           total_paid_amount: '88',
-          last_learning_at: '2026-04-08 11:30:00',
-          joined_at: '2026-04-07 09:00:00',
-          last_login_at: '2026-04-08 12:00:00',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
         },
       ],
       page: 1,
@@ -234,8 +302,8 @@ describe('AdminOperationCourseDetailPage', () => {
         creator_mobile: '13800001234',
         creator_email: '',
         creator_nickname: 'Alice',
-        created_at: '2026-04-08 10:00:00',
-        updated_at: '2026-04-08 11:00:00',
+        created_at: '2026-04-08T10:00:00Z',
+        updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
         visit_count_30d: 34,
@@ -256,12 +324,13 @@ describe('AdminOperationCourseDetailPage', () => {
           is_visible: true,
           content_status: 'empty',
           follow_up_count: 3,
+          rating_score: '',
           rating_count: 2,
           modifier_user_bid: 'creator-1',
           modifier_mobile: '13800001234',
           modifier_email: '',
           modifier_nickname: 'Alice',
-          updated_at: '2026-04-08 11:00:00',
+          updated_at: '2026-04-08T11:00:00Z',
           children: [
             {
               outline_item_bid: 'lesson-1',
@@ -273,12 +342,13 @@ describe('AdminOperationCourseDetailPage', () => {
               is_visible: false,
               content_status: 'has',
               follow_up_count: 3,
+              rating_score: '4.5',
               rating_count: 2,
               modifier_user_bid: 'modifier-1',
               modifier_mobile: '13900001234',
               modifier_email: '',
               modifier_nickname: 'Bob',
-              updated_at: '2026-04-08 11:00:00',
+              updated_at: '2026-04-08T11:00:00Z',
               children: [],
             },
           ],
@@ -296,15 +366,7 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
     });
-    expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
-      shifu_bid: 'course-1',
-      page: 1,
-      page_size: 20,
-      keyword: '',
-      user_role: 'all',
-      learning_status: 'all',
-      payment_status: 'all',
-    });
+    expect(mockGetAdminOperationCourseUsers).not.toHaveBeenCalled();
 
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
@@ -335,6 +397,13 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('4.5')).toBeInTheDocument();
+    const chapterRow = screen.getByText('Chapter 1').closest('tr');
+    expect(chapterRow).not.toBeNull();
+    expect(
+      within(chapterRow as HTMLElement).getAllByText('--').length,
+    ).toBeGreaterThanOrEqual(3);
+    await openUsersTab();
     const bobRow = screen.getAllByText('13900001234').at(-1)?.closest('tr');
     expect(bobRow).not.toBeNull();
     expect(within(bobRow as HTMLElement).getByText('Bob')).toBeInTheDocument();
@@ -367,6 +436,36 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith(
       '/admin/operations/course-1/follow-ups',
     );
+  });
+
+  test('navigates to order management from the order count metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.orders.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/orders?shifu_bid=course-1',
+    );
+  });
+
+  test('navigates to ratings page from the rating metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1/ratings');
   });
 
   test('renders static metric cards with non-interactive semantics', async () => {
@@ -492,8 +591,8 @@ describe('AdminOperationCourseDetailPage', () => {
         creator_mobile: '13800001234',
         creator_email: '',
         creator_nickname: 'Alice',
-        created_at: '2026-04-08 10:00:00',
-        updated_at: '2026-04-08 11:00:00',
+        created_at: '2026-04-08T10:00:00Z',
+        updated_at: '2026-04-08T11:00:00Z',
       },
       metrics: {
         visit_count_30d: 34,
@@ -514,12 +613,13 @@ describe('AdminOperationCourseDetailPage', () => {
           is_visible: true,
           content_status: 'empty',
           follow_up_count: 3,
+          rating_score: '',
           rating_count: 2,
           modifier_user_bid: 'creator-1',
           modifier_mobile: '13800001234',
           modifier_email: '',
           modifier_nickname: 'Alice',
-          updated_at: '2026-04-08 11:00:00',
+          updated_at: '2026-04-08T11:00:00Z',
           children: [],
         },
       ],
@@ -538,6 +638,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.change(
@@ -563,6 +664,27 @@ describe('AdminOperationCourseDetailPage', () => {
         page: 1,
         page_size: 20,
         keyword: 'student',
+        user_role: 'all',
+        learning_status: 'all',
+        payment_status: 'all',
+      });
+    });
+  });
+
+  test('loads course users only after users tab is activated', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    expect(mockGetAdminOperationCourseUsers).not.toHaveBeenCalled();
+
+    await openUsersTab();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        keyword: '',
         user_role: 'all',
         learning_status: 'all',
         payment_status: 'all',
@@ -597,7 +719,11 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
-    await screen.findByText('guest-1');
+    await screen.findByText('Course One');
+    await openUsersTab();
+    await waitFor(() => {
+      expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+    });
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
     expect(screen.queryByText('guest@example.com')).not.toBeInTheDocument();
     expect(
@@ -614,6 +740,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     expect(
       screen.getByPlaceholderText(
         'module.operationsCourse.detail.usersFilters.userKeywordPlaceholderEmail',
@@ -625,6 +752,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.click(
@@ -650,6 +778,7 @@ describe('AdminOperationCourseDetailPage', () => {
     render(<AdminOperationCourseDetailPage />);
 
     await screen.findByText('Course One');
+    await openUsersTab();
     mockGetAdminOperationCourseUsers.mockClear();
 
     fireEvent.change(
@@ -696,9 +825,9 @@ describe('AdminOperationCourseDetailPage', () => {
           learning_status: 'learning',
           is_paid: true,
           total_paid_amount: '88',
-          last_learning_at: '2026-04-08 11:30:00',
-          joined_at: '2026-04-07 09:00:00',
-          last_login_at: '2026-04-08 12:00:00',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
         },
       ],
       page: 1,
@@ -716,17 +845,8 @@ describe('AdminOperationCourseDetailPage', () => {
 
     render(<AdminOperationCourseDetailPage />);
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
-        shifu_bid: 'course-1',
-        page: 1,
-        page_size: 20,
-        keyword: '',
-        user_role: 'all',
-        learning_status: 'all',
-        payment_status: 'all',
-      });
-    });
+    await screen.findByText('Course One');
+    await openUsersTab();
 
     fireEvent.click(
       await screen.findByRole('link', {

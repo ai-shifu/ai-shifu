@@ -32,6 +32,15 @@ def _delete_shifu_pair(shifu_bid: str) -> None:
     db.session.commit()
 
 
+def _reset_shifu_tables() -> None:
+    from flaskr.dao import db
+    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+
+    PublishedShifu.query.delete()
+    DraftShifu.query.delete()
+    db.session.commit()
+
+
 def test_phone_flow_sets_user_identify(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
@@ -39,6 +48,7 @@ def test_phone_flow_sets_user_identify(app):
     # Bypass code storage by using universal code
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
 
         # Monkeypatch redis in module scope
         phone_flow.redis = _FakeRedis()
@@ -66,6 +76,7 @@ def test_email_flow_sets_user_identify(app):
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
         email_flow.redis = _FakeRedis()
 
         _reset_user_auth_tables()
@@ -89,6 +100,7 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
         phone_flow.redis = _FakeRedis()
 
         phone = "15500002222"
@@ -125,9 +137,11 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app):
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
         phone_flow.redis = _FakeRedis()
 
         _reset_user_auth_tables()
+        _reset_shifu_tables()
         try:
             db.session.add(
                 PublishedShifu(
@@ -171,6 +185,7 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app):
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
         email_flow.redis = _FakeRedis()
 
         email = "test.user@example.com"

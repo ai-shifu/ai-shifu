@@ -67,8 +67,11 @@ AI compatibility instruction files.
 - `pre-commit run --files .github/workflows/*.yml .github/copilot-instructions.md .github/instructions/*.instructions.md`
   is the focused hygiene pass for workflow and GitHub-side instruction changes.
 
-- `python scripts/check_ai_collab_docs.py` is required when `.github/`
+- `python scripts/check_repo_harness.py` is required when `.github/`
   instruction mirrors or manual AI-doc entry points change.
+
+- `python scripts/check_architecture_boundaries.py` is required when workflow
+  path filters or repo-harness coverage changes affect source ownership.
 
 ## Tests
 
@@ -80,12 +83,15 @@ AI compatibility instruction files.
   handbook.
 
 - When only GitHub-side AI instruction files change, run
-  `python scripts/check_ai_collab_docs.py` and note that runtime automation
+  `python scripts/check_repo_harness.py` and note that runtime automation
   was not executed.
 
 - When workflow changes affect backend, frontend, Docker, or scripts paths,
   verify the path filters and changed-file assumptions still match the intended
   automation surface.
+- Keep `repo-harness.yml`, `runtime-harness.yml`, and
+  `harness-gardening.yml` aligned with the actual harness assets they are meant
+  to police.
 
 ## Related Skills
 

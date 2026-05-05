@@ -72,7 +72,6 @@ import type {
 } from '../operation-user-types';
 
 type UserFilters = {
-  user_bid: string;
   identifier: string;
   nickname: string;
   user_status: string;
@@ -110,7 +109,6 @@ const DEFAULT_COLUMN_WIDTHS = {
 } as const;
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
-  user_bid: '',
   identifier: '',
   nickname: '',
   user_status: '',
@@ -209,7 +207,6 @@ const CourseListPreview = ({
 /**
  * t('module.operationsUser.title')
  * t('module.operationsUser.emptyList')
- * t('module.operationsUser.filters.userId')
  * t('module.operationsUser.filters.mobile')
  * t('module.operationsUser.filters.email')
  * t('module.operationsUser.filters.nickname')
@@ -219,6 +216,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.userId')
  * t('module.operationsUser.table.mobile')
  * t('module.operationsUser.table.email')
+ * t('module.operationsUser.table.guestUser')
  * t('module.operationsUser.table.nickname')
  * t('module.operationsUser.table.status')
  * t('module.operationsUser.table.role')
@@ -378,6 +376,10 @@ export default function AdminOperationUsersPage() {
         : tOperationsUsers('table.mobile'),
     [contactType, tOperationsUsers],
   );
+  const guestUserLabel = React.useMemo(
+    () => tOperationsUsers('table.guestUser'),
+    [tOperationsUsers],
+  );
   const resolveCreditsExpireAtLabel = React.useCallback(
     (user: AdminOperationUserItem) => {
       if (user.credits_expire_at) {
@@ -402,7 +404,6 @@ export default function AdminOperationUsersPage() {
         const response = (await api.getAdminOperationUsers({
           page_index: targetPage,
           page_size: PAGE_SIZE,
-          user_bid: filters.user_bid.trim(),
           identifier: filters.identifier.trim(),
           nickname: filters.nickname.trim(),
           user_status: filters.user_status,
@@ -520,24 +521,7 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
-  const primaryFilterItems = [
-    {
-      key: 'user_bid',
-      label: tOperationsUsers('filters.userId'),
-      component: (
-        <ClearableTextInput
-          value={draftFilters.user_bid}
-          placeholder={tOperationsUsers('filters.userId')}
-          clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_bid: value,
-            }))
-          }
-        />
-      ),
-    },
+  const collapsedFilterItems = [
     {
       key: 'identifier',
       label: identifierLabel,
@@ -555,10 +539,6 @@ export default function AdminOperationUsersPage() {
         />
       ),
     },
-  ];
-
-  const expandedPrimaryFilterItems = [
-    ...primaryFilterItems,
     {
       key: 'nickname',
       label: tOperationsUsers('filters.nickname'),
@@ -578,7 +558,8 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
-  const expandedSecondaryFilterItems = [
+  const expandedFirstRowFilterItems = [
+    ...collapsedFilterItems,
     {
       key: 'user_status',
       label: tOperationsUsers('filters.status'),
@@ -608,6 +589,9 @@ export default function AdminOperationUsersPage() {
         </Select>
       ),
     },
+  ];
+
+  const expandedSecondRowFilterItems = [
     {
       key: 'user_role',
       label: tOperationsUsers('filters.role'),
@@ -698,8 +682,8 @@ export default function AdminOperationUsersPage() {
                 )}
               >
                 {(expanded
-                  ? expandedPrimaryFilterItems
-                  : primaryFilterItems
+                  ? expandedFirstRowFilterItems
+                  : collapsedFilterItems
                 ).map(item => (
                   <div
                     key={item.key}
@@ -748,7 +732,7 @@ export default function AdminOperationUsersPage() {
               {expanded ? (
                 <div className='space-y-4'>
                   <div className='grid gap-4 xl:grid-cols-3'>
-                    {expandedSecondaryFilterItems.map(item => (
+                    {expandedSecondRowFilterItems.map(item => (
                       <div
                         key={item.key}
                         className='flex items-center'
@@ -764,31 +748,30 @@ export default function AdminOperationUsersPage() {
                         <div className='flex-1 min-w-0'>{item.component}</div>
                       </div>
                     ))}
-                  </div>
-
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {t('module.order.filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {t('module.order.filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(false)}
-                    >
-                      {t('common.core.collapse')}
-                      <ChevronUp className='ml-1 h-4 w-4' />
-                    </Button>
+                    <div className='flex items-center justify-end gap-2 xl:self-end'>
+                      <Button
+                        size='sm'
+                        variant='outline'
+                        onClick={handleReset}
+                      >
+                        {t('module.order.filters.reset')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        onClick={handleSearch}
+                      >
+                        {t('module.order.filters.search')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        className='px-2 text-primary'
+                        onClick={() => setExpanded(false)}
+                      >
+                        {t('common.core.collapse')}
+                        <ChevronUp className='ml-1 h-4 w-4' />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -931,8 +914,10 @@ export default function AdminOperationUsersPage() {
                   {users.map(user => {
                     const primaryContact =
                       contactType === 'email'
-                        ? user.email || user.mobile || ''
-                        : user.mobile || user.email || '';
+                        ? user.email?.trim() || ''
+                        : user.mobile?.trim() || '';
+                    const isGuestUser =
+                      !user.mobile?.trim() && !user.email?.trim();
                     const userDetailUrl = buildAdminOperationsUserDetailUrl(
                       user.user_bid,
                     );
@@ -965,7 +950,11 @@ export default function AdminOperationUsersPage() {
                           className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
                           style={getColumnStyle('mobile')}
                         >
-                          {userDetailUrl && primaryContact ? (
+                          {isGuestUser ? (
+                            <span className='text-sm text-muted-foreground'>
+                              {guestUserLabel}
+                            </span>
+                          ) : userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
@@ -973,9 +962,7 @@ export default function AdminOperationUsersPage() {
                               {renderTooltipText(primaryContact)}
                             </Link>
                           ) : (
-                            renderTooltipText(
-                              primaryContact || EMPTY_STATE_LABEL,
-                            )
+                            renderTooltipText(primaryContact)
                           )}
                         </TableCell>
                         <TableCell

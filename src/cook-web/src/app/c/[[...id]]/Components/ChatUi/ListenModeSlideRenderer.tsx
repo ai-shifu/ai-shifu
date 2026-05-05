@@ -604,10 +604,6 @@ const ListenModeSlideRenderer = ({
     !isLoading &&
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
-  const hasErrorElement = useMemo(
-    () => items.some(item => item.type === ChatContentItemType.ERROR),
-    [items],
-  );
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const currentPlayerElementBid = useMemo(() => {
@@ -1183,7 +1179,7 @@ const ListenModeSlideRenderer = ({
     }
 
     return (
-      <div className='flex min-w-0 items-center gap-3 text-white'>
+      <div className='flex min-w-0 items-center gap-3 text-[var(--slide-mobile-fullscreen-chrome-foreground,var(--foreground))]'>
         {courseAvatar ? (
           <Avatar className='h-8 w-8 shrink-0'>
             <AvatarImage
@@ -1194,12 +1190,12 @@ const ListenModeSlideRenderer = ({
         ) : null}
         <div className='flex min-w-0 flex-col justify-center'>
           {courseName ? (
-            <span className='truncate text-base font-bold leading-5 text-white'>
+            <span className='truncate text-base font-bold leading-5 text-current'>
               {courseName}
             </span>
           ) : null}
           {sectionTitle ? (
-            <span className='truncate text-xs leading-4 text-white/80'>
+            <span className='truncate text-xs leading-4 text-current opacity-80'>
               {sectionTitle}
             </span>
           ) : null}
@@ -1422,7 +1418,6 @@ const ListenModeSlideRenderer = ({
           playerCustomActionPauseOnActive={true}
           playerCustomActions={playerCustomActions}
           playerTexts={playerTexts}
-          disableLoadingOverlay={hasErrorElement}
           showPlayer={!shouldRenderEmptyPpt}
         />
         {isLoading ? (
