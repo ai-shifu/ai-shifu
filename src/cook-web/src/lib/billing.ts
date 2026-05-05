@@ -271,7 +271,8 @@ export function formatBillingNumber(
   return new Intl.NumberFormat(locale || 'en-US', {
     minimumFractionDigits: BILLING_DISPLAY_RULE.minimumFractionDigits,
     maximumFractionDigits:
-      options?.maximumFractionDigits ?? BILLING_DISPLAY_RULE.maximumFractionDigits,
+      options?.maximumFractionDigits ??
+      BILLING_DISPLAY_RULE.maximumFractionDigits,
     ...(options?.currency
       ? {
           style: 'currency',
