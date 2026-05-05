@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
 import { useToast } from '@/hooks/useToast';
+import { formatBillingCredits } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import { Button } from '@/components/ui/Button';
 import {
@@ -146,7 +147,7 @@ export default function UserCreditGrantDialog({
   onOpenChange,
   onGranted,
 }: UserCreditGrantDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { toast } = useToast();
   const hasActiveSubscription = Boolean(user?.has_active_subscription);
@@ -346,7 +347,10 @@ export default function UserCreditGrantDialog({
                   label={tOperationsUsers(
                     'grantDialog.summary.availableCredits',
                   )}
-                  value={user?.available_credits || '0'}
+                  value={formatBillingCredits(
+                    Number(user?.available_credits || 0),
+                    i18n.language,
+                  )}
                 />
                 <SummaryField
                   label={tOperationsUsers(
