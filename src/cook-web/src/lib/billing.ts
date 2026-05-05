@@ -258,6 +258,7 @@ const BILLING_DISPLAY_RULE = {
 
 type FormatBillingNumberOptions = {
   currency?: string;
+  maximumFractionDigits?: number;
 };
 
 export function formatBillingNumber(
@@ -268,7 +269,9 @@ export function formatBillingNumber(
   const n = Number(value ?? 0);
   const safe = Number.isFinite(n) ? n : 0;
   return new Intl.NumberFormat(locale || 'en-US', {
-    ...BILLING_DISPLAY_RULE,
+    minimumFractionDigits: BILLING_DISPLAY_RULE.minimumFractionDigits,
+    maximumFractionDigits:
+      options?.maximumFractionDigits ?? BILLING_DISPLAY_RULE.maximumFractionDigits,
     ...(options?.currency
       ? {
           style: 'currency',
@@ -296,9 +299,20 @@ export function formatBillingPrice(
   currency: string,
   locale: string,
 ): string {
-  return formatBillingNumber(Number(amountInMinor || 0) / 100, locale, {
-    currency: currency || 'CNY',
-  });
+  const resolvedCurrency = currency || 'CNY';
+  const fractionDigits =
+    new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency',
+      currency: resolvedCurrency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  return formatBillingNumber(
+    Number(amountInMinor || 0) / 10 ** fractionDigits,
+    locale,
+    {
+      currency: resolvedCurrency,
+      maximumFractionDigits: fractionDigits,
+    },
+  );
 }
 
 export function resolveBillingSubscriptionStatusLabel(

@@ -166,6 +166,18 @@ describe('formatBillingPrice', () => {
     expect(formatBillingPrice(9950, 'USD', 'en-US')).toBe('$99.5');
   });
 
+  test('handles 0-decimal currency (JPY) without dividing by 100', () => {
+    expect(formatBillingPrice(100, 'JPY', 'en-US')).toBe('¥100');
+    expect(formatBillingPrice(100, 'JPY', 'zh-CN')).toBe('¥100');
+    expect(formatBillingPrice(1234567, 'JPY', 'en-US')).toBe('¥1,234,567');
+  });
+
+  test('handles 3-decimal currency (KWD) preserving full precision', () => {
+    expect(formatBillingPrice(1, 'KWD', 'en-US')).toBe('KWD 0.001');
+    expect(formatBillingPrice(1000, 'KWD', 'en-US')).toBe('KWD 1');
+    expect(formatBillingPrice(1234, 'KWD', 'en-US')).toBe('KWD 1.234');
+  });
+
   test('falls back to zero for nullish input', () => {
     expect(formatBillingPrice(0, 'CNY', 'zh-CN')).toBe('¥0');
     expect(formatBillingPrice(null as unknown as number, 'CNY', 'zh-CN')).toBe(
