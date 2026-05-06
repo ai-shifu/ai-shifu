@@ -1843,7 +1843,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     }
     assert paged_payload["data"]["total"] == 3
     assert [item["generated_block_bid"] for item in paged_payload["data"]["items"]] == [
-        "ask-2"
+        "ask-2",
     ]
     assert paged_payload["data"]["items"][0]["turn_index"] == 2
 
