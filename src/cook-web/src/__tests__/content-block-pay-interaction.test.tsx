@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import ContentBlock from '@/app/c/[[...id]]/Components/ChatUi/ContentBlock';
+import ContentBlock from '@/c-components/ChatUi/ContentBlock';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
@@ -22,6 +22,12 @@ jest.mock('@/c-utils/audio-utils', () => ({
 
 jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: jest.fn(() => false),
+}));
+
+jest.mock('@/c-utils/system-interaction', () => ({
+  isPaySystemInteractionContent: jest.fn((content?: string) =>
+    Boolean(content?.includes('_sys_pay')),
+  ),
 }));
 
 describe('ContentBlock pay interaction overrides', () => {

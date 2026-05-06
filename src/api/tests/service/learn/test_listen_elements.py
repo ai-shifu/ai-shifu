@@ -1,4 +1,5 @@
 import json
+import time
 import types
 
 import pytest
@@ -359,7 +360,7 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
                 "segment_index": 0,
                 "audio_data": "patch-audio-segment",
                 "duration_ms": 180,
-                "is_final": True,
+                "is_final": False,
             }
         ]
 
@@ -1332,6 +1333,313 @@ def test_listen_run_persists_content_block_before_element_rows(app):
     assert {row.content_text for row in rows} == {"Persisted content block"}
 
 
+def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.context_v2 import (
+        BlockType as MarkdownFlowBlockType,
+        RunScriptContextV2,
+        RunScriptInfo,
+        RunType,
+    )
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-run-visual-before-tts"
+    shifu_bid = "shifu-listen-run-visual-before-tts"
+    outline_bid = "outline-listen-run-visual-before-tts"
+    progress_bid = "progress-listen-run-visual-before-tts"
+    audio_url = "https://example.com/intro-after-visual.mp3"
+    later_audio_url = "https://example.com/later-after-visual.mp3"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=outline_bid,
+            shifu_bid=shifu_bid,
+            position=0,
+            title="Visual Before TTS",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=user_bid, mobile="", email="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = None
+        ctx._last_position = -1
+        ctx._listen = True
+        ctx._element_index_cursor = 0
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, current_outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, current_outline_bid: LLMSettings(
+                model="fake",
+                temperature=0.0,
+            ),
+            ctx,
+        )
+        ctx.get_system_prompt = types.MethodType(
+            lambda self, current_outline_bid: None,
+            ctx,
+        )
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+        ctx._should_stream_tts = types.MethodType(lambda self: True, ctx)
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class DummyFormattedElement:
+            def __init__(self, content, element_type, number):
+                self.content = content
+                self.type = element_type
+                self.number = number
+
+        class DummyLLMResult:
+            def __init__(self, formatted_elements):
+                self.formatted_elements = formatted_elements
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "visual before tts",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                def _gen():
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Intro narration.\n", "text", 0)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("<div>Visual start\n", "html", 1)]
+                    )
+                    time.sleep(0.08)
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Visual end</div>\n", "html", 1)]
+                    )
+                    yield DummyLLMResult(
+                        [DummyFormattedElement("Later narration.\n", "text", 2)]
+                    )
+
+                return _gen()
+
+        class FakeTTSProcessor:
+            next_element_index = 0
+
+            def __init__(
+                self,
+                generated_block_bid,
+                position,
+                stream_element_number,
+                stream_element_type,
+            ):
+                self.generated_block_bid = generated_block_bid
+                self.position = position
+                self.stream_element_number = stream_element_number
+                self.stream_element_type = stream_element_type
+
+            def process_chunk(self, chunk_content):
+                if False:
+                    yield chunk_content
+
+            def drain_ready_segments(self):
+                if False:
+                    yield None
+
+            def finalize(self, *, commit=True):
+                if self.stream_element_number == 0:
+                    time.sleep(0.02)
+                resolved_audio_url = (
+                    audio_url if self.stream_element_number == 0 else later_audio_url
+                )
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=self.generated_block_bid,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=resolved_audio_url,
+                        audio_bid=f"audio-{self.stream_element_number}",
+                        duration_ms=240,
+                        position=self.position,
+                        stream_element_number=self.stream_element_number,
+                        stream_element_type=self.stream_element_type,
+                    ),
+                )
+
+        def _fake_try_create_tts_processor(
+            self,
+            generated_block_bid,
+            *,
+            position,
+            stream_element_number,
+            stream_element_type,
+            **_kwargs,
+        ):
+            return FakeTTSProcessor(
+                generated_block_bid,
+                position,
+                stream_element_number,
+                stream_element_type,
+            )
+
+        ctx._try_create_tts_processor = types.MethodType(
+            _fake_try_create_tts_processor,
+            ctx,
+        )
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                FakeMarkdownFlow,
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                lambda *args, **kwargs: {},
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                lambda *args, **kwargs: [],
+            )
+            monkeypatch.setitem(app.config, "STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.005)
+            streamed = list(adapter.process(ctx.run_inner(app)))
+
+        indexed_elements = [
+            (index, item.content)
+            for index, item in enumerate(streamed)
+            if item.type == "element"
+        ]
+        html_index, html_element = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.HTML and not element.is_final
+        )
+        html_indexes = [
+            index
+            for index, element in indexed_elements
+            if element.element_type == ElementType.HTML and not element.is_final
+        ]
+        last_html_index = max(html_indexes)
+        text_audio_index, text_audio_patch = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.TEXT
+            and element.audio_url == audio_url
+        )
+        later_text_index, _later_text_element = next(
+            (index, element)
+            for index, element in indexed_elements
+            if element.element_type == ElementType.TEXT
+            and element.content_text == "Later narration.\n"
+            and not element.audio_url
+        )
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+
+        assert html_index < text_audio_index
+        assert text_audio_index < last_html_index
+        assert text_audio_index < later_text_index
+        assert html_element.audio_url == ""
+        assert html_element.audio_segments == []
+        assert text_audio_patch.content_text == "Intro narration.\n"
+
+    html_seqs = [
+        row.run_event_seq
+        for row in rows
+        if row.element_type == ElementType.HTML.value and row.is_final == 0
+    ]
+    first_audio_patch_seq = min(
+        row.run_event_seq for row in rows if row.audio_url and row.is_final == 1
+    )
+    later_text_seq = min(
+        row.run_event_seq
+        for row in rows
+        if row.element_type == ElementType.TEXT.value
+        and row.content_text == "Later narration.\n"
+        and row.is_final == 0
+    )
+    assert min(html_seqs) < first_audio_patch_seq
+    assert first_audio_patch_seq < max(html_seqs)
+    assert first_audio_patch_seq < later_text_seq
+
+
 def test_listen_run_persists_exception_gate_block_before_element_rows(app):
     _require_app(app)
 
@@ -1891,24 +2199,24 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             for item in streamed
             if item.type == "element" and item.content.is_final
         ]
-        assert [item.element_type.value for item in final_elements] == [
+        assert [item.element_type.value for item in final_elements[-4:]] == [
             "svg",
             "text",
             "html",
             "text",
         ]
-        assert [item.is_new for item in final_elements] == [True, True, True, True]
-        assert final_elements[1].target_element_bid in ("", None)
-        assert final_elements[3].target_element_bid in ("", None)
-        assert final_elements[0].is_marker is True
-        assert final_elements[0].is_renderable is True
-        assert final_elements[0].content_text == ""
-        assert final_elements[1].is_marker is False
-        assert final_elements[1].is_renderable is False
-        assert final_elements[1].is_speakable is True
-        assert final_elements[1].content_text == "After svg."
-        assert final_elements[1].audio_url == "https://example.com/audio-0.mp3"
-        assert final_elements[1].audio_segments == [
+        assert [item.is_new for item in final_elements[-4:]] == [True, True, True, True]
+        assert final_elements[-3].target_element_bid in ("", None)
+        assert final_elements[-1].target_element_bid in ("", None)
+        assert final_elements[-4].is_marker is True
+        assert final_elements[-4].is_renderable is True
+        assert final_elements[-4].content_text == ""
+        assert final_elements[-3].is_marker is False
+        assert final_elements[-3].is_renderable is False
+        assert final_elements[-3].is_speakable is True
+        assert final_elements[-3].content_text == "After svg."
+        assert final_elements[-3].audio_url == "https://example.com/audio-0.mp3"
+        assert final_elements[-3].audio_segments == [
             {
                 "position": 0,
                 "segment_index": 0,
@@ -1917,15 +2225,15 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "is_final": True,
             }
         ]
-        assert final_elements[2].is_marker is True
-        assert final_elements[2].is_renderable is True
-        assert final_elements[2].content_text == ""
-        assert final_elements[3].is_marker is False
-        assert final_elements[3].is_renderable is False
-        assert final_elements[3].is_speakable is True
-        assert final_elements[3].content_text == "After html."
-        assert final_elements[3].audio_url == "https://example.com/audio-1.mp3"
-        assert final_elements[3].audio_segments == [
+        assert final_elements[-2].is_marker is True
+        assert final_elements[-2].is_renderable is True
+        assert final_elements[-2].content_text == ""
+        assert final_elements[-1].is_marker is False
+        assert final_elements[-1].is_renderable is False
+        assert final_elements[-1].is_speakable is True
+        assert final_elements[-1].content_text == "After html."
+        assert final_elements[-1].audio_url == "https://example.com/audio-1.mp3"
+        assert final_elements[-1].audio_segments == [
             {
                 "position": 1,
                 "segment_index": 0,
@@ -1934,10 +2242,10 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "is_final": True,
             }
         ]
-        assert final_elements[0].payload is not None
-        assert final_elements[0].payload.previous_visuals[0].visual_type == "svg"
-        assert final_elements[1].payload is not None
-        assert final_elements[1].payload.previous_visuals == []
+        assert final_elements[-4].payload is not None
+        assert final_elements[-4].payload.previous_visuals[0].visual_type == "svg"
+        assert final_elements[-3].payload is not None
+        assert final_elements[-3].payload.previous_visuals == []
 
         persisted_rows = (
             LearnGeneratedElement.query.filter(
@@ -2239,16 +2547,12 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             "element",
             "element",
             "element",
-            "element",
-            "element",
             "done",
         ]
 
         first_element = streamed[0].content
         patch_element = streamed[1].content
-        first_audio_patch_element = streamed[2].content
-        second_audio_patch_element = streamed[3].content
-        audio_complete_patch_element = streamed[4].content
+        final_audio_segment_patch = streamed[2].content
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.IMG
         assert "_" not in first_element.element_bid
@@ -2257,58 +2561,12 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert patch_element.element_bid == first_element.element_bid
         assert "_" not in patch_element.element_bid
         assert patch_element.target_element_bid in ("", None)
-        assert first_audio_patch_element.is_new is True
-        assert len(first_audio_patch_element.element_bid) <= 64
-        assert first_audio_patch_element.element_bid == first_element.element_bid
-        assert "_" not in first_audio_patch_element.element_bid
-        assert first_audio_patch_element.target_element_bid in ("", None)
-        assert first_audio_patch_element.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 0,
-                "audio_data": "stream-segment-0",
-                "duration_ms": 240,
-                "is_final": False,
-            }
-        ]
-        assert second_audio_patch_element.is_new is True
-        assert len(second_audio_patch_element.element_bid) <= 64
-        assert second_audio_patch_element.element_bid == first_element.element_bid
-        assert "_" not in second_audio_patch_element.element_bid
-        assert second_audio_patch_element.target_element_bid in ("", None)
-        assert second_audio_patch_element.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 1,
-                "audio_data": "stream-segment-1",
-                "duration_ms": 260,
-                "is_final": False,
-            }
-        ]
-        assert audio_complete_patch_element.is_new is True
-        assert audio_complete_patch_element.element_bid == first_element.element_bid
-        assert audio_complete_patch_element.target_element_bid in ("", None)
-        assert (
-            audio_complete_patch_element.audio_url
-            == "https://example.com/stream-audio.mp3"
-        )
-        assert audio_complete_patch_element.is_final is True
-        assert audio_complete_patch_element.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 0,
-                "audio_data": "stream-segment-0",
-                "duration_ms": 240,
-                "is_final": False,
-            },
-            {
-                "position": 0,
-                "segment_index": 1,
-                "audio_data": "stream-segment-1",
-                "duration_ms": 260,
-                "is_final": True,
-            },
-        ]
+        assert final_audio_segment_patch.is_new is True
+        assert final_audio_segment_patch.element_bid == first_element.element_bid
+        assert final_audio_segment_patch.target_element_bid in ("", None)
+        assert final_audio_segment_patch.audio_url == ""
+        assert final_audio_segment_patch.is_final is True
+        assert final_audio_segment_patch.audio_segments == []
         result = get_listen_element_record(
             app,
             shifu_bid=shifu_bid,
@@ -2324,28 +2582,13 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert element.is_new is True
         assert element.is_final is True
         assert element.is_marker is True
-        assert element.audio_url == "https://example.com/stream-audio.mp3"
-        assert element.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 0,
-                "audio_data": "",
-                "duration_ms": 240,
-                "is_final": False,
-            },
-            {
-                "position": 0,
-                "segment_index": 1,
-                "audio_data": "",
-                "duration_ms": 260,
-                "is_final": True,
-            },
-        ]
+        assert element.audio_url == ""
+        assert element.audio_segments == []
         assert element.content_text.endswith("caption line\n")
         assert element.payload is not None
         assert len(element.payload.previous_visuals) == 1
         assert element.payload.previous_visuals[0].visual_type == "img"
-        assert element.payload.previous_visuals[0].content == element.content_text
+        assert element.payload.previous_visuals[0].content == ""
 
         result_with_events = get_listen_element_record(
             app,
@@ -2361,7 +2604,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert "audio_segment" not in replay_event_types
         assert replay_event_types.count("element") >= 1
         assert "audio_complete" not in replay_event_types
-        assert "done" in replay_event_types
+        assert "break" in replay_event_types
         replay_audio_patches = [
             item.content
             for item in result_with_events.events
@@ -2370,26 +2613,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             and not item.content.audio_url
             and not item.content.is_final
         ]
-        assert [item.audio_segments for item in replay_audio_patches] == [
-            [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "",
-                    "duration_ms": 240,
-                    "is_final": False,
-                }
-            ],
-            [
-                {
-                    "position": 0,
-                    "segment_index": 1,
-                    "audio_data": "",
-                    "duration_ms": 260,
-                    "is_final": False,
-                }
-            ],
-        ]
+        assert replay_audio_patches == []
 
         persisted_rows = (
             LearnGeneratedElement.query.filter(
@@ -2406,43 +2630,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             for row in persisted_rows
             if row.audio_segments and row.audio_segments != "[]"
         ]
-        assert persisted_segments
-        assert persisted_segments == [
-            [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "",
-                    "duration_ms": 240,
-                    "is_final": False,
-                }
-            ],
-            [
-                {
-                    "position": 0,
-                    "segment_index": 1,
-                    "audio_data": "",
-                    "duration_ms": 260,
-                    "is_final": False,
-                }
-            ],
-            [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "",
-                    "duration_ms": 240,
-                    "is_final": False,
-                },
-                {
-                    "position": 0,
-                    "segment_index": 1,
-                    "audio_data": "",
-                    "duration_ms": 260,
-                    "is_final": True,
-                },
-            ],
-        ]
+        assert persisted_segments == []
 
 
 def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
@@ -3019,7 +3207,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             item for item in element_events if item.element_type == ElementType.HTML
         ]
         assert len(text_elements) >= 3
-        assert len(html_elements) == 3
+        assert len(html_elements) == 4
 
         text_element_bid = text_elements[0].element_bid
         assert text_elements[1].element_bid == text_element_bid
@@ -3304,11 +3492,15 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
         assert streamed[-1].type == "done"
         element_events = [item.content for item in streamed if item.type == "element"]
 
-        rendered_texts = [
-            item
-            for item in element_events
-            if item.element_type == ElementType.TEXT and item.is_new
-        ]
+        rendered_texts = []
+        seen_text_bids = set()
+        for item in element_events:
+            if item.element_type != ElementType.TEXT:
+                continue
+            if item.element_bid in seen_text_bids:
+                continue
+            seen_text_bids.add(item.element_bid)
+            rendered_texts.append(item)
         assert len(rendered_texts) == 2
 
         first_text_bid = rendered_texts[0].element_bid
@@ -3322,7 +3514,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
             and item.audio_url == "https://example.com/first-audio.mp3"
         )
         assert first_audio_complete.element_bid == first_text_bid
-        assert first_audio_complete.target_element_bid == first_text_bid
+        assert first_audio_complete.target_element_bid in ("", None)
         assert first_audio_complete.is_final is True
 
         second_audio_segments = [
@@ -3334,11 +3526,9 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
             and not item.audio_url
             and item.audio_segments[0]["position"] == 1
         ]
-        assert [item.target_element_bid for item in second_audio_segments] == [
-            second_text_bid,
-            second_text_bid,
-            second_text_bid,
-        ]
+        assert all(
+            item.element_bid == second_text_bid for item in second_audio_segments
+        )
         assert [item.audio_segments for item in second_audio_segments] == [
             [
                 {
@@ -3376,7 +3566,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
             and item.audio_url == "https://example.com/second-audio.mp3"
         )
         assert second_audio_complete.element_bid == second_text_bid
-        assert second_audio_complete.target_element_bid == second_text_bid
+        assert second_audio_complete.target_element_bid in ("", None)
         assert second_audio_complete.is_final is True
         assert second_audio_complete.audio_segments == [
             {
@@ -3583,10 +3773,10 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
         text_elements = [
             item for item in element_events if item.element_type == ElementType.TEXT
         ]
-        assert len([item for item in html_elements if item.is_new is True]) == 1
+        assert len({item.element_bid for item in html_elements}) == 1
         assert len(text_elements) >= 2
 
-        html_element = next(item for item in html_elements if item.is_new is True)
+        html_element = next(item for item in html_elements if not item.is_final)
         assert html_element.audio_segments == []
         assert html_element.audio_url == ""
         assert html_element.is_speakable is False
@@ -3604,7 +3794,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
                 "segment_index": 0,
                 "audio_data": "late-text-segment",
                 "duration_ms": 210,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert initial_text.audio_url == ""
@@ -3994,7 +4184,7 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
             row for row in persisted_rows if row.element_type == ElementType.HTML.value
         ]
 
-        assert len(persisted_html_rows) == 2
+        assert len(persisted_html_rows) == 1
         assert all(
             not row.audio_segments or row.audio_segments == "[]"
             for row in persisted_html_rows
@@ -4587,7 +4777,7 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
     ]
     assert [element.content_text for element in result.elements] == [
         "Before image.",
-        "",
+        "![img](https://example.com/visual.png)",
         "After image.",
     ]
     assert [element.is_new for element in result.elements] == [True, True, True]
@@ -4595,7 +4785,7 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
     assert result.elements[1].target_element_bid in ("", None)
     assert result.elements[1].payload is not None
     assert result.elements[1].payload.previous_visuals[0].visual_type == "img"
-    assert result.elements[1].payload.previous_visuals[0].content == visual_markdown
+    assert result.elements[1].payload.previous_visuals[0].content == ""
     assert [element.audio_url for element in result.elements] == [
         "https://example.com/legacy-visual-0.mp3",
         "",
@@ -4926,4 +5116,107 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
     assert rows[0].status == 0
     assert rows[0].content_text == "legacy"
     assert rows[1].status == 1
-    assert rows[1].content_text == "Plain text only."
+    assert rows[1].generated_block_bid == generated_block_bid
+
+
+def test_backfill_learn_generated_elements_for_progress_overwrite_dry_run_rebuilds_without_stale_rows(
+    app,
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.listen_element_legacy import (
+        backfill_learn_generated_elements_for_progress,
+    )
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    user_bid = "user-backfill-overwrite-dry-run"
+    shifu_bid = "shifu-backfill-overwrite-dry-run"
+    outline_bid = "outline-backfill-overwrite-dry-run"
+    progress_bid = "progress-backfill-overwrite-dry-run"
+    generated_block_bid = "generated-backfill-overwrite-dry-run"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-backfill-overwrite-dry-run",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            role=ROLE_TEACHER,
+            generated_content="Before intro.\n\n```svg\n<svg><rect /></svg>\n```\n\nAfter chart.",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        existing_row = LearnGeneratedElement(
+            element_bid="legacy-element-dry-run",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="legacy-run",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=213,
+            change_type="render",
+            target_element_bid="",
+            is_navigable=1,
+            is_final=1,
+            content_text="legacy",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, block, existing_row])
+        db.session.commit()
+
+        preview = backfill_learn_generated_elements_for_progress(
+            app,
+            progress_bid,
+            overwrite=True,
+            dry_run=True,
+        )
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.progress_record_bid == progress_bid,
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(LearnGeneratedElement.id.asc())
+            .all()
+        )
+
+    assert preview.dry_run is True
+    assert preview.existing_active_rows == 1
+    assert preview.overwritten_rows == 0
+    assert preview.inserted_rows == 3
+    assert preview.elements_built == 3
+    assert len(rows) == 1
+    assert rows[0].status == 1
+    assert rows[0].content_text == "legacy"

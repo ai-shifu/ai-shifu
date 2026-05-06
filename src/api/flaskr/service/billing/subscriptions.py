@@ -1019,6 +1019,7 @@ def _activate_reserved_subscription_grant_for_order(
         reserved_credits=wallet.reserved_credits,
         updated_at=now,
     )
+    grant_entry.balance_after = _quantize_credit_amount(wallet.available_credits)
     return True
 
 

@@ -16,10 +16,12 @@ const api = {
   getRuntimeConfig: 'GET /config',
 
   // auth
+  getCaptcha: 'GET /user/captcha',
+  verifyCaptcha: 'POST /user/captcha/verify',
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
-  verifySmsCode: 'POST /user/verify_sms_code',
+  smsLogin: 'POST /user/login_sms',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
@@ -101,6 +103,38 @@ const api = {
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
+  getAdminOperationOrderDetail:
+    'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
+  getAdminOperationCreditOrderDetail:
+    'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
+  getAdminOperationPromotionCoupons:
+    'GET /shifu/admin/operations/promotions/coupons',
+  createAdminOperationPromotionCoupon:
+    'POST /shifu/admin/operations/promotions/coupons',
+  updateAdminOperationPromotionCoupon:
+    'POST /shifu/admin/operations/promotions/coupons/{coupon_bid}',
+  getAdminOperationPromotionCouponDetail:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}',
+  updateAdminOperationPromotionCouponStatus:
+    'POST /shifu/admin/operations/promotions/coupons/{coupon_bid}/status',
+  getAdminOperationPromotionCouponUsages:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}/usages',
+  getAdminOperationPromotionCouponCodes:
+    'GET /shifu/admin/operations/promotions/coupons/{coupon_bid}/codes',
+  getAdminOperationPromotionCampaigns:
+    'GET /shifu/admin/operations/promotions/campaigns',
+  createAdminOperationPromotionCampaign:
+    'POST /shifu/admin/operations/promotions/campaigns',
+  getAdminOperationPromotionCampaignDetail:
+    'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}',
+  updateAdminOperationPromotionCampaign:
+    'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}',
+  updateAdminOperationPromotionCampaignStatus:
+    'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}/status',
+  getAdminOperationPromotionCampaignRedemptions:
+    'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
@@ -108,10 +142,18 @@ const api = {
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
+  getAdminOperationCoursePrompt:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',
   getAdminOperationCourseDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseRatings:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
+  getAdminOperationCourseFollowUps:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups',
+  getAdminOperationCourseFollowUpDetail:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
   transferAdminOperationCourseCreator:

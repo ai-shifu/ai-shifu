@@ -39,10 +39,6 @@ jest.mock('uuid', () => ({
   v4: () => 'test-request-id',
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
-
 jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
   Dialog: ({ open, children }: React.PropsWithChildren<{ open: boolean }>) =>

@@ -4,8 +4,8 @@ import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 import {
+  getMockRunFixtureMode,
   MockRunStreamFixtureSource,
-  shouldUseMockStuckRunFixture,
 } from './mockRunStreamFixture';
 
 export const ELEMENT_TYPE = {
@@ -291,8 +291,9 @@ export const getRunMessage = (
     payload.input = { input: [body.input] };
   }
 
-  if (shouldUseMockStuckRunFixture(body)) {
-    const source = new MockRunStreamFixtureSource();
+  const mockRunFixtureMode = getMockRunFixtureMode(body);
+  if (mockRunFixtureMode) {
+    const source = new MockRunStreamFixtureSource(mockRunFixtureMode);
 
     source.addEventListener('message', event => {
       try {

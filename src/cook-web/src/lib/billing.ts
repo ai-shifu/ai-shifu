@@ -222,6 +222,8 @@ const BILLING_PROVIDER_KEYS: Record<BillingProvider, string> = {
   manual: 'module.billing.catalog.labels.providerManual',
   stripe: 'module.billing.catalog.labels.providerStripe',
   pingxx: 'module.billing.catalog.labels.providerPingxx',
+  alipay: 'module.billing.catalog.labels.providerAlipay',
+  wechatpay: 'module.billing.catalog.labels.providerWechatpay',
 };
 
 const BILLING_RENEWAL_EVENT_TYPE_KEYS: Record<BillingRenewalEventType, string> =
@@ -248,44 +250,64 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 const BILLING_OFFSETLESS_DATETIME_RE =
   /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
 const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
-const DEFAULT_BILL_CREDIT_PRECISION = 2;
-const MAX_BILL_CREDIT_PRECISION = 10;
 
-let billingCreditPrecision = DEFAULT_BILL_CREDIT_PRECISION;
+const BILLING_DISPLAY_RULE = {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+} as const;
 
-function normalizeBillingCreditPrecision(value?: number | null): number {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return DEFAULT_BILL_CREDIT_PRECISION;
-  }
-  return Math.min(
-    MAX_BILL_CREDIT_PRECISION,
-    Math.max(0, Math.trunc(numericValue)),
-  );
-}
+type FormatBillingNumberOptions = {
+  currency?: string;
+  maximumFractionDigits?: number;
+  minimumFractionDigits?: number;
+};
 
-export function setBillingCreditPrecision(value?: number | null): void {
-  billingCreditPrecision = normalizeBillingCreditPrecision(value);
-}
-
-export function formatBillingCredits(
-  value: number,
+export function formatBillingNumber(
+  value: unknown,
   locale: string,
-  precision: number = billingCreditPrecision,
+  options?: FormatBillingNumberOptions,
 ): string {
-  const normalizedPrecision = normalizeBillingCreditPrecision(precision);
-  return new Intl.NumberFormat(locale, {
-    minimumFractionDigits: normalizedPrecision,
-    maximumFractionDigits: normalizedPrecision,
-  }).format(Number(value || 0));
+  const n = Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat(locale || 'en-US', {
+    minimumFractionDigits:
+      options?.minimumFractionDigits ??
+      BILLING_DISPLAY_RULE.minimumFractionDigits,
+    maximumFractionDigits:
+      options?.maximumFractionDigits ??
+      BILLING_DISPLAY_RULE.maximumFractionDigits,
+    ...(options?.currency
+      ? {
+          style: 'currency',
+          currency: options.currency,
+          currencyDisplay: 'narrowSymbol',
+        }
+      : {}),
+  }).format(safe);
+}
+
+export function formatBillingCredits(value: number, locale: string): string {
+  return formatBillingNumber(value, locale);
 }
 
 export function formatBillingCreditBalance(value: number): string {
-  return String(Math.trunc(Number(value || 0)));
+  const numeric = Number(value ?? 0);
+  const floored = Number.isFinite(numeric) ? Math.floor(numeric) : 0;
+  return formatBillingNumber(floored, 'en-US', { maximumFractionDigits: 0 });
 }
 
 export function formatBillingCreditAmount(value: number): string {
-  return String(Math.trunc(Number(value || 0)));
+  return formatBillingNumber(value, 'en-US');
+}
+
+export function formatBillingCreditDetail(
+  value: number,
+  locale: string,
+): string {
+  return formatBillingNumber(value, locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function formatBillingPrice(
@@ -293,11 +315,20 @@ export function formatBillingPrice(
   currency: string,
   locale: string,
 ): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currency || 'CNY',
-    maximumFractionDigits: 2,
-  }).format(Number(amountInMinor || 0) / 100);
+  const resolvedCurrency = currency || 'CNY';
+  const fractionDigits =
+    new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency',
+      currency: resolvedCurrency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  return formatBillingNumber(
+    Number(amountInMinor || 0) / 10 ** fractionDigits,
+    locale,
+    {
+      currency: resolvedCurrency,
+      maximumFractionDigits: fractionDigits,
+    },
+  );
 }
 
 export function resolveBillingSubscriptionStatusLabel(
@@ -343,7 +374,9 @@ export function resolveBillingProductTitle(
   if (!product?.display_name) {
     return fallback;
   }
-  return t(product.display_name);
+  return t(product.display_name, {
+    credits: formatBillingCreditAmount(product.credit_amount || 0),
+  });
 }
 
 export function resolveBillingProductDescription(
@@ -355,18 +388,6 @@ export function resolveBillingProductDescription(
     return fallback;
   }
   return t(product.description);
-}
-
-export function buildBillingStripeResultUrls(origin: string): {
-  cancelUrl: string;
-  successUrl: string;
-} {
-  const normalizedOrigin = String(origin || '').replace(/\/+$/, '');
-  const base = `${normalizedOrigin}/payment/stripe/billing-result`;
-  return {
-    successUrl: base,
-    cancelUrl: `${base}?canceled=1`,
-  };
 }
 
 export function buildBillingSwrKey(
@@ -849,7 +870,11 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.labels.perDay'),
     t('module.billing.catalog.labels.perMonth'),
     t('module.billing.catalog.labels.perYear'),
+    t('module.billing.catalog.labels.providerAlipay'),
     t('module.billing.catalog.labels.providerManual'),
+    t('module.billing.catalog.labels.providerPingxx'),
+    t('module.billing.catalog.labels.providerStripe'),
+    t('module.billing.catalog.labels.providerWechatpay'),
     t('module.billing.catalog.plans.creatorMonthly.description'),
     t('module.billing.catalog.plans.creatorMonthly.title'),
     t('module.billing.catalog.plans.creatorMonthlyPro.description'),
@@ -860,14 +885,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.plans.creatorYearlyLite.title'),
     t('module.billing.catalog.plans.creatorYearlyPremium.description'),
     t('module.billing.catalog.plans.creatorYearlyPremium.title'),
-    t('module.billing.catalog.topups.creatorLarge.description'),
-    t('module.billing.catalog.topups.creatorLarge.title'),
-    t('module.billing.catalog.topups.creatorMedium.description'),
-    t('module.billing.catalog.topups.creatorMedium.title'),
-    t('module.billing.catalog.topups.creatorSmall.description'),
-    t('module.billing.catalog.topups.creatorSmall.title'),
-    t('module.billing.catalog.topups.creatorXLarge.description'),
-    t('module.billing.catalog.topups.creatorXLarge.title'),
+    t('module.billing.catalog.topups.default.description'),
+    t('module.billing.catalog.topups.default.title', { credits: '20' }),
     t('module.billing.details.subtitle'),
     t('module.billing.overview.availableCreditsLabel'),
     t('module.billing.overview.walletTitle'),
@@ -889,7 +908,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.free.description'),
     t('module.billing.package.free.priceNote'),
     t('module.billing.package.free.priceNoteGranted'),
-    t('module.billing.package.free.priceValue'),
     t('module.billing.package.free.title'),
     t('module.billing.package.subtitle'),
     t('module.billing.package.topupComingSoon'),
@@ -915,6 +933,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.intervalTabs.daily'),
     t('module.billing.package.validity.daily'),
     t('module.billing.package.validity.days', { count: 7 }),
+    t('module.billing.package.validity.free', { days: 15 }),
     t('module.billing.package.validity.monthly'),
     t('module.billing.package.validity.months', { count: 3 }),
     t('module.billing.package.validity.yearly'),
@@ -1027,6 +1046,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.sidebar.monthlyBalanceTitle'),
     t('module.billing.sidebar.nonMemberBalanceTitle'),
     t('module.billing.sidebar.nonMemberTitle'),
+    t('module.billing.sidebar.summaryTitle'),
     t('module.billing.sidebar.subscriptionPending'),
     t('module.billing.sidebar.subscriptionStatusLabel'),
     t('module.billing.sidebar.yearlyBalanceTitle'),

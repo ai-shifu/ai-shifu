@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request
 import pytest
 
 import flaskr.dao as dao
+from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
@@ -43,6 +44,8 @@ from flaskr.service.billing.read_models import (
     build_admin_bill_orders_page,
     build_admin_bill_subscriptions_page,
 )
+import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.wallets as billing_wallets_module
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingRenewalEvent,
@@ -62,8 +65,23 @@ billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
 
+def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            current = cls(2026, 4, 6, 12, 0, 0)
+            if tz is not None:
+                return current.replace(tzinfo=tz)
+            return current
+
+    monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_wallets_module, "datetime", _FixedDateTime)
+
+
 @pytest.fixture
 def admin_billing_client(monkeypatch):
+    _freeze_billing_wall_clock(monkeypatch)
+
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -77,6 +95,7 @@ def admin_billing_client(monkeypatch):
     )
 
     dao.db.init_app(app)
+    load_translations(app)
 
     @app.errorhandler(AppException)
     def _handle_app_exception(error: AppException):
@@ -403,7 +422,7 @@ class TestAdminBillingRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 401
-        assert payload["message"] == "server.shifu.noPermission"
+        assert payload["message"] == "No permission"
 
     def test_admin_billing_public_builders_return_dto_instances(
         self,

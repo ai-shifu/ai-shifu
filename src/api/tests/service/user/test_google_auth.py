@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 
+import flaskr.common.config as common_config
 from flaskr.dao import db
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
@@ -15,6 +16,18 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
     UserToken as UserTokenModel,
 )
+
+
+def _reset_config_cache(*keys: str) -> None:
+    for key in keys:
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+
+
+@pytest.fixture(autouse=True)
+def clear_google_public_url_config_cache():
+    _reset_config_cache("HOST_URL")
+    yield
+    _reset_config_cache("HOST_URL")
 
 
 class _FakeGoogleResponse:
@@ -50,6 +63,8 @@ def _reset_user_auth_tables():
 
 
 def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
+    monkeypatch.setenv("HOST_URL", "http://localhost")
+    _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
     fake_session = _FakeGoogleSession(
         profile,

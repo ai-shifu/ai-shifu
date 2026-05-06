@@ -366,6 +366,62 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(baseActions.setAutosavePaused).toHaveBeenCalledWith(true);
   });
 
+  test('does not open conflict dialog on lesson switch when remote revision is not newer', async () => {
+    setLessonNode();
+    mockShifuState.baseRevision = 10;
+    baseActions.hasUnsavedMdflow.mockReturnValue(true);
+    baseActions.loadMdflow.mockResolvedValue(false);
+    mockLoadDraftMeta.mockResolvedValue({
+      revision: 3,
+      updated_user: { user_bid: 'user-1', phone: '13900139000' },
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(baseActions.loadMdflow).toHaveBeenCalledWith(
+        'lesson-1',
+        'shifu-1',
+        expect.any(Object),
+      );
+    });
+
+    expect(baseActions.setDraftConflict).not.toHaveBeenCalledWith(true);
+    expect(baseActions.setAutosavePaused).not.toHaveBeenCalledWith(true);
+    expect(
+      screen.queryByTestId('draft-conflict-dialog'),
+    ).not.toBeInTheDocument();
+    expect(baseActions.setBaseRevision).toHaveBeenCalledWith(3);
+  });
+
+  test('does not open conflict dialog before base revision is initialized', async () => {
+    setLessonNode();
+    mockShifuState.baseRevision = null;
+    baseActions.hasUnsavedMdflow.mockReturnValue(true);
+    baseActions.loadMdflow.mockResolvedValue(false);
+    mockLoadDraftMeta.mockResolvedValue({
+      revision: 3,
+      updated_user: { user_bid: 'user-1', phone: '13900139000' },
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(baseActions.loadMdflow).toHaveBeenCalledWith(
+        'lesson-1',
+        'shifu-1',
+        expect.any(Object),
+      );
+    });
+
+    expect(baseActions.setDraftConflict).not.toHaveBeenCalledWith(true);
+    expect(baseActions.setAutosavePaused).not.toHaveBeenCalledWith(true);
+    expect(
+      screen.queryByTestId('draft-conflict-dialog'),
+    ).not.toBeInTheDocument();
+    expect(baseActions.setBaseRevision).toHaveBeenCalledWith(3);
+  });
+
   test('keeps local editor typing from being echoed back as controlled content', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'initial content';

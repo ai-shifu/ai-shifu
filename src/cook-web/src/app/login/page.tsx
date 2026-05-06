@@ -401,7 +401,10 @@ export default function AuthPage() {
         onCancel={handleTermsCancel}
       />
       <div className='min-h-screen flex items-center justify-center p-4'>
-        <div className='w-full max-w-md space-y-2'>
+        <div
+          className='w-full max-w-md space-y-2'
+          data-testid='login-page'
+        >
           <div className='flex flex-col items-center relative'>
             <h2 className='flex items-center font-semibold pb-2 w-full justify-center'>
               <Image
@@ -421,7 +424,7 @@ export default function AuthPage() {
               />
             </div>
           </div>
-          <Card>
+          <Card data-testid='login-card'>
             <CardHeader>
               {authMode === 'login' && (
                 <CardTitle className='text-xl text-center'>

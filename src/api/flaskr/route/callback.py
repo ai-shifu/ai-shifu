@@ -1,9 +1,16 @@
-from flask import Flask, make_response, request
+from flask import Flask, jsonify, make_response, request
 
-from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
+from flaskr.service.billing.webhooks import (
+    apply_billing_native_notification,
+    handle_billing_pingxx_webhook,
+)
+from flaskr.service.order.payment_providers import get_payment_provider
 
 from .common import bypass_token_validation
-from ..service.order import success_buy_record_from_pingxx
+from ..service.order import (
+    success_buy_record_from_native,
+    success_buy_record_from_pingxx,
+)
 
 
 def register_callback_handler(app: Flask, path_prefix: str):
@@ -28,4 +35,85 @@ def register_callback_handler(app: Flask, path_prefix: str):
         response.mimetype = "text/plain"
         return response
 
+    @app.route(path_prefix + "/alipay-notify", methods=["POST"])
+    @bypass_token_validation
+    def alipay_notify():
+        form_payload = request.form.to_dict(flat=True)
+        app.logger.info("alipay-notify: %s", form_payload)
+        provider = get_payment_provider("alipay")
+        try:
+            notification = provider.handle_notification(
+                payload=form_payload,
+                app=app,
+            )
+            billing_result = apply_billing_native_notification(
+                app,
+                "alipay",
+                notification,
+            )
+            if not billing_result.matched:
+                matched = success_buy_record_from_native(
+                    app,
+                    "alipay",
+                    notification,
+                )
+                if not matched:
+                    app.logger.warning(
+                        "alipay-notify unmatched local payment provider=%s order_bid=%s charge_id=%s status=%s reason=%s",
+                        "alipay",
+                        notification.order_bid,
+                        notification.charge_id,
+                        notification.status,
+                        "billing_and_order_not_matched",
+                    )
+                    return _plain_text_response("success")
+        except Exception as exc:
+            app.logger.exception("alipay-notify failed: %s", exc)
+            return _plain_text_response("failure")
+        return _plain_text_response("success")
+
+    @app.route(path_prefix + "/wechatpay-notify", methods=["POST"])
+    @bypass_token_validation
+    def wechatpay_notify():
+        raw_body = request.get_data() or b""
+        app.logger.info("wechatpay-notify: %s", raw_body)
+        provider = get_payment_provider("wechatpay")
+        try:
+            notification = provider.verify_webhook(
+                headers=dict(request.headers),
+                raw_body=raw_body,
+                app=app,
+            )
+            billing_result = apply_billing_native_notification(
+                app,
+                "wechatpay",
+                notification,
+            )
+            if not billing_result.matched:
+                matched = success_buy_record_from_native(
+                    app,
+                    "wechatpay",
+                    notification,
+                )
+                if not matched:
+                    app.logger.warning(
+                        "wechatpay-notify unmatched local payment provider=%s order_bid=%s charge_id=%s status=%s reason=%s",
+                        "wechatpay",
+                        notification.order_bid,
+                        notification.charge_id,
+                        notification.status,
+                        "billing_and_order_not_matched",
+                    )
+                    return jsonify({"code": "SUCCESS", "message": "成功"})
+        except Exception as exc:
+            app.logger.exception("wechatpay-notify failed: %s", exc)
+            return jsonify({"code": "FAIL", "message": "processing error"}), 400
+        return jsonify({"code": "SUCCESS", "message": "成功"})
+
     return app
+
+
+def _plain_text_response(value: str):
+    response = make_response(value)
+    response.mimetype = "text/plain"
+    return response

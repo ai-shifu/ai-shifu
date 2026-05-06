@@ -3,14 +3,15 @@ import os
 from flask import Flask, request
 import uuid
 from logging.handlers import TimedRotatingFileHandler
-import threading
 import socket
+import time
 from datetime import datetime
 import pytz
 import colorlog
 import requests
 
-thread_local = threading.local()
+from .observability import current_trace_ids
+from .request_context import thread_local
 
 
 class AppLoggerProxy:
@@ -53,10 +54,24 @@ class RequestFormatter(logging.Formatter):
             record.url = getattr(thread_local, "url", "No_URL")
             record.request_id = request_id
             record.client_ip = getattr(thread_local, "client_ip", "No_Client_IP")
+            trace_id = getattr(thread_local, "trace_id", "")
+            span_id = getattr(thread_local, "span_id", "")
+            if not trace_id or not span_id or trace_id == "-" or span_id == "-":
+                trace_id, span_id = current_trace_ids()
+                thread_local.trace_id = trace_id
+                thread_local.span_id = span_id
+            record.trace_id = trace_id or "-"
+            record.span_id = span_id or "-"
+            record.status_code = getattr(thread_local, "status_code", "-")
+            record.duration_ms = getattr(thread_local, "duration_ms", "-")
         except RuntimeError:
             record.url = "No_URL"
             record.request_id = "No_Request_ID"
             record.client_ip = "No_Client_IP"
+            record.trace_id = "-"
+            record.span_id = "-"
+            record.status_code = "-"
+            record.duration_ms = "-"
         return super().format(record)
 
 
@@ -85,12 +100,25 @@ class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
         super().__init__(fmt, **kwargs)
 
 
+def _update_request_timing(status_code: int) -> None:
+    thread_local.status_code = str(status_code)
+    if getattr(thread_local, "duration_ms", "-") != "-":
+        return
+    started_at = getattr(thread_local, "request_started_at", None)
+    if started_at is None:
+        return
+    duration_ms = max((time.perf_counter() - started_at) * 1000, 0.0)
+    thread_local.duration_ms = str(round(duration_ms, 3))
+
+
 def init_log(app: Flask) -> Flask:
     @app.before_request
     def setup_logging():
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
         thread_local.request_id = request_id
         thread_local.url = request.path
+        thread_local.status_code = "-"
+        thread_local.duration_ms = "-"
         if "X-Forwarded-For" in request.headers:
             user_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
         else:
@@ -121,6 +149,7 @@ def init_log(app: Flask) -> Flask:
     @app.after_request
     def after_request(response):
         try:
+            _update_request_timing(response.status_code)
             if response.headers.get(
                 "Content-Type"
             ) and "text/event-stream" in response.headers.get("Content-Type"):
@@ -144,14 +173,18 @@ def init_log(app: Flask) -> Flask:
     log_format = (
         "%(asctime)s [%(levelname)s] ai-shifu.com/ai-shifu "
         + host_name
-        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
+        + " %(client_ip)s %(url)s %(request_id)s trace_id=%(trace_id)s "
+        + "span_id=%(span_id)s status=%(status_code)s duration_ms=%(duration_ms)s "
+        + "%(funcName)s %(process)d %(message)s"
     )
     formatter = RequestFormatter(log_format)
     # color log format
     color_log_format = (
         "%(log_color)s%(asctime)s [%(levelname)s] ai-shifu.com/ai-shifu "
         + host_name
-        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
+        + " %(client_ip)s %(url)s %(request_id)s trace_id=%(trace_id)s "
+        + "span_id=%(span_id)s status=%(status_code)s duration_ms=%(duration_ms)s "
+        + "%(funcName)s %(process)d %(message)s"
     )
     color_formatter = ColoredRequestFormatter(
         color_log_format,

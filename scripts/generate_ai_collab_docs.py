@@ -106,20 +106,12 @@ ROOT_SPEC = DocSpec(
         "and Copilot compatibility files aligned when shared guidance changes "
         "or becomes stale.",
         "Before implementing a complex design or cross-module architecture "
-        "change, create the design doc at `docs/<topic>.md` and track the "
-        "active checklist in repository-root `tasks.md`. The checklist must "
-        "use `- [ ]` and `- [x]` markers and reference the design doc "
-        "explicitly.",
-        "When `tasks.md` exists, execute the work against that checklist, keep "
-        "its completion state current, and treat it as the visible source of "
-        "truth for the current complex topic on the branch.",
-        "One branch should track only one active complex topic in `tasks.md` "
-        "at a time.",
-        "After completing one `tasks.md` item, update `tasks.md` immediately and "
-        "make one atomic commit for that completed item before moving on to the "
-        "next checklist item.",
-        "Once every `tasks.md` item is complete and the topic no longer needs "
-        "active execution tracking, deleting `tasks.md` is required.",
+        "change, create an ExecPlan under `docs/exec-plans/active/` and keep "
+        "it aligned with `PLANS.md`.",
+        "When an ExecPlan exists, treat it as the visible source of truth for "
+        "the current complex topic and keep its progress and decisions current.",
+        "Move completed ExecPlans to `docs/exec-plans/completed/` only after "
+        "implementation and verification are complete.",
         "Run the smallest relevant verification first, then widen to shared "
         "checks when a change crosses API boundaries, shared DTOs, i18n files, "
         "or common frontend libraries.",
@@ -140,17 +132,11 @@ ROOT_SPEC = DocSpec(
         "Cursor and Copilot compatibility files that mirror it.",
         "Do not create a commit that changes implementation contracts while "
         "leaving the affected `AGENTS.md` or `CLAUDE.md` guidance outdated.",
-        "Do not start a complex design implementation without a design doc in "
-        "`docs/<topic>.md` and a linked repository-root `tasks.md` checklist "
-        "that tracks done and pending work.",
-        "Do not complete `tasks.md` work without updating the checklist, and do "
-        "not batch multiple completed checklist items into one non-atomic "
-        "commit.",
-        "Do not delete `tasks.md` while any checklist item is still pending or "
-        "while it is still the active execution tracker for the topic.",
-        "Do not start a new complex design topic while repository-root "
-        "`tasks.md` still tracks another topic unless you intentionally "
-        "replace that checklist.",
+        "Do not start a complex design implementation without an ExecPlan in "
+        "`docs/exec-plans/active/` that follows `PLANS.md`.",
+        "Do not leave complex progress or decision history only in chat; record "
+        "it in the active ExecPlan.",
+        "Do not keep repository-root `tasks.md` as a parallel planning system.",
         "Do not hardcode user-facing strings, secrets, or environment-specific "
         "URLs in code or docs. Route text through i18n and credentials through "
         "the existing configuration layers.",
@@ -166,8 +152,10 @@ ROOT_SPEC = DocSpec(
         "when a change touches shared backend contracts or multiple services.",
         "`cd src/cook-web && npm run type-check && npm run lint` is the broad "
         "frontend verification baseline for shared Cook Web changes.",
-        "`python scripts/check_ai_collab_docs.py` validates this layered AI "
-        "documentation layout and should stay green after instruction changes.",
+        "`python scripts/check_repo_harness.py` validates the repository "
+        "harness layout and should stay green after instruction changes.",
+        "`python scripts/check_architecture_boundaries.py` validates the "
+        "committed frontend/backend boundary baseline and blocks new drift.",
     ),
     tests=(
         "Run targeted backend pytest modules under `src/api/tests/` when a change "
@@ -178,6 +166,8 @@ ROOT_SPEC = DocSpec(
         "translation file inventories change.",
         "When a task updates only docs or instruction files, at minimum run the "
         "AI-doc validation script and note that no runtime code changed.",
+        "When a task changes shared dependency flow or boundary policy, run "
+        "`python scripts/check_architecture_boundaries.py` before closing it.",
     ),
     related_skills=(
         "`SKILL.md` is the repository-level skill index and boundary map.",
@@ -342,7 +332,7 @@ COOK_WEB_SPEC = DocSpec(
         "When shared types or hook contracts change, update all consumers in the "
         "same task and rerun targeted tests for the affected areas.",
         "When only docs or AI instructions change, at minimum run "
-        "`python scripts/check_ai_collab_docs.py` and note that runtime code was "
+        "`python scripts/check_repo_harness.py` and note that runtime code was "
         "not exercised.",
     ),
     related_skills=(
@@ -1653,42 +1643,38 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
-                "Use `docs/engineering-baseline.md` for the stable engineering "
-                "handbook covering architecture, API conventions, testing, naming, "
-                "and environment workflow.",
+                "Use `ARCHITECTURE.md`, `PLANS.md`, and "
+                "`docs/engineering-baseline.md` together: architecture map, "
+                "ExecPlan spec, and stable engineering handbook.",
                 "Inspect the existing implementation, adjacent call sites, and the "
                 "nearest tests before making code changes.",
                 "Reuse existing abstractions wherever practical instead of building "
                 "parallel helpers, request paths, stores, or provider layers.",
-                "For complex design work, create `docs/<topic>.md` before "
-                "implementation and track execution in repository-root "
-                "`tasks.md`.",
-                "When `tasks.md` exists, follow it as the visible execution plan, "
-                "update it as progress changes, and keep one completed "
-                "checklist item per atomic commit while the work remains "
-                "active.",
-                "One branch should track only one active complex topic in "
-                "`tasks.md` at a time.",
-                "Once all checklist items are complete and active tracking is "
-                "no longer needed, deleting `tasks.md` is required.",
+                "For complex design work, create an ExecPlan under "
+                "`docs/exec-plans/active/` and maintain it according to "
+                "`PLANS.md`.",
+                "Keep generated knowledge artifacts in sync by running "
+                "`python scripts/build_repo_knowledge_index.py` after docs "
+                "structure or metadata changes.",
                 "Before committing, review the touched `AGENTS.md` and `CLAUDE.md` "
                 "files and update any stale guidance in the same change.",
             ),
             always_apply=True,
         ),
         ROOT / "docs" / ".cursor" / "rules" / "design-workflow.mdc": render_cursor_rule(
-            "Cursor Rule: Docs Design Workflow",
-            "Documentation workflow for design docs and task checklists",
+            "Cursor Rule: Docs Knowledge Workflow",
+            "Documentation workflow for the repository knowledge store and ExecPlans",
             (
-                "Use `docs/<topic>.md` for the design and repository-root "
-                "`tasks.md` for active execution tracking.",
-                "Reference the design doc explicitly at the top of `tasks.md`.",
-                "Use `- [ ]` and `- [x]` in `tasks.md`, and keep the checklist "
-                "current as work progresses.",
-                "Keep only one active complex topic in `tasks.md` at a time.",
-                "Once every checklist item is complete and the topic no longer "
-                "needs active execution tracking, deleting `tasks.md` is "
-                "required.",
+                "Keep design decisions in `docs/design-docs/`, product behavior "
+                "specs in `docs/product-specs/`, and evergreen references in "
+                "`docs/references/`.",
+                "Use `PLANS.md` plus `docs/exec-plans/active/` for complex work "
+                "instead of repository-root `tasks.md`.",
+                "Regenerate indexes and the document inventory with "
+                "`python scripts/build_repo_knowledge_index.py` after changing "
+                "knowledge-structure docs or metadata.",
+                "Run `python scripts/check_architecture_boundaries.py` after "
+                "changing the boundary rules reference or committed baseline.",
                 "If a design changes implementation expectations, update the "
                 "nearest `AGENTS.md`, `CLAUDE.md`, and compatibility instruction "
                 "files when they become stale.",
@@ -1808,22 +1794,20 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
-                "Use `docs/engineering-baseline.md` for the stable engineering "
-                "handbook instead of duplicating architecture, naming, testing, "
-                "or environment conventions in every AI doc.",
+                "Use `ARCHITECTURE.md`, `PLANS.md`, and "
+                "`docs/engineering-baseline.md` as the primary repository "
+                "knowledge entry points instead of duplicating them everywhere.",
                 "Inspect the existing implementation, call sites, and tests before "
                 "modifying code.",
                 "Maximize reuse of existing abstractions and avoid creating a "
                 "second helper, request path, or state model when the current one "
                 "can be extended cleanly.",
-                "For complex design work, create `docs/<topic>.md` first and "
-                "track implementation in repository-root `tasks.md`.",
-                "When `tasks.md` exists, follow it, keep it current, and update it "
-                "before moving to the next completed item.",
-                "Keep only one active complex topic in `tasks.md` at a time.",
-                "Once all checklist items are complete and the topic no longer "
-                "needs active execution tracking, deleting `tasks.md` is "
-                "required.",
+                "For complex design work, create an ExecPlan in "
+                "`docs/exec-plans/active/` and maintain it according to "
+                "`PLANS.md`.",
+                "Regenerate repository knowledge indexes with "
+                "`python scripts/build_repo_knowledge_index.py` after moving docs "
+                "or changing required metadata.",
                 "Before each commit, review the affected `AGENTS.md` and "
                 "`CLAUDE.md` files and update stale docs in the same change.",
             ),
@@ -1850,8 +1834,11 @@ def build_documents() -> dict[Path, str]:
                 "If one instruction surface changes behavior or expectations, "
                 "update the parallel instruction files in the same change.",
                 "Run `python scripts/generate_ai_collab_docs.py` and "
-                "`python scripts/check_ai_collab_docs.py` after modifying shared "
-                "AI collaboration guidance.",
+                "`python scripts/check_repo_harness.py` after modifying shared "
+                "AI collaboration guidance, regenerate knowledge indexes when "
+                "the docs structure moves, and run "
+                "`python scripts/check_architecture_boundaries.py` when shared "
+                "source ownership boundaries change.",
             ),
         ),
         ROOT
@@ -1907,20 +1894,17 @@ def build_documents() -> dict[Path, str]:
         / "instructions"
         / "docs.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Docs Workflow",
-            "docs/**/*.md,tasks.md",
+            "docs/**/*.md,PLANS.md,ARCHITECTURE.md",
             (
-                "For complex design work, use `docs/<topic>.md` and "
-                "repository-root `tasks.md`.",
-                "Treat `docs/engineering-baseline.md` as an evergreen repository "
-                "reference, not as a topic-scoped design doc.",
-                "Reference the design doc from `tasks.md` and use markdown "
-                "checkboxes to track progress.",
-                "When `tasks.md` exists, update it as work progresses and keep it "
-                "aligned with the actual implementation state.",
-                "Keep only one active complex topic in `tasks.md` at a time.",
-                "Once every checklist item is complete and the topic no longer "
-                "needs active execution tracking, deleting `tasks.md` is "
-                "required.",
+                "Use `docs/design-docs/`, `docs/product-specs/`, and "
+                "`docs/references/` according to document purpose, and use "
+                "`docs/exec-plans/active/` for complex execution context.",
+                "Treat `PLANS.md` as the only ExecPlan specification and "
+                "`docs/engineering-baseline.md` as the evergreen engineering "
+                "handbook.",
+                "Regenerate generated indexes and inventories with "
+                "`python scripts/build_repo_knowledge_index.py` after changing "
+                "knowledge docs or metadata.",
                 "If docs change implementation expectations, update the nearest "
                 "AI instruction files when they become stale.",
             ),

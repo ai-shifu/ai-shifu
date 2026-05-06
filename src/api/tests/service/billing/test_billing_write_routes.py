@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from flask import Flask, jsonify, request
 import pytest
 
+import flaskr.common.config as common_config
 import flaskr.dao as dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
@@ -58,6 +59,7 @@ from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
 from flaskr.service.billing.queries import calculate_billing_cycle_end
+import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
     repair_topup_grant_expiries,
@@ -81,6 +83,11 @@ from tests.service.billing.route_loader import (
 
 register_billing_routes = load_register_billing_routes()
 billing_write_routes_module = load_billing_routes_module()
+
+
+def _reset_config_cache(*keys: str) -> None:
+    for key in keys:
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
 
 
 def _add_active_subscription(
@@ -255,6 +262,10 @@ def _add_trial_subscription_state(
 
 @pytest.fixture
 def billing_write_client(monkeypatch):
+    monkeypatch.setenv("HOST_URL", "https://billing.example.com")
+    monkeypatch.setenv("PATH_PREFIX", "/api")
+    _reset_config_cache("HOST_URL", "PATH_PREFIX")
+
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -445,6 +456,7 @@ def billing_write_client(monkeypatch):
 
         dao.db.session.remove()
         dao.db.drop_all()
+        _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 class TestBillingWriteRoutes:
@@ -464,8 +476,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -492,8 +502,6 @@ class TestBillingWriteRoutes:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -513,8 +521,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
             headers={"X-Language": "zh-CN"},
         )
@@ -525,6 +531,16 @@ class TestBillingWriteRoutes:
         assert payload["data"]["payment_mode"] == "subscription"
         assert payload["data"]["status"] == "pending"
         assert payload["data"]["redirect_url"] == "https://stripe.test/checkout"
+        bill_order_bid = payload["data"]["bill_order_bid"]
+        stripe_request = billing_write_client["stripe_requests"][0]
+        assert stripe_request["extra"]["success_url"] == (
+            "https://billing.example.com/payment/stripe/billing-result"
+            f"?bill_order_bid={bill_order_bid}"
+        )
+        assert stripe_request["extra"]["cancel_url"] == (
+            "https://billing.example.com/payment/stripe/billing-result"
+            f"?canceled=1&bill_order_bid={bill_order_bid}"
+        )
 
         with app.app_context():
             order = BillingOrder.query.filter_by(creator_bid="creator-1").one()
@@ -591,8 +607,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-daily",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -636,8 +650,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -688,8 +700,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly-pro",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -760,8 +770,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -823,8 +831,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -1325,10 +1331,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": ("https://example.com/payment/stripe/billing-result"),
-                "cancel_url": (
-                    "https://example.com/payment/stripe/billing-result?canceled=1"
-                ),
             },
         ).get_json(force=True)
         paid_order_bid = paid_checkout["data"]["bill_order_bid"]
@@ -1606,8 +1608,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
@@ -1648,8 +1648,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
@@ -2070,12 +2068,22 @@ class TestBillingWriteRoutes:
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
     def test_paid_pingxx_renewal_before_cycle_start_keeps_current_period(
-        self, billing_write_client
+        self, billing_write_client, monkeypatch
     ) -> None:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
         renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+
+        class FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                frozen_now = datetime(2026, 4, 24, 10, 0, 0)
+                if tz is not None:
+                    return frozen_now.replace(tzinfo=tz)
+                return frozen_now
+
+        monkeypatch.setattr(billing_subscriptions_module, "datetime", FrozenDateTime)
 
         with app.app_context():
             subscription = BillingSubscription(
@@ -2358,7 +2366,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]

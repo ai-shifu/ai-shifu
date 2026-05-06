@@ -18,6 +18,7 @@ from flaskr.service.learn.listen_element_history import (
 from flaskr.service.learn.listen_element_mdflow_backfill import (
     backfill_learn_generated_elements_batch,
 )
+from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.listen_element_legacy import (
     build_listen_elements_from_legacy_record,
 )
@@ -42,6 +43,7 @@ from flaskr.service.learn.type_state_machine import (
 __all__ = [
     "ListenElementRunAdapter",
     "backfill_learn_generated_elements_batch",
+    "build_legacy_record_for_progress",
     "get_listen_element_record",
 ]
 
@@ -171,6 +173,7 @@ def get_listen_element_record(
         outline_bid=outline_bid,
         user_bid=user_bid,
         include_non_navigable=include_non_navigable,
+        build_legacy_record_for_progress_fn=build_legacy_record_for_progress,
         build_record_from_legacy=lambda legacy_record: (
             build_listen_elements_from_legacy_record(app, legacy_record)
         ),

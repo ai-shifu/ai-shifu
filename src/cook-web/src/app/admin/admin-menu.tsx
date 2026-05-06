@@ -61,6 +61,16 @@ export const buildAdminMenuItems = ({
           label: t('common.core.userManagement'),
           href: '/admin/operations/users',
         },
+        {
+          id: 'operations-order',
+          label: t('common.core.orderManagement'),
+          href: '/admin/operations/orders',
+        },
+        {
+          id: 'operations-promotion',
+          label: t('common.core.promotionManagement'),
+          href: '/admin/operations/promotions',
+        },
       ],
     });
   }

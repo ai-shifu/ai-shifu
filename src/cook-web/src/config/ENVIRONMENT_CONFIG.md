@@ -134,7 +134,6 @@ export async function GET() {
   "wechatAppId": "wx973eb6079c64d030",
   "enableWechatCode": true,
   "billingEnabled": true,
-  "billingCreditPrecision": 2,
   "alwaysShowLessonTree": "true",
   "logoWideUrl": "",
   "logoSquareUrl": "",

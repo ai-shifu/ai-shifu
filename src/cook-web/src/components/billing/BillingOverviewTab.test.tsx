@@ -22,6 +22,20 @@ jest.mock('react-i18next', () => ({
       if (options?.date) {
         return `${key}:${options.date}`;
       }
+      if (
+        key.startsWith('module.billing.catalog.topups.') &&
+        key.endsWith('.title') &&
+        options?.credits
+      ) {
+        return `${options.credits}-credit pack`;
+      }
+      if (
+        (key === 'module.billing.package.validityShort.monthly' ||
+          key === 'module.billing.package.validityShort.yearly') &&
+        options?.count
+      ) {
+        return `${key}:${options.count}`;
+      }
       return key;
     },
     i18n: {
@@ -48,11 +62,15 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('swr', () => ({
-  __esModule: true,
-  default: jest.fn(),
-  mutate: jest.fn(),
-}));
+jest.mock(
+  'swr',
+  () => ({
+    __esModule: true,
+    default: jest.fn(),
+    mutate: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
@@ -243,18 +261,18 @@ const CATALOG_RESPONSE = {
       product_bid: 'bill-product-topup-small',
       product_code: 'creator-topup-small',
       product_type: 'topup' as const,
-      display_name: 'module.billing.catalog.topups.creatorSmall.title',
-      description: 'module.billing.catalog.topups.creatorSmall.description',
+      display_name: 'module.billing.catalog.topups.default.title',
+      description: 'module.billing.catalog.topups.default.description',
       currency: 'CNY',
       price_amount: 5000,
-      credit_amount: 20,
+      credit_amount: 24,
     },
     {
       product_bid: 'bill-product-topup-medium',
       product_code: 'creator-topup-medium',
       product_type: 'topup' as const,
-      display_name: 'module.billing.catalog.topups.creatorMedium.title',
-      description: 'module.billing.catalog.topups.creatorMedium.description',
+      display_name: 'module.billing.catalog.topups.default.title',
+      description: 'module.billing.catalog.topups.default.description',
       currency: 'CNY',
       price_amount: 9900,
       credit_amount: 50,
@@ -263,8 +281,8 @@ const CATALOG_RESPONSE = {
       product_bid: 'bill-product-topup-large',
       product_code: 'creator-topup-large',
       product_type: 'topup' as const,
-      display_name: 'module.billing.catalog.topups.creatorLarge.title',
-      description: 'module.billing.catalog.topups.creatorLarge.description',
+      display_name: 'module.billing.catalog.topups.default.title',
+      description: 'module.billing.catalog.topups.default.description',
       currency: 'CNY',
       price_amount: 19900,
       credit_amount: 120,
@@ -273,8 +291,8 @@ const CATALOG_RESPONSE = {
       product_bid: 'bill-product-topup-xlarge',
       product_code: 'creator-topup-xlarge',
       product_type: 'topup' as const,
-      display_name: 'module.billing.catalog.topups.creatorXLarge.title',
-      description: 'module.billing.catalog.topups.creatorXLarge.description',
+      display_name: 'module.billing.catalog.topups.default.title',
+      description: 'module.billing.catalog.topups.default.description',
       currency: 'CNY',
       price_amount: 49900,
       credit_amount: 320,
@@ -383,7 +401,7 @@ describe('BillingOverviewTab', () => {
     jest.useRealTimers();
   });
 
-  test('renders the prototype-oriented package layout and switches sub-tabs', async () => {
+  test('renders monthly and yearly plans together in a single combined tab', async () => {
     const user = userEvent.setup();
     renderOverviewTab();
 
@@ -400,7 +418,7 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('tab', {
-        name: 'module.billing.package.intervalTabs.monthly',
+        name: 'module.billing.package.intervalTabs.plans',
       }),
     ).toHaveAttribute('data-state', 'active');
     expect(
@@ -408,28 +426,33 @@ describe('BillingOverviewTab', () => {
         name: 'module.billing.package.intervalTabs.daily',
       }),
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'module.billing.package.intervalTabs.monthly',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'module.billing.package.intervalTabs.yearly',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toHaveAttribute('data-featured', 'true');
     expect(
-      screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
-    ).toBeInTheDocument();
+      screen.getAllByText('module.billing.package.validityShort.monthly:1')
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('module.billing.package.validityShort.yearly:1')
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly-pro'),
     ).toBeInTheDocument();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.package.intervalTabs.yearly',
-        }),
-      );
-    });
-
-    expect(screen.getByTestId('billing-plan-grid')).toHaveClass(
-      '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
-    );
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-lite'),
     ).toBeInTheDocument();
@@ -439,15 +462,6 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-premium'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('billing-plan-card-free'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.package.features.yearly.pro.domain'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.billing.package.features.yearly.domain'),
-    ).not.toBeInTheDocument();
 
     await act(async () => {
       await user.click(
@@ -480,11 +494,14 @@ describe('BillingOverviewTab', () => {
       screen.getByTestId('billing-topup-card-bill-product-topup-xlarge'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-grid')).toHaveClass(
-      '[grid-template-columns:repeat(auto-fit,minmax(326px,1fr))]',
+      '[grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]',
     );
+    expect(
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
   });
 
-  test('renders a daily tab only when daily plans exist and defaults to it for a daily subscription', () => {
+  test('hides daily plans even when the catalog returns them', () => {
     const dailyCatalog = {
       ...CATALOG_RESPONSE,
       plans: [DAILY_PLAN, ...CATALOG_RESPONSE.plans],
@@ -496,87 +513,25 @@ describe('BillingOverviewTab', () => {
       error: undefined,
       isLoading: false,
     });
-    mockUseBillingOverview.mockReturnValue({
-      data: {
-        creator_bid: 'creator-1',
-        wallet: {
-          available_credits: 120.5,
-          reserved_credits: 0,
-          lifetime_granted_credits: 500,
-          lifetime_consumed_credits: 379.5,
-        },
-        subscription: {
-          subscription_bid: 'sub-daily-1',
-          product_bid: DAILY_PLAN.product_bid,
-          product_code: DAILY_PLAN.product_code,
-          status: 'active',
-          billing_provider: 'stripe',
-          current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-04-08T00:00:00Z',
-          grace_period_end_at: null,
-          cancel_at_period_end: false,
-          next_product_bid: null,
-          last_renewed_at: null,
-          last_failed_at: null,
-        },
-        billing_alerts: [],
-        trial_offer: { ...DEFAULT_TRIAL_OFFER },
-      },
-      error: undefined,
-      isLoading: false,
-      mutate: mockMutateOverview,
-    });
 
     renderOverviewTab();
 
     expect(
-      screen.getByRole('tab', {
+      screen.queryByRole('tab', {
         name: 'module.billing.package.intervalTabs.daily',
       }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('billing-plan-card-bill-product-plan-daily'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.billing.package.intervalTabs.plans',
+      }),
     ).toHaveAttribute('data-state', 'active');
-    expect(
-      screen.getByTestId('billing-plan-card-bill-product-plan-daily'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.package.creditSummary.days'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.package.validity.days'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.billing.catalog.labels.everyDays'),
-    ).toBeInTheDocument();
   });
 
-  test('keeps the non-member card visible when the trial offer is disabled', () => {
-    mockUseBillingOverview.mockReturnValue({
-      data: {
-        creator_bid: 'creator-1',
-        wallet: {
-          available_credits: 120.5,
-          reserved_credits: 0,
-          lifetime_granted_credits: 500,
-          lifetime_consumed_credits: 379.5,
-        },
-        subscription: null,
-        billing_alerts: [],
-        trial_offer: {
-          ...DEFAULT_TRIAL_OFFER,
-          enabled: false,
-          status: 'disabled',
-        },
-      },
-      error: undefined,
-      isLoading: false,
-      mutate: mockMutateOverview,
-    });
-
-    renderOverviewTab();
-
-    expect(screen.getByTestId('billing-plan-card-free')).toBeInTheDocument();
-  });
-
-  test('marks the non-member card as current when there is no active subscription', () => {
+  test('keeps the non-member card hidden when the trial offer is disabled', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -602,26 +557,54 @@ describe('BillingOverviewTab', () => {
     renderOverviewTab();
 
     expect(
-      screen.getByTestId('billing-plan-card-free-action'),
-    ).toHaveTextContent('module.billing.package.actions.currentUsing');
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.package.validity.free'),
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('billing-plan-card-free')).toHaveAttribute(
-      'data-featured',
-      'true',
-    );
+  });
+
+  test('does not mark a hidden non-member card when there is no active subscription', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: {
+          ...DEFAULT_TRIAL_OFFER,
+          enabled: false,
+          status: 'disabled',
+        },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.queryByTestId('billing-plan-card-free'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly'),
     ).toHaveAttribute('data-featured', 'false');
     expect(
-      screen.getAllByText('module.billing.package.validity.monthly').length,
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
+    ).toHaveTextContent('module.billing.package.actions.subscribeNow');
+    expect(
+      screen.getAllByText('module.billing.package.validityShort.monthly:1')
+        .length,
     ).toBeGreaterThan(0);
   });
 
-  test('shows a tooltip when hovering the current non-member action', async () => {
-    const user = userEvent.setup();
-
+  test('does not render the hidden non-member action tooltip target', () => {
     mockUseBillingOverview.mockReturnValue({
       data: {
         creator_bid: 'creator-1',
@@ -646,15 +629,12 @@ describe('BillingOverviewTab', () => {
 
     renderOverviewTab();
 
-    await act(async () => {
-      await user.hover(
-        screen.getByTestId('billing-plan-card-free-action-trigger'),
-      );
-    });
-
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'module.billing.package.actions.nonMemberTooltip',
-    );
+    expect(
+      screen.queryByTestId('billing-plan-card-free-action-trigger'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.package.actions.nonMemberTooltip'),
+    ).not.toBeInTheDocument();
   });
 
   test('disables lower-tier monthly plans while a higher-tier monthly subscription is active', async () => {
@@ -879,14 +859,6 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.package.intervalTabs.yearly',
-        }),
-      );
-    });
-
-    await act(async () => {
-      await user.click(
         screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
       );
     });
@@ -971,14 +943,6 @@ describe('BillingOverviewTab', () => {
 
     await act(async () => {
       await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.package.intervalTabs.yearly',
-        }),
-      );
-    });
-
-    await act(async () => {
-      await user.click(
         screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
       );
     });
@@ -1051,6 +1015,8 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    expect(screen.getByText('24-credit pack')).toBeInTheDocument();
+
     await acceptBillingAgreement(user);
 
     await act(async () => {
@@ -1072,6 +1038,7 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByText('24-credit pack')).toBeInTheDocument();
   });
 
   test('polls pending Pingxx checkout and closes the QR dialog after payment', async () => {
@@ -1098,14 +1065,6 @@ describe('BillingOverviewTab', () => {
     });
 
     renderOverviewTab();
-
-    await act(async () => {
-      await user.click(
-        screen.getByRole('tab', {
-          name: 'module.billing.package.intervalTabs.yearly',
-        }),
-      );
-    });
 
     await act(async () => {
       await user.click(

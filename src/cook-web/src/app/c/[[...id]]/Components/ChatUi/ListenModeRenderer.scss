@@ -303,23 +303,42 @@
 }
 
 .listen-reveal-wrapper.mobile {
+  min-width: 0;
+  max-width: 100%;
+
   .listen-slide-shell {
     display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     min-height: 0;
     flex: 1 1 auto;
     box-sizing: border-box;
+    overflow: hidden;
   }
 
   .listen-slide-root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     min-height: 0;
     background: var(--color-5);
   }
 
+  .listen-slide-root .slide__viewport,
   .listen-slide-root .slide-stage,
   .listen-slide-root .slide-stage__layer,
+  .listen-slide-root .slide-stage__content,
   .listen-slide-root .slide-content--single {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     min-height: 0;
     height: 100%;
+  }
+
+  .listen-slide-root .slide-stage__layer {
+    overflow-x: hidden;
   }
 
   .listen-slide-root .slide-stage__content:has(.slide-element--single) {
@@ -329,6 +348,8 @@
   .listen-slide-root
     .slide-stage__content:has(.slide-element--single)
     .slide-element--single {
+    min-width: 0;
+    max-width: 100%;
     min-height: 100%;
     flex: 1 1 auto;
   }
@@ -339,14 +360,52 @@
 
   .listen-slide-root .slide-element--single {
     display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
   }
 
   .listen-slide-root .slide-element--single > .content-render-iframe-sandbox {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     align-self: center;
     justify-content: center !important;
+  }
+
+  .listen-slide-root
+    .slide-element--single
+    > .content-render-iframe-sandbox
+    .content-render,
+  .listen-slide-root
+    .slide-element--single
+    > .content-render-iframe-sandbox
+    .markdown-body,
+  .listen-slide-root
+    .slide-element--single
+    > .content-render-iframe-sandbox
+    .markdown-renderer,
+  .listen-slide-root
+    .slide-element--single
+    > .content-render-iframe-sandbox
+    .markdown-render {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .listen-slide-root
+    .slide-element--single
+    > .content-render-iframe-sandbox
+    .markdown-render
+    pre {
+    max-width: 100%;
+    overflow-x: auto;
   }
 
   .listen-slide-player-mobile .slide-player__controls {

@@ -9,9 +9,9 @@
   code-facing text, no hardcoded user-facing strings or secrets, and
   shared-contract doc updates in the same change.
 
-- Use `docs/engineering-baseline.md` for the stable engineering handbook
-  instead of duplicating architecture, naming, testing, or environment
-  conventions in every AI doc.
+- Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as the
+  primary repository knowledge entry points instead of duplicating them
+  everywhere.
 
 - Inspect the existing implementation, call sites, and tests before modifying
   code.
@@ -19,16 +19,12 @@
 - Maximize reuse of existing abstractions and avoid creating a second helper,
   request path, or state model when the current one can be extended cleanly.
 
-- For complex design work, create `docs/<topic>.md` first and track
-  implementation in repository-root `tasks.md`.
+- For complex design work, create an ExecPlan in `docs/exec-plans/active/` and
+  maintain it according to `PLANS.md`.
 
-- When `tasks.md` exists, follow it, keep it current, and update it before
-  moving to the next completed item.
-
-- Keep only one active complex topic in `tasks.md` at a time.
-
-- Once all checklist items are complete and the topic no longer needs active
-  execution tracking, deleting `tasks.md` is required.
+- Regenerate repository knowledge indexes with
+  `python scripts/build_repo_knowledge_index.py` after moving docs or changing
+  required metadata.
 
 - Before each commit, review the affected `AGENTS.md` and `CLAUDE.md` files
   and update stale docs in the same change.

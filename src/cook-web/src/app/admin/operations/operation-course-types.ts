@@ -5,6 +5,8 @@ export type AdminOperationCourseItem = {
   course_name: string;
   course_status: string;
   price: string;
+  course_model: string;
+  has_course_prompt: boolean;
   creator_user_bid: string;
   creator_mobile: string;
   creator_email: string;
@@ -23,6 +25,10 @@ export type AdminOperationCourseListResponse = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type AdminOperationCoursePromptResponse = {
+  course_prompt: string;
 };
 
 export type AdminOperationCourseDetailBasicInfo = {
@@ -56,6 +62,7 @@ export type AdminOperationCourseDetailChapter = {
   is_visible: boolean;
   content_status: 'has' | 'empty' | LooseString;
   follow_up_count: number;
+  rating_score: string;
   rating_count: number;
   modifier_user_bid: string;
   modifier_mobile: string;
@@ -114,4 +121,112 @@ export type AdminOperationCourseUsersResponse = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type AdminOperationCourseFollowUpSummary = {
+  follow_up_count: number;
+  user_count: number;
+  lesson_count: number;
+  latest_follow_up_at: string;
+};
+
+export type AdminOperationCourseFollowUpItem = {
+  generated_block_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  follow_up_content: string;
+  turn_index: number;
+  created_at: string;
+};
+
+export type AdminOperationCourseFollowUpListResponse = {
+  summary: AdminOperationCourseFollowUpSummary;
+  items: AdminOperationCourseFollowUpItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  page_count: number;
+};
+
+export type AdminOperationCourseRatingSummary = {
+  average_score: string;
+  rating_count: number;
+  user_count: number;
+  latest_rated_at: string;
+};
+
+export type AdminOperationCourseRatingItem = {
+  lesson_feedback_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  score: number;
+  comment: string;
+  mode: 'read' | 'listen' | LooseString;
+  rated_at: string;
+};
+
+export type AdminOperationCourseRatingListResponse = {
+  summary: AdminOperationCourseRatingSummary;
+  items: AdminOperationCourseRatingItem[];
+  page: number;
+  page_size: number;
+  total: number;
+  page_count: number;
+};
+
+export type AdminOperationCourseFollowUpDetailBasicInfo = {
+  generated_block_bid: string;
+  progress_record_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  course_name: string;
+  shifu_bid: string;
+  chapter_title: string;
+  lesson_title: string;
+  created_at: string;
+  turn_index: number;
+};
+
+export type AdminOperationCourseFollowUpCurrentRecord = {
+  follow_up_content: string;
+  answer_content: string;
+  source_output_content: string;
+  source_output_type: string;
+  source_position: number;
+  source_element_bid: string;
+  source_element_type: string;
+};
+
+export type AdminOperationCourseFollowUpTimelineRole =
+  | 'student'
+  | 'teacher'
+  | LooseString;
+
+export type AdminOperationCourseFollowUpTimelineItem = {
+  role: AdminOperationCourseFollowUpTimelineRole;
+  content: string;
+  created_at: string;
+  is_current: boolean;
+};
+
+export type AdminOperationCourseFollowUpDetailResponse = {
+  basic_info: AdminOperationCourseFollowUpDetailBasicInfo;
+  current_record: AdminOperationCourseFollowUpCurrentRecord;
+  timeline: AdminOperationCourseFollowUpTimelineItem[];
 };

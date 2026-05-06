@@ -47,10 +47,10 @@ export const updateWxcode = ({ wxcode }) => {
 /**
  * Send SMS verification code
  * @param {string} mobile Phone number
- * @param {string} check_code Image captcha code
+ * @param {string} captcha_ticket One-time captcha ticket
  */
-export const sendSmsCode = ({ mobile, check_code }) => {
-  return request.post('/api/user/send_sms_code', { mobile, check_code });
+export const sendSmsCode = ({ mobile, captcha_ticket }) => {
+  return request.post('/api/user/send_sms_code', { mobile, captcha_ticket });
 };
 
 // Fetch detailed user profile

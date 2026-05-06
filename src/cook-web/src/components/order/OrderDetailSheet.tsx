@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import {
   Sheet,
   SheetContent,
@@ -88,6 +89,8 @@ const OrderDetailSheet = ({
     () => ({
       pingxx: t('module.order.paymentChannel.pingxx'),
       stripe: t('module.order.paymentChannel.stripe'),
+      alipay: t('module.order.paymentChannel.alipay'),
+      wechatpay: t('module.order.paymentChannel.wechatpay'),
       manual: t('module.order.paymentChannel.manual'),
       open_api: t('module.order.paymentChannel.open_api'),
       unknown: t('module.order.paymentChannel.unknown'),
@@ -195,8 +198,9 @@ const OrderDetailSheet = ({
   const payment = detail?.payment;
   const paymentChannelLabel = summary?.payment_channel_key
     ? t(summary.payment_channel_key)
-    : paymentChannelLabels[summary?.payment_channel as 'pingxx' | 'stripe'] ||
-      paymentChannelLabels.unknown;
+    : paymentChannelLabels[
+        summary?.payment_channel as 'pingxx' | 'stripe' | 'alipay' | 'wechatpay'
+      ] || paymentChannelLabels.unknown;
   const paymentStatusLabel = payment?.status_key
     ? t(payment.status_key)
     : paymentStatusByCode[payment?.status ?? 0] || paymentStatusLabels.unknown;
@@ -270,11 +274,15 @@ const OrderDetailSheet = ({
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
-                  value={summary.created_at}
+                  value={
+                    formatAdminUtcDateTime(summary.created_at) || emptyValue
+                  }
                 />
                 <DetailRow
                   label={t('module.order.fields.updatedAt')}
-                  value={summary.updated_at}
+                  value={
+                    formatAdminUtcDateTime(summary.updated_at) || emptyValue
+                  }
                 />
               </Section>
 
@@ -324,11 +332,15 @@ const OrderDetailSheet = ({
                 />
                 <DetailRow
                   label={t('module.order.fields.paymentCreatedAt')}
-                  value={fallbackValue(payment?.created_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(payment?.created_at) || emptyValue
+                  }
                 />
                 <DetailRow
                   label={t('module.order.fields.paymentUpdatedAt')}
-                  value={fallbackValue(payment?.updated_at, emptyValue)}
+                  value={
+                    formatAdminUtcDateTime(payment?.updated_at) || emptyValue
+                  }
                 />
               </Section>
 
@@ -359,7 +371,10 @@ const OrderDetailSheet = ({
                         {t('module.order.fields.activityPrice')}:{' '}
                         {activity.price}
                       </span>
-                      <span>{activity.created_at}</span>
+                      <span>
+                        {formatAdminUtcDateTime(activity.created_at) ||
+                          emptyValue}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -398,7 +413,10 @@ const OrderDetailSheet = ({
                       <span>
                         {t('module.order.fields.couponValue')}: {coupon.value}
                       </span>
-                      <span>{coupon.created_at}</span>
+                      <span>
+                        {formatAdminUtcDateTime(coupon.created_at) ||
+                          emptyValue}
+                      </span>
                     </div>
                   </div>
                 ))}

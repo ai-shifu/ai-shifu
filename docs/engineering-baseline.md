@@ -227,6 +227,15 @@ class Order(db.Model):
 | Database connection errors | Verify `DATABASE_URL` or local DB credentials |
 | Migration not detecting changes | Ensure the model is imported in the module init path |
 
+Fresh MySQL replay smoke test:
+
+```bash
+cd src/api
+RUN_MYSQL_MIGRATION_SMOKE=1 \
+TEST_SQLALCHEMY_DATABASE_URI='mysql+pymysql://root:pass@127.0.0.1:33067/mysql?charset=utf8mb4' \
+pytest -q tests/migrations/test_fresh_mysql_upgrade.py
+```
+
 ## API Contract Baseline
 
 ### Standard Response Format

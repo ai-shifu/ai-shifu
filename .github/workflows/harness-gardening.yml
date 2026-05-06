@@ -1,0 +1,58 @@
+name: Harness Gardening
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  harness-gardening:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Regenerate knowledge docs
+        run: python scripts/build_repo_knowledge_index.py
+
+      - name: Run gardening checks
+        id: gardening
+        continue-on-error: true
+        run: python scripts/run_harness_gardening.py --fail-on-drift
+
+      - name: Upload gardening summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-gardening-summary
+          path: |
+            docs/generated/harness-health.md
+            docs/generated/harness-gardening-summary.md
+
+      - name: Open or update harness gardening issue
+        if: steps.gardening.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Harness gardening drift detected"
+          if gh issue list --search "$TITLE in:title state:open" --json number --jq 'length' | grep -q '^0$'; then
+            gh issue create \
+              --title "$TITLE" \
+              --label "harness-gardening" \
+              --body-file docs/generated/harness-gardening-summary.md
+          else
+            echo "Harness gardening issue already open."
+          fi
+
+      - name: Fail when drift exists
+        if: steps.gardening.outcome == 'failure'
+        run: exit 1

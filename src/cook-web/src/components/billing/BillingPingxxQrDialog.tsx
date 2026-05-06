@@ -18,7 +18,7 @@ import {
   formatBillingPrice,
   resolveBillingPingxxChannelLabel,
 } from '@/lib/billing';
-import type { BillingPingxxChannel } from '@/types/billing';
+import type { BillingPingxxChannel, BillingProvider } from '@/types/billing';
 
 const BILLING_PINGXX_CHANNELS: BillingPingxxChannel[] = [
   'wx_pub_qr',
@@ -32,6 +32,7 @@ type BillingPingxxQrDialogProps = {
   isLoading?: boolean;
   open: boolean;
   productName: string;
+  provider?: BillingProvider;
   qrUrl: string;
   selectedChannel: BillingPingxxChannel;
   onChannelChange: (channel: BillingPingxxChannel) => void;
@@ -45,6 +46,7 @@ export function BillingPingxxQrDialog({
   isLoading = false,
   open,
   productName,
+  provider = 'pingxx',
   qrUrl,
   selectedChannel,
   onChannelChange,
@@ -53,6 +55,12 @@ export function BillingPingxxQrDialog({
   const { t, i18n } = useTranslation();
   const [agreed, setAgreed] = useState(false);
   const agreementUrl = getPaymentAgreementUrl();
+  const availableChannels =
+    provider === 'alipay'
+      ? (['alipay_qr'] as BillingPingxxChannel[])
+      : provider === 'wechatpay'
+        ? (['wx_pub_qr'] as BillingPingxxChannel[])
+        : BILLING_PINGXX_CHANNELS;
 
   useEffect(() => {
     if (!open) setAgreed(false);
@@ -86,7 +94,7 @@ export function BillingPingxxQrDialog({
 
         <div className='grid gap-3'>
           <div className='grid grid-cols-2 gap-2'>
-            {BILLING_PINGXX_CHANNELS.map(channel => (
+            {availableChannels.map(channel => (
               <Button
                 key={channel}
                 className='rounded-xl'

@@ -22,6 +22,8 @@ class RequestTraceIdTests(unittest.TestCase):
             self.assertEqual(get_request_trace_id(), "thread-local-request-id")
 
     def test_falls_back_to_request_header(self):
+        if hasattr(thread_local, "request_id"):
+            delattr(thread_local, "request_id")
         fake_request = types.SimpleNamespace(
             headers={"X-Request-ID": "header-request-id"}
         )

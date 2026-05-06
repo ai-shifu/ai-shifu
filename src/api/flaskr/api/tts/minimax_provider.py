@@ -7,7 +7,9 @@ This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 import logging
 import json
 import requests
-from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, field
+from typing import Iterator, Optional, Dict, Any, List
+from urllib.parse import urlencode
 
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
@@ -21,17 +23,11 @@ from flaskr.api.tts.base import (
 )
 from flaskr.service.tts.rpm_gate import acquire_tts_rpm_slot
 
-try:
-    import websocket
-except ImportError:  # pragma: no cover - dependency is present in runtime images
-    websocket = None
-
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Minimax TTS API endpoint
-MINIMAX_TTS_API_URL = "https://api.minimax.chat/v1/t2a_v2"
-MINIMAX_TTS_WS_URL = "wss://api.minimaxi.com/ws/v1/t2a_v2"
+MINIMAX_TTS_API_URL = "https://api.minimaxi.com/v1/t2a_v2"
 
 # Allowed emotion values for Minimax TTS
 MINIMAX_ALLOWED_EMOTIONS = [
@@ -106,7 +102,6 @@ def _build_minimax_voice_setting(
     voice_settings: VoiceSettings,
     *,
     model: str,
-    websocket_mode: bool = False,
 ) -> Dict[str, Any]:
     voice_setting_dict: Dict[str, Any] = {
         "voice_id": voice_settings.voice_id,
@@ -118,12 +113,6 @@ def _build_minimax_voice_setting(
 
     emotion = (voice_settings.emotion or "").strip()
     if not emotion or emotion == "neutral" or emotion not in MINIMAX_ALLOWED_EMOTIONS:
-        return voice_setting_dict
-
-    if websocket_mode:
-        if model.startswith("speech-2.8") and emotion == "whisper":
-            return voice_setting_dict
-        voice_setting_dict["emotion"] = emotion
         return voice_setting_dict
 
     if model.startswith("speech-01"):
@@ -145,193 +134,26 @@ def _coerce_float_config(name: str, default: float) -> float:
         return default
 
 
-class MinimaxWebSocketTTSSession:
-    """A single MiniMax WebSocket TTS task session."""
+@dataclass
+class MinimaxHTTPStreamChunk:
+    """One parsed MiniMax HTTP streaming response event."""
 
-    def __init__(
-        self,
-        *,
-        api_key: str,
-        model: str,
-        voice_settings: VoiceSettings,
-        audio_settings: AudioSettings,
-        rpm_limit: int,
-        queue_max_wait_seconds: float,
-        connect_timeout_seconds: float = 10.0,
-        receive_timeout_seconds: float = 60.0,
-    ):
-        if websocket is None:
-            raise ValueError("websocket-client is required for MiniMax WebSocket TTS")
-        if not api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
+    audio_data: bytes = b""
+    is_final: bool = False
+    duration_ms: int = 0
+    sample_rate: int = 24000
+    format: str = "mp3"
+    word_count: int = 0
+    subtitles: List[Dict[str, Any]] = field(default_factory=list)
+    extra_info: Dict[str, Any] = field(default_factory=dict)
+    trace_id: str = ""
 
-        self._api_key = api_key
-        self._model = _resolve_minimax_model(model)
-        self._voice_settings = voice_settings
-        self._audio_settings = audio_settings
-        self._rpm_limit = int(rpm_limit or 0)
-        self._queue_max_wait_seconds = float(queue_max_wait_seconds or 0)
-        self._connect_timeout_seconds = float(connect_timeout_seconds or 10.0)
-        self._receive_timeout_seconds = float(receive_timeout_seconds or 60.0)
-        self._ws = None
-        self._started = False
 
-    def open(self) -> None:
-        """Open the socket and send `task_start` after acquiring the RPM gate."""
-        if self._started and self._ws is not None:
-            return
-
-        headers = [
-            "Content-Type: application/json",
-            f"Authorization: Bearer {self._api_key}",
-        ]
-        self._ws = websocket.create_connection(
-            MINIMAX_TTS_WS_URL,
-            header=headers,
-            timeout=self._connect_timeout_seconds,
-        )
-        self._ws.settimeout(self._receive_timeout_seconds)
-
-        connected = self._recv_json()
-        self._ensure_event(connected, "connected_success")
-
-        self._acquire_gate()
-        self._send_json(
-            {
-                "event": "task_start",
-                "model": self._model,
-                "voice_setting": _build_minimax_voice_setting(
-                    self._voice_settings,
-                    model=self._model,
-                    websocket_mode=True,
-                ),
-                "audio_setting": self._audio_settings.to_dict(),
-            }
-        )
-        started = self._recv_json()
-        self._ensure_event(started, "task_started")
-        self._started = True
-
-    def synthesize_segment(self, text: str) -> TTSResult:
-        """Send one `task_continue` and collect all returned audio chunks."""
-        if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
-        if not self._started or self._ws is None:
-            self.open()
-
-        self._acquire_gate()
-        self._send_json({"event": "task_continue", "text": text})
-
-        audio_chunks: list[bytes] = []
-        extra_info: Dict[str, Any] = {}
-        while True:
-            message = self._recv_json()
-            event = message.get("event")
-            if event and event != "task_continued":
-                raise ValueError(f"Unexpected MiniMax WebSocket event: {event}")
-
-            data = message.get("data") or {}
-            audio_hex = data.get("audio")
-            if audio_hex:
-                audio_chunks.append(bytes.fromhex(audio_hex))
-            if message.get("extra_info"):
-                extra_info = message.get("extra_info") or {}
-            if message.get("is_final"):
-                break
-
-        audio_data = b"".join(audio_chunks)
-        if not audio_data:
-            raise ValueError("No audio data in MiniMax WebSocket response")
-
-        duration_ms = int(extra_info.get("audio_length") or 0)
-        sample_rate = int(
-            extra_info.get("audio_sample_rate")
-            or self._audio_settings.sample_rate
-            or 24000
-        )
-        audio_format = str(
-            extra_info.get("audio_format") or self._audio_settings.format or "mp3"
-        )
-        word_count = int(extra_info.get("usage_characters") or 0)
-
-        logger.info(
-            "MiniMax WebSocket TTS segment completed: duration=%sms, size=%s bytes, usage_characters=%s",
-            duration_ms,
-            len(audio_data),
-            word_count,
-        )
-        return TTSResult(
-            audio_data=audio_data,
-            duration_ms=duration_ms,
-            sample_rate=sample_rate,
-            format=audio_format,
-            word_count=word_count,
-        )
-
-    def close(self) -> None:
-        """Finish the MiniMax task and close the socket."""
-        ws = self._ws
-        self._ws = None
-        self._started = False
-        if ws is None:
-            return
-        try:
-            ws.settimeout(10)
-            ws.send(json.dumps({"event": "task_finish"}, ensure_ascii=False))
-            message = self._recv_json_from(ws)
-            if message.get("event"):
-                self._ensure_event(message, "task_finished")
-        except Exception:
-            logger.debug(
-                "MiniMax WebSocket task_finish failed during close", exc_info=True
-            )
-        finally:
-            try:
-                ws.close()
-            except Exception:
-                logger.debug("MiniMax WebSocket close failed", exc_info=True)
-
-    def _acquire_gate(self) -> None:
-        acquire_tts_rpm_slot(
-            provider="minimax",
-            api_key=self._api_key,
-            rpm_limit=self._rpm_limit,
-            max_wait_seconds=self._queue_max_wait_seconds,
-        )
-
-    def _send_json(self, payload: Dict[str, Any]) -> None:
-        if self._ws is None:
-            raise ValueError("MiniMax WebSocket is not connected")
-        self._ws.send(json.dumps(payload, ensure_ascii=False))
-
-    def _recv_json(self) -> Dict[str, Any]:
-        if self._ws is None:
-            raise ValueError("MiniMax WebSocket is not connected")
-        return self._recv_json_from(self._ws)
-
-    def _recv_json_from(self, ws) -> Dict[str, Any]:
-        raw = ws.recv()
-        if not raw:
-            raise ValueError("Empty MiniMax WebSocket response")
-        try:
-            message = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError("Invalid MiniMax WebSocket JSON response") from exc
-
-        if message.get("event") == "task_failed":
-            raise ValueError(
-                _format_minimax_error(message, "MiniMax WebSocket task failed")
-            )
-        _ensure_minimax_base_resp(message, "MiniMax WebSocket error")
-        return message
-
-    @staticmethod
-    def _ensure_event(message: Dict[str, Any], expected_event: str) -> None:
-        actual_event = message.get("event")
-        if actual_event != expected_event:
-            raise ValueError(
-                f"Unexpected MiniMax WebSocket event: expected={expected_event}, actual={actual_event}"
-            )
+def _build_minimax_tts_url() -> str:
+    group_id = get_config("MINIMAX_GROUP_ID")
+    if not group_id:
+        return MINIMAX_TTS_API_URL
+    return f"{MINIMAX_TTS_API_URL}?{urlencode({'GroupId': group_id})}"
 
 
 def _ensure_minimax_base_resp(message: Dict[str, Any], prefix: str) -> None:
@@ -348,6 +170,85 @@ def _format_minimax_error(message: Dict[str, Any], prefix: str) -> str:
     trace_id = message.get("trace_id") or ""
     trace_suffix = f", trace_id={trace_id}" if trace_id else ""
     return f"{prefix}: {status_code} - {status_msg}{trace_suffix}"
+
+
+def _fetch_minimax_subtitle_file(url: str) -> List[Dict[str, Any]]:
+    if not url:
+        return []
+    try:
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        logger.debug("Failed to fetch MiniMax subtitle file", exc_info=True)
+        return []
+
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        for key in ("subtitles", "data"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+            if isinstance(value, dict) and isinstance(value.get("subtitles"), list):
+                return [
+                    item
+                    for item in value.get("subtitles", [])
+                    if isinstance(item, dict)
+                ]
+    return []
+
+
+def _looks_like_subtitle_item(value: Dict[str, Any]) -> bool:
+    if not str(value.get("text", "") or "").strip():
+        return False
+    return any(
+        key in value
+        for key in (
+            "time_begin",
+            "time_end",
+            "start_ms",
+            "end_ms",
+            "start_time",
+            "end_time",
+            "begin",
+            "end",
+        )
+    )
+
+
+def _collect_subtitle_items(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        if _looks_like_subtitle_item(value):
+            return [value]
+        for key in ("subtitles", "subtitle", "data"):
+            items = _collect_subtitle_items(value.get(key))
+            if items:
+                return items
+    if isinstance(value, str) and value.startswith(("http://", "https://")):
+        return _fetch_minimax_subtitle_file(value)
+    return []
+
+
+def _extract_minimax_subtitles(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    for container in (
+        message.get("data"),
+        message.get("extra_info"),
+        message,
+    ):
+        if not isinstance(container, dict):
+            continue
+        for key in ("subtitles", "subtitle"):
+            subtitles = _collect_subtitle_items(container.get(key))
+            if subtitles:
+                return subtitles
+        for key in ("subtitle_file", "subtitle_url", "subtitles_url"):
+            subtitles = _collect_subtitle_items(container.get(key))
+            if subtitles:
+                return subtitles
+    return []
 
 
 class MinimaxTTSProvider(BaseTTSProvider):
@@ -455,6 +356,121 @@ class MinimaxTTSProvider(BaseTTSProvider):
             word_count=word_count,
         )
 
+    def stream_synthesize(
+        self,
+        text: str,
+        voice_settings: Optional[VoiceSettings] = None,
+        audio_settings: Optional[AudioSettings] = None,
+        model: Optional[str] = None,
+    ) -> Iterator[MinimaxHTTPStreamChunk]:
+        """
+        Synthesize text with MiniMax HTTP streaming.
+
+        The returned audio chunks are raw MiniMax MP3 stream bytes. Callers that
+        expose chunks to browser playback must repackage them into independently
+        decodable audio segments before sending them to the frontend.
+        """
+        if not text or not text.strip():
+            raise ValueError("Text cannot be empty")
+
+        api_key = get_config("MINIMAX_API_KEY")
+        if not api_key:
+            raise ValueError("MINIMAX_API_KEY is not configured")
+
+        tts_model = _resolve_minimax_model(model)
+        voice_settings = voice_settings or self.get_default_voice_settings()
+        audio_settings = audio_settings or self.get_default_audio_settings()
+
+        payload = {
+            "model": tts_model,
+            "text": text,
+            "stream": True,
+            "stream_options": {
+                "exclude_aggregated_audio": True,
+            },
+            "voice_setting": _build_minimax_voice_setting(
+                voice_settings,
+                model=tts_model,
+            ),
+            "audio_setting": audio_settings.to_dict(),
+            "subtitle_enable": True,
+            "aigc_watermark": False,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+        acquire_tts_rpm_slot(
+            provider="minimax",
+            api_key=api_key,
+            rpm_limit=_coerce_int_config("MINIMAX_TTS_RPM_LIMIT", 0),
+            max_wait_seconds=_coerce_float_config(
+                "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS", 10.0
+            ),
+        )
+
+        logger.debug(
+            "Calling MiniMax HTTP streaming TTS with model=%s, text_length=%s",
+            tts_model,
+            len(text),
+        )
+        response = requests.post(
+            _build_minimax_tts_url(),
+            json=payload,
+            headers=headers,
+            stream=True,
+            timeout=(10, 90),
+        )
+        response.raise_for_status()
+
+        for raw_line in response.iter_lines(decode_unicode=True):
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            if line.startswith("data:"):
+                line = line[5:].strip()
+            if line == "[DONE]":
+                break
+
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    "Invalid MiniMax HTTP streaming JSON response"
+                ) from exc
+
+            _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
+            data = message.get("data") or {}
+            extra_info = message.get("extra_info") or {}
+            audio_hex = data.get("audio") or ""
+            try:
+                audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
+            except ValueError as exc:
+                raise ValueError("Invalid MiniMax HTTP streaming audio hex") from exc
+
+            status = int(data.get("status") or 0)
+            is_final = status == 2 or bool(extra_info) or bool(message.get("is_final"))
+            subtitles = _extract_minimax_subtitles(message)
+            yield MinimaxHTTPStreamChunk(
+                audio_data=audio_data,
+                is_final=is_final,
+                duration_ms=int(extra_info.get("audio_length") or 0),
+                sample_rate=int(
+                    extra_info.get("audio_sample_rate")
+                    or audio_settings.sample_rate
+                    or 24000
+                ),
+                format=str(
+                    extra_info.get("audio_format") or audio_settings.format or "mp3"
+                ),
+                word_count=int(extra_info.get("usage_characters") or 0),
+                subtitles=subtitles,
+                extra_info=extra_info,
+                trace_id=str(message.get("trace_id") or ""),
+            )
+
     def _call_api(
         self,
         text: str,
@@ -481,7 +497,6 @@ class MinimaxTTSProvider(BaseTTSProvider):
             requests.RequestException: If API call fails
         """
         api_key = get_config("MINIMAX_API_KEY")
-        group_id = get_config("MINIMAX_GROUP_ID")
         tts_model = _resolve_minimax_model(model)
 
         if not api_key:
@@ -493,16 +508,10 @@ class MinimaxTTSProvider(BaseTTSProvider):
         if not audio_settings:
             audio_settings = self.get_default_audio_settings()
 
-        # Build API URL with group ID if provided
-        url = MINIMAX_TTS_API_URL
-        if group_id:
-            url = f"{url}?GroupId={group_id}"
-
         # Build voice setting dict for Minimax API
         voice_setting_dict = _build_minimax_voice_setting(
             voice_settings,
             model=tts_model,
-            websocket_mode=False,
         )
 
         # Build request payload
@@ -526,7 +535,9 @@ class MinimaxTTSProvider(BaseTTSProvider):
             f"Calling Minimax TTS API with model={tts_model}, text_length={len(text)}"
         )
 
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        response = requests.post(
+            _build_minimax_tts_url(), json=payload, headers=headers, timeout=60
+        )
         response.raise_for_status()
 
         result = response.json()
@@ -540,28 +551,6 @@ class MinimaxTTSProvider(BaseTTSProvider):
             raise ValueError(f"Minimax TTS API error: {status_code} - {status_msg}")
 
         return result
-
-    def create_websocket_session(
-        self,
-        *,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
-    ) -> MinimaxWebSocketTTSSession:
-        """Create one WebSocket TTS task session for RUN streaming."""
-        api_key = get_config("MINIMAX_API_KEY")
-        if not api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
-        return MinimaxWebSocketTTSSession(
-            api_key=api_key,
-            model=_resolve_minimax_model(model),
-            voice_settings=voice_settings or self.get_default_voice_settings(),
-            audio_settings=audio_settings or self.get_default_audio_settings(),
-            rpm_limit=_coerce_int_config("MINIMAX_TTS_RPM_LIMIT", 0),
-            queue_max_wait_seconds=_coerce_float_config(
-                "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS", 10.0
-            ),
-        )
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Minimax provider configuration for frontend."""

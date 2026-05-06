@@ -29,7 +29,7 @@ v1.1 再补充下列扩展能力：
 - 计费主体固定为 `creator_bid`
 - 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
 - 商品目录统一使用 `bill_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
-- 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders` 并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
+- 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_native_payment_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
 - 钱包/余额桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费余额桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
 - 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
@@ -42,7 +42,7 @@ v1.1 再补充下列扩展能力：
 - 前端以 Figma `方案1` 浅色稿为唯一视觉准绳，保留现有 `/admin` 作为创作中心首页，只补侧边栏会员卡、`会员与积分` 导航和新的 `/admin/billing`
 - 新增 `/payment/stripe/billing-result`，专门承接 creator billing 的 Stripe 回跳与 sync
 - 后端新增 `service/billing` 模块、独立 `/api/billing` 路由、核心表和只读查询接口；业务状态不复用旧 `order_orders`，provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
-- Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 支持 topup checkout，以及由平台自管的 subscription start / renewal 补单链路，不依赖 provider-managed recurring
+- Stripe 在本批次支持套餐 checkout 与 topup checkout；Pingxx 支持 topup checkout，以及由平台自管的 subscription start / renewal 补单链路；native Alipay / WeChat Pay 首版只提供一次性 checkout 与 sync/webhook paid grant，不依赖 provider-managed recurring
 - 支付成功后必须真实写入 `bill_orders`、`bill_subscriptions`、`credit_wallets`、`credit_wallet_buckets`、`credit_ledger_entries`，保证前端可以直接联调真实余额和订单状态
 - 本批次不以 `bill_usage -> credit_ledger_entries` 结算、Celery 串行 settlement、自动续费排期、失败续费重试、bucket 过期扫描、admin adjust、entitlements/domains/reports 为阻塞项
 - 以上暂缓能力仍属于完整 v1 / v1.1 目标，继续保留在本文后续章节和任务清单中
@@ -995,14 +995,16 @@ v1 需要新增：
 - `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
 - `POST /billing/topups/checkout` 只能购买 `product_type=topup`，且 creator 当前必须处于有效套餐周期内
 - public trial plan 不允许通过 creator 自助 checkout；只允许 post-auth bootstrap 以 `manual` provider 自动创建
-- `bill_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
+- `bill_orders` 是统一支付动作单；Stripe/Pingxx/Alipay/WeChat Pay 业务编排一致，差异只放在 shared provider adapter
 - webhook 不单独落事件表；直接按 `bill_orders` 状态机做幂等推进，最新摘要只保留最近一次，同时镜像更新关联 provider raw snapshot
 - 自动续费和失败重试由 `bill_renewal_events` 驱动，成功后生成新的 `bill_orders`
 - 当前批次 provider 能力矩阵固定为：
   - Stripe：支持 `subscription_start` checkout、`topup` checkout、webhook、sync、`refund_payment`、paid success grant
   - Pingxx：支持 `topup` checkout、`subscription_start` checkout、webhook、sync，以及通过本地 renewal order 继续支付；`refund_payment` 继续显式返回 `unsupported`
+  - Alipay：支持 `alipay_qr` 一次性 checkout、webhook、sync、paid success grant；`subscription_start` 仍按一次性支付激活本地订阅；`refund_payment` 返回 `unsupported`
+  - WeChat Pay：支持 `wx_pub_qr` / `wx_pub` 一次性 checkout、webhook、sync、paid success grant；`subscription_start` 仍按一次性支付激活本地订阅；`refund_payment` 返回 `unsupported`
 - `POST /billing/orders/{bill_order_bid}/sync` 是当前批次的主补偿入口，前端支付回跳默认先调 sync 再刷新 overview / orders
-- 当前批次已落地真实 paid success 入账：Stripe `subscription_start` 与 Stripe/Pingxx `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
+- 当前批次已落地真实 paid success 入账：Stripe/Pingxx/Alipay/WeChat Pay `subscription_start` 与 `topup` 支付成功后，必须幂等写入 `credit_wallet_buckets` grant bucket、`credit_ledger_entries` grant entry，并刷新 `credit_wallets`；重复 sync / webhook 不得重复发放
 - 当前实现中，`subscription_upgrade` / `subscription_renewal` 的 paid apply 会同步推进 `bill_subscriptions.product_bid/current_period_*/next_product_bid`，并维护 `bill_renewal_events` 的 `renewal/retry/cancel_effective/downgrade_effective`
 - 当前实现中，Stripe subscription `past_due` 会回填 `grace_period_end_at`，取消或退款后会取消待执行的 renewal event
 - 当前实现中，trial bootstrap 会创建一笔 `payment_provider='manual'`、金额为 `0` 的 `subscription_start` 订单和对应 subscription，并复用 paid-order grant helper 写入 wallet bucket、ledger 与 subscription 生命周期
@@ -1041,7 +1043,7 @@ v1 需要新增：
 
 - 旧 `/order` 保持不变，只说明“不复用其表结构”
 - 新 `/billing` 接口继续独立
-- 现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 继续作为 provider callback 入口，统一复用 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
+- 现有 `/api/order/stripe/webhook`、`/api/callback/pingxx-callback` 继续作为 provider callback 入口；native 国内直连新增 `/api/callback/alipay-notify` 与 `/api/callback/wechatpay-notify`，统一复用 shared provider adapter 验签/归一化结果，再直接推进 billing order / subscription 状态
 - `/api/config` 在 v1 继续保持全局配置输出；v1.1 开始允许在 `runtime-config` 中附加 creator-scoped `entitlements`、`branding`、`domain` 结果，并按 branding override 顶层 logo/home 字段
 
 ### 7.4 内部支付接口契约
@@ -1054,8 +1056,6 @@ interface BillingPaymentProviderAdapter {
     product_bid: string;
     payment_provider: string;
     channel: string;
-    success_url?: string;
-    cancel_url?: string;
   }): Promise<ProviderCheckoutResult>;
 
   create_recurring_subscription(input: {
@@ -1095,7 +1095,7 @@ interface BillingPaymentProviderAdapter {
 
 - `verify_webhook` 返回归一化事件后，调用方直接按订单状态机推进 `bill_orders` / `bill_subscriptions`
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
-- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，但 provider raw snapshot 复用旧 `order_pingxx_orders` / `order_stripe_orders`
+- 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，provider raw snapshot 通过 `order_pingxx_orders` / `order_stripe_orders` / `order_native_payment_orders` 按 provider 与 `biz_domain` 隔离
 
 ### 7.5 前端实现方案
 
@@ -1206,7 +1206,7 @@ v1 前端不新建全局 billing store，默认采用：
 v1 前端方案：
 
 - 新增 `src/cook-web/src/app/payment/stripe/billing-result/page.tsx`
-- billing checkout 的 `success_url` / `cancel_url` 指向新的 billing result 页
+- 后端从 `HOST_URL` 派生 Stripe billing result URL
 - billing result 页职责：
   - 从 query 读取 `bill_order_bid` / `session_id`
   - 先调用 `POST /billing/orders/{bill_order_bid}/sync`

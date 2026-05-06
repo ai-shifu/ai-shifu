@@ -14,7 +14,12 @@ export type AdminBillingConsoleTab =
   | 'domains'
   | 'reports';
 
-export type BillingProvider = 'stripe' | 'pingxx' | 'manual';
+export type BillingProvider =
+  | 'stripe'
+  | 'pingxx'
+  | 'alipay'
+  | 'wechatpay'
+  | 'manual';
 
 export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
 

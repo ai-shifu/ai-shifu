@@ -54,31 +54,39 @@ PayChannelSwitchItem.displayName = 'PayChannelSwitchItem';
 interface PayChannelSwitchProps {
   channel?: string;
   onChange?: (payload: { channel: string }) => void;
+  availableChannels?: string[];
 }
 
 export const PayChannelSwitch = ({
   channel = PAY_CHANNEL_WECHAT,
   onChange,
+  availableChannels,
 }: PayChannelSwitchProps) => {
   const { t } = useTranslation();
+  const enabledChannels =
+    availableChannels == null ? null : new Set(availableChannels);
   return (
     <div className={styles.channelSwitch}>
-      <PayChannelSwitchItem
-        channel={PAY_CHANNEL_WECHAT}
-        icon={payWechat0}
-        iconSelected={payWechat1}
-        text={t('module.pay.payChannelWechat')}
-        selected={channel === PAY_CHANNEL_WECHAT}
-        onClick={onChange}
-      />
-      <PayChannelSwitchItem
-        channel={PAY_CHANNEL_ZHIFUBAO}
-        icon={payZhifubo0}
-        iconSelected={payZhifubo1}
-        text={t('module.pay.payChannelAlipay')}
-        selected={channel === PAY_CHANNEL_ZHIFUBAO}
-        onClick={onChange}
-      />
+      {!enabledChannels || enabledChannels.has(PAY_CHANNEL_WECHAT) ? (
+        <PayChannelSwitchItem
+          channel={PAY_CHANNEL_WECHAT}
+          icon={payWechat0}
+          iconSelected={payWechat1}
+          text={t('module.pay.payChannelWechat')}
+          selected={channel === PAY_CHANNEL_WECHAT}
+          onClick={onChange}
+        />
+      ) : null}
+      {!enabledChannels || enabledChannels.has(PAY_CHANNEL_ZHIFUBAO) ? (
+        <PayChannelSwitchItem
+          channel={PAY_CHANNEL_ZHIFUBAO}
+          icon={payZhifubo0}
+          iconSelected={payZhifubo1}
+          text={t('module.pay.payChannelAlipay')}
+          selected={channel === PAY_CHANNEL_ZHIFUBAO}
+          onClick={onChange}
+        />
+      ) : null}
     </div>
   );
 };
