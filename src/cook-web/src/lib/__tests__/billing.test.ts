@@ -172,12 +172,8 @@ describe('formatBillingCreditDetail', () => {
   });
 
   test('keeps thousands separators across locales', () => {
-    expect(formatBillingCreditDetail(1234567.89, 'en-US')).toBe(
-      '1,234,567.89',
-    );
-    expect(formatBillingCreditDetail(1234567.89, 'zh-CN')).toBe(
-      '1,234,567.89',
-    );
+    expect(formatBillingCreditDetail(1234567.89, 'en-US')).toBe('1,234,567.89');
+    expect(formatBillingCreditDetail(1234567.89, 'zh-CN')).toBe('1,234,567.89');
   });
 
   test('falls back to zero for non-finite or nullish input', () => {
