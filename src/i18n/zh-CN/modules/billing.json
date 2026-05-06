@@ -621,8 +621,7 @@
     "topup": {
       "creditLabel": "{credits} 积分",
       "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
-      "noteInstant": "购买后即时生效, 积分永不过期。",
-      "noteTitle": "积分包说明"
+      "noteInstant": "购买后即时生效, 积分永不过期。"
     },
     "topupComingSoon": "敬请期待",
     "validity": {

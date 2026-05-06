@@ -913,7 +913,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.topupComingSoon'),
     t('module.billing.package.topup.noteFrozen'),
     t('module.billing.package.topup.noteInstant'),
-    t('module.billing.package.topup.noteTitle'),
     t('module.billing.package.scale.advanced.students'),
     t('module.billing.package.scale.basic.students'),
     t('module.billing.package.scale.free.students'),

@@ -621,8 +621,7 @@
     "topup": {
       "creditLabel": "{credits} credits",
       "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
-      "noteInstant": "Credits take effect immediately after purchase.",
-      "noteTitle": "Credit pack notes"
+      "noteInstant": "Credits take effect immediately after purchase."
     },
     "topupComingSoon": "Coming soon",
     "validity": {
