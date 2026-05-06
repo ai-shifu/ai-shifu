@@ -113,7 +113,7 @@ export const SetPasswordModal = ({
       return;
     }
     if (previousCountdownRef.current > 0 && countdown === 0) {
-      setCaptchaError('');
+      setCaptchaError(prev => (prev ? '' : prev));
       void refreshCaptcha().catch(() => {});
     }
     previousCountdownRef.current = countdown;

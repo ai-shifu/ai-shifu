@@ -79,7 +79,9 @@ export function useCaptchaTicket(enabled = true) {
 
   const verifyCaptcha = useCallback(async () => {
     if (!captchaId || !captchaCode.trim()) {
-      const error = new Error('Captcha is required') as ApiError;
+      const error = new Error(
+        i18n.t('module.auth.captchaRequired'),
+      ) as ApiError;
       error.code = 1009;
       throw error;
     }

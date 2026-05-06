@@ -140,7 +140,7 @@ export function PhoneLogin({
 
   useEffect(() => {
     if (previousCountdownRef.current > 0 && countdown === 0) {
-      setCaptchaError('');
+      setCaptchaError(prev => (prev ? '' : prev));
       void refreshCaptchaSilently();
     }
     previousCountdownRef.current = countdown;

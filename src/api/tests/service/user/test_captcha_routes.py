@@ -130,6 +130,18 @@ def test_send_sms_code_requires_captcha_ticket(test_client, app):
     assert body["code"] == 1009
 
 
+def test_send_sms_code_localizes_missing_captcha_ticket_message(test_client, app):
+    response, body = _post_json(
+        test_client,
+        "/api/user/send_sms_code",
+        {"mobile": "13800138000", "language": "zh-CN"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 1009
+    assert body["message"] == "图形验证码错误"
+
+
 def test_send_sms_code_consumes_ticket_once(test_client, app, monkeypatch):
     import flaskr.service.user.utils as user_utils
 
