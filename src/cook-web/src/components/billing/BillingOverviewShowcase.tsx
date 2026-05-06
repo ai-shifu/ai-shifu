@@ -10,6 +10,7 @@ import type {
 } from '@/types/billing';
 import { TopupCard } from './BillingOverviewCards';
 import type { ShowcaseTab } from './BillingOverviewCards';
+import { BillingOverviewFootnote } from './BillingOverviewFootnote';
 import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
 
 type BillingOverviewShowcaseProps = {
@@ -184,21 +185,24 @@ export function BillingOverviewShowcase({
           </div>
         </div>
       ) : (
-        <BillingPlanComparisonTable
-          checkoutLoadingKey={checkoutLoadingKey}
-          currentPlan={currentPlan}
-          alipayAvailable={alipayAvailable}
-          hasActiveSubscription={hasActiveSubscription}
-          isTrialCurrentPlan={isTrialCurrentPlan}
-          orderedPlans={orderedPlans}
-          paidPlans={paidPlans}
-          pingxxAvailable={pingxxAvailable}
-          renderFreeColumn={renderFreeCard}
-          stripeAvailable={stripeAvailable}
-          trialOffer={trialOffer}
-          wechatpayAvailable={wechatpayAvailable}
-          onSelectPlanCheckout={onSelectPlanCheckout}
-        />
+        <div className='space-y-6'>
+          <BillingPlanComparisonTable
+            checkoutLoadingKey={checkoutLoadingKey}
+            currentPlan={currentPlan}
+            alipayAvailable={alipayAvailable}
+            hasActiveSubscription={hasActiveSubscription}
+            isTrialCurrentPlan={isTrialCurrentPlan}
+            orderedPlans={orderedPlans}
+            paidPlans={paidPlans}
+            pingxxAvailable={pingxxAvailable}
+            renderFreeColumn={renderFreeCard}
+            stripeAvailable={stripeAvailable}
+            trialOffer={trialOffer}
+            wechatpayAvailable={wechatpayAvailable}
+            onSelectPlanCheckout={onSelectPlanCheckout}
+          />
+          <BillingOverviewFootnote />
+        </div>
       )}
     </>
   );
