@@ -21,6 +21,14 @@ const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
+const DEFAULT_OVERVIEW = {
+  total_course_count: 24,
+  draft_course_count: 8,
+  published_course_count: 16,
+  created_last_7d_course_count: 5,
+  learning_active_30d_course_count: 11,
+  paid_order_30d_course_count: 7,
+};
 
 const mockUserState: {
   isInitialized: boolean;
@@ -412,6 +420,7 @@ describe('OperationsPage', () => {
     });
 
     mockGetAdminOperationCourses.mockResolvedValue({
+      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-1',
@@ -488,6 +497,16 @@ describe('OperationsPage', () => {
     );
 
     expect(screen.getByText('Course 1')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.overview.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('24')).toBeInTheDocument();
+    expect(screen.getByText('11')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.overview.tooltips.totalCourses',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
@@ -801,6 +820,7 @@ describe('OperationsPage', () => {
 
   test('retries the last requested page after a page change fails', async () => {
     mockGetAdminOperationCourses.mockResolvedValueOnce({
+      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-1',
@@ -830,6 +850,7 @@ describe('OperationsPage', () => {
       new ErrorWithCode('load failed', 418),
     );
     mockGetAdminOperationCourses.mockResolvedValueOnce({
+      summary: DEFAULT_OVERVIEW,
       items: [],
       page: 2,
       page_count: 2,
@@ -867,6 +888,7 @@ describe('OperationsPage', () => {
 
   test('ignores stale responses when a newer search finishes later', async () => {
     const firstSearch = createDeferred<{
+      summary: typeof DEFAULT_OVERVIEW;
       items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
@@ -874,6 +896,7 @@ describe('OperationsPage', () => {
       total: number;
     }>();
     const secondSearch = createDeferred<{
+      summary: typeof DEFAULT_OVERVIEW;
       items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
@@ -912,6 +935,7 @@ describe('OperationsPage', () => {
     );
 
     secondSearch.resolve({
+      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-second',
@@ -941,6 +965,7 @@ describe('OperationsPage', () => {
     expect(await screen.findByText('Course Second')).toBeInTheDocument();
 
     firstSearch.resolve({
+      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-first',

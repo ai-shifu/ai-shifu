@@ -8,6 +8,7 @@ import React, {
   useState,
   type CSSProperties,
 } from 'react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
@@ -67,6 +68,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { useToast } from '@/hooks/useToast';
@@ -79,6 +86,7 @@ import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
   AdminOperationCourseItem,
   AdminOperationCourseListResponse,
+  AdminOperationCourseOverview,
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
 import useOperatorGuard from './useOperatorGuard';
@@ -122,6 +130,14 @@ const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
 const EMPTY_STATE_LABEL = '--';
+const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
+  total_course_count: 0,
+  draft_course_count: 0,
+  published_course_count: 0,
+  created_last_7d_course_count: 0,
+  learning_active_30d_course_count: 0,
+  paid_order_30d_course_count: 0,
+};
 const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const COLLAPSED_TEXT_STYLE: CSSProperties = {
@@ -174,6 +190,9 @@ const renderTooltipText = (text?: string, className?: string) => {
     />
   );
 };
+
+const formatCount = (value: number): string =>
+  Number.isFinite(value) ? value.toLocaleString() : EMPTY_STATE_LABEL;
 
 type ClearableTextInputProps = {
   value: string;
@@ -232,6 +251,19 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.filters.endTime')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
+ * t('module.operationsCourse.overview.title')
+ * t('module.operationsCourse.overview.metrics.totalCourses')
+ * t('module.operationsCourse.overview.metrics.draftCourses')
+ * t('module.operationsCourse.overview.metrics.publishedCourses')
+ * t('module.operationsCourse.overview.metrics.createdLast7d')
+ * t('module.operationsCourse.overview.metrics.learningActive30d')
+ * t('module.operationsCourse.overview.metrics.ordered30d')
+ * t('module.operationsCourse.overview.tooltips.totalCourses')
+ * t('module.operationsCourse.overview.tooltips.draftCourses')
+ * t('module.operationsCourse.overview.tooltips.publishedCourses')
+ * t('module.operationsCourse.overview.tooltips.createdLast7d')
+ * t('module.operationsCourse.overview.tooltips.learningActive30d')
+ * t('module.operationsCourse.overview.tooltips.ordered30d')
  * t('module.operationsCourse.table.courseName')
  * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
@@ -346,6 +378,8 @@ const OperationsPage = () => {
   );
 
   const [courses, setCourses] = useState<AdminOperationCourseItem[]>([]);
+  const [courseOverview, setCourseOverview] =
+    useState<AdminOperationCourseOverview>(EMPTY_COURSE_OVERVIEW);
   const [filters, setFilters] = useState<CourseFilters>(createDefaultFilters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -479,6 +513,7 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
+        setCourseOverview(response.summary ?? EMPTY_COURSE_OVERVIEW);
         setCourses(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
@@ -486,6 +521,7 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
+        setCourseOverview(EMPTY_COURSE_OVERVIEW);
         setPageIndex(targetPage);
         if (err instanceof ErrorWithCode) {
           setError({ message: err.message, code: err.code });
@@ -800,6 +836,48 @@ const OperationsPage = () => {
     return approx;
   };
 
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperations('overview.metrics.totalCourses'),
+        value: courseOverview.total_course_count,
+        tooltip: tOperations('overview.tooltips.totalCourses'),
+      },
+      {
+        key: 'draft',
+        label: tOperations('overview.metrics.draftCourses'),
+        value: courseOverview.draft_course_count,
+        tooltip: tOperations('overview.tooltips.draftCourses'),
+      },
+      {
+        key: 'published',
+        label: tOperations('overview.metrics.publishedCourses'),
+        value: courseOverview.published_course_count,
+        tooltip: tOperations('overview.tooltips.publishedCourses'),
+      },
+      {
+        key: 'created-last-7d',
+        label: tOperations('overview.metrics.createdLast7d'),
+        value: courseOverview.created_last_7d_course_count,
+        tooltip: tOperations('overview.tooltips.createdLast7d'),
+      },
+      {
+        key: 'learning-30d',
+        label: tOperations('overview.metrics.learningActive30d'),
+        value: courseOverview.learning_active_30d_course_count,
+        tooltip: tOperations('overview.tooltips.learningActive30d'),
+      },
+      {
+        key: 'orders-30d',
+        label: tOperations('overview.metrics.ordered30d'),
+        value: courseOverview.paid_order_30d_course_count,
+        tooltip: tOperations('overview.tooltips.ordered30d'),
+      },
+    ],
+    [courseOverview, tOperations],
+  );
+
   const collapsedFilterItems = [
     {
       key: 'shifu_bid',
@@ -1070,6 +1148,45 @@ const OperationsPage = () => {
           <h1 className='text-2xl font-semibold text-gray-900'>
             {tOperations('title')}
           </h1>
+        </div>
+
+        <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
+          <div className='mb-3'>
+            <h2 className='text-base font-semibold text-foreground'>
+              {tOperations('overview.title')}
+            </h2>
+          </div>
+          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
+            {overviewCards.map(card => (
+              <div
+                key={card.key}
+                className='rounded-lg border border-border bg-muted/20 px-3.5 py-2.5'
+              >
+                <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                  <span>{card.label}</span>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type='button'
+                          aria-label={card.tooltip}
+                          className='inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground'
+                        >
+                          <QuestionMarkCircleIcon className='h-4 w-4' />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className='max-w-56 text-left leading-5'>
+                        {card.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className='mt-1.5 text-[2rem] font-semibold leading-none text-foreground'>
+                  {formatCount(card.value)}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div

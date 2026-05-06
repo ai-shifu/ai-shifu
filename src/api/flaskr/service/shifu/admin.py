@@ -73,6 +73,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationCourseListDTO,
     AdminOperationCourseChapterDetailDTO,
     AdminOperationCourseDetailBasicInfoDTO,
     AdminOperationCourseDetailChapterDTO,
@@ -89,6 +90,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseRatingItemDTO,
     AdminOperationCourseRatingListDTO,
     AdminOperationCourseRatingSummaryDTO,
+    AdminOperationCourseOverviewDTO,
     AdminOperationCourseUserDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
@@ -4107,16 +4109,100 @@ def get_operator_user_credits(
         )
 
 
+def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
+    with app.app_context():
+        draft_rows = _load_latest_shifus(
+            DraftShifu,
+            shifu_bid="",
+            course_name="",
+            creator_bids=None,
+            start_time=None,
+            end_time=None,
+            updated_start_time=None,
+            updated_end_time=None,
+        )
+        published_rows = _load_latest_shifus(
+            PublishedShifu,
+            shifu_bid="",
+            course_name="",
+            creator_bids=None,
+            start_time=None,
+            end_time=None,
+            updated_start_time=None,
+            updated_end_time=None,
+        )
+        merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
+        total_course_count = len(merged_courses)
+        if total_course_count == 0:
+            return AdminOperationCourseOverviewDTO()
+
+        now = datetime.now()
+        created_window_start = now - timedelta(days=7)
+        recent_activity_window_start = now - timedelta(days=30)
+        visible_shifu_bids = [
+            str(course.shifu_bid or "").strip()
+            for course in merged_courses
+            if str(course.shifu_bid or "").strip()
+        ]
+
+        learning_active_30d_course_count = (
+            db.session.query(LearnProgressRecord.shifu_bid)
+            .filter(
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.created_at >= recent_activity_window_start,
+                LearnProgressRecord.shifu_bid.in_(visible_shifu_bids),
+            )
+            .distinct()
+            .count()
+        )
+        paid_order_30d_course_count = (
+            db.session.query(Order.shifu_bid)
+            .filter(
+                Order.deleted == 0,
+                Order.status == ORDER_STATUS_SUCCESS,
+                Order.created_at >= recent_activity_window_start,
+                Order.shifu_bid.in_(visible_shifu_bids),
+            )
+            .distinct()
+            .count()
+        )
+
+        return AdminOperationCourseOverviewDTO(
+            total_course_count=total_course_count,
+            draft_course_count=sum(
+                1
+                for course in merged_courses
+                if _resolve_course_status(course.shifu_bid or "", published_bids)
+                == COURSE_STATUS_UNPUBLISHED
+            ),
+            published_course_count=sum(
+                1
+                for course in merged_courses
+                if _resolve_course_status(course.shifu_bid or "", published_bids)
+                == COURSE_STATUS_PUBLISHED
+            ),
+            created_last_7d_course_count=sum(
+                1
+                for course in merged_courses
+                if course.created_at and course.created_at >= created_window_start
+            ),
+            learning_active_30d_course_count=learning_active_30d_course_count,
+            paid_order_30d_course_count=paid_order_30d_course_count,
+        )
+
+
 def list_operator_courses(
     app: Flask,
     page_index: int,
     page_size: int,
     filters: Optional[dict] = None,
-) -> PageNationDTO:
+) -> AdminOperationCourseListDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = max(int(page_size or 20), 1)
         filters = filters or {}
+        summary = _build_operator_course_overview(app)
 
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         course_name = str(filters.get("course_name", "") or "").strip()
@@ -4213,4 +4299,11 @@ def list_operator_courses(
             )
             for course in page_items
         ]
-        return PageNationDTO(safe_page_index, safe_page_size, total, items)
+        return AdminOperationCourseListDTO(
+            summary=summary,
+            items=items,
+            page=safe_page_index,
+            page_size=safe_page_size,
+            total=total,
+            page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
+        )

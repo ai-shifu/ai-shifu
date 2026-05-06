@@ -568,7 +568,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 message:
                                     type: string
                                 data:
-                                    $ref: "#/components/schemas/PageNationDTO"
+                                    $ref: "#/components/schemas/AdminOperationCourseListDTO"
         """
         _require_operator()
         page_index = request.args.get("page_index", 1)

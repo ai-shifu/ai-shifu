@@ -270,6 +270,25 @@
     "startTime": "开始日期",
     "status": "状态"
   },
+  "overview": {
+    "metrics": {
+      "createdLast7d": "近7天新增课程",
+      "draftCourses": "草稿课程",
+      "learningActive30d": "近30天有学习课程",
+      "ordered30d": "近30天有订单课程",
+      "publishedCourses": "已发布课程",
+      "totalCourses": "课程总数"
+    },
+    "title": "数据概览",
+    "tooltips": {
+      "createdLast7d": "近7天新建课程数",
+      "draftCourses": "从未发布课程数",
+      "learningActive30d": "近30天有学习课程数",
+      "ordered30d": "近30天有成交课程数",
+      "publishedCourses": "至少发布过一次的课程数",
+      "totalCourses": "课程总数"
+    }
+  },
   "statusLabels": {
     "published": "已发布",
     "unknown": "未知",
