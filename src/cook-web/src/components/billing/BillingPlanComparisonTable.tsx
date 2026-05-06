@@ -127,29 +127,24 @@ function resolvePlanValidityDisplay(
   plan: BillingPlan,
 ): { short: string; tooltip: string } {
   const intervalCount = Math.max(plan.billing_interval_count || 0, 1);
-  const isMultiCycle = intervalCount > 1;
   if (plan.billing_interval === 'month') {
     return {
-      short: isMultiCycle
-        ? t('module.billing.package.validityShort.monthlyMonths', {
-            count: intervalCount,
-          })
-        : t('module.billing.package.validityShort.monthly'),
-      tooltip: isMultiCycle
-        ? ''
-        : t('module.billing.package.validityTooltip.monthly'),
+      short: t('module.billing.package.validityShort.monthly', {
+        count: intervalCount,
+      }),
+      tooltip: t('module.billing.package.validityTooltip.monthly', {
+        count: intervalCount,
+      }),
     };
   }
   if (plan.billing_interval === 'year') {
     return {
-      short: isMultiCycle
-        ? t('module.billing.package.validityShort.yearlyYears', {
-            count: intervalCount,
-          })
-        : t('module.billing.package.validityShort.yearly'),
-      tooltip: isMultiCycle
-        ? ''
-        : t('module.billing.package.validityTooltip.yearly'),
+      short: t('module.billing.package.validityShort.yearly', {
+        count: intervalCount,
+      }),
+      tooltip: t('module.billing.package.validityTooltip.yearly', {
+        count: intervalCount,
+      }),
     };
   }
   return { short: '', tooltip: '' };
@@ -229,18 +224,22 @@ export function BillingPlanComparisonTable({
               trialOffer.currency,
               i18n.language,
             )
-          : t('module.billing.package.free.priceValue'),
+          : emptyValue,
       periodLabel: '',
       creditAmount: t('module.billing.package.topup.creditLabel', {
         credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
       }),
       featured: isTrialCurrentPlan || !hasActiveSubscription,
-      validityShort: t('module.billing.package.validityShort.free', {
-        days: trialOffer?.valid_days || 15,
-      }),
-      validityTooltip: t('module.billing.package.validityTooltip.free', {
-        days: trialOffer?.valid_days || 15,
-      }),
+      validityShort: trialOffer
+        ? t('module.billing.package.validityShort.free', {
+            days: trialOffer.valid_days,
+          })
+        : emptyValue,
+      validityTooltip: trialOffer
+        ? t('module.billing.package.validityTooltip.free', {
+            days: trialOffer.valid_days,
+          })
+        : '',
       studentLabel: trialScale ? t(trialScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),

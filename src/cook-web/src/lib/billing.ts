@@ -374,7 +374,9 @@ export function resolveBillingProductTitle(
   if (!product?.display_name) {
     return fallback;
   }
-  return t(product.display_name);
+  return t(product.display_name, {
+    credits: formatBillingCreditAmount(product.credit_amount || 0),
+  });
 }
 
 export function resolveBillingProductDescription(
@@ -883,14 +885,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.plans.creatorYearlyLite.title'),
     t('module.billing.catalog.plans.creatorYearlyPremium.description'),
     t('module.billing.catalog.plans.creatorYearlyPremium.title'),
-    t('module.billing.catalog.topups.creatorLarge.description'),
-    t('module.billing.catalog.topups.creatorLarge.title'),
-    t('module.billing.catalog.topups.creatorMedium.description'),
-    t('module.billing.catalog.topups.creatorMedium.title'),
-    t('module.billing.catalog.topups.creatorSmall.description'),
-    t('module.billing.catalog.topups.creatorSmall.title'),
-    t('module.billing.catalog.topups.creatorXLarge.description'),
-    t('module.billing.catalog.topups.creatorXLarge.title'),
+    t('module.billing.catalog.topups.default.description'),
+    t('module.billing.catalog.topups.default.title', { credits: '20' }),
     t('module.billing.details.subtitle'),
     t('module.billing.overview.availableCreditsLabel'),
     t('module.billing.overview.walletTitle'),
@@ -912,7 +908,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.free.description'),
     t('module.billing.package.free.priceNote'),
     t('module.billing.package.free.priceNoteGranted'),
-    t('module.billing.package.free.priceValue'),
     t('module.billing.package.free.title'),
     t('module.billing.package.subtitle'),
     t('module.billing.package.topupComingSoon'),
@@ -938,6 +933,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.intervalTabs.daily'),
     t('module.billing.package.validity.daily'),
     t('module.billing.package.validity.days', { count: 7 }),
+    t('module.billing.package.validity.free', { days: 15 }),
     t('module.billing.package.validity.monthly'),
     t('module.billing.package.validity.months', { count: 3 }),
     t('module.billing.package.validity.yearly'),
