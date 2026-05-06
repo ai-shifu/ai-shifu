@@ -22,13 +22,13 @@ export function BillingOverviewFootnote() {
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span
-                  tabIndex={0}
+                <button
+                  type='button'
                   className='ml-1 inline-flex cursor-help align-middle text-[var(--base-muted-foreground,#737373)] transition-colors hover:text-[var(--base-foreground,#0A0A0A)] focus-visible:text-[var(--base-foreground,#0A0A0A)] focus-visible:outline-none'
                   data-testid='billing-overview-footnote-learner-estimate-tip'
                 >
                   <InformationCircleIcon className='h-4 w-4' />
-                </span>
+                </button>
               </TooltipTrigger>
               <TooltipContent className='max-w-xs leading-5'>
                 {t('module.billing.package.footnote.learnerEstimateTip')}
