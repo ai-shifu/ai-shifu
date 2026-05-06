@@ -115,6 +115,12 @@ export function useAuth(options: UseAuthOptions = {}) {
             ? t('module.auth.otpExpired')
             : t('module.auth.credentialError');
         break;
+      case 1013:
+        description = t('module.auth.otpExpired');
+        break;
+      case 1014:
+        description = t('module.auth.otpInvalid');
+        break;
       default:
         description = message || t('common.core.networkError');
     }

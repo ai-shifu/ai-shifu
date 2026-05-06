@@ -213,9 +213,11 @@ export function PhoneLogin({
   };
 
   const handleVerifyOtp = async () => {
-    if (!phoneOtp) {
+    const otp = phoneOtp.trim();
+
+    if (!otp) {
       toast({
-        title: t('module.auth.otpError'),
+        title: t('module.auth.otpRequired'),
         variant: 'destructive',
       });
       return;
@@ -228,7 +230,7 @@ export function PhoneLogin({
 
     try {
       setIsLoading(true);
-      await loginWithSmsCode(phoneNumber, phoneOtp, i18n.language);
+      await loginWithSmsCode(phoneNumber, otp, i18n.language);
     } finally {
       setIsLoading(false);
     }
@@ -358,7 +360,7 @@ export function PhoneLogin({
           <Button
             className='w-full h-8'
             onClick={handleVerifyOtp}
-            disabled={isLoading || !phoneOtp}
+            disabled={isLoading}
           >
             {isLoading ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />

@@ -172,6 +172,65 @@ describe('PhoneLogin captcha flow', () => {
     expect(onLoginSuccess).toHaveBeenCalled();
   });
 
+  test('prompts for SMS code when login is clicked without OTP', async () => {
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'module.auth.login' })),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.auth.otpRequired',
+      variant: 'destructive',
+    });
+    expect(apiService.skillLogin).not.toHaveBeenCalled();
+  });
+
+  test('uses localized copy for incorrect SMS code errors', async () => {
+    (apiService.skillLogin as jest.Mock).mockResolvedValue({
+      code: 1014,
+      message: 'SMS Verification Code Error',
+    });
+
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+
+    const otpInput = screen.getByPlaceholderText('module.auth.otpPlaceholder');
+    await waitFor(() => expect(otpInput).toBeEnabled());
+    fireEvent.change(otpInput, { target: { value: '9999' } });
+    fireEvent.keyDown(otpInput, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.auth.failed',
+        description: 'module.auth.otpInvalid',
+        variant: 'destructive',
+      }),
+    );
+  });
+
   test('does not enable SMS send without captcha code', async () => {
     render(<PhoneLogin onLoginSuccess={jest.fn()} />);
 
