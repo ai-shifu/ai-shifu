@@ -47,6 +47,29 @@ from flaskr.dao import db
 from flaskr.i18n import set_language
 
 
+def _extract_request_language(payload: dict | None = None) -> str | None:
+    if isinstance(payload, dict):
+        language = payload.get("language")
+        if language:
+            return str(language).strip()
+
+    accept_language = request.headers.get("Accept-Language", "")
+    if not accept_language:
+        return None
+
+    first_part = accept_language.split(",")[0].strip()
+    if not first_part:
+        return None
+
+    return first_part.split(";")[0].strip() or None
+
+
+def _apply_request_language(payload: dict | None = None) -> None:
+    language = _extract_request_language(payload)
+    if language:
+        set_language(language)
+
+
 def optional_token_validation(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -284,6 +307,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
            - user
         """
+        _apply_request_language()
         return make_common_response(create_captcha_challenge(app))
 
     @app.route(path_prefix + "/captcha/verify", methods=["POST"])
@@ -297,6 +321,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
         captcha_id = payload.get("captcha_id", None)
         captcha_code = payload.get("captcha_code", None)
         if not captcha_id:
@@ -357,6 +382,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
         mobile = payload.get("mobile", None)
         captcha_ticket = payload.get("captcha_ticket", None)
         if not mobile:
@@ -381,6 +407,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
         mobile = payload.get("mobile", None)
         if not mobile:
             raise_param_error("mobile")

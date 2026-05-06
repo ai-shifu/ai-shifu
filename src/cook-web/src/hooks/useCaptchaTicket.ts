@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import apiService from '@/api';
+import i18n from '@/i18n';
 
 type ApiEnvelope<T> = {
   code?: number;
@@ -45,19 +46,25 @@ export function useCaptchaTicket(enabled = true) {
   const [captchaCode, setCaptchaCode] = useState('');
   const [isCaptchaLoading, setIsCaptchaLoading] = useState(false);
 
-  const refreshCaptcha = useCallback(async () => {
-    setIsCaptchaLoading(true);
-    try {
-      const response = await apiService.getCaptcha({});
-      const captcha = unwrapApiPayload<CaptchaChallenge>(response);
-      setCaptchaId(captcha.captcha_id);
-      setCaptchaImage(captcha.image);
-      setCaptchaCode('');
-      return captcha;
-    } finally {
-      setIsCaptchaLoading(false);
-    }
-  }, []);
+  const refreshCaptcha = useCallback(
+    async (options?: { clearCode?: boolean }) => {
+      const clearCode = options?.clearCode ?? true;
+      setIsCaptchaLoading(true);
+      try {
+        const response = await apiService.getCaptcha({});
+        const captcha = unwrapApiPayload<CaptchaChallenge>(response);
+        setCaptchaId(captcha.captcha_id);
+        setCaptchaImage(captcha.image);
+        if (clearCode) {
+          setCaptchaCode('');
+        }
+        return captcha;
+      } finally {
+        setIsCaptchaLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -79,6 +86,7 @@ export function useCaptchaTicket(enabled = true) {
     const response = await apiService.verifyCaptcha({
       captcha_id: captchaId,
       captcha_code: captchaCode.trim(),
+      language: i18n.language,
     });
     const ticket = unwrapApiPayload<CaptchaTicket>(response);
     return ticket.captcha_ticket;
