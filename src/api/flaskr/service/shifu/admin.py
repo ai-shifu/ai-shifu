@@ -2489,7 +2489,7 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
     )
 
 
-def _find_matching_follow_up_user_bids(
+def _build_follow_up_user_keyword_filter(
     user_bid_column: Any, keyword: str
 ) -> Any | None:
     normalized = _normalize_identifier(keyword)
@@ -3395,7 +3395,7 @@ def get_operator_course_follow_ups(
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
         follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
-        user_keyword_filter = _find_matching_follow_up_user_bids(
+        user_keyword_filter = _build_follow_up_user_keyword_filter(
             follow_up_base.c.user_bid,
             keyword,
         )
