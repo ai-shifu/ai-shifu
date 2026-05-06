@@ -185,17 +185,6 @@ const buildCreatedLast30DaysFilters = (): Pick<
   };
 };
 
-const handleOverviewCardKeyDown = (
-  event: React.KeyboardEvent<HTMLElement>,
-  onActivate: () => void,
-) => {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return;
-  }
-  event.preventDefault();
-  onActivate();
-};
-
 const renderTooltipText = (text?: string, className?: string) => {
   return (
     <AdminTooltipText
@@ -556,6 +545,7 @@ export default function AdminOperationUsersPage() {
     const initialFilters = createDefaultFilters();
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
+    setQuickFilter('');
     void fetchUsers(1, initialFilters, '');
   }, [fetchUsers, isReady]);
 
@@ -963,28 +953,29 @@ export default function AdminOperationUsersPage() {
             <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
               {overviewCards.map(card => (
                 <div
-                  role='button'
-                  tabIndex={0}
                   key={card.key}
-                  aria-label={card.label}
-                  className='group rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-                  onClick={() => applyQuickFilter(card.quickFilterKey)}
-                  onKeyDown={event =>
-                    handleOverviewCardKeyDown(event, () =>
-                      applyQuickFilter(card.quickFilterKey),
-                    )
-                  }
+                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
                 >
-                  <div className='flex items-center gap-1 text-sm text-muted-foreground'>
-                    <span>{card.label}</span>
+                  <div className='flex items-start justify-between gap-2'>
+                    <button
+                      type='button'
+                      aria-label={card.label}
+                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                      onClick={() => applyQuickFilter(card.quickFilterKey)}
+                    >
+                      <div className='text-sm text-muted-foreground'>
+                        {card.label}
+                      </div>
+                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
+                        {card.value.toLocaleString()}
+                      </div>
+                    </button>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type='button'
                           aria-label={card.tooltip}
                           className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                          onClick={event => event.stopPropagation()}
-                          onKeyDown={event => event.stopPropagation()}
                         >
                           <QuestionMarkCircleIcon className='h-4 w-4' />
                         </button>
@@ -993,9 +984,6 @@ export default function AdminOperationUsersPage() {
                         {card.tooltip}
                       </TooltipContent>
                     </Tooltip>
-                  </div>
-                  <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                    {card.value.toLocaleString()}
                   </div>
                 </div>
               ))}

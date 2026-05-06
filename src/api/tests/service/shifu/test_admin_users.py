@@ -761,6 +761,135 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
     assert [item.user_bid for item in recent_paid_result.data] == ["user-paid"]
 
 
+def test_list_operator_users_recent_windows_exclude_future_records_and_keep_microseconds(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-created-in-range",
+            identify="created-in-range@example.com",
+            nickname="Created In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            providers=[("email", "created-in-range@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-created-future",
+            identify="created-future@example.com",
+            nickname="Created Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            providers=[("email", "created-future@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-in-range",
+            identify="learning-in-range@example.com",
+            nickname="Learning In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "learning-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-future",
+            identify="learning-future@example.com",
+            nickname="Learning Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 10, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("email", "learning-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 10, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-in-range",
+            identify="paid-in-range@example.com",
+            nickname="Paid In Range",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 8, 0, 0),
+            updated_at=datetime(2026, 4, 1, 8, 0, 0),
+            providers=[("email", "paid-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-future",
+            identify="paid-future@example.com",
+            nickname="Paid Future",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "paid-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-in-range",
+            outline_item_bid="lesson-learning-in-range",
+            user_bid="user-learning-in-range",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-future",
+            outline_item_bid="lesson-learning-future",
+            user_bid="user-learning-future",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-in-range",
+            shifu_bid="course-paid-in-range",
+            user_bid="user-paid-in-range",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-future",
+            shifu_bid="course-paid-future",
+            user_bid="user-paid-future",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+
+        result = list_operator_users(app, 1, 20, {})
+        created_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "created_last_30d"}
+        )
+        learning_active_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "learning_active_30d"}
+        )
+        paid_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "paid_last_30d"}
+        )
+
+    assert result.summary.created_last_30d_user_count == 1
+    assert result.summary.learning_active_30d_user_count == 1
+    assert result.summary.paid_last_30d_user_count == 1
+    assert [item.user_bid for item in created_last_30d_result.data] == [
+        "user-created-in-range"
+    ]
+    assert [item.user_bid for item in learning_active_result.data] == [
+        "user-learning-in-range"
+    ]
+    assert [item.user_bid for item in paid_last_30d_result.data] == [
+        "user-paid-in-range"
+    ]
+
+
 def test_list_operator_users_caps_page_size(app):
     with app.app_context():
         _seed_user(

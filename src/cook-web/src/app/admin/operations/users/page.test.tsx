@@ -645,6 +645,49 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
+  test('reinitializing the page clears the stale quick filter state', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.paidUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'paid',
+          user_status: 'paid',
+        }),
+      );
+    });
+
+    mockUserState.isInitialized = false;
+    rerender(<AdminOperationUsersPage />);
+
+    mockUserState.isInitialized = true;
+    rerender(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.queryByText('module.operationsUser.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+  });
+
   test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
     render(<AdminOperationUsersPage />);
 
