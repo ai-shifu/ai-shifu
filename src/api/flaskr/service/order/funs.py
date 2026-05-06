@@ -60,7 +60,7 @@ from flaskr.service.order.payment_channel_resolution import resolve_payment_chan
 from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.models import (
     Order,
     PingxxOrder,
@@ -502,6 +502,8 @@ def generate_charge(
     channel: str,
     client_ip: str,
     payment_channel: Optional[str] = None,
+    return_url: str = "",
+    cancel_url: str = "",
 ) -> BuyRecordDTO:
     """
     Generate charge
@@ -583,6 +585,8 @@ def generate_charge(
                 subject=subject,
                 body=body,
                 order_no=order_no,
+                return_url=return_url,
+                cancel_url=cancel_url,
             )
 
         if payment_channel == "stripe":
@@ -622,6 +626,7 @@ def generate_charge(
                 subject=subject,
                 body=body,
                 order_no=order_no,
+                return_url=return_url,
             )
 
         app.logger.error("payment channel not support: %s", payment_channel)
@@ -653,6 +658,84 @@ def _format_response_channel(payment_channel: str, provider_channel: str) -> str
     return provider_channel
 
 
+def _extract_pingxx_redirect_url(
+    channel: str, credential: Optional[Dict[str, Any]]
+) -> str:
+    """Extract a browser redirect URL from Ping++ credentials when available."""
+
+    if not credential:
+        return ""
+
+    direct_value = credential.get(channel)
+    if isinstance(direct_value, str):
+        return direct_value
+
+    for key in ("redirect_url", "h5_url", "url"):
+        value = credential.get(key)
+        if isinstance(value, str):
+            return value
+
+    return ""
+
+
+def normalize_pingxx_return_url(
+    return_url: str, allowed_origins: Optional[List[str]] = None
+) -> str:
+    """Normalize a Ping++ result URL and restrict it to trusted origins."""
+
+    candidate = str(return_url or "").strip()
+    if not candidate:
+        return ""
+
+    normalized_origins: List[Tuple[str, str]] = []
+    for origin in allowed_origins or []:
+        split_origin = urlsplit(str(origin or "").strip())
+        if not split_origin.scheme or not split_origin.netloc:
+            continue
+        normalized_origins.append(
+            (split_origin.scheme.lower(), split_origin.netloc.lower())
+        )
+
+    split_candidate = urlsplit(candidate)
+    if candidate.startswith("/"):
+        if not normalized_origins:
+            return ""
+        scheme, netloc = normalized_origins[0]
+        return urlunsplit(
+            (
+                scheme,
+                netloc,
+                split_candidate.path or "/",
+                split_candidate.query,
+                split_candidate.fragment,
+            )
+        )
+
+    if split_candidate.scheme.lower() not in {"http", "https"}:
+        return ""
+    if not split_candidate.netloc:
+        return ""
+
+    candidate_origin = (
+        split_candidate.scheme.lower(),
+        split_candidate.netloc.lower(),
+    )
+    if not normalized_origins:
+        return ""
+    if candidate_origin not in normalized_origins:
+        return ""
+
+    return urlunsplit(
+        (
+            split_candidate.scheme,
+            split_candidate.netloc,
+            split_candidate.path or "/",
+            split_candidate.query,
+            split_candidate.fragment,
+        )
+    )
+
+
 def _sanitize_pingxx_text(
     value: Optional[str], *, fallback: str, max_length: int
 ) -> str:
@@ -675,6 +758,8 @@ def _generate_pingxx_charge(
     subject: str,
     body: str,
     order_no: str,
+    return_url: str = "",
+    cancel_url: str = "",
 ) -> BuyRecordDTO:
     provider = get_payment_provider("pingxx")
     pingpp_id = get_config("PINGXX_APP_ID")
@@ -694,7 +779,14 @@ def _generate_pingxx_charge(
         charge_extra = {"open_id": user.wechat_open_id} if user else {}
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
-        charge_extra = {}
+        charge_extra = {"result_url": return_url} if return_url else {}
+    elif channel == "alipay_wap":  # alipay mobile web
+        if not return_url:
+            app.logger.error("channel:%s missing required return_url", channel)
+            raise_param_error("return_url")
+        charge_extra = {"success_url": return_url}
+        if cancel_url:
+            charge_extra["cancel_url"] = cancel_url
     else:
         app.logger.error("channel:%s not support", channel)
         raise_error("server.pay.payChannelNotSupport")
@@ -733,6 +825,7 @@ def _generate_pingxx_charge(
     charge = result.raw_response
     credential = charge.get("credential", {}) or {}
     qr_url = credential.get(qr_url_key) if qr_url_key else ""
+    redirect_url = _extract_pingxx_redirect_url(channel, credential)
     app.logger.info("Pingxx charge created:%s", charge)
 
     buy_record.status = ORDER_STATUS_TO_BE_PAID
@@ -761,10 +854,11 @@ def _generate_pingxx_charge(
         buy_record.user_bid,
         buy_record.paid_price,
         channel,
-        qr_url or "",
+        qr_url or redirect_url or "",
         payment_channel="pingxx",
         payment_payload={
             "qr_url": qr_url or "",
+            "redirect_url": redirect_url,
             "credential": credential,
         },
     )
@@ -988,6 +1082,7 @@ def _generate_wechatpay_charge(
     subject: str,
     body: str,
     order_no: str,
+    return_url: str = "",
 ) -> BuyRecordDTO:
     provider = get_payment_provider("wechatpay")
     sanitized_subject = _sanitize_pingxx_text(
@@ -1013,6 +1108,8 @@ def _generate_wechatpay_charge(
         if not open_id:
             raise_error("server.pay.wechatOpenIdRequired")
         extra["open_id"] = open_id
+    if channel == "wx_h5" and return_url:
+        extra["return_url"] = return_url
 
     payment_request = PaymentRequest(
         order_bid=order_no,
@@ -1029,6 +1126,8 @@ def _generate_wechatpay_charge(
     result = provider.create_payment(request=payment_request, app=app)
     credential = result.extra.get("credential", {}) or {}
     qr_url = str(result.extra.get("qr_url") or credential.get("wx_pub_qr") or "")
+    h5_url = str(result.extra.get("h5_url") or credential.get("wx_h5") or "")
+    redirect_url = str(result.extra.get("redirect_url") or "")
 
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     metadata = {
@@ -1060,6 +1159,8 @@ def _generate_wechatpay_charge(
 
     payment_payload: Dict[str, Any] = {
         "qr_url": qr_url,
+        "h5_url": h5_url,
+        "redirect_url": redirect_url,
         "credential": credential,
     }
     if result.extra.get("mode") == "jsapi":
@@ -1076,7 +1177,7 @@ def _generate_wechatpay_charge(
         buy_record.user_bid,
         buy_record.paid_price,
         channel,
-        qr_url,
+        redirect_url or qr_url or h5_url,
         payment_channel="wechatpay",
         payment_payload=payment_payload,
     )

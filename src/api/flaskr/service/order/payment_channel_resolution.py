@@ -121,10 +121,10 @@ def resolve_payment_channel(
         if provider_channel in {"", "wechatpay"}:
             provider_channel = (
                 default_channel
-                if default_channel in {"wx_pub_qr", "wx_pub"}
+                if default_channel in {"wx_pub_qr", "wx_pub", "wx_h5"}
                 else "wx_pub_qr"
             )
-        if provider_channel not in {"wx_pub_qr", "wx_pub"}:
+        if provider_channel not in {"wx_pub_qr", "wx_pub", "wx_h5"}:
             raise_error("server.pay.payChannelNotSupport")
         return "wechatpay", provider_channel
 
@@ -137,7 +137,9 @@ def resolve_payment_channel(
 def _provider_for_channel(channel: str, enabled_providers: set[str]) -> str:
     if channel == "alipay_qr":
         return "alipay" if "alipay" in enabled_providers else "pingxx"
-    if channel in {"wx_pub_qr", "wx_pub"}:
+    if channel == "wx_h5":
+        return "wechatpay"
+    if channel in {"wx_pub_qr", "wx_pub", "wx_h5"}:
         return "wechatpay" if "wechatpay" in enabled_providers else "pingxx"
     if channel == "wx_wap":
         return "pingxx"

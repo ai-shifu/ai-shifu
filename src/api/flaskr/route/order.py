@@ -1,4 +1,7 @@
-from flask import Flask, request
+from urllib.parse import urlsplit
+
+from flask import Flask, current_app, request
+from flaskr.service.config.funcs import get_config
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.route.common import make_common_response
@@ -8,6 +11,7 @@ from flaskr.service.order import (
     init_buy_record,
     handle_stripe_webhook,
     get_payment_details,
+    normalize_pingxx_return_url,
     sync_native_payment_order,
     sync_stripe_checkout_session,
 )
@@ -24,6 +28,68 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     get_shifu_draft_list,
     get_shifu_published_list,
 )
+
+
+def build_pingxx_allowed_origins() -> list[str]:
+    """Build trusted origins for Ping++ WAP return URLs."""
+
+    origins: list[str] = []
+    home_url = get_config("HOME_URL", "")
+    candidates = [_request_origin(), home_url]
+
+    server_name_value = current_app.config.get("SERVER_NAME")
+    server_name = (
+        str(server_name_value).strip() if server_name_value not in (None, "") else ""
+    )
+    if server_name:
+        server_split = urlsplit(server_name)
+        if server_split.scheme and server_split.netloc:
+            candidates.append(server_name)
+        else:
+            scheme = (
+                str(current_app.config.get("PREFERRED_URL_SCHEME") or "").strip()
+                or request.scheme
+                or "https"
+            )
+            candidates.append(f"{scheme}://{server_name}")
+
+    for candidate in candidates:
+        split = urlsplit(str(candidate or "").strip())
+        if not split.scheme or not split.netloc:
+            continue
+        origin = f"{split.scheme}://{split.netloc}"
+        if origin not in origins:
+            origins.append(origin)
+
+    return origins
+
+
+def _request_origin() -> str:
+    forwarded_proto = (
+        str(request.headers.get("X-Forwarded-Proto") or "").split(",", 1)[0].strip()
+    )
+    forwarded_host = (
+        str(request.headers.get("X-Forwarded-Host") or "").split(",", 1)[0].strip()
+    )
+    scheme = forwarded_proto or request.scheme or "https"
+    host = forwarded_host or request.host
+    if not host:
+        return ""
+    return f"{scheme}://{host}"
+
+
+def resolve_pingxx_return_url(raw_return_url: str) -> str:
+    """Resolve Ping++ return URLs using trusted server-side origins only."""
+
+    candidate = str(raw_return_url or "").strip()
+    if not candidate:
+        return ""
+
+    allowed_origins = build_pingxx_allowed_origins()
+    return normalize_pingxx_return_url(
+        candidate,
+        allowed_origins=allowed_origins,
+    )
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -50,10 +116,16 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 订单id
                     channel:
                         type: string
-                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、wx_h5、wx_wap、alipay_qr、alipay_wap等；Stripe通道请输入stripe或stripe:checkout_session等格式
                     payment_channel:
                         type: string
                         description: 目标支付提供方，可选值为pingxx、stripe、alipay、wechatpay（不填则按配置解析）
+                    return_url:
+                        type: string
+                        description: Mobile payment return URL. Only same-origin URLs or site-relative paths are allowed.
+                    cancel_url:
+                        type: string
+                        description: Ping++ cancel URL. Only same-origin URLs or site-relative paths are allowed.
         responses:
             200:
                 description: 请求支付成功
@@ -75,6 +147,16 @@ def register_order_handler(app: Flask, path_prefix: str):
         order_id = payload.get("order_id", "")
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
+        raw_return_url = payload.get("return_url", "")
+        raw_cancel_url = payload.get("cancel_url", "")
+        return_url = resolve_pingxx_return_url(raw_return_url)
+        cancel_url = resolve_pingxx_return_url(raw_cancel_url)
+        if raw_return_url and not return_url:
+            raise_param_error("return_url")
+        if raw_cancel_url and not cancel_url:
+            raise_param_error("cancel_url")
+        if channel == "alipay_wap" and not return_url:
+            raise_param_error("return_url")
         client_ip = request.client_ip
         return make_common_response(
             generate_charge(
@@ -83,6 +165,8 @@ def register_order_handler(app: Flask, path_prefix: str):
                 channel,
                 client_ip,
                 payment_channel=payment_channel,
+                return_url=return_url,
+                cancel_url=cancel_url,
             )
         )
 

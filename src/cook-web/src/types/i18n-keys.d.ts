@@ -1604,6 +1604,8 @@ export type I18nKey =
   | 'module.pay.payChannelStripeCard'
   | 'module.pay.payChannelWechat'
   | 'module.pay.payFailed'
+  | 'module.pay.pingxxResultPending'
+  | 'module.pay.pingxxResultTimeout'
   | 'module.pay.paySuccess'
   | 'module.pay.processing'
   | 'module.pay.stripeAwaitingIntent'

@@ -1,52 +1,81 @@
 /* global WeixinJSBridge */
 import { inWechat } from '@/c-constants/uiConstants';
 
-export const useWechat = () => {
-  const jsBridegetReady = Promise.resolve((resolve, reject) => {
-    if (!inWechat()) {
-      reject('not in wechat');
-    }
-    function onBridgeReady() {
-      resolve();
-    }
+let jsBridgeReadyPromise: Promise<void> | null = null;
+
+function removeBridgeReadyListener(listener: () => void) {
+  if (document.removeEventListener) {
+    document.removeEventListener('WeixinJSBridgeReady', listener, false);
+  }
+  // @ts-expect-error EXPECT
+  if (document.detachEvent) {
     // @ts-expect-error EXPECT
-    if (typeof WeixinJSBridge == 'undefined') {
-      if (document.addEventListener) {
-        document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false);
-        // @ts-expect-error EXPECT
-      } else if (document.attachEvent) {
-        // @ts-expect-error EXPECT
-        document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
-        // @ts-expect-error EXPECT
-        document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
-      }
-    } else {
-      onBridgeReady();
-    }
-  });
+    document.detachEvent('WeixinJSBridgeReady', listener);
+    // @ts-expect-error EXPECT
+    document.detachEvent('onWeixinJSBridgeReady', listener);
+  }
+}
 
-  const runInJsBridge = callback => {
+export const useWechat = () => {
+  const ensureJsBridgeReady = () => {
     if (!inWechat()) {
-      return;
+      return Promise.reject(new Error('not in wechat'));
+    }
+    if (jsBridgeReadyPromise) {
+      return jsBridgeReadyPromise;
     }
 
-    jsBridegetReady.then(callback);
+    jsBridgeReadyPromise = new Promise<void>(resolve => {
+      const onBridgeReady = () => {
+        removeBridgeReadyListener(onBridgeReady);
+        resolve();
+      };
+      // @ts-expect-error EXPECT
+      if (typeof WeixinJSBridge == 'undefined') {
+        if (document.addEventListener) {
+          document.addEventListener(
+            'WeixinJSBridgeReady',
+            onBridgeReady,
+            false,
+          );
+          // @ts-expect-error EXPECT
+        } else if (document.attachEvent) {
+          // @ts-expect-error EXPECT
+          document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
+          // @ts-expect-error EXPECT
+          document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
+        }
+      } else {
+        onBridgeReady();
+      }
+    });
+
+    return jsBridgeReadyPromise;
+  };
+
+  const runInJsBridge = async callback => {
+    await ensureJsBridgeReady();
+    return callback();
   };
 
   const payByJsApi = async payData => {
-    return new Promise((resolve, reject) => {
-      runInJsBridge(() => {
-        // @ts-expect-error EXPECT
-        WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
-          if (res.err_msg === 'get_brand_wcpay_request:ok') {
-            // @ts-expect-error EXPECT
-            resolve();
-          } else {
-            reject(res.err_msg);
-          }
-        });
-      });
-    });
+    await runInJsBridge(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          // @ts-expect-error EXPECT
+          WeixinJSBridge.invoke(
+            'getBrandWCPayRequest',
+            payData,
+            function (res) {
+              if (res.err_msg === 'get_brand_wcpay_request:ok') {
+                resolve();
+              } else {
+                reject(res.err_msg);
+              }
+            },
+          );
+        }),
+    );
   };
 
   return { runInJsBridge, payByJsApi };

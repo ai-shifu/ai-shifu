@@ -34,6 +34,9 @@ services:
 
   ai-shifu-celery-worker-dev:
     image: ai-shifu-api-dev:latest
+    build:
+      context: ..
+      dockerfile: src/api/Dockerfile
     command:
       - sh
       - -c
@@ -56,6 +59,9 @@ services:
 
   ai-shifu-celery-beat-dev:
     image: ai-shifu-api-dev:latest
+    build:
+      context: ..
+      dockerfile: src/api/Dockerfile
     command:
       - sh
       - -c

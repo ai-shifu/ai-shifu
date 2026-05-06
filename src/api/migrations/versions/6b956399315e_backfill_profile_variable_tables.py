@@ -109,8 +109,22 @@ def upgrade():
 
     # Backfill user values from legacy user_profile.
     if _table_exists("user_profile"):
-        insert_values_sql = sa.text(
+        has_profile_item_parent = _table_exists("profile_item") and _column_exists(
+            "profile_item", "parent_id"
+        )
+        shifu_bid_expr = (
+            "COALESCE(pi.parent_id, '')" if has_profile_item_parent else "''"
+        )
+        profile_item_join = (
             """
+            LEFT JOIN profile_item pi
+                ON pi.profile_id = u.profile_id
+            """
+            if has_profile_item_parent
+            else ""
+        )
+        insert_values_sql = sa.text(
+            f"""
             INSERT INTO var_variable_values (
                 variable_value_bid,
                 user_bid,
@@ -125,7 +139,7 @@ def upgrade():
             SELECT
                 REPLACE(UUID(), '-', ''),
                 u.user_id,
-                COALESCE(pi.parent_id, ''),
+                {shifu_bid_expr},
                 u.profile_id,
                 u.profile_key,
                 u.profile_value,
@@ -149,8 +163,7 @@ def upgrade():
                     profile_value,
                     created
             ) u
-            LEFT JOIN profile_item pi
-                ON pi.profile_id = u.profile_id
+            {profile_item_join}
             LEFT JOIN var_variable_values v
                 ON v.user_bid = u.user_id
                 AND v.variable_bid = u.profile_id

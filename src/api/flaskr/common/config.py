@@ -582,6 +582,20 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "REDIS_USER": EnvVar(
         name="REDIS_USER", default="", description="Redis username", group="redis"
     ),
+    "REDIS_SOCKET_CONNECT_TIMEOUT": EnvVar(
+        name="REDIS_SOCKET_CONNECT_TIMEOUT",
+        default=1.0,
+        type=float,
+        description="Redis socket connect timeout in seconds",
+        group="redis",
+    ),
+    "REDIS_SOCKET_TIMEOUT": EnvVar(
+        name="REDIS_SOCKET_TIMEOUT",
+        default=1.0,
+        type=float,
+        description="Redis socket timeout in seconds",
+        group="redis",
+    ),
     "REDIS_KEY_PREFIX": EnvVar(
         name="REDIS_KEY_PREFIX",
         default="ai-shifu:",
