@@ -1284,20 +1284,11 @@ const OperationsPage = () => {
           </div>
           <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
             {overviewCards.map(card => {
-              const isActive = card.quickFilterKey
-                ? quickFilter === card.quickFilterKey
-                : !quickFilter;
-
               return (
                 <button
                   type='button'
                   key={card.key}
-                  className={cn(
-                    'rounded-lg border px-3.5 py-2.5 text-left transition-colors',
-                    isActive
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border bg-muted/20 hover:bg-muted/40',
-                  )}
+                  className='group rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
                   onClick={() => applyQuickFilter(card.quickFilterKey)}
                 >
                   <div className='flex items-center gap-1 text-sm text-muted-foreground'>
@@ -1319,7 +1310,7 @@ const OperationsPage = () => {
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                  <div className='mt-1.5 text-[2rem] font-semibold leading-none text-foreground'>
+                  <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
                     {formatCount(card.value)}
                   </div>
                 </button>
