@@ -2083,9 +2083,7 @@ class TestBillingWriteRoutes:
                     return frozen_now.replace(tzinfo=tz)
                 return frozen_now
 
-        monkeypatch.setattr(
-            billing_subscriptions_module, "datetime", FrozenDateTime
-        )
+        monkeypatch.setattr(billing_subscriptions_module, "datetime", FrozenDateTime)
 
         with app.app_context():
             subscription = BillingSubscription(

@@ -233,9 +233,7 @@ def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
         if price_amount_minor == price_amount_minor.to_integral_value():
             price_amount_candidates.add(int(price_amount_minor))
     if price_amount_candidates:
-        filters.append(
-            BillingProduct.price_amount.in_(sorted(price_amount_candidates))
-        )
+        filters.append(BillingProduct.price_amount.in_(sorted(price_amount_candidates)))
 
     rows = (
         BillingProduct.query.filter(or_(*filters))
