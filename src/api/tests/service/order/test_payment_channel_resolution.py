@@ -307,7 +307,7 @@ class TestResolvePaymentChannel:
         ):
             assert order_route.build_pingxx_allowed_origins() == [
                 "https://api.example.com",
-                "https://cook.example.com"
+                "https://cook.example.com",
             ]
 
     def test_build_pingxx_allowed_origins_uses_server_name_when_available(

@@ -65,12 +65,12 @@ def build_pingxx_allowed_origins() -> list[str]:
 
 
 def _request_origin() -> str:
-    forwarded_proto = str(request.headers.get("X-Forwarded-Proto") or "").split(
-        ",", 1
-    )[0].strip()
-    forwarded_host = str(request.headers.get("X-Forwarded-Host") or "").split(
-        ",", 1
-    )[0].strip()
+    forwarded_proto = (
+        str(request.headers.get("X-Forwarded-Proto") or "").split(",", 1)[0].strip()
+    )
+    forwarded_host = (
+        str(request.headers.get("X-Forwarded-Host") or "").split(",", 1)[0].strip()
+    )
     scheme = forwarded_proto or request.scheme or "https"
     host = forwarded_host or request.host
     if not host:
