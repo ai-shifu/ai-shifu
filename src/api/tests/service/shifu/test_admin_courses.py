@@ -642,6 +642,105 @@ def test_list_operator_courses_filters_by_course_status():
     assert published_result.items[0].course_status == "published"
 
 
+def test_list_operator_courses_applies_quick_filters(monkeypatch):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2025, 5, 1, 12, 0, 0)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    app = Flask(__name__)
+    recent_course = DummyCourse(
+        shifu_bid="course-recent",
+        title="Recent Course",
+        price="39.00",
+        created_user_bid="creator-1",
+        updated_user_bid="creator-1",
+        created_at=datetime(2025, 4, 30, 9, 0, 0),
+        updated_at=datetime(2025, 4, 30, 9, 0, 0),
+    )
+    paid_course = DummyCourse(
+        shifu_bid="course-paid",
+        title="Paid Course",
+        price="59.00",
+        created_user_bid="creator-2",
+        updated_user_bid="creator-2",
+        created_at=datetime(2025, 4, 1, 10, 0, 0),
+        updated_at=datetime(2025, 4, 2, 10, 0, 0),
+    )
+    learning_course = DummyCourse(
+        shifu_bid="course-learning",
+        title="Learning Course",
+        price="29.00",
+        created_user_bid="creator-3",
+        updated_user_bid="creator-3",
+        created_at=datetime(2025, 3, 20, 10, 0, 0),
+        updated_at=datetime(2025, 4, 2, 10, 0, 0),
+    )
+
+    with patch(
+        "flaskr.service.shifu.admin._find_matching_creator_bids"
+    ) as creator_mock:
+        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+            with patch(
+                "flaskr.service.shifu.admin._load_course_activity_map"
+            ) as activity_mock:
+                with patch(
+                    "flaskr.service.shifu.admin._load_user_map"
+                ) as user_map_mock:
+                    with patch(
+                        "flaskr.service.shifu.admin._load_recent_learning_active_course_bids"
+                    ) as learning_mock:
+                        with patch(
+                            "flaskr.service.shifu.admin._load_recent_paid_order_course_bids"
+                        ) as paid_mock:
+                            with patch(
+                                "flaskr.service.shifu.admin._build_operator_course_overview",
+                                return_value=EMPTY_COURSE_OVERVIEW,
+                            ):
+                                creator_mock.return_value = None
+                                latest_mock.side_effect = lambda model, **kwargs: (
+                                    [recent_course, paid_course, learning_course]
+                                    if model.__name__ == "DraftShifu"
+                                    else []
+                                )
+                                activity_mock.return_value = {}
+                                user_map_mock.return_value = {
+                                    "creator-1": {
+                                        "mobile": "",
+                                        "email": "creator-1@example.com",
+                                        "nickname": "",
+                                    },
+                                    "creator-2": {
+                                        "mobile": "",
+                                        "email": "creator-2@example.com",
+                                        "nickname": "",
+                                    },
+                                    "creator-3": {
+                                        "mobile": "",
+                                        "email": "creator-3@example.com",
+                                        "nickname": "",
+                                    },
+                                }
+                                learning_mock.return_value = {"course-learning"}
+                                paid_mock.return_value = {"course-paid"}
+
+                                created_result = list_operator_courses(
+                                    app, 1, 20, {"quick_filter": "created_last_7d"}
+                                )
+                                learning_result = list_operator_courses(
+                                    app, 1, 20, {"quick_filter": "learning_active_30d"}
+                                )
+                                paid_result = list_operator_courses(
+                                    app, 1, 20, {"quick_filter": "paid_order_30d"}
+                                )
+
+    assert [item.shifu_bid for item in created_result.items] == ["course-recent"]
+    assert [item.shifu_bid for item in learning_result.items] == ["course-learning"]
+    assert [item.shifu_bid for item in paid_result.items] == ["course-paid"]
+
+
 def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch):
     class FixedDateTime(datetime):
         @classmethod

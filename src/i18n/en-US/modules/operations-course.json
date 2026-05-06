@@ -271,6 +271,7 @@
     "status": "Status"
   },
   "overview": {
+    "activeFilter": "Quick Filter",
     "metrics": {
       "createdLast7d": "New Courses (7d)",
       "draftCourses": "Draft Courses",

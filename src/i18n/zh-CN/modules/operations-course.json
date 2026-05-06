@@ -271,6 +271,7 @@
     "status": "状态"
   },
   "overview": {
+    "activeFilter": "快捷筛选",
     "metrics": {
       "createdLast7d": "近7天新增课程",
       "draftCourses": "草稿课程",

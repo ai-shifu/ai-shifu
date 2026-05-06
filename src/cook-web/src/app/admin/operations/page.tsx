@@ -102,12 +102,25 @@ type CourseFilters = {
   updated_end_time: string;
 };
 
+type CourseQuickFilterKey =
+  | ''
+  | 'draft'
+  | 'published'
+  | 'created_last_7d'
+  | 'learning_active_30d'
+  | 'paid_order_30d';
+
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const COURSE_STATUS_PUBLISHED = 'published';
 const COURSE_STATUS_UNPUBLISHED = 'unpublished';
+const COURSE_QUICK_FILTER_DRAFT = 'draft';
+const COURSE_QUICK_FILTER_PUBLISHED = 'published';
+const COURSE_QUICK_FILTER_CREATED_LAST_7D = 'created_last_7d';
+const COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const COURSE_QUICK_FILTER_PAID_ORDER_30D = 'paid_order_30d';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
@@ -159,6 +172,26 @@ const createDefaultFilters = (): CourseFilters => ({
   updated_start_time: '',
   updated_end_time: '',
 });
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast7DaysFilters = (): Pick<
+  CourseFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 6);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
 
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
@@ -264,6 +297,7 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.overview.tooltips.createdLast7d')
  * t('module.operationsCourse.overview.tooltips.learningActive30d')
  * t('module.operationsCourse.overview.tooltips.ordered30d')
+ * t('module.operationsCourse.overview.activeFilter')
  * t('module.operationsCourse.table.courseName')
  * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
@@ -381,6 +415,7 @@ const OperationsPage = () => {
   const [courseOverview, setCourseOverview] =
     useState<AdminOperationCourseOverview>(EMPTY_COURSE_OVERVIEW);
   const [filters, setFilters] = useState<CourseFilters>(createDefaultFilters);
+  const [quickFilter, setQuickFilter] = useState<CourseQuickFilterKey>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
@@ -407,7 +442,11 @@ const OperationsPage = () => {
   const promptRequestIdRef = useRef(0);
   const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
   const fetchCoursesRef = useRef<
-    | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
+    | ((
+        targetPage: number,
+        nextFilters?: CourseFilters,
+        nextQuickFilter?: CourseQuickFilterKey,
+      ) => Promise<void>)
     | undefined
   >(undefined);
   const {
@@ -490,8 +529,13 @@ const OperationsPage = () => {
   ]);
 
   const fetchCourses = useCallback(
-    async (targetPage: number, nextFilters?: CourseFilters) => {
+    async (
+      targetPage: number,
+      nextFilters?: CourseFilters,
+      nextQuickFilter?: CourseQuickFilterKey,
+    ) => {
       const resolvedFilters = nextFilters ?? filters;
+      const resolvedQuickFilter = nextQuickFilter ?? quickFilter;
       requestedPageRef.current = targetPage;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
@@ -505,6 +549,7 @@ const OperationsPage = () => {
           course_name: resolvedFilters.course_name.trim(),
           creator_keyword: resolvedFilters.creator_keyword.trim(),
           course_status: resolvedFilters.course_status,
+          quick_filter: resolvedQuickFilter,
           start_time: resolvedFilters.start_time,
           end_time: resolvedFilters.end_time,
           updated_start_time: resolvedFilters.updated_start_time,
@@ -536,7 +581,7 @@ const OperationsPage = () => {
         }
       }
     },
-    [filters, t],
+    [filters, quickFilter, t],
   );
 
   useEffect(() => {
@@ -547,28 +592,87 @@ const OperationsPage = () => {
     if (!isInitialized || isGuest || !isReady) {
       return;
     }
-    fetchCoursesRef.current?.(1, createDefaultFilters());
+    fetchCoursesRef.current?.(1, createDefaultFilters(), '');
   }, [isGuest, isInitialized, isReady]);
 
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof CourseFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (
+        quickFilter === COURSE_QUICK_FILTER_DRAFT ||
+        quickFilter === COURSE_QUICK_FILTER_PUBLISHED
+      ) {
+        const expectedStatus =
+          quickFilter === COURSE_QUICK_FILTER_DRAFT
+            ? COURSE_STATUS_UNPUBLISHED
+            : COURSE_STATUS_PUBLISHED;
+        if (key === 'course_status' && value !== expectedStatus) {
+          setQuickFilter('');
+        }
+        return;
+      }
+      if (quickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        const expected = buildCreatedLast7DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+        }
+      }
+    },
+    [quickFilter],
+  );
+
   const handleFilterChange = (key: keyof CourseFilters, value: string) => {
+    clearQuickFilterIfConflicted(key, value);
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: CourseQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setFilters(cleared);
+        setQuickFilter('');
+        fetchCourses(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === COURSE_QUICK_FILTER_DRAFT) {
+        nextFilters.course_status = COURSE_STATUS_UNPUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_PUBLISHED) {
+        nextFilters.course_status = COURSE_STATUS_PUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        Object.assign(nextFilters, buildCreatedLast7DaysFilters());
+      }
+
+      setFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      fetchCourses(1, nextFilters, targetQuickFilter);
+    },
+    [fetchCourses, quickFilter],
+  );
+
   const handleSearch = () => {
-    fetchCourses(1, filters);
+    fetchCourses(1, filters, quickFilter);
   };
 
   const handleReset = () => {
     const cleared = createDefaultFilters();
     setFilters(cleared);
-    fetchCourses(1, cleared);
+    setQuickFilter('');
+    fetchCourses(1, cleared, '');
   };
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount || nextPage === pageIndex) {
       return;
     }
-    fetchCourses(nextPage);
+    fetchCourses(nextPage, filters, quickFilter);
   };
 
   const handleDetailClick = (course: AdminOperationCourseItem) => {
@@ -809,7 +913,7 @@ const OperationsPage = () => {
         title: tOperations('transferCreatorDialog.submitSuccess'),
       });
       handleTransferDialogOpenChange(false);
-      await fetchCourses(requestedPageRef.current);
+      await fetchCourses(requestedPageRef.current, filters, quickFilter);
     } catch (error) {
       setTransferError(
         error instanceof Error ? error.message : t('common.core.unknownError'),
@@ -819,8 +923,10 @@ const OperationsPage = () => {
     }
   }, [
     fetchCourses,
+    filters,
     handleTransferDialogOpenChange,
     normalizedTransferIdentifier,
+    quickFilter,
     t,
     tOperations,
     toast,
@@ -843,40 +949,58 @@ const OperationsPage = () => {
         label: tOperations('overview.metrics.totalCourses'),
         value: courseOverview.total_course_count,
         tooltip: tOperations('overview.tooltips.totalCourses'),
+        quickFilterKey: '' as CourseQuickFilterKey,
       },
       {
         key: 'draft',
         label: tOperations('overview.metrics.draftCourses'),
         value: courseOverview.draft_course_count,
         tooltip: tOperations('overview.tooltips.draftCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_DRAFT as CourseQuickFilterKey,
       },
       {
         key: 'published',
         label: tOperations('overview.metrics.publishedCourses'),
         value: courseOverview.published_course_count,
         tooltip: tOperations('overview.tooltips.publishedCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_PUBLISHED as CourseQuickFilterKey,
       },
       {
         key: 'created-last-7d',
         label: tOperations('overview.metrics.createdLast7d'),
         value: courseOverview.created_last_7d_course_count,
         tooltip: tOperations('overview.tooltips.createdLast7d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_CREATED_LAST_7D as CourseQuickFilterKey,
       },
       {
         key: 'learning-30d',
         label: tOperations('overview.metrics.learningActive30d'),
         value: courseOverview.learning_active_30d_course_count,
         tooltip: tOperations('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D as CourseQuickFilterKey,
       },
       {
         key: 'orders-30d',
         label: tOperations('overview.metrics.ordered30d'),
         value: courseOverview.paid_order_30d_course_count,
         tooltip: tOperations('overview.tooltips.ordered30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_PAID_ORDER_30D as CourseQuickFilterKey,
       },
     ],
     [courseOverview, tOperations],
   );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
 
   const collapsedFilterItems = [
     {
@@ -1129,7 +1253,9 @@ const OperationsPage = () => {
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
-          onRetry={() => fetchCourses(requestedPageRef.current)}
+          onRetry={() =>
+            fetchCourses(requestedPageRef.current, filters, quickFilter)
+          }
         />
       </div>
     );
@@ -1157,35 +1283,48 @@ const OperationsPage = () => {
             </h2>
           </div>
           <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
-            {overviewCards.map(card => (
-              <div
-                key={card.key}
-                className='rounded-lg border border-border bg-muted/20 px-3.5 py-2.5'
-              >
-                <div className='flex items-center gap-1 text-sm text-muted-foreground'>
-                  <span>{card.label}</span>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type='button'
-                          aria-label={card.tooltip}
-                          className='inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground'
-                        >
-                          <QuestionMarkCircleIcon className='h-4 w-4' />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className='max-w-56 text-left leading-5'>
-                        {card.tooltip}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className='mt-1.5 text-[2rem] font-semibold leading-none text-foreground'>
-                  {formatCount(card.value)}
-                </div>
-              </div>
-            ))}
+            {overviewCards.map(card => {
+              const isActive = card.quickFilterKey
+                ? quickFilter === card.quickFilterKey
+                : !quickFilter;
+
+              return (
+                <button
+                  type='button'
+                  key={card.key}
+                  className={cn(
+                    'rounded-lg border px-3.5 py-2.5 text-left transition-colors',
+                    isActive
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-muted/20 hover:bg-muted/40',
+                  )}
+                  onClick={() => applyQuickFilter(card.quickFilterKey)}
+                >
+                  <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                    <span>{card.label}</span>
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label={card.tooltip}
+                            className='inline-flex h-4 w-4 items-center justify-center text-muted-foreground'
+                            onClick={event => event.stopPropagation()}
+                          >
+                            <QuestionMarkCircleIcon className='h-4 w-4' />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className='max-w-56 text-left leading-5'>
+                          {card.tooltip}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className='mt-1.5 text-[2rem] font-semibold leading-none text-foreground'>
+                    {formatCount(card.value)}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1194,6 +1333,22 @@ const OperationsPage = () => {
           data-testid='admin-operations-filters'
         >
           <div className='space-y-4'>
+            {activeQuickFilterCard ? (
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='text-sm text-muted-foreground'>
+                  {tOperations('overview.activeFilter')}
+                </span>
+                <button
+                  type='button'
+                  aria-label={`${activeQuickFilterCard.label} ${clearLabel}`}
+                  className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+                  onClick={() => applyQuickFilter('')}
+                >
+                  <span>{activeQuickFilterCard.label}</span>
+                  <X className='h-3.5 w-3.5' />
+                </button>
+              </div>
+            ) : null}
             <div
               className={cn(
                 'grid gap-4',

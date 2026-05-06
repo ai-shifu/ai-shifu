@@ -489,6 +489,7 @@ describe('OperationsPage', () => {
         course_name: '',
         creator_keyword: '',
         course_status: '',
+        quick_filter: '',
         start_time: '',
         end_time: '',
         updated_start_time: '',
@@ -503,9 +504,9 @@ describe('OperationsPage', () => {
     expect(screen.getByText('24')).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.overview.tooltips.totalCourses',
-      }),
+      screen.getByLabelText(
+        'module.operationsCourse.overview.tooltips.totalCourses',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
     expect(
@@ -742,6 +743,75 @@ describe('OperationsPage', () => {
       expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
         expect.objectContaining({
           course_status: 'published',
+          quick_filter: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking a status overview card applies the matching quick filter and syncs status', async () => {
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.draftCourses/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          course_status: 'unpublished',
+          quick_filter: 'draft',
+          shifu_bid: '',
+          course_name: '',
+          creator_keyword: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.operationsCourse.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.draftCourses module\.chat\.lessonFeedbackClearInput/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('clicking an activity overview card applies and clears the quick filter chip', async () => {
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.ordered30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'paid_order_30d',
+        }),
+      );
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.ordered30d module\.chat\.lessonFeedbackClearInput/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          course_status: '',
+          start_time: '',
+          end_time: '',
+          updated_start_time: '',
+          updated_end_time: '',
         }),
       );
     });

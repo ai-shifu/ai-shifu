@@ -146,6 +146,18 @@ from flaskr.service.user.utils import (
 
 COURSE_STATUS_PUBLISHED = "published"
 COURSE_STATUS_UNPUBLISHED = "unpublished"
+COURSE_QUICK_FILTER_DRAFT = "draft"
+COURSE_QUICK_FILTER_PUBLISHED = "published"
+COURSE_QUICK_FILTER_CREATED_LAST_7D = "created_last_7d"
+COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = "learning_active_30d"
+COURSE_QUICK_FILTER_PAID_ORDER_30D = "paid_order_30d"
+COURSE_QUICK_FILTER_VALUES = {
+    COURSE_QUICK_FILTER_DRAFT,
+    COURSE_QUICK_FILTER_PUBLISHED,
+    COURSE_QUICK_FILTER_CREATED_LAST_7D,
+    COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D,
+    COURSE_QUICK_FILTER_PAID_ORDER_30D,
+}
 PROMPT_SOURCE_LESSON = "lesson"
 PROMPT_SOURCE_CHAPTER = "chapter"
 PROMPT_SOURCE_COURSE = "course"
@@ -1472,6 +1484,15 @@ def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
     return COURSE_STATUS_UNPUBLISHED
 
 
+def _resolve_course_quick_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    if normalized not in COURSE_QUICK_FILTER_VALUES:
+        raise_param_error("quick_filter")
+    return normalized
+
+
 def _record_course_activity(
     activity_map: Dict[str, Dict[str, Any]],
     *,
@@ -1610,6 +1631,56 @@ def _load_latest_course_for_transfer(shifu_bid: str):
         .order_by(PublishedShifu.id.desc())
         .first()
     )
+
+
+def _load_recent_learning_active_course_bids(
+    *,
+    since: datetime,
+    shifu_bids: Optional[Sequence[str]] = None,
+) -> Set[str]:
+    query = db.session.query(LearnProgressRecord.shifu_bid).filter(
+        LearnProgressRecord.deleted == 0,
+        LearnProgressRecord.status != LEARN_STATUS_RESET,
+        LearnProgressRecord.created_at >= since,
+    )
+    if shifu_bids is not None:
+        normalized_shifu_bids = [
+            str(shifu_bid or "").strip() for shifu_bid in shifu_bids if shifu_bid
+        ]
+        if not normalized_shifu_bids:
+            return set()
+        query = query.filter(LearnProgressRecord.shifu_bid.in_(normalized_shifu_bids))
+    rows = query.distinct().all()
+    return {
+        str(shifu_bid or "").strip()
+        for (shifu_bid,) in rows
+        if str(shifu_bid or "").strip()
+    }
+
+
+def _load_recent_paid_order_course_bids(
+    *,
+    since: datetime,
+    shifu_bids: Optional[Sequence[str]] = None,
+) -> Set[str]:
+    query = db.session.query(Order.shifu_bid).filter(
+        Order.deleted == 0,
+        Order.status == ORDER_STATUS_SUCCESS,
+        Order.created_at >= since,
+    )
+    if shifu_bids is not None:
+        normalized_shifu_bids = [
+            str(shifu_bid or "").strip() for shifu_bid in shifu_bids if shifu_bid
+        ]
+        if not normalized_shifu_bids:
+            return set()
+        query = query.filter(Order.shifu_bid.in_(normalized_shifu_bids))
+    rows = query.distinct().all()
+    return {
+        str(shifu_bid or "").strip()
+        for (shifu_bid,) in rows
+        if str(shifu_bid or "").strip()
+    }
 
 
 def _clear_shifu_permission_cache(app: Flask, user_id: str, shifu_bid: str) -> None:
@@ -4144,28 +4215,17 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
             for course in merged_courses
             if str(course.shifu_bid or "").strip()
         ]
-
-        learning_active_30d_course_count = (
-            db.session.query(LearnProgressRecord.shifu_bid)
-            .filter(
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-                LearnProgressRecord.created_at >= recent_activity_window_start,
-                LearnProgressRecord.shifu_bid.in_(visible_shifu_bids),
+        learning_active_30d_course_count = len(
+            _load_recent_learning_active_course_bids(
+                since=recent_activity_window_start,
+                shifu_bids=visible_shifu_bids,
             )
-            .distinct()
-            .count()
         )
-        paid_order_30d_course_count = (
-            db.session.query(Order.shifu_bid)
-            .filter(
-                Order.deleted == 0,
-                Order.status == ORDER_STATUS_SUCCESS,
-                Order.created_at >= recent_activity_window_start,
-                Order.shifu_bid.in_(visible_shifu_bids),
+        paid_order_30d_course_count = len(
+            _load_recent_paid_order_course_bids(
+                since=recent_activity_window_start,
+                shifu_bids=visible_shifu_bids,
             )
-            .distinct()
-            .count()
         )
 
         return AdminOperationCourseOverviewDTO(
@@ -4207,6 +4267,7 @@ def list_operator_courses(
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         course_name = str(filters.get("course_name", "") or "").strip()
         course_status = str(filters.get("course_status", "") or "").strip().lower()
+        quick_filter = _resolve_course_quick_filter(filters.get("quick_filter", ""))
         creator_keyword = str(filters.get("creator_keyword", "") or "").strip()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
@@ -4264,6 +4325,49 @@ def list_operator_courses(
                 for course in merged_courses
                 if (resolve_updated_at(course) or datetime.min) <= updated_end_time
             ]
+        if quick_filter:
+            if quick_filter == COURSE_QUICK_FILTER_DRAFT:
+                merged_courses = [
+                    course
+                    for course in merged_courses
+                    if _resolve_course_status(course.shifu_bid or "", published_bids)
+                    == COURSE_STATUS_UNPUBLISHED
+                ]
+            elif quick_filter == COURSE_QUICK_FILTER_PUBLISHED:
+                merged_courses = [
+                    course
+                    for course in merged_courses
+                    if _resolve_course_status(course.shifu_bid or "", published_bids)
+                    == COURSE_STATUS_PUBLISHED
+                ]
+            elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
+                created_window_start = datetime.now() - timedelta(days=7)
+                merged_courses = [
+                    course
+                    for course in merged_courses
+                    if course.created_at and course.created_at >= created_window_start
+                ]
+            else:
+                visible_shifu_bids = [
+                    str(course.shifu_bid or "").strip()
+                    for course in merged_courses
+                    if str(course.shifu_bid or "").strip()
+                ]
+                if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
+                    matched_shifu_bids = _load_recent_learning_active_course_bids(
+                        since=datetime.now() - timedelta(days=30),
+                        shifu_bids=visible_shifu_bids,
+                    )
+                else:
+                    matched_shifu_bids = _load_recent_paid_order_course_bids(
+                        since=datetime.now() - timedelta(days=30),
+                        shifu_bids=visible_shifu_bids,
+                    )
+                merged_courses = [
+                    course
+                    for course in merged_courses
+                    if str(course.shifu_bid or "").strip() in matched_shifu_bids
+                ]
         merged_courses = sorted(
             merged_courses,
             key=lambda item: (
