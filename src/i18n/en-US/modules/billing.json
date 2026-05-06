@@ -303,21 +303,9 @@
       }
     },
     "topups": {
-      "creatorLarge": {
+      "default": {
         "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "120-credit pack"
-      },
-      "creatorMedium": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "50-credit pack"
-      },
-      "creatorSmall": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "20-credit pack"
-      },
-      "creatorXLarge": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "320-credit pack"
+        "title": "{credits}-credit pack"
       }
     }
   },
@@ -586,7 +574,6 @@
       "description": "Best for a first look.",
       "priceNote": "/ valid within {days} days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
-      "priceValue": "¥0",
       "title": "Trial"
     },
     "intervalTabs": {
@@ -636,23 +623,21 @@
     "validity": {
       "daily": "Validity: counted from the purchase day, valid every day",
       "days": "Validity: counted from the purchase day, renews every {count} days",
-      "free": "Validity: valid within 15 days from registration",
-      "monthly": "Valid for 30 days from purchase",
+      "free": "Validity: valid within {days} days from registration",
+      "monthly": "Valid for the monthly plan period from purchase",
       "months": "Validity: counted from the purchase month, renews every {count} months",
       "yearly": "Validity: counted from the purchase month, valid every year",
       "years": "Validity: counted from the purchase month, renews every {count} years"
     },
     "validityShort": {
       "free": "{days} days",
-      "monthly": "30 days",
-      "monthlyMonths": "{count} months",
-      "yearly": "1 year",
-      "yearlyYears": "{count} years"
+      "monthly": "{count, plural, one {# month} other {# months}}",
+      "yearly": "{count, plural, one {# year} other {# years}}"
     },
     "validityTooltip": {
       "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 1 of the next year). Counted to 23:59 on the expiry day."
+      "monthly": "Valid from the day you receive it through the plan period. Counted to 23:59 on the expiry day.",
+      "yearly": "Valid from the day you receive it through the plan period. Counted to 23:59 on the expiry day."
     }
   },
   "page": {

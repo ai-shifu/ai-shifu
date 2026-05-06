@@ -3,10 +3,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import CreditOrdersTab from './CreditOrdersTab';
 
-const translationCache = new Map<string, { t: (key: string) => string }>();
+const translationCache = new Map<
+  string,
+  { t: (key: string, options?: Record<string, unknown>) => string }
+>();
 const TRANSLATION_OVERRIDES: Record<string, string> = {
   'module.billing.catalog.plans.creatorYearlyLite.title': 'Advanced',
-  'module.billing.catalog.topups.creatorSmall.title': '20-credit pack',
+  'module.billing.catalog.topups.default.title': '{credits}-credit pack',
   'module.operationsOrder.creditOrders.productIntervals.year': 'Yearly',
   'module.operationsOrder.creditOrders.productNameFormat': 'Yearly - Advanced',
 };
@@ -18,7 +21,9 @@ const baseTranslation = (namespace?: string | string[]) => {
     translationCache.set(cacheKey, {
       t: (key: string, options?: Record<string, unknown>) => {
         if (TRANSLATION_OVERRIDES[key]) {
-          return TRANSLATION_OVERRIDES[key];
+          return TRANSLATION_OVERRIDES[key]
+            .replace('{credits}', String(options?.credits ?? ''))
+            .replace('{count}', String(options?.count ?? ''));
         }
         if (options && Object.prototype.hasOwnProperty.call(options, 'count')) {
           return `${ns ? `${ns}.` : ''}${key}:${options.count}`;
@@ -202,8 +207,8 @@ describe('CreditOrdersTab', () => {
           product_bid: 'product-1',
           product_code: 'creator-topup-small',
           product_type: 'topup',
-          product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
-          credit_amount: 20,
+          product_name_key: 'module.billing.catalog.topups.default.title',
+          credit_amount: 24,
           valid_from: '2026-04-27T10:00:00Z',
           valid_to: '2026-05-27T10:00:00Z',
           order_type: 'topup',
@@ -273,8 +278,8 @@ describe('CreditOrdersTab', () => {
         product_bid: 'product-1',
         product_code: 'creator-topup-small',
         product_type: 'topup',
-        product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
-        credit_amount: 20,
+        product_name_key: 'module.billing.catalog.topups.default.title',
+        credit_amount: 24,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',
         order_type: 'topup',
@@ -294,7 +299,7 @@ describe('CreditOrdersTab', () => {
         has_attention: false,
       },
       grant: {
-        granted_credits: 20,
+        granted_credits: 24,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',
         source_type: 'topup',
@@ -324,10 +329,10 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
-    expect(screen.getByText('20-credit pack')).toBeInTheDocument();
+    expect(screen.getByText('24-credit pack')).toBeInTheDocument();
     expect(await screen.findByText('Yearly - Advanced')).toBeInTheDocument();
     expect(
-      screen.queryByText('module.billing.catalog.topups.creatorSmall.title'),
+      screen.queryByText('module.billing.catalog.topups.default.title'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
   });
@@ -442,7 +447,7 @@ describe('CreditOrdersTab', () => {
           product_bid: 'product-3',
           product_code: 'creator-topup-small',
           product_type: 'topup',
-          product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+          product_name_key: 'module.billing.catalog.topups.default.title',
           credit_amount: 20,
           valid_from: '2026-04-27T10:00:00Z',
           valid_to: '2026-05-27T10:00:00Z',
@@ -480,7 +485,7 @@ describe('CreditOrdersTab', () => {
         product_bid: 'product-3',
         product_code: 'creator-topup-small',
         product_type: 'topup',
-        product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+        product_name_key: 'module.billing.catalog.topups.default.title',
         credit_amount: 20,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',

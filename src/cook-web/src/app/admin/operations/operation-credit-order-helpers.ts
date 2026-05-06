@@ -1,4 +1,5 @@
 import {
+  formatBillingCreditAmount,
   formatBillingDateTime,
   resolveBillingPingxxChannelLabel,
   resolveBillingOrderStatusLabel,
@@ -186,13 +187,16 @@ export function resolveOperationCreditOrderProductName(
   t: Translator,
   order: Pick<
     AdminOperationCreditOrderItem,
-    'credit_order_kind' | 'product_name_key' | 'product_code'
+    'credit_order_kind' | 'product_name_key' | 'product_code' | 'credit_amount'
   >,
   fallback: string,
 ): string {
   const translatedName = translateIfResolved(
     t,
     String(order.product_name_key || ''),
+    {
+      credits: formatBillingCreditAmount(order.credit_amount || 0),
+    },
   );
 
   if (order.credit_order_kind === 'plan') {

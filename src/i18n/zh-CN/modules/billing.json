@@ -303,21 +303,9 @@
       }
     },
     "topups": {
-      "creatorLarge": {
+      "default": {
         "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "120 积分包"
-      },
-      "creatorMedium": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "50 积分包"
-      },
-      "creatorSmall": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "20 积分包"
-      },
-      "creatorXLarge": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "320 积分包"
+        "title": "{credits} 积分包"
       }
     }
   },
@@ -586,7 +574,6 @@
       "description": "适合首次体验",
       "priceNote": "/ 新注册 {days} 日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
-      "priceValue": "¥0",
       "title": "体验版"
     },
     "intervalTabs": {
@@ -636,23 +623,21 @@
     "validity": {
       "daily": "有效期：自购买当日起按日生效",
       "days": "有效期：自购买当日起每 {count} 天续期",
-      "free": "有效期：注册日起 15 内有效",
-      "monthly": "购买日起 30 天内",
+      "free": "有效期：注册日起 {days} 天内有效",
+      "monthly": "有效期：自购买当日起按月度套餐周期生效",
       "months": "有效期：自购买当月起每 {count} 个月续期",
       "yearly": "有效期：当月购买起计算日起，每年有效",
       "years": "有效期：自购买当月起每 {count} 年续期"
     },
     "validityShort": {
       "free": "{days} 天",
-      "monthly": "30 天",
-      "monthlyMonths": "{count} 个月",
-      "yearly": "1 年",
-      "yearlyYears": "{count} 年"
+      "monthly": "{count} 个月",
+      "yearly": "{count} 年"
     },
     "validityTooltip": {
       "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
-      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
-      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 1 日）。以到期日的 23:59 计算。"
+      "monthly": "自获取之日起按套餐周期有效（含当日）。以到期日的 23:59 计算。",
+      "yearly": "自获取之日起按套餐周期有效（含当日）。以到期日的 23:59 计算。"
     }
   },
   "page": {

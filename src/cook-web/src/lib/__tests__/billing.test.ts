@@ -12,6 +12,7 @@ import {
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
   resolveBillingPlanValidityLabel,
+  resolveBillingProductTitle,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 import type { BillingCheckoutResult } from '@/types/billing';
@@ -131,6 +132,20 @@ describe('formatBillingCredits', () => {
     expect(resolveBillingPlanCreditsLabel(t, dailyPlan)).toBe(
       'module.billing.package.creditSummary.days:7:21',
     );
+  });
+
+  test('passes DB-backed credit amount into product title translations', () => {
+    const t = jest.fn((key: string, options?: Record<string, unknown>) => {
+      return `${key}:${String(options?.credits || '')}`;
+    });
+
+    expect(
+      resolveBillingProductTitle(t, {
+        ...monthlyPlan,
+        display_name: 'module.billing.catalog.topups.default.title',
+        credit_amount: 24,
+      }),
+    ).toBe('module.billing.catalog.topups.default.title:24');
   });
 });
 

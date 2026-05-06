@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
@@ -190,6 +191,10 @@ def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
     if matched_product_bids:
         return matched_product_bids
 
+    numeric_match_bids = _load_numeric_credit_order_product_bids(normalized_keyword)
+    if numeric_match_bids:
+        return numeric_match_bids
+
     translated_name_candidates = (
         BillingProduct.query.filter(BillingProduct.display_name_i18n_key != "")
         .order_by(BillingProduct.id.desc())
@@ -205,6 +210,41 @@ def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
             if normalized_product_bid:
                 translated_match_bids.append(normalized_product_bid)
     return translated_match_bids
+
+
+def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
+    normalized_keyword = str(keyword or "").strip().replace(",", "")
+    if not normalized_keyword:
+        return []
+
+    try:
+        numeric_value = Decimal(normalized_keyword)
+    except (InvalidOperation, ValueError):
+        return []
+    if not numeric_value.is_finite():
+        return []
+
+    filters = [BillingProduct.credit_amount == numeric_value]
+    price_amount_candidates: set[int] = set()
+    if numeric_value >= 0:
+        if numeric_value == numeric_value.to_integral_value():
+            price_amount_candidates.add(int(numeric_value))
+        price_amount_minor = numeric_value * Decimal("100")
+        if price_amount_minor == price_amount_minor.to_integral_value():
+            price_amount_candidates.add(int(price_amount_minor))
+    if price_amount_candidates:
+        filters.append(BillingProduct.price_amount.in_(sorted(price_amount_candidates)))
+
+    rows = (
+        BillingProduct.query.filter(or_(*filters))
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    return [
+        normalized_product_bid
+        for product in rows
+        if (normalized_product_bid := str(product.product_bid or "").strip())
+    ]
 
 
 def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
