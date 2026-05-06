@@ -4360,7 +4360,6 @@ def list_operator_courses(
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = max(int(page_size or 20), 1)
         filters = filters or {}
-        summary = _build_operator_course_overview(app)
 
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         course_name = str(filters.get("course_name", "") or "").strip()
@@ -4371,6 +4370,7 @@ def list_operator_courses(
         end_time = filters.get("end_time")
         updated_start_time = filters.get("updated_start_time")
         updated_end_time = filters.get("updated_end_time")
+        summary = _build_operator_course_overview(app)
 
         creator_bids = _find_matching_creator_bids(creator_keyword)
         draft_rows = _load_latest_shifus(

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.service.common.models import AppException
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin import (
     _load_course_activity_map,
@@ -758,6 +759,24 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
     assert [item.shifu_bid for item in created_result.items] == ["course-recent"]
     assert [item.shifu_bid for item in learning_result.items] == ["course-learning"]
     assert [item.shifu_bid for item in paid_result.items] == ["course-paid"]
+
+
+def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overview():
+    app = Flask(__name__)
+
+    with patch(
+        "flaskr.service.shifu.admin._build_operator_course_overview"
+    ) as overview_mock:
+        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+            try:
+                list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
+            except AppException as exc:
+                assert exc.code is not None
+            else:
+                raise AssertionError("Expected AppException for invalid quick_filter")
+
+    overview_mock.assert_not_called()
+    latest_mock.assert_not_called()
 
 
 def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch):
