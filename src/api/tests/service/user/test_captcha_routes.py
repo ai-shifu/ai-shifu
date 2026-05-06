@@ -141,3 +141,25 @@ def test_send_sms_code_consumes_ticket_once(test_client, app, monkeypatch):
     )
     assert response.status_code == 200
     assert body["code"] == 1010
+
+
+def test_console_send_sms_code_does_not_require_captcha_ticket(
+    test_client, monkeypatch
+):
+    import flaskr.service.user.utils as user_utils
+
+    monkeypatch.setattr(
+        user_utils,
+        "send_sms_code_ali",
+        lambda _app, _mobile, _code: True,
+    )
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/console_send_sms_code",
+        {"mobile": "13800138002"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["expire_in"] > 0

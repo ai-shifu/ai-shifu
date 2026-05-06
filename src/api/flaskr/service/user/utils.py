@@ -93,9 +93,16 @@ def generate_token(app: Flask, user_id: str) -> str:
 
 
 # send sms code
-def send_sms_code(app: Flask, phone: str, ip: str = None, captcha_ticket: str = None):
+def send_sms_code(
+    app: Flask,
+    phone: str,
+    ip: str = None,
+    captcha_ticket: str = None,
+    require_captcha: bool = True,
+):
     with app.app_context():
-        consume_captcha_ticket(app, captcha_ticket)
+        if require_captcha:
+            consume_captcha_ticket(app, captcha_ticket)
 
         # Check IP ban status
         if ip:

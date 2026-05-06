@@ -369,6 +369,29 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             send_sms_code(app, mobile, client_ip, captcha_ticket)
         )
 
+    @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def console_send_sms_code_api():
+        """
+        Send SMS verification code for console clients without image captcha
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        mobile = payload.get("mobile", None)
+        if not mobile:
+            raise_param_error("mobile")
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
+        return make_common_response(
+            send_sms_code(app, mobile, client_ip, require_captcha=False)
+        )
+
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -451,18 +474,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     def login_sms_api():
         """
         Login through SMS verification code for web clients
-        ---
-        tags:
-           - user
-        """
-        return _handle_sms_login()
-
-    @app.route(path_prefix + "/console_login", methods=["POST"])
-    @bypass_token_validation
-    @optional_token_validation
-    def console_login_api():
-        """
-        Login through SMS verification code for console-compatible callers
         ---
         tags:
            - user
