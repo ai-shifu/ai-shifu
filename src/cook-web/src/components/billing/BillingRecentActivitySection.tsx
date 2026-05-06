@@ -10,7 +10,7 @@ import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
 import {
   buildBillingSwrKey,
-  formatBillingCredits,
+  formatBillingCreditDetail,
   formatBillingDateTime,
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
@@ -21,7 +21,10 @@ const RECENT_ITEMS_LIMIT = 10;
 
 function formatSignedCredits(value: number, locale: string): string {
   const normalizedValue = Number(value || 0);
-  const formatted = formatBillingCredits(Math.abs(normalizedValue), locale);
+  const formatted = formatBillingCreditDetail(
+    Math.abs(normalizedValue),
+    locale,
+  );
   if (normalizedValue > 0) {
     return `+${formatted}`;
   }
