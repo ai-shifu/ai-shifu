@@ -570,8 +570,9 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "contactUs": "If none of the credit plans above fit your needs, feel free to contact us directly.",
-      "learnerEstimate": "Learner-capacity estimates are based on typical AI-Shifu course usage; the actual number of supported learners depends on real credit consumption."
+      "contactUs": "If none of the credit plans above fit your needs, you can contact us directly.",
+      "learnerEstimate": "Supported learner counts for each credit plan are estimated from platform usage data; actual capacity depends on real credit consumption.",
+      "learnerEstimateTip": "Estimation basis: a course of about 10 sections with Listen mode enabled (Listen mode consumes credits much faster than the default)."
     },
     "free": {
       "creditSummary": "{credits} bonus credits",
