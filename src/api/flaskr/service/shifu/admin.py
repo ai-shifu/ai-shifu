@@ -90,6 +90,8 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseRatingListDTO,
     AdminOperationCourseRatingSummaryDTO,
     AdminOperationCourseUserDTO,
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationCourseSummaryDTO,
@@ -166,6 +168,32 @@ OPERATOR_USER_ROLE_REGULAR = "regular"
 OPERATOR_USER_ROLE_CREATOR = "creator"
 OPERATOR_USER_ROLE_OPERATOR = "operator"
 OPERATOR_USER_ROLE_LEARNER = "learner"
+OPERATOR_USER_QUICK_FILTER_CREATOR = "creator"
+OPERATOR_USER_QUICK_FILTER_LEARNER = "learner"
+OPERATOR_USER_QUICK_FILTER_REGISTERED = "registered"
+OPERATOR_USER_QUICK_FILTER_PAID = "paid"
+OPERATOR_USER_QUICK_FILTER_CREATED_LAST_30D = "created_last_30d"
+OPERATOR_USER_QUICK_FILTER_REGISTERED_LAST_30D = "registered_last_30d"
+OPERATOR_USER_QUICK_FILTER_LEARNING_ACTIVE_30D = "learning_active_30d"
+OPERATOR_USER_QUICK_FILTER_PAID_LAST_30D = "paid_last_30d"
+OPERATOR_USER_QUICK_FILTER_GUEST = "guest"
+OPERATOR_USER_QUICK_FILTER_VALUES = {
+    OPERATOR_USER_QUICK_FILTER_CREATOR,
+    OPERATOR_USER_QUICK_FILTER_LEARNER,
+    OPERATOR_USER_QUICK_FILTER_REGISTERED,
+    OPERATOR_USER_QUICK_FILTER_PAID,
+    OPERATOR_USER_QUICK_FILTER_CREATED_LAST_30D,
+    OPERATOR_USER_QUICK_FILTER_REGISTERED_LAST_30D,
+    OPERATOR_USER_QUICK_FILTER_LEARNING_ACTIVE_30D,
+    OPERATOR_USER_QUICK_FILTER_PAID_LAST_30D,
+    OPERATOR_USER_QUICK_FILTER_GUEST,
+}
+OPERATOR_USER_REGISTRATION_CREDENTIAL_PROVIDERS = (
+    "phone",
+    "email",
+    "google",
+    "wechat",
+)
 OPERATOR_USER_REGISTRATION_SOURCE_PHONE = "phone"
 OPERATOR_USER_REGISTRATION_SOURCE_EMAIL = "email"
 OPERATOR_USER_REGISTRATION_SOURCE_GOOGLE = "google"
@@ -855,6 +883,28 @@ def _resolve_operator_user_status(raw_state: object) -> str:
     )
 
 
+def _resolve_operator_user_quick_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    if normalized not in OPERATOR_USER_QUICK_FILTER_VALUES:
+        raise_param_error("quick_filter")
+    return normalized
+
+
+def _resolve_recent_days_window(
+    days: int,
+    now: Optional[datetime] = None,
+) -> tuple[datetime, datetime]:
+    safe_days = max(int(days or 0), 1)
+    current = now or datetime.now()
+    start = (current - timedelta(days=safe_days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end = current.replace(hour=23, minute=59, second=59, microsecond=0)
+    return start, end
+
+
 def _build_operator_user_roles(
     *,
     is_creator: bool,
@@ -904,6 +954,81 @@ def _build_learner_user_bid_subquery():
         AiCourseAuth.user_id != "",
     )
     return order_query.union(progress_query, permission_query).subquery()
+
+
+def _build_recent_learning_active_user_bid_subquery(
+    *,
+    since: datetime,
+):
+    activity_at = db.func.coalesce(
+        LearnProgressRecord.updated_at,
+        LearnProgressRecord.created_at,
+    )
+    return (
+        db.session.query(LearnProgressRecord.user_bid.label("user_bid"))
+        .filter(
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+            LearnProgressRecord.user_bid != "",
+            activity_at >= since,
+        )
+        .distinct()
+        .subquery()
+    )
+
+
+def _build_recent_paid_user_bid_subquery(
+    *,
+    since: datetime,
+):
+    return (
+        db.session.query(Order.user_bid.label("user_bid"))
+        .filter(
+            Order.deleted == 0,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.user_bid != "",
+            Order.created_at >= since,
+        )
+        .distinct()
+        .subquery()
+    )
+
+
+def _build_registered_user_timestamp_subquery():
+    registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
+    credential_subquery = (
+        db.session.query(
+            AuthCredential.user_bid.label("user_bid"),
+            db.func.min(AuthCredential.created_at).label("registered_at"),
+        )
+        .filter(
+            AuthCredential.deleted == 0,
+            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+            AuthCredential.provider_name.in_(
+                OPERATOR_USER_REGISTRATION_CREDENTIAL_PROVIDERS
+            ),
+            AuthCredential.user_bid != "",
+        )
+        .group_by(AuthCredential.user_bid)
+        .subquery()
+    )
+    return (
+        db.session.query(
+            UserEntity.user_bid.label("user_bid"),
+            db.func.coalesce(
+                credential_subquery.c.registered_at, UserEntity.created_at
+            ).label("registered_at"),
+        )
+        .outerjoin(
+            credential_subquery, credential_subquery.c.user_bid == UserEntity.user_bid
+        )
+        .filter(
+            UserEntity.deleted == 0,
+            UserEntity.state.in_(registered_states),
+            UserEntity.user_bid != "",
+        )
+        .subquery()
+    )
 
 
 def _load_learner_user_bids(user_bids: Optional[Sequence[str]] = None) -> Set[str]:
@@ -3818,12 +3943,81 @@ def get_operator_course_chapter_detail(
         )
 
 
+def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
+    base_query = UserEntity.query.filter(UserEntity.deleted == 0)
+    registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
+    learner_subquery = _build_learner_user_bid_subquery()
+    registered_timestamp_subquery = _build_registered_user_timestamp_subquery()
+    recent_window_start, recent_window_end = _resolve_recent_days_window(30)
+    recent_learning_subquery = _build_recent_learning_active_user_bid_subquery(
+        since=recent_window_start
+    )
+    recent_paid_subquery = _build_recent_paid_user_bid_subquery(
+        since=recent_window_start
+    )
+
+    learner_user_count = (
+        db.session.query(db.func.count(db.distinct(learner_subquery.c.user_bid)))
+        .join(UserEntity, UserEntity.user_bid == learner_subquery.c.user_bid)
+        .filter(UserEntity.deleted == 0)
+        .scalar()
+        or 0
+    )
+    learning_active_30d_user_count = (
+        db.session.query(
+            db.func.count(db.distinct(recent_learning_subquery.c.user_bid))
+        )
+        .join(UserEntity, UserEntity.user_bid == recent_learning_subquery.c.user_bid)
+        .filter(UserEntity.deleted == 0)
+        .scalar()
+        or 0
+    )
+    registered_last_30d_user_count = (
+        db.session.query(
+            db.func.count(db.distinct(registered_timestamp_subquery.c.user_bid))
+        )
+        .filter(
+            registered_timestamp_subquery.c.registered_at >= recent_window_start,
+            registered_timestamp_subquery.c.registered_at <= recent_window_end,
+        )
+        .scalar()
+        or 0
+    )
+    paid_last_30d_user_count = (
+        db.session.query(db.func.count(db.distinct(recent_paid_subquery.c.user_bid)))
+        .join(UserEntity, UserEntity.user_bid == recent_paid_subquery.c.user_bid)
+        .filter(UserEntity.deleted == 0)
+        .scalar()
+        or 0
+    )
+
+    return AdminOperationUserOverviewDTO(
+        total_user_count=base_query.count(),
+        registered_user_count=base_query.filter(
+            UserEntity.state.in_(registered_states)
+        ).count(),
+        creator_user_count=base_query.filter(UserEntity.is_creator == 1).count(),
+        learner_user_count=int(learner_user_count),
+        paid_user_count=base_query.filter(UserEntity.state == USER_STATE_PAID).count(),
+        created_last_30d_user_count=base_query.filter(
+            UserEntity.created_at >= recent_window_start,
+            UserEntity.created_at <= recent_window_end,
+        ).count(),
+        registered_last_30d_user_count=int(registered_last_30d_user_count),
+        learning_active_30d_user_count=int(learning_active_30d_user_count),
+        paid_last_30d_user_count=int(paid_last_30d_user_count),
+        guest_user_count=base_query.filter(
+            UserEntity.state == USER_STATE_UNREGISTERED
+        ).count(),
+    )
+
+
 def list_operator_users(
     app: Flask,
     page_index: int,
     page_size: int,
     filters: Optional[dict] = None,
-) -> PageNationDTO:
+) -> AdminOperationUserListDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = min(
@@ -3831,6 +4025,7 @@ def list_operator_users(
             OPERATOR_USER_LIST_MAX_PAGE_SIZE,
         )
         filters = filters or {}
+        summary = _build_operator_user_overview()
 
         user_bid = str(filters.get("user_bid", "") or "").strip()
         identifier = str(
@@ -3839,6 +4034,9 @@ def list_operator_users(
         nickname = str(filters.get("nickname", "") or "").strip()
         user_status = str(filters.get("user_status", "") or "").strip().lower()
         user_role = str(filters.get("user_role", "") or "").strip().lower()
+        quick_filter = _resolve_operator_user_quick_filter(
+            filters.get("quick_filter", "")
+        )
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
@@ -3863,10 +4061,7 @@ def list_operator_users(
         if user_role == OPERATOR_USER_ROLE_OPERATOR:
             query = query.filter(UserEntity.is_operator == 1)
         elif user_role == OPERATOR_USER_ROLE_CREATOR:
-            query = query.filter(
-                UserEntity.is_operator == 0,
-                UserEntity.is_creator == 1,
-            )
+            query = query.filter(UserEntity.is_creator == 1)
         elif user_role == OPERATOR_USER_ROLE_LEARNER:
             learner_subquery = _build_learner_user_bid_subquery()
             query = query.filter(
@@ -3888,8 +4083,77 @@ def list_operator_users(
         if identifier:
             matching_user_bids = _find_matching_user_bids_by_identifier(identifier)
             if not matching_user_bids:
-                return PageNationDTO(safe_page_index, safe_page_size, 0, [])
+                return AdminOperationUserListDTO(
+                    safe_page_index,
+                    safe_page_size,
+                    0,
+                    [],
+                    summary=summary,
+                )
             query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
+        if quick_filter:
+            registered_timestamp_subquery = None
+            recent_window_start, recent_window_end = _resolve_recent_days_window(30)
+            if quick_filter == OPERATOR_USER_QUICK_FILTER_CREATOR:
+                query = query.filter(UserEntity.is_creator == 1)
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNER:
+                learner_subquery = _build_learner_user_bid_subquery()
+                query = query.filter(
+                    UserEntity.user_bid.in_(
+                        db.session.query(learner_subquery.c.user_bid)
+                    )
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_REGISTERED:
+                query = query.filter(
+                    UserEntity.state.in_(
+                        [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
+                    )
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_PAID:
+                query = query.filter(UserEntity.state == USER_STATE_PAID)
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_CREATED_LAST_30D:
+                query = query.filter(
+                    UserEntity.created_at >= recent_window_start,
+                    UserEntity.created_at <= recent_window_end,
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_REGISTERED_LAST_30D:
+                registered_timestamp_subquery = (
+                    _build_registered_user_timestamp_subquery()
+                )
+                query = query.filter(
+                    UserEntity.user_bid.in_(
+                        db.session.query(
+                            registered_timestamp_subquery.c.user_bid
+                        ).filter(
+                            registered_timestamp_subquery.c.registered_at
+                            >= recent_window_start,
+                            registered_timestamp_subquery.c.registered_at
+                            <= recent_window_end,
+                        )
+                    )
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNING_ACTIVE_30D:
+                recent_learning_subquery = (
+                    _build_recent_learning_active_user_bid_subquery(
+                        since=recent_window_start
+                    )
+                )
+                query = query.filter(
+                    UserEntity.user_bid.in_(
+                        db.session.query(recent_learning_subquery.c.user_bid)
+                    )
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_PAID_LAST_30D:
+                recent_paid_subquery = _build_recent_paid_user_bid_subquery(
+                    since=recent_window_start
+                )
+                query = query.filter(
+                    UserEntity.user_bid.in_(
+                        db.session.query(recent_paid_subquery.c.user_bid)
+                    )
+                )
+            elif quick_filter == OPERATOR_USER_QUICK_FILTER_GUEST:
+                query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
 
         total = query.count()
         page_offset = (safe_page_index - 1) * safe_page_size
@@ -3927,7 +4191,13 @@ def list_operator_users(
             )
             for user in page_items
         ]
-        return PageNationDTO(safe_page_index, safe_page_size, total, items)
+        return AdminOperationUserListDTO(
+            safe_page_index,
+            safe_page_size,
+            total,
+            items,
+            summary=summary,
+        )
 
 
 def get_operator_user_detail(

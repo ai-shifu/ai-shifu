@@ -181,6 +181,34 @@
     "unknown": "Unknown",
     "wechat": "WeChat"
   },
+  "overview": {
+    "activeFilter": "Quick Filter",
+    "metrics": {
+      "creators": "Creators",
+      "guests": "Guests",
+      "learners": "Learners",
+      "learningActive30d": "Active Learners (30d)",
+      "newUsers30d": "New Users (30d)",
+      "paidUsers": "Paid Users",
+      "paidUsers30d": "Paid Users (30d)",
+      "registeredUsers": "Registered Users",
+      "registeredUsers30d": "Registered Users (30d)",
+      "totalUsers": "Total Users"
+    },
+    "title": "Overview",
+    "tooltips": {
+      "creators": "Creator users",
+      "guests": "Guest users",
+      "learners": "Users with learning records",
+      "learningActive30d": "Users with learning activity in the last 30 days",
+      "newUsers30d": "New users in the last 30 days",
+      "paidUsers": "Users in paid status (including imported activations)",
+      "paidUsers30d": "Users who paid successfully in the last 30 days (including imported activations)",
+      "registeredUsers": "Registered users",
+      "registeredUsers30d": "Users who completed registration in the last 30 days",
+      "totalUsers": "All users"
+    }
+  },
   "registrationSourceLabels": {
     "email": "Email",
     "google": "Google",

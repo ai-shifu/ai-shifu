@@ -46,7 +46,21 @@ export type AdminOperationUserItem = {
   updated_at: string;
 };
 
+export type AdminOperationUserOverview = {
+  total_user_count: number;
+  registered_user_count: number;
+  creator_user_count: number;
+  learner_user_count: number;
+  paid_user_count: number;
+  created_last_30d_user_count: number;
+  registered_last_30d_user_count: number;
+  learning_active_30d_user_count: number;
+  paid_last_30d_user_count: number;
+  guest_user_count: number;
+};
+
 export type AdminOperationUserListResponse = {
+  summary?: AdminOperationUserOverview;
   items: AdminOperationUserItem[];
   page: number;
   page_count: number;
