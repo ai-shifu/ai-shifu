@@ -306,6 +306,7 @@ class TestResolvePaymentChannel:
             base_url="https://api.example.com/",
         ):
             assert order_route.build_pingxx_allowed_origins() == [
+                "https://api.example.com",
                 "https://cook.example.com"
             ]
 
@@ -325,7 +326,8 @@ class TestResolvePaymentChannel:
             base_url="https://api.example.com/",
         ):
             assert order_route.build_pingxx_allowed_origins() == [
-                "https://cook.example.com"
+                "https://api.example.com",
+                "https://cook.example.com",
             ]
 
     def test_build_pingxx_allowed_origins_ignores_relative_home_url_without_server_name(
@@ -342,7 +344,9 @@ class TestResolvePaymentChannel:
             "/api/order/reqiure-to-pay",
             base_url="https://api.example.com/",
         ):
-            assert order_route.build_pingxx_allowed_origins() == []
+            assert order_route.build_pingxx_allowed_origins() == [
+                "https://api.example.com"
+            ]
 
     def test_resolve_pingxx_return_url_rejects_relative_path_without_trusted_origin(
         self, app, monkeypatch
@@ -362,7 +366,7 @@ class TestResolvePaymentChannel:
                 order_route.resolve_pingxx_return_url(
                     "/payment/pingxx/result?order_id=1"
                 )
-                == ""
+                == "https://api.example.com/payment/pingxx/result?order_id=1"
             )
 
     def test_resolve_pingxx_return_url_rejects_absolute_url_without_trusted_origin(
@@ -385,6 +389,30 @@ class TestResolvePaymentChannel:
                 )
                 == ""
             )
+
+    def test_build_pingxx_allowed_origins_prefers_forwarded_request_origin(
+        self, app, monkeypatch
+    ):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": (
+                "https://cook.example.com/c/course-1" if key == "HOME_URL" else default
+            ),
+        )
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            base_url="https://api.example.com/",
+            headers={
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "cook02.dev.pillowai.cn",
+            },
+        ):
+            assert order_route.build_pingxx_allowed_origins() == [
+                "https://cook02.dev.pillowai.cn",
+                "https://cook.example.com",
+            ]
 
     def test_require_to_pay_rejects_invalid_cancel_url(self, app, monkeypatch):
         monkeypatch.setattr(
