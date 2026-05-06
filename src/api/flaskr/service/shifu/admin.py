@@ -2489,39 +2489,39 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
     )
 
 
-def _find_matching_follow_up_user_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_follow_up_user_bids(
+    user_bid_column: Any, keyword: str
+) -> Any | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
 
-    user_bids = {
-        row[0]
-        for row in db.session.query(AuthCredential.user_bid)
+    credential_match_exists = (
+        db.session.query(AuthCredential.id)
         .filter(
+            AuthCredential.user_bid == user_bid_column,
             AuthCredential.deleted == 0,
             AuthCredential.provider_name.in_(["phone", "email", "google"]),
             AuthCredential.identifier.ilike(f"%{normalized}%"),
         )
-        .all()
-        if row and row[0]
-    }
+        .exists()
+    )
 
     user_filters = [UserEntity.nickname.ilike(f"%{normalized}%")]
     if "@" in normalized or normalized.isdigit():
         user_filters.append(UserEntity.user_identify.ilike(f"%{normalized}%"))
 
-    for row in (
-        db.session.query(UserEntity.user_bid)
+    user_match_exists = (
+        db.session.query(UserEntity.id)
         .filter(
+            UserEntity.user_bid == user_bid_column,
             UserEntity.deleted == 0,
             or_(*user_filters),
         )
-        .all()
-    ):
-        if row and row[0]:
-            user_bids.add(row[0])
+        .exists()
+    )
 
-    return user_bids
+    return or_(credential_match_exists, user_match_exists)
 
 
 def _resolve_follow_up_matching_outline_bids(
@@ -3394,26 +3394,16 @@ def get_operator_course_follow_ups(
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
-        matching_user_bids = _find_matching_follow_up_user_bids(keyword)
+        follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
+        user_keyword_filter = _find_matching_follow_up_user_bids(
+            follow_up_base.c.user_bid,
+            keyword,
+        )
         matching_outline_item_bids = _resolve_follow_up_matching_outline_bids(
             outline_context_map,
             chapter_keyword,
         )
 
-        if keyword and not matching_user_bids:
-            return AdminOperationCourseFollowUpListDTO(
-                summary=AdminOperationCourseFollowUpSummaryDTO(
-                    follow_up_count=0,
-                    user_count=0,
-                    lesson_count=0,
-                    latest_follow_up_at="",
-                ),
-                items=[],
-                page=safe_page_index,
-                page_size=safe_page_size,
-                total=0,
-                page_count=0,
-            )
         if chapter_keyword and not matching_outline_item_bids:
             return AdminOperationCourseFollowUpListDTO(
                 summary=AdminOperationCourseFollowUpSummaryDTO(
@@ -3429,12 +3419,9 @@ def get_operator_course_follow_ups(
                 page_count=0,
             )
 
-        follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
         filtered_query = db.session.query(follow_up_base)
-        if matching_user_bids is not None:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.user_bid.in_(sorted(matching_user_bids))
-            )
+        if user_keyword_filter is not None:
+            filtered_query = filtered_query.filter(user_keyword_filter)
         if matching_outline_item_bids is not None:
             filtered_query = filtered_query.filter(
                 follow_up_base.c.outline_item_bid.in_(
