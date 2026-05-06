@@ -16,6 +16,7 @@ services:
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
+      CAPTCHA_CODE_OVERRIDE: "0000"
       REDIS_HOST: ai-shifu-redis
       REDIS_PORT: 6379
       SKIP_LOAD_DOTENV: "1"

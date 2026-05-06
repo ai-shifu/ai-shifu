@@ -1,5 +1,17 @@
 import api from './api';
 
+describe('auth api definitions', () => {
+  test('exposes captcha and SMS login endpoints', () => {
+    expect(api.getCaptcha).toBe('GET /user/captcha');
+    expect(api.verifyCaptcha).toBe('POST /user/captcha/verify');
+    expect(api.sendSmsCode).toBe('POST /user/send_sms_code');
+    expect(api.smsLogin).toBe('POST /user/login_sms');
+    expect(Object.prototype.hasOwnProperty.call(api, 'verifySmsCode')).toBe(
+      false,
+    );
+  });
+});
+
 describe('billing api definitions', () => {
   test('exposes creator billing endpoints', () => {
     expect(api.getBillingBootstrap).toBe('GET /billing');

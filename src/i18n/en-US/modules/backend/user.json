@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.user",
   "__flat__": {
+    "checkCodeError": "Image captcha is incorrect",
+    "checkCodeExpired": "Image captcha expired",
     "emailSendFailed": "Email send failed",
     "emailSendTooFrequent": "Emails sent too frequently",
     "emailVerificationSubject": "AI-Shifu: Your Verification Code",
