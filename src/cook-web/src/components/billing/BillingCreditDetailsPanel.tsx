@@ -26,6 +26,7 @@ import type {
   BillingWalletBucket,
 } from '@/types/billing';
 import {
+  formatBillingCreditBalance,
   formatBillingCreditDetail,
   formatBillingCompactDateTime,
   registerBillingTranslationUsage,
@@ -201,9 +202,8 @@ export function BillingCreditDetailsPanel({
     [activeSubscriptionEffectiveTo, bucketList?.items, hasActiveSubscription],
   );
 
-  const totalCreditsLabel = formatBillingCreditDetail(
+  const totalCreditsLabel = formatBillingCreditBalance(
     overview?.wallet.available_credits || 0,
-    i18n.language,
   );
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
   const topupAvailabilityLabel = t(

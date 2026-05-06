@@ -282,7 +282,7 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for lightweight course iteration.",
+        "description": "Best for a lightweight course trial.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
@@ -569,6 +569,11 @@
       }
     },
     "featuresTitle": "Included benefits:",
+    "footnote": {
+      "contactUs": "If none of the credit plans above fit your needs, you can contact us directly",
+      "learnerEstimate": "Supported learner counts for each credit plan are estimated from platform usage data; actual capacity depends on real credit consumption",
+      "learnerEstimateTip": "Estimation basis: a course of about 10 sections with Listen mode enabled (Listen mode consumes credits much faster than the default)."
+    },
     "free": {
       "creditSummary": "{credits} bonus credits",
       "description": "Best for a first look.",
@@ -579,13 +584,13 @@
     "intervalTabs": {
       "daily": "Daily Plans",
       "monthly": "Monthly Plans",
-      "plans": "Plans",
-      "topup": "Top-up",
+      "plans": "Credit Plans",
+      "topup": "Credit Packs",
       "yearly": "Yearly Plans"
     },
     "scale": {
       "advanced": {
-        "students": "Up to ~500 learners"
+        "students": "Around 500 learners"
       },
       "basic": {
         "students": "Around 10 learners"
@@ -594,13 +599,13 @@
         "students": "Around 10 learners"
       },
       "lite": {
-        "students": "Around 3 learners"
+        "students": "Fewer than 1 learner"
       },
       "premium": {
-        "students": "Up to ~1,500 learners"
+        "students": "Around 2,200 learners"
       },
       "pro": {
-        "students": "Up to ~1,000 learners"
+        "students": "Around 1,000 learners"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -612,12 +617,11 @@
       "studentsRowLabel": "Estimated learners",
       "validityRowLabel": "Credit validity"
     },
-    "title": "Credit Plans",
+    "title": "Buy Credits",
     "topup": {
       "creditLabel": "{credits} credits",
       "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
-      "noteInstant": "Credits take effect immediately after purchase.",
-      "noteTitle": "Top-up notes"
+      "noteInstant": "Credits take effect immediately after purchase."
     },
     "topupComingSoon": "Coming soon",
     "validity": {
@@ -644,7 +648,7 @@
     "adminLink": "Open billing ops",
     "tabs": {
       "ledger": "Credit Details",
-      "plans": "Credit Plans"
+      "plans": "Buy Credits"
     }
   },
   "renewal": {

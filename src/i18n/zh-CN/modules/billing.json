@@ -282,7 +282,7 @@
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合轻量级课程迭代",
+        "description": "适合轻量级课程体验",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
@@ -569,6 +569,11 @@
       }
     },
     "featuresTitle": "享有权益：",
+    "footnote": {
+      "contactUs": "如果以上积分套餐都不符合你的需求，可以直接联系我们",
+      "learnerEstimate": "各积分套餐可支持的学员人数是基于平台经验数据的预估，最终以实际积分消耗为准",
+      "learnerEstimateTip": "预估课程标准：课程长度约10个小节的内容，且开启了听课模式（积分消耗速度远高于未开启听课模式）"
+    },
     "free": {
       "creditSummary": "赠送积分数 {credits}",
       "description": "适合首次体验",
@@ -579,28 +584,28 @@
     "intervalTabs": {
       "daily": "日度套餐",
       "monthly": "月度套餐",
-      "plans": "套餐",
-      "topup": "充值",
+      "plans": "积分套餐",
+      "topup": "积分包",
       "yearly": "年度套餐"
     },
     "scale": {
       "advanced": {
-        "students": "约 500 个以内学员"
+        "students": "500 人左右"
       },
       "basic": {
-        "students": "10人左右"
+        "students": "10 人左右"
       },
       "free": {
-        "students": "10人左右"
+        "students": "10 人左右"
       },
       "lite": {
-        "students": "3人左右"
+        "students": "少于 1 人"
       },
       "premium": {
-        "students": "约 1500 个以内学员"
+        "students": "2200 人左右"
       },
       "pro": {
-        "students": "约 1000 个以内学员"
+        "students": "1000 人左右"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -609,15 +614,14 @@
       "creditsRowLabel": "周期积分",
       "emptyValue": "—",
       "featuresRowLabel": "权益",
-      "studentsRowLabel": "预估支持学员",
+      "studentsRowLabel": "预估支持学员数",
       "validityRowLabel": "积分有效期"
     },
-    "title": "积分套餐",
+    "title": "积分购买",
     "topup": {
       "creditLabel": "{credits} 积分",
       "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
-      "noteInstant": "购买后即时生效, 积分永不过期。",
-      "noteTitle": "积分充值说明"
+      "noteInstant": "购买后即时生效, 积分永不过期。"
     },
     "topupComingSoon": "敬请期待",
     "validity": {
@@ -644,7 +648,7 @@
     "adminLink": "打开后台账务视图",
     "tabs": {
       "ledger": "积分详情",
-      "plans": "积分套餐"
+      "plans": "积分购买"
     }
   },
   "renewal": {

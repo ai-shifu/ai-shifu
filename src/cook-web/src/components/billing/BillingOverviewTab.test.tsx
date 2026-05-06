@@ -476,9 +476,6 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.package.topup.noteTitle'),
-    ).toBeInTheDocument();
-    expect(
       screen.getByText('module.billing.package.topup.noteInstant'),
     ).toBeInTheDocument();
     expect(
