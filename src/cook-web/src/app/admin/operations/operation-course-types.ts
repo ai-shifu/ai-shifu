@@ -29,7 +29,7 @@ export type AdminOperationCourseOverview = {
 };
 
 export type AdminOperationCourseListResponse = {
-  summary: AdminOperationCourseOverview;
+  summary?: AdminOperationCourseOverview;
   items: AdminOperationCourseItem[];
   page: number;
   page_count: number;

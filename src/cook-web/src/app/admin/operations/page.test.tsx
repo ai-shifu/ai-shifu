@@ -508,6 +508,11 @@ describe('OperationsPage', () => {
         'module.operationsCourse.overview.tooltips.totalCourses',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(
+        'module.operationsCourse.overview.tooltips.totalCourses',
+      ).tagName,
+    ).toBe('BUTTON');
     expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
@@ -815,6 +820,32 @@ describe('OperationsPage', () => {
         }),
       );
     });
+  });
+
+  test('clicking the recent courses overview card syncs the calendar-day range', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-06T10:00:00Z'));
+
+    try {
+      await renderAndWaitForLoadedPage();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /module\.operationsCourse\.overview\.metrics\.createdLast7d/i,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            quick_filter: 'created_last_7d',
+            start_time: '2026-04-30',
+            end_time: '2026-05-06',
+          }),
+        );
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('shows inline validation and request errors for transfer creator', async () => {

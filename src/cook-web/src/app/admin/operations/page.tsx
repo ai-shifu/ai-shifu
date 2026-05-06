@@ -193,6 +193,17 @@ const buildCreatedLast7DaysFilters = (): Pick<
   };
 };
 
+const handleOverviewCardKeyDown = (
+  event: React.KeyboardEvent<HTMLElement>,
+  onActivate: () => void,
+) => {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+  event.preventDefault();
+  onActivate();
+};
+
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
   value: string,
@@ -1285,24 +1296,33 @@ const OperationsPage = () => {
           <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
             {overviewCards.map(card => {
               return (
-                <button
-                  type='button'
+                <div
+                  role='button'
+                  tabIndex={0}
                   key={card.key}
+                  aria-label={card.label}
                   className='group rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
                   onClick={() => applyQuickFilter(card.quickFilterKey)}
+                  onKeyDown={event =>
+                    handleOverviewCardKeyDown(event, () =>
+                      applyQuickFilter(card.quickFilterKey),
+                    )
+                  }
                 >
                   <div className='flex items-center gap-1 text-sm text-muted-foreground'>
                     <span>{card.label}</span>
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span
+                          <button
+                            type='button'
                             aria-label={card.tooltip}
-                            className='inline-flex h-4 w-4 items-center justify-center text-muted-foreground'
+                            className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
                             onClick={event => event.stopPropagation()}
+                            onKeyDown={event => event.stopPropagation()}
                           >
                             <QuestionMarkCircleIcon className='h-4 w-4' />
-                          </span>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent className='max-w-56 text-left leading-5'>
                           {card.tooltip}
@@ -1313,7 +1333,7 @@ const OperationsPage = () => {
                   <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
                     {formatCount(card.value)}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

@@ -678,6 +678,15 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
         created_at=datetime(2025, 3, 20, 10, 0, 0),
         updated_at=datetime(2025, 4, 2, 10, 0, 0),
     )
+    rolling_window_only_course = DummyCourse(
+        shifu_bid="course-rolling-window-only",
+        title="Rolling Window Only Course",
+        price="19.00",
+        created_user_bid="creator-4",
+        updated_user_bid="creator-4",
+        created_at=datetime(2025, 4, 24, 18, 0, 0),
+        updated_at=datetime(2025, 4, 24, 18, 0, 0),
+    )
 
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
@@ -701,7 +710,12 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
                             ):
                                 creator_mock.return_value = None
                                 latest_mock.side_effect = lambda model, **kwargs: (
-                                    [recent_course, paid_course, learning_course]
+                                    [
+                                        recent_course,
+                                        paid_course,
+                                        learning_course,
+                                        rolling_window_only_course,
+                                    ]
                                     if model.__name__ == "DraftShifu"
                                     else []
                                 )
@@ -720,6 +734,11 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
                                     "creator-3": {
                                         "mobile": "",
                                         "email": "creator-3@example.com",
+                                        "nickname": "",
+                                    },
+                                    "creator-4": {
+                                        "mobile": "",
+                                        "email": "creator-4@example.com",
                                         "nickname": "",
                                     },
                                 }

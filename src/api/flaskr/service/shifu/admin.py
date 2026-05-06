@@ -1493,6 +1493,17 @@ def _resolve_course_quick_filter(value: str) -> str:
     return normalized
 
 
+def _resolve_created_last_7d_window(
+    now: Optional[datetime] = None,
+) -> tuple[datetime, datetime]:
+    current = now or datetime.now()
+    start = (current - timedelta(days=6)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end = current.replace(hour=23, minute=59, second=59, microsecond=0)
+    return start, end
+
+
 def _record_course_activity(
     activity_map: Dict[str, Dict[str, Any]],
     *,
@@ -4181,75 +4192,75 @@ def get_operator_user_credits(
 
 
 def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
-    with app.app_context():
-        draft_rows = _load_latest_shifus(
-            DraftShifu,
-            shifu_bid="",
-            course_name="",
-            creator_bids=None,
-            start_time=None,
-            end_time=None,
-            updated_start_time=None,
-            updated_end_time=None,
-        )
-        published_rows = _load_latest_shifus(
-            PublishedShifu,
-            shifu_bid="",
-            course_name="",
-            creator_bids=None,
-            start_time=None,
-            end_time=None,
-            updated_start_time=None,
-            updated_end_time=None,
-        )
-        merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
-        total_course_count = len(merged_courses)
-        if total_course_count == 0:
-            return AdminOperationCourseOverviewDTO()
+    draft_rows = _load_latest_shifus(
+        DraftShifu,
+        shifu_bid="",
+        course_name="",
+        creator_bids=None,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+    )
+    published_rows = _load_latest_shifus(
+        PublishedShifu,
+        shifu_bid="",
+        course_name="",
+        creator_bids=None,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+    )
+    merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
+    total_course_count = len(merged_courses)
+    if total_course_count == 0:
+        return AdminOperationCourseOverviewDTO()
 
-        now = datetime.now()
-        created_window_start = now - timedelta(days=7)
-        recent_activity_window_start = now - timedelta(days=30)
-        visible_shifu_bids = [
-            str(course.shifu_bid or "").strip()
+    now = datetime.now()
+    created_window_start, created_window_end = _resolve_created_last_7d_window(now)
+    recent_activity_window_start = now - timedelta(days=30)
+    visible_shifu_bids = [
+        str(course.shifu_bid or "").strip()
+        for course in merged_courses
+        if str(course.shifu_bid or "").strip()
+    ]
+    learning_active_30d_course_count = len(
+        _load_recent_learning_active_course_bids(
+            since=recent_activity_window_start,
+            shifu_bids=visible_shifu_bids,
+        )
+    )
+    paid_order_30d_course_count = len(
+        _load_recent_paid_order_course_bids(
+            since=recent_activity_window_start,
+            shifu_bids=visible_shifu_bids,
+        )
+    )
+
+    return AdminOperationCourseOverviewDTO(
+        total_course_count=total_course_count,
+        draft_course_count=sum(
+            1
             for course in merged_courses
-            if str(course.shifu_bid or "").strip()
-        ]
-        learning_active_30d_course_count = len(
-            _load_recent_learning_active_course_bids(
-                since=recent_activity_window_start,
-                shifu_bids=visible_shifu_bids,
-            )
-        )
-        paid_order_30d_course_count = len(
-            _load_recent_paid_order_course_bids(
-                since=recent_activity_window_start,
-                shifu_bids=visible_shifu_bids,
-            )
-        )
-
-        return AdminOperationCourseOverviewDTO(
-            total_course_count=total_course_count,
-            draft_course_count=sum(
-                1
-                for course in merged_courses
-                if _resolve_course_status(course.shifu_bid or "", published_bids)
-                == COURSE_STATUS_UNPUBLISHED
-            ),
-            published_course_count=sum(
-                1
-                for course in merged_courses
-                if _resolve_course_status(course.shifu_bid or "", published_bids)
-                == COURSE_STATUS_PUBLISHED
-            ),
-            created_last_7d_course_count=sum(
-                1
-                for course in merged_courses
-                if course.created_at and course.created_at >= created_window_start
-            ),
-            learning_active_30d_course_count=learning_active_30d_course_count,
-            paid_order_30d_course_count=paid_order_30d_course_count,
-        )
+            if _resolve_course_status(course.shifu_bid or "", published_bids)
+            == COURSE_STATUS_UNPUBLISHED
+        ),
+        published_course_count=sum(
+            1
+            for course in merged_courses
+            if _resolve_course_status(course.shifu_bid or "", published_bids)
+            == COURSE_STATUS_PUBLISHED
+        ),
+        created_last_7d_course_count=sum(
+            1
+            for course in merged_courses
+            if course.created_at
+            and created_window_start <= course.created_at <= created_window_end
+        ),
+        learning_active_30d_course_count=learning_active_30d_course_count,
+        paid_order_30d_course_count=paid_order_30d_course_count,
+    )
 
 
 def list_operator_courses(
@@ -4341,11 +4352,14 @@ def list_operator_courses(
                     == COURSE_STATUS_PUBLISHED
                 ]
             elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-                created_window_start = datetime.now() - timedelta(days=7)
+                created_window_start, created_window_end = (
+                    _resolve_created_last_7d_window()
+                )
                 merged_courses = [
                     course
                     for course in merged_courses
-                    if course.created_at and course.created_at >= created_window_start
+                    if course.created_at
+                    and created_window_start <= course.created_at <= created_window_end
                 ]
             else:
                 visible_shifu_bids = [
