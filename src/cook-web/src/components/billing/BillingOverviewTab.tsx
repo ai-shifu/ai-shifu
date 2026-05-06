@@ -35,6 +35,7 @@ import {
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
+import { BillingOverviewFootnote } from './BillingOverviewFootnote';
 import { BillingOverviewHero } from './BillingOverviewHero';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';
 import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
@@ -509,6 +510,8 @@ export function BillingOverviewTab({
         }}
         onShowcaseTabChange={setShowcaseTab}
       />
+
+      <BillingOverviewFootnote />
 
       <BillingCheckoutDialog
         creditsLabel={dialogCreditsLabel}
