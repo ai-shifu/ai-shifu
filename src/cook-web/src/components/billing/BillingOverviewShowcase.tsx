@@ -10,7 +10,6 @@ import type {
 } from '@/types/billing';
 import { TopupCard } from './BillingOverviewCards';
 import type { ShowcaseTab } from './BillingOverviewCards';
-import { BillingNoticeCallout } from './BillingNoticeCallout';
 import { BillingOverviewFootnote } from './BillingOverviewFootnote';
 import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
 
@@ -172,10 +171,15 @@ export function BillingOverviewShowcase({
             })}
           </div>
 
-          <BillingNoticeCallout testId='billing-topup-note'>
-            <li>{t('module.billing.package.topup.noteInstant')}</li>
-            <li>{t('module.billing.package.topup.noteFrozen')}</li>
-          </BillingNoticeCallout>
+          <div
+            className='text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'
+            data-testid='billing-topup-note'
+          >
+            <ul className='list-disc space-y-2 pl-5'>
+              <li>{t('module.billing.package.topup.noteInstant')}</li>
+              <li>{t('module.billing.package.topup.noteFrozen')}</li>
+            </ul>
+          </div>
         </div>
       ) : (
         <div className='space-y-6'>
