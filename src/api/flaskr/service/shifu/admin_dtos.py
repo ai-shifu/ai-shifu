@@ -98,6 +98,75 @@ class AdminOperationCourseSummaryDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationCourseOverviewDTO(BaseModel):
+    """Overview metrics shown above the operator course list."""
+
+    total_course_count: int = Field(
+        default=0,
+        description="Total visible course count",
+        required=False,
+    )
+    draft_course_count: int = Field(
+        default=0,
+        description="Visible draft-only course count",
+        required=False,
+    )
+    published_course_count: int = Field(
+        default=0,
+        description="Visible published course count",
+        required=False,
+    )
+    created_last_7d_course_count: int = Field(
+        default=0,
+        description="Visible courses created in the last 7 days",
+        required=False,
+    )
+    learning_active_30d_course_count: int = Field(
+        default=0,
+        description="Visible courses with learning records in the last 30 days",
+        required=False,
+    )
+    paid_order_30d_course_count: int = Field(
+        default=0,
+        description="Visible courses with successful orders in the last 30 days",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseListDTO(BaseModel):
+    """Operator-facing paginated course list payload."""
+
+    summary: AdminOperationCourseOverviewDTO = Field(
+        ...,
+        description="Course overview metrics",
+        required=False,
+    )
+    items: list[AdminOperationCourseSummaryDTO] = Field(
+        default_factory=list,
+        description="Paginated course rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary.__json__(),
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
 class AdminOperationUserCourseSummaryDTO(BaseModel):
     """Course summary shown in operator user-related course lists."""
 

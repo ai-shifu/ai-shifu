@@ -19,7 +19,17 @@ export type AdminOperationCourseItem = {
   updated_at: string;
 };
 
+export type AdminOperationCourseOverview = {
+  total_course_count: number;
+  draft_course_count: number;
+  published_course_count: number;
+  created_last_7d_course_count: number;
+  learning_active_30d_course_count: number;
+  paid_order_30d_course_count: number;
+};
+
 export type AdminOperationCourseListResponse = {
+  summary?: AdminOperationCourseOverview;
   items: AdminOperationCourseItem[];
   page: number;
   page_count: number;

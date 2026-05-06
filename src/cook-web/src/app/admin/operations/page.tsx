@@ -8,6 +8,7 @@ import React, {
   useState,
   type CSSProperties,
 } from 'react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
@@ -67,6 +68,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { useToast } from '@/hooks/useToast';
@@ -79,6 +86,7 @@ import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
   AdminOperationCourseItem,
   AdminOperationCourseListResponse,
+  AdminOperationCourseOverview,
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
 import useOperatorGuard from './useOperatorGuard';
@@ -94,12 +102,25 @@ type CourseFilters = {
   updated_end_time: string;
 };
 
+type CourseQuickFilterKey =
+  | ''
+  | 'draft'
+  | 'published'
+  | 'created_last_7d'
+  | 'learning_active_30d'
+  | 'paid_order_30d';
+
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const COURSE_STATUS_PUBLISHED = 'published';
 const COURSE_STATUS_UNPUBLISHED = 'unpublished';
+const COURSE_QUICK_FILTER_DRAFT = 'draft';
+const COURSE_QUICK_FILTER_PUBLISHED = 'published';
+const COURSE_QUICK_FILTER_CREATED_LAST_7D = 'created_last_7d';
+const COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const COURSE_QUICK_FILTER_PAID_ORDER_30D = 'paid_order_30d';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
@@ -122,6 +143,14 @@ const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
 const EMPTY_STATE_LABEL = '--';
+const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
+  total_course_count: 0,
+  draft_course_count: 0,
+  published_course_count: 0,
+  created_last_7d_course_count: 0,
+  learning_active_30d_course_count: 0,
+  paid_order_30d_course_count: 0,
+};
 const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const COLLAPSED_TEXT_STYLE: CSSProperties = {
@@ -143,6 +172,37 @@ const createDefaultFilters = (): CourseFilters => ({
   updated_start_time: '',
   updated_end_time: '',
 });
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast7DaysFilters = (): Pick<
+  CourseFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 6);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
+
+const handleOverviewCardKeyDown = (
+  event: React.KeyboardEvent<HTMLElement>,
+  onActivate: () => void,
+) => {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+  event.preventDefault();
+  onActivate();
+};
 
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
@@ -174,6 +234,9 @@ const renderTooltipText = (text?: string, className?: string) => {
     />
   );
 };
+
+const formatCount = (value: number): string =>
+  Number.isFinite(value) ? value.toLocaleString() : EMPTY_STATE_LABEL;
 
 type ClearableTextInputProps = {
   value: string;
@@ -232,6 +295,20 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.filters.endTime')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
+ * t('module.operationsCourse.overview.title')
+ * t('module.operationsCourse.overview.metrics.totalCourses')
+ * t('module.operationsCourse.overview.metrics.draftCourses')
+ * t('module.operationsCourse.overview.metrics.publishedCourses')
+ * t('module.operationsCourse.overview.metrics.createdLast7d')
+ * t('module.operationsCourse.overview.metrics.learningActive30d')
+ * t('module.operationsCourse.overview.metrics.ordered30d')
+ * t('module.operationsCourse.overview.tooltips.totalCourses')
+ * t('module.operationsCourse.overview.tooltips.draftCourses')
+ * t('module.operationsCourse.overview.tooltips.publishedCourses')
+ * t('module.operationsCourse.overview.tooltips.createdLast7d')
+ * t('module.operationsCourse.overview.tooltips.learningActive30d')
+ * t('module.operationsCourse.overview.tooltips.ordered30d')
+ * t('module.operationsCourse.overview.activeFilter')
  * t('module.operationsCourse.table.courseName')
  * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
@@ -346,7 +423,10 @@ const OperationsPage = () => {
   );
 
   const [courses, setCourses] = useState<AdminOperationCourseItem[]>([]);
+  const [courseOverview, setCourseOverview] =
+    useState<AdminOperationCourseOverview>(EMPTY_COURSE_OVERVIEW);
   const [filters, setFilters] = useState<CourseFilters>(createDefaultFilters);
+  const [quickFilter, setQuickFilter] = useState<CourseQuickFilterKey>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
@@ -373,7 +453,11 @@ const OperationsPage = () => {
   const promptRequestIdRef = useRef(0);
   const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
   const fetchCoursesRef = useRef<
-    | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
+    | ((
+        targetPage: number,
+        nextFilters?: CourseFilters,
+        nextQuickFilter?: CourseQuickFilterKey,
+      ) => Promise<void>)
     | undefined
   >(undefined);
   const {
@@ -456,8 +540,13 @@ const OperationsPage = () => {
   ]);
 
   const fetchCourses = useCallback(
-    async (targetPage: number, nextFilters?: CourseFilters) => {
+    async (
+      targetPage: number,
+      nextFilters?: CourseFilters,
+      nextQuickFilter?: CourseQuickFilterKey,
+    ) => {
       const resolvedFilters = nextFilters ?? filters;
+      const resolvedQuickFilter = nextQuickFilter ?? quickFilter;
       requestedPageRef.current = targetPage;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
@@ -471,6 +560,7 @@ const OperationsPage = () => {
           course_name: resolvedFilters.course_name.trim(),
           creator_keyword: resolvedFilters.creator_keyword.trim(),
           course_status: resolvedFilters.course_status,
+          quick_filter: resolvedQuickFilter,
           start_time: resolvedFilters.start_time,
           end_time: resolvedFilters.end_time,
           updated_start_time: resolvedFilters.updated_start_time,
@@ -479,6 +569,7 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
+        setCourseOverview(response.summary ?? EMPTY_COURSE_OVERVIEW);
         setCourses(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
@@ -486,6 +577,7 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
+        setCourseOverview(EMPTY_COURSE_OVERVIEW);
         setPageIndex(targetPage);
         if (err instanceof ErrorWithCode) {
           setError({ message: err.message, code: err.code });
@@ -500,7 +592,7 @@ const OperationsPage = () => {
         }
       }
     },
-    [filters, t],
+    [filters, quickFilter, t],
   );
 
   useEffect(() => {
@@ -511,28 +603,87 @@ const OperationsPage = () => {
     if (!isInitialized || isGuest || !isReady) {
       return;
     }
-    fetchCoursesRef.current?.(1, createDefaultFilters());
+    fetchCoursesRef.current?.(1, createDefaultFilters(), '');
   }, [isGuest, isInitialized, isReady]);
 
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof CourseFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (
+        quickFilter === COURSE_QUICK_FILTER_DRAFT ||
+        quickFilter === COURSE_QUICK_FILTER_PUBLISHED
+      ) {
+        const expectedStatus =
+          quickFilter === COURSE_QUICK_FILTER_DRAFT
+            ? COURSE_STATUS_UNPUBLISHED
+            : COURSE_STATUS_PUBLISHED;
+        if (key === 'course_status' && value !== expectedStatus) {
+          setQuickFilter('');
+        }
+        return;
+      }
+      if (quickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        const expected = buildCreatedLast7DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+        }
+      }
+    },
+    [quickFilter],
+  );
+
   const handleFilterChange = (key: keyof CourseFilters, value: string) => {
+    clearQuickFilterIfConflicted(key, value);
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: CourseQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setFilters(cleared);
+        setQuickFilter('');
+        fetchCourses(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === COURSE_QUICK_FILTER_DRAFT) {
+        nextFilters.course_status = COURSE_STATUS_UNPUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_PUBLISHED) {
+        nextFilters.course_status = COURSE_STATUS_PUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        Object.assign(nextFilters, buildCreatedLast7DaysFilters());
+      }
+
+      setFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      fetchCourses(1, nextFilters, targetQuickFilter);
+    },
+    [fetchCourses, quickFilter],
+  );
+
   const handleSearch = () => {
-    fetchCourses(1, filters);
+    fetchCourses(1, filters, quickFilter);
   };
 
   const handleReset = () => {
     const cleared = createDefaultFilters();
     setFilters(cleared);
-    fetchCourses(1, cleared);
+    setQuickFilter('');
+    fetchCourses(1, cleared, '');
   };
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount || nextPage === pageIndex) {
       return;
     }
-    fetchCourses(nextPage);
+    fetchCourses(nextPage, filters, quickFilter);
   };
 
   const handleDetailClick = (course: AdminOperationCourseItem) => {
@@ -773,7 +924,7 @@ const OperationsPage = () => {
         title: tOperations('transferCreatorDialog.submitSuccess'),
       });
       handleTransferDialogOpenChange(false);
-      await fetchCourses(requestedPageRef.current);
+      await fetchCourses(requestedPageRef.current, filters, quickFilter);
     } catch (error) {
       setTransferError(
         error instanceof Error ? error.message : t('common.core.unknownError'),
@@ -783,8 +934,10 @@ const OperationsPage = () => {
     }
   }, [
     fetchCourses,
+    filters,
     handleTransferDialogOpenChange,
     normalizedTransferIdentifier,
+    quickFilter,
     t,
     tOperations,
     toast,
@@ -799,6 +952,66 @@ const OperationsPage = () => {
     const approx = text.length * multiplier + 16;
     return approx;
   };
+
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperations('overview.metrics.totalCourses'),
+        value: courseOverview.total_course_count,
+        tooltip: tOperations('overview.tooltips.totalCourses'),
+        quickFilterKey: '' as CourseQuickFilterKey,
+      },
+      {
+        key: 'draft',
+        label: tOperations('overview.metrics.draftCourses'),
+        value: courseOverview.draft_course_count,
+        tooltip: tOperations('overview.tooltips.draftCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_DRAFT as CourseQuickFilterKey,
+      },
+      {
+        key: 'published',
+        label: tOperations('overview.metrics.publishedCourses'),
+        value: courseOverview.published_course_count,
+        tooltip: tOperations('overview.tooltips.publishedCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_PUBLISHED as CourseQuickFilterKey,
+      },
+      {
+        key: 'created-last-7d',
+        label: tOperations('overview.metrics.createdLast7d'),
+        value: courseOverview.created_last_7d_course_count,
+        tooltip: tOperations('overview.tooltips.createdLast7d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_CREATED_LAST_7D as CourseQuickFilterKey,
+      },
+      {
+        key: 'learning-30d',
+        label: tOperations('overview.metrics.learningActive30d'),
+        value: courseOverview.learning_active_30d_course_count,
+        tooltip: tOperations('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D as CourseQuickFilterKey,
+      },
+      {
+        key: 'orders-30d',
+        label: tOperations('overview.metrics.ordered30d'),
+        value: courseOverview.paid_order_30d_course_count,
+        tooltip: tOperations('overview.tooltips.ordered30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_PAID_ORDER_30D as CourseQuickFilterKey,
+      },
+    ],
+    [courseOverview, tOperations],
+  );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
 
   const collapsedFilterItems = [
     {
@@ -1051,7 +1264,9 @@ const OperationsPage = () => {
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
-          onRetry={() => fetchCourses(requestedPageRef.current)}
+          onRetry={() =>
+            fetchCourses(requestedPageRef.current, filters, quickFilter)
+          }
         />
       </div>
     );
@@ -1072,11 +1287,79 @@ const OperationsPage = () => {
           </h1>
         </div>
 
+        <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
+          <div className='mb-3'>
+            <h2 className='text-base font-semibold text-foreground'>
+              {tOperations('overview.title')}
+            </h2>
+          </div>
+          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
+            {overviewCards.map(card => {
+              return (
+                <div
+                  role='button'
+                  tabIndex={0}
+                  key={card.key}
+                  aria-label={card.label}
+                  className='group rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                  onClick={() => applyQuickFilter(card.quickFilterKey)}
+                  onKeyDown={event =>
+                    handleOverviewCardKeyDown(event, () =>
+                      applyQuickFilter(card.quickFilterKey),
+                    )
+                  }
+                >
+                  <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                    <span>{card.label}</span>
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type='button'
+                            aria-label={card.tooltip}
+                            className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                            onClick={event => event.stopPropagation()}
+                            onKeyDown={event => event.stopPropagation()}
+                          >
+                            <QuestionMarkCircleIcon className='h-4 w-4' />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className='max-w-56 text-left leading-5'>
+                          {card.tooltip}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
+                    {formatCount(card.value)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div
           className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'
           data-testid='admin-operations-filters'
         >
           <div className='space-y-4'>
+            {activeQuickFilterCard ? (
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='text-sm text-muted-foreground'>
+                  {tOperations('overview.activeFilter')}
+                </span>
+                <button
+                  type='button'
+                  aria-label={`${activeQuickFilterCard.label} ${clearLabel}`}
+                  className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+                  onClick={() => applyQuickFilter('')}
+                >
+                  <span>{activeQuickFilterCard.label}</span>
+                  <X className='h-3.5 w-3.5' />
+                </button>
+              </div>
+            ) : null}
             <div
               className={cn(
                 'grid gap-4',
