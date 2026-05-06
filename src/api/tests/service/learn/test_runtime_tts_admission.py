@@ -182,6 +182,10 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
         lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
     )
     monkeypatch.setattr(
+        "flaskr.service.learn.preview_permissions.is_builtin_demo_shifu",
+        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+    )
+    monkeypatch.setattr(
         "flaskr.service.learn.routes.admit_creator_usage",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("builtin demo should skip creator admission")
