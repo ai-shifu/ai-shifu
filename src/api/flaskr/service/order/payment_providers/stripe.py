@@ -65,8 +65,8 @@ class StripeProvider(PaymentProvider):
         metadata.setdefault("shifu_bid", request.shifu_bid)
 
         if mode == "checkout_session":
-            success_url = options.get("success_url") or get_config("STRIPE_SUCCESS_URL")
-            cancel_url = options.get("cancel_url") or get_config("STRIPE_CANCEL_URL")
+            success_url = options.get("success_url")
+            cancel_url = options.get("cancel_url")
             if not success_url or not cancel_url:
                 raise RuntimeError(
                     "Stripe checkout session requires success and cancel URLs"

@@ -2,15 +2,18 @@ import {
   formatBillingCreditAmount,
   formatBillingCreditBalance,
   formatBillingCredits,
+  formatBillingNumber,
   formatBillingPlanInterval,
+  formatBillingPrice,
+  extractBillingPingxxQrCode,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
   resolveBillingPlanValidityLabel,
-  setBillingCreditPrecision,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
+import type { BillingCheckoutResult } from '@/types/billing';
 
 const monthlyPlan: BillingPlan = {
   product_bid: 'bill-product-plan-monthly',
@@ -45,21 +48,58 @@ const dailyPlan: BillingPlan = {
   price_amount: 390,
 };
 
-describe('resolveBillingPlanCreditsLabel', () => {
-  afterEach(() => {
-    setBillingCreditPrecision();
+describe('formatBillingNumber (unified display rule)', () => {
+  test('drops the decimal point for integer values', () => {
+    expect(formatBillingNumber(1000, 'en-US')).toBe('1,000');
+    expect(formatBillingNumber(0, 'en-US')).toBe('0');
+    expect(formatBillingNumber(50000, 'en-US')).toBe('50,000');
   });
 
-  test('formats credits with fixed two-decimal precision by default', () => {
-    expect(formatBillingCredits(5, 'en-US')).toBe('5.00');
+  test('strips trailing zeros and caps at two fraction digits', () => {
+    expect(formatBillingNumber(50.5, 'en-US')).toBe('50.5');
+    expect(formatBillingNumber(50.5, 'zh-CN')).toBe('50.5');
+    expect(formatBillingNumber(50.567, 'en-US')).toBe('50.57');
+    expect(formatBillingNumber(0.01, 'en-US')).toBe('0.01');
+  });
+
+  test('groups thousands for large numbers across locales', () => {
+    expect(formatBillingNumber(1234567, 'en-US')).toBe('1,234,567');
+    expect(formatBillingNumber(1234567, 'zh-CN')).toBe('1,234,567');
+    expect(formatBillingNumber(1234567.89, 'en-US')).toBe('1,234,567.89');
+  });
+
+  test('falls back to zero for non-finite or nullish input', () => {
+    expect(formatBillingNumber(NaN, 'en-US')).toBe('0');
+    expect(formatBillingNumber(null, 'en-US')).toBe('0');
+    expect(formatBillingNumber(undefined, 'en-US')).toBe('0');
+    expect(formatBillingNumber(Number(''), 'en-US')).toBe('0');
+  });
+
+  test('renders narrow currency symbol when currency option is set', () => {
+    expect(formatBillingNumber(99, 'zh-CN', { currency: 'CNY' })).toBe('¥99');
+    expect(formatBillingNumber(0.01, 'zh-CN', { currency: 'CNY' })).toBe(
+      '¥0.01',
+    );
+    expect(formatBillingNumber(99.5, 'zh-CN', { currency: 'CNY' })).toBe(
+      '¥99.5',
+    );
+    expect(formatBillingNumber(99, 'en-US', { currency: 'CNY' })).toBe('¥99');
+    expect(formatBillingNumber(99.5, 'en-US', { currency: 'USD' })).toBe(
+      '$99.5',
+    );
+  });
+});
+
+describe('formatBillingCredits', () => {
+  test('renders integers without decimals and groups thousands', () => {
+    expect(formatBillingCredits(5, 'en-US')).toBe('5');
+    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000');
+  });
+
+  test('keeps meaningful decimals up to two places', () => {
     expect(formatBillingCredits(1.25, 'en-US')).toBe('1.25');
-    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.00');
-  });
-
-  test('formats credits with runtime-configured precision', () => {
-    setBillingCreditPrecision(2);
     expect(formatBillingCredits(1.256, 'en-US')).toBe('1.26');
-    expect(formatBillingCredits(10000, 'en-US')).toBe('10,000.00');
+    expect(formatBillingCredits(50.5, 'en-US')).toBe('50.5');
   });
 
   test('uses monthly credits copy for monthly plans', () => {
@@ -78,7 +118,7 @@ describe('resolveBillingPlanCreditsLabel', () => {
     });
 
     expect(resolveBillingPlanCreditsLabel(t, yearlyPlan)).toBe(
-      'module.billing.package.creditSummary.yearly:10000',
+      'module.billing.package.creditSummary.yearly:10,000',
     );
   });
 
@@ -94,19 +134,55 @@ describe('resolveBillingPlanCreditsLabel', () => {
 });
 
 describe('formatBillingCreditBalance', () => {
-  test('drops decimals and thousands separators for balance displays', () => {
+  test('keeps thousands separators and meaningful decimals', () => {
     expect(formatBillingCreditBalance(5)).toBe('5');
-    expect(formatBillingCreditBalance(1.25)).toBe('1');
-    expect(formatBillingCreditBalance(10000)).toBe('10000');
-    expect(formatBillingCreditBalance(32277.76)).toBe('32277');
+    expect(formatBillingCreditBalance(1.25)).toBe('1.25');
+    expect(formatBillingCreditBalance(10000)).toBe('10,000');
+    expect(formatBillingCreditBalance(32277.76)).toBe('32,277.76');
   });
 });
 
 describe('formatBillingCreditAmount', () => {
-  test('drops decimals and thousands separators for plan and topup credits', () => {
+  test('keeps thousands separators and meaningful decimals', () => {
     expect(formatBillingCreditAmount(5)).toBe('5');
-    expect(formatBillingCreditAmount(10000)).toBe('10000');
-    expect(formatBillingCreditAmount(3200.88)).toBe('3200');
+    expect(formatBillingCreditAmount(10000)).toBe('10,000');
+    expect(formatBillingCreditAmount(3200.88)).toBe('3,200.88');
+  });
+});
+
+describe('formatBillingPrice', () => {
+  test('formats minor units to currency without trailing zeros', () => {
+    expect(formatBillingPrice(1, 'CNY', 'zh-CN')).toBe('¥0.01');
+    expect(formatBillingPrice(9900, 'CNY', 'zh-CN')).toBe('¥99');
+    expect(formatBillingPrice(9950, 'CNY', 'zh-CN')).toBe('¥99.5');
+    expect(formatBillingPrice(123456700, 'CNY', 'zh-CN')).toBe('¥1,234,567');
+  });
+
+  test('uses narrow symbol so CNY renders as ¥ across locales', () => {
+    expect(formatBillingPrice(9900, 'CNY', 'en-US')).toBe('¥99');
+  });
+
+  test('supports other currencies', () => {
+    expect(formatBillingPrice(9950, 'USD', 'en-US')).toBe('$99.5');
+  });
+
+  test('handles 0-decimal currency (JPY) without dividing by 100', () => {
+    expect(formatBillingPrice(100, 'JPY', 'en-US')).toBe('¥100');
+    expect(formatBillingPrice(100, 'JPY', 'zh-CN')).toBe('¥100');
+    expect(formatBillingPrice(1234567, 'JPY', 'en-US')).toBe('¥1,234,567');
+  });
+
+  test('handles 3-decimal currency (KWD) preserving full precision', () => {
+    expect(formatBillingPrice(1, 'KWD', 'en-US')).toBe('KWD 0.001');
+    expect(formatBillingPrice(1000, 'KWD', 'en-US')).toBe('KWD 1');
+    expect(formatBillingPrice(1234, 'KWD', 'en-US')).toBe('KWD 1.234');
+  });
+
+  test('falls back to zero for nullish input', () => {
+    expect(formatBillingPrice(0, 'CNY', 'zh-CN')).toBe('¥0');
+    expect(formatBillingPrice(null as unknown as number, 'CNY', 'zh-CN')).toBe(
+      '¥0',
+    );
   });
 });
 
@@ -239,5 +315,55 @@ describe('parseBillingDateValue', () => {
     expect(
       parseBillingDateValue('2026-04-14T07:32:00+08:00')?.toISOString(),
     ).toBe('2026-04-13T23:32:00.000Z');
+  });
+});
+
+describe('extractBillingPingxxQrCode', () => {
+  function buildCheckoutResult(
+    credential: Record<string, string>,
+  ): BillingCheckoutResult {
+    return {
+      bill_order_bid: 'bill-order-native',
+      payment_mode: 'one_time',
+      payment_payload: { credential },
+      provider: 'alipay',
+      status: 'pending',
+    };
+  }
+
+  test('extracts an Alipay native QR credential', () => {
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ alipay_qr: 'https://qr.example/alipay' }),
+        'alipay_qr',
+      ),
+    ).toEqual({
+      channel: 'alipay_qr',
+      url: 'https://qr.example/alipay',
+    });
+  });
+
+  test('extracts a WeChat Pay native QR credential', () => {
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ wx_pub_qr: 'weixin://wxpay/bizpayurl' }),
+        'wx_pub_qr',
+      ),
+    ).toEqual({
+      channel: 'wx_pub_qr',
+      url: 'weixin://wxpay/bizpayurl',
+    });
+  });
+
+  test('returns null when requested QR credential is missing or empty', () => {
+    expect(
+      extractBillingPingxxQrCode(buildCheckoutResult({}), 'alipay_qr'),
+    ).toBeNull();
+    expect(
+      extractBillingPingxxQrCode(
+        buildCheckoutResult({ alipay_qr: '' }),
+        'alipay_qr',
+      ),
+    ).toBeNull();
   });
 });

@@ -204,7 +204,6 @@ export function BillingCreditDetailsPanel({
   const totalCreditsLabel = formatBillingCredits(
     overview?.wallet.available_credits || 0,
     i18n.language,
-    2,
   );
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');
   const topupAvailabilityLabel = t(
@@ -295,7 +294,6 @@ export function BillingCreditDetailsPanel({
                       {formatBillingCredits(
                         row.availableCredits,
                         i18n.language,
-                        2,
                       )}
                     </div>
                     <div className='px-[var(--spacing-2,8px)] py-4 text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>

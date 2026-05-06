@@ -287,6 +287,9 @@ describe('AdminBillingPage', () => {
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-billing-page')).toHaveClass(
+      'overscroll-none',
+    );
     expect(packagesPanel).toHaveClass('flex-1');
     expect(packagesPanel).toHaveClass('overflow-y-auto');
     expect(

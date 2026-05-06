@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from flask import Flask, jsonify, request
 import pytest
 
+import flaskr.common.config as common_config
 import flaskr.dao as dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
@@ -81,6 +82,11 @@ from tests.service.billing.route_loader import (
 
 register_billing_routes = load_register_billing_routes()
 billing_write_routes_module = load_billing_routes_module()
+
+
+def _reset_config_cache(*keys: str) -> None:
+    for key in keys:
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
 
 
 def _add_active_subscription(
@@ -255,6 +261,10 @@ def _add_trial_subscription_state(
 
 @pytest.fixture
 def billing_write_client(monkeypatch):
+    monkeypatch.setenv("HOST_URL", "https://billing.example.com")
+    monkeypatch.setenv("PATH_PREFIX", "/api")
+    _reset_config_cache("HOST_URL", "PATH_PREFIX")
+
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -445,6 +455,7 @@ def billing_write_client(monkeypatch):
 
         dao.db.session.remove()
         dao.db.drop_all()
+        _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 class TestBillingWriteRoutes:
@@ -464,8 +475,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -492,8 +501,6 @@ class TestBillingWriteRoutes:
             "/api/billing/subscriptions/checkout",
             json={
                 "product_bid": "bill-product-plan-monthly",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -513,8 +520,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
             headers={"X-Language": "zh-CN"},
         )
@@ -525,6 +530,16 @@ class TestBillingWriteRoutes:
         assert payload["data"]["payment_mode"] == "subscription"
         assert payload["data"]["status"] == "pending"
         assert payload["data"]["redirect_url"] == "https://stripe.test/checkout"
+        bill_order_bid = payload["data"]["bill_order_bid"]
+        stripe_request = billing_write_client["stripe_requests"][0]
+        assert stripe_request["extra"]["success_url"] == (
+            "https://billing.example.com/payment/stripe/billing-result"
+            f"?bill_order_bid={bill_order_bid}"
+        )
+        assert stripe_request["extra"]["cancel_url"] == (
+            "https://billing.example.com/payment/stripe/billing-result"
+            f"?canceled=1&bill_order_bid={bill_order_bid}"
+        )
 
         with app.app_context():
             order = BillingOrder.query.filter_by(creator_bid="creator-1").one()
@@ -591,8 +606,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-daily",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -636,8 +649,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -688,8 +699,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly-pro",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -760,8 +769,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -823,8 +830,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         )
         payload = response.get_json(force=True)
@@ -1325,10 +1330,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": ("https://example.com/payment/stripe/billing-result"),
-                "cancel_url": (
-                    "https://example.com/payment/stripe/billing-result?canceled=1"
-                ),
             },
         ).get_json(force=True)
         paid_order_bid = paid_checkout["data"]["bill_order_bid"]
@@ -1606,8 +1607,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
@@ -1648,8 +1647,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-plan-monthly",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
-                "cancel_url": "https://example.com/payment/stripe/billing-result?canceled=1",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
@@ -2358,7 +2355,6 @@ class TestBillingWriteRoutes:
             json={
                 "product_bid": "bill-product-topup-small",
                 "payment_provider": "stripe",
-                "success_url": "https://example.com/payment/stripe/billing-result",
             },
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]

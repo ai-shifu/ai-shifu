@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { formatBillingCredits } from '@/lib/billing';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -391,7 +392,7 @@ const CreditLedgerTable = ({
   onPageChange: (page: number) => void;
   onRetry: () => void;
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
 
   if (error) {
@@ -497,13 +498,31 @@ const CreditLedgerTable = ({
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={item.amount}
+                          text={
+                            item.amount === '' ||
+                            item.amount === null ||
+                            item.amount === undefined
+                              ? ''
+                              : formatBillingCredits(
+                                  Number(item.amount),
+                                  i18n.language,
+                                )
+                          }
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={item.balance_after}
+                          text={
+                            item.balance_after === '' ||
+                            item.balance_after === null ||
+                            item.balance_after === undefined
+                              ? ''
+                              : formatBillingCredits(
+                                  Number(item.balance_after),
+                                  i18n.language,
+                                )
+                          }
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -555,7 +574,7 @@ const CreditLedgerTable = ({
 };
 
 export default function AdminOperationUserDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { t: tOperationsCourse } = useTranslation('module.operationsCourse');
   const router = useRouter();
@@ -981,19 +1000,40 @@ export default function AdminOperationUserDetailPage() {
                         label={tOperationsUsers(
                           'detail.creditsOverviewLabels.availableCredits',
                         )}
-                        value={creditSummary.available_credits}
+                        value={
+                          creditSummary.available_credits
+                            ? formatBillingCredits(
+                                Number(creditSummary.available_credits),
+                                i18n.language,
+                              )
+                            : ''
+                        }
                       />
                       <InfoItem
                         label={tOperationsUsers(
                           'detail.creditsOverviewLabels.subscriptionCredits',
                         )}
-                        value={creditSummary.subscription_credits}
+                        value={
+                          creditSummary.subscription_credits
+                            ? formatBillingCredits(
+                                Number(creditSummary.subscription_credits),
+                                i18n.language,
+                              )
+                            : ''
+                        }
                       />
                       <InfoItem
                         label={tOperationsUsers(
                           'detail.creditsOverviewLabels.topupCredits',
                         )}
-                        value={creditSummary.topup_credits}
+                        value={
+                          creditSummary.topup_credits
+                            ? formatBillingCredits(
+                                Number(creditSummary.topup_credits),
+                                i18n.language,
+                              )
+                            : ''
+                        }
                       />
                       <InfoItem
                         label={creditExpireAtLabel}

@@ -8,6 +8,7 @@ from flaskr.service.order import (
     init_buy_record,
     handle_stripe_webhook,
     get_payment_details,
+    sync_native_payment_order,
     sync_stripe_checkout_session,
 )
 from flaskr.service.order.admin import (
@@ -49,10 +50,10 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 订单id
                     channel:
                         type: string
-                        description: 支付渠道。Ping++通道请输入wx_pub_qr、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                        description: 支付渠道。国内通道请输入wx_pub_qr、wx_pub、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
                     payment_channel:
                         type: string
-                        description: 目标支付提供方，可选值为pingxx或stripe（不填则沿用订单记录）
+                        description: 目标支付提供方，可选值为pingxx、stripe、alipay、wechatpay（不填则按配置解析）
         responses:
             200:
                 description: 请求支付成功
@@ -70,7 +71,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     $ref: "#/components/schemas/BuyRecordDTO"
 
         """
-        payload = request.get_json() or {}
+        payload = request.get_json(silent=True) or {}
         order_id = payload.get("order_id", "")
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
@@ -285,6 +286,45 @@ def register_order_handler(app: Flask, path_prefix: str):
                 order_id,
                 session_id=session_id,
                 expected_user=user_id,
+            )
+        )
+
+    @app.route(path_prefix + "/payment/sync", methods=["POST"])
+    def payment_sync():
+        """
+        同步支付状态
+        ---
+        tags:
+            - 订单
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    order_id:
+                        type: string
+                        description: 订单id
+                    payment_channel:
+                        type: string
+                        description: 支付提供方，可选值为alipay、wechatpay、stripe
+        responses:
+            200:
+                description: 同步成功
+        """
+
+        payload = request.get_json() or {}
+        order_id = payload.get("order_id", "")
+        if not order_id:
+            raise_param_error("order_id")
+        user_id = request.user.user_id
+        return make_common_response(
+            sync_native_payment_order(
+                app,
+                order_id,
+                expected_user=user_id,
+                payment_channel=payload.get("payment_channel"),
             )
         )
 
