@@ -35,7 +35,7 @@ def build_pingxx_allowed_origins() -> list[str]:
 
     origins: list[str] = []
     home_url = get_config("HOME_URL", "")
-    candidates = [home_url]
+    candidates = [_request_origin(), home_url]
 
     server_name_value = current_app.config.get("SERVER_NAME")
     server_name = (
@@ -62,6 +62,20 @@ def build_pingxx_allowed_origins() -> list[str]:
             origins.append(origin)
 
     return origins
+
+
+def _request_origin() -> str:
+    forwarded_proto = str(request.headers.get("X-Forwarded-Proto") or "").split(
+        ",", 1
+    )[0].strip()
+    forwarded_host = str(request.headers.get("X-Forwarded-Host") or "").split(
+        ",", 1
+    )[0].strip()
+    scheme = forwarded_proto or request.scheme or "https"
+    host = forwarded_host or request.host
+    if not host:
+        return ""
+    return f"{scheme}://{host}"
 
 
 def resolve_pingxx_return_url(raw_return_url: str) -> str:
