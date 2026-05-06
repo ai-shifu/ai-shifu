@@ -111,6 +111,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_course_prompt,
+    get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
     grant_operator_user_credits,
@@ -1443,6 +1444,113 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         }
         return make_common_response(
             get_operator_course_users(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/ratings",
+        methods=["GET"],
+    )
+    def admin_operation_course_ratings(shifu_bid: str):
+        """
+        Get operator course rating list
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: chapter_keyword
+              in: query
+              type: string
+              required: false
+              description: Chapter or lesson keyword
+            - name: score
+              in: query
+              type: string
+              required: false
+              description: Rating score filter
+            - name: mode
+              in: query
+              type: string
+              required: false
+              description: Rating mode filter
+            - name: has_comment
+              in: query
+              type: string
+              required: false
+              description: Whether to only return rows with comments
+            - name: sort_by
+              in: query
+              type: string
+              required: false
+              description: Rating sort option
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
+        responses:
+            200:
+                description: Operator course rating list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "chapter_keyword": request.args.get("chapter_keyword", ""),
+            "score": request.args.get("score", ""),
+            "mode": request.args.get("mode", ""),
+            "has_comment": request.args.get("has_comment", ""),
+            "sort_by": request.args.get("sort_by", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            get_operator_course_ratings(
                 app,
                 shifu_bid=shifu_bid,
                 page_index=page_index,

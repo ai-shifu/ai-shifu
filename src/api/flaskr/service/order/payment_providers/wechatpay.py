@@ -6,7 +6,7 @@ import secrets
 import time
 from pathlib import Path
 from typing import Any, Dict
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 from cryptography import x509
@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from flask import Flask
 
-from flaskr.common.public_urls import build_wechatpay_notify_url
+from flaskr.common.public_urls import build_wechatpay_notify_url, resolve_public_origin
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -41,6 +41,8 @@ class WechatPayProvider(PaymentProvider):
             return self._create_native_payment(request=request, app=app)
         if request.channel == "wx_pub":
             return self._create_jsapi_payment(request=request, app=app)
+        if request.channel == "wx_h5":
+            return self._create_h5_payment(request=request, app=app)
         raise RuntimeError(f"Unsupported WeChat Pay channel: {request.channel}")
 
     def create_subscription(
@@ -153,6 +155,36 @@ class WechatPayProvider(PaymentProvider):
             },
         )
 
+    def _create_h5_payment(
+        self, *, request: PaymentRequest, app: Flask
+    ) -> PaymentCreationResult:
+        body = self._build_transaction_body(request)
+        body["scene_info"] = self._build_h5_scene_info(request)
+        response_payload = self._request(
+            method="POST",
+            path="/v3/pay/transactions/h5",
+            body=json.dumps(body, ensure_ascii=False, separators=(",", ":")),
+            app=app,
+        )
+        h5_url = str(response_payload.get("h5_url") or "")
+        if not h5_url:
+            raise RuntimeError("WeChat H5 response missing h5_url")
+        redirect_target = self._append_h5_redirect_url(
+            h5_url=h5_url,
+            return_url=str((request.extra or {}).get("return_url") or "").strip(),
+        )
+        return PaymentCreationResult(
+            provider_reference=request.order_bid,
+            raw_response=response_payload,
+            extra={
+                "credential": {"wx_h5": h5_url},
+                "h5_url": h5_url,
+                "qr_url": redirect_target,
+                "redirect_url": redirect_target,
+                "raw_request": body,
+            },
+        )
+
     def _build_transaction_body(self, request: PaymentRequest) -> dict[str, Any]:
         notify_url = build_wechatpay_notify_url()
         return {
@@ -166,6 +198,35 @@ class WechatPayProvider(PaymentProvider):
                 "currency": str(request.currency or "CNY").upper(),
             },
         }
+
+    def _build_h5_scene_info(self, request: PaymentRequest) -> dict[str, Any]:
+        return {
+            "payer_client_ip": str(request.client_ip or "127.0.0.1"),
+            "h5_info": {
+                "type": "Wap",
+                "app_name": "AI Shifu",
+                "app_url": _wechatpay_h5_app_url(),
+            },
+        }
+
+    def _append_h5_redirect_url(self, *, h5_url: str, return_url: str) -> str:
+        if not h5_url or not return_url:
+            return h5_url
+        parsed = urlsplit(h5_url)
+        query_items = parse_qsl(parsed.query, keep_blank_values=True)
+        query_items = [
+            item for item in query_items if item[0].lower() != "redirect_url"
+        ]
+        query_items.append(("redirect_url", return_url))
+        return urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                urlencode(query_items, doseq=True),
+                parsed.fragment,
+            )
+        )
 
     def _request(
         self,
@@ -309,6 +370,22 @@ def _wechatpay_base_url() -> str:
         get_config("WECHATPAY_BASE_URL", "https://api.mch.weixin.qq.com")
         or "https://api.mch.weixin.qq.com"
     ).rstrip("/")
+
+
+def _wechatpay_h5_app_url() -> str:
+    home_url = str(get_config("HOME_URL", "") or "").strip()
+    parsed_home = urlsplit(home_url)
+    if parsed_home.scheme in {"http", "https"} and parsed_home.netloc:
+        return urlunsplit(
+            (
+                parsed_home.scheme,
+                parsed_home.netloc,
+                parsed_home.path or "/",
+                parsed_home.query,
+                parsed_home.fragment,
+            )
+        )
+    return resolve_public_origin()
 
 
 def _sign_with_merchant_key(message: str) -> str:

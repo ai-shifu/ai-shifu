@@ -1642,6 +1642,16 @@ const PromotionCouponDialog = ({
               }
             />
           </FormField>
+          {isEditing ? (
+            <div className='space-y-1 md:col-span-2'>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.partialTimeEditHint')}
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.couponEditPolicyHint')}
+              </p>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -1953,6 +1963,16 @@ const PromotionCampaignDialog = ({
               />
             </FormField>
           </div>
+          {isEditing ? (
+            <div className='space-y-1 md:col-span-2'>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.partialTimeEditHint')}
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                {tPromotion('messages.campaignEditPolicyHint')}
+              </p>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button

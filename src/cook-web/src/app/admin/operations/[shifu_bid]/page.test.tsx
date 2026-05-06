@@ -82,10 +82,6 @@ jest.mock('@/hooks/useToast', () => ({
   show: (...args: unknown[]) => mockToastShow(...args),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
-
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -456,6 +452,20 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(mockPush).toHaveBeenCalledWith(
       '/admin/operations/orders?shifu_bid=course-1',
     );
+  });
+
+  test('navigates to ratings page from the rating metric card', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.openMetric',
+      }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1/ratings');
   });
 
   test('renders static metric cards with non-interactive semantics', async () => {

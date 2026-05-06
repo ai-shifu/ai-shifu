@@ -173,7 +173,9 @@ export const PayModal = ({
   const nativePayload = (paymentInfo.paymentPayload ||
     {}) as NativePaymentPayload;
   const stripeCheckoutUrl =
-    stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
+    stripePayload.checkout_session_url ||
+    (typeof paymentInfo.qrUrl === 'string' ? paymentInfo.qrUrl : '') ||
+    '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
   const isWechatJsapiMode =
     paymentInfo.paymentChannel === 'wechatpay' &&
@@ -716,7 +718,11 @@ export const PayModal = ({
                         ) : (
                           <div className={cn(styles.qrcodeWrapper, 'relative')}>
                             <QRCodeSVG
-                              value={paymentInfo.qrUrl || DEFAULT_QRCODE}
+                              value={
+                                (typeof paymentInfo.qrUrl === 'string'
+                                  ? paymentInfo.qrUrl
+                                  : '') || DEFAULT_QRCODE
+                              }
                               size={175}
                               level={'M'}
                             />

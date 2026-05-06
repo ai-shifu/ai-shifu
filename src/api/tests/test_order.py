@@ -7,6 +7,7 @@ from flaskr.service.order.funs import init_buy_record
 from flaskr.service.order.consts import ORDER_STATUS_INIT
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
@@ -174,6 +175,99 @@ def test_init_buy_record_reactivates_voided_promo_redemption(app, monkeypatch):
         db.session.delete(campaign)
         db.session.delete(order)
         db.session.commit()
+
+
+def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
+    )
+
+    now = datetime.now()
+
+    with app.app_context():
+        campaign = PromoCampaign(
+            promo_bid="promo-legacy-runtime-1",
+            shifu_bid="course-legacy-runtime-1",
+            name="Legacy Spring Promo",
+            apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            status=0,
+            start_at=now - timedelta(days=1),
+            end_at=now + timedelta(days=1),
+            discount_type=COUPON_TYPE_FIXED,
+            value=Decimal("120.00"),
+            channel="legacy",
+            filter="{}",
+            created_user_bid="",
+            updated_user_bid="",
+        )
+        db.session.add(campaign)
+        db.session.commit()
+
+        result = init_buy_record(
+            app, "user-legacy-runtime-1", "course-legacy-runtime-1"
+        )
+
+        assert Decimal(result.discount) == Decimal("120.00")
+        assert Decimal(result.value_to_pay) == Decimal("380.00")
+
+        redemptions = PromoRedemption.query.filter(
+            PromoRedemption.order_bid == result.order_id
+        ).all()
+        assert len(redemptions) == 1
+        assert redemptions[0].promo_bid == "promo-legacy-runtime-1"
+
+
+def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculating(
+    app,
+):
+    from flaskr.service.promo.funcs import query_promo_campaign_applications
+
+    now = datetime.now()
+
+    with app.app_context():
+        campaign = PromoCampaign(
+            promo_bid="promo-legacy-runtime-2",
+            shifu_bid="course-legacy-runtime-2",
+            name="Legacy Refresh Promo",
+            apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            status=0,
+            start_at=now - timedelta(days=1),
+            end_at=now + timedelta(days=1),
+            discount_type=COUPON_TYPE_FIXED,
+            value=Decimal("80.00"),
+            channel="legacy",
+            filter="{}",
+            created_user_bid="",
+            updated_user_bid="",
+        )
+        redemption = PromoRedemption(
+            redemption_bid="redeem-legacy-runtime-2",
+            promo_bid="promo-legacy-runtime-2",
+            order_bid="order-legacy-runtime-2",
+            user_bid="user-legacy-runtime-2",
+            shifu_bid="course-legacy-runtime-2",
+            promo_name="Legacy Refresh Promo",
+            discount_type=COUPON_TYPE_FIXED,
+            value=Decimal("80.00"),
+            discount_amount=Decimal("80.00"),
+            status=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        )
+        db.session.add(campaign)
+        db.session.add(redemption)
+        db.session.commit()
+
+    result = query_promo_campaign_applications(
+        app, "order-legacy-runtime-2", recalc_discount=True
+    )
+
+    assert len(result) == 1
+    assert result[0].promo_bid == "promo-legacy-runtime-2"
 
 
 def test_init_buy_record_refresh_keeps_existing_coupon_discount(app, monkeypatch):

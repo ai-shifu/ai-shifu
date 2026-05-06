@@ -20,6 +20,7 @@ def _reset_config_cache(*keys: str) -> None:
 def clear_provider_public_url_config_cache():
     keys = (
         "HOST_URL",
+        "HOME_URL",
         "PATH_PREFIX",
         "WECHATPAY_APP_ID",
         "WECHATPAY_MCH_ID",
@@ -93,6 +94,7 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
     monkeypatch.setenv("WECHATPAY_MCH_ID", "mch-1")
     _reset_config_cache(
         "HOST_URL",
+        "HOME_URL",
         "PATH_PREFIX",
         "WECHATPAY_APP_ID",
         "WECHATPAY_MCH_ID",
@@ -129,3 +131,62 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
         "https://pay.example.com/api/callback/wechatpay-notify"
     )
     assert result.extra["raw_request"]["notify_url"] == captured["notify_url"]
+
+
+def test_wechatpay_h5_uses_host_url_notify_url_and_redirect(monkeypatch):
+    monkeypatch.setenv("HOST_URL", "https://pay.example.com")
+    monkeypatch.setenv("HOME_URL", "https://app.example.com/c/course-1")
+    monkeypatch.setenv("PATH_PREFIX", "/api")
+    monkeypatch.setenv("WECHATPAY_APP_ID", "wx-app-1")
+    monkeypatch.setenv("WECHATPAY_MCH_ID", "mch-1")
+    _reset_config_cache(
+        "HOST_URL",
+        "HOME_URL",
+        "PATH_PREFIX",
+        "WECHATPAY_APP_ID",
+        "WECHATPAY_MCH_ID",
+    )
+
+    captured: dict[str, object] = {}
+
+    provider = WechatPayProvider()
+
+    def fake_request(*, method, path, body, app):
+        del method, path, app
+        captured.update(json.loads(body))
+        return {"h5_url": "https://wechatpay.test/h5pay?prepay_id=wx123"}
+
+    monkeypatch.setattr(provider, "_request", fake_request)
+
+    result = provider.create_payment(
+        request=PaymentRequest(
+            order_bid="wechat-h5-order-1",
+            user_bid="user-1",
+            shifu_bid="course-1",
+            amount=100,
+            channel="wx_h5",
+            currency="CNY",
+            subject="Course",
+            body="Course",
+            client_ip="127.0.0.1",
+            extra={"return_url": "https://app.example.com/payment/pingxx/result"},
+        ),
+        app=Flask(__name__),
+    )
+
+    assert captured["notify_url"] == (
+        "https://pay.example.com/api/callback/wechatpay-notify"
+    )
+    assert captured["scene_info"] == {
+        "payer_client_ip": "127.0.0.1",
+        "h5_info": {
+            "type": "Wap",
+            "app_name": "AI Shifu",
+            "app_url": "https://app.example.com/c/course-1",
+        },
+    }
+    assert result.extra["h5_url"] == "https://wechatpay.test/h5pay?prepay_id=wx123"
+    assert (
+        result.extra["redirect_url"]
+        == "https://wechatpay.test/h5pay?prepay_id=wx123&redirect_url=https%3A%2F%2Fapp.example.com%2Fpayment%2Fpingxx%2Fresult"
+    )

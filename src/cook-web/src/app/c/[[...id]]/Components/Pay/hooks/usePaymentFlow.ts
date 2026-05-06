@@ -8,7 +8,11 @@ import {
   queryOrder,
   syncPaymentOrder,
   type PayUrlRequest,
+  type PayUrlValue,
   type PaymentChannel,
+  type NativePaymentPayload,
+  type PingxxPaymentPayload,
+  type StripePaymentPayload,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
 
@@ -36,10 +40,14 @@ function shouldSyncNativePaymentChannel(
 
 export interface PaymentInfoState {
   channel: string;
-  qrUrl: string;
+  qrUrl: PayUrlValue | '';
   status?: number;
   paymentChannel?: PaymentChannel;
-  paymentPayload?: Record<string, any>;
+  paymentPayload?:
+    | StripePaymentPayload
+    | NativePaymentPayload
+    | PingxxPaymentPayload
+    | Record<string, unknown>;
 }
 
 interface UsePaymentFlowOptions {
@@ -62,6 +70,8 @@ export interface PaymentActionParams {
   channel: string;
   paymentChannel?: PaymentChannel;
   snapshot?: OrderSnapshot | null;
+  returnUrl?: string;
+  cancelUrl?: string;
 }
 
 export interface PaymentCouponParams extends PaymentActionParams {
@@ -186,7 +196,13 @@ export const usePaymentFlow = ({
   }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
 
   const refreshPayment = useCallback(
-    async ({ channel, paymentChannel, snapshot }: PaymentActionParams) => {
+    async ({
+      channel,
+      paymentChannel,
+      snapshot,
+      returnUrl,
+      cancelUrl,
+    }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
       setIsLoading(true);
       try {
@@ -213,6 +229,8 @@ export const usePaymentFlow = ({
           channel,
           orderId: orderIdRef.current,
           paymentChannel,
+          returnUrl,
+          cancelUrl,
         } as PayUrlRequest);
         if (!mountedRef.current || !payload) {
           return payload;
@@ -245,7 +263,13 @@ export const usePaymentFlow = ({
   );
 
   const applyCoupon = useCallback(
-    async ({ code, channel, paymentChannel }: PaymentCouponParams) => {
+    async ({
+      code,
+      channel,
+      paymentChannel,
+      returnUrl,
+      cancelUrl,
+    }: PaymentCouponParams) => {
       if (!orderIdRef.current) return null;
       const resp = await applyDiscountCode({
         orderId: orderIdRef.current,
@@ -264,6 +288,8 @@ export const usePaymentFlow = ({
           channel,
           paymentChannel,
           snapshot: resp as OrderSnapshot,
+          returnUrl,
+          cancelUrl,
         });
       }
       return resp;

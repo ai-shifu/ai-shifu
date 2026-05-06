@@ -120,23 +120,23 @@ def init_redis(app: Flask):
         )
     )
 
+    redis_kwargs = {
+        "host": host,
+        "port": port,
+        "db": app.config["REDIS_DB"],
+        "socket_connect_timeout": app.config.get("REDIS_SOCKET_CONNECT_TIMEOUT", 1.0),
+        "socket_timeout": app.config.get("REDIS_SOCKET_TIMEOUT", 1.0),
+    }
+
     if (
         app.config.get("REDIS_PASSWORD") is not None
         and app.config["REDIS_PASSWORD"] != ""
     ):
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
-            password=app.config["REDIS_PASSWORD"],
-            username=app.config.get("REDIS_USER", None),
-        )
+        redis_kwargs["password"] = app.config["REDIS_PASSWORD"]
+        redis_kwargs["username"] = app.config.get("REDIS_USER", None)
+        redis_client = Redis(**redis_kwargs)
     else:
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
-        )
+        redis_client = Redis(**redis_kwargs)
     app.logger.info("init redis done")
 
 

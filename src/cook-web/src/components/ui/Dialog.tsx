@@ -17,7 +17,7 @@ const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
 const DIALOG_OVERLAY_LAYER_CLASS = 'z-[100]';
-const DIALOG_CONTENT_LAYER_CLASS = 'z-[101]';
+export const DIALOG_CONTENT_LAYER_CLASS = 'z-[101]';
 
 type DialogPortalContainer = React.ComponentPropsWithoutRef<
   typeof DialogPrimitive.Portal
