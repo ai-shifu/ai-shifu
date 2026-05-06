@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
@@ -2459,18 +2458,88 @@ def _build_course_outline_context_map(
     return context_map
 
 
-def _load_course_follow_up_rows(shifu_bid: str) -> list[LearnGeneratedBlock]:
+def _build_course_follow_up_base_subquery(shifu_bid: str):
     return (
-        LearnGeneratedBlock.query.filter(
+        db.session.query(
+            LearnGeneratedBlock.id.label("id"),
+            LearnGeneratedBlock.generated_block_bid.label("generated_block_bid"),
+            LearnGeneratedBlock.progress_record_bid.label("progress_record_bid"),
+            LearnGeneratedBlock.user_bid.label("user_bid"),
+            LearnGeneratedBlock.outline_item_bid.label("outline_item_bid"),
+            LearnGeneratedBlock.generated_content.label("follow_up_content"),
+            LearnGeneratedBlock.created_at.label("created_at"),
+            db.func.row_number()
+            .over(
+                partition_by=LearnGeneratedBlock.progress_record_bid,
+                order_by=(
+                    LearnGeneratedBlock.created_at.asc(),
+                    LearnGeneratedBlock.id.asc(),
+                ),
+            )
+            .label("turn_index"),
+        )
+        .filter(
             LearnGeneratedBlock.shifu_bid == shifu_bid,
             LearnGeneratedBlock.deleted == 0,
             LearnGeneratedBlock.status == 1,
             LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
             LearnGeneratedBlock.role == ROLE_STUDENT,
         )
-        .order_by(LearnGeneratedBlock.created_at.desc(), LearnGeneratedBlock.id.desc())
-        .all()
+        .subquery()
     )
+
+
+def _build_follow_up_user_keyword_filter(
+    user_bid_column: Any, keyword: str
+) -> Any | None:
+    normalized = _normalize_identifier(keyword)
+    if not normalized:
+        return None
+
+    credential_match_exists = (
+        db.session.query(AuthCredential.id)
+        .filter(
+            AuthCredential.user_bid == user_bid_column,
+            AuthCredential.deleted == 0,
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
+            AuthCredential.identifier.ilike(f"%{normalized}%"),
+        )
+        .exists()
+    )
+
+    user_filters = [UserEntity.nickname.ilike(f"%{normalized}%")]
+    if "@" in normalized or normalized.isdigit():
+        user_filters.append(UserEntity.user_identify.ilike(f"%{normalized}%"))
+
+    user_match_exists = (
+        db.session.query(UserEntity.id)
+        .filter(
+            UserEntity.user_bid == user_bid_column,
+            UserEntity.deleted == 0,
+            or_(*user_filters),
+        )
+        .exists()
+    )
+
+    return or_(credential_match_exists, user_match_exists)
+
+
+def _resolve_follow_up_matching_outline_bids(
+    outline_context_map: Dict[str, Dict[str, str]],
+    chapter_keyword: str,
+) -> Optional[Set[str]]:
+    normalized_keyword = str(chapter_keyword or "").strip().lower()
+    if not normalized_keyword:
+        return None
+
+    return {
+        outline_item_bid
+        for outline_item_bid, context in outline_context_map.items()
+        if normalized_keyword
+        in str(context.get("chapter_title", "") or "").strip().lower()
+        or normalized_keyword
+        in str(context.get("lesson_title", "") or "").strip().lower()
+    }
 
 
 def _resolve_follow_up_answer_block(
@@ -3320,47 +3389,107 @@ def get_operator_course_follow_ups(
             normalized_shifu_bid
         )
         outline_context_map = _build_course_outline_context_map(outline_items)
-        follow_up_rows = _load_course_follow_up_rows(normalized_shifu_bid)
 
-        user_bids = sorted(
-            {
-                str(getattr(row, "user_bid", "") or "").strip()
-                for row in follow_up_rows
-                if str(getattr(row, "user_bid", "") or "").strip()
-            }
-        )
-        user_map = _load_user_map(user_bids)
-
-        turn_index_map: Dict[str, int] = {}
-        grouped_rows: dict[str, list[LearnGeneratedBlock]] = defaultdict(list)
-        for row in sorted(
-            follow_up_rows,
-            key=lambda item: (
-                getattr(item, "created_at", None) or datetime.min,
-                int(getattr(item, "id", 0) or 0),
-            ),
-        ):
-            progress_record_bid = str(
-                getattr(row, "progress_record_bid", "") or ""
-            ).strip()
-            grouped_rows[progress_record_bid].append(row)
-        for rows in grouped_rows.values():
-            for turn_index, row in enumerate(rows, start=1):
-                generated_block_bid = str(
-                    getattr(row, "generated_block_bid", "") or ""
-                ).strip()
-                if generated_block_bid:
-                    turn_index_map[generated_block_bid] = turn_index
-
-        keyword = _normalize_identifier(str(filters.get("keyword", "") or "")).lower()
+        keyword = str(filters.get("keyword", "") or "").strip()
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
+        follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
+        user_keyword_filter = _build_follow_up_user_keyword_filter(
+            follow_up_base.c.user_bid,
+            keyword,
+        )
+        matching_outline_item_bids = _resolve_follow_up_matching_outline_bids(
+            outline_context_map,
+            chapter_keyword,
+        )
 
-        filtered_items: list[
-            tuple[tuple[datetime, int], AdminOperationCourseFollowUpItemDTO]
-        ] = []
-        for row in follow_up_rows:
+        if chapter_keyword and not matching_outline_item_bids:
+            return AdminOperationCourseFollowUpListDTO(
+                summary=AdminOperationCourseFollowUpSummaryDTO(
+                    follow_up_count=0,
+                    user_count=0,
+                    lesson_count=0,
+                    latest_follow_up_at="",
+                ),
+                items=[],
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=0,
+                page_count=0,
+            )
+
+        filtered_query = db.session.query(follow_up_base)
+        if user_keyword_filter is not None:
+            filtered_query = filtered_query.filter(user_keyword_filter)
+        if matching_outline_item_bids is not None:
+            filtered_query = filtered_query.filter(
+                follow_up_base.c.outline_item_bid.in_(
+                    sorted(matching_outline_item_bids)
+                )
+            )
+        if start_time:
+            filtered_query = filtered_query.filter(
+                follow_up_base.c.created_at >= start_time
+            )
+        if end_time:
+            filtered_query = filtered_query.filter(
+                follow_up_base.c.created_at <= end_time
+            )
+
+        filtered_follow_ups = filtered_query.subquery()
+        summary_row = db.session.query(
+            db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
+            db.func.count(
+                db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
+            ).label("user_count"),
+            db.func.count(
+                db.func.distinct(
+                    db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
+                )
+            ).label("lesson_count"),
+            db.func.max(filtered_follow_ups.c.created_at).label("latest_follow_up_at"),
+        ).one()
+
+        total = int(getattr(summary_row, "follow_up_count", 0) or 0)
+        if total == 0:
+            return AdminOperationCourseFollowUpListDTO(
+                summary=AdminOperationCourseFollowUpSummaryDTO(
+                    follow_up_count=0,
+                    user_count=0,
+                    lesson_count=0,
+                    latest_follow_up_at="",
+                ),
+                items=[],
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=0,
+                page_count=0,
+            )
+
+        start = (safe_page_index - 1) * safe_page_size
+        paged_rows = (
+            db.session.query(filtered_follow_ups)
+            .order_by(
+                filtered_follow_ups.c.created_at.desc(),
+                filtered_follow_ups.c.id.desc(),
+            )
+            .offset(start)
+            .limit(safe_page_size)
+            .all()
+        )
+        user_map = _load_user_map(
+            sorted(
+                {
+                    str(getattr(row, "user_bid", "") or "").strip()
+                    for row in paged_rows
+                    if str(getattr(row, "user_bid", "") or "").strip()
+                }
+            )
+        )
+
+        items: list[AdminOperationCourseFollowUpItemDTO] = []
+        for row in paged_rows:
             generated_block_bid = str(
                 getattr(row, "generated_block_bid", "") or ""
             ).strip()
@@ -3377,82 +3506,40 @@ def get_operator_course_follow_ups(
                 },
             )
             user = user_map.get(user_bid, {})
-
-            if keyword:
-                haystack = [
-                    str(user.get("mobile", "") or "").lower(),
-                    str(user.get("email", "") or "").lower(),
-                    str(user.get("nickname", "") or "").lower(),
-                ]
-                if not any(keyword in value for value in haystack if value):
-                    continue
-
-            if chapter_keyword:
-                chapter_haystack = [
-                    str(context.get("chapter_title", "") or "").lower(),
-                    str(context.get("lesson_title", "") or "").lower(),
-                ]
-                if not any(
-                    chapter_keyword in value for value in chapter_haystack if value
-                ):
-                    continue
-
-            if start_time and (created_at is None or created_at < start_time):
-                continue
-            if end_time and (created_at is None or created_at > end_time):
-                continue
-
-            dto = AdminOperationCourseFollowUpItemDTO(
-                generated_block_bid=generated_block_bid,
-                progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
-                user_bid=user_bid,
-                mobile=str(user.get("mobile", "") or ""),
-                email=str(user.get("email", "") or ""),
-                nickname=str(user.get("nickname", "") or ""),
-                chapter_outline_item_bid=str(
-                    context.get("chapter_outline_item_bid", "") or ""
-                ),
-                chapter_title=str(context.get("chapter_title", "") or ""),
-                lesson_outline_item_bid=str(
-                    context.get("lesson_outline_item_bid", "") or ""
-                ),
-                lesson_title=str(context.get("lesson_title", "") or ""),
-                follow_up_content=str(getattr(row, "generated_content", "") or ""),
-                turn_index=int(turn_index_map.get(generated_block_bid, 0) or 0),
-                created_at=_format_operator_datetime(created_at),
-            )
-            filtered_items.append(
-                (
-                    (
-                        created_at or datetime.min,
-                        int(getattr(row, "id", 0) or 0),
+            items.append(
+                AdminOperationCourseFollowUpItemDTO(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=str(
+                        getattr(row, "progress_record_bid", "") or ""
                     ),
-                    dto,
+                    user_bid=user_bid,
+                    mobile=str(user.get("mobile", "") or ""),
+                    email=str(user.get("email", "") or ""),
+                    nickname=str(user.get("nickname", "") or ""),
+                    chapter_outline_item_bid=str(
+                        context.get("chapter_outline_item_bid", "") or ""
+                    ),
+                    chapter_title=str(context.get("chapter_title", "") or ""),
+                    lesson_outline_item_bid=str(
+                        context.get("lesson_outline_item_bid", "") or ""
+                    ),
+                    lesson_title=str(context.get("lesson_title", "") or ""),
+                    follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+                    turn_index=int(getattr(row, "turn_index", 0) or 0),
+                    created_at=_format_operator_datetime(created_at),
                 )
             )
-
-        filtered_items.sort(key=lambda item: item[0], reverse=True)
-        rows = [item for _, item in filtered_items]
-        total = len(rows)
-        start = (safe_page_index - 1) * safe_page_size
-        end = start + safe_page_size
-
-        latest_follow_up_at = rows[0].created_at if rows else ""
         summary = AdminOperationCourseFollowUpSummaryDTO(
             follow_up_count=total,
-            user_count=len({item.user_bid for item in rows if item.user_bid}),
-            lesson_count=len(
-                {
-                    item.lesson_outline_item_bid
-                    for item in rows
-                    if item.lesson_outline_item_bid
-                }
+            user_count=int(getattr(summary_row, "user_count", 0) or 0),
+            lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
+            latest_follow_up_at=_format_operator_datetime(
+                getattr(summary_row, "latest_follow_up_at", None)
             ),
-            latest_follow_up_at=latest_follow_up_at,
         )
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,
-            items=rows[start:end],
+            items=items,
             page=safe_page_index,
             page_size=safe_page_size,
             total=total,
