@@ -1827,6 +1827,26 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert payload["data"]["items"][1]["chapter_title"] == "Chapter 1"
     assert payload["data"]["items"][1]["lesson_title"] == "Lesson 1"
 
+    paged_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=2&page_size=1",
+        headers={"Token": "test-token"},
+    )
+    paged_payload = paged_response.get_json(force=True)
+
+    assert paged_response.status_code == 200
+    assert paged_payload["code"] == 0
+    assert paged_payload["data"]["summary"] == {
+        "follow_up_count": 3,
+        "user_count": 2,
+        "lesson_count": 2,
+        "latest_follow_up_at": "2026-04-05T11:01:00Z",
+    }
+    assert paged_payload["data"]["total"] == 3
+    assert [item["generated_block_bid"] for item in paged_payload["data"]["items"]] == [
+        "ask-2"
+    ]
+    assert paged_payload["data"]["items"][0]["turn_index"] == 2
+
     filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
         "&keyword=student2@example.com&chapter_keyword=Chapter 2"
