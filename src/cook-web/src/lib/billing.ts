@@ -259,6 +259,7 @@ const BILLING_DISPLAY_RULE = {
 type FormatBillingNumberOptions = {
   currency?: string;
   maximumFractionDigits?: number;
+  minimumFractionDigits?: number;
 };
 
 export function formatBillingNumber(
@@ -269,7 +270,9 @@ export function formatBillingNumber(
   const n = Number(value ?? 0);
   const safe = Number.isFinite(n) ? n : 0;
   return new Intl.NumberFormat(locale || 'en-US', {
-    minimumFractionDigits: BILLING_DISPLAY_RULE.minimumFractionDigits,
+    minimumFractionDigits:
+      options?.minimumFractionDigits ??
+      BILLING_DISPLAY_RULE.minimumFractionDigits,
     maximumFractionDigits:
       options?.maximumFractionDigits ??
       BILLING_DISPLAY_RULE.maximumFractionDigits,
@@ -288,11 +291,23 @@ export function formatBillingCredits(value: number, locale: string): string {
 }
 
 export function formatBillingCreditBalance(value: number): string {
-  return formatBillingNumber(value, 'en-US');
+  const numeric = Number(value ?? 0);
+  const floored = Number.isFinite(numeric) ? Math.floor(numeric) : 0;
+  return formatBillingNumber(floored, 'en-US', { maximumFractionDigits: 0 });
 }
 
 export function formatBillingCreditAmount(value: number): string {
   return formatBillingNumber(value, 'en-US');
+}
+
+export function formatBillingCreditDetail(
+  value: number,
+  locale: string,
+): string {
+  return formatBillingNumber(value, locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function formatBillingPrice(
@@ -359,7 +374,9 @@ export function resolveBillingProductTitle(
   if (!product?.display_name) {
     return fallback;
   }
-  return t(product.display_name);
+  return t(product.display_name, {
+    credits: formatBillingCreditAmount(product.credit_amount || 0),
+  });
 }
 
 export function resolveBillingProductDescription(
@@ -868,14 +885,8 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.plans.creatorYearlyLite.title'),
     t('module.billing.catalog.plans.creatorYearlyPremium.description'),
     t('module.billing.catalog.plans.creatorYearlyPremium.title'),
-    t('module.billing.catalog.topups.creatorLarge.description'),
-    t('module.billing.catalog.topups.creatorLarge.title'),
-    t('module.billing.catalog.topups.creatorMedium.description'),
-    t('module.billing.catalog.topups.creatorMedium.title'),
-    t('module.billing.catalog.topups.creatorSmall.description'),
-    t('module.billing.catalog.topups.creatorSmall.title'),
-    t('module.billing.catalog.topups.creatorXLarge.description'),
-    t('module.billing.catalog.topups.creatorXLarge.title'),
+    t('module.billing.catalog.topups.default.description'),
+    t('module.billing.catalog.topups.default.title', { credits: '20' }),
     t('module.billing.details.subtitle'),
     t('module.billing.overview.availableCreditsLabel'),
     t('module.billing.overview.walletTitle'),
@@ -897,7 +908,6 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.free.description'),
     t('module.billing.package.free.priceNote'),
     t('module.billing.package.free.priceNoteGranted'),
-    t('module.billing.package.free.priceValue'),
     t('module.billing.package.free.title'),
     t('module.billing.package.subtitle'),
     t('module.billing.package.topupComingSoon'),
@@ -923,6 +933,7 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.intervalTabs.daily'),
     t('module.billing.package.validity.daily'),
     t('module.billing.package.validity.days', { count: 7 }),
+    t('module.billing.package.validity.free', { days: 15 }),
     t('module.billing.package.validity.monthly'),
     t('module.billing.package.validity.months', { count: 3 }),
     t('module.billing.package.validity.yearly'),

@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.user",
   "__flat__": {
+    "checkCodeError": "图形验证码错误",
+    "checkCodeExpired": "图形验证码已过期",
     "emailSendFailed": "邮件发送失败",
     "emailSendTooFrequent": "邮件发送过于频繁",
     "emailVerificationSubject": "AI-Shifu: 您的验证码",

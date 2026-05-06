@@ -16,6 +16,7 @@ type NetworkEntry = {
 
 const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
 const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
+const DEFAULT_CAPTCHA = process.env.AI_SHIFU_TEST_CAPTCHA || '0000';
 const DEFAULT_DEMO_SHIFU_BID =
   process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
 const DEFAULT_GRAFANA_URL =
@@ -73,6 +74,10 @@ const loginWithPhone = async (page: Page, redirectPath: string) => {
   if (await termsCheckbox.isVisible()) {
     await termsCheckbox.click();
   }
+
+  const captchaInput = page.getByTestId('captcha-input');
+  await expect(captchaInput).toBeVisible();
+  await captchaInput.fill(DEFAULT_CAPTCHA);
 
   const sendOtpButton = page
     .locator('#otp')

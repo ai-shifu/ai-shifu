@@ -1,6 +1,7 @@
 import {
   formatBillingCreditAmount,
   formatBillingCreditBalance,
+  formatBillingCreditDetail,
   formatBillingCredits,
   formatBillingNumber,
   formatBillingPlanInterval,
@@ -11,6 +12,7 @@ import {
   resolveBillingLedgerReasonLabel,
   resolveBillingPlanCreditsLabel,
   resolveBillingPlanValidityLabel,
+  resolveBillingProductTitle,
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 import type { BillingCheckoutResult } from '@/types/billing';
@@ -131,14 +133,34 @@ describe('formatBillingCredits', () => {
       'module.billing.package.creditSummary.days:7:21',
     );
   });
+
+  test('passes DB-backed credit amount into product title translations', () => {
+    const t = jest.fn((key: string, options?: Record<string, unknown>) => {
+      return `${key}:${String(options?.credits || '')}`;
+    });
+
+    expect(
+      resolveBillingProductTitle(t, {
+        ...monthlyPlan,
+        display_name: 'module.billing.catalog.topups.default.title',
+        credit_amount: 24,
+      }),
+    ).toBe('module.billing.catalog.topups.default.title:24');
+  });
 });
 
 describe('formatBillingCreditBalance', () => {
-  test('keeps thousands separators and meaningful decimals', () => {
+  test('floors fractional balances to integers and keeps thousands separators', () => {
     expect(formatBillingCreditBalance(5)).toBe('5');
-    expect(formatBillingCreditBalance(1.25)).toBe('1.25');
+    expect(formatBillingCreditBalance(1.25)).toBe('1');
+    expect(formatBillingCreditBalance(1.99)).toBe('1');
     expect(formatBillingCreditBalance(10000)).toBe('10,000');
-    expect(formatBillingCreditBalance(32277.76)).toBe('32,277.76');
+    expect(formatBillingCreditBalance(32277.76)).toBe('32,277');
+  });
+
+  test('falls back to zero for non-finite or nullish input', () => {
+    expect(formatBillingCreditBalance(NaN)).toBe('0');
+    expect(formatBillingCreditBalance(Number.POSITIVE_INFINITY)).toBe('0');
   });
 });
 
@@ -147,6 +169,33 @@ describe('formatBillingCreditAmount', () => {
     expect(formatBillingCreditAmount(5)).toBe('5');
     expect(formatBillingCreditAmount(10000)).toBe('10,000');
     expect(formatBillingCreditAmount(3200.88)).toBe('3,200.88');
+  });
+});
+
+describe('formatBillingCreditDetail', () => {
+  test('always renders exactly two fraction digits', () => {
+    expect(formatBillingCreditDetail(0, 'en-US')).toBe('0.00');
+    expect(formatBillingCreditDetail(100, 'en-US')).toBe('100.00');
+    expect(formatBillingCreditDetail(1.5, 'en-US')).toBe('1.50');
+    expect(formatBillingCreditDetail(23105, 'en-US')).toBe('23,105.00');
+    expect(formatBillingCreditDetail(32277.76, 'en-US')).toBe('32,277.76');
+  });
+
+  test('rounds values with more than two fraction digits', () => {
+    expect(formatBillingCreditDetail(1.999, 'en-US')).toBe('2.00');
+    expect(formatBillingCreditDetail(0.005, 'en-US')).toBe('0.01');
+  });
+
+  test('keeps thousands separators across locales', () => {
+    expect(formatBillingCreditDetail(1234567.89, 'en-US')).toBe('1,234,567.89');
+    expect(formatBillingCreditDetail(1234567.89, 'zh-CN')).toBe('1,234,567.89');
+  });
+
+  test('falls back to zero for non-finite or nullish input', () => {
+    expect(formatBillingCreditDetail(NaN, 'en-US')).toBe('0.00');
+    expect(formatBillingCreditDetail(Number.POSITIVE_INFINITY, 'en-US')).toBe(
+      '0.00',
+    );
   });
 });
 

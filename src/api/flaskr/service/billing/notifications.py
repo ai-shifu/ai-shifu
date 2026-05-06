@@ -363,6 +363,10 @@ def _resolve_notification_product_name(
             translated_name = str(translate(display_name_key) or "").strip()
             if translated_name == display_name_key:
                 translated_name = ""
+            translated_name = translated_name.replace(
+                "{credits}",
+                _format_credit_amount(product.credit_amount),
+            )
         return (
             translated_name
             or _normalize_bid(product.product_code)
