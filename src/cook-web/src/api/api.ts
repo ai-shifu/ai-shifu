@@ -21,7 +21,7 @@ const api = {
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
-  skillLogin: 'POST /user/skill-login',
+  smsLogin: 'POST /user/login_sms',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',

@@ -398,22 +398,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         return make_common_response(send_email_code(app, email, client_ip, language))
 
-    @app.route(path_prefix + "/skill-login", methods=["POST"])
-    @bypass_token_validation
-    @optional_token_validation
-    def skill_login_api():
-        """
-        Login through SMS verification code for skill-compatible callers
-        ---
-        tags:
-           - user
-        """
+    def _handle_sms_login():
         with app.app_context():
-            mobile = request.get_json().get("mobile", None)
-            sms_code = request.get_json().get("sms_code", None)
-            course_id = request.get_json().get("course_id", None)
-            language = request.get_json().get("language", None)
-            login_context = request.get_json().get("login_context", None)
+            payload = request.get_json(silent=True)
+            payload = payload if isinstance(payload, dict) else {}
+            mobile = payload.get("mobile", None)
+            sms_code = payload.get("sms_code", None)
+            course_id = payload.get("course_id", None)
+            language = payload.get("language", None)
+            login_context = payload.get("login_context", None)
             user_id = (
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
@@ -451,6 +444,30 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             )
             resp = make_response(make_common_response(auth_result.token))
             return resp
+
+    @app.route(path_prefix + "/login_sms", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def login_sms_api():
+        """
+        Login through SMS verification code for web clients
+        ---
+        tags:
+           - user
+        """
+        return _handle_sms_login()
+
+    @app.route(path_prefix + "/console_login", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def console_login_api():
+        """
+        Login through SMS verification code for console-compatible callers
+        ---
+        tags:
+           - user
+        """
+        return _handle_sms_login()
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():

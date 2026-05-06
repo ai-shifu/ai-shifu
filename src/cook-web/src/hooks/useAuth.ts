@@ -162,7 +162,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   ) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.skillLogin({
+        apiService.smsLogin({
           mobile,
           sms_code,
           language,

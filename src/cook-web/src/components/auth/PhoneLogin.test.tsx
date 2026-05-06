@@ -13,7 +13,7 @@ jest.mock('@/api', () => ({
     getCaptcha: jest.fn(),
     verifyCaptcha: jest.fn(),
     sendSmsCode: jest.fn(),
-    skillLogin: jest.fn(),
+    smsLogin: jest.fn(),
   },
 }));
 
@@ -93,7 +93,7 @@ describe('PhoneLogin captcha flow', () => {
       code: 0,
       data: { expire_in: 300 },
     });
-    (apiService.skillLogin as jest.Mock).mockResolvedValue({
+    (apiService.smsLogin as jest.Mock).mockResolvedValue({
       code: 0,
       data: {
         userInfo: { user_id: 'user-1', mobile: '13800138000' },
@@ -133,7 +133,7 @@ describe('PhoneLogin captcha flow', () => {
     });
   });
 
-  test('logs in through skill-login after SMS code is entered', async () => {
+  test('logs in through SMS login after code is entered', async () => {
     const onLoginSuccess = jest.fn();
     render(
       <PhoneLogin
@@ -160,7 +160,7 @@ describe('PhoneLogin captcha flow', () => {
     fireEvent.keyDown(otpInput, { key: 'Enter' });
 
     await waitFor(() =>
-      expect(apiService.skillLogin).toHaveBeenCalledWith({
+      expect(apiService.smsLogin).toHaveBeenCalledWith({
         mobile: '13800138000',
         sms_code: '9999',
         language: 'en-US',
@@ -195,11 +195,11 @@ describe('PhoneLogin captcha flow', () => {
       title: 'module.auth.otpRequired',
       variant: 'destructive',
     });
-    expect(apiService.skillLogin).not.toHaveBeenCalled();
+    expect(apiService.smsLogin).not.toHaveBeenCalled();
   });
 
   test('uses localized copy for incorrect SMS code errors', async () => {
-    (apiService.skillLogin as jest.Mock).mockResolvedValue({
+    (apiService.smsLogin as jest.Mock).mockResolvedValue({
       code: 1014,
       message: 'SMS Verification Code Error',
     });
