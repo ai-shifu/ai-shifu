@@ -29,6 +29,7 @@ import {
   formatBillingPrice,
   openBillingCheckoutUrl,
   registerBillingTranslationUsage,
+  resolveBillingProductTitle,
   resolveBillingProviderLabel,
   withBillingTimezone,
 } from '@/lib/billing';
@@ -289,7 +290,7 @@ export function BillingOverviewTab({
               ? 'module.billing.checkout.planDescription'
               : 'module.billing.checkout.topupDescription',
           ),
-          productName: t(checkoutTarget.product.display_name),
+          productName: resolveBillingProductTitle(t, checkoutTarget.product),
           provider: checkoutTarget.provider,
           qrUrl: qrCode.url,
           selectedChannel: qrCode.channel,
@@ -524,7 +525,7 @@ export function BillingOverviewTab({
         priceLabel={dialogPriceLabel}
         productName={
           checkoutTarget
-            ? t(checkoutTarget.product.display_name)
+            ? resolveBillingProductTitle(t, checkoutTarget.product)
             : t('module.billing.checkout.productLabel')
         }
         providerLabel={dialogProviderLabel}

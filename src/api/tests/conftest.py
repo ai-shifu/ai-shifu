@@ -154,6 +154,7 @@ def mock_redis_client(monkeypatch, request):
     module_paths = [
         "flaskr.service.user.phone_flow",
         "flaskr.service.user.email_flow",
+        "flaskr.service.user.captcha",
         "flaskr.service.user.utils",
         "flaskr.service.user.common",
         "flaskr.service.user.auth.providers.google",

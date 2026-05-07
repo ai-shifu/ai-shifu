@@ -59,6 +59,7 @@ from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
 from flaskr.service.billing.queries import calculate_billing_cycle_end
+import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
     repair_topup_grant_expiries,
@@ -2067,12 +2068,22 @@ class TestBillingWriteRoutes:
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
     def test_paid_pingxx_renewal_before_cycle_start_keeps_current_period(
-        self, billing_write_client
+        self, billing_write_client, monkeypatch
     ) -> None:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
         renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+
+        class FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                frozen_now = datetime(2026, 4, 24, 10, 0, 0)
+                if tz is not None:
+                    return frozen_now.replace(tzinfo=tz)
+                return frozen_now
+
+        monkeypatch.setattr(billing_subscriptions_module, "datetime", FrozenDateTime)
 
         with app.app_context():
             subscription = BillingSubscription(

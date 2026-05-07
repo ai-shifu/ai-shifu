@@ -270,6 +270,26 @@
     "startTime": "Start Date",
     "status": "Status"
   },
+  "overview": {
+    "activeFilter": "Quick Filter",
+    "metrics": {
+      "createdLast7d": "New Courses (7d)",
+      "draftCourses": "Draft Courses",
+      "learningActive30d": "Courses with Learning (30d)",
+      "ordered30d": "Courses with Orders (30d)",
+      "publishedCourses": "Published Courses",
+      "totalCourses": "Total Courses"
+    },
+    "title": "Overview",
+    "tooltips": {
+      "createdLast7d": "Courses created in last 7 days",
+      "draftCourses": "Never published courses",
+      "learningActive30d": "Courses with learning in last 30 days",
+      "ordered30d": "Courses with paid orders in last 30 days",
+      "publishedCourses": "Courses published at least once",
+      "totalCourses": "Total courses"
+    }
+  },
   "statusLabels": {
     "published": "Published",
     "unknown": "Unknown",

@@ -52,6 +52,8 @@ from flaskr.service.billing.dtos import (
     BillingWalletBucketListDTO,
 )
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+import flaskr.service.billing.entitlements as billing_entitlements_module
+import flaskr.service.billing.queries as billing_queries_module
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_billing_ledger_page,
@@ -78,6 +80,19 @@ register_billing_routes = load_register_billing_routes()
 billing_routes_module = load_billing_routes_module()
 
 
+def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            current = cls(2026, 4, 6, 12, 0, 0)
+            if tz is not None:
+                return current.replace(tzinfo=tz)
+            return current
+
+    monkeypatch.setattr(billing_entitlements_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
+
+
 def _seed_products_with_yearly_entitlements():
     return build_bill_products(
         overrides_by_bid={
@@ -97,6 +112,8 @@ def _seed_products_with_yearly_entitlements():
 
 @pytest.fixture
 def billing_test_client(monkeypatch):
+    _freeze_billing_wall_clock(monkeypatch)
+
     app = Flask(__name__)
     app.testing = True
     app.config.update(

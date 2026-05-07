@@ -1150,6 +1150,7 @@ def _resolve_checkout_product_name(product: BillingProduct) -> str:
         translated_name = str(translate(display_name_key) or "").strip()
         if translated_name == display_name_key:
             translated_name = ""
+        translated_name = _interpolate_checkout_product_name(translated_name, product)
     product_name = (
         translated_name
         or str(product.product_code or product.product_bid or "").strip()
@@ -1165,6 +1166,25 @@ def _resolve_checkout_product_name(product: BillingProduct) -> str:
             if subject_prefix and subject_prefix != subject_prefix_key:
                 return f"{subject_prefix}·{product_name}"
     return product_name
+
+
+def _interpolate_checkout_product_name(
+    translated_name: str,
+    product: BillingProduct,
+) -> str:
+    if not translated_name:
+        return ""
+    return translated_name.replace(
+        "{credits}",
+        _format_checkout_credit_amount(product.credit_amount),
+    )
+
+
+def _format_checkout_credit_amount(amount: Any) -> str:
+    credit_amount = _to_decimal(amount)
+    if credit_amount == credit_amount.to_integral_value():
+        return str(int(credit_amount))
+    return format(credit_amount.normalize(), "f").rstrip("0").rstrip(".")
 
 
 def _inject_billing_query(url: str, bill_order_bid: str) -> str:

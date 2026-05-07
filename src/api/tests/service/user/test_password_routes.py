@@ -111,3 +111,23 @@ def test_password_login_after_setting_password(test_client, app):
     assert body["code"] == 0
     assert body["data"]["token"]
     assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_sms_login_route_logs_in_with_phone_code(test_client):
+    phone = "15500003333"
+
+    resp, body = _post_json(
+        test_client,
+        "/api/user/login_sms",
+        {
+            "mobile": phone,
+            "sms_code": "9999",
+            "language": "zh-CN",
+            "login_context": "admin",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["token"]
+    assert body["data"]["userInfo"]["mobile"] == phone

@@ -178,7 +178,7 @@ def test_build_operator_credit_orders_page_returns_operator_view():
     assert result.items[0].credit_order_kind == "topup"
     assert result.items[0].product_code == "creator-topup-small"
     assert result.items[0].product_name_key == (
-        "module.billing.catalog.topups.creatorSmall.title"
+        "module.billing.catalog.topups.default.title"
     )
     assert result.items[0].credit_amount == 20
     assert result.items[0].valid_to is not None
@@ -189,7 +189,7 @@ def test_build_operator_credit_orders_page_supports_product_keyword_search():
 
     result = build_operator_credit_orders_page(
         app,
-        product_keyword="20 积分包",
+        product_keyword="20",
         page_index=1,
         page_size=20,
     )
@@ -226,7 +226,7 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
 
     searched_result = build_operator_credit_orders_page(
         app,
-        product_keyword="20 积分包",
+        product_keyword="20",
         page_index=1,
         page_size=20,
     )

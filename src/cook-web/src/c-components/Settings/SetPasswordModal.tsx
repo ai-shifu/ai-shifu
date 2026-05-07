@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SettingBaseModal from './SettingBaseModal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { ImageCaptchaInput } from '@/components/auth/ImageCaptchaInput';
 import { useToast } from '@/hooks/useToast';
+import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import apiService from '@/api';
 import i18n from '@/i18n';
 import { useUserStore } from '@/store';
@@ -58,6 +60,16 @@ export const SetPasswordModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
+  const previousCountdownRef = useRef(0);
+  const {
+    captchaImage,
+    captchaCode,
+    setCaptchaCode,
+    isCaptchaLoading,
+    refreshCaptcha,
+    verifyCaptcha,
+  } = useCaptchaTicket(open && method === 'phone');
 
   useEffect(() => {
     if (!open) {
@@ -71,6 +83,7 @@ export const SetPasswordModal = ({
     setIsSubmitting(false);
     setPasswordError('');
     setConfirmError('');
+    setCaptchaError('');
   }, [open]);
 
   useEffect(() => {
@@ -93,6 +106,18 @@ export const SetPasswordModal = ({
 
     return () => clearInterval(timer);
   }, [countdown, open]);
+
+  useEffect(() => {
+    if (!open || method !== 'phone') {
+      previousCountdownRef.current = countdown;
+      return;
+    }
+    if (previousCountdownRef.current > 0 && countdown === 0) {
+      setCaptchaError(prev => (prev ? '' : prev));
+      void refreshCaptcha().catch(() => {});
+    }
+    previousCountdownRef.current = countdown;
+  }, [countdown, method, open, refreshCaptcha]);
 
   const validatePassword = useCallback(
     (value: string) => {
@@ -146,8 +171,18 @@ export const SetPasswordModal = ({
     try {
       setIsSending(true);
       if (method === 'phone') {
+        if (!captchaCode.trim()) {
+          setCaptchaError(t('module.auth.captchaRequired'));
+          toast({
+            title: t('module.auth.captchaRequired'),
+            variant: 'destructive',
+          });
+          return;
+        }
+        const captchaTicket = await verifyCaptcha();
         await apiService.sendSmsCode({
           mobile: identifier,
+          captcha_ticket: captchaTicket,
           language: i18n.language,
         });
       } else {
@@ -167,7 +202,15 @@ export const SetPasswordModal = ({
     } finally {
       setIsSending(false);
     }
-  }, [identifier, method, t, toast]);
+  }, [
+    captchaCode,
+    identifier,
+    method,
+    refreshCaptcha,
+    t,
+    toast,
+    verifyCaptcha,
+  ]);
 
   const handleSubmit = useCallback(async () => {
     if (!identifier) {
@@ -288,6 +331,27 @@ export const SetPasswordModal = ({
           />
         </div>
 
+        {method === 'phone' ? (
+          <ImageCaptchaInput
+            id='set-password-captcha'
+            value={captchaCode}
+            image={captchaImage}
+            isLoading={isCaptchaLoading}
+            disabled={isSending || isSubmitting}
+            error={captchaError}
+            onChange={value => {
+              setCaptchaCode(value);
+              if (captchaError) {
+                setCaptchaError('');
+              }
+            }}
+            onRefresh={() => {
+              setCaptchaError('');
+              void refreshCaptcha().catch(() => {});
+            }}
+          />
+        ) : null}
+
         <div className='space-y-2'>
           <Label htmlFor='set-password-code'>
             {t('module.settings.verificationCode')}
@@ -305,7 +369,12 @@ export const SetPasswordModal = ({
               variant='outline'
               onClick={handleSendCode}
               disabled={
-                !identifier || countdown > 0 || isSending || isSubmitting
+                !identifier ||
+                countdown > 0 ||
+                isSending ||
+                isSubmitting ||
+                (method === 'phone' &&
+                  (isCaptchaLoading || !captchaCode.trim()))
               }
               className='shrink-0'
             >

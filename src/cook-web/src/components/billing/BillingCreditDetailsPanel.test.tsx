@@ -34,7 +34,7 @@ describe('BillingCreditDetailsPanel', () => {
       data: {
         creator_bid: 'creator-1',
         wallet: {
-          available_credits: 1110,
+          available_credits: 1110.7,
           reserved_credits: 0,
           lifetime_granted_credits: 2000,
           lifetime_consumed_credits: 890,
@@ -128,7 +128,7 @@ describe('BillingCreditDetailsPanel', () => {
     expect(
       screen.getByText('module.billing.details.title'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1,110.00')).toBeInTheDocument();
+    expect(screen.getByText('1,110')).toBeInTheDocument();
     expect(
       screen.getAllByText('module.billing.ledger.category.subscription'),
     ).toHaveLength(1);
