@@ -33,12 +33,14 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  formatAdminCredits,
+  formatAdminPrice,
+} from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import {
-  formatBillingCredits,
   formatBillingDateTime,
-  formatBillingPrice,
   resolveBillingOrderStatusLabel,
 } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
@@ -719,13 +721,13 @@ export default function CreditOrdersTab() {
                     const creditAmountLabel = tOperationsOrder(
                       'creditOrders.creditAmountValue',
                       {
-                        credits: formatBillingCredits(
+                        credits: formatAdminCredits(
                           order.credit_amount,
                           locale,
                         ),
                       },
                     );
-                    const paidAmountLabel = formatBillingPrice(
+                    const paidAmountLabel = formatAdminPrice(
                       order.paid_amount,
                       order.currency,
                       locale,

@@ -15,6 +15,7 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -108,8 +109,8 @@ const createRatingFilters = (): RatingFilters => ({
   endTime: '',
 });
 
-const formatCount = (value: number): string =>
-  Number.isFinite(value) ? value.toLocaleString() : '--';
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale);
 
 const formatValue = (value: string | undefined | null, emptyValue: string) => {
   const normalizedValue = value?.trim() || '';
@@ -273,7 +274,7 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.table.guestUser')
  */
 export default function AdminOperationCourseRatingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string | string[] }>();
@@ -434,13 +435,13 @@ export default function AdminOperationCourseRatingsPage() {
       {
         key: 'ratingCount',
         label: tOperations('detail.ratings.summary.ratingCount'),
-        value: formatCount(ratings.summary.rating_count),
+        value: formatCount(ratings.summary.rating_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.ratings.summary.userCount'),
-        value: formatCount(ratings.summary.user_count),
+        value: formatCount(ratings.summary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
@@ -451,7 +452,7 @@ export default function AdminOperationCourseRatingsPage() {
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, ratings.summary, tOperations],
+    [emptyValue, i18n.language, ratings.summary, tOperations],
   );
 
   const resolveUserSecondary = useCallback(
