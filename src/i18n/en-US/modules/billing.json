@@ -637,7 +637,7 @@
     "validityTooltip": {
       "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
       "monthly": "Valid for 30 days from the day you receive it, inclusive. Counted to 23:59 on the expiry day.",
-      "yearly": "Valid by calendar year from the day you receive it; plans received on Feb 29 expire on Mar 1 the next year. Counted to 23:59 on the expiry day."
+      "yearly": "Valid by calendar year from the day you receive it. Counted to 23:59 on the expiry day."
     }
   },
   "page": {
