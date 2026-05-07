@@ -138,6 +138,15 @@ export function PhoneLogin({
     }
   }, [refreshCaptcha]);
 
+  const resetCaptchaAfterFailure = useCallback(async () => {
+    setCaptchaCode('');
+    try {
+      await refreshCaptcha({ clearCode: false });
+    } catch {
+      // The API request layer displays failures; keep the current UI stable.
+    }
+  }, [refreshCaptcha, setCaptchaCode]);
+
   useEffect(() => {
     if (previousCountdownRef.current > 0 && countdown === 0) {
       setCaptchaError(prev => (prev ? '' : prev));
@@ -162,6 +171,7 @@ export function PhoneLogin({
     } catch (error: any) {
       const message = error?.message || t('module.auth.captchaVerifyFailed');
       setCaptchaError(message);
+      await resetCaptchaAfterFailure();
       toast({
         title: t('module.auth.captchaVerifyFailed'),
         description: message,
