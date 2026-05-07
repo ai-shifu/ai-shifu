@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/Select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { Textarea } from '@/components/ui/Textarea';
-import { formatOperatorUtcDateTime } from './dateTime';
+import { formatOperatorNaiveDateTime } from './dateTime';
 import type {
   AdminOperationUserCreditGrantRequest,
   AdminOperationUserCreditGrantResponse,
@@ -85,7 +85,7 @@ const resolveCurrentExpiry = (
     return '--';
   }
   if (user.credits_expire_at) {
-    return formatOperatorUtcDateTime(user.credits_expire_at);
+    return formatOperatorNaiveDateTime(user.credits_expire_at);
   }
   if (Number(user.available_credits || 0) > 0) {
     return longTermLabel;

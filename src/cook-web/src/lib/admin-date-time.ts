@@ -4,6 +4,8 @@ import { getBrowserTimeZone } from '@/lib/browser-timezone';
 
 const ISO_DATETIME_WITH_TIMEZONE_RE =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const LOCAL_NAIVE_DATETIME_RE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/;
 
 export const parseAdminUtcDateTime = (
   value: string | null | undefined,
@@ -58,4 +60,47 @@ export const formatAdminUtcDateTime = (
   }
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+};
+
+export type AdminNaiveDateTimeParts = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+};
+
+export const parseAdminNaiveDateTime = (
+  value: string | null | undefined,
+): AdminNaiveDateTimeParts | null => {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const match = normalizedValue.match(LOCAL_NAIVE_DATETIME_RE);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    year: match[1],
+    month: match[2],
+    day: match[3],
+    hour: match[4] || '00',
+    minute: match[5] || '00',
+    second: match[6] || '00',
+  };
+};
+
+export const formatAdminNaiveDateTime = (
+  value: string | null | undefined,
+): string => {
+  const parsedValue = parseAdminNaiveDateTime(value);
+  if (!parsedValue) {
+    return '';
+  }
+
+  return `${parsedValue.year}-${parsedValue.month}-${parsedValue.day} ${parsedValue.hour}:${parsedValue.minute}:${parsedValue.second}`;
 };

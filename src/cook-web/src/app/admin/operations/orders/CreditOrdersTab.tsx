@@ -8,6 +8,7 @@ import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -39,10 +40,7 @@ import {
 } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
-import {
-  formatBillingDateTime,
-  resolveBillingOrderStatusLabel,
-} from '@/lib/billing';
+import { resolveBillingOrderStatusLabel } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
@@ -755,7 +753,7 @@ export default function CreditOrdersTab() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatBillingDateTime(order.created_at, locale) ||
+                            formatAdminNaiveDateTime(order.created_at) ||
                               EMPTY_STATE_LABEL,
                           )}
                         </TableCell>
