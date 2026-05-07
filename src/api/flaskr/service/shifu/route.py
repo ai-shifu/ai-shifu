@@ -556,6 +556,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course updated end date (YYYY-MM-DD)
+            - name: quick_filter
+              type: string
+              required: false
+              description: draft, published, created_last_7d, learning_active_30d, paid_order_30d
         responses:
             200:
                 description: List operator-visible courses
@@ -568,7 +572,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 message:
                                     type: string
                                 data:
-                                    $ref: "#/components/schemas/PageNationDTO"
+                                    $ref: "#/components/schemas/AdminOperationCourseListDTO"
         """
         _require_operator()
         page_index = request.args.get("page_index", 1)
@@ -585,6 +589,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
             "course_status": request.args.get("course_status", ""),
+            "quick_filter": request.args.get("quick_filter", ""),
             "creator_keyword": request.args.get("creator_keyword", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
