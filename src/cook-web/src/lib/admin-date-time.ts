@@ -71,9 +71,7 @@ export type AdminNaiveDateTimeParts = {
   second: string;
 };
 
-const isValidAdminNaiveDateTime = (
-  parts: AdminNaiveDateTimeParts,
-): boolean => {
+const isValidAdminNaiveDateTime = (parts: AdminNaiveDateTimeParts): boolean => {
   const year = Number(parts.year);
   const month = Number(parts.month);
   const day = Number(parts.day);
