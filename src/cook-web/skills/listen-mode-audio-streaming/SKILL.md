@@ -31,6 +31,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 16. 从阅读模式切到听课模式前，如果 `record` 历史接口映射出来的首个 `text` 内容块没有 `audio_url/audioUrl`，必须拦截进入听课模式并提示用户先重修；判断范围只能看 `isHistory === true` 的历史内容，不能把后续 SSE 流里的新内容也算进去。
 17. 听课模式把后端 `subtitle_cues[].text` 透传给 `markdown-flow-ui/slide` 前，要先过滤尾部终止标点：默认删除句号、逗号、冒号、分号等收尾符号，但保留问号、叹号、省略号，以及成对标点的后半个（如 `”`、`）`、`》`）。
 18. 听课模式组装 item 时，如果 final `element` 事件只把完整 `audio_url` 放在 element 顶层或 `payload.audio`，而当前 item 已经有 `audioTracks/audio_segments`，必须把完整 URL 回填到对应 position 的 `audioTracks`；不要让 Slide 映射层因为优先使用 `audioTracks` 而丢掉完整 mp3 URL。
+19. 当需要在线上显式区分 buffering 卡住原因时，优先把 loading 文案拆成“未收到当前页音频 / 正在加载当前页音频 / 正在等待当前页后续音频片段”三类可配置文案，不要继续只透传单一字符串。
 
 ## 备注
 

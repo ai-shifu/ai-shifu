@@ -1405,7 +1405,15 @@ const ListenModeSlideRenderer = ({
             copyButtonText: t('module.renderUi.core.copyCode'),
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
-          bufferingText={t('module.chat.slideAudioBuffering')}
+          bufferingText={{
+            waitingForAudio: t(
+              'module.chat.slideAudioBufferingWaitingForAudio',
+            ),
+            loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
+            waitingForMoreAudio: t(
+              'module.chat.slideAudioBufferingWaitingForMoreAudio',
+            ),
+          }}
           onPlayerVisibilityChange={handlePlayerVisibilityChange}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
