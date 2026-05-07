@@ -1406,7 +1406,9 @@ const ListenModeSlideRenderer = ({
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
           bufferingText={{
-            waitingForAudio: t('module.chat.slideAudioBufferingWaitingForAudio'),
+            waitingForAudio: t(
+              'module.chat.slideAudioBufferingWaitingForAudio',
+            ),
             loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
             waitingForMoreAudio: t(
               'module.chat.slideAudioBufferingWaitingForMoreAudio',
