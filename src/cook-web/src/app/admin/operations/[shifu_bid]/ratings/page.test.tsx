@@ -6,6 +6,7 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseRatings = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
+let mockLanguage = 'en-US';
 const mockEnvState = {
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
@@ -61,7 +62,14 @@ jest.mock('react-i18next', () => ({
         t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
       });
     }
-    return mockTranslationCache.get(cacheKey)!;
+    return {
+      ...mockTranslationCache.get(cacheKey)!,
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
+      },
+    };
   },
 }));
 
@@ -150,6 +158,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseRatings.mockReset();
+    mockLanguage = 'en-US';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockUserState.isInitialized = true;
@@ -247,6 +256,30 @@ describe('AdminOperationCourseRatingsPage', () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+  });
+
+  test('formats rating summary counts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      summary: {
+        average_score: '4.5',
+        rating_count: 76384,
+        user_count: 12000,
+        latest_rated_at: '2026-04-05T11:02:00Z',
+      },
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.getByText('12000')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(screen.queryByText('12,000')).not.toBeInTheDocument();
   });
 
   test('submits search filters including score, mode, comment filter, sort, and rating time', async () => {

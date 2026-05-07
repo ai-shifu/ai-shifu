@@ -3,6 +3,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import {
+  formatAdminCredits,
+  formatAdminPrice,
+} from '@/app/admin/lib/numberFormat';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -13,11 +17,7 @@ import {
   SheetTitle,
 } from '@/components/ui/Sheet';
 import { ErrorWithCode } from '@/lib/request';
-import {
-  formatBillingCredits,
-  formatBillingDateTime,
-  formatBillingPrice,
-} from '@/lib/billing';
+import { formatBillingDateTime } from '@/lib/billing';
 import type { AdminOperationCreditOrderDetailResponse } from '../operation-credit-order-types';
 import {
   resolveOperationCreditOrderKindLabel,
@@ -307,7 +307,7 @@ export default function CreditOrderDetailDialog({
                 <DetailRow
                   label={tOperationsOrder('creditOrders.table.creditAmount')}
                   value={tOperationsOrder('creditOrders.creditAmountValue', {
-                    credits: formatBillingCredits(order.credit_amount, locale),
+                    credits: formatAdminCredits(order.credit_amount, locale),
                   })}
                 />
                 <DetailRow
@@ -325,7 +325,7 @@ export default function CreditOrderDetailDialog({
                 />
                 <DetailRow
                   label={t('module.order.fields.payable')}
-                  value={formatBillingPrice(
+                  value={formatAdminPrice(
                     order.payable_amount,
                     order.currency,
                     locale,
@@ -333,7 +333,7 @@ export default function CreditOrderDetailDialog({
                 />
                 <DetailRow
                   label={t('module.order.fields.paid')}
-                  value={formatBillingPrice(
+                  value={formatAdminPrice(
                     order.paid_amount,
                     order.currency,
                     locale,
@@ -372,7 +372,7 @@ export default function CreditOrderDetailDialog({
                       'creditOrders.detail.labels.grantedCredits',
                     )}
                     value={tOperationsOrder('creditOrders.creditAmountValue', {
-                      credits: formatBillingCredits(
+                      credits: formatAdminCredits(
                         grant.granted_credits,
                         locale,
                       ),

@@ -8,6 +8,7 @@ const mockRefresh = jest.fn();
 const mockScrollIntoView = jest.fn();
 const mockBrowserTimeZone = jest.fn(() => 'UTC');
 let currentUserBid = 'user-1';
+let mockLanguage = 'en-US';
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -92,7 +93,14 @@ jest.mock('@/lib/browser-timezone', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+  useTranslation: (namespace?: string | string[]) => ({
+    ...baseTranslation(namespace),
+    i18n: {
+      get language() {
+        return mockLanguage;
+      },
+    },
+  }),
 }));
 
 jest.mock('@/components/ui/tooltip', () => ({
@@ -260,6 +268,7 @@ describe('AdminOperationUserDetailPage', () => {
 
   beforeEach(() => {
     currentUserBid = 'user-1';
+    mockLanguage = 'en-US';
     mockPush.mockReset();
     mockRefresh.mockReset();
     mockScrollIntoView.mockReset();
@@ -334,6 +343,39 @@ describe('AdminOperationUserDetailPage', () => {
     ).toHaveAttribute('href', '/admin/operations/course-1');
     expect(screen.getByText('25% (1/4)')).toBeInTheDocument();
     expect(pageContainer).not.toHaveClass('overflow-auto');
+  });
+
+  test('formats credits without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      ...detailResponse,
+      available_credits: '10000',
+      subscription_credits: '10000',
+      topup_credits: '5000',
+    });
+    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+      ...creditsResponse,
+      summary: {
+        ...creditsResponse.summary,
+        available_credits: '10000',
+        subscription_credits: '10000',
+        topup_credits: '5000',
+      },
+      items: [
+        {
+          ...creditsResponse.items[0],
+          amount: '5000',
+          balance_after: '10000',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect((await screen.findAllByText('10000')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('5000').length).toBeGreaterThan(0);
+    expect(screen.queryByText('10,000')).not.toBeInTheDocument();
+    expect(screen.queryByText('5,000')).not.toBeInTheDocument();
   });
 
   test('renders detail timestamps in the viewer timezone when UTC crosses local day boundaries', async () => {

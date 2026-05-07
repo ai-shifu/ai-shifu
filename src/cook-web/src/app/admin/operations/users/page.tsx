@@ -12,6 +12,10 @@ import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import {
+  formatAdminCount,
+  formatAdminCredits,
+} from '@/app/admin/lib/numberFormat';
+import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
@@ -60,7 +64,7 @@ import {
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
-import { buildBillingSwrKey, formatBillingCredits } from '@/lib/billing';
+import { buildBillingSwrKey } from '@/lib/billing';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
@@ -967,7 +971,7 @@ export default function AdminOperationUsersPage() {
                         {card.label}
                       </div>
                       <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                        {card.value.toLocaleString()}
+                        {formatAdminCount(card.value, i18n.language)}
                       </div>
                     </button>
                     <Tooltip>
@@ -1387,7 +1391,7 @@ export default function AdminOperationUsersPage() {
                             >
                               {renderTooltipText(
                                 user.available_credits
-                                  ? formatBillingCredits(
+                                  ? formatAdminCredits(
                                       Number(user.available_credits),
                                       i18n.language,
                                     )
@@ -1397,7 +1401,7 @@ export default function AdminOperationUsersPage() {
                           ) : (
                             renderTooltipText(
                               user.available_credits
-                                ? formatBillingCredits(
+                                ? formatAdminCredits(
                                     Number(user.available_credits),
                                     i18n.language,
                                   )

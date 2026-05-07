@@ -18,6 +18,7 @@ import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -224,8 +225,8 @@ const renderTooltipText = (text?: string, className?: string) => {
   );
 };
 
-const formatCount = (value: number): string =>
-  Number.isFinite(value) ? value.toLocaleString() : EMPTY_STATE_LABEL;
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale, EMPTY_STATE_LABEL);
 
 type ClearableTextInputProps = {
   value: string;
@@ -335,7 +336,7 @@ const ClearableTextInput = ({
  */
 const OperationsPage = () => {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { toast } = useToast();
   const { isInitialized, isGuest, isReady } = useOperatorGuard();
@@ -1300,7 +1301,7 @@ const OperationsPage = () => {
                         {card.label}
                       </div>
                       <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                        {formatCount(card.value)}
+                        {formatCount(card.value, i18n.language)}
                       </div>
                     </button>
                     <TooltipProvider delayDuration={0}>

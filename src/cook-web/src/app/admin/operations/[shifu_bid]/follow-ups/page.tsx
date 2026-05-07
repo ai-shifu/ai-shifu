@@ -18,6 +18,7 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -118,8 +119,8 @@ const createFollowUpFilters = (): FollowUpFilters => ({
   endTime: '',
 });
 
-const formatCount = (value: number): string =>
-  Number.isFinite(value) ? value.toLocaleString() : '--';
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale);
 
 const formatValue = (value: string | undefined | null, emptyValue: string) => {
   const normalizedValue = value?.trim() || '';
@@ -288,7 +289,7 @@ function ClearableTextInput({
 export default function AdminOperationCourseFollowUpsPage() {
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
@@ -496,19 +497,19 @@ export default function AdminOperationCourseFollowUpsPage() {
       {
         key: 'followUpCount',
         label: tOperations('detail.followUps.summary.followUpCount'),
-        value: formatCount(followUps.summary.follow_up_count),
+        value: formatCount(followUps.summary.follow_up_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.followUps.summary.userCount'),
-        value: formatCount(followUps.summary.user_count),
+        value: formatCount(followUps.summary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'lessonCount',
         label: tOperations('detail.followUps.summary.lessonCount'),
-        value: formatCount(followUps.summary.lesson_count),
+        value: formatCount(followUps.summary.lesson_count, i18n.language),
         tone: 'number' as const,
       },
       {
@@ -520,7 +521,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, followUps.summary, tOperations],
+    [emptyValue, followUps.summary, i18n.language, tOperations],
   );
 
   const resolveUserSecondary = useCallback(

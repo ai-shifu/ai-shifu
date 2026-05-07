@@ -7,6 +7,7 @@ const mockToast = jest.fn();
 const mockGrantAdminOperationUserCredits =
   api.grantAdminOperationUserCredits as jest.Mock;
 const translationCache = new Map<string, { t: (key: string) => string }>();
+let mockLanguage = 'en-US';
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
   const cacheKey = ns || 'translation';
@@ -26,7 +27,14 @@ jest.mock('@/api', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+  useTranslation: (namespace?: string | string[]) => ({
+    ...baseTranslation(namespace),
+    i18n: {
+      get language() {
+        return mockLanguage;
+      },
+    },
+  }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -229,6 +237,7 @@ describe('UserCreditGrantDialog', () => {
   beforeEach(() => {
     mockToast.mockReset();
     mockGrantAdminOperationUserCredits.mockReset();
+    mockLanguage = 'en-US';
     mockGrantAdminOperationUserCredits.mockResolvedValue({
       user_bid: 'user-1',
       amount: '10',
@@ -269,6 +278,22 @@ describe('UserCreditGrantDialog', () => {
       ),
     ).toBeInTheDocument();
     expect(mockGrantAdminOperationUserCredits).not.toHaveBeenCalled();
+  });
+
+  test('formats current available credits without grouping in Chinese locale', () => {
+    mockLanguage = 'zh-CN';
+
+    render(
+      <UserCreditGrantDialog
+        open
+        user={{ ...baseUser, available_credits: '10000' }}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('10000')).toBeInTheDocument();
+    expect(screen.queryByText('10,000')).not.toBeInTheDocument();
   });
 
   test('submits a confirmed grant and reports success', async () => {
