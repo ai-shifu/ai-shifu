@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import calendar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -68,6 +67,8 @@ from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+    calculate_billing_cycle_end as _calc_provider_cycle_end,
+    calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_primary_active_subscription as _load_primary_active_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -103,6 +104,8 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
+
+_SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -442,7 +445,11 @@ def ensure_subscription_renewal_order(
     if product is None:
         return None
 
-    cycle_end_at = _calculate_billing_cycle_end(product, cycle_start_at=cycle_start_at)
+    cycle_end_at = _calculate_billing_cycle_end(
+        product,
+        cycle_start_at=cycle_start_at,
+        payment_provider=provider_name,
+    )
     if cycle_end_at is None:
         return None
 
@@ -548,6 +555,7 @@ def _ensure_pingxx_renewal_applied_cycle(
     shifted_cycle_end_at = _calculate_billing_cycle_end(
         product,
         cycle_start_at=shifted_cycle_start_at,
+        payment_provider=order.payment_provider,
     )
     if shifted_cycle_end_at is None:
         return
@@ -572,18 +580,18 @@ def _calculate_billing_cycle_end(
     product: BillingProduct,
     *,
     cycle_start_at: datetime,
+    payment_provider: str = "",
 ) -> datetime | None:
-    interval = int(product.billing_interval or 0)
-    interval_count = max(int(product.billing_interval_count or 0), 0)
-    if interval_count <= 0:
-        return None
-    if interval == BILLING_INTERVAL_DAY:
-        return cycle_start_at + timedelta(days=interval_count)
-    if interval == BILLING_INTERVAL_MONTH:
-        return _add_months(cycle_start_at, interval_count)
-    if interval == BILLING_INTERVAL_YEAR:
-        return _add_years(cycle_start_at, interval_count)
-    return None
+    provider = _normalize_bid(payment_provider)
+    if provider in _SELF_MANAGED_BILLING_PROVIDERS:
+        return _calc_self_managed_cycle_end(
+            product,
+            cycle_start_at=cycle_start_at,
+        )
+    return _calc_provider_cycle_end(
+        product,
+        cycle_start_at=cycle_start_at,
+    )
 
 
 def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
@@ -1234,12 +1242,37 @@ def _resolve_credit_bucket_effective_to(
     if interval_count <= 0:
         return None
     if interval == BILLING_INTERVAL_DAY:
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
         return effective_from + timedelta(days=interval_count)
     if interval == BILLING_INTERVAL_MONTH:
-        return _add_months(effective_from, interval_count)
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
+        return _calc_provider_cycle_end(
+            product,
+            cycle_start_at=effective_from,
+        )
     if interval == BILLING_INTERVAL_YEAR:
-        return _add_years(effective_from, interval_count)
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
+        return _calc_provider_cycle_end(
+            product,
+            cycle_start_at=effective_from,
+        )
     return None
+
+
+def _is_self_managed_billing_order(order: BillingOrder) -> bool:
+    return _normalize_bid(order.payment_provider) in _SELF_MANAGED_BILLING_PROVIDERS
 
 
 def _resolve_topup_bucket_effective_to(
@@ -1617,20 +1650,6 @@ def _resolve_credit_bucket_effective_from(
     ):
         return default_effective_from
     return subscription.current_period_end_at
-
-
-def _add_months(value: datetime, months: int) -> datetime:
-    month_index = value.month - 1 + months
-    year = value.year + month_index // 12
-    month = month_index % 12 + 1
-    day = min(value.day, calendar.monthrange(year, month)[1])
-    return value.replace(year=year, month=month, day=day)
-
-
-def _add_years(value: datetime, years: int) -> datetime:
-    year = value.year + years
-    day = min(value.day, calendar.monthrange(year, value.month)[1])
-    return value.replace(year=year, day=day)
 
 
 def _sync_subscription_lifecycle_events(

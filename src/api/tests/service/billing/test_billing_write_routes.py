@@ -58,7 +58,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
-from flaskr.service.billing.queries import calculate_billing_cycle_end
+from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
@@ -923,11 +923,27 @@ class TestBillingWriteRoutes:
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
             assert subscription.current_period_start_at == order.paid_at
             assert bucket.effective_from == order.paid_at
-            assert subscription.current_period_end_at == calculate_billing_cycle_end(
-                product,
-                cycle_start_at=order.paid_at,
+            assert (
+                subscription.current_period_end_at
+                == calculate_self_managed_billing_cycle_end(
+                    product,
+                    cycle_start_at=order.paid_at,
+                )
             )
             assert bucket.effective_to == subscription.current_period_end_at
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            assert ledger.expires_at == subscription.current_period_end_at
+            assert subscription.current_period_end_at == datetime(
+                order.paid_at.year,
+                order.paid_at.month,
+                order.paid_at.day,
+                23,
+                59,
+                59,
+            ) + timedelta(days=29)
             assert raw_order.status == 1
             assert raw_order.charge_id == "ch_billing_test"
             assert (
@@ -2073,7 +2089,7 @@ class TestBillingWriteRoutes:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
-        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 5, 30, 23, 59, 59)
 
         class FrozenDateTime(datetime):
             @classmethod
@@ -2207,7 +2223,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         app = billing_write_client["app"]
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
-        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 5, 30, 23, 59, 59)
         paid_at = datetime(2026, 6, 5, 10, 0, 0)
 
         with app.app_context():
@@ -2267,15 +2283,17 @@ class TestBillingWriteRoutes:
 
             assert granted is True
             assert bucket.effective_from == paid_at
-            assert bucket.effective_to == datetime(2026, 7, 5, 10, 0, 0)
+            assert bucket.effective_to == datetime(2026, 7, 4, 23, 59, 59)
             assert order.metadata_json["applied_cycle_start_at"] == paid_at.isoformat()
             assert (
                 order.metadata_json["applied_cycle_end_at"]
-                == datetime(2026, 7, 5, 10, 0, 0).isoformat()
+                == datetime(2026, 7, 4, 23, 59, 59).isoformat()
             )
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_start_at == paid_at
-            assert subscription.current_period_end_at == datetime(2026, 7, 5, 10, 0, 0)
+            assert subscription.current_period_end_at == datetime(
+                2026, 7, 4, 23, 59, 59
+            )
 
     def test_existing_subscription_grant_realigns_future_dated_cycle_on_replay(
         self, billing_write_client
@@ -2346,7 +2364,7 @@ class TestBillingWriteRoutes:
             assert initial_grant is True
             assert replay_grant is False
             assert bucket.effective_from == paid_at
-            assert bucket.effective_to == calculate_billing_cycle_end(
+            assert bucket.effective_to == calculate_self_managed_billing_cycle_end(
                 product,
                 cycle_start_at=paid_at,
             )

@@ -68,7 +68,10 @@ from .notifications import (
     stage_subscription_purchase_sms_for_paid_order,
 )
 from .primitives import coerce_datetime
-from .queries import calculate_billing_cycle_end, load_primary_active_subscription
+from .queries import (
+    calculate_self_managed_billing_cycle_end,
+    load_primary_active_subscription,
+)
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
 from .subscriptions import (
@@ -817,7 +820,10 @@ def grant_billing_plan_by_identify(
         cycle_end_at = (
             _parse_effective_to_option(normalized_effective_to)
             if normalized_effective_to
-            else calculate_billing_cycle_end(product, cycle_start_at=granted_at)
+            else calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=granted_at,
+            )
         )
         if cycle_end_at is None:
             raise click.ClickException(
