@@ -256,15 +256,12 @@ export default function CreditOrderDetailDialog({
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
                   value={
-                    formatAdminNaiveDateTime(order.created_at) ||
-                    emptyValue
+                    formatAdminNaiveDateTime(order.created_at) || emptyValue
                   }
                 />
                 <DetailRow
                   label={tOperationsOrder('creditOrders.detail.labels.paidAt')}
-                  value={
-                    formatAdminNaiveDateTime(order.paid_at) || emptyValue
-                  }
+                  value={formatAdminNaiveDateTime(order.paid_at) || emptyValue}
                 />
                 {order.failed_at ? (
                   <DetailRow
@@ -272,8 +269,7 @@ export default function CreditOrderDetailDialog({
                       'creditOrders.detail.labels.failedAt',
                     )}
                     value={
-                      formatAdminNaiveDateTime(order.failed_at) ||
-                      emptyValue
+                      formatAdminNaiveDateTime(order.failed_at) || emptyValue
                     }
                   />
                 ) : null}

@@ -977,7 +977,9 @@ export default function AdminOperationUserDetailPage() {
                     />
                     <InfoItem
                       label={tOperationsUsers('table.lastLearningAt')}
-                      value={formatOperatorNaiveDateTime(detail.last_learning_at)}
+                      value={formatOperatorNaiveDateTime(
+                        detail.last_learning_at,
+                      )}
                     />
                   </div>
                 </CardContent>
