@@ -3384,8 +3384,15 @@ class RunScriptContextV2:
                     anchor_generated_block_bid = (
                         anchor_element.generated_block_bid or ""
                     )
-                    if self._input_type == "ask":
-                        self._anchor_element_bid = reload_element_bid
+                # Trust the frontend-supplied element_bid for ask runs even if
+                # the row is not yet visible in this session: the main run
+                # holds the element in an uncommitted transaction, so MVCC
+                # isolation hides it from the parallel ask session. Recording
+                # it here ensures handle_input_ask receives the real
+                # element_bid instead of an empty anchor that would force a
+                # synthetic fallback in listen_element_run_sidecar.
+                if self._input_type == "ask":
+                    self._anchor_element_bid = reload_element_bid
 
             # Frontend element-protocol flows may still pass element_bid through
             # reload_generated_block_bid. Always prefer the persisted source block
