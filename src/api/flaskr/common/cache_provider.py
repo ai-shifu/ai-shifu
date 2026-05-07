@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import threading
 import time
 from dataclasses import dataclass
@@ -13,18 +12,6 @@ class CacheLock(Protocol):
         raise NotImplementedError
 
     def release(self) -> None:
-        raise NotImplementedError
-
-
-@runtime_checkable
-class CachePubSub(Protocol):
-    def subscribe(self, channel: str) -> None:
-        raise NotImplementedError
-
-    def get_message(self, timeout: Optional[float] = None) -> Optional[bytes]:
-        raise NotImplementedError
-
-    def close(self) -> None:
         raise NotImplementedError
 
 
@@ -69,60 +56,9 @@ class CacheProvider(Protocol):
     ):
         raise NotImplementedError
 
-    def publish(self, channel: str, message: Any) -> int:
-        raise NotImplementedError
-
-    def pubsub(self) -> CachePubSub:
-        raise NotImplementedError
-
 
 class CacheUnavailableError(RuntimeError):
     pass
-
-
-class _RedisPubSubAdapter:
-    """Adapt redis-py PubSub to the CachePubSub protocol.
-
-    Drains subscribe-acks so callers only see real messages, and converts
-    redis's dict-shaped messages into raw byte payloads.
-    """
-
-    def __init__(self, redis_pubsub):
-        self._ps = redis_pubsub
-
-    def subscribe(self, channel: str) -> None:
-        self._ps.subscribe(channel)
-        # Drain the subscribe ack so subsequent get_message() returns real data.
-        with contextlib.suppress(Exception):
-            self._ps.get_message(timeout=0.05)
-
-    def get_message(self, timeout: Optional[float] = None) -> Optional[bytes]:
-        deadline: Optional[float]
-        if timeout is None:
-            deadline = None
-            remaining: Optional[float] = None
-        else:
-            deadline = time.time() + timeout
-            remaining = timeout
-        while True:
-            msg = self._ps.get_message(timeout=remaining)
-            if msg is None:
-                return None
-            if msg.get("type") == "message":
-                data = msg.get("data")
-                if isinstance(data, bytes):
-                    return data
-                if data is None:
-                    return None
-                return str(data).encode("utf-8")
-            if deadline is not None:
-                remaining = deadline - time.time()
-                if remaining <= 0:
-                    return None
-
-    def close(self) -> None:
-        with contextlib.suppress(Exception):
-            self._ps.close()
 
 
 class _DynamicRedisCacheProvider:
@@ -180,12 +116,6 @@ class _DynamicRedisCacheProvider:
             key, timeout=timeout, blocking_timeout=blocking_timeout
         )
 
-    def publish(self, channel: str, message: Any) -> int:
-        return int(self._client().publish(channel, message))
-
-    def pubsub(self) -> CachePubSub:
-        return _RedisPubSubAdapter(self._client().pubsub())
-
 
 @dataclass
 class _InMemoryEntry:
@@ -214,85 +144,11 @@ class _InMemoryLock:
             self._held = False
 
 
-class _InMemoryPubSubSession:
-    """Process-local PubSub session backed by ``_PubSubBus``.
-
-    Subscribers buffer their own queue; publishers fan out to every active
-    session listening on the channel. The semantics mirror ``CachePubSub``
-    closely enough for tests and single-worker fallbacks.
-    """
-
-    def __init__(self, bus: "_PubSubBus"):
-        self._bus = bus
-        self._channels: list[str] = []
-        self._cond = threading.Condition()
-        self._queue: list[bytes] = []
-        self._closed = False
-
-    def subscribe(self, channel: str) -> None:
-        if self._closed:
-            return
-        self._bus._add_subscriber(channel, self)
-        if channel not in self._channels:
-            self._channels.append(channel)
-
-    def deliver(self, message: bytes) -> None:
-        with self._cond:
-            self._queue.append(message)
-            self._cond.notify()
-
-    def get_message(self, timeout: Optional[float] = None) -> Optional[bytes]:
-        with self._cond:
-            if not self._queue:
-                self._cond.wait(timeout=timeout)
-            if not self._queue:
-                return None
-            return self._queue.pop(0)
-
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        for channel in list(self._channels):
-            self._bus._remove_subscriber(channel, self)
-        self._channels.clear()
-
-
-class _PubSubBus:
-    def __init__(self):
-        self._mu = threading.RLock()
-        self._subscribers: dict[str, list[_InMemoryPubSubSession]] = {}
-
-    def _add_subscriber(self, channel: str, session: _InMemoryPubSubSession) -> None:
-        with self._mu:
-            self._subscribers.setdefault(channel, []).append(session)
-
-    def _remove_subscriber(self, channel: str, session: _InMemoryPubSubSession) -> None:
-        with self._mu:
-            subs = self._subscribers.get(channel)
-            if not subs:
-                return
-            try:
-                subs.remove(session)
-            except ValueError:
-                return
-            if not subs:
-                self._subscribers.pop(channel, None)
-
-    def publish(self, channel: str, message: bytes) -> int:
-        with self._mu:
-            sessions = list(self._subscribers.get(channel, []))
-        for session in sessions:
-            session.deliver(message)
-        return len(sessions)
-
-
 class InMemoryCacheProvider:
     def __init__(self):
         self._store: dict[str, _InMemoryEntry] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._mu = threading.RLock()
-        self._pubsub_bus = _PubSubBus()
 
     def _now(self) -> float:
         return time.time()
@@ -413,12 +269,6 @@ class InMemoryCacheProvider:
                 self._locks[key] = lock
         return _InMemoryLock(lock)
 
-    def publish(self, channel: str, message: Any) -> int:
-        return self._pubsub_bus.publish(channel, self._encode(message))
-
-    def pubsub(self) -> CachePubSub:
-        return _InMemoryPubSubSession(self._pubsub_bus)
-
 
 class FallbackCacheProvider:
     """
@@ -491,20 +341,6 @@ class FallbackCacheProvider:
         return self._call(
             "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
         )
-
-    def publish(self, channel: str, message: Any) -> int:
-        return int(self._call("publish", channel, message))
-
-    def pubsub(self) -> CachePubSub:
-        # PubSub session establishment cannot transparently fail over
-        # mid-wait, so pick a side at construction time. If Redis is
-        # unreachable, fall back to the in-memory bus (single-worker only).
-        try:
-            return self._primary.pubsub()
-        except CacheUnavailableError:
-            return self._fallback.pubsub()
-        except Exception:
-            return self._fallback.pubsub()
 
 
 _in_memory_cache = InMemoryCacheProvider()

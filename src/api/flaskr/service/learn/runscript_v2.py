@@ -33,9 +33,6 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.order.models import Order
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.listen_element_queries import (
-    _load_latest_active_element_row,
-)
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 import datetime
 from flaskr.common.log import thread_local as log_thread_local
@@ -52,17 +49,6 @@ RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
 # Default max parallel ask (follow-up) requests per (user, outline).
 # Actual value is read from Flask config (see MAX_PARALLEL_ASK_COUNT in config.py).
 DEFAULT_MAX_PARALLEL_ASK_COUNT = 3
-
-# Block-commit event signaling. The main lesson stream publishes one event
-# per generated_block at commit/rollback time so that ask (follow-up) runs
-# can defer their own commit until the anchored block is durable.
-BLOCK_EVENT_COMMITTED = "committed"
-BLOCK_EVENT_ABORTED = "aborted"
-# Cache key TTL: long enough to cover an ask that started before its main
-# block but only commits long after, while still bounded.
-BLOCK_EVENT_KEY_TTL_SECONDS = 600
-# Max time an ask waits for its anchored block to commit before giving up.
-ANCHOR_WAIT_TIMEOUT_SECONDS = 60
 
 
 def _get_max_parallel_ask_count(app: Flask) -> int:
@@ -151,101 +137,6 @@ def _ask_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
             outline_bid,
             repr(exc),
         )
-
-
-def _get_block_event_channel(app: Flask, generated_block_bid: str) -> str:
-    return app.config.get("REDIS_KEY_PREFIX", "") + ":block_evt:" + generated_block_bid
-
-
-def _decode_event(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="ignore")
-    return str(value)
-
-
-def _publish_block_event(app: Flask, generated_block_bid: str, event: str) -> None:
-    """Publish a block lifecycle event for ask waiters.
-
-    Sets the cache key first so subscribers that arrive after the publish
-    can still observe the outcome via the fast path; then fans the event
-    out via PubSub for waiters subscribed at publish time. Failures are
-    logged and swallowed — block events are advisory.
-    """
-    if not generated_block_bid:
-        return
-    channel = _get_block_event_channel(app, generated_block_bid)
-    try:
-        cache_provider.setex(channel, BLOCK_EVENT_KEY_TTL_SECONDS, event)
-    except Exception as exc:
-        app.logger.warning(
-            "publish_block_event setex failed: bid=%s event=%s error=%s",
-            generated_block_bid,
-            event,
-            repr(exc),
-        )
-    try:
-        cache_provider.publish(channel, event)
-    except Exception as exc:
-        app.logger.warning(
-            "publish_block_event publish failed: bid=%s event=%s error=%s",
-            generated_block_bid,
-            event,
-            repr(exc),
-        )
-
-
-def _wait_block_event(
-    app: Flask,
-    generated_block_bid: str,
-    timeout_seconds: float,
-) -> str:
-    """Block until the anchored generated_block reports its outcome.
-
-    Returns one of ``BLOCK_EVENT_COMMITTED``, ``BLOCK_EVENT_ABORTED``, or
-    the literal ``"timeout"`` if no event arrives within the deadline.
-
-    Order is important: subscribe first, then re-check the cache key, so
-    publishers that fire between our initial fast-path check and the
-    subscribe call cannot leave us waiting for a message that already
-    happened.
-    """
-    if not generated_block_bid:
-        return BLOCK_EVENT_COMMITTED  # nothing to wait on; treat as ok
-    channel = _get_block_event_channel(app, generated_block_bid)
-
-    fast = _decode_event(cache_provider.get(channel))
-    if fast in (BLOCK_EVENT_COMMITTED, BLOCK_EVENT_ABORTED):
-        return fast
-
-    pubsub = None
-    try:
-        pubsub = cache_provider.pubsub()
-        pubsub.subscribe(channel)
-
-        # Re-check after subscribing: if the publisher fired between the
-        # initial get() and subscribe(), the cache key is the source of truth.
-        recheck = _decode_event(cache_provider.get(channel))
-        if recheck in (BLOCK_EVENT_COMMITTED, BLOCK_EVENT_ABORTED):
-            return recheck
-
-        message = pubsub.get_message(timeout=timeout_seconds)
-        decoded = _decode_event(message)
-        if decoded in (BLOCK_EVENT_COMMITTED, BLOCK_EVENT_ABORTED):
-            return decoded
-        return "timeout"
-    except Exception as exc:
-        app.logger.warning(
-            "wait_block_event failed: bid=%s error=%s",
-            generated_block_bid,
-            repr(exc),
-        )
-        return "timeout"
-    finally:
-        if pubsub is not None:
-            with contextlib.suppress(Exception):
-                pubsub.close()
 
 
 def _get_run_script_lock_key(app: Flask, user_bid: str, outline_bid: str) -> str:
@@ -348,70 +239,8 @@ def run_script_inner(
         if callable(finalize_trace):
             finalize_trace()
 
-    is_ask_run = input_type == INPUT_TYPE_ASK
-
     def _run() -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
         run_script_context: RunScriptContextV2 | None = None
-        # Generated_block_bids that have been touched in the current run but
-        # whose owning transaction has not yet been committed/rolled back.
-        # Drained on each commit/rollback boundary so waiters anchored to a
-        # block see exactly one terminal event per attempt.
-        pending_block_bids: set[str] = set()
-
-        def _record_event_block_bid(event: object) -> None:
-            bid = getattr(event, "generated_block_bid", None)
-            if isinstance(bid, str) and bid:
-                pending_block_bids.add(bid)
-
-        def _drain_publish(event_kind: str) -> None:
-            if is_ask_run:
-                # Ask blocks have no descendants waiting on their commit.
-                pending_block_bids.clear()
-                return
-            bids = list(pending_block_bids)
-            pending_block_bids.clear()
-            for bid in bids:
-                _publish_block_event(app, bid, event_kind)
-
-        def _await_anchor_block_or_rollback() -> bool:
-            """For ask runs, block until the anchor's main block is durable.
-
-            Returns True if the ask may proceed to commit, False if the
-            caller has already rolled back and should bail out.
-            """
-            if not is_ask_run or run_script_context is None:
-                return True
-            anchor_element_bid = getattr(run_script_context, "_anchor_element_bid", "")
-            if not anchor_element_bid:
-                return True
-            try:
-                anchor_row = _load_latest_active_element_row(anchor_element_bid)
-            except Exception as exc:
-                app.logger.warning(
-                    "ask anchor lookup failed: anchor_element_bid=%s error=%s",
-                    anchor_element_bid,
-                    repr(exc),
-                )
-                return True
-            anchor_block_bid = getattr(anchor_row, "generated_block_bid", "") or ""
-            if not anchor_block_bid:
-                return True
-            outcome = _wait_block_event(
-                app, anchor_block_bid, ANCHOR_WAIT_TIMEOUT_SECONDS
-            )
-            if outcome == BLOCK_EVENT_COMMITTED:
-                return True
-            app.logger.warning(
-                "ask aborting commit: anchor not durable. "
-                "anchor_element_bid=%s anchor_block_bid=%s outcome=%s",
-                anchor_element_bid,
-                anchor_block_bid,
-                outcome,
-            )
-            db.session.rollback()
-            pending_block_bids.clear()
-            return False
-
         try:
             user_info = load_user_aggregate(user_bid)
             if not user_info:
@@ -478,20 +307,15 @@ def run_script_inner(
             run_script_context.set_input(input, input_type)
 
             def _iter_run_events(events):
-                src = (
-                    element_adapter.process(events)
-                    if element_adapter is not None
-                    else events
-                )
-                for event in src:
-                    _record_event_block_bid(event)
-                    yield event
+                if element_adapter is None:
+                    yield from events
+                    return
+                yield from element_adapter.process(events)
 
             if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled before reload")
                     db.session.rollback()
-                    _drain_publish(BLOCK_EVENT_ABORTED)
                     return
                 yield from _iter_run_events(
                     run_script_context.reload(
@@ -501,7 +325,6 @@ def run_script_inner(
                     )
                 )
                 db.session.commit()
-                _drain_publish(BLOCK_EVENT_COMMITTED)
             while run_script_context.has_next():
                 app.logger.warning(
                     f"run_script_context.has_next(): {run_script_context.has_next()}"
@@ -509,31 +332,21 @@ def run_script_inner(
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")
                     db.session.rollback()
-                    _drain_publish(BLOCK_EVENT_ABORTED)
                     return
                 app.logger.info("run_script_context.run")
                 yield from _iter_run_events(run_script_context.run(app))
             _finalize_langfuse_if_available(run_script_context)
-            if not _await_anchor_block_or_rollback():
-                return
             db.session.commit()
-            _drain_publish(BLOCK_EVENT_COMMITTED)
         except BreakException:
             _finalize_langfuse_if_available(run_script_context)
-            if not _await_anchor_block_or_rollback():
-                app.logger.info("BreakException with ask anchor abort")
-                return
             db.session.commit()
-            _drain_publish(BLOCK_EVENT_COMMITTED)
             app.logger.info("BreakException")
         except GeneratorExit:
             db.session.rollback()
-            _drain_publish(BLOCK_EVENT_ABORTED)
             app.logger.info("GeneratorExit")
         except Exception:
             _finalize_langfuse_if_available(run_script_context)
             db.session.rollback()
-            _drain_publish(BLOCK_EVENT_ABORTED)
             raise
 
     if manage_app_context:
