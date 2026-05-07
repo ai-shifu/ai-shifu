@@ -29,6 +29,7 @@ from flaskr.service.billing.models import (
     CreditUsageRate,
     CreditWallet,
 )
+from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import (
@@ -557,9 +558,17 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert subscription.billing_provider == "manual"
         assert subscription.current_period_start_at is not None
         assert subscription.current_period_end_at is not None
-        assert subscription.current_period_end_at > subscription.current_period_start_at
+        product = BillingProduct.query.filter_by(
+            product_code="creator-plan-monthly"
+        ).one()
+        expected_period_end_at = calculate_self_managed_billing_cycle_end(
+            product,
+            cycle_start_at=order.paid_at,
+        )
+        assert subscription.current_period_end_at == expected_period_end_at
         assert len(pending_events) == 1
         assert pending_events[0].event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
+        assert pending_events[0].scheduled_at == expected_period_end_at
 
 
 def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(

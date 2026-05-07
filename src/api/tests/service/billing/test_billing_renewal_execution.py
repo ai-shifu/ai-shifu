@@ -10,6 +10,7 @@ import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_INTERVAL_DAY,
+    BILLING_INTERVAL_MONTH,
     BILLING_MODE_RECURRING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -50,8 +51,26 @@ from flaskr.service.billing.renewal import (
     claim_billing_renewal_event,
     run_billing_renewal_event,
 )
+from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 from flaskr.service.billing.subscriptions import sync_subscription_lifecycle_events
 from tests.common.fixtures.bill_products import build_bill_products
+
+
+def _self_managed_cycle_end(
+    cycle_start_at: datetime,
+    *,
+    interval: int = BILLING_INTERVAL_MONTH,
+    interval_count: int = 1,
+) -> datetime:
+    cycle_end_at = calculate_self_managed_billing_cycle_end(
+        BillingProduct(
+            billing_interval=interval,
+            billing_interval_count=interval_count,
+        ),
+        cycle_start_at=cycle_start_at,
+    )
+    assert cycle_end_at is not None
+    return cycle_end_at
 
 
 @pytest.fixture
@@ -652,7 +671,11 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
     billing_renewal_app: Flask,
 ) -> None:
     cycle_end = datetime.now() - timedelta(hours=1)
-    expected_cycle_end = cycle_end + timedelta(days=7)
+    expected_cycle_end = _self_managed_cycle_end(
+        cycle_end,
+        interval=BILLING_INTERVAL_DAY,
+        interval_count=7,
+    )
 
     with billing_renewal_app.app_context():
         dao.db.session.add(
@@ -721,7 +744,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
 ) -> None:
     current_cycle_start = datetime.now() - timedelta(days=30)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
-    next_cycle_end = current_cycle_end + timedelta(days=30)
+    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -848,7 +871,7 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
 ) -> None:
     current_cycle_start = datetime.now() - timedelta(days=30)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
-    next_cycle_end = current_cycle_end + timedelta(days=30)
+    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(

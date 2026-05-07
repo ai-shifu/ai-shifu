@@ -239,6 +239,28 @@ def calculate_billing_cycle_end(
     return None
 
 
+def calculate_self_managed_billing_cycle_end(
+    product: BillingProduct,
+    *,
+    cycle_start_at: datetime,
+) -> datetime | None:
+    interval = int(product.billing_interval or 0)
+    interval_count = max(int(product.billing_interval_count or 0), 0)
+    if interval_count <= 0:
+        return None
+    if interval == BILLING_INTERVAL_DAY:
+        return end_of_day(cycle_start_at + timedelta(days=interval_count - 1))
+    if interval == BILLING_INTERVAL_MONTH:
+        return end_of_day(cycle_start_at + timedelta(days=(30 * interval_count) - 1))
+    if interval == BILLING_INTERVAL_YEAR:
+        return end_of_day(add_self_managed_years(cycle_start_at, interval_count))
+    return None
+
+
+def end_of_day(value: datetime) -> datetime:
+    return value.replace(hour=23, minute=59, second=59, microsecond=0)
+
+
 def add_months(value: datetime, months: int) -> datetime:
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
@@ -251,6 +273,14 @@ def add_years(value: datetime, years: int) -> datetime:
     year = value.year + years
     day = min(value.day, calendar.monthrange(year, value.month)[1])
     return value.replace(year=year, day=day)
+
+
+def add_self_managed_years(value: datetime, years: int) -> datetime:
+    target_year = value.year + years
+    if value.month == 2 and value.day == 29:
+        if calendar.monthrange(target_year, 2)[1] < 29:
+            return value.replace(year=target_year, month=3, day=1)
+    return value.replace(year=target_year)
 
 
 def load_primary_active_subscription(
