@@ -71,6 +71,41 @@ export type AdminNaiveDateTimeParts = {
   second: string;
 };
 
+const isValidAdminNaiveDateTime = (
+  parts: AdminNaiveDateTimeParts,
+): boolean => {
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  const second = Number(parts.second);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    !Number.isInteger(second)
+  ) {
+    return false;
+  }
+
+  const candidate = new Date(
+    Date.UTC(year, month - 1, day, hour, minute, second),
+  );
+
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day &&
+    candidate.getUTCHours() === hour &&
+    candidate.getUTCMinutes() === minute &&
+    candidate.getUTCSeconds() === second
+  );
+};
+
 export const parseAdminNaiveDateTime = (
   value: string | null | undefined,
 ): AdminNaiveDateTimeParts | null => {
@@ -84,7 +119,7 @@ export const parseAdminNaiveDateTime = (
     return null;
   }
 
-  return {
+  const parsedValue = {
     year: match[1],
     month: match[2],
     day: match[3],
@@ -92,6 +127,12 @@ export const parseAdminNaiveDateTime = (
     minute: match[5] || '00',
     second: match[6] || '00',
   };
+
+  if (!isValidAdminNaiveDateTime(parsedValue)) {
+    return null;
+  }
+
+  return parsedValue;
 };
 
 export const formatAdminNaiveDateTime = (
