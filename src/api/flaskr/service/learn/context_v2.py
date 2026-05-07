@@ -1533,13 +1533,22 @@ class RunScriptContextV2:
             producer_thread.join(timeout=0.1)
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
+        # Order so that a record which has started learning wins over a
+        # fresh NOT_STARTED placeholder. A parallel ask SSE running before
+        # the main run committed cannot see the main row under MVCC and
+        # falls through to creating a sibling at block_position=0; without
+        # this ordering the next main-flow SSE would pick that fresh row
+        # by id.desc() and restart the lesson from the first block.
         attend_info: LearnProgressRecord = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.outline_item_bid == outline_bid,
                 LearnProgressRecord.user_bid == self._user_info.user_id,
                 LearnProgressRecord.status != LEARN_STATUS_RESET,
             )
-            .order_by(LearnProgressRecord.id.desc())
+            .order_by(
+                (LearnProgressRecord.status == LEARN_STATUS_NOT_STARTED).asc(),
+                LearnProgressRecord.id.desc(),
+            )
             .first()
         )
         if not attend_info:
