@@ -12,7 +12,9 @@ const DEFAULT_ADMIN_NUMBER_FORMAT = {
 } as const;
 
 const shouldUseAdminNumberGrouping = (locale?: string | null): boolean => {
-  const normalizedLocale = String(locale || '').trim().toLowerCase();
+  const normalizedLocale = String(locale || '')
+    .trim()
+    .toLowerCase();
   return !normalizedLocale.startsWith('zh');
 };
 
