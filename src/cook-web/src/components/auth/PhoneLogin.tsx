@@ -130,15 +130,18 @@ export function PhoneLogin({
     setPhoneOtp(normalizeOtp(e.target.value));
   };
 
-  const resetCaptchaChallenge = useCallback((options?: { clearError?: boolean }) => {
-    setCaptchaCode('');
-    if (options?.clearError) {
-      setCaptchaError('');
-    }
-    void refreshCaptcha({ clearCode: false }).catch(() => {
-      // The API request layer displays failures; keep the current UI stable.
-    });
-  }, [refreshCaptcha, setCaptchaCode]);
+  const resetCaptchaChallenge = useCallback(
+    (options?: { clearError?: boolean }) => {
+      setCaptchaCode('');
+      if (options?.clearError) {
+        setCaptchaError('');
+      }
+      void refreshCaptcha({ clearCode: false }).catch(() => {
+        // The API request layer displays failures; keep the current UI stable.
+      });
+    },
+    [refreshCaptcha, setCaptchaCode],
+  );
 
   useEffect(() => {
     if (previousCountdownRef.current > 0 && countdown === 0) {

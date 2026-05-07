@@ -202,7 +202,9 @@ describe('PhoneLogin captcha flow', () => {
     try {
       render(<PhoneLogin onLoginSuccess={jest.fn()} />);
 
-      await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(apiService.getCaptcha).toHaveBeenCalledTimes(1),
+      );
 
       fireEvent.change(screen.getByLabelText('module.auth.phone'), {
         target: { value: '13800138000' },
@@ -211,7 +213,9 @@ describe('PhoneLogin captcha flow', () => {
         target: { value: '0000' },
       });
       fireEvent.click(screen.getByRole('checkbox'));
-      fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.auth.getOtp' }),
+      );
 
       await waitFor(() => expect(apiService.sendSmsCode).toHaveBeenCalled());
 
