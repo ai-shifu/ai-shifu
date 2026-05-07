@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
@@ -50,7 +51,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
@@ -69,6 +75,7 @@ import type {
   AdminOperationUserCourseItem,
   AdminOperationUserItem,
   AdminOperationUserListResponse,
+  AdminOperationUserOverview,
 } from '../operation-user-types';
 
 type UserFilters = {
@@ -80,11 +87,40 @@ type UserFilters = {
   end_time: string;
 };
 
+type UserQuickFilterKey =
+  | ''
+  | 'creator'
+  | 'learner'
+  | 'registered'
+  | 'paid'
+  | 'created_last_30d'
+  | 'registered_last_30d'
+  | 'learning_active_30d'
+  | 'paid_last_30d'
+  | 'guest';
+
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const EMPTY_STATE_LABEL = '--';
+const USER_STATUS_UNREGISTERED = 'unregistered';
+const USER_STATUS_PAID = 'paid';
+const USER_QUICK_FILTER_CREATOR = 'creator';
+const USER_QUICK_FILTER_LEARNER = 'learner';
+const USER_QUICK_FILTER_REGISTERED = 'registered';
+const USER_QUICK_FILTER_PAID = 'paid';
+const USER_QUICK_FILTER_CREATED_LAST_30D = 'created_last_30d';
+const USER_QUICK_FILTER_REGISTERED_LAST_30D = 'registered_last_30d';
+const USER_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const USER_QUICK_FILTER_PAID_LAST_30D = 'paid_last_30d';
+const USER_QUICK_FILTER_GUEST = 'guest';
+const QUICK_FILTER_STRUCTURED_FIELDS = new Set<keyof UserFilters>([
+  'user_status',
+  'user_role',
+  'start_time',
+  'end_time',
+]);
 const COLUMN_MIN_WIDTH = 90;
 const COLUMN_MAX_WIDTH = 420;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsUsersColumnWidths';
@@ -107,6 +143,18 @@ const DEFAULT_COLUMN_WIDTHS = {
   updatedAt: 180,
   action: 120,
 } as const;
+const EMPTY_USER_OVERVIEW: AdminOperationUserOverview = {
+  total_user_count: 0,
+  registered_user_count: 0,
+  creator_user_count: 0,
+  learner_user_count: 0,
+  paid_user_count: 0,
+  created_last_30d_user_count: 0,
+  registered_last_30d_user_count: 0,
+  learning_active_30d_user_count: 0,
+  paid_last_30d_user_count: 0,
+  guest_user_count: 0,
+};
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
   identifier: '',
@@ -116,6 +164,26 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast30DaysFilters = (): Pick<
+  UserFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 29);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
 
 const renderTooltipText = (text?: string, className?: string) => {
   return (
@@ -207,6 +275,28 @@ const CourseListPreview = ({
 /**
  * t('module.operationsUser.title')
  * t('module.operationsUser.emptyList')
+ * t('module.operationsUser.overview.title')
+ * t('module.operationsUser.overview.activeFilter')
+ * t('module.operationsUser.overview.metrics.totalUsers')
+ * t('module.operationsUser.overview.metrics.registeredUsers')
+ * t('module.operationsUser.overview.metrics.creators')
+ * t('module.operationsUser.overview.metrics.learners')
+ * t('module.operationsUser.overview.metrics.paidUsers')
+ * t('module.operationsUser.overview.metrics.newUsers30d')
+ * t('module.operationsUser.overview.metrics.registeredUsers30d')
+ * t('module.operationsUser.overview.metrics.learningActive30d')
+ * t('module.operationsUser.overview.metrics.paidUsers30d')
+ * t('module.operationsUser.overview.metrics.guests')
+ * t('module.operationsUser.overview.tooltips.totalUsers')
+ * t('module.operationsUser.overview.tooltips.registeredUsers')
+ * t('module.operationsUser.overview.tooltips.creators')
+ * t('module.operationsUser.overview.tooltips.learners')
+ * t('module.operationsUser.overview.tooltips.paidUsers')
+ * t('module.operationsUser.overview.tooltips.newUsers30d')
+ * t('module.operationsUser.overview.tooltips.registeredUsers30d')
+ * t('module.operationsUser.overview.tooltips.learningActive30d')
+ * t('module.operationsUser.overview.tooltips.paidUsers30d')
+ * t('module.operationsUser.overview.tooltips.guests')
  * t('module.operationsUser.filters.mobile')
  * t('module.operationsUser.filters.email')
  * t('module.operationsUser.filters.nickname')
@@ -286,6 +376,8 @@ export default function AdminOperationUsersPage() {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [userOverview, setUserOverview] =
+    useState<AdminOperationUserOverview>(EMPTY_USER_OVERVIEW);
   const [users, setUsers] = useState<AdminOperationUserItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -300,6 +392,7 @@ export default function AdminOperationUsersPage() {
   const [appliedFilters, setAppliedFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
   );
+  const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
   const requestIdRef = useRef(0);
   const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
@@ -394,7 +487,12 @@ export default function AdminOperationUsersPage() {
   );
 
   const fetchUsers = useCallback(
-    async (targetPage: number, filters: UserFilters) => {
+    async (
+      targetPage: number,
+      filters: UserFilters,
+      nextQuickFilter?: UserQuickFilterKey,
+    ) => {
+      const resolvedQuickFilter = nextQuickFilter ?? '';
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       lastRequestedPageRef.current = targetPage;
@@ -408,12 +506,14 @@ export default function AdminOperationUsersPage() {
           nickname: filters.nickname.trim(),
           user_status: filters.user_status,
           user_role: filters.user_role,
+          quick_filter: resolvedQuickFilter,
           start_time: filters.start_time,
           end_time: filters.end_time,
         })) as AdminOperationUserListResponse;
         if (requestId !== requestIdRef.current) {
           return;
         }
+        setUserOverview(response.summary ?? EMPTY_USER_OVERVIEW);
         setUsers(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 0);
@@ -426,6 +526,7 @@ export default function AdminOperationUsersPage() {
           message: resolvedError.message || t('common.core.networkError'),
           code: resolvedError.code,
         });
+        setUserOverview(EMPTY_USER_OVERVIEW);
         setUsers([]);
         setPageCount(0);
       } finally {
@@ -441,20 +542,83 @@ export default function AdminOperationUsersPage() {
     if (!isReady) {
       return;
     }
-    void fetchUsers(1, appliedFilters);
-  }, [appliedFilters, fetchUsers, isReady]);
+    const initialFilters = createDefaultFilters();
+    setDraftFilters(initialFilters);
+    setAppliedFilters(initialFilters);
+    setQuickFilter('');
+    void fetchUsers(1, initialFilters, '');
+  }, [fetchUsers, isReady]);
+
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (!QUICK_FILTER_STRUCTURED_FIELDS.has(key)) {
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_PAID && key === 'user_status') {
+        if (value === USER_STATUS_PAID) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_GUEST && key === 'user_status') {
+        if (value === USER_STATUS_UNREGISTERED) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        const expected = buildCreatedLast30DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+          return;
+        }
+        if (key === 'user_status' || key === 'user_role') {
+          setQuickFilter('');
+        }
+        return;
+      }
+
+      setQuickFilter('');
+    },
+    [quickFilter],
+  );
+
+  const updateDraftFilter = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      clearQuickFilterIfConflicted(key, value);
+      setDraftFilters(current => ({
+        ...current,
+        [key]: value,
+      }));
+    },
+    [clearQuickFilterIfConflicted],
+  );
 
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
     setAppliedFilters(nextFilters);
     setPageIndex(1);
+    void fetchUsers(1, nextFilters, quickFilter);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
+    setQuickFilter('');
     setPageIndex(1);
+    void fetchUsers(1, nextFilters, '');
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -462,15 +626,15 @@ export default function AdminOperationUsersPage() {
       return;
     }
     setPageIndex(nextPage);
-    void fetchUsers(nextPage, appliedFilters);
+    void fetchUsers(nextPage, appliedFilters, quickFilter);
   };
 
   const handleGrantSuccess = useCallback(() => {
-    void fetchUsers(pageIndex, appliedFilters);
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
     void mutate(
       buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
     );
-  }, [appliedFilters, fetchUsers, mutate, pageIndex]);
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
@@ -521,6 +685,124 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: UserQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setDraftFilters(cleared);
+        setAppliedFilters(cleared);
+        setQuickFilter('');
+        setPageIndex(1);
+        void fetchUsers(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === USER_QUICK_FILTER_PAID) {
+        nextFilters.user_status = USER_STATUS_PAID;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_GUEST) {
+        nextFilters.user_status = USER_STATUS_UNREGISTERED;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        Object.assign(nextFilters, buildCreatedLast30DaysFilters());
+      }
+
+      setDraftFilters(nextFilters);
+      setAppliedFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      setPageIndex(1);
+      void fetchUsers(1, nextFilters, targetQuickFilter);
+    },
+    [fetchUsers, quickFilter],
+  );
+
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsUsers('overview.metrics.totalUsers'),
+        value: userOverview.total_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.totalUsers'),
+        quickFilterKey: '' as UserQuickFilterKey,
+      },
+      {
+        key: 'registered',
+        label: tOperationsUsers('overview.metrics.registeredUsers'),
+        value: userOverview.registered_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers'),
+        quickFilterKey: USER_QUICK_FILTER_REGISTERED as UserQuickFilterKey,
+      },
+      {
+        key: 'paid',
+        label: tOperationsUsers('overview.metrics.paidUsers'),
+        value: userOverview.paid_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers'),
+        quickFilterKey: USER_QUICK_FILTER_PAID as UserQuickFilterKey,
+      },
+      {
+        key: 'creators',
+        label: tOperationsUsers('overview.metrics.creators'),
+        value: userOverview.creator_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.creators'),
+        quickFilterKey: USER_QUICK_FILTER_CREATOR as UserQuickFilterKey,
+      },
+      {
+        key: 'learners',
+        label: tOperationsUsers('overview.metrics.learners'),
+        value: userOverview.learner_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learners'),
+        quickFilterKey: USER_QUICK_FILTER_LEARNER as UserQuickFilterKey,
+      },
+      {
+        key: 'guests',
+        label: tOperationsUsers('overview.metrics.guests'),
+        value: userOverview.guest_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.guests'),
+        quickFilterKey: USER_QUICK_FILTER_GUEST as UserQuickFilterKey,
+      },
+      {
+        key: 'new-30d',
+        label: tOperationsUsers('overview.metrics.newUsers30d'),
+        value: userOverview.created_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.newUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_CREATED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'registered-30d',
+        label: tOperationsUsers('overview.metrics.registeredUsers30d'),
+        value: userOverview.registered_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_REGISTERED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'learning-active-30d',
+        label: tOperationsUsers('overview.metrics.learningActive30d'),
+        value: userOverview.learning_active_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_LEARNING_ACTIVE_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'paid-30d',
+        label: tOperationsUsers('overview.metrics.paidUsers30d'),
+        value: userOverview.paid_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers30d'),
+        quickFilterKey: USER_QUICK_FILTER_PAID_LAST_30D as UserQuickFilterKey,
+      },
+    ],
+    [tOperationsUsers, userOverview],
+  );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
+
   const collapsedFilterItems = [
     {
       key: 'identifier',
@@ -530,12 +812,7 @@ export default function AdminOperationUsersPage() {
           value={draftFilters.identifier}
           placeholder={identifierLabel}
           clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              identifier: value,
-            }))
-          }
+          onChange={value => updateDraftFilter('identifier', value)}
         />
       ),
     },
@@ -547,12 +824,7 @@ export default function AdminOperationUsersPage() {
           value={draftFilters.nickname}
           placeholder={tOperationsUsers('filters.nickname')}
           clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              nickname: value,
-            }))
-          }
+          onChange={value => updateDraftFilter('nickname', value)}
         />
       ),
     },
@@ -567,10 +839,10 @@ export default function AdminOperationUsersPage() {
         <Select
           value={draftFilters.user_status || ALL_OPTION_VALUE}
           onValueChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_status: value === ALL_OPTION_VALUE ? '' : value,
-            }))
+            updateDraftFilter(
+              'user_status',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
           }
         >
           <SelectTrigger>
@@ -599,10 +871,10 @@ export default function AdminOperationUsersPage() {
         <Select
           value={draftFilters.user_role || ALL_OPTION_VALUE}
           onValueChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_role: value === ALL_OPTION_VALUE ? '' : value,
-            }))
+            updateDraftFilter(
+              'user_role',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
           }
         >
           <SelectTrigger>
@@ -631,13 +903,10 @@ export default function AdminOperationUsersPage() {
           placeholder={`${t('module.operationsCourse.filters.startTime')} ~ ${t('module.operationsCourse.filters.endTime')}`}
           resetLabel={t('module.order.filters.reset')}
           clearLabel={t('common.core.close')}
-          onChange={({ start, end }) =>
-            setDraftFilters(current => ({
-              ...current,
-              start_time: start,
-              end_time: end,
-            }))
-          }
+          onChange={({ start, end }) => {
+            updateDraftFilter('start_time', start);
+            updateDraftFilter('end_time', end);
+          }}
         />
       ),
     },
@@ -654,7 +923,11 @@ export default function AdminOperationUsersPage() {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() =>
-            fetchUsers(lastRequestedPageRef.current, appliedFilters)
+            fetchUsers(
+              lastRequestedPageRef.current,
+              appliedFilters,
+              quickFilter,
+            )
           }
         />
       </div>
@@ -671,8 +944,70 @@ export default function AdminOperationUsersPage() {
             </h1>
           </div>
 
+          <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
+            <div className='mb-3'>
+              <h2 className='text-base font-semibold text-foreground'>
+                {tOperationsUsers('overview.title')}
+              </h2>
+            </div>
+            <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
+              {overviewCards.map(card => (
+                <div
+                  key={card.key}
+                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                >
+                  <div className='flex items-start justify-between gap-2'>
+                    <button
+                      type='button'
+                      aria-label={card.label}
+                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                      onClick={() => applyQuickFilter(card.quickFilterKey)}
+                    >
+                      <div className='text-sm text-muted-foreground'>
+                        {card.label}
+                      </div>
+                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
+                        {card.value.toLocaleString()}
+                      </div>
+                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type='button'
+                          aria-label={card.tooltip}
+                          className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                        >
+                          <QuestionMarkCircleIcon className='h-4 w-4' />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className='max-w-56 text-left leading-5'>
+                        {card.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
             <div className='space-y-4'>
+              {activeQuickFilterCard ? (
+                <div className='flex flex-wrap items-center gap-2'>
+                  <span className='text-sm text-muted-foreground'>
+                    {tOperationsUsers('overview.activeFilter')}
+                  </span>
+                  <button
+                    type='button'
+                    aria-label={`${activeQuickFilterCard.label} ${t('common.core.close')}`}
+                    className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+                    onClick={() => applyQuickFilter('')}
+                  >
+                    <span>{activeQuickFilterCard.label}</span>
+                    <X className='h-3.5 w-3.5' />
+                  </button>
+                </div>
+              ) : null}
               <div
                 className={cn(
                   'grid gap-4',

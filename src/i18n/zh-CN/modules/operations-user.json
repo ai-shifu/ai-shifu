@@ -181,6 +181,34 @@
     "unknown": "未知",
     "wechat": "微信"
   },
+  "overview": {
+    "activeFilter": "快捷筛选",
+    "metrics": {
+      "creators": "创作者数",
+      "guests": "游客数",
+      "learners": "学习者数",
+      "learningActive30d": "近30天活跃学习用户",
+      "newUsers30d": "近30天新增用户",
+      "paidUsers": "付费用户数",
+      "paidUsers30d": "近30天付费用户",
+      "registeredUsers": "注册用户数",
+      "registeredUsers30d": "近30天注册用户",
+      "totalUsers": "总用户数"
+    },
+    "title": "数据概览",
+    "tooltips": {
+      "creators": "创作者数量",
+      "guests": "游客状态用户数量",
+      "learners": "有学习记录的用户数量",
+      "learningActive30d": "近 30 天有学习行为的用户数量",
+      "newUsers30d": "近 30 天新增用户数量",
+      "paidUsers": "付费状态用户数量（含开通导入）",
+      "paidUsers30d": "近 30 天成功付费用户数量（含开通导入）",
+      "registeredUsers": "已注册用户数量",
+      "registeredUsers30d": "近 30 天完成注册的用户数量",
+      "totalUsers": "全部用户数量"
+    }
+  },
   "registrationSourceLabels": {
     "email": "邮箱",
     "google": "Google",

@@ -8,6 +8,7 @@ import pytest
 import sys
 
 from flaskr.dao import db
+from flaskr.service.shifu import admin as admin_module
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -30,7 +31,6 @@ from flaskr.service.billing.models import (
     BillingSubscription,
     CreditLedgerEntry,
 )
-from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -46,6 +46,8 @@ from flaskr.service.shifu.admin import (
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
     AdminOperationUserSummaryDTO,
 )
 from flaskr.service.shifu.models import (
@@ -165,6 +167,7 @@ def _seed_user(
     created_at: datetime,
     updated_at: datetime,
     providers: list[tuple[str, str]] | None = None,
+    credential_created_at: datetime | None = None,
 ):
     entity = create_user_entity(
         user_bid=user_bid,
@@ -180,7 +183,7 @@ def _seed_user(
     db.session.flush()
 
     for provider_name, identifier in providers or []:
-        upsert_credential(
+        credential = upsert_credential(
             app,
             user_bid=user_bid,
             provider_name=provider_name,
@@ -190,6 +193,9 @@ def _seed_user(
             metadata={},
             verified=True,
         )
+        if credential_created_at:
+            credential.created_at = credential_created_at
+            credential.updated_at = credential_created_at
     db.session.commit()
     db.session.remove()
 
@@ -500,7 +506,7 @@ def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
 
         result = list_operator_users(app, 1, 1, {})
 
-    assert isinstance(result, PageNationDTO)
+    assert isinstance(result, AdminOperationUserListDTO)
     assert result.total == 2
     assert len(result.data) == 1
     item = result.data[0]
@@ -571,6 +577,49 @@ def test_list_operator_users_filters_by_identifier_status_role_and_created_time(
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_filters_creator_role_includes_operator_creators(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="operator-creator",
+            identify="13900003333",
+            nickname="Operator Creator",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            is_operator=True,
+            created_at=datetime(2026, 4, 3, 9, 0, 0),
+            updated_at=datetime(2026, 4, 3, 10, 0, 0),
+            providers=[("phone", "13900003333")],
+        )
+        _seed_user(
+            app,
+            user_bid="creator-only",
+            identify="13900004444",
+            nickname="Creator Only",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            created_at=datetime(2026, 4, 2, 9, 0, 0),
+            updated_at=datetime(2026, 4, 2, 10, 0, 0),
+            providers=[("phone", "13900004444")],
+        )
+
+        result = list_operator_users(
+            app,
+            1,
+            20,
+            {
+                "user_role": "creator",
+            },
+        )
+
+    assert [item.user_bid for item in result.data] == [
+        "operator-creator",
+        "creator-only",
+    ]
+    assert result.data[0].user_roles == ["operator", "creator"]
+    assert result.data[1].user_roles == ["creator"]
+
+
 def test_list_operator_users_filters_by_email_identifier(app):
     with app.app_context():
         _seed_user(
@@ -602,6 +651,245 @@ def test_list_operator_users_filters_by_email_identifier(app):
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-guest",
+            identify="guest@example.com",
+            nickname="Guest User",
+            state=USER_STATE_UNREGISTERED,
+            created_at=datetime(2026, 5, 5, 9, 0, 0),
+            updated_at=datetime(2026, 5, 5, 10, 0, 0),
+            providers=[("email", "guest@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="user-creator",
+            identify="creator@example.com",
+            nickname="Creator User",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            created_at=datetime(2026, 5, 1, 9, 0, 0),
+            updated_at=datetime(2026, 5, 1, 10, 0, 0),
+            providers=[("email", "creator@example.com")],
+            credential_created_at=datetime(2026, 5, 1, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learner",
+            identify="learner@example.com",
+            nickname="Learner User",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "learner@example.com")],
+            credential_created_at=datetime(2026, 4, 20, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid",
+            identify="paid@example.com",
+            nickname="Paid User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("email", "paid@example.com")],
+            credential_created_at=datetime(2026, 5, 2, 8, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-active",
+            outline_item_bid="lesson-learning-active",
+            user_bid="user-learner",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 4, 8, 0, 0),
+        )
+        _seed_success_order(
+            order_bid="order-paid-recent",
+            shifu_bid="course-paid-recent",
+            user_bid="user-paid",
+            created_at=datetime(2026, 5, 3, 8, 0, 0),
+        )
+
+        result = list_operator_users(app, 1, 20, {})
+        learner_result = list_operator_users(app, 1, 20, {"quick_filter": "learner"})
+        recent_paid_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "paid_last_30d"}
+        )
+        registered_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "registered"}
+        )
+        recent_registered_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "registered_last_30d"}
+        )
+
+    assert isinstance(result, AdminOperationUserListDTO)
+    assert isinstance(result.summary, AdminOperationUserOverviewDTO)
+    assert result.summary.total_user_count == 4
+    assert result.summary.registered_user_count == 3
+    assert result.summary.creator_user_count == 1
+    assert result.summary.learner_user_count == 2
+    assert result.summary.paid_user_count == 1
+    assert result.summary.created_last_30d_user_count == 3
+    assert result.summary.registered_last_30d_user_count == 3
+    assert result.summary.learning_active_30d_user_count == 1
+    assert result.summary.paid_last_30d_user_count == 1
+    assert result.summary.guest_user_count == 1
+    assert [item.user_bid for item in registered_result.data] == [
+        "user-creator",
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in recent_registered_result.data] == [
+        "user-creator",
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in learner_result.data] == [
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in recent_paid_result.data] == ["user-paid"]
+
+
+def test_list_operator_users_recent_windows_exclude_future_records_and_keep_microseconds(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-created-in-range",
+            identify="created-in-range@example.com",
+            nickname="Created In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            providers=[("email", "created-in-range@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-created-future",
+            identify="created-future@example.com",
+            nickname="Created Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            providers=[("email", "created-future@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-in-range",
+            identify="learning-in-range@example.com",
+            nickname="Learning In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "learning-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-future",
+            identify="learning-future@example.com",
+            nickname="Learning Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 10, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("email", "learning-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 10, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-in-range",
+            identify="paid-in-range@example.com",
+            nickname="Paid In Range",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 8, 0, 0),
+            updated_at=datetime(2026, 4, 1, 8, 0, 0),
+            providers=[("email", "paid-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-future",
+            identify="paid-future@example.com",
+            nickname="Paid Future",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "paid-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-in-range",
+            outline_item_bid="lesson-learning-in-range",
+            user_bid="user-learning-in-range",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-future",
+            outline_item_bid="lesson-learning-future",
+            user_bid="user-learning-future",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-in-range",
+            shifu_bid="course-paid-in-range",
+            user_bid="user-paid-in-range",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-future",
+            shifu_bid="course-paid-future",
+            user_bid="user-paid-future",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+
+        result = list_operator_users(app, 1, 20, {})
+        created_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "created_last_30d"}
+        )
+        learning_active_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "learning_active_30d"}
+        )
+        paid_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "paid_last_30d"}
+        )
+
+    assert result.summary.created_last_30d_user_count == 1
+    assert result.summary.learning_active_30d_user_count == 1
+    assert result.summary.paid_last_30d_user_count == 1
+    assert [item.user_bid for item in created_last_30d_result.data] == [
+        "user-created-in-range"
+    ]
+    assert [item.user_bid for item in learning_active_result.data] == [
+        "user-learning-in-range"
+    ]
+    assert [item.user_bid for item in paid_last_30d_result.data] == [
+        "user-paid-in-range"
+    ]
+
+
 def test_list_operator_users_caps_page_size(app):
     with app.app_context():
         _seed_user(
@@ -627,7 +915,7 @@ def test_list_operator_users_caps_page_size(app):
 
         result = list_operator_users(app, 1, 999, {})
 
-    assert isinstance(result, PageNationDTO)
+    assert isinstance(result, AdminOperationUserListDTO)
     assert result.page_size == 100
     assert result.total == 2
     assert len(result.data) == 2
@@ -1831,6 +2119,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["total"] == 1
+    assert payload["data"]["summary"]["total_user_count"] == 2
     assert payload["data"]["items"] == [
         {
             "user_bid": "user-route-1",

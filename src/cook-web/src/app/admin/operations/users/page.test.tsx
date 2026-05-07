@@ -16,7 +16,22 @@ const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
-const translationCache = new Map<string, { t: (key: string) => string }>();
+const translationCache = new Map<
+  string,
+  { t: (key: string) => string; i18n: { language: string } }
+>();
+const DEFAULT_OVERVIEW = {
+  total_user_count: 128,
+  registered_user_count: 102,
+  creator_user_count: 24,
+  learner_user_count: 78,
+  paid_user_count: 35,
+  created_last_30d_user_count: 12,
+  registered_last_30d_user_count: 10,
+  learning_active_30d_user_count: 18,
+  paid_last_30d_user_count: 9,
+  guest_user_count: 6,
+};
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
   const cacheKey = ns || 'translation';
@@ -24,6 +39,9 @@ const baseTranslation = (namespace?: string | string[]) => {
     translationCache.set(cacheKey, {
       t: (key: string) => {
         return ns && ns !== 'translation' ? `${ns}.${key}` : key;
+      },
+      i18n: {
+        language: 'en-US',
       },
     });
   }
@@ -241,6 +259,18 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+  }: React.PropsWithChildren<{ asChild?: boolean }>) => <>{children}</>,
+  TooltipContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+}));
+
 const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
 
 describe('AdminOperationUsersPage', () => {
@@ -252,6 +282,7 @@ describe('AdminOperationUsersPage', () => {
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
     mockGetAdminOperationUsers.mockResolvedValue({
+      summary: DEFAULT_OVERVIEW,
       items: [
         {
           user_bid: 'user-1',
@@ -334,6 +365,7 @@ describe('AdminOperationUsersPage', () => {
         nickname: '',
         user_status: '',
         user_role: '',
+        quick_filter: '',
         start_time: '',
         end_time: '',
       });
@@ -342,6 +374,10 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByText('module.operationsUser.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsUser.overview.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('128')).toBeInTheDocument();
     expect(await screen.findByText('user-1')).toBeInTheDocument();
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Nick')).toBeInTheDocument();
@@ -464,10 +500,192 @@ describe('AdminOperationUsersPage', () => {
         nickname: '',
         user_status: '',
         user_role: 'creator',
+        quick_filter: '',
         start_time: '',
         end_time: '',
       });
     });
+  });
+
+  test('clicking the paid users overview card syncs status and quick filter', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.paidUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          user_status: 'paid',
+          quick_filter: 'paid',
+          identifier: '',
+          nickname: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.operationsUser.overview.activeFilter'),
+    ).toBeInTheDocument();
+  });
+
+  test('clicking the registered users overview card applies the registered quick filter', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.registeredUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'registered',
+          user_status: '',
+          identifier: '',
+          nickname: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking the active learning overview card applies and clears the quick filter chip', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.learningActive30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'learning_active_30d',
+        }),
+      );
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.learningActive30d common\.core\.close/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking the new users overview card syncs the calendar-day date range', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-06T10:00:00Z'));
+
+    try {
+      render(<AdminOperationUsersPage />);
+
+      await screen.findByText('module.operationsUser.title');
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /module\.operationsUser\.overview\.metrics\.newUsers30d/i,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            quick_filter: 'created_last_30d',
+            start_time: '2026-04-07',
+            end_time: '2026-05-06',
+          }),
+        );
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('clicking the recent registered overview card applies the quick filter without overriding created-at range', async () => {
+    render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.registeredUsers30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'registered_last_30d',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+  });
+
+  test('reinitializing the page clears the stale quick filter state', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+
+    await screen.findByText('module.operationsUser.title');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.paidUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'paid',
+          user_status: 'paid',
+        }),
+      );
+    });
+
+    mockUserState.isInitialized = false;
+    rerender(<AdminOperationUsersPage />);
+
+    mockUserState.isInitialized = true;
+    rerender(<AdminOperationUsersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.queryByText('module.operationsUser.overview.activeFilter'),
+    ).not.toBeInTheDocument();
   });
 
   test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {

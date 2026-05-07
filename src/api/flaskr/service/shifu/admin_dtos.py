@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -271,6 +272,102 @@ class AdminOperationUserSummaryDTO(BaseModel):
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserOverviewDTO(BaseModel):
+    """Overview metrics shown in the operator user list."""
+
+    total_user_count: int = Field(default=0, description="Total users", required=False)
+    registered_user_count: int = Field(
+        default=0,
+        description="Users whose current status is registered, trial, or paid",
+        required=False,
+    )
+    creator_user_count: int = Field(
+        default=0, description="Users with creator identity", required=False
+    )
+    learner_user_count: int = Field(
+        default=0,
+        description="Users with learner identity or learning access",
+        required=False,
+    )
+    paid_user_count: int = Field(
+        default=0, description="Users whose status is paid", required=False
+    )
+    created_last_30d_user_count: int = Field(
+        default=0,
+        description="Users created in the last 30 calendar days",
+        required=False,
+    )
+    registered_last_30d_user_count: int = Field(
+        default=0,
+        description="Users who completed registration in the last 30 calendar days",
+        required=False,
+    )
+    learning_active_30d_user_count: int = Field(
+        default=0,
+        description="Distinct users with learning activity in the last 30 days",
+        required=False,
+    )
+    paid_last_30d_user_count: int = Field(
+        default=0,
+        description="Distinct users with successful payments in the last 30 days",
+        required=False,
+    )
+    guest_user_count: int = Field(
+        default=0, description="Users whose status is unregistered", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserListDTO(BaseModel):
+    """Paginated operator user list with overview metrics."""
+
+    page: int = Field(..., description="page", required=False)
+    page_size: int = Field(..., description="page_size", required=False)
+    total: int = Field(..., description="total", required=False)
+    page_count: int = Field(..., description="page_count", required=False)
+    data: list[AdminOperationUserSummaryDTO] = Field(
+        default_factory=list, description="data", required=False
+    )
+    summary: AdminOperationUserOverviewDTO = Field(
+        default_factory=AdminOperationUserOverviewDTO,
+        description="overview summary",
+        required=False,
+    )
+
+    def __init__(
+        self,
+        page: int,
+        page_size: int,
+        total: int,
+        data: list[AdminOperationUserSummaryDTO],
+        summary: AdminOperationUserOverviewDTO | None = None,
+    ) -> None:
+        safe_page_size = int(page_size or 0)
+        resolved_summary = summary or AdminOperationUserOverviewDTO()
+        super().__init__(
+            page=page,
+            page_size=page_size,
+            total=total,
+            page_count=math.ceil(total / safe_page_size if safe_page_size > 0 else 0),
+            data=data,
+            summary=resolved_summary,
+        )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+            "items": [item.__json__() for item in self.data],
+            "summary": self.summary.__json__(),
+        }
 
 
 @register_schema_to_swagger

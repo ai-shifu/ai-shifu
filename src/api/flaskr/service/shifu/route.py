@@ -648,6 +648,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: regular, creator, learner, or operator
+            - name: quick_filter
+              type: string
+              required: false
+              description: creator, learner, registered, paid, created_last_30d, registered_last_30d, learning_active_30d, paid_last_30d, guest
             - name: start_time
               type: string
               required: false
@@ -668,7 +672,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 message:
                                     type: string
                                 data:
-                                    $ref: "#/components/schemas/PageNationDTO"
+                                    $ref: "#/components/schemas/AdminOperationUserListDTO"
         """
         _require_operator()
         page_index = request.args.get("page_index", 1)
@@ -688,6 +692,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "nickname": request.args.get("nickname", ""),
             "user_status": request.args.get("user_status", ""),
             "user_role": request.args.get("user_role", ""),
+            "quick_filter": request.args.get("quick_filter", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
                 is_end=False,
