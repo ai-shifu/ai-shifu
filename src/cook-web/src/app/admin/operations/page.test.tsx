@@ -21,6 +21,7 @@ const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
+let mockLanguage = 'en-US';
 const DEFAULT_OVERVIEW = {
   total_course_count: 24,
   draft_course_count: 8,
@@ -89,6 +90,11 @@ jest.mock('react-i18next', () => ({
         return params?.count !== undefined
           ? `${resolvedKey}:${params.count}`
           : resolvedKey;
+      },
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
       },
     };
   },
@@ -408,6 +414,7 @@ describe('OperationsPage', () => {
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
     mockTransferAdminOperationCourseCreator.mockReset();
+    mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = {
@@ -537,6 +544,26 @@ describe('OperationsPage', () => {
     expect(
       scopedRow.queryByText('module.user.defaultUserName'),
     ).not.toBeInTheDocument();
+  });
+
+  test('formats overview counts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      summary: {
+        ...DEFAULT_OVERVIEW,
+        total_course_count: 76384,
+      },
+      items: [],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 0,
+    });
+
+    await renderAndWaitForLoadedPage();
+
+    expect(screen.getByText('76384')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
   });
 
   test('navigates from course name and transfers creator from the action menu', async () => {

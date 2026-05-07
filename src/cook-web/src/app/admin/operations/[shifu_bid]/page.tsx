@@ -17,6 +17,7 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -175,14 +176,18 @@ const flattenChapters = (
     ...flattenChapters(chapter.children || [], depth + 1),
   ]);
 
-const formatCount = (value: number): string =>
-  Number.isFinite(value) ? value.toLocaleString() : '--';
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale);
 
 const formatLearningProgress = (
   learnedLessonCount: number,
   totalLessonCount: number,
+  locale: string,
 ): string =>
-  `${formatCount(learnedLessonCount)} / ${formatCount(totalLessonCount)}`;
+  `${formatCount(learnedLessonCount, locale)} / ${formatCount(
+    totalLessonCount,
+    locale,
+  )}`;
 
 const createCourseUserFilters = (): CourseUserFilters => ({
   keyword: '',
@@ -326,7 +331,7 @@ function ClearableTextInput({
 export default function AdminOperationCourseDetailPage() {
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
@@ -638,15 +643,15 @@ export default function AdminOperationCourseDetailPage() {
     () => [
       {
         label: tOperations('detail.metricsLabels.visitCount30d'),
-        value: formatCount(detail.metrics.visit_count_30d),
+        value: formatCount(detail.metrics.visit_count_30d, i18n.language),
       },
       {
         label: tOperations('detail.metricsLabels.learnerCount'),
-        value: formatCount(detail.metrics.learner_count),
+        value: formatCount(detail.metrics.learner_count, i18n.language),
       },
       {
         label: tOperations('detail.metricsLabels.orderCount'),
-        value: formatCount(detail.metrics.order_count),
+        value: formatCount(detail.metrics.order_count, i18n.language),
         onClick: ordersPageUrl ? () => router.push(ordersPageUrl) : undefined,
         actionLabel: tOperations('detail.orders.openMetric'),
       },
@@ -656,7 +661,7 @@ export default function AdminOperationCourseDetailPage() {
       },
       {
         label: tOperations('detail.metricsLabels.followUpCount'),
-        value: formatCount(detail.metrics.follow_up_count),
+        value: formatCount(detail.metrics.follow_up_count, i18n.language),
         onClick: followUpPageUrl
           ? () => router.push(followUpPageUrl)
           : undefined,
@@ -674,6 +679,7 @@ export default function AdminOperationCourseDetailPage() {
       detail.metrics,
       emptyValue,
       followUpPageUrl,
+      i18n.language,
       ordersPageUrl,
       ratingsPageUrl,
       router,
@@ -1017,7 +1023,7 @@ export default function AdminOperationCourseDetailPage() {
         followUpCount: chapter => [
           chapter.node_type === 'chapter'
             ? emptyValue
-            : formatCount(chapter.follow_up_count),
+            : formatCount(chapter.follow_up_count, i18n.language),
         ],
         ratingScore: chapter => [
           chapter.node_type === 'chapter'
@@ -1027,7 +1033,7 @@ export default function AdminOperationCourseDetailPage() {
         ratingCount: chapter => [
           chapter.node_type === 'chapter'
             ? emptyValue
-            : formatCount(chapter.rating_count),
+            : formatCount(chapter.rating_count, i18n.language),
         ],
         updatedAt: chapter => [chapter.updated_at],
       };
@@ -1084,6 +1090,7 @@ export default function AdminOperationCourseDetailPage() {
     [
       clampChapterWidth,
       estimateChapterColumnWidth,
+      i18n.language,
       isManualChapterColumn,
       resolveContentStatusLabel,
       resolveLearningPermissionLabel,
@@ -1120,6 +1127,7 @@ export default function AdminOperationCourseDetailPage() {
           formatLearningProgress(
             user.learned_lesson_count,
             user.total_lesson_count,
+            i18n.language,
           ),
         ],
         learningStatus: user => [
@@ -1191,6 +1199,7 @@ export default function AdminOperationCourseDetailPage() {
       defaultUserName,
       emptyValue,
       estimateUserColumnWidth,
+      i18n.language,
       isManualUserColumn,
       resolveCourseUserAccount,
       resolveCourseUserLearningStatusLabel,
@@ -1691,7 +1700,10 @@ export default function AdminOperationCourseDetailPage() {
                                   >
                                     {chapter.node_type === 'chapter'
                                       ? emptyValue
-                                      : formatCount(chapter.follow_up_count)}
+                                      : formatCount(
+                                          chapter.follow_up_count,
+                                          i18n.language,
+                                        )}
                                   </TableCell>
                                   <TableCell
                                     className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
@@ -1707,7 +1719,10 @@ export default function AdminOperationCourseDetailPage() {
                                   >
                                     {chapter.node_type === 'chapter'
                                       ? emptyValue
-                                      : formatCount(chapter.rating_count)}
+                                      : formatCount(
+                                          chapter.rating_count,
+                                          i18n.language,
+                                        )}
                                   </TableCell>
                                 </TableRow>
                               );
@@ -2117,6 +2132,7 @@ export default function AdminOperationCourseDetailPage() {
                                         {formatLearningProgress(
                                           row.learned_lesson_count,
                                           row.total_lesson_count,
+                                          i18n.language,
                                         )}
                                       </span>
                                     </TableCell>

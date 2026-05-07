@@ -13,6 +13,7 @@ const TRANSLATION_OVERRIDES: Record<string, string> = {
   'module.operationsOrder.creditOrders.productIntervals.year': 'Yearly',
   'module.operationsOrder.creditOrders.productNameFormat': 'Yearly - Advanced',
 };
+let mockLanguage = 'en-US';
 
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -95,7 +96,9 @@ jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => ({
     ...baseTranslation(namespace),
     i18n: {
-      language: 'en-US',
+      get language() {
+        return mockLanguage;
+      },
     },
   }),
 }));
@@ -192,6 +195,7 @@ describe('CreditOrdersTab', () => {
   beforeEach(() => {
     mockGetAdminOperationCreditOrders.mockReset();
     mockGetAdminOperationCreditOrderDetail.mockReset();
+    mockLanguage = 'en-US';
     window.localStorage.clear();
 
     mockGetAdminOperationCreditOrders.mockResolvedValue({
@@ -335,6 +339,25 @@ describe('CreditOrdersTab', () => {
       screen.queryByText('module.billing.catalog.topups.default.title'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
+  });
+
+  test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+
+    render(<CreditOrdersTab />);
+
+    expect(
+      await screen.findByText(
+        'module.operationsOrder.creditOrders.creditAmountValue:5000',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('¥8000')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.creditAmountValue:5,000',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('¥8,000')).not.toBeInTheDocument();
   });
 
   test('submits filters and opens detail sheet', async () => {

@@ -14,6 +14,7 @@ const mockGetAdminOperationCourseFollowUps = jest.fn();
 const mockGetAdminOperationCourseFollowUpDetail = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 const mockBrowserTimeZone = jest.fn(() => 'UTC');
+let mockLanguage = 'en-US';
 const SHEET_CLOSE_LABEL = 'close-sheet';
 const mockEnvState = {
   loginMethodsEnabled: ['phone'],
@@ -76,7 +77,14 @@ jest.mock('react-i18next', () => ({
         t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
       });
     }
-    return mockTranslationCache.get(cacheKey)!;
+    return {
+      ...mockTranslationCache.get(cacheKey)!,
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
+      },
+    };
   },
 }));
 
@@ -156,6 +164,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     mockGetAdminOperationCourseFollowUpDetail.mockReset();
     mockBrowserTimeZone.mockReset();
     mockBrowserTimeZone.mockReturnValue('UTC');
+    mockLanguage = 'en-US';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockUserState.isInitialized = true;
@@ -286,6 +295,30 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+  });
+
+  test('formats follow-up summary counts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      summary: {
+        follow_up_count: 76384,
+        user_count: 12000,
+        lesson_count: 9000,
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
+      },
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.getByText('12000')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(screen.queryByText('12,000')).not.toBeInTheDocument();
   });
 
   test('submits filters and opens the detail drawer', async () => {

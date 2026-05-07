@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -30,7 +31,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { formatBillingCredits } from '@/lib/billing';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -503,7 +503,7 @@ const CreditLedgerTable = ({
                             item.amount === null ||
                             item.amount === undefined
                               ? ''
-                              : formatBillingCredits(
+                              : formatAdminCredits(
                                   Number(item.amount),
                                   i18n.language,
                                 )
@@ -518,7 +518,7 @@ const CreditLedgerTable = ({
                             item.balance_after === null ||
                             item.balance_after === undefined
                               ? ''
-                              : formatBillingCredits(
+                              : formatAdminCredits(
                                   Number(item.balance_after),
                                   i18n.language,
                                 )
@@ -1002,7 +1002,7 @@ export default function AdminOperationUserDetailPage() {
                         )}
                         value={
                           creditSummary.available_credits
-                            ? formatBillingCredits(
+                            ? formatAdminCredits(
                                 Number(creditSummary.available_credits),
                                 i18n.language,
                               )
@@ -1015,7 +1015,7 @@ export default function AdminOperationUserDetailPage() {
                         )}
                         value={
                           creditSummary.subscription_credits
-                            ? formatBillingCredits(
+                            ? formatAdminCredits(
                                 Number(creditSummary.subscription_credits),
                                 i18n.language,
                               )
@@ -1028,7 +1028,7 @@ export default function AdminOperationUserDetailPage() {
                         )}
                         value={
                           creditSummary.topup_credits
-                            ? formatBillingCredits(
+                            ? formatAdminCredits(
                                 Number(creditSummary.topup_credits),
                                 i18n.language,
                               )

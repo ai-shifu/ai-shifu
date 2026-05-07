@@ -16,6 +16,7 @@ const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
+let mockLanguage = 'en-US';
 const translationCache = new Map<
   string,
   { t: (key: string) => string; i18n: { language: string } }
@@ -41,7 +42,9 @@ const baseTranslation = (namespace?: string | string[]) => {
         return ns && ns !== 'translation' ? `${ns}.${key}` : key;
       },
       i18n: {
-        language: 'en-US',
+        get language() {
+          return mockLanguage;
+        },
       },
     });
   }
@@ -278,6 +281,7 @@ describe('AdminOperationUsersPage', () => {
     mockReplace.mockReset();
     mockMutateBillingOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
+    mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
@@ -425,6 +429,52 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.actions.moreForUser',
       }),
     ).toBeInTheDocument();
+  });
+
+  test('formats overview counts and credits without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      summary: {
+        ...DEFAULT_OVERVIEW,
+        total_user_count: 76384,
+      },
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator'],
+          login_methods: ['phone'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_courses: [],
+          created_courses: [],
+          total_paid_amount: '88.50',
+          available_credits: '10000',
+          subscription_credits: '10000',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.getByText('10000')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(screen.queryByText('10,000')).not.toBeInTheDocument();
   });
 
   test('opens the credit grant dialog from the action menu', async () => {

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
+import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useToast } from '@/hooks/useToast';
-import { formatBillingCredits } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import { Button } from '@/components/ui/Button';
 import {
@@ -347,7 +347,7 @@ export default function UserCreditGrantDialog({
                   label={tOperationsUsers(
                     'grantDialog.summary.availableCredits',
                   )}
-                  value={formatBillingCredits(
+                  value={formatAdminCredits(
                     Number(user?.available_credits || 0),
                     i18n.language,
                   )}
