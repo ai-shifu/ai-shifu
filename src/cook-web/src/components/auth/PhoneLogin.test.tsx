@@ -125,12 +125,68 @@ describe('PhoneLogin captcha flow', () => {
       expect(apiService.verifyCaptcha).toHaveBeenCalledWith({
         captcha_id: 'captcha-id',
         captcha_code: '0000',
+        language: 'en-US',
       }),
     );
     expect(apiService.sendSmsCode).toHaveBeenCalledWith({
       mobile: '13800138000',
       captcha_ticket: 'captcha-ticket',
+      language: 'en-US',
     });
+  });
+
+  test('keeps captcha input after verification failure', async () => {
+    (apiService.verifyCaptcha as jest.Mock).mockRejectedValue(
+      new Error('Image captcha is incorrect'),
+    );
+
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.auth.captchaVerifyFailed',
+        description: 'Image captcha is incorrect',
+        variant: 'destructive',
+      }),
+    );
+    expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
+    expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps captcha input after sending SMS successfully', async () => {
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+
+    await waitFor(() =>
+      expect(apiService.sendSmsCode).toHaveBeenCalledWith({
+        mobile: '13800138000',
+        captcha_ticket: 'captcha-ticket',
+        language: 'en-US',
+      }),
+    );
+    expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
+    expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
   });
 
   test('logs in through SMS login after code is entered', async () => {

@@ -2,6 +2,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import type { UserInfo } from '@/c-types';
 import { useTracking } from '@/c-common/hooks/useTracking';
 
@@ -196,7 +197,11 @@ export function useAuth(options: UseAuthOptions = {}) {
   const sendSmsCode = async (mobile: string, captchaTicket: string) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.sendSmsCode({ mobile, captcha_ticket: captchaTicket }),
+        apiService.sendSmsCode({
+          mobile,
+          captcha_ticket: captchaTicket,
+          language: i18n.language,
+        }),
       );
 
       if (response.code !== 0) {

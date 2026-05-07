@@ -67,6 +67,27 @@ def test_captcha_verify_rejects_wrong_code(test_client, app):
     assert body["code"] == 1009
 
 
+def test_captcha_verify_localizes_wrong_code_message(test_client, app):
+    captcha = _get_captcha(test_client, app)
+
+    response = test_client.post(
+        "/api/user/captcha/verify",
+        data=json.dumps(
+            {
+                "captcha_id": captcha["captcha_id"],
+                "captcha_code": "9999",
+                "language": "zh-CN",
+            }
+        ),
+        content_type="application/json",
+    )
+    body = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert body["code"] == 1009
+    assert body["message"] == "图形验证码错误"
+
+
 def test_captcha_verify_deletes_after_attempt_limit(test_client, app):
     original_attempts = app.config.get("CAPTCHA_MAX_VERIFY_ATTEMPTS")
     app.config["CAPTCHA_MAX_VERIFY_ATTEMPTS"] = 1
@@ -107,6 +128,18 @@ def test_send_sms_code_requires_captcha_ticket(test_client, app):
 
     assert response.status_code == 200
     assert body["code"] == 1009
+
+
+def test_send_sms_code_localizes_missing_captcha_ticket_message(test_client, app):
+    response, body = _post_json(
+        test_client,
+        "/api/user/send_sms_code",
+        {"mobile": "13800138000", "language": "zh-CN"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 1009
+    assert body["message"] == "图形验证码错误"
 
 
 def test_send_sms_code_consumes_ticket_once(test_client, app, monkeypatch):

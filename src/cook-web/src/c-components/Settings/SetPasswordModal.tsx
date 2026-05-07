@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SettingBaseModal from './SettingBaseModal';
@@ -61,6 +61,7 @@ export const SetPasswordModal = ({
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
   const [captchaError, setCaptchaError] = useState('');
+  const previousCountdownRef = useRef(0);
   const {
     captchaImage,
     captchaCode,
@@ -105,6 +106,18 @@ export const SetPasswordModal = ({
 
     return () => clearInterval(timer);
   }, [countdown, open]);
+
+  useEffect(() => {
+    if (!open || method !== 'phone') {
+      previousCountdownRef.current = countdown;
+      return;
+    }
+    if (previousCountdownRef.current > 0 && countdown === 0) {
+      setCaptchaError(prev => (prev ? '' : prev));
+      void refreshCaptcha().catch(() => {});
+    }
+    previousCountdownRef.current = countdown;
+  }, [countdown, method, open, refreshCaptcha]);
 
   const validatePassword = useCallback(
     (value: string) => {
@@ -170,8 +183,8 @@ export const SetPasswordModal = ({
         await apiService.sendSmsCode({
           mobile: identifier,
           captcha_ticket: captchaTicket,
+          language: i18n.language,
         });
-        void refreshCaptcha().catch(() => {});
       } else {
         await apiService.sendEmailCode({
           email: identifier,
@@ -185,9 +198,6 @@ export const SetPasswordModal = ({
       });
       setCountdown(60);
     } catch {
-      if (method === 'phone') {
-        void refreshCaptcha().catch(() => {});
-      }
       // Errors are handled by request wrapper
     } finally {
       setIsSending(false);

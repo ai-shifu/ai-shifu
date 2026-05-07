@@ -45,7 +45,7 @@ export function ImageCaptchaInput({
           autoComplete='off'
           disabled={disabled || isLoading}
           className={cn(
-            'text-base sm:text-sm uppercase',
+            'text-base uppercase placeholder:normal-case sm:text-sm',
             error && 'border-red-500',
           )}
         />

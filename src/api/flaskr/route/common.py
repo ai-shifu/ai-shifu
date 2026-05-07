@@ -7,6 +7,7 @@ import json
 import traceback
 import decimal
 from flaskr.common.shifu_context import clear_shifu_context
+from flaskr.i18n import clear_language
 
 
 by_pass_login_func = [
@@ -55,6 +56,7 @@ def register_common_handler(app: Flask) -> Flask:
     def teardown_shifu_context(exception):
         # Ensure shifu context does not leak between requests on the same worker thread
         clear_shifu_context()
+        clear_language()
 
     return app
 
