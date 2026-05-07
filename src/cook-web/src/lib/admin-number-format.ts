@@ -1,5 +1,3 @@
-'use client';
-
 type AdminNumberFormatOptions = {
   currency?: string;
   maximumFractionDigits?: number;
@@ -18,15 +16,36 @@ const shouldUseAdminNumberGrouping = (locale?: string | null): boolean => {
   return !normalizedLocale.startsWith('zh');
 };
 
-export function formatAdminNumber(
-  value: unknown,
+const adminNumberFormatterCache = new Map<string, Intl.NumberFormat>();
+
+const buildAdminNumberFormatterKey = (
   locale: string,
   options?: AdminNumberFormatOptions,
-): string {
-  const numeric = Number(value ?? 0);
-  const safeValue = Number.isFinite(numeric) ? numeric : 0;
+): string => {
+  return JSON.stringify({
+    locale: locale || 'en-US',
+    useGrouping: shouldUseAdminNumberGrouping(locale),
+    currency: options?.currency || '',
+    minimumFractionDigits:
+      options?.minimumFractionDigits ??
+      DEFAULT_ADMIN_NUMBER_FORMAT.minimumFractionDigits,
+    maximumFractionDigits:
+      options?.maximumFractionDigits ??
+      DEFAULT_ADMIN_NUMBER_FORMAT.maximumFractionDigits,
+  });
+};
 
-  return new Intl.NumberFormat(locale || 'en-US', {
+const getAdminNumberFormatter = (
+  locale: string,
+  options?: AdminNumberFormatOptions,
+): Intl.NumberFormat => {
+  const cacheKey = buildAdminNumberFormatterKey(locale, options);
+  const cachedFormatter = adminNumberFormatterCache.get(cacheKey);
+  if (cachedFormatter) {
+    return cachedFormatter;
+  }
+
+  const formatter = new Intl.NumberFormat(locale || 'en-US', {
     useGrouping: shouldUseAdminNumberGrouping(locale),
     minimumFractionDigits:
       options?.minimumFractionDigits ??
@@ -41,7 +60,20 @@ export function formatAdminNumber(
           currencyDisplay: 'narrowSymbol',
         }
       : {}),
-  }).format(safeValue);
+  });
+  adminNumberFormatterCache.set(cacheKey, formatter);
+  return formatter;
+};
+
+export function formatAdminNumber(
+  value: unknown,
+  locale: string,
+  options?: AdminNumberFormatOptions,
+): string {
+  const numeric = Number(value ?? 0);
+  const safeValue = Number.isFinite(numeric) ? numeric : 0;
+
+  return getAdminNumberFormatter(locale, options).format(safeValue);
 }
 
 export function formatAdminCount(
