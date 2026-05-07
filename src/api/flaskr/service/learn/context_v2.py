@@ -1542,17 +1542,6 @@ class RunScriptContextV2:
             .order_by(LearnProgressRecord.id.desc())
             .first()
         )
-        if not attend_info and self._input_type == "ask":
-            # A parallel ask SSE that arrives before the main run has
-            # committed its LearnProgressRecord must not create a fresh
-            # one: under MVCC the main run's row is hidden from this
-            # session, and creating a sibling here would leave the
-            # progress table with two rows for the same outline (one with
-            # the real block_position, one fresh at block_position=0).
-            # Subsequent main-flow SSE picks the latest by id and would
-            # restart the lesson from the beginning. Refuse the ask so the
-            # learner can retry once the anchor block is durable.
-            raise_error("server.learn.outputInProgress")
         if not attend_info:
             outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
                 self._outline_model.query.filter(
