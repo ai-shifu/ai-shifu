@@ -311,7 +311,7 @@ export function PhoneLogin({
           }}
           onRefresh={() => {
             setCaptchaError('');
-            void refreshCaptchaSilently();
+            resetCaptchaChallenge({ clearError: true });
           }}
         />
 
