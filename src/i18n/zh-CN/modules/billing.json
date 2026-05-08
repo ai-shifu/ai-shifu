@@ -570,9 +570,11 @@
     },
     "featuresTitle": "享有权益：",
     "footnote": {
-      "contactUs": "如果以上积分套餐都不符合你的需求，可以直接联系我们",
-      "learnerEstimate": "各积分套餐可支持的学员人数是基于平台经验数据的预估，最终以实际积分消耗为准",
-      "learnerEstimateTip": "预估课程标准：课程长度约10个小节的内容，且开启了听课模式（积分消耗速度远高于未开启听课模式）"
+      "learnerEstimateIntro": "学习人次是基于平台经验的预估，最终以实际积分消耗为准。预估标准参考：",
+      "learnerEstimateMode": "课程开启了听课模式（开启后积分消耗量更大）",
+      "learnerEstimateModel": "全部使用默认模型",
+      "learnerEstimateScale": "学习一次课程，课程规模：约 10 个小节，平均每小节正常学习时长约 15 分钟",
+      "validity": "积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。"
     },
     "free": {
       "creditSummary": "赠送积分数 {credits}",
@@ -590,22 +592,22 @@
     },
     "scale": {
       "advanced": {
-        "students": "500 人左右"
+        "students": "250 - 750 人次"
       },
       "basic": {
-        "students": "10 人左右"
+        "students": "5 - 15 人次"
       },
       "free": {
-        "students": "10 人左右"
+        "students": "5 - 15 人次"
       },
       "lite": {
-        "students": "少于 1 人"
+        "students": "少于 1 人次"
       },
       "premium": {
-        "students": "2200 人左右"
+        "students": "1100 - 3300 人次"
       },
       "pro": {
-        "students": "1000 人左右"
+        "students": "500 - 1500 人次"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -614,7 +616,7 @@
       "creditsRowLabel": "周期积分",
       "emptyValue": "—",
       "featuresRowLabel": "权益",
-      "studentsRowLabel": "预估支持学员数",
+      "studentsRowLabel": "预估支持学习人次",
       "validityRowLabel": "积分有效期"
     },
     "title": "积分购买",
@@ -637,11 +639,6 @@
       "free": "{days} 天",
       "monthly": "{count} 个月",
       "yearly": "{count} 年"
-    },
-    "validityTooltip": {
-      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
-      "monthly": "自获取之日起 30 天内有效（含当日）。以到期日的 23:59 计算。",
-      "yearly": "自获取之日起按自然年有效。以到期日的 23:59 计算。"
     }
   },
   "page": {
