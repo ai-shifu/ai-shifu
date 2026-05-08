@@ -799,6 +799,26 @@ describe('AdminOperationUsersPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('keeps the last successful overview when refresh fails and shows a warning', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+
+    mockGetAdminOperationUsersOverview.mockRejectedValueOnce(
+      new Error('overview failed'),
+    );
+    mockUserState.isInitialized = false;
+    rerender(<AdminOperationUsersPage />);
+
+    mockUserState.isInitialized = true;
+    rerender(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+    expect(
+      await screen.findByText('module.operationsUser.overview.staleData'),
+    ).toBeInTheDocument();
+  });
+
   test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
     render(<AdminOperationUsersPage />);
 

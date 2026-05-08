@@ -620,7 +620,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         Operator course overview
         ---
         tags:
-            - User
+            - 课程
         responses:
             200:
                 description: Operator-visible course overview metrics

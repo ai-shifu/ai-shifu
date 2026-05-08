@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
@@ -385,6 +385,7 @@ export default function AdminOperationUsersPage() {
   const [error, setError] = useState<ErrorState | null>(null);
   const [userOverview, setUserOverview] =
     useState<AdminOperationUserOverview>(EMPTY_USER_OVERVIEW);
+  const [userOverviewError, setUserOverviewError] = useState('');
   const [users, setUsers] = useState<AdminOperationUserItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -500,10 +501,14 @@ export default function AdminOperationUsersPage() {
         | AdminOperationUserOverview
         | undefined;
       setUserOverview(response ?? EMPTY_USER_OVERVIEW);
-    } catch {
-      setUserOverview(EMPTY_USER_OVERVIEW);
+      setUserOverviewError('');
+    } catch (requestError) {
+      const resolvedError = requestError as ErrorWithCode;
+      setUserOverviewError(
+        resolvedError.message || t('common.core.networkError'),
+      );
     }
-  }, []);
+  }, [t]);
 
   const fetchUsers = useCallback(
     async (
@@ -1014,6 +1019,12 @@ export default function AdminOperationUsersPage() {
                 {tOperationsUsers('overview.title')}
               </h2>
             </div>
+            {userOverviewError ? (
+              <div className='mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+                <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
+                <span>{tOperationsUsers('overview.staleData')}</span>
+              </div>
+            ) : null}
             <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
               {overviewCards.map(card => (
                 <div
@@ -1402,7 +1413,7 @@ export default function AdminOperationUsersPage() {
                         >
                           <CourseListPreview
                             count={
-                              user.learning_course_count ||
+                              user.learning_course_count ??
                               user.learning_courses.length
                             }
                             emptyLabel={EMPTY_STATE_LABEL}
@@ -1420,7 +1431,7 @@ export default function AdminOperationUsersPage() {
                         >
                           <CourseListPreview
                             count={
-                              user.created_course_count ||
+                              user.created_course_count ??
                               user.created_courses.length
                             }
                             emptyLabel={EMPTY_STATE_LABEL}

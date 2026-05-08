@@ -195,6 +195,7 @@
       "registeredUsers30d": "Registered Users (30d)",
       "totalUsers": "Total Users"
     },
+    "staleData": "Overview refresh failed. Showing the last successful snapshot.",
     "title": "Overview",
     "tooltips": {
       "creators": "Creator users",

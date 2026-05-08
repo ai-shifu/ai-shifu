@@ -2089,6 +2089,64 @@ def test_admin_operation_users_route_requires_operator(test_client, monkeypatch)
     assert payload["code"] == 401
 
 
+def test_admin_operation_users_overview_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_users_overview_route_returns_payload(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-overview-route-1",
+            identify="overview-route-1@example.com",
+            nickname="Overview Route User 1",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 1, 8, 0, 0),
+            updated_at=datetime(2026, 5, 1, 8, 0, 0),
+            providers=[("email", "overview-route-1@example.com")],
+            credential_created_at=datetime(2026, 5, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-overview-route-2",
+            identify="13812340001",
+            nickname="Overview Route User 2",
+            state=USER_STATE_UNREGISTERED,
+            created_at=datetime(2026, 5, 2, 8, 0, 0),
+            updated_at=datetime(2026, 5, 2, 8, 0, 0),
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total_user_count"] == 2
+    assert payload["data"]["registered_user_count"] == 1
+    assert payload["data"]["guest_user_count"] == 1
+
+
 def test_admin_operation_users_route_returns_filtered_payload(
     app,
     test_client,

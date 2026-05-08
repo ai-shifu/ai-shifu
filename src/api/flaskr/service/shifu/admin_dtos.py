@@ -329,7 +329,7 @@ class AdminOperationUserOverviewDTO(BaseModel):
 
 @register_schema_to_swagger
 class AdminOperationUserListDTO(BaseModel):
-    """Paginated operator user list with overview metrics."""
+    """Paginated operator user list."""
 
     page: int = Field(..., description="page", required=False)
     page_size: int = Field(..., description="page_size", required=False)
