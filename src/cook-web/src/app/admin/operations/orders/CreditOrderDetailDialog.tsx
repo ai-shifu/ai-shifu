@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import {
   formatAdminCredits,
   formatAdminPrice,
@@ -255,15 +256,12 @@ export default function CreditOrderDetailDialog({
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
                   value={
-                    formatBillingDateTime(order.created_at, locale) ||
-                    emptyValue
+                    formatAdminNaiveDateTime(order.created_at) || emptyValue
                   }
                 />
                 <DetailRow
                   label={tOperationsOrder('creditOrders.detail.labels.paidAt')}
-                  value={
-                    formatBillingDateTime(order.paid_at, locale) || emptyValue
-                  }
+                  value={formatAdminNaiveDateTime(order.paid_at) || emptyValue}
                 />
                 {order.failed_at ? (
                   <DetailRow
@@ -271,8 +269,7 @@ export default function CreditOrderDetailDialog({
                       'creditOrders.detail.labels.failedAt',
                     )}
                     value={
-                      formatBillingDateTime(order.failed_at, locale) ||
-                      emptyValue
+                      formatAdminNaiveDateTime(order.failed_at) || emptyValue
                     }
                   />
                 ) : null}

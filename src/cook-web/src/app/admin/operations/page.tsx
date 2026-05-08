@@ -17,7 +17,7 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
@@ -1655,7 +1655,7 @@ const OperationsPage = () => {
                         style={getColumnStyle('updatedAt')}
                       >
                         {renderTooltipText(
-                          formatAdminUtcDateTime(course.updated_at),
+                          formatAdminNaiveDateTime(course.updated_at),
                           'mx-auto block',
                         )}
                       </TableCell>
@@ -1664,7 +1664,7 @@ const OperationsPage = () => {
                         style={getColumnStyle('createdAt')}
                       >
                         {renderTooltipText(
-                          formatAdminUtcDateTime(course.created_at),
+                          formatAdminNaiveDateTime(course.created_at),
                           'mx-auto block',
                         )}
                       </TableCell>

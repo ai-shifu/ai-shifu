@@ -35,7 +35,7 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
-import { formatOperatorUtcDateTime } from '../dateTime';
+import { formatOperatorNaiveDateTime } from '../dateTime';
 import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
@@ -470,7 +470,7 @@ const CreditLedgerTable = ({
                     <TableRow key={item.ledger_bid}>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={formatOperatorUtcDateTime(item.created_at)}
+                          text={formatOperatorNaiveDateTime(item.created_at)}
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -528,7 +528,7 @@ const CreditLedgerTable = ({
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={formatOperatorUtcDateTime(item.expires_at)}
+                          text={formatOperatorNaiveDateTime(item.expires_at)}
                           emptyValue={EMPTY_VALUE}
                         />
                       </TableCell>
@@ -829,7 +829,7 @@ export default function AdminOperationUserDetailPage() {
   };
   const resolveCreditsExpireAt = () => {
     if (creditSummary.credits_expire_at) {
-      return formatOperatorUtcDateTime(creditSummary.credits_expire_at);
+      return formatOperatorNaiveDateTime(creditSummary.credits_expire_at);
     }
     if (Number(creditSummary.available_credits || 0) > 0) {
       return tOperationsUsers('credits.longTerm');
@@ -941,15 +941,15 @@ export default function AdminOperationUserDetailPage() {
                     />
                     <InfoItem
                       label={tOperationsUsers('table.lastLoginAt')}
-                      value={formatOperatorUtcDateTime(detail.last_login_at)}
+                      value={formatOperatorNaiveDateTime(detail.last_login_at)}
                     />
                     <InfoItem
                       label={tOperationsUsers('table.updatedAt')}
-                      value={formatOperatorUtcDateTime(detail.updated_at)}
+                      value={formatOperatorNaiveDateTime(detail.updated_at)}
                     />
                     <InfoItem
                       label={tOperationsUsers('table.createdAt')}
-                      value={formatOperatorUtcDateTime(detail.created_at)}
+                      value={formatOperatorNaiveDateTime(detail.created_at)}
                     />
                   </div>
                 </CardContent>
@@ -977,7 +977,9 @@ export default function AdminOperationUserDetailPage() {
                     />
                     <InfoItem
                       label={tOperationsUsers('table.lastLearningAt')}
-                      value={formatOperatorUtcDateTime(detail.last_learning_at)}
+                      value={formatOperatorNaiveDateTime(
+                        detail.last_learning_at,
+                      )}
                     />
                   </div>
                 </CardContent>
