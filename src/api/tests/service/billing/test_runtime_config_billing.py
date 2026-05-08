@@ -109,12 +109,12 @@ def runtime_config_client(monkeypatch):
                     feature_payload={
                         "branding": {
                             "logo_wide_url": "https://cdn.example.com/creator-wide.png",
-                        "logo_square_url": "https://cdn.example.com/creator-square.png",
-                        "favicon_url": "https://cdn.example.com/creator-favicon.ico",
-                        "home_url": "https://creator.example.com/home",
-                        "contact_us_url": "https://creator.example.com/contact",
-                    }
-                },
+                            "logo_square_url": "https://cdn.example.com/creator-square.png",
+                            "favicon_url": "https://cdn.example.com/creator-favicon.ico",
+                            "home_url": "https://creator.example.com/home",
+                            "contact_us_url": "https://creator.example.com/contact",
+                        }
+                    },
                     effective_from=now - timedelta(days=2),
                     effective_to=None,
                 ),

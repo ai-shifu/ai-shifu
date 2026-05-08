@@ -262,5 +262,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["billingCreditPrecision"] == 2
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert payload["contactUsUrl"] == "https://ai-shifu.cn/contact.html"
-    assert payload["branding"]["contact_us_url"] == "https://creator.example.com/contact"
+    assert (
+        payload["branding"]["contact_us_url"] == "https://creator.example.com/contact"
+    )
     assert context.__json__()["domain"]["is_custom_domain"] is True

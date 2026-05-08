@@ -10,10 +10,7 @@ interface ContactSideRailProps {
   label?: string;
 }
 
-export function ContactSideRail({
-  className,
-  label,
-}: ContactSideRailProps) {
+export function ContactSideRail({ className, label }: ContactSideRailProps) {
   const { t } = useTranslation();
   const contactUsUrl = useEnvStore(
     (state: EnvStoreState) => state.contactUsUrl,
