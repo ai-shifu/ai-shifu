@@ -310,7 +310,6 @@ export function PhoneLogin({
             }
           }}
           onRefresh={() => {
-            setCaptchaError('');
             resetCaptchaChallenge({ clearError: true });
           }}
         />
