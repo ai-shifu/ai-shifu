@@ -1,11 +1,4 @@
 import { Star } from 'lucide-react';
-
-// Language-neutral typographic enumerators that anchor the leftmost label of
-// each metric row to the matching footnote item. Not user-facing copy, so
-// they stay out of i18n. Only rendered on the first column to avoid
-// repeating the same marker across every plan card.
-const ROW_ENUM_LEARNER = '①';
-const ROW_ENUM_VALIDITY = '②';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import {
@@ -33,6 +26,13 @@ import {
   getPlanScaleKeys,
 } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
+
+// Language-neutral typographic enumerators that anchor the leftmost label of
+// each metric row to the matching footnote item. Not user-facing copy, so
+// they stay out of i18n. Only rendered on the first column to avoid
+// repeating the same marker across every plan card.
+const ROW_ENUM_LEARNER = '①';
+const ROW_ENUM_VALIDITY = '②';
 
 type FeatureRow = {
   i18nKey: string;
