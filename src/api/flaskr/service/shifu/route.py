@@ -108,12 +108,14 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_overview,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_course_prompt,
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_overview,
     grant_operator_user_credits,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
@@ -612,6 +614,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_courses(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/courses/overview", methods=["GET"])
+    def admin_operations_course_overview():
+        """
+        Operator course overview
+        ---
+        tags:
+            - 课程
+        responses:
+            200:
+                description: Operator-visible course overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationCourseOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_course_overview(app))
+
     @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
     def admin_operations_users():
         """
@@ -705,6 +731,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             list_operator_users(app, page_index, page_size, filters)
         )
+
+    @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])
+    def admin_operations_user_overview():
+        """
+        Operator user overview
+        ---
+        tags:
+            - User
+        responses:
+            200:
+                description: Operator-visible user overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationUserOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_user_overview(app))
 
     @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
     def admin_operations_orders():

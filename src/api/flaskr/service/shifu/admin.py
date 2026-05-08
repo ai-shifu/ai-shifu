@@ -1326,20 +1326,29 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
 def _build_operator_user_summary(
     user: UserEntity,
     contact_map: Dict[str, Dict[str, Any]],
-    learning_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]],
-    created_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]],
     learner_user_bids: Set[str],
     registration_source_map: Dict[str, str],
     last_login_map: Dict[str, datetime],
     total_paid_amount_map: Dict[str, Decimal],
     last_learning_map: Dict[str, datetime],
     credit_summary_map: Dict[str, Dict[str, Any]],
+    *,
+    learning_courses_map: Optional[
+        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    ] = None,
+    created_courses_map: Optional[
+        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    ] = None,
+    learning_course_count_map: Optional[Dict[str, int]] = None,
+    created_course_count_map: Optional[Dict[str, int]] = None,
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})
     is_learner = user_bid in learner_user_bids
     credit_summary = credit_summary_map.get(user_bid)
     has_credit_account = bool(user.is_creator) or credit_summary is not None
+    learning_courses = list((learning_courses_map or {}).get(user_bid, []) or [])
+    created_courses = list((created_courses_map or {}).get(user_bid, []) or [])
     return AdminOperationUserSummaryDTO(
         user_bid=user_bid,
         mobile=str(contact.get("mobile", "") or ""),
@@ -1362,8 +1371,28 @@ def _build_operator_user_summary(
             OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN,
         ),
         language=user.language or "",
-        learning_courses=list(learning_courses_map.get(user_bid, []) or []),
-        created_courses=list(created_courses_map.get(user_bid, []) or []),
+        learning_courses=learning_courses,
+        learning_course_count=max(
+            int(
+                (learning_course_count_map or {}).get(
+                    user_bid,
+                    len(learning_courses),
+                )
+                or 0
+            ),
+            0,
+        ),
+        created_courses=created_courses,
+        created_course_count=max(
+            int(
+                (created_course_count_map or {}).get(
+                    user_bid,
+                    len(created_courses),
+                )
+                or 0
+            ),
+            0,
+        ),
         total_paid_amount=_format_decimal(total_paid_amount_map.get(user_bid)),
         available_credits=(
             _format_decimal((credit_summary or {}).get("available_credits"))
@@ -1493,6 +1522,7 @@ def _load_latest_shifus(
     end_time: Optional[datetime],
     updated_start_time: Optional[datetime],
     updated_end_time: Optional[datetime],
+    attach_prompt_flags: bool = False,
 ):
     is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
@@ -1522,7 +1552,7 @@ def _load_latest_shifus(
         latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
 
     rows = latest_rows.order_by(model.updated_at.desc(), model.id.desc()).all()
-    if is_mapped_model:
+    if is_mapped_model and attach_prompt_flags:
         _attach_course_prompt_flags(model, rows)
     return rows
 
@@ -2368,6 +2398,125 @@ def _load_operator_user_course_maps(
         )
 
     return created_courses_map, learning_courses_map
+
+
+def _load_operator_user_course_count_maps(
+    user_bids: Sequence[str],
+) -> tuple[Dict[str, int], Dict[str, int]]:
+    normalized_user_bids = [
+        str(user_bid or "").strip() for user_bid in user_bids if user_bid
+    ]
+    if not normalized_user_bids:
+        return {}, {}
+
+    created_course_count_map = {user_bid: 0 for user_bid in normalized_user_bids}
+    learning_course_count_map = {user_bid: 0 for user_bid in normalized_user_bids}
+
+    creator_bids = set(normalized_user_bids)
+    created_drafts = _load_latest_shifus(
+        DraftShifu,
+        shifu_bid="",
+        course_name="",
+        creator_bids=creator_bids,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+    )
+    created_published = _load_latest_shifus(
+        PublishedShifu,
+        shifu_bid="",
+        course_name="",
+        creator_bids=creator_bids,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+    )
+    merged_created_courses, _ = _merge_courses(created_drafts, created_published)
+    for course in merged_created_courses:
+        creator_user_bid = str(course.created_user_bid or "").strip()
+        if creator_user_bid not in created_course_count_map:
+            continue
+        created_course_count_map[creator_user_bid] += 1
+
+    learned_activity_subquery = (
+        db.session.query(
+            Order.user_bid.label("user_bid"),
+            Order.shifu_bid.label("shifu_bid"),
+            Order.created_at.label("activity_at"),
+        )
+        .filter(
+            Order.deleted == 0,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.user_bid.in_(normalized_user_bids),
+            Order.shifu_bid != "",
+        )
+        .union_all(
+            db.session.query(
+                LearnProgressRecord.user_bid.label("user_bid"),
+                LearnProgressRecord.shifu_bid.label("shifu_bid"),
+                LearnProgressRecord.updated_at.label("activity_at"),
+            ).filter(
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.user_bid.in_(normalized_user_bids),
+                LearnProgressRecord.shifu_bid != "",
+            ),
+            db.session.query(
+                AiCourseAuth.user_id.label("user_bid"),
+                AiCourseAuth.course_id.label("shifu_bid"),
+                db.func.coalesce(
+                    AiCourseAuth.updated_at,
+                    AiCourseAuth.created_at,
+                ).label("activity_at"),
+            ).filter(
+                AiCourseAuth.status == 1,
+                AiCourseAuth.user_id.in_(normalized_user_bids),
+                AiCourseAuth.course_id != "",
+            ),
+        )
+        .subquery()
+    )
+    learned_rows = (
+        db.session.query(
+            learned_activity_subquery.c.user_bid.label("user_bid"),
+            learned_activity_subquery.c.shifu_bid.label("shifu_bid"),
+        )
+        .group_by(
+            learned_activity_subquery.c.user_bid,
+            learned_activity_subquery.c.shifu_bid,
+        )
+        .all()
+    )
+    learned_shifu_bids = sorted(
+        {
+            str(row.shifu_bid or "").strip()
+            for row in learned_rows
+            if str(row.shifu_bid or "").strip()
+        }
+    )
+    learned_drafts = _load_latest_courses_by_shifu_bids(DraftShifu, learned_shifu_bids)
+    learned_published = _load_latest_courses_by_shifu_bids(
+        PublishedShifu, learned_shifu_bids
+    )
+    merged_learned_courses, _ = _merge_courses(learned_drafts, learned_published)
+    visible_learned_shifu_bids = {
+        str(course.shifu_bid or "").strip()
+        for course in merged_learned_courses
+        if str(course.shifu_bid or "").strip()
+    }
+    for row in learned_rows:
+        resolved_user_bid = str(row.user_bid or "").strip()
+        resolved_shifu_bid = str(row.shifu_bid or "").strip()
+        if (
+            resolved_user_bid not in learning_course_count_map
+            or resolved_shifu_bid not in visible_learned_shifu_bids
+        ):
+            continue
+        learning_course_count_map[resolved_user_bid] += 1
+
+    return created_course_count_map, learning_course_count_map
 
 
 def _load_operator_course_detail_source(shifu_bid: str):
@@ -4231,6 +4380,11 @@ def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
     )
 
 
+def get_operator_user_overview(app: Flask) -> AdminOperationUserOverviewDTO:
+    with app.app_context():
+        return _build_operator_user_overview()
+
+
 def list_operator_users(
     app: Flask,
     page_index: int,
@@ -4244,7 +4398,6 @@ def list_operator_users(
             OPERATOR_USER_LIST_MAX_PAGE_SIZE,
         )
         filters = filters or {}
-        summary = _build_operator_user_overview()
 
         user_bid = str(filters.get("user_bid", "") or "").strip()
         identifier = str(
@@ -4307,7 +4460,6 @@ def list_operator_users(
                     safe_page_size,
                     0,
                     [],
-                    summary=summary,
                 )
             query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
         if quick_filter:
@@ -4387,8 +4539,8 @@ def list_operator_users(
             str(user.user_bid or "").strip() for user in page_items if user.user_bid
         ]
         contact_map = _load_operator_user_contact_map(user_bids)
-        created_courses_map, learning_courses_map = _load_operator_user_course_maps(
-            user_bids
+        created_course_count_map, learning_course_count_map = (
+            _load_operator_user_course_count_maps(user_bids)
         )
         learner_user_bids = _load_learner_user_bids(user_bids)
         registration_source_map = _load_operator_user_registration_source_map(user_bids)
@@ -4400,14 +4552,14 @@ def list_operator_users(
             _build_operator_user_summary(
                 user,
                 contact_map,
-                learning_courses_map,
-                created_courses_map,
                 learner_user_bids,
                 registration_source_map,
                 last_login_map,
                 total_paid_amount_map,
                 last_learning_map,
                 credit_summary_map,
+                learning_course_count_map=learning_course_count_map,
+                created_course_count_map=created_course_count_map,
             )
             for user in page_items
         ]
@@ -4416,7 +4568,6 @@ def list_operator_users(
             safe_page_size,
             total,
             items,
-            summary=summary,
         )
 
 
@@ -4447,14 +4598,14 @@ def get_operator_user_detail(
         return _build_operator_user_summary(
             user,
             contact_map,
-            learning_courses_map,
-            created_courses_map,
             learner_user_bids,
             registration_source_map,
             last_login_map,
             total_paid_amount_map,
             last_learning_map,
             credit_summary_map,
+            learning_courses_map=learning_courses_map,
+            created_courses_map=created_courses_map,
         )
 
 
@@ -4669,6 +4820,11 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
     )
 
 
+def get_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
+    with app.app_context():
+        return _build_operator_course_overview(app)
+
+
 def list_operator_courses(
     app: Flask,
     page_index: int,
@@ -4689,7 +4845,6 @@ def list_operator_courses(
         end_time = filters.get("end_time")
         updated_start_time = filters.get("updated_start_time")
         updated_end_time = filters.get("updated_end_time")
-        summary = _build_operator_course_overview(app)
 
         creator_bids = _find_matching_creator_bids(creator_keyword)
         draft_rows = _load_latest_shifus(
@@ -4800,6 +4955,14 @@ def list_operator_courses(
         total = len(merged_courses)
         page_offset = (safe_page_index - 1) * safe_page_size
         page_items = merged_courses[page_offset : page_offset + safe_page_size]
+        draft_page_items = [
+            course for course in page_items if isinstance(course, DraftShifu)
+        ]
+        published_page_items = [
+            course for course in page_items if isinstance(course, PublishedShifu)
+        ]
+        _attach_course_prompt_flags(DraftShifu, draft_page_items)
+        _attach_course_prompt_flags(PublishedShifu, published_page_items)
 
         user_bids = {
             user_bid
@@ -4824,7 +4987,6 @@ def list_operator_courses(
             for course in page_items
         ]
         return AdminOperationCourseListDTO(
-            summary=summary,
             items=items,
             page=safe_page_index,
             page_size=safe_page_size,

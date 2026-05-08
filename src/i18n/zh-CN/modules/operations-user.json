@@ -195,6 +195,7 @@
       "registeredUsers30d": "近30天注册用户",
       "totalUsers": "总用户数"
     },
+    "staleData": "数据概览刷新失败，当前展示最近一次成功加载的数据。",
     "title": "数据概览",
     "tooltips": {
       "creators": "创作者数量",

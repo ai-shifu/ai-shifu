@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
@@ -77,6 +77,7 @@ import UserCreditGrantDialog from './UserCreditGrantDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
+  AdminOperationUserDetailResponse,
   AdminOperationUserItem,
   AdminOperationUserListResponse,
   AdminOperationUserOverview,
@@ -241,22 +242,24 @@ type CourseDialogState = {
   user: AdminOperationUserItem;
   courses: AdminOperationUserCourseItem[];
   type: 'learning' | 'created';
+  loading: boolean;
+  error: string;
 };
 
 type CourseListPreviewProps = {
-  courses: AdminOperationUserCourseItem[];
+  count: number;
   emptyLabel: string;
   ariaLabel: string;
   onView: () => void;
 };
 
 const CourseListPreview = ({
-  courses,
+  count,
   emptyLabel,
   ariaLabel,
   onView,
 }: CourseListPreviewProps) => {
-  if (!courses.length) {
+  if (count <= 0) {
     return (
       <div className='py-1 text-center text-sm text-muted-foreground'>
         {emptyLabel}
@@ -267,11 +270,11 @@ const CourseListPreview = ({
   return (
     <button
       type='button'
-      aria-label={`${ariaLabel} (${courses.length})`}
+      aria-label={`${ariaLabel} (${count})`}
       className='py-1 text-center text-sm font-semibold text-primary transition-colors hover:text-primary/80'
       onClick={onView}
     >
-      {courses.length}
+      {count}
     </button>
   );
 };
@@ -382,6 +385,7 @@ export default function AdminOperationUsersPage() {
   const [error, setError] = useState<ErrorState | null>(null);
   const [userOverview, setUserOverview] =
     useState<AdminOperationUserOverview>(EMPTY_USER_OVERVIEW);
+  const [userOverviewError, setUserOverviewError] = useState('');
   const [users, setUsers] = useState<AdminOperationUserItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -398,6 +402,7 @@ export default function AdminOperationUsersPage() {
   );
   const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
   const requestIdRef = useRef(0);
+  const courseDialogRequestIdRef = useRef(0);
   const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -490,6 +495,21 @@ export default function AdminOperationUsersPage() {
     [tOperationsUsers],
   );
 
+  const fetchUserOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationUsersOverview({})) as
+        | AdminOperationUserOverview
+        | undefined;
+      setUserOverview(response ?? EMPTY_USER_OVERVIEW);
+      setUserOverviewError('');
+    } catch (requestError) {
+      const resolvedError = requestError as ErrorWithCode;
+      setUserOverviewError(
+        resolvedError.message || t('common.core.networkError'),
+      );
+    }
+  }, [t]);
+
   const fetchUsers = useCallback(
     async (
       targetPage: number,
@@ -517,7 +537,6 @@ export default function AdminOperationUsersPage() {
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setUserOverview(response.summary ?? EMPTY_USER_OVERVIEW);
         setUsers(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 0);
@@ -530,13 +549,58 @@ export default function AdminOperationUsersPage() {
           message: resolvedError.message || t('common.core.networkError'),
           code: resolvedError.code,
         });
-        setUserOverview(EMPTY_USER_OVERVIEW);
         setUsers([]);
         setPageCount(0);
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
         }
+      }
+    },
+    [t],
+  );
+
+  const openCourseDialog = useCallback(
+    async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
+      const requestId = courseDialogRequestIdRef.current + 1;
+      courseDialogRequestIdRef.current = requestId;
+      setCourseDialog({
+        user,
+        type,
+        courses: [],
+        loading: true,
+        error: '',
+      });
+
+      try {
+        const detail = (await api.getAdminOperationUserDetail({
+          user_bid: user.user_bid,
+        })) as AdminOperationUserDetailResponse;
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        setCourseDialog({
+          user,
+          type,
+          courses:
+            type === 'learning'
+              ? detail.learning_courses || []
+              : detail.created_courses || [],
+          loading: false,
+          error: '',
+        });
+      } catch (requestError) {
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setCourseDialog({
+          user,
+          type,
+          courses: [],
+          loading: false,
+          error: resolvedError.message || t('common.core.networkError'),
+        });
       }
     },
     [t],
@@ -550,8 +614,9 @@ export default function AdminOperationUsersPage() {
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setQuickFilter('');
+    void fetchUserOverview();
     void fetchUsers(1, initialFilters, '');
-  }, [fetchUsers, isReady]);
+  }, [fetchUserOverview, fetchUsers, isReady]);
 
   const clearQuickFilterIfConflicted = useCallback(
     (key: keyof UserFilters, value: string) => {
@@ -954,6 +1019,12 @@ export default function AdminOperationUsersPage() {
                 {tOperationsUsers('overview.title')}
               </h2>
             </div>
+            {userOverviewError ? (
+              <div className='mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+                <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
+                <span>{tOperationsUsers('overview.staleData')}</span>
+              </div>
+            ) : null}
             <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
               {overviewCards.map(card => (
                 <div
@@ -1341,17 +1412,16 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('learningCourses')}
                         >
                           <CourseListPreview
-                            courses={user.learning_courses}
+                            count={
+                              user.learning_course_count ??
+                              user.learning_courses.length
+                            }
                             emptyLabel={EMPTY_STATE_LABEL}
                             ariaLabel={tOperationsUsers(
                               'table.learningCourses',
                             )}
                             onView={() =>
-                              setCourseDialog({
-                                user,
-                                courses: user.learning_courses,
-                                type: 'learning',
-                              })
+                              void openCourseDialog(user, 'learning')
                             }
                           />
                         </TableCell>
@@ -1360,15 +1430,14 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('createdCourses')}
                         >
                           <CourseListPreview
-                            courses={user.created_courses}
+                            count={
+                              user.created_course_count ??
+                              user.created_courses.length
+                            }
                             emptyLabel={EMPTY_STATE_LABEL}
                             ariaLabel={tOperationsUsers('table.createdCourses')}
                             onView={() =>
-                              setCourseDialog({
-                                user,
-                                courses: user.created_courses,
-                                type: 'created',
-                              })
+                              void openCourseDialog(user, 'created')
                             }
                           />
                         </TableCell>
@@ -1511,6 +1580,7 @@ export default function AdminOperationUsersPage() {
             open={Boolean(courseDialog)}
             onOpenChange={open => {
               if (!open) {
+                courseDialogRequestIdRef.current += 1;
                 setCourseDialog(null);
               }
             }}
@@ -1537,78 +1607,90 @@ export default function AdminOperationUsersPage() {
 
               <div className='rounded-lg border border-border'>
                 <div className='max-h-[60vh] overflow-auto'>
-                  <Table className='table-fixed'>
-                    <colgroup>
-                      <col className='w-[34%]' />
-                      <col className='w-[46%]' />
-                      <col className='w-[20%]' />
-                    </colgroup>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.courseName')}
-                        </TableHead>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.courseId')}
-                        </TableHead>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.status')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {courseDialog?.courses?.length ? (
-                        courseDialog.courses.map(course => {
-                          const courseDetailUrl =
-                            buildAdminOperationsCourseDetailUrl(
-                              course.shifu_bid,
-                            );
-                          return (
-                            <TableRow
-                              key={`${courseDialog.type}-${course.shifu_bid}`}
-                            >
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                                {courseDetailUrl ? (
-                                  <Link
-                                    href={courseDetailUrl}
-                                    className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                                  >
+                  {courseDialog?.loading ? (
+                    <div className='flex h-40 items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : courseDialog?.error ? (
+                    <div className='flex h-40 items-center justify-center px-6 text-sm text-destructive'>
+                      {courseDialog.error}
+                    </div>
+                  ) : (
+                    <Table className='table-fixed'>
+                      <colgroup>
+                        <col className='w-[34%]' />
+                        <col className='w-[46%]' />
+                        <col className='w-[20%]' />
+                      </colgroup>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers(
+                              'courseSummary.dialog.courseName',
+                            )}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.courseId')}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.status')}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {courseDialog?.courses?.length ? (
+                          courseDialog.courses.map(course => {
+                            const courseDetailUrl =
+                              buildAdminOperationsCourseDetailUrl(
+                                course.shifu_bid,
+                              );
+                            return (
+                              <TableRow
+                                key={`${courseDialog.type}-${course.shifu_bid}`}
+                              >
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                  {courseDetailUrl ? (
+                                    <Link
+                                      href={courseDetailUrl}
+                                      className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                                    >
+                                      <AdminTooltipText
+                                        text={course.course_name}
+                                        emptyValue={EMPTY_STATE_LABEL}
+                                      />
+                                    </Link>
+                                  ) : (
                                     <AdminTooltipText
                                       text={course.course_name}
                                       emptyValue={EMPTY_STATE_LABEL}
                                     />
-                                  </Link>
-                                ) : (
+                                  )}
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
                                   <AdminTooltipText
-                                    text={course.course_name}
+                                    text={course.shifu_bid}
                                     emptyValue={EMPTY_STATE_LABEL}
                                   />
-                                )}
-                              </TableCell>
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                                <AdminTooltipText
-                                  text={course.shifu_bid}
-                                  emptyValue={EMPTY_STATE_LABEL}
-                                />
-                              </TableCell>
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
-                                <AdminTooltipText
-                                  text={resolveCourseStatusLabel(
-                                    course.course_status,
-                                  )}
-                                  emptyValue={EMPTY_STATE_LABEL}
-                                />
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableEmpty colSpan={3}>
-                          {tOperationsUsers('courseSummary.empty')}
-                        </TableEmpty>
-                      )}
-                    </TableBody>
-                  </Table>
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
+                                  <AdminTooltipText
+                                    text={resolveCourseStatusLabel(
+                                      course.course_status,
+                                    )}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        ) : (
+                          <TableEmpty colSpan={3}>
+                            {tOperationsUsers('courseSummary.empty')}
+                          </TableEmpty>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </div>
             </DialogContent>
