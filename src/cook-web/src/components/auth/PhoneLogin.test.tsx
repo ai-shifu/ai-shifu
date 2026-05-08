@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { PhoneLogin } from './PhoneLogin';
 import apiService from '@/api';
@@ -135,7 +141,7 @@ describe('PhoneLogin captcha flow', () => {
     });
   });
 
-  test('keeps captcha input after verification failure', async () => {
+  test('refreshes captcha and clears input after verification failure', async () => {
     (apiService.verifyCaptcha as jest.Mock).mockRejectedValue(
       new Error('Image captcha is incorrect'),
     );
@@ -160,8 +166,10 @@ describe('PhoneLogin captcha flow', () => {
         variant: 'destructive',
       }),
     );
-    expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
-    expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.getByTestId('captcha-input')).toHaveValue(''),
+    );
+    expect(apiService.getCaptcha).toHaveBeenCalledTimes(2);
   });
 
   test('keeps captcha input after sending SMS successfully', async () => {
@@ -187,6 +195,41 @@ describe('PhoneLogin captcha flow', () => {
     );
     expect(screen.getByTestId('captcha-input')).toHaveValue('0000');
     expect(apiService.getCaptcha).toHaveBeenCalledTimes(1);
+  });
+
+  test('refreshes captcha and clears input after SMS countdown expires', async () => {
+    jest.useFakeTimers();
+    try {
+      render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+
+      await waitFor(() =>
+        expect(apiService.getCaptcha).toHaveBeenCalledTimes(1),
+      );
+
+      fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+        target: { value: '13800138000' },
+      });
+      fireEvent.change(screen.getByTestId('captcha-input'), {
+        target: { value: '0000' },
+      });
+      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.auth.getOtp' }),
+      );
+
+      await waitFor(() => expect(apiService.sendSmsCode).toHaveBeenCalled());
+
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+      });
+
+      await waitFor(() =>
+        expect(apiService.getCaptcha).toHaveBeenCalledTimes(2),
+      );
+      expect(screen.getByTestId('captcha-input')).toHaveValue('');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('logs in through SMS login after code is entered', async () => {

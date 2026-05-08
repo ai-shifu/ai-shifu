@@ -130,21 +130,25 @@ export function PhoneLogin({
     setPhoneOtp(normalizeOtp(e.target.value));
   };
 
-  const refreshCaptchaSilently = useCallback(async () => {
-    try {
-      await refreshCaptcha();
-    } catch {
-      // The API request layer displays failures; keep the current UI stable.
-    }
-  }, [refreshCaptcha]);
+  const resetCaptchaChallenge = useCallback(
+    (options?: { clearError?: boolean }) => {
+      setCaptchaCode('');
+      if (options?.clearError) {
+        setCaptchaError('');
+      }
+      void refreshCaptcha({ clearCode: false }).catch(() => {
+        // The API request layer displays failures; keep the current UI stable.
+      });
+    },
+    [refreshCaptcha, setCaptchaCode],
+  );
 
   useEffect(() => {
     if (previousCountdownRef.current > 0 && countdown === 0) {
-      setCaptchaError(prev => (prev ? '' : prev));
-      void refreshCaptchaSilently();
+      resetCaptchaChallenge({ clearError: true });
     }
     previousCountdownRef.current = countdown;
-  }, [countdown, refreshCaptchaSilently]);
+  }, [countdown, resetCaptchaChallenge]);
 
   const getCaptchaTicket = async () => {
     if (!captchaCode.trim()) {
@@ -162,6 +166,7 @@ export function PhoneLogin({
     } catch (error: any) {
       const message = error?.message || t('module.auth.captchaVerifyFailed');
       setCaptchaError(message);
+      resetCaptchaChallenge();
       toast({
         title: t('module.auth.captchaVerifyFailed'),
         description: message,
