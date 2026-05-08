@@ -59,21 +59,27 @@ jest.mock('@/c-common/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/config/environment', () => ({
-  environment: {
-    logoWideUrl: '/logo.png',
-  },
-}));
+const mockEnvState = {
+  logoWideUrl: '/logo.png',
+  logoHorizontal: '',
+  logoSquareUrl: '',
+  logoVertical: '',
+  homeUrl: 'https://creator.example.com/home',
+  billingEnabled: 'true',
+};
 
 jest.mock('@/c-store', () => ({
   __esModule: true,
   useEnvStore: (
-    selector:
-      | ((state: { logoWideUrl: string; billingEnabled: string }) => unknown)
-      | undefined,
-  ) =>
-    selector?.({ logoWideUrl: '/logo.png', billingEnabled: 'true' }) ??
-    '/logo.png',
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
+}));
+
+jest.mock('@/c-store/envStore', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
 }));
 
 const mockUserStoreState = {
@@ -135,7 +141,6 @@ describe('SidebarContent', () => {
     onFooterClick: jest.fn(),
     onUserMenuClose: jest.fn(),
     userMenuClassName: 'user-menu',
-    logoSrc: '/logo.png',
     billingOverviewLoading: false,
     billingOverview: undefined,
   };
@@ -332,6 +337,12 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    mockEnvState.logoWideUrl = '/logo.png';
+    mockEnvState.logoHorizontal = '';
+    mockEnvState.logoSquareUrl = '';
+    mockEnvState.logoVertical = '';
+    mockEnvState.homeUrl = 'https://creator.example.com/home';
+    mockEnvState.billingEnabled = 'true';
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
     mockUserStoreState.userInfo = {
@@ -427,6 +438,23 @@ describe('AdminLayout', () => {
     expect(
       screen.getByRole('link', { name: 'common.core.shifu' }),
     ).toBeInTheDocument();
+  });
+
+  test('links the admin logo to the configured home URL', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'href',
+      'https://creator.example.com/home',
+    );
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'target',
+      '_blank',
+    );
   });
 
   test('renders the billing navigation entry and membership card with credits', () => {
