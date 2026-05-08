@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
@@ -65,6 +66,7 @@ const mockEnvState = {
   logoSquareUrl: '',
   logoVertical: '',
   homeUrl: 'https://creator.example.com/home',
+  contactUsUrl: 'https://ai-shifu.cn/contact.html',
   billingEnabled: 'true',
 };
 
@@ -342,6 +344,7 @@ describe('AdminLayout', () => {
     mockEnvState.logoSquareUrl = '';
     mockEnvState.logoVertical = '';
     mockEnvState.homeUrl = 'https://creator.example.com/home';
+    mockEnvState.contactUsUrl = 'https://ai-shifu.cn/contact.html';
     mockEnvState.billingEnabled = 'true';
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
@@ -391,6 +394,39 @@ describe('AdminLayout', () => {
     expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'common.core.shifu' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('renders the shared contact side rail for admin routes', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    const contactLink = screen.getByRole('link', {
+      name: CONTACT_RAIL_I18N_KEY,
+    });
+
+    expect(contactLink).toHaveAttribute(
+      'href',
+      'https://ai-shifu.cn/contact.html',
+    );
+    expect(contactLink).toHaveAttribute('target', '_blank');
+    expect(contactLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  test('does not render the shared contact side rail when contact url is empty', () => {
+    mockEnvState.contactUsUrl = '';
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: CONTACT_RAIL_I18N_KEY }),
     ).not.toBeInTheDocument();
   });
 

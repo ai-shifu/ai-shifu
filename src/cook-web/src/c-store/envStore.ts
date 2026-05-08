@@ -39,6 +39,8 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
   homeUrl: environment.homeUrl,
   updateHomeUrl: async (homeUrl: string) => set({ homeUrl }),
+  contactUsUrl: environment.contactUsUrl,
+  updateContactUsUrl: async (contactUsUrl: string) => set({ contactUsUrl }),
   currencySymbol: environment.currencySymbol,
   updateCurrencySymbol: async (currencySymbol: string) =>
     set({ currencySymbol }),

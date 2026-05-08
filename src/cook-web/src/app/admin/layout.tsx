@@ -9,6 +9,7 @@ import { EnvStoreState } from '@/c-types/store';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { useUserStore } from '@/store';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
+import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 
@@ -85,6 +86,7 @@ const MainInterface = ({
           mutateBillingOverview={mutateBillingOverview}
         />
       ) : null}
+      <ContactSideRail />
       <div className='flex h-screen bg-stone-50'>
         <div className='w-[280px] shrink-0'>
           <SidebarContent
