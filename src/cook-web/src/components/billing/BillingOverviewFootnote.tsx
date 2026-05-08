@@ -15,7 +15,7 @@ export function BillingOverviewFootnote() {
     >
       <ul className='space-y-3'>
         <li className='flex gap-2'>
-          <span className='shrink-0 font-medium text-blue-600'>
+          <span className='shrink-0 font-medium'>
             {FOOTNOTE_ENUM_LEARNER}
           </span>
           <div className='flex-1'>
@@ -34,7 +34,7 @@ export function BillingOverviewFootnote() {
           </div>
         </li>
         <li className='flex gap-2'>
-          <span className='shrink-0 font-medium text-blue-600'>
+          <span className='shrink-0 font-medium'>
             {FOOTNOTE_ENUM_VALIDITY}
           </span>
           <div className='flex-1'>

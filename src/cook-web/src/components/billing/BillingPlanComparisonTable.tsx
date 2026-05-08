@@ -27,10 +27,9 @@ import {
 } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 
-// Language-neutral typographic enumerators that anchor the leftmost label of
-// each metric row to the matching footnote item. Not user-facing copy, so
-// they stay out of i18n. Only rendered on the first column to avoid
-// repeating the same marker across every plan card.
+// Language-neutral typographic enumerators that anchor each metric row label
+// to the matching footnote item. Not user-facing copy, so they stay out of
+// i18n.
 const ROW_ENUM_LEARNER = '①';
 const ROW_ENUM_VALIDITY = '②';
 
@@ -410,18 +409,14 @@ export function BillingPlanComparisonTable({
             ))}
           </tr>
           <tr className={styles.dataRow}>
-            {columns.map((col, colIdx) => (
+            {columns.map(col => (
               <td
                 key={col.key}
                 className={cn(col.featured && styles.featuredColumn)}
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.studentsRowLabel')}
-                  {colIdx === 0 ? (
-                    <span className='ml-1 font-medium text-blue-600'>
-                      {ROW_ENUM_LEARNER}
-                    </span>
-                  ) : null}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_LEARNER}</span>
                 </div>
                 <div className={styles.cellValue}>
                   {col.studentLabel || emptyValue}
@@ -430,18 +425,14 @@ export function BillingPlanComparisonTable({
             ))}
           </tr>
           <tr className={styles.dataRow}>
-            {columns.map((col, colIdx) => (
+            {columns.map(col => (
               <td
                 key={col.key}
                 className={cn(col.featured && styles.featuredColumn)}
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
-                  {colIdx === 0 ? (
-                    <span className='ml-1 font-medium text-blue-600'>
-                      {ROW_ENUM_VALIDITY}
-                    </span>
-                  ) : null}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_VALIDITY}</span>
                 </div>
                 <div className={styles.cellValue}>
                   <span>{col.validityShort || emptyValue}</span>
