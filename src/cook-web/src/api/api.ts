@@ -102,6 +102,7 @@ const api = {
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
+  getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
@@ -141,6 +142,8 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/credits',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  getAdminOperationCoursesOverview:
+    'GET /shifu/admin/operations/courses/overview',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
   getAdminOperationCoursePrompt:
     'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',

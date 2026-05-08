@@ -141,11 +141,6 @@ class AdminOperationCourseOverviewDTO(BaseModel):
 class AdminOperationCourseListDTO(BaseModel):
     """Operator-facing paginated course list payload."""
 
-    summary: AdminOperationCourseOverviewDTO = Field(
-        ...,
-        description="Course overview metrics",
-        required=False,
-    )
     items: list[AdminOperationCourseSummaryDTO] = Field(
         default_factory=list,
         description="Paginated course rows",
@@ -158,7 +153,6 @@ class AdminOperationCourseListDTO(BaseModel):
 
     def __json__(self) -> dict[str, Any]:
         return {
-            "summary": self.summary.__json__(),
             "items": [item.__json__() for item in self.items],
             "page": self.page,
             "page_size": self.page_size,
@@ -222,9 +216,19 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Courses the user learned via successful orders",
         required=False,
     )
+    learning_course_count: int = Field(
+        default=0,
+        description="Count of courses the user learned",
+        required=False,
+    )
     created_courses: list[AdminOperationUserCourseSummaryDTO] = Field(
         default_factory=list,
         description="Courses created by the user",
+        required=False,
+    )
+    created_course_count: int = Field(
+        default=0,
+        description="Count of courses created by the user",
         required=False,
     )
     total_paid_amount: str = Field(
@@ -325,7 +329,7 @@ class AdminOperationUserOverviewDTO(BaseModel):
 
 @register_schema_to_swagger
 class AdminOperationUserListDTO(BaseModel):
-    """Paginated operator user list with overview metrics."""
+    """Paginated operator user list."""
 
     page: int = Field(..., description="page", required=False)
     page_size: int = Field(..., description="page_size", required=False)
@@ -334,11 +338,6 @@ class AdminOperationUserListDTO(BaseModel):
     data: list[AdminOperationUserSummaryDTO] = Field(
         default_factory=list, description="data", required=False
     )
-    summary: AdminOperationUserOverviewDTO = Field(
-        default_factory=AdminOperationUserOverviewDTO,
-        description="overview summary",
-        required=False,
-    )
 
     def __init__(
         self,
@@ -346,17 +345,14 @@ class AdminOperationUserListDTO(BaseModel):
         page_size: int,
         total: int,
         data: list[AdminOperationUserSummaryDTO],
-        summary: AdminOperationUserOverviewDTO | None = None,
     ) -> None:
         safe_page_size = int(page_size or 0)
-        resolved_summary = summary or AdminOperationUserOverviewDTO()
         super().__init__(
             page=page,
             page_size=page_size,
             total=total,
             page_count=math.ceil(total / safe_page_size if safe_page_size > 0 else 0),
             data=data,
-            summary=resolved_summary,
         )
 
     def __json__(self) -> dict[str, Any]:
@@ -366,7 +362,6 @@ class AdminOperationUserListDTO(BaseModel):
             "total": self.total,
             "page_count": self.page_count,
             "items": [item.__json__() for item in self.data],
-            "summary": self.summary.__json__(),
         }
 
 

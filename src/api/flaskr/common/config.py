@@ -163,6 +163,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
+    "CONTACT_US_URL": EnvVar(
+        name="CONTACT_US_URL",
+        default="",
+        description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",

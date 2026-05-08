@@ -88,7 +88,9 @@ jest.mock('next/link', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationUsersOverview: jest.fn(),
     getAdminOperationUsers: jest.fn(),
+    getAdminOperationUserDetail: jest.fn(),
   },
 }));
 
@@ -274,19 +276,25 @@ jest.mock('@/components/ui/tooltip', () => ({
   ),
 }));
 
+const mockGetAdminOperationUsersOverview =
+  api.getAdminOperationUsersOverview as jest.Mock;
 const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
+const mockGetAdminOperationUserDetail =
+  api.getAdminOperationUserDetail as jest.Mock;
 
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockMutateBillingOverview.mockReset();
+    mockGetAdminOperationUsersOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
+    mockGetAdminOperationUserDetail.mockReset();
     mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
+    mockGetAdminOperationUsersOverview.mockResolvedValue(DEFAULT_OVERVIEW);
     mockGetAdminOperationUsers.mockResolvedValue({
-      summary: DEFAULT_OVERVIEW,
       items: [
         {
           user_bid: 'user-1',
@@ -299,6 +307,7 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['phone', 'google'],
           registration_source: 'google',
           language: 'zh-CN',
+          learning_course_count: 1,
           learning_courses: [
             {
               shifu_bid: 'course-1',
@@ -308,6 +317,7 @@ describe('AdminOperationUsersPage', () => {
               total_lesson_count: 4,
             },
           ],
+          created_course_count: 2,
           created_courses: [
             {
               shifu_bid: 'course-2',
@@ -339,6 +349,55 @@ describe('AdminOperationUsersPage', () => {
       page_count: 1,
       page_size: 20,
       total: 1,
+    });
+    mockGetAdminOperationUserDetail.mockResolvedValue({
+      user_bid: 'user-1',
+      mobile: '13812345678',
+      email: 'user-1@example.com',
+      nickname: 'Nick',
+      user_status: 'paid',
+      user_role: 'operator',
+      user_roles: ['operator', 'creator', 'learner'],
+      login_methods: ['phone', 'google'],
+      registration_source: 'google',
+      language: 'zh-CN',
+      learning_course_count: 1,
+      learning_courses: [
+        {
+          shifu_bid: 'course-1',
+          course_name: 'Learned Course',
+          course_status: 'published',
+          completed_lesson_count: 1,
+          total_lesson_count: 4,
+        },
+      ],
+      created_course_count: 2,
+      created_courses: [
+        {
+          shifu_bid: 'course-2',
+          course_name: 'Created Course',
+          course_status: 'unpublished',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+        {
+          shifu_bid: 'course-3',
+          course_name: 'Second Created Course',
+          course_status: 'published',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '88.50',
+      available_credits: '35.5',
+      subscription_credits: '27.5',
+      topup_credits: '8',
+      credits_expire_at: '2026-05-01T00:00:00Z',
+      has_active_subscription: false,
+      last_login_at: '2026-04-15T09:00:00Z',
+      last_learning_at: '2026-04-15T10:00:00Z',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
     });
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -433,11 +492,11 @@ describe('AdminOperationUsersPage', () => {
 
   test('formats overview counts and credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
+    mockGetAdminOperationUsersOverview.mockResolvedValueOnce({
+      ...DEFAULT_OVERVIEW,
+      total_user_count: 76384,
+    });
     mockGetAdminOperationUsers.mockResolvedValueOnce({
-      summary: {
-        ...DEFAULT_OVERVIEW,
-        total_user_count: 76384,
-      },
       items: [
         {
           user_bid: 'user-1',
@@ -450,7 +509,9 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['phone'],
           registration_source: 'google',
           language: 'zh-CN',
+          learning_course_count: 0,
           learning_courses: [],
+          created_course_count: 0,
           created_courses: [],
           total_paid_amount: '88.50',
           available_credits: '10000',
@@ -738,6 +799,26 @@ describe('AdminOperationUsersPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('keeps the last successful overview when refresh fails and shows a warning', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+
+    mockGetAdminOperationUsersOverview.mockRejectedValueOnce(
+      new Error('overview failed'),
+    );
+    mockUserState.isInitialized = false;
+    rerender(<AdminOperationUsersPage />);
+
+    mockUserState.isInitialized = true;
+    rerender(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+    expect(
+      await screen.findByText('module.operationsUser.overview.staleData'),
+    ).toBeInTheDocument();
+  });
+
   test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
     render(<AdminOperationUsersPage />);
 
@@ -787,6 +868,12 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.table.createdCourses (2)',
       }),
     );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+      });
+    });
 
     expect(
       screen.getByText(
@@ -924,7 +1011,9 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['email'],
           registration_source: 'email',
           language: 'en-US',
+          learning_course_count: 0,
           learning_courses: [],
+          created_course_count: 1,
           created_courses: [
             {
               shifu_bid: 'course-unknown',
@@ -950,6 +1039,40 @@ describe('AdminOperationUsersPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      user_bid: 'user-1',
+      mobile: '',
+      email: 'user-1@example.com',
+      nickname: 'Nick',
+      user_status: 'registered',
+      user_role: 'creator',
+      user_roles: ['creator'],
+      login_methods: ['email'],
+      registration_source: 'email',
+      language: 'en-US',
+      learning_course_count: 0,
+      learning_courses: [],
+      created_course_count: 1,
+      created_courses: [
+        {
+          shifu_bid: 'course-unknown',
+          course_name: 'Unknown State Course',
+          course_status: '',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '0',
+      available_credits: '0',
+      subscription_credits: '0',
+      topup_credits: '0',
+      credits_expire_at: '',
+      has_active_subscription: false,
+      last_login_at: '',
+      last_learning_at: '',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
+    });
 
     render(<AdminOperationUsersPage />);
 
@@ -960,7 +1083,7 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(
-      screen.getByText('module.operationsCourse.statusLabels.unknown'),
+      await screen.findByText('module.operationsCourse.statusLabels.unknown'),
     ).toBeInTheDocument();
   });
 
@@ -978,7 +1101,9 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['password'],
           registration_source: 'unknown',
           language: 'en-US',
+          learning_course_count: 0,
           learning_courses: [],
+          created_course_count: 1,
           created_courses: [
             {
               shifu_bid: 'course-archived',
@@ -1004,6 +1129,40 @@ describe('AdminOperationUsersPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      user_bid: 'user-unknown-values',
+      mobile: '',
+      email: 'user-unknown@example.com',
+      nickname: 'Unknown Values',
+      user_status: 'registered',
+      user_role: 'creator',
+      user_roles: ['creator'],
+      login_methods: ['password'],
+      registration_source: 'unknown',
+      language: 'en-US',
+      learning_course_count: 0,
+      learning_courses: [],
+      created_course_count: 1,
+      created_courses: [
+        {
+          shifu_bid: 'course-archived',
+          course_name: 'Archived Course',
+          course_status: 'archived',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '0',
+      available_credits: '0',
+      subscription_credits: '0',
+      topup_credits: '0',
+      credits_expire_at: '',
+      has_active_subscription: false,
+      last_login_at: '',
+      last_learning_at: '',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
+    });
 
     render(<AdminOperationUsersPage />);
 
@@ -1020,7 +1179,7 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(
-      screen.getByText(
+      await screen.findByText(
         'module.operationsCourse.statusLabels.unknown (archived)',
       ),
     ).toBeInTheDocument();

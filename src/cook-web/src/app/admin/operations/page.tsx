@@ -529,6 +529,17 @@ const OperationsPage = () => {
     toast,
   ]);
 
+  const fetchCourseOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationCoursesOverview({})) as
+        | AdminOperationCourseOverview
+        | undefined;
+      setCourseOverview(response ?? EMPTY_COURSE_OVERVIEW);
+    } catch {
+      setCourseOverview(EMPTY_COURSE_OVERVIEW);
+    }
+  }, []);
+
   const fetchCourses = useCallback(
     async (
       targetPage: number,
@@ -559,7 +570,6 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setCourseOverview(response.summary ?? EMPTY_COURSE_OVERVIEW);
         setCourses(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
@@ -567,7 +577,6 @@ const OperationsPage = () => {
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setCourseOverview(EMPTY_COURSE_OVERVIEW);
         setPageIndex(targetPage);
         if (err instanceof ErrorWithCode) {
           setError({ message: err.message, code: err.code });
@@ -593,8 +602,9 @@ const OperationsPage = () => {
     if (!isInitialized || isGuest || !isReady) {
       return;
     }
+    void fetchCourseOverview();
     fetchCoursesRef.current?.(1, createDefaultFilters(), '');
-  }, [isGuest, isInitialized, isReady]);
+  }, [fetchCourseOverview, isGuest, isInitialized, isReady]);
 
   const clearQuickFilterIfConflicted = useCallback(
     (key: keyof CourseFilters, value: string) => {

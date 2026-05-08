@@ -33,7 +33,9 @@ export type AdminOperationUserItem = {
     | LooseString;
   language: string;
   learning_courses: AdminOperationUserCourseItem[];
+  learning_course_count: number;
   created_courses: AdminOperationUserCourseItem[];
+  created_course_count: number;
   total_paid_amount: string;
   available_credits: string;
   subscription_credits: string;
@@ -60,7 +62,6 @@ export type AdminOperationUserOverview = {
 };
 
 export type AdminOperationUserListResponse = {
-  summary?: AdminOperationUserOverview;
   items: AdminOperationUserItem[];
   page: number;
   page_count: number;

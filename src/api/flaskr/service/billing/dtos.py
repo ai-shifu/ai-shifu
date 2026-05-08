@@ -607,6 +607,7 @@ class RuntimeBillingBrandingDTO(BillingBaseDTO):
     logo_square_url: str | None = None
     favicon_url: str | None = None
     home_url: str | None = None
+    contact_us_url: str | None = None
 
 
 class RuntimeBillingDomainDTO(BillingBaseDTO):
@@ -647,6 +648,7 @@ class RuntimeConfigDTO(BillingBaseDTO):
     defaultLoginMethod: str
     googleOauthRedirect: str
     homeUrl: str
+    contactUsUrl: str
     currencySymbol: str
     legalUrls: RuntimeLegalUrlsDTO
     genMdfApiUrl: str

@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
@@ -59,21 +60,28 @@ jest.mock('@/c-common/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/config/environment', () => ({
-  environment: {
-    logoWideUrl: '/logo.png',
-  },
-}));
+const mockEnvState = {
+  logoWideUrl: '/logo.png',
+  logoHorizontal: '',
+  logoSquareUrl: '',
+  logoVertical: '',
+  homeUrl: 'https://creator.example.com/home',
+  contactUsUrl: 'https://ai-shifu.cn/contact.html',
+  billingEnabled: 'true',
+};
 
 jest.mock('@/c-store', () => ({
   __esModule: true,
   useEnvStore: (
-    selector:
-      | ((state: { logoWideUrl: string; billingEnabled: string }) => unknown)
-      | undefined,
-  ) =>
-    selector?.({ logoWideUrl: '/logo.png', billingEnabled: 'true' }) ??
-    '/logo.png',
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
+}));
+
+jest.mock('@/c-store/envStore', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
 }));
 
 const mockUserStoreState = {
@@ -135,7 +143,6 @@ describe('SidebarContent', () => {
     onFooterClick: jest.fn(),
     onUserMenuClose: jest.fn(),
     userMenuClassName: 'user-menu',
-    logoSrc: '/logo.png',
     billingOverviewLoading: false,
     billingOverview: undefined,
   };
@@ -332,6 +339,13 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    mockEnvState.logoWideUrl = '/logo.png';
+    mockEnvState.logoHorizontal = '';
+    mockEnvState.logoSquareUrl = '';
+    mockEnvState.logoVertical = '';
+    mockEnvState.homeUrl = 'https://creator.example.com/home';
+    mockEnvState.contactUsUrl = 'https://ai-shifu.cn/contact.html';
+    mockEnvState.billingEnabled = 'true';
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
     mockUserStoreState.userInfo = {
@@ -383,6 +397,39 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('renders the shared contact side rail for admin routes', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    const contactLink = screen.getByRole('link', {
+      name: CONTACT_RAIL_I18N_KEY,
+    });
+
+    expect(contactLink).toHaveAttribute(
+      'href',
+      'https://ai-shifu.cn/contact.html',
+    );
+    expect(contactLink).toHaveAttribute('target', '_blank');
+    expect(contactLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  test('does not render the shared contact side rail when contact url is empty', () => {
+    mockEnvState.contactUsUrl = '';
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: CONTACT_RAIL_I18N_KEY }),
+    ).not.toBeInTheDocument();
+  });
+
   test('redirects guests to login from admin routes handled only by the layout', async () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
@@ -427,6 +474,23 @@ describe('AdminLayout', () => {
     expect(
       screen.getByRole('link', { name: 'common.core.shifu' }),
     ).toBeInTheDocument();
+  });
+
+  test('links the admin logo to the configured home URL', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'href',
+      'https://creator.example.com/home',
+    );
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'target',
+      '_blank',
+    );
   });
 
   test('renders the billing navigation entry and membership card with credits', () => {

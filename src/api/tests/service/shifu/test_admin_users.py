@@ -40,6 +40,7 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin import (
     grant_operator_user_credits,
+    get_operator_user_overview,
     get_operator_user_credits,
     get_operator_user_detail,
     list_operator_users,
@@ -720,6 +721,7 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
             created_at=datetime(2026, 5, 3, 8, 0, 0),
         )
 
+        overview = get_operator_user_overview(app)
         result = list_operator_users(app, 1, 20, {})
         learner_result = list_operator_users(app, 1, 20, {"quick_filter": "learner"})
         recent_paid_result = list_operator_users(
@@ -733,17 +735,17 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
         )
 
     assert isinstance(result, AdminOperationUserListDTO)
-    assert isinstance(result.summary, AdminOperationUserOverviewDTO)
-    assert result.summary.total_user_count == 4
-    assert result.summary.registered_user_count == 3
-    assert result.summary.creator_user_count == 1
-    assert result.summary.learner_user_count == 2
-    assert result.summary.paid_user_count == 1
-    assert result.summary.created_last_30d_user_count == 3
-    assert result.summary.registered_last_30d_user_count == 3
-    assert result.summary.learning_active_30d_user_count == 1
-    assert result.summary.paid_last_30d_user_count == 1
-    assert result.summary.guest_user_count == 1
+    assert isinstance(overview, AdminOperationUserOverviewDTO)
+    assert overview.total_user_count == 4
+    assert overview.registered_user_count == 3
+    assert overview.creator_user_count == 1
+    assert overview.learner_user_count == 2
+    assert overview.paid_user_count == 1
+    assert overview.created_last_30d_user_count == 3
+    assert overview.registered_last_30d_user_count == 3
+    assert overview.learning_active_30d_user_count == 1
+    assert overview.paid_last_30d_user_count == 1
+    assert overview.guest_user_count == 1
     assert [item.user_bid for item in registered_result.data] == [
         "user-creator",
         "user-learner",
@@ -865,7 +867,7 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
             created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
         )
 
-        result = list_operator_users(app, 1, 20, {})
+        overview = get_operator_user_overview(app)
         created_last_30d_result = list_operator_users(
             app, 1, 20, {"quick_filter": "created_last_30d"}
         )
@@ -876,9 +878,9 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
             app, 1, 20, {"quick_filter": "paid_last_30d"}
         )
 
-    assert result.summary.created_last_30d_user_count == 1
-    assert result.summary.learning_active_30d_user_count == 1
-    assert result.summary.paid_last_30d_user_count == 1
+    assert overview.created_last_30d_user_count == 1
+    assert overview.learning_active_30d_user_count == 1
+    assert overview.paid_last_30d_user_count == 1
     assert [item.user_bid for item in created_last_30d_result.data] == [
         "user-created-in-range"
     ]
@@ -982,6 +984,8 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
         )
 
         result = list_operator_users(app, 1, 20, {})
+        creator_detail = get_operator_user_detail(app, "creator-user")
+        learner_detail = get_operator_user_detail(app, "learner-user")
 
     assert result.total == 2
     assert [item.user_bid for item in result.data] == ["creator-user", "learner-user"]
@@ -992,23 +996,31 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
     assert creator_item.user_roles == ["creator", "learner"]
     assert learner_item.user_roles == ["learner"]
 
-    assert [course.course_name for course in creator_item.created_courses] == [
+    assert creator_item.created_course_count == 3
+    assert creator_item.learning_course_count == 1
+    assert learner_item.learning_course_count == 1
+    assert learner_item.created_course_count == 0
+    assert creator_item.created_courses == []
+    assert creator_item.learning_courses == []
+    assert learner_item.learning_courses == []
+    assert learner_item.created_courses == []
+
+    assert [course.course_name for course in creator_detail.created_courses] == [
         "Published Course",
         "Draft Course",
         "Learned Course",
     ]
-    assert [course.course_status for course in creator_item.created_courses] == [
+    assert [course.course_status for course in creator_detail.created_courses] == [
         "published",
         "unpublished",
         "published",
     ]
-    assert [course.course_name for course in creator_item.learning_courses] == [
+    assert [course.course_name for course in creator_detail.learning_courses] == [
         "Published Course"
     ]
-    assert [course.course_name for course in learner_item.learning_courses] == [
+    assert [course.course_name for course in learner_detail.learning_courses] == [
         "Learned Course"
     ]
-    assert learner_item.created_courses == []
 
 
 def test_list_operator_users_includes_creator_credit_summaries(app):
@@ -2053,10 +2065,13 @@ def test_list_operator_users_includes_shared_course_learners_in_learning_courses
         )
 
         result = list_operator_users(app, 1, 20, {"user_role": "learner"})
+        detail = get_operator_user_detail(app, "shared-learner-user")
 
     assert [item.user_bid for item in result.data] == ["shared-learner-user"]
     assert result.data[0].user_role == "learner"
-    assert [course.course_name for course in result.data[0].learning_courses] == [
+    assert result.data[0].learning_course_count == 1
+    assert result.data[0].learning_courses == []
+    assert [course.course_name for course in detail.learning_courses] == [
         "Shared Course"
     ]
 
@@ -2072,6 +2087,64 @@ def test_admin_operation_users_route_requires_operator(test_client, monkeypatch)
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+def test_admin_operation_users_overview_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_users_overview_route_returns_payload(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-overview-route-1",
+            identify="overview-route-1@example.com",
+            nickname="Overview Route User 1",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 1, 8, 0, 0),
+            updated_at=datetime(2026, 5, 1, 8, 0, 0),
+            providers=[("email", "overview-route-1@example.com")],
+            credential_created_at=datetime(2026, 5, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-overview-route-2",
+            identify="13812340001",
+            nickname="Overview Route User 2",
+            state=USER_STATE_UNREGISTERED,
+            created_at=datetime(2026, 5, 2, 8, 0, 0),
+            updated_at=datetime(2026, 5, 2, 8, 0, 0),
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total_user_count"] == 2
+    assert payload["data"]["registered_user_count"] == 1
+    assert payload["data"]["guest_user_count"] == 1
 
 
 def test_admin_operation_users_route_returns_filtered_payload(
@@ -2119,7 +2192,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["total"] == 1
-    assert payload["data"]["summary"]["total_user_count"] == 2
+    assert "summary" not in payload["data"]
     assert payload["data"]["items"] == [
         {
             "user_bid": "user-route-1",
@@ -2133,7 +2206,9 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "registration_source": "phone",
             "language": "en-US",
             "learning_courses": [],
+            "learning_course_count": 0,
             "created_courses": [],
+            "created_course_count": 0,
             "total_paid_amount": "0",
             "available_credits": "",
             "subscription_credits": "",
@@ -2187,7 +2262,9 @@ def test_admin_operation_user_detail_route_returns_payload(
         "registration_source": "phone",
         "language": "en-US",
         "learning_courses": [],
+        "learning_course_count": 0,
         "created_courses": [],
+        "created_course_count": 0,
         "total_paid_amount": "0",
         "available_credits": "",
         "subscription_credits": "",

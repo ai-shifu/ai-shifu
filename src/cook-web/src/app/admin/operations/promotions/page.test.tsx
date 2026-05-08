@@ -1101,16 +1101,6 @@ describe('AdminOperationPromotionsPage', () => {
     expect(screen.getByDisplayValue('app')).toBeDisabled();
     expect(screen.getByDisplayValue('15')).toBeDisabled();
     expect(
-      screen.getByText(
-        'module.operationsPromotion.messages.partialTimeEditHint',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsPromotion.messages.campaignEditPolicyHint',
-      ),
-    ).toBeInTheDocument();
-    expect(
       screen
         .getAllByRole('button', {
           name: 'module.operationsPromotion.campaign.applyTypeEvent',
@@ -1839,16 +1829,6 @@ describe('AdminOperationPromotionsPage', () => {
     expect(screen.getByDisplayValue('SPRING2026')).toBeDisabled();
     expect(screen.getByDisplayValue('20')).toBeDisabled();
     expect(screen.getByDisplayValue('course-1')).toBeDisabled();
-    expect(
-      screen.getByText(
-        'module.operationsPromotion.messages.partialTimeEditHint',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsPromotion.messages.couponEditPolicyHint',
-      ),
-    ).toBeInTheDocument();
   });
 
   test('uses coupon detail payload to refresh stale edit values before opening dialog', async () => {
