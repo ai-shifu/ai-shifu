@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import {
+  CONTACT_PAGE_URL,
+  CONTACT_RAIL_I18N_KEY,
+} from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
@@ -392,6 +396,22 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
+  });
+
+  test('renders the shared contact side rail for admin routes', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    const contactLink = screen.getByRole('link', {
+      name: CONTACT_RAIL_I18N_KEY,
+    });
+
+    expect(contactLink).toHaveAttribute('href', CONTACT_PAGE_URL);
+    expect(contactLink).toHaveAttribute('target', '_blank');
+    expect(contactLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   test('redirects guests to login from admin routes handled only by the layout', async () => {
