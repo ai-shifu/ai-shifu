@@ -215,27 +215,6 @@ $color-on-accent: #fff;
   @include font-body;
 }
 
-// --- Validity tooltip ------------------------------------------------------
-
-.validityHint {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: help;
-}
-
-.validityIcon {
-  width: 14px;
-  height: 14px;
-  color: $color-muted;
-  flex-shrink: 0;
-}
-
-.validityTooltipBody {
-  max-width: 280px;
-  line-height: 18px;
-}
-
 // --- Feature column list ---------------------------------------------------
 
 .featureColumnRow td {

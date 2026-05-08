@@ -570,9 +570,11 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "contactUs": "If none of the credit plans above fit your needs, you can contact us directly",
-      "learnerEstimate": "Supported learner counts for each credit plan are estimated from platform usage data; actual capacity depends on real credit consumption",
-      "learnerEstimateTip": "Estimation basis: a course of about 10 sections with Listen mode enabled (Listen mode consumes credits much faster than the default)."
+      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience; actual capacity depends on real credit consumption. Reference basis:",
+      "learnerEstimateMode": "Listen mode is enabled for the course (significantly higher credit consumption)",
+      "learnerEstimateModel": "All sections use the default model",
+      "learnerEstimateScale": "One study pass through the course: about 10 sections, averaging roughly 15 minutes of regular study per section",
+      "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
     },
     "free": {
       "creditSummary": "{credits} bonus credits",
@@ -590,22 +592,22 @@
     },
     "scale": {
       "advanced": {
-        "students": "Around 500 learners"
+        "students": "250 - 750 learner sessions"
       },
       "basic": {
-        "students": "Around 10 learners"
+        "students": "5 - 15 learner sessions"
       },
       "free": {
-        "students": "Around 10 learners"
+        "students": "5 - 15 learner sessions"
       },
       "lite": {
-        "students": "Fewer than 1 learner"
+        "students": "Fewer than 1 learner session"
       },
       "premium": {
-        "students": "Around 2,200 learners"
+        "students": "1,100 - 3,300 learner sessions"
       },
       "pro": {
-        "students": "Around 1,000 learners"
+        "students": "500 - 1,500 learner sessions"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -614,7 +616,7 @@
       "creditsRowLabel": "Credits per cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Entitlements",
-      "studentsRowLabel": "Estimated learners",
+      "studentsRowLabel": "Estimated learner sessions",
       "validityRowLabel": "Credit validity"
     },
     "title": "Buy Credits",
@@ -637,11 +639,6 @@
       "free": "{days} days",
       "monthly": "{count, plural, one {# month} other {# months}}",
       "yearly": "{count, plural, one {# year} other {# years}}"
-    },
-    "validityTooltip": {
-      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "monthly": "Valid for 30 days from the day you receive it, inclusive. Counted to 23:59 on the expiry day.",
-      "yearly": "Valid by calendar year from the day you receive it. Counted to 23:59 on the expiry day."
     }
   },
   "page": {
