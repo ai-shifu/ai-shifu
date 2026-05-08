@@ -53,6 +53,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationCoursesOverview: jest.fn(),
     getAdminOperationCourses: jest.fn(),
     getAdminOperationCoursePrompt: jest.fn(),
     transferAdminOperationCourseCreator: jest.fn(),
@@ -357,6 +358,8 @@ jest.mock('@/components/ui/DropdownMenu', () => {
   };
 });
 
+const mockGetAdminOperationCoursesOverview =
+  api.getAdminOperationCoursesOverview as jest.Mock;
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
 const mockGetAdminOperationCoursePrompt =
   api.getAdminOperationCoursePrompt as jest.Mock;
@@ -411,6 +414,7 @@ describe('OperationsPage', () => {
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
+    mockGetAdminOperationCoursesOverview.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
     mockTransferAdminOperationCourseCreator.mockReset();
@@ -426,8 +430,8 @@ describe('OperationsPage', () => {
       search: '',
     });
 
+    mockGetAdminOperationCoursesOverview.mockResolvedValue(DEFAULT_OVERVIEW);
     mockGetAdminOperationCourses.mockResolvedValue({
-      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-1',
@@ -548,11 +552,11 @@ describe('OperationsPage', () => {
 
   test('formats overview counts without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
+    mockGetAdminOperationCoursesOverview.mockResolvedValueOnce({
+      ...DEFAULT_OVERVIEW,
+      total_course_count: 76384,
+    });
     mockGetAdminOperationCourses.mockResolvedValueOnce({
-      summary: {
-        ...DEFAULT_OVERVIEW,
-        total_course_count: 76384,
-      },
       items: [],
       page: 1,
       page_count: 1,
@@ -948,7 +952,6 @@ describe('OperationsPage', () => {
 
   test('retries the last requested page after a page change fails', async () => {
     mockGetAdminOperationCourses.mockResolvedValueOnce({
-      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-1',
@@ -978,7 +981,6 @@ describe('OperationsPage', () => {
       new ErrorWithCode('load failed', 418),
     );
     mockGetAdminOperationCourses.mockResolvedValueOnce({
-      summary: DEFAULT_OVERVIEW,
       items: [],
       page: 2,
       page_count: 2,
@@ -1016,7 +1018,6 @@ describe('OperationsPage', () => {
 
   test('ignores stale responses when a newer search finishes later', async () => {
     const firstSearch = createDeferred<{
-      summary: typeof DEFAULT_OVERVIEW;
       items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
@@ -1024,7 +1025,6 @@ describe('OperationsPage', () => {
       total: number;
     }>();
     const secondSearch = createDeferred<{
-      summary: typeof DEFAULT_OVERVIEW;
       items: Array<Record<string, string | boolean>>;
       page: number;
       page_count: number;
@@ -1063,7 +1063,6 @@ describe('OperationsPage', () => {
     );
 
     secondSearch.resolve({
-      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-second',
@@ -1093,7 +1092,6 @@ describe('OperationsPage', () => {
     expect(await screen.findByText('Course Second')).toBeInTheDocument();
 
     firstSearch.resolve({
-      summary: DEFAULT_OVERVIEW,
       items: [
         {
           shifu_bid: 'course-first',
