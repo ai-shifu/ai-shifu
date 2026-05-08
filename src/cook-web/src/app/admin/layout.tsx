@@ -1,20 +1,11 @@
 'use client';
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { type StaticImageData } from 'next/image';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
-import { environment } from '@/config/environment';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { useUserStore } from '@/store';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
@@ -76,9 +67,6 @@ const MainInterface = ({
     [isOperator, t],
   );
 
-  const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
-    environment.logoWideUrl || defaultLogo,
-  );
   const {
     data: billingOverview,
     isLoading: billingOverviewLoading,
@@ -87,13 +75,6 @@ const MainInterface = ({
   const billingEnabled = useEnvStore(
     (state: EnvStoreState) => state.billingEnabled === 'true',
   );
-  const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
-
-  useEffect(() => {
-    setLogoSrc(logoWideUrl || environment.logoWideUrl || defaultLogo);
-  }, [logoWideUrl]);
-
-  const resolvedLogo = logoSrc || defaultLogo;
 
   return (
     <>
@@ -113,7 +94,6 @@ const MainInterface = ({
             userMenuOpen={desktopMenuOpen}
             onFooterClick={onDesktopFooterClick}
             onUserMenuClose={handleDesktopMenuClose}
-            logoSrc={resolvedLogo}
             activePath={pathname}
             showBillingCard={billingEnabled}
             billingOverview={billingOverview}
