@@ -1091,8 +1091,8 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
         for cue in audio_segments[1].content.subtitle_cues
     ] == [
         ("First sentence.", 0, 700),
-        ("Second sentence.", 1900, 2833),
-        ("Third sentence.", 2989, 5400),
+        ("Second sentence.", 900, 2100),
+        ("Third sentence.", 2300, 5400),
     ]
     assert len(audio_complete) == 1
     assert [
@@ -1100,8 +1100,8 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
         for cue in audio_complete[0].content.subtitle_cues
     ] == [
         ("First sentence.", 0, 700),
-        ("Second sentence.", 1900, 2833),
-        ("Third sentence.", 2989, 5400),
+        ("Second sentence.", 900, 2100),
+        ("Third sentence.", 2300, 5400),
     ]
     assert len(saved_records) == 1
     assert [
@@ -1243,11 +1243,11 @@ def test_streaming_tts_minimax_http_stream_updates_same_count_provider_cues(
         (cue.text, cue.start_ms, cue.end_ms)
         for cue in audio_segments[1].content.subtitle_cues
     ] == [
-        ("Sentence one.", 0, 251),
-        ("Sentence two.", 251, 847),
-        ("Sentence three.", 1946, 6364),
+        ("Sentence one.", 0, 913),
+        ("Sentence two.", 913, 2410),
+        ("Sentence three.", 2410, 6364),
     ]
-    assert audio_segments[1].content.subtitle_cues[0].end_ms == 251
+    assert audio_segments[1].content.subtitle_cues[0].end_ms > 251
     assert audio_segments[1].content.subtitle_cues[-1].end_ms == 6364
 
     assert len(audio_complete) == 1
@@ -1255,9 +1255,9 @@ def test_streaming_tts_minimax_http_stream_updates_same_count_provider_cues(
         (cue.text, cue.start_ms, cue.end_ms)
         for cue in audio_complete[0].content.subtitle_cues
     ] == [
-        ("Sentence one.", 0, 251),
-        ("Sentence two.", 251, 847),
-        ("Sentence three.", 1946, 6364),
+        ("Sentence one.", 0, 913),
+        ("Sentence two.", 913, 2410),
+        ("Sentence three.", 2410, 6364),
     ]
     assert len(saved_records) == 1
     assert [
