@@ -1,22 +1,29 @@
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
-export const CONTACT_PAGE_URL = 'https://ai-shifu.cn/contact.html';
 export const CONTACT_RAIL_I18N_KEY = 'component.navigation.contactUs';
 
 interface ContactSideRailProps {
   className?: string;
-  href?: string;
   label?: string;
 }
 
 export function ContactSideRail({
   className,
-  href = CONTACT_PAGE_URL,
   label,
 }: ContactSideRailProps) {
   const { t } = useTranslation();
+  const contactUsUrl = useEnvStore(
+    (state: EnvStoreState) => state.contactUsUrl,
+  );
   const resolvedLabel = label ?? t(CONTACT_RAIL_I18N_KEY);
+  const resolvedHref = contactUsUrl.trim();
+
+  if (!resolvedHref) {
+    return null;
+  }
 
   return (
     <div
@@ -27,7 +34,7 @@ export function ContactSideRail({
       data-testid='contact-side-rail'
     >
       <a
-        href={href}
+        href={resolvedHref}
         target='_blank'
         rel='noopener noreferrer'
         aria-label={resolvedLabel}
