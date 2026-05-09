@@ -109,7 +109,10 @@ export const ChatUi = ({
       {
         showHeader ? (
           <div
-            className={cn(styles.header, previewMode ? styles.previewHeader : '')}
+            className={cn(
+              styles.header,
+              previewMode ? styles.previewHeader : '',
+            )}
           >
             {previewMode ? (
               <PreviewHeaderBanner className={styles.previewHeaderBanner} />
