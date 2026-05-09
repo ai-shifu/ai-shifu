@@ -23,6 +23,17 @@ def _sse_line(payload):
     return f"data: {json.dumps(payload)}"
 
 
+def _assembly_result(parts, duration_ms):
+    return SimpleNamespace(
+        audio_data=b"".join(parts),
+        duration_ms=duration_ms,
+        included_segment_indices=tuple(range(len(parts))),
+        source_segment_count=len(parts),
+        segment_count=len(parts),
+        used_fallback=False,
+    )
+
+
 def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
@@ -200,8 +211,8 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
         ),
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 1000),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -328,8 +339,8 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
         ),
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 1000),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -457,8 +468,8 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 3000),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -603,8 +614,8 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 3000),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -736,8 +747,8 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 2200),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -878,8 +889,8 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 2000),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1031,8 +1042,8 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 5400),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1185,8 +1196,8 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
         _fake_export,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        "flaskr.service.tts.streaming_tts.assemble_audio_for_upload",
+        lambda parts, **_kwargs: _assembly_result(parts, 6364),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",

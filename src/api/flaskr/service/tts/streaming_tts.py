@@ -30,7 +30,7 @@ from flaskr.api.tts import (
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_best_effort,
+    assemble_audio_for_upload,
     export_audio_range_best_effort,
     get_audio_duration_ms,
 )
@@ -42,6 +42,7 @@ from flaskr.service.tts.audio_record_utils import (
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
+    select_subtitle_cues_for_segments,
 )
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
@@ -1049,6 +1050,8 @@ class StreamingTTSProcessor:
 
         all_segments.sort(key=lambda x: x[0])
         audio_data_list = [s[1] for s in all_segments]
+        audio_durations_ms = [int(s[2] or 0) for s in all_segments]
+        segment_indices = [int(s[0] or 0) for s in all_segments]
         effective_subtitle_cues = (
             normalize_subtitle_cues(subtitle_cues)
             if subtitle_cues
@@ -1061,8 +1064,32 @@ class StreamingTTSProcessor:
         )
 
         try:
-            final_audio = concat_audio_best_effort(audio_data_list)
-            final_duration_ms = get_audio_duration_ms(final_audio)
+            assembly_result = assemble_audio_for_upload(
+                audio_data_list,
+                segment_durations_ms=audio_durations_ms,
+                segment_indices=segment_indices,
+                output_format="mp3",
+            )
+            final_audio = assembly_result.audio_data
+            final_duration_ms = int(assembly_result.duration_ms or 0)
+            uploaded_subtitle_cues = select_subtitle_cues_for_segments(
+                effective_subtitle_cues,
+                assembly_result.included_segment_indices,
+                duration_ms=final_duration_ms,
+            )
+            uploaded_event_subtitle_cues = select_subtitle_cues_for_segments(
+                effective_event_subtitle_cues,
+                assembly_result.included_segment_indices,
+                duration_ms=final_duration_ms,
+            )
+            if assembly_result.used_fallback:
+                logger.warning(
+                    "TTS final audio fell back to first decodable segment. "
+                    "audio_bid=%s included_segments=%s source_segments=%s",
+                    self._audio_bid,
+                    assembly_result.included_segment_indices,
+                    assembly_result.source_segment_count,
+                )
             file_size = len(final_audio)
 
             from flaskr.service.tts.tts_handler import upload_audio_to_oss
@@ -1088,8 +1115,8 @@ class StreamingTTSProcessor:
                 voice_settings=self.voice_settings,
                 tts_model=self.tts_model or "",
                 text_length=cleaned_text_length,
-                segment_count=len(audio_data_list),
-                subtitle_cues=effective_subtitle_cues,
+                segment_count=assembly_result.segment_count or len(audio_data_list),
+                subtitle_cues=uploaded_subtitle_cues,
             )
             save_audio_record(audio_record, commit=commit)
 
@@ -1106,7 +1133,7 @@ class StreamingTTSProcessor:
                 raw_text=raw_text or "",
                 cleaned_text=cleaned_text or "",
                 total_word_count=self._word_count_total,
-                duration_ms=final_duration_ms or 0,
+                duration_ms=sum(audio_durations_ms) or final_duration_ms or 0,
                 segment_count=len(audio_data_list),
                 voice_settings=self.voice_settings,
                 audio_settings=self.audio_settings,
@@ -1125,9 +1152,7 @@ class StreamingTTSProcessor:
                     stream_element_number=self.stream_element_number,
                     stream_element_type=self.stream_element_type,
                     av_contract=self.av_contract,
-                    subtitle_cues=normalize_subtitle_cues(
-                        effective_event_subtitle_cues
-                    ),
+                    subtitle_cues=normalize_subtitle_cues(uploaded_event_subtitle_cues),
                 ),
             )
 
