@@ -4461,6 +4461,7 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app):
         assert [cue.text for cue in segment_patch.payload.audio.subtitle_cues] == [
             "Narration subtitle stream."
         ]
+        assert segment_patch.payload.audio.subtitle_cues[-1].end_ms == 180
         assert segment_patch.payload.audio.duration_ms == 180
         assert segment_patch.audio_segments == [
             {
@@ -4480,6 +4481,9 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app):
                 ],
             }
         ]
+        assert segment_patch.payload.audio.duration_ms == sum(
+            int(segment["duration_ms"] or 0) for segment in segment_patch.audio_segments
+        )
 
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):

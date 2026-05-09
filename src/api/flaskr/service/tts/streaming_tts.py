@@ -820,6 +820,188 @@ class StreamingTTSProcessor:
             )
         return cues
 
+    @staticmethod
+    def _subtitle_cue_text(cue: dict[str, Any]) -> str:
+        return str(cue.get("text", "") or "").strip()
+
+    def _scale_minimax_cues_to_live_request(
+        self,
+        subtitle_cues: list[dict[str, Any]],
+        *,
+        provider_offset_ms: int,
+        live_offset_ms: int,
+        live_request_end_ms: int,
+    ) -> list[dict[str, Any]]:
+        normalized_cues = normalize_subtitle_cues(subtitle_cues)
+        if not normalized_cues or live_request_end_ms <= 0:
+            return []
+
+        safe_provider_offset_ms = max(int(provider_offset_ms or 0), 0)
+        safe_live_offset_ms = max(int(live_offset_ms or 0), 0)
+        safe_live_request_end_ms = max(int(live_request_end_ms or 0), 0)
+        source_end_ms = max(
+            self._subtitle_cues_end_ms(normalized_cues) - safe_provider_offset_ms,
+            0,
+        )
+        if source_end_ms <= 0:
+            source_end_ms = safe_live_request_end_ms
+        scale = safe_live_request_end_ms / source_end_ms if source_end_ms > 0 else 1.0
+
+        live_cues: list[dict[str, Any]] = []
+        for cue in normalized_cues:
+            text = self._subtitle_cue_text(cue)
+            if not text:
+                continue
+            source_start_ms = max(
+                int(cue.get("start_ms", 0) or 0) - safe_provider_offset_ms,
+                0,
+            )
+            source_cue_end_ms = max(
+                int(cue.get("end_ms", source_start_ms) or source_start_ms)
+                - safe_provider_offset_ms,
+                source_start_ms,
+            )
+            start_ms = min(
+                int(round(source_start_ms * scale)),
+                safe_live_request_end_ms,
+            )
+            end_ms = min(
+                int(round(source_cue_end_ms * scale)),
+                safe_live_request_end_ms,
+            )
+            live_cues.append(
+                {
+                    "text": text,
+                    "start_ms": safe_live_offset_ms + max(start_ms, 0),
+                    "end_ms": safe_live_offset_ms + max(end_ms, start_ms),
+                    "segment_index": int(cue.get("segment_index", 0) or 0),
+                    "position": self.position,
+                }
+            )
+        return live_cues
+
+    def _merge_minimax_live_request_cues(
+        self,
+        previous_live_cues: list[dict[str, Any]],
+        incoming_live_cues: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        previous = normalize_subtitle_cues(previous_live_cues)
+        incoming = normalize_subtitle_cues(incoming_live_cues)
+        if not previous:
+            return incoming
+        if not incoming:
+            return previous
+
+        frozen_prefix = [dict(cue) for cue in previous[:-1]]
+        previous_tail = dict(previous[-1])
+        incoming_tail_index: int | None = None
+
+        if len(incoming) >= len(previous):
+            candidate_index = len(previous) - 1
+            candidate = incoming[candidate_index]
+            if self._subtitle_cue_text(candidate) == self._subtitle_cue_text(
+                previous_tail
+            ):
+                incoming_tail_index = candidate_index
+
+        if incoming_tail_index is None:
+            for index in range(max(len(frozen_prefix), 0), len(incoming)):
+                candidate = incoming[index]
+                if self._subtitle_cue_text(candidate) == self._subtitle_cue_text(
+                    previous_tail
+                ):
+                    incoming_tail_index = index
+                    break
+
+        if incoming_tail_index is None:
+            previous_end_ms = int(previous_tail.get("end_ms", 0) or 0)
+            remaining = [
+                dict(cue)
+                for cue in incoming
+                if int(cue.get("end_ms", 0) or 0) > previous_end_ms
+            ]
+            return [dict(cue) for cue in previous] + remaining
+
+        tail_candidate = incoming[incoming_tail_index]
+        previous_tail["end_ms"] = max(
+            int(previous_tail.get("end_ms", 0) or 0),
+            int(tail_candidate.get("end_ms", 0) or 0),
+        )
+        remaining = [dict(cue) for cue in incoming[incoming_tail_index + 1 :]]
+        return frozen_prefix + [previous_tail] + remaining
+
+    def _normalize_minimax_live_request_cues(
+        self,
+        live_cues: list[dict[str, Any]],
+        *,
+        live_offset_ms: int,
+        live_request_end_ms: int,
+    ) -> list[dict[str, Any]]:
+        normalized_cues = normalize_subtitle_cues(live_cues)
+        if not normalized_cues:
+            return []
+
+        timeline_start_ms = max(int(live_offset_ms or 0), 0)
+        timeline_end_ms = timeline_start_ms + max(int(live_request_end_ms or 0), 0)
+        if timeline_end_ms <= timeline_start_ms:
+            return []
+
+        bounded: list[dict[str, Any]] = []
+        last_end_ms = timeline_start_ms
+        for cue in normalized_cues:
+            text = self._subtitle_cue_text(cue)
+            if not text:
+                continue
+            start_ms = max(int(cue.get("start_ms", 0) or 0), timeline_start_ms)
+            end_ms = max(int(cue.get("end_ms", start_ms) or start_ms), start_ms)
+            start_ms = max(start_ms, last_end_ms)
+            if start_ms >= timeline_end_ms:
+                continue
+            end_ms = min(max(end_ms, start_ms + 1), timeline_end_ms)
+            bounded.append(
+                {
+                    "text": text,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "segment_index": int(cue.get("segment_index", 0) or 0),
+                    "position": self.position,
+                }
+            )
+            last_end_ms = end_ms
+
+        if bounded:
+            bounded[-1]["start_ms"] = min(
+                int(bounded[-1].get("start_ms", 0) or 0),
+                max(timeline_end_ms - 1, timeline_start_ms),
+            )
+            bounded[-1]["end_ms"] = timeline_end_ms
+        return normalize_subtitle_cues(bounded)
+
+    def _build_minimax_live_request_subtitle_cues(
+        self,
+        subtitle_cues: list[dict[str, Any]],
+        *,
+        provider_offset_ms: int,
+        live_offset_ms: int,
+        live_request_end_ms: int,
+        previous_live_cues: Optional[list[dict[str, Any]]] = None,
+    ) -> list[dict[str, Any]]:
+        incoming_live_cues = self._scale_minimax_cues_to_live_request(
+            subtitle_cues,
+            provider_offset_ms=provider_offset_ms,
+            live_offset_ms=live_offset_ms,
+            live_request_end_ms=live_request_end_ms,
+        )
+        merged_live_cues = self._merge_minimax_live_request_cues(
+            previous_live_cues or [],
+            incoming_live_cues,
+        )
+        return self._normalize_minimax_live_request_cues(
+            merged_live_cues,
+            live_offset_ms=live_offset_ms,
+            live_request_end_ms=live_request_end_ms,
+        )
+
     def _store_stream_audio_segment(
         self,
         *,
@@ -974,18 +1156,21 @@ class StreamingTTSProcessor:
         live_subtitle_cues: list[dict[str, Any]] = []
         final_subtitle_cues: list[dict[str, Any]] = []
         subtitle_offset_ms = 0
+        live_offset_ms = 0
 
         from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
 
         for request_index, request_text in enumerate(request_texts):
             request_started_at = time.monotonic()
             audio_chunks: list[bytes] = []
-            emitted_ms = 0
+            source_emitted_ms = 0
+            live_request_emitted_ms = 0
             request_duration_ms = 0
             request_word_count = 0
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
             request_final_subtitle_cues: list[dict[str, Any]] = []
+            request_live_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
                 text=request_text,
@@ -1036,7 +1221,7 @@ class StreamingTTSProcessor:
                     ):
                         request_final_subtitle_cues = progressive_request_subtitle_cues
                         target_end_ms = max(
-                            request_subtitle_coverage_end_ms, emitted_ms
+                            request_subtitle_coverage_end_ms, source_emitted_ms
                         )
                     else:
                         if progressive_request_subtitle_cues:
@@ -1049,11 +1234,18 @@ class StreamingTTSProcessor:
                         request_final_subtitle_cues = (
                             self._build_minimax_fallback_subtitle_cues(
                                 request_text,
-                                duration_ms=int(request_duration_ms or emitted_ms or 0),
+                                duration_ms=int(
+                                    request_duration_ms
+                                    or source_emitted_ms
+                                    or live_request_emitted_ms
+                                    or 0
+                                ),
                                 offset_ms=subtitle_offset_ms,
                             )
                         )
-                        target_end_ms = max(int(request_duration_ms or 0), emitted_ms)
+                        target_end_ms = max(
+                            int(request_duration_ms or 0), source_emitted_ms
+                        )
                     event_request_subtitle_cues = request_final_subtitle_cues
                 else:
                     if not progressive_request_subtitle_cues:
@@ -1061,14 +1253,14 @@ class StreamingTTSProcessor:
                     target_end_ms = request_subtitle_coverage_end_ms
                     event_request_subtitle_cues = progressive_request_subtitle_cues
 
-                if target_end_ms <= emitted_ms:
+                if target_end_ms <= source_emitted_ms:
                     continue
 
                 audio_piece = b""
                 piece_duration_ms = 0
                 audio_piece, piece_duration_ms = export_audio_range_best_effort(
                     accumulated_audio,
-                    start_ms=emitted_ms,
+                    start_ms=source_emitted_ms,
                     end_ms=target_end_ms,
                     input_format=request_format or "mp3",
                     output_format=self.audio_settings.format or "mp3",
@@ -1083,7 +1275,7 @@ class StreamingTTSProcessor:
                 if (
                     not audio_piece
                     and chunk.is_final
-                    and emitted_ms == 0
+                    and source_emitted_ms == 0
                     and target_end_ms >= int(request_duration_ms or 0)
                 ):
                     audio_piece = accumulated_audio
@@ -1095,9 +1287,19 @@ class StreamingTTSProcessor:
                 if not audio_piece or piece_duration_ms <= 0:
                     continue
 
-                emitted_ms += int(piece_duration_ms or 0)
+                source_emitted_ms = max(source_emitted_ms, int(target_end_ms or 0))
+                live_request_emitted_ms += int(piece_duration_ms or 0)
+                request_live_subtitle_cues = (
+                    self._build_minimax_live_request_subtitle_cues(
+                        event_request_subtitle_cues,
+                        provider_offset_ms=subtitle_offset_ms,
+                        live_offset_ms=live_offset_ms,
+                        live_request_end_ms=live_request_emitted_ms,
+                        previous_live_cues=request_live_subtitle_cues,
+                    )
+                )
                 progressive_subtitle_cues = normalize_subtitle_cues(
-                    list(live_subtitle_cues or []) + event_request_subtitle_cues
+                    list(live_subtitle_cues or []) + request_live_subtitle_cues
                 )
                 _segment_index, event = self._store_stream_audio_segment(
                     audio_data=audio_piece,
@@ -1108,7 +1310,7 @@ class StreamingTTSProcessor:
                 yield event
 
             if request_duration_ms <= 0:
-                request_duration_ms = emitted_ms
+                request_duration_ms = source_emitted_ms or live_request_emitted_ms
             if request_word_count:
                 self._word_count_total += request_word_count
             if not request_final_subtitle_cues:
@@ -1132,21 +1334,36 @@ class StreamingTTSProcessor:
                     request_final_subtitle_cues = (
                         self._build_minimax_fallback_subtitle_cues(
                             request_text,
-                            duration_ms=int(request_duration_ms or emitted_ms or 0),
+                            duration_ms=int(
+                                request_duration_ms
+                                or source_emitted_ms
+                                or live_request_emitted_ms
+                                or 0
+                            ),
                             offset_ms=subtitle_offset_ms,
                         )
                     )
             final_subtitle_cues.extend(request_final_subtitle_cues)
+            if not request_live_subtitle_cues and live_request_emitted_ms > 0:
+                request_live_subtitle_cues = (
+                    self._build_minimax_live_request_subtitle_cues(
+                        request_final_subtitle_cues,
+                        provider_offset_ms=subtitle_offset_ms,
+                        live_offset_ms=live_offset_ms,
+                        live_request_end_ms=live_request_emitted_ms,
+                    )
+                )
             live_subtitle_cues = normalize_subtitle_cues(
-                list(live_subtitle_cues or []) + request_final_subtitle_cues
+                list(live_subtitle_cues or []) + request_live_subtitle_cues
             )
+            live_offset_ms += int(live_request_emitted_ms or 0)
             request_subtitle_end_ms = self._subtitle_cues_end_ms(
                 request_final_subtitle_cues
             )
             if request_subtitle_end_ms > subtitle_offset_ms:
                 subtitle_offset_ms = request_subtitle_end_ms
             else:
-                subtitle_offset_ms += int(request_duration_ms or emitted_ms or 0)
+                subtitle_offset_ms += int(request_duration_ms or source_emitted_ms or 0)
 
             record_tts_segment_usage(
                 app=self.app,
