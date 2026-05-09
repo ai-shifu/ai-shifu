@@ -323,7 +323,8 @@ export default function ChatLayout({
             courseId,
             previewMode: isPreviewMode,
             isCourseNotFound,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
             errorCode: (error as { code?: number | string })?.code ?? '',
             errorStatus: (error as { status?: number | string })?.status ?? '',
           });

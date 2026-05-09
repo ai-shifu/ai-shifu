@@ -33,9 +33,7 @@ type DebugConsoleOverlayProps = {
   enabled: boolean;
 };
 
-export const DebugConsoleOverlay = ({
-  enabled,
-}: DebugConsoleOverlayProps) => {
+export const DebugConsoleOverlay = ({ enabled }: DebugConsoleOverlayProps) => {
   const [entries, setEntries] = React.useState<DebugConsoleEntry[]>([]);
   const [expanded, setExpanded] = React.useState(true);
 

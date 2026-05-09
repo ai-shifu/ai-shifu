@@ -1,11 +1,7 @@
 import { useUserStore } from '@/store';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import {
-  debugError,
-  debugInfo,
-  debugWarn,
-} from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -69,7 +65,9 @@ const maskTokenForDebug = (token?: string) => {
 
 const shouldLogRequestDebug = (url?: string) => {
   const normalizedUrl = String(url || '');
-  return REQUEST_DEBUG_PATTERNS.some(pattern => normalizedUrl.includes(pattern));
+  return REQUEST_DEBUG_PATTERNS.some(pattern =>
+    normalizedUrl.includes(pattern),
+  );
 };
 
 const buildRequestDebugPayload = (
@@ -143,7 +141,9 @@ const handleAuthRecovery = async () => {
 
   const { logout } = useUserStore.getState();
   if (!logout) {
-    debugWarn('[auth-chain] recovery skipped because logout handler is missing');
+    debugWarn(
+      '[auth-chain] recovery skipped because logout handler is missing',
+    );
     return;
   }
 

@@ -4,11 +4,7 @@ import { tokenTool } from '@/c-service/storeUtil';
 import { genUuid } from '@/c-utils/common';
 import { subscribeWithSelector } from 'zustand/middleware';
 
-import {
-  debugError,
-  debugInfo,
-  debugWarn,
-} from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
@@ -158,10 +154,13 @@ export const useUserStore = create<
         // Keep temp_id only for guest-session auth recovery flows.
         if (reload || !tokenDataBeforeLogout.faked) {
           rotateGuestTempId();
-          debugInfo('[auth-chain] rotated guest temp id before logout recovery', {
-            reload,
-            wasGuest: tokenDataBeforeLogout.faked,
-          });
+          debugInfo(
+            '[auth-chain] rotated guest temp id before logout recovery',
+            {
+              reload,
+              wasGuest: tokenDataBeforeLogout.faked,
+            },
+          );
         }
         clearGoogleOAuthSession();
         await registerAsGuest();
@@ -248,7 +247,9 @@ export const useUserStore = create<
           // (common for OAuth flows). Respect the newer token and skip overwriting
           // state with stale guest data.
           if (tokenChangedDuringFetch) {
-            debugInfo('[auth-chain] initUser aborted because token changed during user info fetch');
+            debugInfo(
+              '[auth-chain] initUser aborted because token changed during user info fetch',
+            );
             return;
           }
 
@@ -284,7 +285,9 @@ export const useUserStore = create<
           });
 
           if (tokenChangedDuringFetch) {
-            debugInfo('[auth-chain] initUser recovery skipped because token changed');
+            debugInfo(
+              '[auth-chain] initUser recovery skipped because token changed',
+            );
             return;
           }
 
