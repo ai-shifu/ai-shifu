@@ -447,8 +447,10 @@ export class Request {
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
           : 'Network request failed';
-        const httpError = new ErrorWithCode(errorMessage, response.status) as
-          ErrorWithCode & { status?: number };
+        const httpError = new ErrorWithCode(
+          errorMessage,
+          response.status,
+        ) as ErrorWithCode & { status?: number };
         httpError.status = response.status;
         throw httpError;
       }
