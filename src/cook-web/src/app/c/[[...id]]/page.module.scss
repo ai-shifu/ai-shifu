@@ -31,4 +31,8 @@
       max-height: var(--mobile-chat-header-height);
     }
   }
+
+  &.previewMode {
+    --mobile-chat-header-height: 84px;
+  }
 }

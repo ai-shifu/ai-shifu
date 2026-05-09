@@ -743,6 +743,7 @@ export default function ChatPage() {
       data-testid='course-chat-page'
       className={clsx(
         styles.newChatPage,
+        previewMode ? styles.previewMode : '',
         isListenMode ? styles.listenMode : '',
         mobileStyle ? 'flex-col' : 'h-screen flex-row',
         'flex',
