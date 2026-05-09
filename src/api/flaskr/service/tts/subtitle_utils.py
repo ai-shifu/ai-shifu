@@ -76,3 +76,42 @@ def append_subtitle_cue(
         }
     )
     return subtitle_cues
+
+
+def select_subtitle_cues_for_segments(
+    subtitle_cues: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    segment_indices: tuple[int, ...] | list[int],
+    *,
+    duration_ms: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return cues for uploaded audio segments, rebased to the selected audio."""
+
+    selected_indices = {int(index or 0) for index in segment_indices}
+    selected_cues = [
+        cue
+        for cue in normalize_subtitle_cues(subtitle_cues)
+        if int(cue.get("segment_index", 0) or 0) in selected_indices
+    ]
+    if not selected_cues:
+        return []
+
+    base_start_ms = min(int(cue.get("start_ms", 0) or 0) for cue in selected_cues)
+    max_duration_ms = int(duration_ms) if duration_ms is not None else None
+    rebased_cues: list[dict[str, Any]] = []
+    for cue in selected_cues:
+        start_ms = max(int(cue.get("start_ms", 0) or 0) - base_start_ms, 0)
+        end_ms = max(
+            int(cue.get("end_ms", start_ms) or start_ms) - base_start_ms, start_ms
+        )
+        if max_duration_ms is not None:
+            if start_ms >= max_duration_ms:
+                continue
+            end_ms = min(end_ms, max_duration_ms)
+        rebased_cues.append(
+            {
+                **cue,
+                "start_ms": start_ms,
+                "end_ms": end_ms,
+            }
+        )
+    return normalize_subtitle_cues(rebased_cues)
