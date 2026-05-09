@@ -39,6 +39,14 @@ class _FakeAudioSegment:
         duration = int(segment_io.getvalue().decode("utf-8"))
         return _FakeSegment(duration)
 
+    @staticmethod
+    def from_file(segment_io: io.BytesIO, format="mp3"):
+        _ = format
+        payload = segment_io.getvalue().decode("utf-8")
+        if payload.startswith("duration="):
+            payload = payload.removeprefix("duration=")
+        return _FakeSegment(int(payload))
+
 
 class _PartiallyBrokenAudioSegment:
     @staticmethod
@@ -47,6 +55,24 @@ class _PartiallyBrokenAudioSegment:
         if payload == b"BAD":
             raise ValueError("Decoding failed")
         return _FakeSegment(int(payload.decode("utf-8")))
+
+    @staticmethod
+    def from_file(segment_io: io.BytesIO, format="mp3"):
+        _ = format
+        payload = segment_io.getvalue()
+        if payload == b"BAD":
+            raise ValueError("Decoding failed")
+        decoded = payload.decode("utf-8")
+        if decoded.startswith("duration="):
+            decoded = decoded.removeprefix("duration=")
+        return _FakeSegment(int(decoded))
+
+
+class _BrokenAudioSegment:
+    @staticmethod
+    def from_file(segment_io: io.BytesIO, format="mp3"):
+        _ = (segment_io, format)
+        raise ValueError("Decoding failed")
 
 
 def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
@@ -81,7 +107,7 @@ def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
         audio_utils.concat_audio_mp3([b"100", b"BAD", b"80"])
 
 
-def test_concat_audio_best_effort_falls_back_to_byte_join_on_partial_failure(
+def test_concat_audio_best_effort_uses_first_decodable_segment_on_partial_failure(
     monkeypatch,
 ):
     monkeypatch.setattr(
@@ -91,4 +117,52 @@ def test_concat_audio_best_effort_falls_back_to_byte_join_on_partial_failure(
 
     output = audio_utils.concat_audio_best_effort([b"100", b"BAD", b"80"])
 
-    assert output == b"100BAD80"
+    assert output == b"100"
+
+
+def test_assemble_audio_for_upload_validates_concatenated_audio(monkeypatch):
+    monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    result = audio_utils.assemble_audio_for_upload([b"100", b"80"])
+
+    assert result.audio_data == b"duration=180"
+    assert result.duration_ms == 180
+    assert result.included_segment_indices == (0, 1)
+    assert result.used_fallback is False
+
+
+def test_assemble_audio_for_upload_uses_first_decodable_segment(monkeypatch):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    result = audio_utils.assemble_audio_for_upload(
+        [b"100", b"BAD", b"80"],
+        segment_durations_ms=[101, 0, 80],
+    )
+
+    assert result.audio_data == b"100"
+    assert result.duration_ms == 101
+    assert result.included_segment_indices == (0,)
+    assert result.used_fallback is True
+
+
+def test_assemble_audio_for_upload_raises_when_no_segment_decodes(monkeypatch):
+    monkeypatch.setattr(audio_utils, "AudioSegment", _BrokenAudioSegment, raising=False)
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    with pytest.raises(ValueError, match="No decodable audio segments"):
+        audio_utils.assemble_audio_for_upload([b"BAD"])
+
+
+def test_get_audio_duration_ms_downgrades_decode_failure_log(monkeypatch, caplog):
+    monkeypatch.setattr(audio_utils, "AudioSegment", _BrokenAudioSegment, raising=False)
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    with caplog.at_level("WARNING"):
+        duration_ms = audio_utils.get_audio_duration_ms(b"not-audio")
+
+    assert duration_ms == 0
+    assert not [record for record in caplog.records if record.levelname == "ERROR"]
