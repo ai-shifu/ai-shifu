@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ShifuPage from './page';
-import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react');
@@ -31,23 +30,6 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams('lessonid=lesson-42'),
 }));
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
-const mockEnvState = {
-  contactUsUrl: 'https://ai-shifu.cn/contact.html',
-};
-
-jest.mock('@/c-store', () => ({
-  __esModule: true,
-  useEnvStore: (
-    selector: ((state: typeof mockEnvState) => unknown) | undefined,
-  ) => selector?.(mockEnvState) ?? mockEnvState.contactUsUrl,
-}));
-
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => null,
@@ -64,11 +46,7 @@ jest.mock('@/c-utils/urlUtils', () => ({
 }));
 
 describe('ShifuPage', () => {
-  beforeEach(() => {
-    mockEnvState.contactUsUrl = 'https://ai-shifu.cn/contact.html';
-  });
-
-  test('renders the shared contact side rail and passes shifu params through', () => {
+  test('passes shifu params through without rendering the shared contact side rail', () => {
     render(
       <ShifuPage
         params={{ id: 'shifu-1' } as unknown as Promise<{ id: string }>}
@@ -78,30 +56,6 @@ describe('ShifuPage', () => {
     expect(screen.getByTestId('mock-shifu-root')).toHaveTextContent(
       'shifu-1:lesson-42',
     );
-
-    const contactLink = screen.getByRole('link', {
-      name: CONTACT_RAIL_I18N_KEY,
-    });
-
-    expect(contactLink).toHaveAttribute(
-      'href',
-      'https://ai-shifu.cn/contact.html',
-    );
-    expect(contactLink).toHaveAttribute('target', '_blank');
-    expect(contactLink).toHaveAttribute('rel', 'noopener noreferrer');
-  });
-
-  test('does not render the shared contact side rail when contact url is empty', () => {
-    mockEnvState.contactUsUrl = '';
-
-    render(
-      <ShifuPage
-        params={{ id: 'shifu-1' } as unknown as Promise<{ id: string }>}
-      />,
-    );
-
-    expect(
-      screen.queryByRole('link', { name: CONTACT_RAIL_I18N_KEY }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 });
