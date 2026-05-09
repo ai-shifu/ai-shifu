@@ -100,10 +100,7 @@ def test_shifu_detail_urls_use_forwarded_https_origin(monkeypatch):
         detail = _build_detail_for_base_url(monkeypatch, _get_request_base_url())
 
     assert detail.url == "https://forwarded.example.com/c/course-1"
-    assert (
-        detail.preview_url
-        == "https://forwarded.example.com/c/course-1?preview=true"
-    )
+    assert detail.preview_url == "https://forwarded.example.com/c/course-1?preview=true"
 
 
 def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
