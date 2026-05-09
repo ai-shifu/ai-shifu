@@ -14,11 +14,11 @@ export const PreviewHeaderBanner = ({
   return (
     <div
       className={cn(
-        'w-full bg-primary/10 text-[var(--primary,#0F63EE)]',
+        'w-full bg-sky-100 text-sky-800',
         className,
       )}
     >
-      <div className='flex min-h-10 w-full items-center px-4 py-2 text-[14px] font-medium leading-5 md:text-[15px]'>
+      <div className='flex min-h-10 w-full items-center justify-center px-4 py-2 text-center text-[14px] font-medium leading-5 md:text-[15px]'>
         {t('module.preview.previewModeBanner')}
       </div>
     </div>
