@@ -277,6 +277,8 @@ export const useUserStore = create<
 
           debugWarn('[auth-chain] initUser failed', {
             errorMessage: error?.message || String(err),
+            businessCode: error?.code ?? '',
+            httpStatus: error?.status ?? '',
             errorCode: error?.code ?? '',
             errorStatus: error?.status ?? '',
             tokenChangedDuringFetch,
@@ -298,6 +300,8 @@ export const useUserStore = create<
             error?.code === 1001
           ) {
             debugWarn('[auth-chain] initUser entering auth recovery branch', {
+              businessCode: error?.code ?? '',
+              httpStatus: error?.status ?? '',
               errorCode: error?.code ?? '',
               errorStatus: error?.status ?? '',
             });

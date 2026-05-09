@@ -132,11 +132,13 @@ export const DebugConsoleOverlay = ({ enabled }: DebugConsoleOverlayProps) => {
                       <span>{entry.level}</span>
                       <span>{entry.timestamp}</span>
                     </div>
-                    <pre
-                      className={`whitespace-pre-wrap break-words ${DEBUG_LEVEL_STYLES[entry.level]}`}
-                    >
-                      {entry.message}
-                    </pre>
+                    <ScrollArea className='w-full whitespace-nowrap'>
+                      <pre
+                        className={`inline-block min-w-full whitespace-pre ${DEBUG_LEVEL_STYLES[entry.level]}`}
+                      >
+                        {entry.message}
+                      </pre>
+                    </ScrollArea>
                   </div>
                 ))
               ) : (
