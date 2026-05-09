@@ -8,6 +8,7 @@ import { parseUrlParams } from '@/c-utils/urlUtils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useTranslation } from 'react-i18next';
 import type { LearningMode } from './Components/learningModeOptions';
+import { debugError, debugInfo } from '@/c-utils/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams } from 'next/navigation';
@@ -271,8 +272,23 @@ export default function ChatLayout({
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
+        debugInfo('[course-info] request start', {
+          courseId,
+          previewMode: isPreviewMode,
+          path:
+            typeof window !== 'undefined'
+              ? `${window.location.pathname}${window.location.search}`
+              : '',
+        });
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
+          debugInfo('[course-info] request success', {
+            courseId,
+            previewMode: isPreviewMode,
+            courseName: resp.course_name,
+            coursePrice: resp.course_price,
+            ttsEnabled: resp.course_tts_enabled,
+          });
           setShowVip(resp.course_price > 0);
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
@@ -303,6 +319,15 @@ export default function ChatLayout({
           const isCourseNotFound = Boolean(
             (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
           );
+          debugError('[course-info] request failed', {
+            courseId,
+            previewMode: isPreviewMode,
+            isCourseNotFound,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorCode: (error as { code?: number | string })?.code ?? '',
+            errorStatus: (error as { status?: number | string })?.status ?? '',
+          });
           if (isCourseNotFound) {
             tracking('learner_course_404_redirect', {
               shifu_bid: courseId,

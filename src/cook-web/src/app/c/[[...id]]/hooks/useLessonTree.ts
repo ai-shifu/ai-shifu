@@ -9,6 +9,7 @@ import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 
 export const checkChapterCanLearning = ({ status_value }) => {
   const canLearn =
@@ -137,53 +138,82 @@ export const useLessonTree = () => {
 
   const loadTreeInner = useCallback(async () => {
     setSelectedLessonId(null);
-    const resp = await getLessonTree(
-      useEnvStore.getState().courseId,
+    const courseId = useEnvStore.getState().courseId;
+    debugInfo('[lesson-tree] request start', {
+      courseId,
       previewMode,
-    );
+      path:
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '',
+    });
 
-    const treeData = resp;
-    if (!treeData) {
-      return null;
-    }
+    try {
+      const resp = await getLessonTree(courseId, previewMode);
 
-    // new api without course_id
-    // if (treeData.course_id !== useEnvStore.getState().courseId) {
-    //   await updateCourseId(treeData.course_id);
-    // }
+      const treeData = resp;
+      if (!treeData) {
+        debugWarn('[lesson-tree] empty response', {
+          courseId,
+          previewMode,
+        });
+        return null;
+      }
 
-    const catalogs = (treeData.outline_items || []).map(l => {
-      const lessons = l.children.map(c => {
+      // new api without course_id
+      // if (treeData.course_id !== useEnvStore.getState().courseId) {
+      //   await updateCourseId(treeData.course_id);
+      // }
+
+      const catalogs = (treeData.outline_items || []).map(l => {
+        const lessons = l.children.map(c => {
+          return {
+            id: c.bid,
+            name: c.title,
+            status: c.status,
+            type: c.type,
+            is_paid: c.is_paid,
+            status_value: c.status, // TODO: DELETE status_value
+            canLearning: checkChapterCanLearning({ status_value: c.status }),
+          };
+        });
+
         return {
-          id: c.bid,
-          name: c.title,
-          status: c.status,
-          type: c.type,
-          is_paid: c.is_paid,
-          status_value: c.status, // TODO: DELETE status_value
-          canLearning: checkChapterCanLearning({ status_value: c.status }),
+          id: l.bid,
+          name: l.title,
+          status: l.status,
+          is_paid: l.is_paid,
+          status_value: l.status,
+          type: l.type,
+          lessons,
+          collapse: false,
         };
       });
 
-      return {
-        id: l.bid,
-        name: l.title,
-        status: l.status,
-        is_paid: l.is_paid,
-        status_value: l.status,
-        type: l.type,
-        lessons,
-        collapse: false,
+      const newTree = {
+        catalogCount: catalogs.length,
+        catalogs,
+        bannerInfo: treeData.banner_info,
       };
-    });
 
-    const newTree = {
-      catalogCount: catalogs.length,
-      catalogs,
-      bannerInfo: treeData.banner_info,
-    };
+      debugInfo('[lesson-tree] request success', {
+        courseId,
+        previewMode,
+        outlineItemCount: treeData.outline_items?.length || 0,
+        catalogCount: catalogs.length,
+      });
 
-    return newTree;
+      return newTree;
+    } catch (error) {
+      debugError('[lesson-tree] request failed', {
+        courseId,
+        previewMode,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: number | string })?.code ?? '',
+        errorStatus: (error as { status?: number | string })?.status ?? '',
+      });
+      throw error;
+    }
   }, [previewMode, updateCourseId]);
 
   const setSelectedState = useCallback(

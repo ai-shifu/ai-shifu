@@ -55,6 +55,7 @@ import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
+import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -315,6 +316,7 @@ export default function ChatPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const urlLessonId = getLessonIdFromQuery(searchParams);
+  const debugEnabled = searchParams?.get('debug') === '1';
   if (params?.id?.[0]) {
     courseId = params.id[0];
   }
@@ -856,6 +858,7 @@ export default function ChatPage() {
           open={feedbackModalOpen}
           onClose={onFeedbackModalClose}
         />
+        <DebugConsoleOverlay enabled={debugEnabled} />
       </AppContext.Provider>
     </div>
   );
