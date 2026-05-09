@@ -68,6 +68,7 @@ from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
+from flaskr.common.public_urls import resolve_public_origin
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -259,11 +260,7 @@ def _get_request_base_url() -> str:
     """
     Determine the base URL for frontend links.
     """
-    server_name = current_app.config.get("SERVER_NAME")
-    if server_name:
-        scheme = "https" if request.is_secure else "http"
-        return f"{scheme}://{server_name}".rstrip("/")
-    return request.url_root.rstrip("/")
+    return resolve_public_origin()
 
 
 def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
