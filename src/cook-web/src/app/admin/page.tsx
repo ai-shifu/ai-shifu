@@ -69,6 +69,8 @@ const ShifuCard = ({
     <div className='relative w-full h-full group'>
       <Link
         href={`/shifu/${id}`}
+        target='_blank'
+        rel='noopener noreferrer'
         className='block w-full h-full'
       >
         <Card className={CARD_CONTAINER_CLASS}>
