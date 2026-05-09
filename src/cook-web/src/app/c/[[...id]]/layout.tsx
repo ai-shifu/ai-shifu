@@ -325,8 +325,8 @@ export default function ChatLayout({
             isCourseNotFound,
             errorMessage:
               error instanceof Error ? error.message : String(error),
-            errorCode: (error as { code?: number | string })?.code ?? '',
-            errorStatus: (error as { status?: number | string })?.status ?? '',
+            businessCode: (error as { code?: number | string })?.code ?? '',
+            httpStatus: (error as { status?: number | string })?.status ?? '',
           });
           if (isCourseNotFound) {
             tracking('learner_course_404_redirect', {

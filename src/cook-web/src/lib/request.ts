@@ -33,11 +33,13 @@ type RequestDebugMeta = {
   url?: string;
   method?: string;
   requestToken?: string;
+  httpStatus?: number;
 };
 
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
+  status?: number;
   constructor(message: string, code: number) {
     super(message);
     this.code = code;
@@ -85,8 +87,8 @@ const buildRequestDebugPayload = (
     method: meta.method || '',
     errorName: typedError?.name || 'Error',
     errorMessage: typedError?.message || '',
-    errorCode: typedError?.code ?? '',
-    errorStatus: typedError?.status ?? '',
+    businessCode: typedError?.code ?? '',
+    httpStatus: typedError?.status ?? meta.httpStatus ?? '',
     requestToken: maskTokenForDebug(meta.requestToken),
     currentToken: maskTokenForDebug(currentToken),
     tokenChanged:
@@ -208,7 +210,11 @@ export const handleBusinessCode = async (
   const error = new ErrorWithCode(
     response.message || i18n.t('common.core.unknownError'),
     response.code || -1,
-  );
+  ) as ErrorWithCode & { status?: number };
+
+  if (typeof meta.httpStatus === 'number') {
+    error.status = meta.httpStatus;
+  }
 
   const isAuthError = AUTH_ERROR_CODES.has(response.code);
   const currentToken = useUserStore.getState().getToken?.();
@@ -218,6 +224,7 @@ export const handleBusinessCode = async (
   if (response.code !== 0) {
     if (isAuthError) {
       debugWarn('[auth-chain] auth business error received', {
+        httpStatus: meta.httpStatus ?? '',
         responseCode: response.code,
         responseMessage: response.message || '',
         requestToken: maskTokenForDebug(requestToken),
@@ -232,6 +239,7 @@ export const handleBusinessCode = async (
       debugWarn('[request-debug] business error', {
         url: meta.url || '',
         method: meta.method || '',
+        httpStatus: meta.httpStatus ?? '',
         responseCode: response.code,
         responseMessage: response.message || '',
         isAuthError,
@@ -281,6 +289,7 @@ export const handleBusinessCode = async (
       );
       const redirectUrl = `/login?redirect=${currentPath}`;
       debugWarn('[auth-chain] login redirect start', {
+        httpStatus: meta.httpStatus ?? '',
         redirectUrl,
         responseCode: response.code,
         responseMessage: response.message || '',
@@ -438,21 +447,27 @@ export class Request {
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
           : 'Network request failed';
-        throw new ErrorWithCode(errorMessage, response.status);
-      }
-
-      if (shouldLogRequestDebug(fullUrl)) {
-        debugInfo('[request-debug] response ok', {
-          url: fullUrl,
-          method: requestMethod,
-          status: response.status,
-        });
+        const httpError = new ErrorWithCode(
+          errorMessage,
+          response.status,
+        ) as ErrorWithCode & { status?: number };
+        httpError.status = response.status;
+        throw httpError;
       }
 
       const res = await response.json();
 
       // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
+        if (shouldLogRequestDebug(fullUrl)) {
+          debugInfo('[request-debug] response envelope', {
+            url: fullUrl,
+            method: requestMethod,
+            httpStatus: response.status,
+            responseCode: res.code,
+            responseMessage: res.message || '',
+          });
+        }
         const isAuthError = AUTH_ERROR_CODES.has(res.code);
         // If it's login page, we only skip non-auth errors to allow UI to handle business errors
         // But Auth errors (1001, 1004, 1005) MUST be handled by global handler to clear token
@@ -463,6 +478,16 @@ export class Request {
           url: fullUrl,
           method: requestMethod,
           requestToken: tokenUsed,
+          httpStatus: response.status,
+        });
+      }
+
+      if (shouldLogRequestDebug(fullUrl)) {
+        debugInfo('[request-debug] response ok', {
+          url: fullUrl,
+          method: requestMethod,
+          httpStatus: response.status,
+          responseCode: '',
         });
       }
 
@@ -475,6 +500,8 @@ export class Request {
             url: fullUrl,
             method: requestMethod,
             requestToken: tokenUsed,
+            httpStatus:
+              typeof error?.status === 'number' ? error.status : undefined,
           }),
         );
       }
