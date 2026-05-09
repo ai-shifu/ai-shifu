@@ -12,6 +12,10 @@
   overflow: hidden;
   position: relative;
 
+  &.listen-reveal-wrapper--preview {
+    padding-top: 136px !important;
+  }
+
   &.mobile {
     padding: 0 !important;
     height: 100%;

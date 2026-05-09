@@ -1330,6 +1330,7 @@ const ListenModeSlideRenderer = ({
     <div
       className={cn(
         'listen-reveal-wrapper',
+        previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}

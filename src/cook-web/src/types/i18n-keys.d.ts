@@ -1708,6 +1708,7 @@ export type I18nKey =
   | 'module.permission.user.login'
   | 'module.preview.llmError'
   | 'module.preview.previewAll'
+  | 'module.preview.previewModeBanner'
   | 'module.profiles.add'
   | 'module.profiles.addNewVariable'
   | 'module.profiles.cancel'
