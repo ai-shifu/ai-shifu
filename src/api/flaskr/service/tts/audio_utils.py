@@ -31,6 +31,40 @@ def is_audio_processing_available() -> bool:
     return PYDUB_AVAILABLE
 
 
+def _estimated_duration_ms(audio_data: bytes) -> int:
+    # Rough estimate based on bitrate (128kbps for MP3):
+    # 128kbps = 16KB/s, so duration = size_bytes / 16000 * 1000.
+    return int(len(audio_data or b"") / 16000 * 1000)
+
+
+def _load_audio_segment(audio_data: bytes, *, input_format: str = "mp3"):
+    audio_io = io.BytesIO(audio_data)
+    if input_format == "mp3" and hasattr(AudioSegment, "from_mp3"):
+        return AudioSegment.from_mp3(audio_io)
+    return AudioSegment.from_file(audio_io, format=input_format)
+
+
+def try_get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> Optional[int]:
+    """Return decoded audio duration, or None when the bytes are not decodable."""
+    if not audio_data:
+        return 0
+    if not PYDUB_AVAILABLE:
+        return _estimated_duration_ms(audio_data)
+
+    try:
+        audio = _load_audio_segment(audio_data, input_format=format)
+        return len(audio)
+    except Exception as exc:
+        logger.debug(
+            "Audio duration decode failed: format=%s bytes=%s error=%s",
+            format,
+            len(audio_data or b""),
+            exc,
+            exc_info=True,
+        )
+        return None
+
+
 def concat_audio_mp3(
     segments: List[bytes],
     output_format: str = "mp3",
@@ -73,8 +107,7 @@ def concat_audio_mp3(
     for i, segment_data in enumerate(segments):
         try:
             # Load audio segment from bytes
-            segment_io = io.BytesIO(segment_data)
-            segment = AudioSegment.from_mp3(segment_io)
+            segment = _load_audio_segment(segment_data, input_format="mp3")
 
             if combined is None:
                 combined = segment
@@ -117,28 +150,105 @@ def concat_audio_mp3(
     return output_data
 
 
+def _concat_decodable_audio_segments(
+    segments: Sequence[bytes],
+    *,
+    input_format: str = "mp3",
+    output_format: str = "mp3",
+) -> bytes:
+    if not is_audio_processing_available():
+        return b""
+
+    combined = None
+    skipped_segments: list[int] = []
+
+    for index, segment_data in enumerate(segments):
+        if not segment_data:
+            skipped_segments.append(index)
+            continue
+        try:
+            segment = _load_audio_segment(segment_data, input_format=input_format)
+        except Exception as exc:
+            skipped_segments.append(index)
+            logger.warning(
+                "Skipping undecodable audio segment %s (%s bytes): %s",
+                index,
+                len(segment_data or b""),
+                exc,
+            )
+            continue
+
+        if combined is None:
+            combined = segment
+        else:
+            combined = combined.append(segment, crossfade=0)
+
+    if combined is None:
+        return b""
+
+    output_io = io.BytesIO()
+    combined.export(output_io, format=output_format, bitrate="128k")
+
+    if skipped_segments:
+        logger.warning(
+            "Audio fallback skipped undecodable segments: %s",
+            ", ".join(str(index) for index in skipped_segments),
+        )
+
+    return output_io.getvalue()
+
+
 def concat_audio_best_effort(
     segments: Sequence[bytes], output_format: str = "mp3"
 ) -> bytes:
     """
     Concatenate audio segments with graceful fallback when processing is unavailable.
 
-    Falls back to raw byte-join if pydub/ffmpeg are not available or fail.
+    Never raw-byte-joins multiple MP3 files. If normal concatenation fails, it
+    re-exports the decodable subset so callers upload a standalone audio file.
     """
     if not segments:
         return b""
     if len(segments) == 1:
-        return segments[0]
+        only_segment = segments[0] or b""
+        if not only_segment:
+            return b""
+        if (
+            is_audio_processing_available()
+            and try_get_audio_duration_ms(only_segment, format=output_format) is None
+        ):
+            logger.warning(
+                "Dropping undecodable single audio segment (%s bytes)",
+                len(only_segment),
+            )
+            return b""
+        return only_segment
 
     if is_audio_processing_available():
         try:
             return concat_audio_mp3(list(segments), output_format=output_format)
         except Exception as exc:
             logger.warning(
-                "Audio concatenation failed; falling back to byte-join: %s", exc
+                "Audio concatenation failed; re-exporting decodable segments: %s", exc
             )
+            fallback_audio = _concat_decodable_audio_segments(
+                segments,
+                input_format=output_format,
+                output_format=output_format,
+            )
+            if fallback_audio:
+                return fallback_audio
+            logger.warning("Audio fallback found no decodable segments")
+            return b""
 
-    return b"".join(segments)
+    first_segment = next((segment for segment in segments if segment), b"")
+    if len(segments) > 1 and first_segment:
+        logger.warning(
+            "Audio processing unavailable; using the first segment instead of raw "
+            "byte-joining %s segments",
+            len(segments),
+        )
+    return first_segment
 
 
 def export_audio_range_best_effort(
@@ -164,25 +274,26 @@ def export_audio_range_best_effort(
 
     if is_audio_processing_available():
         try:
-            audio_io = io.BytesIO(audio_data)
-            audio = AudioSegment.from_file(audio_io, format=input_format)
-            start = min(safe_start_ms, len(audio))
-            end = (
-                len(audio)
-                if safe_end_ms is None
-                else min(max(safe_end_ms, start), len(audio))
-            )
-            sliced = audio[start:end]
-            if len(sliced) <= 0:
-                return b"", 0
-            output_io = io.BytesIO()
-            sliced.export(output_io, format=output_format, bitrate="128k")
-            return output_io.getvalue(), len(sliced)
+            audio = _load_audio_segment(audio_data, input_format=input_format)
         except Exception as exc:
             logger.debug("Audio range export failed: %s", exc, exc_info=True)
+            return b"", 0
+
+        start = min(safe_start_ms, len(audio))
+        end = (
+            len(audio)
+            if safe_end_ms is None
+            else min(max(safe_end_ms, start), len(audio))
+        )
+        sliced = audio[start:end]
+        if len(sliced) <= 0:
+            return b"", 0
+        output_io = io.BytesIO()
+        sliced.export(output_io, format=output_format, bitrate="128k")
+        return output_io.getvalue(), len(sliced)
 
     if safe_start_ms == 0 and safe_end_ms is None:
-        return audio_data, get_audio_duration_ms(audio_data, format=input_format)
+        return audio_data, _estimated_duration_ms(audio_data)
     return b"", 0
 
 
@@ -197,16 +308,14 @@ def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:
     Returns:
         Duration in milliseconds
     """
-    if not PYDUB_AVAILABLE:
-        # Rough estimate based on bitrate (128kbps for MP3)
-        # 128kbps = 16KB/s, so duration = size_bytes / 16000 * 1000
-        return int(len(audio_data) / 16000 * 1000)
+    duration_ms = try_get_audio_duration_ms(audio_data, format=format)
+    if duration_ms is not None:
+        return duration_ms
 
-    try:
-        audio_io = io.BytesIO(audio_data)
-        audio = AudioSegment.from_file(audio_io, format=format)
-        return len(audio)  # pydub returns duration in ms
-    except Exception as e:
-        logger.error(f"Error getting audio duration: {e}")
-        # Fallback to estimate
-        return int(len(audio_data) / 16000 * 1000)
+    logger.warning(
+        "Could not decode audio duration; falling back to bitrate estimate "
+        "(format=%s, bytes=%s)",
+        format,
+        len(audio_data or b""),
+    )
+    return _estimated_duration_ms(audio_data)
