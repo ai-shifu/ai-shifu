@@ -8,6 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
+    INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
     CONTEXT_INTERACTION_NEXT,
@@ -1372,7 +1373,11 @@ class RunScriptContextV2:
         )
 
     def _should_stream_tts(self) -> bool:
-        return (not self._preview_mode) and bool(getattr(self, "_listen", False))
+        return (
+            (not self._preview_mode)
+            and getattr(self, "_input_type", None) != INPUT_TYPE_ASK
+            and bool(getattr(self, "_listen", False))
+        )
 
     def _try_create_tts_processor(
         self,
