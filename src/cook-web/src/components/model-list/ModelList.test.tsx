@@ -40,8 +40,11 @@ jest.mock('../ui/Select', () => ({
   SelectTrigger: ({ children }: React.PropsWithChildren) => (
     <button>{children}</button>
   ),
-  SelectValue: ({ placeholder }: { placeholder?: string }) => (
-    <span>{placeholder}</span>
+  SelectValue: ({
+    children,
+    placeholder,
+  }: React.PropsWithChildren<{ placeholder?: string }>) => (
+    <span>{children ?? placeholder}</span>
   ),
   SelectContent: ({ children }: React.PropsWithChildren) => (
     <div role='listbox'>{children}</div>
@@ -68,21 +71,29 @@ describe('ModelList', () => {
       />,
     );
 
-    expect(screen.getByText('common.core.default')).toBeInTheDocument();
+    expect(screen.getAllByText('common.core.default')).toHaveLength(2);
     expect(screen.getByText('DeepSeek-V4-Flash')).toBeInTheDocument();
     expect(screen.getByText('Doubao-Seed-2.0-lite')).toBeInTheDocument();
     expect(screen.getByText('No Rate')).toBeInTheDocument();
-    expect(screen.getByText('1x')).toBeInTheDocument();
+    expect(screen.getAllByText('1x')).toHaveLength(3);
     expect(screen.getByText('3x')).toBeInTheDocument();
+
+    const trigger = screen.getByRole('button');
+    expect(
+      within(trigger).getByText('common.core.default'),
+    ).toBeInTheDocument();
+    expect(within(trigger).getByText('1x')).toBeInTheDocument();
 
     const noRateOption = screen.getByText('No Rate').closest('[role="option"]');
     expect(noRateOption).toBeTruthy();
     expect(within(noRateOption as HTMLElement).queryByText(/x$/)).toBeNull();
 
     const defaultOption = screen
-      .getByText('common.core.default')
-      .closest('[role="option"]');
+      .getByRole('listbox')
+      .querySelector('[data-value="__empty__"]');
     expect(defaultOption).toBeTruthy();
-    expect(within(defaultOption as HTMLElement).queryByText(/x$/)).toBeNull();
+    expect(
+      within(defaultOption as HTMLElement).getByText('1x'),
+    ).toBeInTheDocument();
   });
 });
