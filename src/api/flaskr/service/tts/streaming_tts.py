@@ -33,6 +33,7 @@ from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     export_audio_range_best_effort,
     get_audio_duration_ms,
+    try_get_audio_duration_ms,
 )
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.audio_record_utils import (
@@ -119,6 +120,14 @@ class TTSSegment:
     latency_ms: int = 0
     error: Optional[str] = None
     is_ready: bool = False
+
+
+@dataclass
+class _MinimaxFallbackAudio:
+    audio_data: bytes
+    duration_ms: int
+    word_count: int
+    audio_format: str
 
 
 class StreamingTTSProcessor:
@@ -1062,6 +1071,14 @@ class StreamingTTSProcessor:
 
         try:
             final_audio = concat_audio_best_effort(audio_data_list)
+            if not final_audio:
+                logger.warning(
+                    "No decodable audio data produced during TTS finalization. "
+                    "segments=%s, audio_bid=%s",
+                    len(audio_data_list),
+                    self._audio_bid,
+                )
+                return
             final_duration_ms = get_audio_duration_ms(final_audio)
             file_size = len(final_audio)
 
@@ -1140,6 +1157,57 @@ class StreamingTTSProcessor:
         except Exception as e:
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
 
+    def _synthesize_minimax_complete_fallback(
+        self,
+        provider: MinimaxTTSProvider,
+        *,
+        request_text: str,
+        request_format: str,
+        request_index: int,
+    ) -> Optional[_MinimaxFallbackAudio]:
+        try:
+            result = provider.synthesize(
+                text=request_text,
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                model=self.tts_model,
+            )
+        except Exception as exc:
+            logger.warning(
+                "MiniMax complete synthesis fallback failed. request_index=%s, "
+                "text_length=%s, error=%s",
+                request_index,
+                len(request_text or ""),
+                exc,
+            )
+            logger.debug("MiniMax complete synthesis fallback traceback", exc_info=True)
+            return None
+
+        audio_data = result.audio_data or b""
+        audio_format = (
+            result.format or request_format or self.audio_settings.format or "mp3"
+        )
+        decoded_duration_ms = try_get_audio_duration_ms(
+            audio_data,
+            format=audio_format,
+        )
+        if decoded_duration_ms is None or decoded_duration_ms <= 0:
+            logger.warning(
+                "MiniMax complete synthesis fallback returned undecodable audio. "
+                "request_index=%s, bytes=%s, format=%s",
+                request_index,
+                len(audio_data),
+                audio_format,
+            )
+            return None
+
+        return _MinimaxFallbackAudio(
+            audio_data=audio_data,
+            duration_ms=int(result.duration_ms or decoded_duration_ms or 0),
+            word_count=int(result.word_count or 0),
+            audio_format=audio_format,
+        )
+
     def _finalize_minimax_http_stream(
         self,
         *,
@@ -1170,6 +1238,7 @@ class StreamingTTSProcessor:
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
             request_final_subtitle_cues: list[dict[str, Any]] = []
+            request_final_subtitle_cues_are_provider = False
             request_live_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
@@ -1209,10 +1278,12 @@ class StreamingTTSProcessor:
 
                 if chunk.is_final:
                     if request_duration_ms <= 0:
-                        request_duration_ms = get_audio_duration_ms(
+                        decoded_duration_ms = try_get_audio_duration_ms(
                             accumulated_audio,
                             format=request_format or "mp3",
                         )
+                        if decoded_duration_ms is not None:
+                            request_duration_ms = int(decoded_duration_ms or 0)
                     if progressive_request_subtitle_cues and (
                         self._subtitle_cues_cover_text(
                             progressive_request_subtitle_cues,
@@ -1220,6 +1291,7 @@ class StreamingTTSProcessor:
                         )
                     ):
                         request_final_subtitle_cues = progressive_request_subtitle_cues
+                        request_final_subtitle_cues_are_provider = True
                         target_end_ms = max(
                             request_subtitle_coverage_end_ms, source_emitted_ms
                         )
@@ -1278,11 +1350,25 @@ class StreamingTTSProcessor:
                     and source_emitted_ms == 0
                     and target_end_ms >= int(request_duration_ms or 0)
                 ):
-                    audio_piece = accumulated_audio
-                    piece_duration_ms = request_duration_ms or get_audio_duration_ms(
-                        audio_piece,
+                    decoded_duration_ms = try_get_audio_duration_ms(
+                        accumulated_audio,
                         format=request_format or "mp3",
                     )
+                    if decoded_duration_ms is not None and decoded_duration_ms > 0:
+                        audio_piece = accumulated_audio
+                        piece_duration_ms = int(
+                            request_duration_ms or decoded_duration_ms
+                        )
+                    else:
+                        logger.warning(
+                            "MiniMax HTTP stream produced undecodable final audio; "
+                            "will try complete synthesis fallback. request_index=%s, "
+                            "bytes=%s, format=%s, trace_id=%s",
+                            request_index,
+                            len(accumulated_audio or b""),
+                            request_format or "mp3",
+                            getattr(chunk, "trace_id", ""),
+                        )
 
                 if not audio_piece or piece_duration_ms <= 0:
                     continue
@@ -1309,6 +1395,19 @@ class StreamingTTSProcessor:
                 )
                 yield event
 
+            fallback_audio: Optional[_MinimaxFallbackAudio] = None
+            if live_request_emitted_ms <= 0:
+                fallback_audio = self._synthesize_minimax_complete_fallback(
+                    provider,
+                    request_text=request_text,
+                    request_format=request_format,
+                    request_index=request_index,
+                )
+                if fallback_audio is not None:
+                    request_duration_ms = int(fallback_audio.duration_ms or 0)
+                    if fallback_audio.word_count:
+                        request_word_count = int(fallback_audio.word_count or 0)
+
             if request_duration_ms <= 0:
                 request_duration_ms = source_emitted_ms or live_request_emitted_ms
             if request_word_count:
@@ -1323,6 +1422,7 @@ class StreamingTTSProcessor:
                     request_text,
                 ):
                     request_final_subtitle_cues = request_subtitle_cues
+                    request_final_subtitle_cues_are_provider = True
                 else:
                     if request_subtitle_cues:
                         logger.debug(
@@ -1343,6 +1443,37 @@ class StreamingTTSProcessor:
                             offset_ms=subtitle_offset_ms,
                         )
                     )
+            if (
+                fallback_audio is not None
+                and not request_final_subtitle_cues_are_provider
+            ):
+                request_final_subtitle_cues = (
+                    self._build_minimax_fallback_subtitle_cues(
+                        request_text,
+                        duration_ms=int(fallback_audio.duration_ms or 0),
+                        offset_ms=subtitle_offset_ms,
+                    )
+                )
+            if fallback_audio is not None and live_request_emitted_ms <= 0:
+                live_request_emitted_ms = int(fallback_audio.duration_ms or 0)
+                request_live_subtitle_cues = (
+                    self._build_minimax_live_request_subtitle_cues(
+                        request_final_subtitle_cues,
+                        provider_offset_ms=subtitle_offset_ms,
+                        live_offset_ms=live_offset_ms,
+                        live_request_end_ms=live_request_emitted_ms,
+                    )
+                )
+                progressive_subtitle_cues = normalize_subtitle_cues(
+                    list(live_subtitle_cues or []) + request_live_subtitle_cues
+                )
+                _segment_index, event = self._store_stream_audio_segment(
+                    audio_data=fallback_audio.audio_data,
+                    duration_ms=fallback_audio.duration_ms,
+                    text=request_text,
+                    subtitle_cues=progressive_subtitle_cues,
+                )
+                yield event
             final_subtitle_cues.extend(request_final_subtitle_cues)
             if not request_live_subtitle_cues and live_request_emitted_ms > 0:
                 request_live_subtitle_cues = (
