@@ -131,6 +131,10 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeyp
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
     )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.should_use_minimax_http_stream",
+        lambda _provider: False,
+    )
 
     captured: list[str] = []
 
@@ -176,6 +180,10 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
 
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.should_use_minimax_http_stream",
+        lambda _provider: False,
     )
 
     captured: list[str] = []

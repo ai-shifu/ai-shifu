@@ -191,12 +191,19 @@ class TestGeneratedBlockListenTtsElementFirst:
             _fake_yield_tts_segments,
         )
         monkeypatch.setattr(
-            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-            lambda parts: b"".join(parts),
-        )
-        monkeypatch.setattr(
-            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
-            lambda *_args, **_kwargs: 1000,
+            "flaskr.service.learn.learn_funcs.assemble_audio_for_upload",
+            lambda parts, **_kwargs: type(
+                "AssemblyResult",
+                (),
+                {
+                    "audio_data": b"".join(parts),
+                    "duration_ms": 1000,
+                    "included_segment_indices": tuple(range(len(parts))),
+                    "source_segment_count": len(parts),
+                    "segment_count": len(parts),
+                    "used_fallback": False,
+                },
+            )(),
         )
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
@@ -387,12 +394,19 @@ class TestGeneratedBlockListenTtsElementFirst:
             _fake_yield_tts_segments,
         )
         monkeypatch.setattr(
-            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-            lambda parts: b"".join(parts),
-        )
-        monkeypatch.setattr(
-            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
-            lambda *_args, **_kwargs: 1000,
+            "flaskr.service.learn.learn_funcs.assemble_audio_for_upload",
+            lambda parts, **_kwargs: type(
+                "AssemblyResult",
+                (),
+                {
+                    "audio_data": b"".join(parts),
+                    "duration_ms": 1000,
+                    "included_segment_indices": tuple(range(len(parts))),
+                    "source_segment_count": len(parts),
+                    "segment_count": len(parts),
+                    "used_fallback": False,
+                },
+            )(),
         )
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
@@ -425,3 +439,82 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         assert complete_positions == [0, 1]
         assert synthesized_texts == ["A", "Second page."]
+
+    def test_finalize_tts_stream_audio_fallback_matches_uploaded_audio(
+        self, monkeypatch
+    ):
+        from types import SimpleNamespace
+
+        from flaskr.service.learn.learn_funcs import _finalize_tts_stream_audio
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.assemble_audio_for_upload",
+            lambda parts, **_kwargs: SimpleNamespace(
+                audio_data=parts[0],
+                duration_ms=123,
+                included_segment_indices=(0,),
+                source_segment_count=len(parts),
+                segment_count=1,
+                used_fallback=True,
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
+            lambda _app, _audio_bytes, audio_bid: (
+                f"https://example.com/{audio_bid}.mp3",
+                "test-bucket",
+            ),
+        )
+
+        saved_records = []
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.save_audio_record",
+            lambda record, commit=True: saved_records.append(record),
+        )
+
+        subtitle_cues = [
+            {
+                "text": "First sentence.",
+                "start_ms": 0,
+                "end_ms": 123,
+                "segment_index": 0,
+            },
+            {
+                "text": "Second sentence.",
+                "start_ms": 123,
+                "end_ms": 456,
+                "segment_index": 1,
+            },
+        ]
+
+        _oss_url, duration_ms = _finalize_tts_stream_audio(
+            self.app,
+            audio_parts=[b"first-audio", b"second-audio"],
+            segment_durations_ms=[123, 333],
+            subtitle_cues=subtitle_cues,
+            audio_bid="fallback-audio",
+            audio_settings=SimpleNamespace(format="mp3", sample_rate=24000),
+            voice_settings=SimpleNamespace(
+                voice_id="voice",
+                speed=1.0,
+                pitch=0,
+                emotion="",
+                volume=1.0,
+            ),
+            tts_model="test-model",
+            cleaned_text="First sentence. Second sentence.",
+            segment_count=2,
+            persist_audio=True,
+            generated_block_bid="generated-fallback",
+            progress_record_bid="progress-fallback",
+            user_bid="user-fallback",
+            shifu_bid="shifu-fallback",
+        )
+
+        assert duration_ms == 123
+        assert [cue["text"] for cue in subtitle_cues] == ["First sentence."]
+        assert saved_records[0].duration_ms == 123
+        assert saved_records[0].segment_count == 1
+        assert [cue["text"] for cue in saved_records[0].subtitle_cues] == [
+            "First sentence."
+        ]
