@@ -427,6 +427,8 @@ def run_script(
     lock_retry_sleep_seconds = 0.2
     heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
+    is_ask = input_type == INPUT_TYPE_ASK
+    runtime_listen = bool(listen) and not is_ask
     # Learner run SSE now always speaks the element protocol. The listen flag
     # still controls run-time behaviors such as segmented TTS generation.
     use_element_protocol = True
@@ -437,7 +439,6 @@ def run_script(
         user_bid=user_bid,
     )
     stream_element_adapter = element_adapter
-    is_ask = input_type == INPUT_TYPE_ASK
     if is_ask:
         # Ask (follow-up) requests use a counting semaphore instead of the main mutex
         # so they can run in parallel with the main lesson stream (up to
@@ -508,7 +509,7 @@ def run_script(
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     reload_element_bid=reload_element_bid,
-                    listen=listen,
+                    listen=runtime_listen,
                     preview_mode=preview_mode,
                     stop_event=stop_event,
                     element_adapter=element_adapter,
@@ -707,7 +708,7 @@ def run_script(
                         event_type=GeneratedType.BREAK.value,
                         content="",
                         element_adapter=stream_element_adapter,
-                        is_terminal=False if listen else None,
+                        is_terminal=False if runtime_listen else None,
                     )
                     if not _should_suppress_live_payload(block_end_event):
                         yield _to_sse_chunk(block_end_event)

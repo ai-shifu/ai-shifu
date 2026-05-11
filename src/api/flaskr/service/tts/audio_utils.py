@@ -86,10 +86,7 @@ def concat_audio_mp3(
                     len(combined),
                     len(segment),
                 )
-                if safe_crossfade_ms > 0:
-                    combined = combined.append(segment, crossfade=safe_crossfade_ms)
-                else:
-                    combined = combined.append(segment)
+                combined = combined.append(segment, crossfade=safe_crossfade_ms)
 
         except Exception as e:
             failed_segments.append(i)
