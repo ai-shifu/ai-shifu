@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import logging
 import requests
 import litellm
@@ -18,8 +19,17 @@ from flaskr.api.langfuse import (
 )
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.metering import UsageContext, record_llm_usage
-from flaskr.service.metering.consts import normalize_usage_scene
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    normalize_usage_scene,
+)
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -942,11 +952,14 @@ def chat_llm(
 
 def _build_model_options(
     app: Flask, available_models: list[str]
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     allowed, display_names = _resolve_allowed_model_config()
 
     if not allowed:
-        return [{"model": model, "display_name": model} for model in available_models]
+        return _attach_credit_multipliers(
+            app,
+            [{"model": model, "display_name": model} for model in available_models],
+        )
 
     available_set = set(available_models)
     filtered_models: list[str] = []
@@ -970,16 +983,143 @@ def _build_model_options(
         dict(zip(allowed, display_names)) if display_names_enabled else {}
     )
 
-    return [
+    options = [
         {
             "model": model,
             "display_name": display_map.get(model, model),
         }
         for model in filtered_models
     ]
+    return _attach_credit_multipliers(app, options)
 
 
-def get_current_models(app: Flask) -> list[dict[str, str]]:
+def _resolve_billing_rate_identity(model: str) -> tuple[str, list[str]]:
+    provider, actual_model = _resolve_provider_for_model(model)
+    candidates: list[str] = []
+    for candidate in (actual_model, model):
+        normalized = str(candidate or "").strip()
+        if normalized and normalized not in candidates:
+            candidates.append(normalized)
+    return provider or "", candidates
+
+
+def _rate_per_token(rate: CreditUsageRate | None) -> Decimal | None:
+    if rate is None:
+        return None
+    try:
+        unit_size = max(int(rate.unit_size or 1), 1)
+        return Decimal(str(rate.credits_per_unit or 0)) / Decimal(str(unit_size))
+    except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
+        return None
+
+
+def _select_credit_usage_rate(
+    rows: list[CreditUsageRate],
+    *,
+    provider: str,
+    model_candidates: list[str],
+    now: datetime,
+) -> CreditUsageRate | None:
+    normalized_provider = str(provider or "").strip()
+    normalized_models = [
+        str(model or "").strip() for model in model_candidates if model
+    ]
+    if not normalized_models:
+        return None
+    candidate_set = set(normalized_models)
+    model_priority = {
+        model: len(normalized_models) - index
+        for index, model in enumerate(normalized_models)
+    }
+    candidates = [
+        row
+        for row in rows
+        if row.effective_from <= now
+        and (row.effective_to is None or row.effective_to > now)
+        and row.provider in {normalized_provider, "*"}
+        and row.model in candidate_set.union({"*"})
+    ]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda row: (
+            row.provider == normalized_provider,
+            row.model in candidate_set,
+            model_priority.get(row.model, 0),
+            row.effective_from or datetime.min,
+            int(row.id or 0),
+        ),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
+    with app.app_context():
+        return (
+            CreditUsageRate.query.filter(
+                CreditUsageRate.deleted == 0,
+                CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+                CreditUsageRate.usage_type == BILL_USAGE_TYPE_LLM,
+                CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+                CreditUsageRate.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            )
+            .order_by(CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc())
+            .all()
+        )
+
+
+def _attach_credit_multipliers(
+    app: Flask, options: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if not options or not default_model:
+        return [{**option, "credit_multiplier": None} for option in options]
+
+    try:
+        rows = _load_llm_output_rate_rows(app)
+        now = datetime.now()
+        default_provider, default_model_candidates = _resolve_billing_rate_identity(
+            default_model
+        )
+        default_rate = _rate_per_token(
+            _select_credit_usage_rate(
+                rows,
+                provider=default_provider,
+                model_candidates=default_model_candidates,
+                now=now,
+            )
+        )
+        if default_rate is None or default_rate <= 0:
+            return [{**option, "credit_multiplier": None} for option in options]
+
+        enriched: list[dict[str, Any]] = []
+        for option in options:
+            model = str(option.get("model") or "").strip()
+            provider, model_candidates = _resolve_billing_rate_identity(model)
+            model_rate = _rate_per_token(
+                _select_credit_usage_rate(
+                    rows,
+                    provider=provider,
+                    model_candidates=model_candidates,
+                    now=now,
+                )
+            )
+            multiplier = None
+            if model_rate is not None and model_rate > 0:
+                multiplier = int(
+                    (model_rate / default_rate).to_integral_value(
+                        rounding=ROUND_CEILING
+                    )
+                )
+            enriched.append({**option, "credit_multiplier": multiplier})
+        return enriched
+    except Exception as exc:
+        _log_warning(f"load LLM credit multipliers error: {exc}")
+        return [{**option, "credit_multiplier": None} for option in options]
+
+
+def get_current_models(app: Flask) -> list[dict[str, Any]]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)

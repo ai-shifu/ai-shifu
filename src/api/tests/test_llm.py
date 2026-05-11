@@ -1,6 +1,8 @@
 # ruff: noqa: E402
 import sys
 import types
+from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -83,6 +85,21 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 from flaskr.api import llm
+from flaskr.dao import db
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_CACHE_TOKENS,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import CreditUsageRate
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+)
 
 pytestmark = pytest.mark.no_mock_llm
 
@@ -122,6 +139,171 @@ class FakeModelsResponse:
 
     def json(self):
         return self.payload
+
+
+def _create_credit_rate(
+    *,
+    rate_bid: str,
+    provider: str,
+    model: str,
+    credits_per_unit: str,
+    billing_metric: int = BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    usage_scene: int = BILL_USAGE_SCENE_PROD,
+    unit_size: int = 1,
+    effective_from: datetime = datetime(2026, 1, 1, 0, 0, 0),
+) -> CreditUsageRate:
+    return CreditUsageRate(
+        rate_bid=rate_bid,
+        usage_type=BILL_USAGE_TYPE_LLM,
+        provider=provider,
+        model=model,
+        usage_scene=usage_scene,
+        billing_metric=billing_metric,
+        unit_size=unit_size,
+        credits_per_unit=Decimal(credits_per_unit),
+        rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+        effective_from=effective_from,
+        effective_to=None,
+        status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+    )
+
+
+def _configure_model_list(monkeypatch):
+    available_models = [
+        "qwen/deepseek-v4-flash",
+        "ark/doubao-seed-2-0-lite-260428",
+        "qwen/no-rate-model",
+    ]
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "qwen": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "qwen-key"},
+                models=["qwen/deepseek-v4-flash", "qwen/no-rate-model"],
+                prefix="qwen/",
+                wildcard_prefixes=(),
+            ),
+            "ark": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "ark-key"},
+                models=["ark/doubao-seed-2-0-lite-260428"],
+                prefix="ark/",
+                wildcard_prefixes=(),
+            ),
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_ALIAS_MAP",
+        {
+            "qwen/deepseek-v4-flash": ("qwen", "deepseek-v4-flash"),
+            "ark/doubao-seed-2-0-lite-260428": (
+                "ark",
+                "doubao-seed-2-0-lite-260428",
+            ),
+            "qwen/no-rate-model": ("qwen", "no-rate-model"),
+        },
+    )
+    config = {
+        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+        "LLM_ALLOWED_MODELS": ",".join(available_models),
+        "LLM_ALLOWED_MODEL_DISPLAY_NAMES": (
+            "DeepSeek-V4-Flash,Doubao-Seed-2.0-lite,No Rate"
+        ),
+    }
+    monkeypatch.setattr(
+        llm, "get_config", lambda key, default=None: config.get(key, default)
+    )
+
+
+def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app):
+    _configure_model_list(monkeypatch)
+    with app.app_context():
+        db.session.query(CreditUsageRate).delete()
+        db.session.add_all(
+            [
+                _create_credit_rate(
+                    rate_bid="default-output",
+                    provider="qwen",
+                    model="qwen/deepseek-v4-flash",
+                    credits_per_unit="0.000066667",
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-provider-wildcard-output",
+                    provider="ark",
+                    model="*",
+                    credits_per_unit="0.00001",
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-input-ignored",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="9",
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-cache-ignored",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="8",
+                    billing_metric=BILLING_METRIC_LLM_CACHE_TOKENS,
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-debug-ignored",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="7",
+                    usage_scene=BILL_USAGE_SCENE_DEBUG,
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-preview-ignored",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="6",
+                    usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                ),
+                _create_credit_rate(
+                    rate_bid="doubao-output",
+                    provider="ark",
+                    model="ark/doubao-seed-2-0-lite-260428",
+                    credits_per_unit="0.00018",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        models = llm.get_current_models(app)
+
+        db.session.query(CreditUsageRate).delete()
+        db.session.commit()
+
+    by_model = {item["model"]: item for item in models}
+    assert by_model["qwen/deepseek-v4-flash"]["credit_multiplier"] == 1
+    assert by_model["ark/doubao-seed-2-0-lite-260428"]["credit_multiplier"] == 3
+    assert by_model["qwen/no-rate-model"]["credit_multiplier"] is None
+    assert by_model["ark/doubao-seed-2-0-lite-260428"]["display_name"] == (
+        "Doubao-Seed-2.0-lite"
+    )
+
+
+def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch, app):
+    _configure_model_list(monkeypatch)
+
+    def raise_lookup(_app):
+        raise RuntimeError("db unavailable")
+
+    monkeypatch.setattr(llm, "_load_llm_output_rate_rows", raise_lookup)
+
+    models = llm.get_current_models(app)
+
+    assert [item["model"] for item in models] == [
+        "qwen/deepseek-v4-flash",
+        "ark/doubao-seed-2-0-lite-260428",
+        "qwen/no-rate-model",
+    ]
+    assert all(item["credit_multiplier"] is None for item in models)
 
 
 def test_deepseek_model_loader_lists_models(monkeypatch):
