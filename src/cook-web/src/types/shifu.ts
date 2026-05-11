@@ -13,6 +13,7 @@ export type BlockType =
 export interface ModelOption {
   value: string;
   label: string;
+  creditMultiplier?: number | null;
 }
 
 export interface Shifu {

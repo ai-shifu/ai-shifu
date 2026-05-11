@@ -10,6 +10,19 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
+function ModelOptionLabel({ item }: { item: ModelOption }) {
+  return (
+    <span className='flex w-full min-w-0 items-center justify-between gap-2'>
+      <span className='min-w-0 truncate'>{item.label}</span>
+      {item.creditMultiplier ? (
+        <span className='shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
+          ×{item.creditMultiplier}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export default function ModelList({
   value,
   className,
@@ -59,8 +72,9 @@ export default function ModelList({
             <SelectItem
               key={item.value}
               value={item.value}
+              textValue={item.label}
             >
-              {item.label}
+              <ModelOptionLabel item={item} />
             </SelectItem>
           );
         })}
