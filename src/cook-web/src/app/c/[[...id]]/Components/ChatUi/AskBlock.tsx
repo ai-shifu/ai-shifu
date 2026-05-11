@@ -24,7 +24,6 @@ import { AppContext } from '../AppContext';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
@@ -67,9 +66,6 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const shouldUseListenMode = useSystemStore(
-    state => state.showLearningModeToggle,
-  );
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
@@ -250,7 +246,7 @@ export default function AskBlock({
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
-        listen: shouldUseListenMode,
+        listen: false,
       },
       async response => {
         try {
@@ -338,7 +334,6 @@ export default function AskBlock({
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
     setAskList,
-    shouldUseListenMode,
     updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(

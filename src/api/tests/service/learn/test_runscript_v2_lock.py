@@ -404,6 +404,50 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
+def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        observed: dict[str, object] = {}
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        def fake_run_script_inner(**_kwargs):
+            observed["listen"] = _kwargs["listen"]
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-ask",
+                type=GeneratedType.CONTENT,
+                content="answer chunk",
+            )
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-ask",
+                type=GeneratedType.BREAK,
+                content="",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input="follow-up question",
+                input_type="ask",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert observed["listen"] is False
+        assert [event["type"] for event in events] == ["element", "done"]
+        assert events[-1]["is_terminal"] is True
+
+
 def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):
     app = Flask(__name__)
 

@@ -604,6 +604,7 @@ class StreamTtsGateTests(unittest.TestCase):
     def test_should_stream_tts_respects_preview_and_listen(self):
         ctx = _make_context()
 
+        ctx._input_type = "normal"
         ctx._preview_mode = False
         ctx._listen = True
         self.assertTrue(ctx._should_stream_tts())
@@ -613,6 +614,10 @@ class StreamTtsGateTests(unittest.TestCase):
 
         ctx._preview_mode = True
         ctx._listen = True
+        self.assertFalse(ctx._should_stream_tts())
+
+        ctx._preview_mode = False
+        ctx._input_type = "ask"
         self.assertFalse(ctx._should_stream_tts())
 
     def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
