@@ -287,7 +287,9 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
 def test_billing_repair_bucket_status_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:
-    result = billing_cli_runner.invoke(args=["console", "billing", "repair-bucket-status"])
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-bucket-status"]
+    )
 
     assert result.exit_code != 0
     assert (

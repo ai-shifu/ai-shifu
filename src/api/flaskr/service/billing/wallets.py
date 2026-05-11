@@ -436,7 +436,9 @@ def repair_credit_bucket_runtime_statuses(
             CreditWalletBucket.status == CREDIT_BUCKET_STATUS_EXPIRED,
         )
         if normalized_creator_bid:
-            query = query.filter(CreditWalletBucket.creator_bid == normalized_creator_bid)
+            query = query.filter(
+                CreditWalletBucket.creator_bid == normalized_creator_bid
+            )
         if normalized_wallet_bucket_bid:
             query = query.filter(
                 CreditWalletBucket.wallet_bucket_bid == normalized_wallet_bucket_bid
