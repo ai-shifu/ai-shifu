@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 import asyncio
 import sys
+import threading
 import time
 import types
 import unittest
@@ -102,6 +103,7 @@ if dao.db is None:
 if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
+from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
@@ -139,7 +141,9 @@ from flaskr.util import generate_id
 
 def _make_context() -> RunScriptContextV2:
     # Bypass __init__ since we only need helper methods for these tests.
-    return RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx._stop_event = None
+    return ctx
 
 
 class _FakeLangfuseSpan:
@@ -638,6 +642,58 @@ class StreamTtsGateTests(unittest.TestCase):
         assert outputs[0][0] == "idle"
         assert outputs[-1] == ("item", "chunk-1")
         assert idle_ticks
+
+    def test_iter_stream_result_with_idle_callback_stops_and_cleans_up(self):
+        app = Flask("stream-tts-stop")
+        ctx = _make_context()
+        ctx.app = app
+        stop_event = threading.Event()
+        ctx._stop_event = stop_event
+        remove_calls: list[str] = []
+
+        class ClosableStream:
+            def __init__(self):
+                self.close_calls = 0
+                self._yielded_first = False
+                self.second_next_started = threading.Event()
+                self.release_second = threading.Event()
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                if not self._yielded_first:
+                    self._yielded_first = True
+                    return "chunk-1"
+                self.second_next_started.set()
+                if not self.release_second.wait(timeout=1.0):
+                    raise StopIteration
+                return "chunk-2"
+
+            def close(self):
+                self.close_calls += 1
+
+        stream = ClosableStream()
+        fake_db = types.SimpleNamespace(
+            session=types.SimpleNamespace(remove=lambda: remove_calls.append("remove"))
+        )
+
+        with patch.object(context_v2_module, "db", fake_db):
+            iterator = ctx._iter_stream_result_with_idle_callback(
+                stream,
+                idle_poll_interval=0.01,
+            )
+
+            assert next(iterator) == ("item", "chunk-1")
+            assert stream.second_next_started.wait(timeout=1.0)
+
+            stop_event.set()
+            stream.release_second.set()
+            with self.assertRaises(GeneratorExit):
+                next(iterator)
+
+        assert stream.close_calls == 1
+        assert remove_calls == ["remove"]
 
 
 class ReloadFromElementBidTests(unittest.TestCase):

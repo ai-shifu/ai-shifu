@@ -210,6 +210,92 @@ def test_run_script_producer_owns_app_context(monkeypatch):
         assert [event["type"] for event in events] == ["element", "done"]
 
 
+def test_run_script_removes_producer_db_session(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        remove_calls = []
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(
+            runscript_v2,
+            "db",
+            SimpleNamespace(
+                session=SimpleNamespace(remove=lambda: remove_calls.append("remove"))
+            ),
+        )
+
+        def fake_run_script_inner(**_kwargs):
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-1",
+                type=GeneratedType.CONTENT,
+                content="hello",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+            )
+        )
+
+        assert _parse_sse_events(chunks)
+        assert remove_calls == ["remove"]
+
+
+def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        remove_calls = []
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        def _remove():
+            remove_calls.append("remove")
+            raise RuntimeError("remove failed")
+
+        monkeypatch.setattr(
+            runscript_v2,
+            "db",
+            SimpleNamespace(session=SimpleNamespace(remove=_remove)),
+        )
+
+        def fake_run_script_inner(**_kwargs):
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-1",
+                type=GeneratedType.CONTENT,
+                content="hello",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == ["element", "done"]
+        assert remove_calls == ["remove"]
+
+
 def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
@@ -325,7 +411,11 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
         runscript_v2,
         "db",
         SimpleNamespace(
-            session=SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+            session=SimpleNamespace(
+                commit=lambda: None,
+                rollback=lambda: None,
+                remove=lambda: None,
+            )
         ),
     )
     monkeypatch.setattr(
@@ -432,9 +522,14 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
 
 def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     app = Flask(__name__)
-    session_spy = SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+    session_spy = SimpleNamespace(
+        commit=lambda: None,
+        rollback=lambda: None,
+        remove=lambda: None,
+    )
     rollback_calls = []
     commit_calls = []
+    remove_calls = []
 
     def _commit():
         commit_calls.append("commit")
@@ -442,8 +537,13 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     def _rollback():
         rollback_calls.append("rollback")
 
+    def _remove():
+        remove_calls.append("remove")
+        raise RuntimeError("remove failed")
+
     session_spy.commit = _commit
     session_spy.rollback = _rollback
+    session_spy.remove = _remove
 
     monkeypatch.setattr(runscript_v2, "db", SimpleNamespace(session=session_spy))
     monkeypatch.setattr(
@@ -511,6 +611,7 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
 
     assert rollback_calls == ["rollback"]
     assert commit_calls == []
+    assert remove_calls == ["remove"]
 
 
 def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
@@ -524,6 +625,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
             session=SimpleNamespace(
                 commit=lambda: commit_calls.append("commit"),
                 rollback=lambda: None,
+                remove=lambda: None,
             )
         ),
     )
