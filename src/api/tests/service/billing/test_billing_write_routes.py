@@ -2379,9 +2379,11 @@ class TestBillingWriteRoutes:
         app = billing_write_client["app"]
         paid_at = datetime(2026, 5, 11, 14, 11, 8)
         expired_at = datetime(2026, 5, 5, 19, 22, 1)
-        renewed_end_at = datetime(2026, 6, 9, 23, 59, 59)
 
         with app.app_context():
+            product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly"
+            ).one()
             wallet = CreditWallet(
                 wallet_bid="wallet-reactivate-expired",
                 creator_bid="creator-1",
@@ -2478,7 +2480,10 @@ class TestBillingWriteRoutes:
             assert bucket.source_bid == "bill-reactivate-expired-1"
             assert bucket.available_credits == Decimal("5.0000000000")
             assert bucket.effective_from == paid_at
-            assert bucket.effective_to == renewed_end_at
+            assert bucket.effective_to == calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=paid_at,
+            )
             assert wallet.available_credits == Decimal("5.0000000000")
             assert grant_entry.wallet_bucket_bid == bucket.wallet_bucket_bid
             assert grant_entry.amount == Decimal("5.0000000000")
