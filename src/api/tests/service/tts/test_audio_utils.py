@@ -14,7 +14,7 @@ class _FakeSegment:
     def __len__(self):
         return self.duration_ms
 
-    def append(self, other, crossfade=0):
+    def append(self, other, crossfade=100):
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
             raise ValueError(
