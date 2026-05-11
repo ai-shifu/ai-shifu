@@ -137,7 +137,7 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
 def test_repair_credit_bucket_runtime_statuses_reactivates_live_expired_bucket(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
-    future_effective_to = datetime(2026, 6, 9, 23, 59, 59)
+    future_effective_to = datetime(2099, 6, 9, 23, 59, 59)
     with billing_wallet_lifecycle_app.app_context():
         wallet = CreditWallet(
             wallet_bid="wallet-repair-runtime-1",
