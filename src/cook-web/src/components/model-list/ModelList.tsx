@@ -12,11 +12,11 @@ import { ModelOption } from '@/types/shifu';
 
 function ModelOptionLabel({ item }: { item: ModelOption }) {
   return (
-    <span className='flex w-full min-w-0 items-center justify-between gap-2'>
+    <span className='flex w-full min-w-0 flex-1 items-center gap-2'>
       <span className='min-w-0 truncate'>{item.label}</span>
       {item.creditMultiplier ? (
-        <span className='shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
-          ×{item.creditMultiplier}
+        <span className='ml-auto shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
+          {item.creditMultiplier}x
         </span>
       ) : null}
     </span>

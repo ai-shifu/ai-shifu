@@ -72,17 +72,17 @@ describe('ModelList', () => {
     expect(screen.getByText('DeepSeek-V4-Flash')).toBeInTheDocument();
     expect(screen.getByText('Doubao-Seed-2.0-lite')).toBeInTheDocument();
     expect(screen.getByText('No Rate')).toBeInTheDocument();
-    expect(screen.getByText('×1')).toBeInTheDocument();
-    expect(screen.getByText('×3')).toBeInTheDocument();
+    expect(screen.getByText('1x')).toBeInTheDocument();
+    expect(screen.getByText('3x')).toBeInTheDocument();
 
     const noRateOption = screen.getByText('No Rate').closest('[role="option"]');
     expect(noRateOption).toBeTruthy();
-    expect(within(noRateOption as HTMLElement).queryByText(/^×/)).toBeNull();
+    expect(within(noRateOption as HTMLElement).queryByText(/x$/)).toBeNull();
 
     const defaultOption = screen
       .getByText('common.core.default')
       .closest('[role="option"]');
     expect(defaultOption).toBeTruthy();
-    expect(within(defaultOption as HTMLElement).queryByText(/^×/)).toBeNull();
+    expect(within(defaultOption as HTMLElement).queryByText(/x$/)).toBeNull();
   });
 });
