@@ -86,4 +86,57 @@ describe('ContentBlock pay interaction overrides', () => {
       }),
     );
   });
+
+  it('enables typewriter only for non-history streaming text elements', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'text',
+            content: '流式正文',
+            element_bid: 'streaming-text',
+            isHistory: false,
+          } as any
+        }
+        mobileStyle={false}
+        blockBid='streaming-text'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enableTypewriter: true,
+        typingSpeed: 40,
+      }),
+    );
+  });
+
+  it('keeps history text elements out of typewriter mode', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'text',
+            content: '历史正文',
+            element_bid: 'history-text',
+            isHistory: true,
+          } as any
+        }
+        mobileStyle={false}
+        blockBid='history-text'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enableTypewriter: false,
+      }),
+    );
+  });
 });

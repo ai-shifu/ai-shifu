@@ -13,6 +13,8 @@ import {
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 
+const STREAMING_TEXT_TYPING_SPEED = 40;
+
 interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
@@ -28,6 +30,7 @@ interface ContentBlockProps {
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
   onTypeFinished?: (blockBid: string) => void;
+  enableStreamingTypewriter?: boolean;
 }
 
 const ContentBlock = memo(
@@ -46,6 +49,7 @@ const ContentBlock = memo(
     onAudioEnded,
     showAudioAction = true,
     onTypeFinished,
+    enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -86,6 +90,10 @@ const ContentBlock = memo(
       isPaySystemInteractionContent(item.content);
     const resolvedReadonly = isPayInteraction ? false : item.readonly;
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
+    const shouldEnableTypewriter =
+      enableStreamingTypewriter &&
+      !item.isHistory &&
+      item.element_type === 'text';
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -101,7 +109,8 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          enableTypewriter={false}
+          enableTypewriter={shouldEnableTypewriter}
+          typingSpeed={STREAMING_TEXT_TYPING_SPEED}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
@@ -149,9 +158,13 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
+      prevProps.item.isHistory === nextProps.item.isHistory &&
+      prevProps.item.element_type === nextProps.item.element_type &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
       prevProps.copiedButtonText === nextProps.copiedButtonText &&
+      Boolean(prevProps.enableStreamingTypewriter) ===
+        Boolean(nextProps.enableStreamingTypewriter) &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&

@@ -1263,6 +1263,7 @@ export const NewChatComponents = ({
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
+                        enableStreamingTypewriter={true}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
