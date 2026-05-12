@@ -10,7 +10,10 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount, formatAdminNumber } from '@/lib/admin-number-format';
+import {
+  formatAdminCount,
+  formatAdminNumber,
+} from '@/app/admin/lib/numberFormat';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,

@@ -525,6 +525,27 @@ def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
     assert builder_mock.call_args.kwargs["has_available_credits"] is True
 
 
+def test_admin_operation_credit_orders_route_rejects_invalid_available_credit_filter(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders/credits",
+        query_string={
+            "has_available_credits": "maybe",
+        },
+        headers={"Token": "test-token"},
+    )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] != 0
+    assert "has_available_credits is not a boolean" in payload["message"]
+
+
 def test_admin_operation_credit_order_detail_route_returns_detail(
     test_client,
     monkeypatch,

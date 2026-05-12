@@ -35,10 +35,10 @@ import {
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
+  formatAdminCount,
   formatAdminCredits,
   formatAdminPrice,
 } from '@/app/admin/lib/numberFormat';
-import { formatAdminCount } from '@/lib/admin-number-format';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
