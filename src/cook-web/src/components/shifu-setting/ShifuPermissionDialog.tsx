@@ -557,16 +557,18 @@ export default function ShifuPermissionDialog({
 
   const sortedPermissionList = React.useMemo(() => {
     const orderMap: Record<SharedPermission['permission'], number> = {
-      publish: 0,
+      view: 0,
       edit: 1,
-      view: 2,
+      publish: 2,
     };
     return [...permissionList].sort((a, b) => {
       const orderDiff = orderMap[a.permission] - orderMap[b.permission];
       if (orderDiff !== 0) {
         return orderDiff;
       }
-      return (a.identifier || '').localeCompare(b.identifier || '');
+      const aValue = (a.identifier || a.user_id || '').toLowerCase();
+      const bValue = (b.identifier || b.user_id || '').toLowerCase();
+      return aValue.localeCompare(bValue);
     });
   }, [permissionList]);
 
@@ -581,7 +583,7 @@ export default function ShifuPermissionDialog({
         const item = permissionList.find(entry => entry.user_id === userId);
         return {
           userId,
-          identifier: item?.identifier || userId,
+          identifier: item?.identifier || item?.user_id || userId,
           from: originalLabel,
           to: label,
         };
