@@ -14,8 +14,8 @@ This generated report summarizes the repository harness control plane.
 
 ## Boundary Baseline
 
-- Baseline entries: `117`
-- `backend.cross_service_import`: `117`
+- Baseline entries: `118`
+- `backend.cross_service_import`: `118`
 
 ## Critical Assets
 

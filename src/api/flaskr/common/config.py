@@ -249,6 +249,37 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Timeout in seconds for backend Umami API requests",
         group="analytics",
     ),
+    "ANALYTICS_DATABASE_URI": EnvVar(
+        name="ANALYTICS_DATABASE_URI",
+        default="",
+        description=(
+            "Read-only replica DSN for creator-analytics DSL queries. "
+            "Leave empty to fall back to the primary database (logs a warning)."
+        ),
+        secret=True,
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_POOL_SIZE": EnvVar(
+        name="ANALYTICS_DATABASE_POOL_SIZE",
+        default=5,
+        type=int,
+        description="Connection pool size for the creator-analytics read-only engine",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_TIMEOUT_SECONDS": EnvVar(
+        name="ANALYTICS_QUERY_TIMEOUT_SECONDS",
+        default=15,
+        type=int,
+        description="Per-query timeout in seconds for creator-analytics DSL execution",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_LIMIT_MAX": EnvVar(
+        name="ANALYTICS_QUERY_LIMIT_MAX",
+        default=1000,
+        type=int,
+        description="Upper bound for the DSL `limit` field accepted by creator-analytics",
+        group="analytics",
+    ),
     "DEFAULT_COURSE_ID": EnvVar(
         name="DEFAULT_COURSE_ID",
         default="",

@@ -85,5 +85,14 @@
 
   "server.openapi.invalidApiKey": 10001,
   "server.openapi.noActiveAuthorization": 10002,
-  "server.openapi.courseOwnershipRequired": 10003
+  "server.openapi.courseOwnershipRequired": 10003,
+
+  "server.creatorAnalytics.noPermission": 11001,
+  "server.creatorAnalytics.invalidDsl": 11002,
+  "server.creatorAnalytics.invalidTable": 11003,
+  "server.creatorAnalytics.invalidColumn": 11004,
+  "server.creatorAnalytics.invalidOperator": 11005,
+  "server.creatorAnalytics.invalidAggregate": 11006,
+  "server.creatorAnalytics.invalidLimit": 11007,
+  "server.creatorAnalytics.queryTimeout": 11008
 }
