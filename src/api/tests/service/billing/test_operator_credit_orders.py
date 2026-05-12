@@ -253,6 +253,68 @@ def test_build_operator_credit_orders_overview_returns_aggregates():
     assert result.credit_amount_total == 20
     assert result.paid_amount_total == 19900
     assert result.currency == "CNY"
+    assert result.paid_amount_totals_by_currency == {"CNY": 19900}
+
+
+def test_build_operator_credit_orders_overview_uses_grant_amounts_and_currency_map():
+    app = _build_app()
+
+    with app.app_context():
+        product_ref = (
+            BillingProduct.query.filter(
+                BillingProduct.product_bid == "bill-product-topup-small"
+            )
+            .order_by(BillingProduct.id.desc())
+            .first()
+        )
+        assert product_ref is not None
+        product_ref.credit_amount = Decimal("999.0000000000")
+        product_ref.deleted = 1
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-topup-usd-1",
+                creator_bid="creator-2",
+                order_type=BILLING_ORDER_TYPE_TOPUP,
+                product_bid="bill-product-topup-small",
+                subscription_bid="",
+                currency="USD",
+                payable_amount=2999,
+                paid_amount=2999,
+                payment_provider="stripe",
+                channel="checkout_session",
+                provider_reference_id="charge_topup_usd_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=datetime(2026, 4, 28, 10, 0, 0),
+                created_at=datetime(2026, 4, 28, 9, 0, 0),
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-grant-topup-usd-1",
+                creator_bid="creator-2",
+                wallet_bid="wallet-2",
+                wallet_bucket_bid="bucket-2b",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                source_bid="bill-order-topup-usd-1",
+                idempotency_key="grant:bill-order-topup-usd-1",
+                amount=Decimal("30.0000000000"),
+                balance_after=Decimal("22030.0000000000"),
+                consumable_from=datetime(2026, 4, 28, 10, 0, 0),
+                expires_at=datetime(2026, 5, 28, 10, 0, 0),
+            )
+        )
+        dao.db.session.commit()
+
+    result = build_operator_credit_orders_overview(app)
+
+    assert result.credit_amount_total == 50
+    assert result.paid_amount_total == 0
+    assert result.currency == ""
+    assert result.paid_amount_totals_by_currency == {
+        "CNY": 19900,
+        "USD": 2999,
+    }
 
 
 def test_get_operator_credit_order_detail_returns_grant_and_metadata():

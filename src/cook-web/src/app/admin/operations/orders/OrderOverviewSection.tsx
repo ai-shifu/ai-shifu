@@ -76,7 +76,6 @@ export default function OrderOverviewSection({
                 {card.onClick ? (
                   <button
                     type='button'
-                    aria-label={card.label}
                     className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
                     onClick={card.onClick}
                   >

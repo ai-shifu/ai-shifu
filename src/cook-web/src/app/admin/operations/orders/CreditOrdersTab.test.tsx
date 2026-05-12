@@ -351,6 +351,9 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsOrder.overview.activeFilter'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('24-credit pack')).toBeInTheDocument();
     expect(await screen.findByText('Yearly - Advanced')).toBeInTheDocument();
     expect(
@@ -368,7 +371,7 @@ describe('CreditOrdersTab', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsOrder.creditOrders.overview.metrics.pendingOrders',
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.pendingOrders\b/,
       }),
     );
 
@@ -385,6 +388,37 @@ describe('CreditOrdersTab', () => {
         end_time: '',
       });
     });
+  });
+
+  test('activates and clears the paid overview card without refetching the default paid credit view', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.paidOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.creditOrders\.overview\.metrics\.paidOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsOrder.overview.activeFilter'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
   });
 
   test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {

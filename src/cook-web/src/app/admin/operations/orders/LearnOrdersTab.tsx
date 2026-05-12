@@ -222,6 +222,9 @@ export default function LearnOrdersTab() {
   const [activeOverviewStatus, setActiveOverviewStatus] = useState<
     string | null
   >(null);
+  const [overviewStatusBeforeApply, setOverviewStatusBeforeApply] = useState<
+    string | null
+  >(null);
   const [orders, setOrders] = useState<AdminOperationOrderItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -263,7 +266,6 @@ export default function LearnOrdersTab() {
       });
       setOverviewError(false);
     } catch {
-      setOverview(EMPTY_ORDER_OVERVIEW);
       setOverviewError(true);
     }
   }, []);
@@ -322,11 +324,27 @@ export default function LearnOrdersTab() {
       if (activeOverviewStatus === status) {
         return;
       }
+      const nextStatus = status || '';
+      if (activeOverviewStatus === null) {
+        setOverviewStatusBeforeApply(appliedFilters.status || null);
+      }
+      if (appliedFilters.status === nextStatus) {
+        setActiveOverviewStatus(nextStatus || null);
+        setDraftFilters(current =>
+          current.status === nextStatus
+            ? current
+            : {
+                ...current,
+                status: nextStatus,
+              },
+        );
+        return;
+      }
       const nextFilters = {
         ...appliedFilters,
-        status,
+        status: nextStatus,
       };
-      setActiveOverviewStatus(status || null);
+      setActiveOverviewStatus(nextStatus || null);
       setDraftFilters(nextFilters);
       setAppliedFilters(nextFilters);
       setPageIndex(1);
@@ -334,12 +352,39 @@ export default function LearnOrdersTab() {
     [activeOverviewStatus, appliedFilters],
   );
 
+  const clearOverviewQuickFilter = useCallback(() => {
+    if (activeOverviewStatus === null) {
+      return;
+    }
+    const restoredStatus = overviewStatusBeforeApply ?? '';
+    setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
+    setDraftFilters(current =>
+      current.status === restoredStatus
+        ? current
+        : {
+            ...current,
+            status: restoredStatus,
+          },
+    );
+    if (appliedFilters.status === restoredStatus) {
+      return;
+    }
+    const nextFilters = {
+      ...appliedFilters,
+      status: restoredStatus,
+    };
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+  }, [activeOverviewStatus, appliedFilters, overviewStatusBeforeApply]);
+
   React.useEffect(() => {
     if (areOrderFiltersEqual(initialFiltersRef.current, initialFilters)) {
       return;
     }
     initialFiltersRef.current = initialFilters;
     setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setPageIndex(1);
@@ -415,6 +460,7 @@ export default function LearnOrdersTab() {
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
     setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
@@ -422,6 +468,7 @@ export default function LearnOrdersTab() {
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
     setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -709,7 +756,7 @@ export default function LearnOrdersTab() {
             staleMessage={
               overviewError ? tOperationsOrder('overview.staleData') : null
             }
-            onClearActive={() => applyStatusQuickFilter('')}
+            onClearActive={clearOverviewQuickFilter}
           />
 
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>

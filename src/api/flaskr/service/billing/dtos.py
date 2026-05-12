@@ -537,6 +537,7 @@ class OperatorCreditOrderOverviewDTO(BillingBaseDTO):
     credit_amount_total: int | float = 0
     paid_amount_total: int = 0
     currency: str = "CNY"
+    paid_amount_totals_by_currency: dict[str, int] = Field(default_factory=dict)
 
 
 @register_schema_to_swagger

@@ -115,6 +115,7 @@ const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
   credit_amount_total: 0,
   paid_amount_total: 0,
   currency: 'CNY',
+  paid_amount_totals_by_currency: {},
 };
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
@@ -178,6 +179,8 @@ export default function CreditOrdersTab() {
   const [activeOverviewStatus, setActiveOverviewStatus] = React.useState<
     string | null
   >(null);
+  const [overviewStatusBeforeApply, setOverviewStatusBeforeApply] =
+    React.useState<string | null>(null);
   const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
     [],
   );
@@ -229,7 +232,6 @@ export default function CreditOrdersTab() {
       });
       setOverviewError(false);
     } catch {
-      setOverview(EMPTY_CREDIT_ORDER_OVERVIEW);
       setOverviewError(true);
     }
   }, []);
@@ -289,17 +291,59 @@ export default function CreditOrdersTab() {
       if (activeOverviewStatus === status) {
         return;
       }
+      const nextStatus = status || '';
+      if (activeOverviewStatus === null) {
+        setOverviewStatusBeforeApply(appliedFilters.status || null);
+      }
+      if (appliedFilters.status === nextStatus) {
+        setActiveOverviewStatus(nextStatus || null);
+        setDraftFilters(current =>
+          current.status === nextStatus
+            ? current
+            : {
+                ...current,
+                status: nextStatus,
+              },
+        );
+        return;
+      }
       const nextFilters = {
         ...appliedFilters,
-        status,
+        status: nextStatus,
       };
-      setActiveOverviewStatus(status || null);
+      setActiveOverviewStatus(nextStatus || null);
       setDraftFilters(nextFilters);
       setAppliedFilters(nextFilters);
       setPageIndex(1);
     },
     [activeOverviewStatus, appliedFilters],
   );
+
+  const clearOverviewQuickFilter = React.useCallback(() => {
+    if (activeOverviewStatus === null) {
+      return;
+    }
+    const restoredStatus = overviewStatusBeforeApply ?? '';
+    setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
+    setDraftFilters(current =>
+      current.status === restoredStatus
+        ? current
+        : {
+            ...current,
+            status: restoredStatus,
+          },
+    );
+    if (appliedFilters.status === restoredStatus) {
+      return;
+    }
+    const nextFilters = {
+      ...appliedFilters,
+      status: restoredStatus,
+    };
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+  }, [activeOverviewStatus, appliedFilters, overviewStatusBeforeApply]);
 
   React.useEffect(() => {
     void fetchOverview();
@@ -374,11 +418,27 @@ export default function CreditOrdersTab() {
       {
         key: 'paid-amount',
         label: tOperationsOrder('creditOrders.overview.metrics.paidAmount'),
-        value: formatAdminPrice(
-          overview.paid_amount_total,
-          overview.currency,
-          locale,
-        ),
+        value: (() => {
+          const paidAmountEntries = Object.entries(
+            overview.paid_amount_totals_by_currency || {},
+          );
+          if (paidAmountEntries.length > 1) {
+            return paidAmountEntries
+              .map(([currency, amount]) =>
+                formatAdminPrice(amount, currency, locale),
+              )
+              .join(' / ');
+          }
+          if (paidAmountEntries.length === 1) {
+            const [currency, amount] = paidAmountEntries[0];
+            return formatAdminPrice(amount, currency, locale);
+          }
+          return formatAdminPrice(
+            overview.paid_amount_total,
+            overview.currency,
+            locale,
+          );
+        })(),
         tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidAmount'),
       },
     ],
@@ -397,6 +457,7 @@ export default function CreditOrdersTab() {
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
     setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
@@ -404,6 +465,7 @@ export default function CreditOrdersTab() {
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
     setActiveOverviewStatus(null);
+    setOverviewStatusBeforeApply(null);
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -655,7 +717,7 @@ export default function CreditOrdersTab() {
             staleMessage={
               overviewError ? tOperationsOrder('overview.staleData') : null
             }
-            onClearActive={() => applyStatusQuickFilter('')}
+            onClearActive={clearOverviewQuickFilter}
             gridClassName='min-[1680px]:grid-cols-4'
           />
 

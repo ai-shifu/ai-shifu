@@ -66,6 +66,7 @@ export type AdminOperationCreditOrderOverview = {
   credit_amount_total: number;
   paid_amount_total: number;
   currency: string;
+  paid_amount_totals_by_currency: Record<string, number>;
 };
 
 export type AdminOperationCreditOrderDetailResponse = {

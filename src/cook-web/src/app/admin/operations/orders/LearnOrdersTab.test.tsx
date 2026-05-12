@@ -218,6 +218,9 @@ describe('LearnOrdersTab', () => {
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
     expect(
+      screen.queryByText('module.operationsOrder.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText('module.operationsOrder.totalCount'),
     ).toBeInTheDocument();
   });
@@ -231,7 +234,7 @@ describe('LearnOrdersTab', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsOrder.overview.metrics.pendingOrders',
+        name: /^module\.operationsOrder\.overview\.metrics\.pendingOrders\b/,
       }),
     );
 
@@ -250,6 +253,37 @@ describe('LearnOrdersTab', () => {
         end_time: '',
       });
     });
+  });
+
+  test('activates and clears the paid overview card without refetching the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.paidOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.paidOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsOrder.overview.activeFilter'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
   });
 
   test('hydrates the course filter from the url query', async () => {
