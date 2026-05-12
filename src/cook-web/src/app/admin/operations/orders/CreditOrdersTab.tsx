@@ -170,9 +170,10 @@ export default function CreditOrdersTab() {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<ErrorState | null>(null);
-  const [overview, setOverview] = React.useState<AdminOperationCreditOrderOverview>(
-    EMPTY_CREDIT_ORDER_OVERVIEW,
-  );
+  const [overview, setOverview] =
+    React.useState<AdminOperationCreditOrderOverview>(
+      EMPTY_CREDIT_ORDER_OVERVIEW,
+    );
   const [overviewError, setOverviewError] = React.useState(false);
   const [activeOverviewStatus, setActiveOverviewStatus] = React.useState<
     string | null
@@ -219,8 +220,9 @@ export default function CreditOrdersTab() {
 
   const fetchOverview = React.useCallback(async () => {
     try {
-      const response =
-        (await api.getAdminOperationCreditOrdersOverview({})) as AdminOperationCreditOrderOverview;
+      const response = (await api.getAdminOperationCreditOrdersOverview(
+        {},
+      )) as AdminOperationCreditOrderOverview;
       setOverview({
         ...EMPTY_CREDIT_ORDER_OVERVIEW,
         ...response,
@@ -345,7 +347,9 @@ export default function CreditOrdersTab() {
         key: 'closed',
         label: tOperationsOrder('creditOrders.overview.metrics.closedOrders'),
         value: formatAdminCount(overview.closed_order_count, locale),
-        tooltip: tOperationsOrder('creditOrders.overview.tooltips.closedOrders'),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.closedOrders',
+        ),
         status: 'timeout',
       },
       {
@@ -384,8 +388,8 @@ export default function CreditOrdersTab() {
   const activeOverviewCard = React.useMemo(
     () =>
       activeOverviewStatus
-        ? overviewCards.find(card => card.status === activeOverviewStatus) ??
-          null
+        ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
+          null)
         : null,
     [activeOverviewStatus, overviewCards],
   );

@@ -334,7 +334,9 @@ describe('CreditOrdersTab', () => {
     render(<CreditOrdersTab />);
 
     await waitFor(() => {
-      expect(mockGetAdminOperationCreditOrdersOverview).toHaveBeenCalledWith({});
+      expect(mockGetAdminOperationCreditOrdersOverview).toHaveBeenCalledWith(
+        {},
+      );
       expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,

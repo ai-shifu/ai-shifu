@@ -3,7 +3,11 @@
 import React from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { X } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type OrderOverviewCard = {
@@ -103,7 +107,9 @@ export default function OrderOverviewSection({
 
       {activeCardLabel && onClearActive ? (
         <div className='mt-4 flex flex-wrap items-center gap-2'>
-          <span className='text-sm text-muted-foreground'>{activeFilterLabel}</span>
+          <span className='text-sm text-muted-foreground'>
+            {activeFilterLabel}
+          </span>
           <button
             type='button'
             aria-label={`${activeCardLabel} ${clearLabel}`}

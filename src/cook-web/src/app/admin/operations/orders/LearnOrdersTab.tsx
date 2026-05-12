@@ -254,8 +254,9 @@ export default function LearnOrdersTab() {
 
   const fetchOverview = useCallback(async () => {
     try {
-      const response =
-        (await api.getAdminOperationOrdersOverview({})) as AdminOperationOrderOverview;
+      const response = (await api.getAdminOperationOrdersOverview(
+        {},
+      )) as AdminOperationOrderOverview;
       setOverview({
         ...EMPTY_ORDER_OVERVIEW,
         ...response,
@@ -405,8 +406,8 @@ export default function LearnOrdersTab() {
   const activeOverviewCard = useMemo(
     () =>
       activeOverviewStatus
-        ? overviewCards.find(card => card.status === activeOverviewStatus) ??
-          null
+        ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
+          null)
         : null,
     [activeOverviewStatus, overviewCards],
   );

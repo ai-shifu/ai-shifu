@@ -104,7 +104,8 @@ const api = {
   importActivationOrder: 'POST /order/admin/orders/import-activation',
   getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
-  getAdminOperationOrdersOverview: 'GET /shifu/admin/operations/orders/overview',
+  getAdminOperationOrdersOverview:
+    'GET /shifu/admin/operations/orders/overview',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',

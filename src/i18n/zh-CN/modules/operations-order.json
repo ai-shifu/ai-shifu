@@ -43,6 +43,7 @@
       "plan": "积分套餐",
       "topup": "积分包"
     },
+    "longTerm": "长期有效",
     "overview": {
       "metrics": {
         "canceledOrders": "已取消",
@@ -65,7 +66,6 @@
         "totalOrders": "积分订单总数"
       }
     },
-    "longTerm": "长期有效",
     "paymentChannel": {
       "checkoutSession": "Checkout Session"
     },
@@ -98,27 +98,6 @@
     "title": "订单详情"
   },
   "emptyList": "暂无订单数据",
-  "overview": {
-    "activeFilter": "当前筛选",
-    "metrics": {
-      "closedOrders": "已关闭",
-      "paidAmount": "实付金额",
-      "paidOrders": "已支付",
-      "pendingOrders": "待支付",
-      "refundedOrders": "已退款",
-      "totalOrders": "订单总数"
-    },
-    "staleData": "数据概览加载失败，请刷新重试",
-    "title": "数据概览",
-    "tooltips": {
-      "closedOrders": "已关闭学习订单数",
-      "paidAmount": "已支付学习订单实付金额总和",
-      "paidOrders": "已支付学习订单数",
-      "pendingOrders": "待支付学习订单数",
-      "refundedOrders": "已退款学习订单数",
-      "totalOrders": "学习订单总数"
-    }
-  },
   "filters": {
     "courseId": "课程ID",
     "courseIdPlaceholder": "输入课程ID",
@@ -139,6 +118,27 @@
     "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
     "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
     "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
+  },
+  "overview": {
+    "activeFilter": "当前筛选",
+    "metrics": {
+      "closedOrders": "已关闭",
+      "paidAmount": "实付金额",
+      "paidOrders": "已支付",
+      "pendingOrders": "待支付",
+      "refundedOrders": "已退款",
+      "totalOrders": "订单总数"
+    },
+    "staleData": "数据概览加载失败，请刷新重试",
+    "title": "数据概览",
+    "tooltips": {
+      "closedOrders": "已关闭学习订单数",
+      "paidAmount": "已支付学习订单实付金额总和",
+      "paidOrders": "已支付学习订单数",
+      "pendingOrders": "待支付学习订单数",
+      "refundedOrders": "已退款学习订单数",
+      "totalOrders": "学习订单总数"
+    }
   },
   "source": {
     "couponRedeem": "兑换码兑换",

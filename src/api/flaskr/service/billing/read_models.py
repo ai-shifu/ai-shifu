@@ -1268,31 +1268,46 @@ def build_operator_credit_orders_overview(
                 db.func.count(BillingOrder.id).label("total_order_count"),
                 db.func.coalesce(
                     db.func.sum(
-                        case((BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1), else_=0)
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1),
+                            else_=0,
+                        )
                     ),
                     0,
                 ).label("paid_order_count"),
                 db.func.coalesce(
                     db.func.sum(
-                        case((BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1), else_=0)
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1),
+                            else_=0,
+                        )
                     ),
                     0,
                 ).label("pending_order_count"),
                 db.func.coalesce(
                     db.func.sum(
-                        case((BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1), else_=0)
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1),
+                            else_=0,
+                        )
                     ),
                     0,
                 ).label("refunded_order_count"),
                 db.func.coalesce(
                     db.func.sum(
-                        case((BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1), else_=0)
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1),
+                            else_=0,
+                        )
                     ),
                     0,
                 ).label("closed_order_count"),
                 db.func.coalesce(
                     db.func.sum(
-                        case((BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1), else_=0)
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1),
+                            else_=0,
+                        )
                     ),
                     0,
                 ).label("canceled_order_count"),
