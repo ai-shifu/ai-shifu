@@ -1368,9 +1368,7 @@ def build_operator_credit_orders_overview(
             refunded_order_count=int(summary.refunded_order_count or 0),
             closed_order_count=int(summary.closed_order_count or 0),
             canceled_order_count=int(summary.canceled_order_count or 0),
-            available_credit_total=credit_decimal_to_number(
-                available_credit_total
-            ),
+            available_credit_total=credit_decimal_to_number(available_credit_total),
             paid_amount_total=paid_amount_total,
             currency=str(currency or ""),
             paid_amount_totals_by_currency=paid_amount_totals_by_currency,
