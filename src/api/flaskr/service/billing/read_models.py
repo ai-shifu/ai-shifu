@@ -1276,10 +1276,6 @@ def build_operator_credit_orders_overview(
         )
         summary = (
             BillingOrder.query.outerjoin(
-                BillingProduct,
-                BillingProduct.product_bid == BillingOrder.product_bid,
-            )
-            .outerjoin(
                 grant_totals_subquery,
                 grant_totals_subquery.c.source_bid == BillingOrder.bill_order_bid,
             )
