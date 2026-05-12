@@ -5,6 +5,12 @@ from types import SimpleNamespace
 import pytest
 
 import flaskr.dao as dao
+from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
+from flaskr.service.billing.models import BillingOrder, BillingProduct
+from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.repository import create_user_entity, upsert_credential
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 def _get_models():
@@ -61,6 +67,47 @@ def _add_auth(app, shifu_bid: str, user_id: str, status: int):
                 auth_type=json.dumps(["view"]),
                 status=status,
             )
+        )
+        dao.db.session.commit()
+
+
+def _seed_user(app, *, user_bid: str, email: str):
+    with app.app_context():
+        entity = create_user_entity(
+            user_bid=user_bid,
+            identify=email,
+            nickname=f"user-{user_bid}",
+            language="en-US",
+            state=USER_STATE_REGISTERED,
+        )
+        entity.is_creator = 0
+        upsert_credential(
+            app,
+            user_bid=user_bid,
+            provider_name="email",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=True,
+        )
+        dao.db.session.commit()
+
+
+def _ensure_trial_billing_enabled(monkeypatch):
+    import flaskr.service.billing.auth_hooks  # noqa: F401
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
+    existing = BillingProduct.query.filter_by(
+        product_bid=BILLING_TRIAL_PRODUCT_BID,
+        deleted=0,
+    ).first()
+    if existing is None:
+        dao.db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
         )
         dao.db.session.commit()
 
@@ -129,3 +176,91 @@ class TestShifuPermissions:
             ).first()
             assert auth is not None
             assert auth.status == 0
+
+    def test_grant_view_permission_does_not_promote_creator(
+        self, monkeypatch, test_client, app
+    ):
+        shifu_bid = "test-permission-grant-view"
+        owner_id = "owner-grant-view"
+        target_user = "user-grant-view"
+        target_email = "viewer-grant@example.com"
+        _seed_shifu(app, shifu_bid, owner_id)
+        _seed_user(app, user_bid=target_user, email=target_email)
+        _mock_user(monkeypatch, owner_id)
+
+        resp = test_client.post(
+            f"/api/shifu/shifus/{shifu_bid}/permissions/grant",
+            json={
+                "contact_type": "email",
+                "contacts": [target_email],
+                "permission": "view",
+            },
+            headers={"Token": "test-token"},
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+
+        with app.app_context():
+            user = UserEntity.query.filter_by(user_bid=target_user).one()
+            assert user.is_creator == 0
+            assert BillingOrder.query.filter_by(creator_bid=target_user).count() == 0
+
+    @pytest.mark.parametrize(
+        ("permission", "expected_auth_types"),
+        [
+            ("edit", ["edit"]),
+            ("publish", ["edit", "publish"]),
+        ],
+    )
+    def test_grant_authoring_permission_promotes_creator_and_bootstraps_trial(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+        permission: str,
+        expected_auth_types: list[str],
+    ):
+        shifu_bid = f"test-permission-grant-{permission}"
+        owner_id = f"owner-grant-{permission}"
+        target_user = f"user-grant-{permission}"
+        target_email = f"{permission}-grant@example.com"
+        _seed_shifu(app, shifu_bid, owner_id)
+        _seed_user(app, user_bid=target_user, email=target_email)
+
+        with app.app_context():
+            _ensure_trial_billing_enabled(monkeypatch)
+
+        _mock_user(monkeypatch, owner_id)
+        for _ in range(2):
+            resp = test_client.post(
+                f"/api/shifu/shifus/{shifu_bid}/permissions/grant",
+                json={
+                    "contact_type": "email",
+                    "contacts": [target_email],
+                    "permission": permission,
+                },
+                headers={"Token": "test-token"},
+            )
+            payload = resp.get_json(force=True)
+            assert resp.status_code == 200
+            assert payload["code"] == 0
+
+        with app.app_context():
+            _, AiCourseAuth = _get_models()
+            user = UserEntity.query.filter_by(user_bid=target_user).one()
+            auth = AiCourseAuth.query.filter_by(
+                course_id=shifu_bid,
+                user_id=target_user,
+                status=1,
+            ).one()
+            trial_orders = BillingOrder.query.filter_by(
+                creator_bid=target_user,
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                deleted=0,
+            ).all()
+
+            assert user.is_creator == 1
+            assert json.loads(auth.auth_type) == expected_auth_types
+            assert len(trial_orders) == 1

@@ -13,6 +13,7 @@ from flask import current_app
 from flask.cli import with_appcontext
 from flaskr.dao import db
 from flaskr.service.config.models import Config
+from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.repository import (
     load_user_aggregate,
     load_user_aggregate_by_identifier,
@@ -115,6 +116,194 @@ _PRODUCT_STATUS_LABELS = {
     "active": BILLING_PRODUCT_STATUS_ACTIVE,
     "inactive": BILLING_PRODUCT_STATUS_INACTIVE,
 }
+
+
+def _normalize_cli_bid(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _auth_type_values(raw_auth_type: object) -> set[str]:
+    if raw_auth_type is None:
+        return set()
+    if isinstance(raw_auth_type, (list, tuple, set)):
+        return {
+            str(item).strip().lower() for item in raw_auth_type if str(item).strip()
+        }
+
+    text = str(raw_auth_type or "").strip()
+    if not text or text in {"[]", "null"}:
+        return set()
+    try:
+        parsed = json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return {item.strip().lower() for item in text.split(",") if item.strip()}
+
+    if isinstance(parsed, list):
+        return {str(item).strip().lower() for item in parsed if str(item).strip()}
+    if isinstance(parsed, str):
+        return {parsed.strip().lower()} if parsed.strip() else set()
+    return set()
+
+
+def _has_authoring_permission(raw_auth_type: object) -> bool:
+    return bool(_auth_type_values(raw_auth_type).intersection({"edit", "publish"}))
+
+
+def backfill_authoring_permission_creators(
+    app,
+    *,
+    course_bid: str = "",
+    user_bid: str = "",
+    limit: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    normalized_course_bid = _normalize_cli_bid(course_bid)
+    normalized_user_bid = _normalize_cli_bid(user_bid)
+    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
+
+    with app.app_context():
+        auth_query = AiCourseAuth.query.filter(AiCourseAuth.status == 1)
+        if normalized_course_bid:
+            auth_query = auth_query.filter(
+                AiCourseAuth.course_id == normalized_course_bid
+            )
+        if normalized_user_bid:
+            auth_query = auth_query.filter(AiCourseAuth.user_id == normalized_user_bid)
+        auth_query = auth_query.order_by(AiCourseAuth.id.asc())
+        if normalized_limit is not None:
+            auth_query = auth_query.limit(normalized_limit)
+
+        auth_rows = auth_query.all()
+        candidates: dict[str, dict[str, Any]] = {}
+        for auth in auth_rows:
+            current_user_bid = _normalize_cli_bid(auth.user_id)
+            if not current_user_bid:
+                continue
+            candidate = candidates.setdefault(
+                current_user_bid,
+                {
+                    "course_bids": set(),
+                    "has_authoring_permission": False,
+                },
+            )
+            current_course_bid = _normalize_cli_bid(auth.course_id)
+            if current_course_bid:
+                candidate["course_bids"].add(current_course_bid)
+            if _has_authoring_permission(auth.auth_type):
+                candidate["has_authoring_permission"] = True
+
+        records: list[dict[str, Any]] = []
+        role_granted_count = 0
+        role_would_grant_count = 0
+        role_skipped_count = 0
+        trial_granted_count = 0
+        trial_skipped_count = 0
+
+        for current_user_bid, candidate in sorted(candidates.items()):
+            record: dict[str, Any] = {
+                "creator_bid": current_user_bid,
+                "course_bids": sorted(candidate["course_bids"]),
+            }
+            if not bool(candidate["has_authoring_permission"]):
+                record.update(
+                    {
+                        "role_status": "skipped",
+                        "role_reason": "non_authoring_permission",
+                        "trial_status": "skipped",
+                        "trial_reason": "non_authoring_permission",
+                    }
+                )
+                role_skipped_count += 1
+                trial_skipped_count += 1
+                records.append(record)
+                continue
+
+            aggregate = load_user_aggregate(current_user_bid, with_credentials=False)
+            if aggregate is None:
+                record.update(
+                    {
+                        "role_status": "skipped",
+                        "role_reason": "user_not_found",
+                        "trial_status": "skipped",
+                        "trial_reason": "user_not_found",
+                    }
+                )
+                role_skipped_count += 1
+                trial_skipped_count += 1
+                records.append(record)
+                continue
+
+            if aggregate.is_creator:
+                record.update(
+                    {
+                        "role_status": "skipped",
+                        "role_reason": "already_creator",
+                    }
+                )
+                role_skipped_count += 1
+            elif dry_run:
+                record.update(
+                    {
+                        "role_status": "would_grant",
+                        "role_reason": None,
+                    }
+                )
+                role_would_grant_count += 1
+            else:
+                mark_user_roles(current_user_bid, is_creator=True)
+                db.session.commit()
+                record.update(
+                    {
+                        "role_status": "granted",
+                        "role_reason": None,
+                    }
+                )
+                role_granted_count += 1
+
+            if dry_run:
+                record.update(
+                    {
+                        "trial_status": "dry_run",
+                        "trial_reason": "dry_run",
+                    }
+                )
+                records.append(record)
+                continue
+
+            trial_payload = backfill_missing_creator_trial_credits(
+                app,
+                creator_bid=current_user_bid,
+            )
+            trial_record = (trial_payload.get("records") or [{}])[0] or {}
+            trial_status = trial_record.get("status") or trial_payload.get("status")
+            trial_reason = trial_record.get("reason") or trial_payload.get("reason")
+            record.update(
+                {
+                    "trial_status": trial_status,
+                    "trial_reason": trial_reason,
+                }
+            )
+            if int(trial_payload.get("granted_count") or 0) > 0:
+                trial_granted_count += 1
+            else:
+                trial_skipped_count += 1
+            records.append(record)
+
+        return {
+            "status": "completed",
+            "dry_run": dry_run,
+            "course_bid": normalized_course_bid or None,
+            "user_bid": normalized_user_bid or None,
+            "limit": normalized_limit,
+            "auth_count": len(auth_rows),
+            "creator_count": len(candidates),
+            "role_granted_count": role_granted_count,
+            "role_would_grant_count": role_would_grant_count,
+            "role_skipped_count": role_skipped_count,
+            "trial_granted_count": trial_granted_count,
+            "trial_skipped_count": trial_skipped_count,
+            "records": records,
+        }
 
 
 def register_billing_commands(console) -> None:
@@ -325,6 +514,56 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             limit=limit if process_all else None,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="backfill-authoring-permission-creators")
+    @click.option("--course-bid", default="", help="Limit to one shared course.")
+    @click.option("--user-bid", default="", help="Limit to one shared user.")
+    @click.option(
+        "--limit",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum active permission rows to scan.",
+    )
+    @click.option(
+        "--all",
+        "process_all",
+        is_flag=True,
+        help=(
+            "Scan active shared permissions and grant creator role for "
+            "edit/publish users."
+        ),
+    )
+    @click.option(
+        "--dry-run",
+        is_flag=True,
+        help="Report role/trial changes without writing creator roles or trial grants.",
+    )
+    @with_appcontext
+    def backfill_authoring_permission_creators_command(
+        course_bid: str,
+        user_bid: str,
+        limit: int | None,
+        process_all: bool,
+        dry_run: bool,
+    ) -> None:
+        """Grant creator role to users with edit/publish shared permissions."""
+
+        has_course_scope = bool(str(course_bid or "").strip())
+        has_user_scope = bool(str(user_bid or "").strip())
+        if not has_course_scope and not has_user_scope and not process_all:
+            raise click.ClickException(
+                "Pass --user-bid, --course-bid, or --all for "
+                "authoring-permission creator backfill."
+            )
+
+        payload = backfill_authoring_permission_creators(
+            current_app,
+            course_bid=course_bid,
+            user_bid=user_bid,
+            limit=limit,
+            dry_run=dry_run,
         )
         _echo_payload(payload)
 
