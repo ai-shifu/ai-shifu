@@ -43,6 +43,7 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -856,6 +857,14 @@ def _expire_credit_bucket_balance_for_transition(
     return available
 
 
+def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
+    """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
+
+    current_status = int(bucket.status or 0)
+    if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+        bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+
+
 def _upsert_paid_order_credit_bucket(
     app: Flask,
     *,
@@ -935,6 +944,7 @@ def _upsert_paid_order_credit_bucket(
             bucket.effective_to = effective_to
 
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
     return bucket, reserve_grant
@@ -1009,6 +1019,7 @@ def _activate_reserved_subscription_grant_for_order(
         **_build_bucket_metadata_from_order(order),
     }
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
 

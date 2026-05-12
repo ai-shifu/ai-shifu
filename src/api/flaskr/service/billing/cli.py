@@ -80,7 +80,10 @@ from .subscriptions import (
     repair_topup_grant_expiries,
 )
 from .trials import backfill_missing_creator_trial_credits
-from .wallets import rebuild_credit_wallet_snapshots
+from .wallets import (
+    rebuild_credit_wallet_snapshots,
+    repair_credit_bucket_runtime_statuses,
+)
 
 _PRODUCT_TYPE_LABELS = {
     "custom": BILLING_PRODUCT_TYPE_CUSTOM,
@@ -443,6 +446,35 @@ def register_billing_commands(console) -> None:
             current_app,
             creator_bid=creator_bid,
             subscription_bid=subscription_bid,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="repair-bucket-status")
+    @click.option("--creator-bid", default="", help="Repair one creator.")
+    @click.option(
+        "--wallet-bucket-bid",
+        default="",
+        help="Repair one wallet bucket directly.",
+    )
+    @with_appcontext
+    def repair_bucket_status_command(
+        creator_bid: str,
+        wallet_bucket_bid: str,
+    ) -> None:
+        """Repair expired bucket rows that still carry live credits."""
+
+        if (
+            not str(creator_bid or "").strip()
+            and not str(wallet_bucket_bid or "").strip()
+        ):
+            raise click.ClickException(
+                "Pass --creator-bid or --wallet-bucket-bid for bucket status repair."
+            )
+
+        payload = repair_credit_bucket_runtime_statuses(
+            current_app,
+            creator_bid=creator_bid,
+            wallet_bucket_bid=wallet_bucket_bid,
         )
         _echo_payload(payload)
 

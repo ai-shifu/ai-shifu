@@ -284,6 +284,49 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
 
 
+def test_billing_repair_bucket_status_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-bucket-status"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Pass --creator-bid or --wallet-bucket-bid for bucket status repair."
+        in result.output
+    )
+
+
+def test_billing_repair_bucket_status_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_credit_bucket_runtime_statuses",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "repaired_bucket_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-bucket-status",
+            "--wallet-bucket-bid",
+            "bucket-cli-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["wallet_bucket_bid"] == "bucket-cli-1"
+
+
 def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:

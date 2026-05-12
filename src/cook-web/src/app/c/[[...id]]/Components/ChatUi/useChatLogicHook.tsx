@@ -85,6 +85,7 @@ const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 const DEFAULT_LISTEN_AUDIO_POSITION = 0;
+const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
 export { ChatContentItemType };
 export type { ChatContentItem };
@@ -1199,6 +1200,44 @@ function useChatLogicHook({
     [createRunTimeoutErrorItem, setTrackedContentList, t],
   );
 
+  const appendRunBusinessError = useCallback(
+    (message: string, businessCode?: number) => {
+      const normalizedMessage = message.trim();
+      if (!normalizedMessage) {
+        return;
+      }
+
+      const itemBid = `run-business-error-${outlineBid}-${businessCode || 'unknown'}`;
+      setTrackedContentList(prevState => {
+        const nextList = prevState.filter(
+          item => item.element_bid !== 'loading',
+        );
+        if (nextList.some(item => item.element_bid === itemBid)) {
+          return nextList;
+        }
+
+        return [
+          ...nextList,
+          {
+            element_bid: itemBid,
+            generated_block_bid: itemBid,
+            content: normalizedMessage,
+            readonly: true,
+            user_input: '',
+            customRenderBar: () => null,
+            type: ChatContentItemType.ERROR,
+            business_code: businessCode,
+            is_marker: true,
+            is_renderable: true,
+            is_new: true,
+            is_speakable: false,
+          },
+        ];
+      });
+    },
+    [outlineBid, setTrackedContentList],
+  );
+
   const syncLessonFeedbackInteractionValues = useCallback(
     (blockBid: string, scoreText: string, commentText: string) => {
       setTrackedContentList(prev =>
@@ -1489,11 +1528,24 @@ function useChatLogicHook({
                       : typeof response?.message === 'string'
                         ? response.message
                         : '';
+              const businessCode =
+                typeof response?.code === 'number'
+                  ? response.code
+                  : typeof rawContent?.code === 'number'
+                    ? rawContent.code
+                    : undefined;
 
               toast({
                 title: errorContent || 'Request failed',
                 variant: 'destructive',
               });
+              if (
+                effectivePreviewMode &&
+                businessCode === CREDIT_INSUFFICIENT_ERROR_CODE &&
+                errorContent
+              ) {
+                appendRunBusinessError(errorContent, businessCode);
+              }
               return;
             }
 
@@ -1875,11 +1927,30 @@ function useChatLogicHook({
             console.warn('SSE handling error:', error);
           }
         },
-        () => {
+        error => {
           const isLatestRun = runSerial === sseRunSerialRef.current;
           const isCurrentSource =
             sseRef.current === source || sseRef.current === null;
           if (!isLatestRun || !isCurrentSource) {
+            return;
+          }
+          const businessError = (
+            error as { detail?: { code?: number; message?: string } }
+          )?.detail;
+          if (
+            effectivePreviewMode &&
+            businessError?.code === CREDIT_INSUFFICIENT_ERROR_CODE &&
+            businessError?.message?.trim()
+          ) {
+            toast({
+              title: businessError.message.trim(),
+              variant: 'destructive',
+            });
+            cleanupRunStreamState();
+            appendRunBusinessError(
+              businessError.message.trim(),
+              businessError.code,
+            );
             return;
           }
           cleanupRunStreamState();
@@ -1923,6 +1994,7 @@ function useChatLogicHook({
       mobileStyle,
       trackTrailProgress,
       allowTtsStreaming,
+      appendRunBusinessError,
       appendRunTimeoutError,
       clearRunStreamTimeout,
       ensureContentItem,

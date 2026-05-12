@@ -250,12 +250,14 @@ const dispatchSseBusinessError = (
   source: { dispatchEvent: (event: Event) => void },
   error: { message: string; code?: number },
 ) => {
-  const event = new CustomEvent('error');
-  Object.assign(event, {
+  const event = new CustomEvent('error', {
     detail: error,
-    data: error.message,
-    responseCode: error.code,
-  });
+  }) as CustomEvent<{ message: string; code?: number }> & {
+    data?: string;
+    responseCode?: number;
+  };
+  event.data = error.message;
+  event.responseCode = error.code;
   source.dispatchEvent(event);
 };
 

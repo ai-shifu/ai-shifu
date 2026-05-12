@@ -1,6 +1,7 @@
 import styles from './ChatComponents.module.scss';
 import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import {
   useContext,
   useRef,
@@ -56,6 +57,10 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { Button } from '@/components/ui/Button';
+
+const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
 interface NewChatComponentsProps {
   className?: string;
@@ -216,6 +221,7 @@ export const NewChatComponents = ({
 }: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
+  const router = useRouter();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
@@ -242,6 +248,9 @@ export const NewChatComponents = ({
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+  const handleGoToBilling = useCallback(() => {
+    router.push(BILLING_PACKAGES_HREF);
+  }, [router]);
 
   const { courseId: shifuBid } = useEnvStore.getState();
   const { refreshUserInfo } = useUserStore(
@@ -501,7 +510,11 @@ export const NewChatComponents = ({
   const readModeItems = useMemo(
     () =>
       buildReadModeItemsWithAskState({
-        items: items.filter(item => item.type !== ChatContentItemType.ERROR),
+        items: items.filter(
+          item =>
+            item.type !== ChatContentItemType.ERROR ||
+            item.business_code === CREDIT_INSUFFICIENT_ERROR_CODE,
+        ),
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
       }),
@@ -1239,6 +1252,46 @@ export const NewChatComponents = ({
                             ) : null
                           }
                         />
+                      </div>
+                    );
+                  }
+
+                  if (item.type === ChatContentItemType.ERROR) {
+                    return (
+                      <div
+                        key={`error-${baseKey}`}
+                        style={{
+                          position: 'relative',
+                          margin: !idx ? '0 auto' : '40px auto 0 auto',
+                          maxWidth: mobileStyle ? '100%' : '1000px',
+                          padding: getReadModeElementPadding(idx === 0),
+                        }}
+                      >
+                        <ContentBlock
+                          item={item}
+                          mobileStyle={mobileStyle}
+                          blockBid={item.element_bid}
+                          confirmButtonText={confirmButtonText}
+                          copyButtonText={copyButtonText}
+                          copiedButtonText={copiedButtonText}
+                          onClickCustomButtonAfterContent={handleClickAskButton}
+                          onSend={memoizedOnSend}
+                          onLongPress={handleLongPress}
+                          autoPlayAudio={false}
+                          showAudioAction={false}
+                          onAudioPlayStateChange={handleAudioPlayStateChange}
+                          onAudioEnded={handleAudioEnded}
+                        />
+                        {item.business_code ===
+                        CREDIT_INSUFFICIENT_ERROR_CODE ? (
+                          <Button
+                            type='button'
+                            size='sm'
+                            onClick={handleGoToBilling}
+                          >
+                            {t('module.shifu.previewArea.goToBilling')}
+                          </Button>
+                        ) : null}
                       </div>
                     );
                   }

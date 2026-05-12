@@ -28,6 +28,13 @@ class _FakeSegment:
             )
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            start = int(key.start or 0)
+            stop = int(key.stop if key.stop is not None else self.duration_ms)
+            return _FakeSegment(max(stop - start, 0))
+        return self
+
     def export(self, output_io, format="mp3", bitrate="128k"):
         _ = (format, bitrate)
         output_io.write(f"duration={self.duration_ms}".encode("utf-8"))
@@ -81,7 +88,7 @@ def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
         audio_utils.concat_audio_mp3([b"100", b"BAD", b"80"])
 
 
-def test_concat_audio_best_effort_falls_back_to_byte_join_on_partial_failure(
+def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failure(
     monkeypatch,
 ):
     monkeypatch.setattr(
@@ -91,4 +98,44 @@ def test_concat_audio_best_effort_falls_back_to_byte_join_on_partial_failure(
 
     output = audio_utils.concat_audio_best_effort([b"100", b"BAD", b"80"])
 
-    assert output == b"100BAD80"
+    assert output == b"duration=180"
+
+
+def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    output = audio_utils.concat_audio_best_effort([b"BAD"])
+
+    assert output == b""
+
+
+def test_concat_audio_best_effort_drops_undecodable_multiple_segments(monkeypatch):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    output = audio_utils.concat_audio_best_effort([b"BAD", b"BAD"])
+
+    assert output == b""
+
+
+def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    output, duration_ms = audio_utils.export_audio_range_best_effort(
+        b"BAD",
+        start_ms=0,
+        end_ms=None,
+    )
+
+    assert output == b""
+    assert duration_ms == 0
