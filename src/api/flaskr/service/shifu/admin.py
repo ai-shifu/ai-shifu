@@ -134,7 +134,6 @@ from flaskr.service.user.models import (
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     load_user_aggregate_by_identifier,
-    mark_user_roles,
     set_user_state,
     upsert_credential,
 )
@@ -143,6 +142,8 @@ from flaskr.util.uuid import generate_id
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
+    mark_creator_role_if_needed,
+    run_creator_granted_post_auth,
 )
 
 COURSE_STATUS_PUBLISHED = "published"
@@ -1960,7 +1961,7 @@ def transfer_operator_course_creator(
                 )
                 granted_demo_permissions = True
 
-        mark_user_roles(target_user_bid, is_creator=True)
+        creator_granted_now = mark_creator_role_if_needed(target_user_bid)
         _update_course_creator_bid(normalized_shifu_bid, target_user_bid)
 
         db.session.commit()
@@ -1970,6 +1971,15 @@ def transfer_operator_course_creator(
             )
         _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
         _clear_shifu_creator_cache(app, normalized_shifu_bid)
+        if creator_granted_now:
+            run_creator_granted_post_auth(
+                app,
+                user_id=target_user_bid,
+                source="operator_transfer_creator",
+                login_context="admin",
+                created_new_user=created_new_user,
+                language=target_aggregate.user_language,
+            )
         return {
             "shifu_bid": normalized_shifu_bid,
             "previous_creator_user_bid": previous_creator_user_bid,

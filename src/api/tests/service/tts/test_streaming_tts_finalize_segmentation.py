@@ -9,7 +9,9 @@ final segments.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+from flaskr.api.tts import TTSResult
+from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment
 
 
 @pytest.fixture
@@ -235,6 +237,198 @@ class TestFinalizeSegmentation:
         # Verify logging
         assert "Submitting remaining text in segments" in caplog.text
         assert "Submitted finalize segment" in caplog.text
+
+
+class TestStreamingSynthesisRetries:
+    """Regression coverage for transient provider empty-audio responses."""
+
+    @patch("flaskr.service.tts.streaming_tts.time.sleep")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_volcengine_empty_audio_segment_retries_once(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_record_usage,
+        mock_sleep,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.side_effect = [
+            ValueError("No audio data received"),
+            TTSResult(
+                audio_data=b"audio",
+                duration_ms=321,
+                sample_rate=24000,
+                format="mp3",
+                word_count=4,
+            ),
+        ]
+        app_context = MagicMock()
+        app_context.__enter__.return_value = None
+        app_context.__exit__.return_value = False
+        mock_app.app_context.return_value = app_context
+
+        processor = create_test_processor(
+            mock_app,
+            tts_provider="volcengine",
+            tts_model="seed-tts-2.0",
+        )
+        segment = TTSSegment(index=3, text="Please synthesize this sentence.")
+
+        result = processor._synthesize_in_thread(
+            segment,
+            processor.voice_settings,
+            processor.audio_settings,
+            processor.tts_provider,
+            processor.tts_model,
+        )
+
+        assert mock_synthesize_text.call_count == 2
+        mock_sleep.assert_called_once()
+        assert result.error is None
+        assert result.audio_data == b"audio"
+        assert result.duration_ms == 321
+        assert result.word_count == 4
+        mock_record_usage.assert_called_once()
+
+    @patch("flaskr.service.tts.streaming_tts.save_audio_record")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.tts_handler.upload_audio_to_oss")
+    @patch("flaskr.service.tts.streaming_tts.get_audio_duration_ms")
+    @patch("flaskr.service.tts.streaming_tts.concat_audio_best_effort")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_volcengine_finalizes_whole_text_with_provider_subtitles(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_concat_audio,
+        mock_get_duration,
+        mock_upload,
+        mock_record_segment_usage,
+        mock_record_aggregate_usage,
+        mock_save_audio_record,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.return_value = TTSResult(
+            audio_data=b"provider-audio",
+            duration_ms=500,
+            sample_rate=24000,
+            format="mp3",
+            word_count=19,
+            subtitle_cues=[
+                {
+                    "text": "Provider subtitles.",
+                    "start_ms": 0,
+                    "end_ms": 500,
+                    "segment_index": 0,
+                }
+            ],
+        )
+        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_get_duration.return_value = 500
+        mock_upload.return_value = ("https://example.com/audio.mp3", "bucket")
+
+        processor = create_test_processor(
+            mock_app,
+            tts_provider="volcengine",
+            tts_model="seed-tts-2.0",
+            position=2,
+        )
+
+        chunk_events = list(processor.process_chunk("Provider subtitles."))
+        assert chunk_events == []
+        mock_synthesize_text.assert_not_called()
+
+        events = list(processor.finalize(commit=True))
+
+        audio_segments = [
+            event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+        ]
+        audio_complete = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert len(audio_segments) == 1
+        assert len(audio_complete) == 1
+        mock_synthesize_text.assert_called_once()
+        assert mock_synthesize_text.call_args.kwargs["text"] == "Provider subtitles."
+        assert [cue.text for cue in audio_segments[0].content.subtitle_cues] == [
+            "Provider subtitles."
+        ]
+        assert [
+            (cue.start_ms, cue.end_ms, cue.position)
+            for cue in audio_complete[0].content.subtitle_cues
+        ] == [(0, 500, 2)]
+        mock_record_segment_usage.assert_called_once()
+        mock_record_aggregate_usage.assert_called_once()
+        mock_save_audio_record.assert_called_once()
+
+    @patch("flaskr.service.tts.streaming_tts.time.sleep")
+    @patch("flaskr.service.tts.streaming_tts.save_audio_record")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage")
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.tts_handler.upload_audio_to_oss")
+    @patch("flaskr.service.tts.streaming_tts.get_audio_duration_ms")
+    @patch("flaskr.service.tts.streaming_tts.concat_audio_best_effort")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_volcengine_whole_text_empty_audio_retries_once(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_concat_audio,
+        mock_get_duration,
+        mock_upload,
+        mock_record_segment_usage,
+        mock_record_aggregate_usage,
+        mock_save_audio_record,
+        mock_sleep,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.side_effect = [
+            ValueError("No audio data received"),
+            TTSResult(
+                audio_data=b"retried-audio",
+                duration_ms=400,
+                sample_rate=24000,
+                format="mp3",
+                word_count=17,
+                subtitle_cues=[
+                    {
+                        "text": "Retry subtitles.",
+                        "start_ms": 0,
+                        "end_ms": 400,
+                        "segment_index": 0,
+                    }
+                ],
+            ),
+        ]
+        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_get_duration.return_value = 400
+        mock_upload.return_value = ("https://example.com/retry.mp3", "bucket")
+
+        processor = create_test_processor(
+            mock_app,
+            tts_provider="volcengine",
+            tts_model="seed-tts-2.0",
+        )
+        list(processor.process_chunk("Retry subtitles."))
+
+        events = list(processor.finalize(commit=True))
+
+        assert mock_synthesize_text.call_count == 2
+        mock_sleep.assert_called_once()
+        assert [event for event in events if event.type == GeneratedType.AUDIO_SEGMENT]
+        assert [event for event in events if event.type == GeneratedType.AUDIO_COMPLETE]
+        mock_record_segment_usage.assert_called_once()
+        mock_record_aggregate_usage.assert_called_once()
+        mock_save_audio_record.assert_called_once()
 
 
 class TestOffsetDriftRegression:

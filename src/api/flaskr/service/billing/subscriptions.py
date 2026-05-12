@@ -788,6 +788,79 @@ def _load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry
     )
 
 
+def _repair_existing_paid_order_grant_bucket(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry,
+) -> bool:
+    """Repair the mutable bucket snapshot for an already-granted paid order."""
+
+    if _normalize_bid(grant_entry.source_bid) != _normalize_bid(order.bill_order_bid):
+        return False
+
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == order.creator_bid,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return False
+
+    bucket_source_bid = _normalize_bid(bucket.source_bid)
+    if bucket_source_bid and bucket_source_bid != _normalize_bid(order.bill_order_bid):
+        return False
+
+    effective_to = grant_entry.expires_at
+    now = datetime.now()
+    if effective_to is not None and effective_to <= now:
+        return False
+
+    changed = False
+    effective_from = grant_entry.consumable_from
+    if effective_from is not None and bucket.effective_from != effective_from:
+        bucket.effective_from = effective_from
+        changed = True
+    if bucket.effective_to != effective_to:
+        bucket.effective_to = effective_to
+        changed = True
+    if bucket.source_bid != order.bill_order_bid:
+        bucket.source_bid = order.bill_order_bid
+        changed = True
+
+    previous_status = int(bucket.status or 0)
+    if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
+        _to_decimal(bucket.available_credits) > 0
+        or _to_decimal(bucket.reserved_credits) > 0
+    ):
+        _prepare_bucket_for_runtime_reuse(bucket)
+        changed = True
+
+    sync_credit_bucket_status(bucket)
+    if int(bucket.status or 0) != previous_status:
+        changed = True
+
+    if not changed:
+        return False
+
+    bucket.updated_at = now
+    db.session.add(bucket)
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    return True
+
+
 def _should_reserve_subscription_renewal_grant(
     order: BillingOrder,
     *,
@@ -1067,6 +1140,11 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         .first()
     )
     if existing_entry is not None:
+        _repair_existing_paid_order_grant_bucket(
+            app,
+            order=order,
+            grant_entry=existing_entry,
+        )
         _activate_subscription_for_paid_order(app, order)
         return False
 

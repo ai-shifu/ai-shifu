@@ -77,6 +77,7 @@ class TTSResult:
     sample_rate: int
     format: str
     word_count: int = 0
+    subtitle_cues: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

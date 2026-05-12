@@ -82,6 +82,7 @@ class Event(IntEnum):
     TTS_SENTENCE_START = 350
     TTS_SENTENCE_END = 351
     TTS_RESPONSE = 352
+    TTS_SUBTITLE = 364
 
 
 class ErrorCode(IntEnum):
@@ -152,6 +153,8 @@ class VolcengineProtocol:
         volume: float = 1.0,
         emotion: str = "",
         model: str = "",
+        enable_timestamp: bool = False,
+        enable_subtitle: bool = False,
     ) -> bytes:
         """
         Encode StartSession frame.
@@ -177,6 +180,10 @@ class VolcengineProtocol:
             "format": audio_format,
             "sample_rate": sample_rate,
         }
+        if enable_timestamp:
+            audio_params["enable_timestamp"] = True
+        if enable_subtitle:
+            audio_params["enable_subtitle"] = True
 
         # Convert speed from 0.5-2.0 range to -50 to 100 range
         # 1.0 -> 0, 2.0 -> 100, 0.5 -> -50
@@ -355,6 +362,7 @@ class VolcengineProtocol:
                 Event.TTS_SENTENCE_START,
                 Event.TTS_SENTENCE_END,
                 Event.TTS_RESPONSE,
+                Event.TTS_SUBTITLE,
             ]:
                 # Session events have session_id
                 if len(data) >= offset + 4:
