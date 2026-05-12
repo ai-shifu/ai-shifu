@@ -23,8 +23,8 @@
         "note": "Raison de l’ajustement manuel"
       },
       "quickAction": "Ajuster ce créateur",
-      "submit": "Appliquer adjustment",
-      "submitting": "Appliquering...",
+      "submit": "Appliquer l’ajustement",
+      "submitting": "Application...",
       "success": "Grand livre mis à jour pour {creatorBid}. Crédits disponibles : {availableCredits}.",
       "title": "Ajustement manuel des crédits"
     },
