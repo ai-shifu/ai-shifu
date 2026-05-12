@@ -1,7 +1,7 @@
 {
   "__namespace__": "component.fileUploader",
   "checkImageUrl": "Échec du téléversement, veuillez vérifier que l’URL de l’image est correcte",
-  "clickToUpload": "Click to Téléverser",
+  "clickToUpload": "Cliquer pour téléverser",
   "dragOrClickToUpload": "Glissez un fichier ou cliquez pour téléverser",
   "imageScale": "Échelle de l’image",
   "imageTitle": "Titre de l’image",
