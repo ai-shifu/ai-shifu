@@ -31,9 +31,7 @@ import { normalizeLegacyBlockCompatList } from '@/c-utils/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
-import {
-  attachSseBusinessResponseFallback,
-} from '@/lib/request';
+import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
@@ -697,10 +695,7 @@ export function usePreviewChat() {
   }, [closeAllTtsStreams]);
 
   const handlePreviewBusinessError = useCallback(
-    (
-      errorOrMessage?: string | ErrorWithCode | null,
-      fallbackCode?: number,
-    ) => {
+    (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
       const resolvedMessage =
         typeof errorOrMessage === 'string'
           ? errorOrMessage.trim() || t('module.preview.llmError')
@@ -708,7 +703,7 @@ export function usePreviewChat() {
       const resolvedCode =
         typeof errorOrMessage === 'string'
           ? fallbackCode
-          : errorOrMessage?.code ?? fallbackCode;
+          : (errorOrMessage?.code ?? fallbackCode);
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,

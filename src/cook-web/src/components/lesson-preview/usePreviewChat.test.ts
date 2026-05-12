@@ -43,9 +43,7 @@ describe('usePreviewChat business error rendering', () => {
       },
     ];
 
-    expect(
-      replacePreviewLoadingWithBusinessError(items, '余额不足'),
-    ).toEqual([
+    expect(replacePreviewLoadingWithBusinessError(items, '余额不足')).toEqual([
       items[0],
       buildPreviewBusinessErrorItem('余额不足'),
     ]);

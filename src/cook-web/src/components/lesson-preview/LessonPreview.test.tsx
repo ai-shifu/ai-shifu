@@ -30,7 +30,9 @@ jest.mock('@/components/ui/UseAlert', () => ({
 }));
 
 jest.mock('@/components/ui/Dialog', () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Dialog: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   DialogContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -94,9 +96,11 @@ describe('LessonPreview billing action', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', {
-      name: 'module.shifu.previewArea.goToBilling',
-    }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.shifu.previewArea.goToBilling',
+      }),
+    );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/billing?tab=packages');
   });

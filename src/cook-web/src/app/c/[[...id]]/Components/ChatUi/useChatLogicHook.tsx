@@ -1209,7 +1209,9 @@ function useChatLogicHook({
 
       const itemBid = `run-business-error-${outlineBid}-${businessCode || 'unknown'}`;
       setTrackedContentList(prevState => {
-        const nextList = prevState.filter(item => item.element_bid !== 'loading');
+        const nextList = prevState.filter(
+          item => item.element_bid !== 'loading',
+        );
         if (nextList.some(item => item.element_bid === itemBid)) {
           return nextList;
         }

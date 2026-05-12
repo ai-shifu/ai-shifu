@@ -1282,7 +1282,8 @@ export const NewChatComponents = ({
                           onAudioPlayStateChange={handleAudioPlayStateChange}
                           onAudioEnded={handleAudioEnded}
                         />
-                        {item.business_code === CREDIT_INSUFFICIENT_ERROR_CODE ? (
+                        {item.business_code ===
+                        CREDIT_INSUFFICIENT_ERROR_CODE ? (
                           <Button
                             type='button'
                             size='sm'
