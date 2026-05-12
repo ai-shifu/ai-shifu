@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import flaskr.dao as dao
+from flaskr.common import config as config_module
 from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -54,6 +55,23 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
         raising=False,
     )
     return dummy_user
+
+
+def _clear_config_caches() -> None:
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass
+
+
+def _allow_email_login(monkeypatch) -> None:
+    monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
+    _clear_config_caches()
 
 
 def _add_auth(app, shifu_bid: str, user_id: str, status: int):
@@ -186,6 +204,7 @@ class TestShifuPermissions:
         target_email = "viewer-grant@example.com"
         _seed_shifu(app, shifu_bid, owner_id)
         _seed_user(app, user_bid=target_user, email=target_email)
+        _allow_email_login(monkeypatch)
         _mock_user(monkeypatch, owner_id)
 
         resp = test_client.post(
@@ -228,6 +247,7 @@ class TestShifuPermissions:
         target_email = f"{permission}-grant@example.com"
         _seed_shifu(app, shifu_bid, owner_id)
         _seed_user(app, user_bid=target_user, email=target_email)
+        _allow_email_login(monkeypatch)
 
         with app.app_context():
             _ensure_trial_billing_enabled(monkeypatch)
