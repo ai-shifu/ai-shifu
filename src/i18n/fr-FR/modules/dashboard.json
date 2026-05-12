@@ -28,9 +28,9 @@
       "title": "Liste des apprenants"
     },
     "metrics": {
-      "activeLearnersLast7Days": "Actif Apprenants in Last 7 Days",
+      "activeLearnersLast7Days": "Apprenants actifs au cours des 7 derniers jours",
       "avgLearningDuration": "Durée moyenne d’apprentissage",
-      "avgQuestionsPerLearner": "Average Questions per Apprenant",
+      "avgQuestionsPerLearner": "Nombre moyen de questions par apprenant",
       "completedLearners": "Apprenants ayant terminé",
       "completionRate": "Taux d’achèvement",
       "orderAmount": "Montant de commande",
