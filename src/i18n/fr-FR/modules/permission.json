@@ -8,7 +8,7 @@
     "generalError": "Une erreur s’est produite, veuillez réessayer plus tard",
     "generalErrorTitle": "Erreur",
     "noPermission": "Vous n’avez pas l’autorisation d’accéder à cette page. Veuillez contacter l’administrateur.",
-    "noPermissionTitle": "Autorisation Denied",
+    "noPermissionTitle": "Autorisation refusée",
     "notFound": "La ressource demandée est introuvable",
     "notFoundTitle": "Introuvable",
     "serverError": "Erreur serveur, veuillez réessayer plus tard",
@@ -18,9 +18,9 @@
     "requestDescription": "Expliquez brièvement pourquoi vous avez besoin de l’accès ; nous traiterons votre demande dès que possible.",
     "requestError": "Échec de l’envoi de la demande, veuillez réessayer plus tard",
     "requestPlaceholder": "Veuillez saisir votre motif (par exemple : besoin professionnel, objectif d’apprentissage, etc.)",
-    "requestSubmit": "Envoyer Request",
+    "requestSubmit": "Envoyer la demande",
     "requestSuccess": "Demande d’autorisation envoyée avec succès, nous la traiterons bientôt",
-    "requestTitle": "Request Access Autorisation"
+    "requestTitle": "Demander l'accès"
   },
   "user": {
     "login": "Connexion"

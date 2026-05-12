@@ -41,7 +41,7 @@
     "variablesHideSingleConfirmTitle": "Masquer la variable",
     "variablesHideUnused": "Masquer les inutilisés",
     "variablesHideUnusedConfirmDesc": "Masquer les variables personnalisées non utilisées dans le cours. Après masquage, vous pouvez cliquer sur ce bouton pour les afficher de nouveau.",
-    "variablesHideUnusedConfirmTitle": "Masquer les inutilisés custom variables",
+    "variablesHideUnusedConfirmTitle": "Masquer les variables personnalisées inutilisées",
     "variablesHideUnusedTooltip": "Masquer les variables personnalisées non utilisées dans le cours",
     "variablesPlaceholder": "INCONNU",
     "variablesRestoreHidden": "Tout afficher",
