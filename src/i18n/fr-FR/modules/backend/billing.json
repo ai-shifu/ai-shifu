@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "creditInsufficient": "Insufficient credits. Purchase a topup or subscription before continuing.",
+    "customDomainDisabled": "Custom domains are not enabled for this creator.",
+    "disabled": "Billing is currently disabled.",
+    "domainBindingNotFound": "The requested custom domain binding was not found.",
+    "domainHostConflict": "This custom domain is already bound by another creator.",
+    "subscriptionInactive": "An active subscription is required. Top-up credits can only be purchased or used within the subscription period.",
+    "subscriptionUpgradeOnly": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+  }
+}

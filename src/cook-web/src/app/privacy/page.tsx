@@ -7,6 +7,7 @@ import i18n from '@/i18n';
 const privacyPolicies = {
   'zh-CN': ZH_CN_PrivacyPolicy,
   'en-US': EN_PrivacyPolicy,
+  'fr-FR': EN_PrivacyPolicy,
   en: EN_PrivacyPolicy,
 };
 

@@ -11,6 +11,7 @@ describe('i18n language normalization', () => {
       locales: {
         'en-US': { label: 'English' },
         'zh-CN': { label: '中文' },
+        'fr-FR': { label: 'Français' },
       },
     };
 
@@ -29,7 +30,9 @@ describe('i18n language normalization', () => {
       expect(normalizeLanguage('en')).toBe('en-US');
       expect(normalizeLanguage('en-GB')).toBe('en-US');
       expect(normalizeLanguage('zh')).toBe('zh-CN');
-      expect(normalizeLanguage('fr')).toBe('en-US');
+      expect(normalizeLanguage('fr')).toBe('fr-FR');
+      expect(normalizeLanguage('fr-CA')).toBe('fr-FR');
+      expect(normalizeLanguage('de')).toBe('en-US');
 
       // restore window to avoid side effects
       globalAny.window = prevWindow;

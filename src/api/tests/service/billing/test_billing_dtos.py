@@ -212,12 +212,14 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
                 **{
                     "zh-CN": "/legal/agreement/zh",
                     "en-US": "/legal/agreement/en",
+                    "fr-FR": "/legal/agreement/fr",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": "/legal/privacy/zh",
                     "en-US": "/legal/privacy/en",
+                    "fr-FR": "/legal/privacy/fr",
                 }
             ),
         ),
@@ -257,6 +259,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "fr-FR": "/legal/agreement/fr",
     }
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2

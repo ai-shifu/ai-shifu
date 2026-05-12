@@ -51,14 +51,8 @@ interface EnvironmentConfig {
 
   // Legal Documents Configuration
   legalUrls: {
-    agreement: {
-      'zh-CN': string;
-      'en-US': string;
-    };
-    privacy: {
-      'zh-CN': string;
-      'en-US': string;
-    };
+    agreement: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
+    privacy: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
   };
 }
 
@@ -328,8 +322,8 @@ function getCurrencySymbol(): string {
  * Gets legal document URLs for all supported languages
  */
 function getLegalUrls(): {
-  agreement: { 'zh-CN': string; 'en-US': string };
-  privacy: { 'zh-CN': string; 'en-US': string };
+  agreement: { 'zh-CN': string; 'en-US': string; 'fr-FR': string };
+  privacy: { 'zh-CN': string; 'en-US': string; 'fr-FR': string };
 } {
   return {
     agreement: {
@@ -341,6 +335,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
         process.env.LEGAL_AGREEMENT_URL_EN_US ||
         '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_FR_FR') ||
+        process.env.LEGAL_AGREEMENT_URL_FR_FR ||
+        '',
     },
     privacy: {
       'zh-CN':
@@ -350,6 +348,10 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
         process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_FR_FR') ||
+        process.env.LEGAL_PRIVACY_URL_FR_FR ||
         '',
     },
   };

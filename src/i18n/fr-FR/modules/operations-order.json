@@ -1,0 +1,129 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits} crédits",
+    "detail": {
+      "description": "Voir les détails de la commande de crédits",
+      "labels": {
+        "creatorId": "ID utilisateur",
+        "failedAt": "Échec à",
+        "failureCode": "Code d’échec",
+        "failureMessage": "Raison de l’échec",
+        "grantSourceId": "ID de source d’attribution",
+        "grantSourceType": "Type de source d’attribution",
+        "grantedCredits": "Granted Crédits",
+        "orderType": "Type de commande",
+        "paidAt": "Payé le",
+        "productCode": "Code produit",
+        "providerReference": "Référence fournisseur",
+        "validFrom": "Valide à partir de"
+      },
+      "sections": {
+        "creator": "Infos utilisateur",
+        "grant": "Enregistrement d’attribution",
+        "metadata": "Métadonnées",
+        "payment": "Infos de paiement",
+        "product": "Crédit Forfait Info",
+        "summary": "Infos de commande"
+      },
+      "title": "Crédit Commande Détail"
+    },
+    "emptyList": "Aucune donnée de commande de crédits",
+    "filters": {
+      "creatorKeyword": "Utilisateur",
+      "creatorKeywordPlaceholderEmail": "ID utilisateur / email",
+      "creatorKeywordPlaceholderPhone": "ID utilisateur / téléphone",
+      "orderKind": "Type de commande",
+      "paymentProvider": "Fournisseur",
+      "productKeyword": "Produit",
+      "productKeywordPlaceholder": "Nom du forfait / pack"
+    },
+    "kind": {
+      "other": "Autre",
+      "plan": "Forfait de crédits",
+      "topup": "Pack de crédits"
+    },
+    "longTerm": "Long terme",
+    "paymentChannel": {
+      "checkoutSession": "Session Checkout"
+    },
+    "productIntervals": {
+      "day": "Quotidien",
+      "month": "Mensuel",
+      "year": "Annuel"
+    },
+    "productNameFormat": "{interval} - {name}",
+    "table": {
+      "creator": "Utilisateur",
+      "creditAmount": "Crédits",
+      "orderId": "Crédit Commande ID",
+      "orderKind": "Type de commande",
+      "paymentChannel": "Méthode de paiement",
+      "product": "Forfait de crédits",
+      "validTo": "Valide jusqu’au"
+    }
+  },
+  "detail": {
+    "fallback": "Détail de commande",
+    "sections": {
+      "activities": "Activités",
+      "coupons": "Code d’échange",
+      "course": "Infos du cours",
+      "payment": "Montant & Paiement",
+      "summary": "Infos de commande",
+      "user": "Infos utilisateur"
+    },
+    "title": "Détail de commande"
+  },
+  "emptyList": "Aucune donnée de commande",
+  "filters": {
+    "courseId": "ID du cours",
+    "courseIdPlaceholder": "ID du cours",
+    "courseName": "Cours",
+    "courseNamePlaceholder": "Nom du cours",
+    "createdAt": "Créé",
+    "endTime": "Heure de fin",
+    "orderId": "ID de commande",
+    "orderIdPlaceholder": "ID de commande",
+    "paymentChannel": "Paiement",
+    "reset": "Réinitialiser",
+    "search": "Rechercher",
+    "source": "Source",
+    "startTime": "Heure de début",
+    "status": "Statut",
+    "timeRangePlaceholder": "Plage de dates",
+    "userKeyword": "Utilisateur",
+    "userKeywordPlaceholder": "ID utilisateur / téléphone / e-mail",
+    "userKeywordPlaceholderEmail": "ID utilisateur / email",
+    "userKeywordPlaceholderPhone": "ID utilisateur / téléphone"
+  },
+  "source": {
+    "couponRedeem": "Utilisation du coupon",
+    "importActivation": "Importer Activation",
+    "openApi": "Attribution API ouverte",
+    "userPurchase": "Achat utilisateur"
+  },
+  "table": {
+    "action": "Action",
+    "coupons": "Code d’échange",
+    "course": "Cours",
+    "createdAt": "Créé le",
+    "discountAmount": "Remise",
+    "empty": "Aucune donnée de commande",
+    "orderId": "ID de commande",
+    "paidAmount": "Payé",
+    "paymentChannel": "Paiement Channel",
+    "source": "Source de commande",
+    "status": "Statut",
+    "updatedAt": "Commande mise à jour le",
+    "user": "Utilisateur",
+    "userId": "ID utilisateur",
+    "view": "Voir le détail"
+  },
+  "tabs": {
+    "credits": "Commandes de crédits",
+    "learn": "Learning Commandes"
+  },
+  "title": "Commande Gestion",
+  "totalCount": "{count} commandes"
+}

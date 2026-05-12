@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "discountAlreadyExpired": "The voucher code is invalid.",
+    "discountAlreadyUsed": "The voucher code has been used.",
+    "discountLimitExceeded": "The voucher code limit exceeded.",
+    "discountNotApply": "The voucher code does not apply to this course.",
+    "discountNotFound": "The voucher code does not exist.",
+    "discountNotStart": "The voucher code has not started.",
+    "orderDiscountAlreadyUsed": "Order Already Used Discount"
+  }
+}

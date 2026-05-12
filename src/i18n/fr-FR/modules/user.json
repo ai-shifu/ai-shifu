@@ -1,0 +1,15 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "Êtes-vous sûr de vouloir vous déconnecter ?",
+  "confirmLogoutTitle": "Confirmer la déconnexion",
+  "defaultUserName": "Nom par défaut",
+  "gender": {
+    "female": "Femme",
+    "male": "Homme",
+    "secret": "Confidentiel"
+  },
+  "login": "Connexion",
+  "loginMainButton": "Connexion / Inscription",
+  "logout": "Déconnexion",
+  "notLogin": "Non connecté"
+}

@@ -1,0 +1,17 @@
+{
+  "__namespace__": "server.file",
+  "__flat__": {
+    "fileDownloadFailed": "File download failed",
+    "fileTypeNotSupport": "Unsupported File Type",
+    "fileUploadFailed": "File upload failed",
+    "videoBilibiliApiError": "Bilibili API Error",
+    "videoBilibiliApiRequestFailed": "Request Bilibili API Failed",
+    "videoGetInfoError": "Error Getting Video Info",
+    "videoInvalidBilibiliLink": "Invalid Bilibili Link",
+    "videoInvalidUrlFormat": "Invalid video URL format",
+    "videoNetworkError": "Video network error",
+    "videoParseError": "Video parse error",
+    "videoUnsupportedVideoSite": "Unsupported Video Site",
+    "videoUrlRequired": "Video URL is required"
+  }
+}

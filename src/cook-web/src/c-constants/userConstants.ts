@@ -13,11 +13,15 @@ export const SEX_NAMES = {
 export const LANGUAGE_DICT = {
   'zh-CN': '中文',
   'en-US': 'English',
+  'fr-FR': 'Français',
 };
 
 export const selectDefaultLanguage = language => {
   if (language.includes('en')) {
     return 'en-US';
+  }
+  if (language.includes('fr')) {
+    return 'fr-FR';
   }
 
   return 'zh-CN';

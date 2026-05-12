@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.feedback",
+  "feedbackError": "Échec de l’envoi du retour",
+  "feedbackPlaceholder": "Veuillez saisir votre retour",
+  "feedbackSubmit": "Envoyer",
+  "feedbackSuccess": "Retour envoyé avec succès",
+  "feedbackTitle": "Retour"
+}

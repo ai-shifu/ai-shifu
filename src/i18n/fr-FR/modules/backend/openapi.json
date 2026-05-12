@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "You can only manage authorization for courses you created",
+    "invalidApiKey": "Invalid API key or user ID",
+    "noActiveAuthorization": "No active authorization found for this user and course"
+  }
+}

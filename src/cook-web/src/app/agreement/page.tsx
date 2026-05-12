@@ -7,6 +7,7 @@ import i18n from '@/i18n';
 const agreements = {
   'zh-CN': ZH_CN_Agreement,
   'en-US': EN_Agreement,
+  'fr-FR': EN_Agreement,
   en: EN_Agreement,
 };
 

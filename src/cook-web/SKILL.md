@@ -15,7 +15,7 @@
 - When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
 - 做 i18n key usage 排查时，不要把 `*.test.*`、`*.spec.*`、`__tests__` 里的断言文案、namespace 字符串或拼接后的展示文本当成真实翻译 key；优先统计生产代码里的 `t()`、`i18n.t()`、`Trans` 和符合完整 key 结构的常量。
 - 积分套餐权益文案优先以 `BillingOverviewCards` 里的共享 feature key 列表作为单一来源；删除某项权益时，要同时清理 `billing.json`、预注册翻译使用代码、相关测试数据和 `i18n-keys.d.ts` 残留。
-- 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及中英文文案时，同步更新 `zh-CN/en-US`、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
+- 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及多语言文案时，同步更新所有支持的 locale、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
 - 钱包余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
 - 当产品要求把套餐赠送积分数、免费体验积分和积分充值包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、充值卡和对应测试口径一致。
 - admin 侧边会员卡如果改成双层信息布局，保持整卡点击跳转 `packages`、底部“查看详情”独立跳转 `details`，并把积分余额与到期时间放在同一信息层；卡片整体内边距优先保持 `py-14px / pl-16px`，右侧需要贴设计微调时可收敛成 `pr-12px`。若设计稿要求顶部“积分 + 升级”这一整行整体左收 `4px`，优先给这一行的外层容器补 `padding-right`，不要误加到升级按钮本身；`查看详情` 默认不要额外补右侧内边距。头部与信息层之间优先用弱分隔线 `rgba(0,0,0,0.05)`，分隔线下余额行 `pt-3`、到期/详情行 `pt-2.5`，正文颜色优先复用 `--base-card-foreground` 和既有 `text-sm` typography token。
@@ -32,7 +32,7 @@
 - 如果前端要新增一个和 `HOME_URL` 类似的运行时配置项，优先沿 `common/config.py -> route/config.py -> billing runtime DTO -> cook-web environment/envStore/initializeEnvData` 这条链路一次性补齐；默认值、creator branding override、store 字段和页面显隐逻辑一起落地，避免只改页面读取不改 runtime config。
 - 课程设置这类 `Sheet` 表单弹层如果头部下方有分隔线，表单滚动内容区优先显式补 `padding-top: 24px`，不要让第一组字段紧贴分隔线开始。
 - 登录页图形验证码图片按钮如果设计要求跟随验证码图片宽度自适应，优先让按钮固定目标高度、图片使用 `h-full w-auto`，不要保留固定宽度；刷新入口优先合并到验证码图片按钮的 hover/focus 蒙层，不要额外放独立刷新按钮；验证码图片按钮和获取验证码按钮需要视觉对齐时，优先统一 `min-width` 并允许倒计时等长文案自适应撑开，必要时在具体按钮上覆盖默认 padding。
-- 登录页表单新增字段标题或提示文案时，必须同步更新 `zh-CN/en-US` 翻译文件和 `src/types/i18n-keys.d.ts`，不要在组件里写死中文或英文。
+- 登录页表单新增字段标题或提示文案时，必须同步更新所有支持的 locale 翻译文件和 `src/types/i18n-keys.d.ts`，不要在组件里写死中文、英文或其它用户可见文案。
 - 对于明确暂不支持移动端的页面，优先复用共享的国际化弹窗组件统一提示，避免在多个页面分别写一套移动端拦截文案和状态逻辑。
 - For system interaction buttons such as `_sys_pay`, prefer ai-shifu-side render overrides to keep repeatable CTAs clickable without patching `markdown-flow-ui`.
 - When adapting cook-web payloads into `markdown-flow-ui` slide elements, normalize optional API fields into the stricter slide contract first instead of passing broader API types through render layers.

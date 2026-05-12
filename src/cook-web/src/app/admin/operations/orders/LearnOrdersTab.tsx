@@ -188,10 +188,10 @@ export default function LearnOrdersTab() {
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
-  const isEnglish = (i18n?.language || 'en-US').startsWith('en');
+  const usesLatinLabels = !(i18n?.language || 'en-US').startsWith('zh');
   const filterControlClassName = cn(
     'min-w-0 flex-1',
-    isEnglish && 'xl:max-w-[220px]',
+    usesLatinLabels && 'xl:max-w-[220px]',
   );
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
