@@ -14,6 +14,7 @@ from flaskr.service.creator_analytics import engine as analytics_engine
 from .conftest import (
     seed_archive,
     seed_bill_usage,
+    seed_generated_block,
     seed_owned_course,
     seed_progress,
 )
@@ -337,6 +338,104 @@ def test_bill_usage_group_by_usage_scene_splits_learner_vs_preview(
         1202: (50, 80),
         1203: (100, 200),
     }
+
+
+# ---------------------------------------------------------------------------
+# Conversation replay (generated_content access)
+# ---------------------------------------------------------------------------
+
+
+def test_conversation_replay_returns_ordered_qa_pairs(
+    mock_request_user, test_client, app, monkeypatch
+):
+    """End-to-end: select user_bid + generated_content for a lesson's Q&A,
+    verify the rows come back chronologically and an audit log is emitted."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="learner-1",
+            type=321,
+            role=2,
+            content="什么是 SOLID 原则?",
+            progress_record_bid="pr-1",
+        )
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="learner-1",
+            type=322,
+            role=1,
+            content="SOLID 是五条 OOP 设计原则的缩写...",
+            progress_record_bid="pr-1",
+        )
+
+    info_calls: list[tuple] = []
+    real_info = app.logger.info
+    monkeypatch.setattr(
+        app.logger,
+        "info",
+        lambda *args, **kwargs: (
+            info_calls.append((args, kwargs)),
+            real_info(*args, **kwargs),
+        )[1],
+    )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "learn_generated_blocks",
+            "where": [
+                {"field": "type", "op": "in", "value": [321, 322]},
+                {"field": "progress_record_bid", "op": "=", "value": "pr-1"},
+            ],
+            "select": ["user_bid", "generated_content", "type", "created_at"],
+            "order_by": [{"field": "created_at", "dir": "asc"}],
+            "limit": 50,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    rows = payload["data"]["rows"]
+    assert len(rows) == 2
+    assert rows[0][1] == "什么是 SOLID 原则?"
+    assert rows[0][2] == 321
+    assert rows[1][2] == 322
+
+    # Audit log must surface — look for our format string in the captured calls.
+    audit_calls = [
+        args
+        for args, _ in info_calls
+        if args
+        and isinstance(args[0], str)
+        and "creator_analytics.content_access" in args[0]
+    ]
+    assert audit_calls, "expected creator_analytics.content_access audit log"
+    assert "shifu-a" in audit_calls[0]
+    assert "teacher-1" in audit_calls[0]
+
+
+def test_conversation_replay_rejects_disallowed_type(
+    mock_request_user, test_client, app
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "learn_generated_blocks",
+            "where": [{"field": "type", "op": "=", "value": 303}],  # input — PII
+            "select": ["generated_content"],
+            "limit": 10,
+        },
+    )
+    assert response.get_json(force=True)["code"] == 11002
 
 
 # ---------------------------------------------------------------------------

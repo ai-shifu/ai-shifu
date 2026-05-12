@@ -113,6 +113,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "role",
                 "liked",
                 "created_at",
+                "generated_content",
             }
         ),
         filterable=frozenset(

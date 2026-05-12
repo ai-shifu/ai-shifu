@@ -47,6 +47,29 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
         query_timeout_seconds=query_timeout,
     )
 
+    if "generated_content" in dsl.select:
+        # Audit log for raw conversation-content access. Surfaces in application
+        # logs (Loki/Grafana) so any after-the-fact review can attribute who
+        # pulled which course's content.
+        type_values = sorted(
+            {
+                value
+                for f in dsl.filters
+                if f.field == "type"
+                for value in (f.value if isinstance(f.value, list) else [f.value])
+            }
+        )
+        app.logger.info(
+            "creator_analytics.content_access user_id=%s shifu_bid=%s "
+            "table=%s types=%s limit=%s offset=%s",
+            user_id,
+            dsl.shifu_bid,
+            dsl.table,
+            type_values,
+            dsl.limit,
+            dsl.offset,
+        )
+
     result = run_query(app, stmt)
     result["limit"] = dsl.limit
     result["offset"] = dsl.offset

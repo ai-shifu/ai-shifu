@@ -389,3 +389,70 @@ def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
         aggregate=[{"fn": "count", "alias": "n"}],
     )
     _assert_error(payload, ERR_INVALID_DSL)
+
+
+# ---------------------------------------------------------------------------
+# generated_content access policy (conversation detail)
+# ---------------------------------------------------------------------------
+
+
+def _content_payload(**overrides):
+    base = {
+        "shifu_bid": "shifu-abc",
+        "table": "learn_generated_blocks",
+        "select": ["user_bid", "generated_content", "created_at"],
+        "where": [{"field": "type", "op": "in", "value": [321, 322]}],
+        "order_by": [{"field": "created_at", "dir": "asc"}],
+        "limit": 50,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_conversation_replay_parses() -> None:
+    """user_bid + generated_content + safe type filter — the happy path."""
+
+    dsl = _parse(_content_payload())
+    assert "user_bid" in dsl.select
+    assert "generated_content" in dsl.select
+    assert dsl.limit == 50
+
+
+def test_generated_content_without_type_filter_is_rejected() -> None:
+    payload = _content_payload(where=[])
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_generated_content_with_disallowed_type_is_rejected() -> None:
+    """type=303 (input) holds learner free-form text → not allowed."""
+
+    payload = _content_payload(
+        where=[{"field": "type", "op": "=", "value": 303}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_generated_content_with_partial_disallowed_type_in_list_is_rejected() -> None:
+    """One disallowed type in an `in` list taints the whole query."""
+
+    payload = _content_payload(
+        where=[{"field": "type", "op": "in", "value": [321, 309]}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_generated_content_with_unsupported_type_operator_is_rejected() -> None:
+    payload = _content_payload(
+        where=[{"field": "type", "op": ">=", "value": 321}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_generated_content_limit_above_100_is_rejected() -> None:
+    payload = _content_payload(limit=101)
+    _assert_error(payload, ERR_INVALID_LIMIT)
+
+
+def test_generated_content_limit_at_100_is_allowed() -> None:
+    dsl = _parse(_content_payload(limit=100))
+    assert dsl.limit == 100

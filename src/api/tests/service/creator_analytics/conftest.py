@@ -151,6 +151,35 @@ def seed_archive(
     db.session.commit()
 
 
+def seed_generated_block(
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    type: int,
+    role: int,
+    content: str,
+    progress_record_bid: str = "pr-default",
+    generated_block_bid: Optional[str] = None,
+) -> str:
+    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
+    now = datetime.utcnow()
+    db.session.add(
+        LearnGeneratedBlock(
+            generated_block_bid=bid,
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            progress_record_bid=progress_record_bid,
+            type=type,
+            role=role,
+            generated_content=content,
+            deleted=0,
+            created_at=now,
+        )
+    )
+    db.session.commit()
+    return bid
+
+
 def seed_bill_usage(
     *,
     shifu_bid: str,

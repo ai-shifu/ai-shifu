@@ -62,6 +62,16 @@ _COMPARISON_OPS = frozenset({"=", "!=", ">", ">=", "<", "<=", "like"})
 
 _MAX_IN_VALUES = 1000
 
+# Block types whose ``generated_content`` is safe to expose to creators:
+# 301 content / 311 mdcontent / 312 mdinteraction / 321 mdask / 322 mdanswer.
+# Phone/input/checkcode/options block types are intentionally excluded — they
+# contain learner-typed PII (phone numbers, free-form answers, etc.).
+_GENERATED_CONTENT_ALLOWED_TYPES = frozenset({301, 311, 312, 321, 322})
+
+# When ``generated_content`` is selected the per-page limit is capped low so
+# the API cannot be used to export the entire conversation history in one go.
+_GENERATED_CONTENT_LIMIT_MAX = 100
+
 
 def _raise(error_name: str, detail: Optional[str] = None) -> None:
     """Raise an :class:`AppException` with a stable error name.
@@ -151,9 +161,13 @@ def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
     _enforce_user_bid_aggregation_only(select, group_by, aggregates)
 
     filters = _parse_filters(payload.get("where"), spec)
+    _enforce_generated_content_type_filter(select, filters)
     order_by = _parse_order_by(payload.get("order_by"), select, aggregates, group_by)
+    effective_limit_max = (
+        _GENERATED_CONTENT_LIMIT_MAX if "generated_content" in select else limit_max
+    )
     limit, offset = _parse_paging(
-        payload.get("limit"), payload.get("offset"), limit_max
+        payload.get("limit"), payload.get("offset"), effective_limit_max
     )
 
     output_columns = (
@@ -436,17 +450,74 @@ def _enforce_user_bid_aggregation_only(
     ``group_by`` whenever it appears in ``select`` — that way every row is a
     per-learner aggregate (e.g. token spend, completion count) rather than a
     line of detail.
+
+    Exemption: when ``generated_content`` is also being selected, the caller is
+    explicitly fetching conversation detail (creator reviewing learner Q&A).
+    The other guards (type allowlist + limit cap + audit log) gate that path,
+    so we let ``user_bid`` ride along to identify who said what.
     """
 
     if "user_bid" not in select:
         return
     if "user_bid" in group_by:
         return
+    if "generated_content" in select:
+        # Conversation-detail mode — user_bid identifies the speaker.
+        return
     _raise(
         ERR_INVALID_DSL,
         "'select' containing 'user_bid' must also 'group_by' user_bid "
         "(raw learner-id listing is not allowed)",
     )
+
+
+def _enforce_generated_content_type_filter(
+    select: Sequence[str],
+    filters: Sequence[Filter],
+) -> None:
+    """``generated_content`` requires a narrow ``type`` filter.
+
+    The column holds free-form text for many block kinds, including ones that
+    contain learner-typed PII (phone, checkcode, input answers, options).
+    When the caller wants the raw text, they must restrict the query to the
+    safe block types — system-pushed content (301/311/312) and ask/answer
+    pairs (321/322). This is enforced at the DSL layer so the SQL builder
+    cannot accidentally widen the scope.
+    """
+
+    if "generated_content" not in select:
+        return
+
+    type_filters = [f for f in filters if f.field == "type"]
+    if not type_filters:
+        _raise(
+            ERR_INVALID_DSL,
+            "'select' containing 'generated_content' requires a 'where' filter "
+            f"on 'type' restricted to {sorted(_GENERATED_CONTENT_ALLOWED_TYPES)}",
+        )
+
+    for filt in type_filters:
+        if filt.op == "=":
+            if filt.value not in _GENERATED_CONTENT_ALLOWED_TYPES:
+                _raise(
+                    ERR_INVALID_DSL,
+                    f"'generated_content' may only be selected for type in "
+                    f"{sorted(_GENERATED_CONTENT_ALLOWED_TYPES)} (got {filt.value})",
+                )
+        elif filt.op == "in":
+            if not isinstance(filt.value, list) or not all(
+                v in _GENERATED_CONTENT_ALLOWED_TYPES for v in filt.value
+            ):
+                _raise(
+                    ERR_INVALID_DSL,
+                    f"'generated_content' may only be selected for type in "
+                    f"{sorted(_GENERATED_CONTENT_ALLOWED_TYPES)} (got {filt.value})",
+                )
+        else:
+            _raise(
+                ERR_INVALID_DSL,
+                "'generated_content' requires 'type' filter using op '=' or 'in'",
+            )
 
 
 def _default_alias(fn: str, field_name: Optional[str]) -> str:
