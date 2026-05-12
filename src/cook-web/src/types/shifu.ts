@@ -27,6 +27,7 @@ export interface Shifu {
   archived?: boolean;
   created_user_bid?: string;
   can_manage_archive?: boolean;
+  can_manage_permissions?: boolean;
   canPublish?: boolean;
   ask_enabled_status?: number;
   ask_model?: string;

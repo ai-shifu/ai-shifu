@@ -3060,29 +3060,6 @@ export default function ShifuSettingDialog({
                   )}
                 </div>
 
-                {canManagePermissions && (
-                  <div className='mb-6'>
-                    <div className='flex items-start justify-between gap-4'>
-                      <div className='space-y-1'>
-                        <FormLabel className='text-sm font-medium text-foreground'>
-                          {t('module.shifuSetting.permissionSectionTitle')}
-                        </FormLabel>
-                        <p className='text-xs text-muted-foreground'>
-                          {t('module.shifuSetting.permissionSectionDesc')}
-                        </p>
-                      </div>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='sm'
-                        onClick={() => setPermissionDialogOpen(true)}
-                      >
-                        {t('module.shifuSetting.permissionManage')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
                 <div className='space-y-2 mb-4'>
                   <span className='text-sm font-medium text-foreground'>
                     {t('module.shifuSetting.keywords')}
