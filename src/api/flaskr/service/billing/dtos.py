@@ -534,7 +534,7 @@ class OperatorCreditOrderOverviewDTO(BillingBaseDTO):
     refunded_order_count: int = 0
     closed_order_count: int = 0
     canceled_order_count: int = 0
-    credit_amount_total: int | float = 0
+    available_credit_total: int | float = 0
     paid_amount_total: int = 0
     currency: str = "CNY"
     paid_amount_totals_by_currency: dict[str, int] = Field(default_factory=dict)

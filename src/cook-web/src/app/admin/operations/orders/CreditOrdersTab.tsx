@@ -112,7 +112,7 @@ const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
   refunded_order_count: 0,
   closed_order_count: 0,
   canceled_order_count: 0,
-  credit_amount_total: 0,
+  available_credit_total: 0,
   paid_amount_total: 0,
   currency: 'CNY',
   paid_amount_totals_by_currency: {},
@@ -409,7 +409,7 @@ export default function CreditOrdersTab() {
         key: 'credit-amount',
         label: tOperationsOrder('creditOrders.overview.metrics.creditAmount'),
         value: tOperationsOrder('creditOrders.creditAmountValue', {
-          credits: formatAdminCredits(overview.credit_amount_total, locale),
+          credits: formatAdminCredits(overview.available_credit_total, locale),
         }),
         tooltip: tOperationsOrder(
           'creditOrders.overview.tooltips.creditAmount',

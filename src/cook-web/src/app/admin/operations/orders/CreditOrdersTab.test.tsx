@@ -208,9 +208,10 @@ describe('CreditOrdersTab', () => {
       refunded_order_count: 1,
       closed_order_count: 1,
       canceled_order_count: 1,
-      credit_amount_total: 5024,
+      available_credit_total: 5024,
       paid_amount_total: 819900,
       currency: 'CNY',
+      paid_amount_totals_by_currency: { CNY: 819900 },
     });
 
     mockGetAdminOperationCreditOrders.mockResolvedValue({

@@ -48,7 +48,7 @@
       "metrics": {
         "canceledOrders": "已取消",
         "closedOrders": "已关闭",
-        "creditAmount": "购买积分",
+        "creditAmount": "当前可用积分",
         "paidAmount": "实付金额",
         "paidOrders": "已支付",
         "pendingOrders": "待支付",
@@ -58,7 +58,7 @@
       "tooltips": {
         "canceledOrders": "已取消积分订单数",
         "closedOrders": "已关闭积分订单数",
-        "creditAmount": "已支付积分订单购买积分总和",
+        "creditAmount": "当前所有创作者账号中尚未消耗、仍可用于学习、预览和调试的积分总和",
         "paidAmount": "已支付积分订单实付金额总和",
         "paidOrders": "已支付积分订单数",
         "pendingOrders": "待支付积分订单数",

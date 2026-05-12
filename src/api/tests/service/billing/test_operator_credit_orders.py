@@ -25,6 +25,7 @@ from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
     CreditLedgerEntry,
+    CreditWallet,
 )
 from flaskr.service.billing.read_models import (
     build_operator_credit_orders_overview,
@@ -157,6 +158,26 @@ def _build_app() -> Flask:
                 expires_at=datetime(2027, 4, 26, 10, 0, 0),
             )
         )
+        dao.db.session.add_all(
+            [
+                CreditWallet(
+                    wallet_bid="wallet-1",
+                    creator_bid="creator-1",
+                    available_credits=Decimal("20.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("20.0000000000"),
+                    lifetime_consumed_credits=Decimal("0"),
+                ),
+                CreditWallet(
+                    wallet_bid="wallet-2",
+                    creator_bid="creator-2",
+                    available_credits=Decimal("0"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("0"),
+                    lifetime_consumed_credits=Decimal("0"),
+                ),
+            ]
+        )
         dao.db.session.commit()
     return app
 
@@ -250,13 +271,13 @@ def test_build_operator_credit_orders_overview_returns_aggregates():
     assert result.refunded_order_count == 0
     assert result.closed_order_count == 0
     assert result.canceled_order_count == 0
-    assert result.credit_amount_total == 20
+    assert result.available_credit_total == 20
     assert result.paid_amount_total == 19900
     assert result.currency == "CNY"
     assert result.paid_amount_totals_by_currency == {"CNY": 19900}
 
 
-def test_build_operator_credit_orders_overview_uses_grant_amounts_and_currency_map():
+def test_build_operator_credit_orders_overview_uses_available_credits_and_currency_map():
     app = _build_app()
 
     with app.app_context():
@@ -304,11 +325,16 @@ def test_build_operator_credit_orders_overview_uses_grant_amounts_and_currency_m
                 expires_at=datetime(2026, 5, 28, 10, 0, 0),
             )
         )
+        wallet = CreditWallet.query.filter(
+            CreditWallet.creator_bid == "creator-2"
+        ).one()
+        wallet.available_credits = Decimal("30.0000000000")
+        wallet.lifetime_granted_credits = Decimal("30.0000000000")
         dao.db.session.commit()
 
     result = build_operator_credit_orders_overview(app)
 
-    assert result.credit_amount_total == 50
+    assert result.available_credit_total == 50
     assert result.paid_amount_total == 0
     assert result.currency == ""
     assert result.paid_amount_totals_by_currency == {

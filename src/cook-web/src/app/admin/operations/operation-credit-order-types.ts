@@ -63,7 +63,7 @@ export type AdminOperationCreditOrderOverview = {
   refunded_order_count: number;
   closed_order_count: number;
   canceled_order_count: number;
-  credit_amount_total: number;
+  available_credit_total: number;
   paid_amount_total: number;
   currency: string;
   paid_amount_totals_by_currency: Record<string, number>;

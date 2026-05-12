@@ -1259,27 +1259,8 @@ def build_operator_credit_orders_overview(
     """Return aggregate metrics for operator creator credit orders."""
 
     with app.app_context():
-        grant_totals_subquery = (
-            db.session.query(
-                CreditLedgerEntry.source_bid.label("source_bid"),
-                db.func.coalesce(
-                    db.func.sum(CreditLedgerEntry.amount),
-                    0,
-                ).label("granted_credits"),
-            )
-            .filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-            )
-            .group_by(CreditLedgerEntry.source_bid)
-            .subquery()
-        )
         summary = (
-            BillingOrder.query.outerjoin(
-                grant_totals_subquery,
-                grant_totals_subquery.c.source_bid == BillingOrder.bill_order_bid,
-            )
-            .with_entities(
+            BillingOrder.query.with_entities(
                 db.func.count(BillingOrder.id).label("total_order_count"),
                 db.func.coalesce(
                     db.func.sum(
@@ -1331,21 +1312,6 @@ def build_operator_credit_orders_overview(
                         case(
                             (
                                 BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-                                db.func.coalesce(
-                                    grant_totals_subquery.c.granted_credits,
-                                    0,
-                                ),
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("credit_amount_total"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (
-                                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
                                 BillingOrder.paid_amount,
                             ),
                             else_=0,
@@ -1356,6 +1322,16 @@ def build_operator_credit_orders_overview(
             )
             .filter(BillingOrder.deleted == 0)
             .one()
+        )
+        available_credit_total = (
+            db.session.query(
+                db.func.coalesce(
+                    db.func.sum(CreditWallet.available_credits),
+                    0,
+                )
+            )
+            .filter(CreditWallet.deleted == 0)
+            .scalar()
         )
         paid_amount_rows = (
             db.session.query(
@@ -1392,7 +1368,9 @@ def build_operator_credit_orders_overview(
             refunded_order_count=int(summary.refunded_order_count or 0),
             closed_order_count=int(summary.closed_order_count or 0),
             canceled_order_count=int(summary.canceled_order_count or 0),
-            credit_amount_total=credit_decimal_to_number(summary.credit_amount_total),
+            available_credit_total=credit_decimal_to_number(
+                available_credit_total
+            ),
             paid_amount_total=paid_amount_total,
             currency=str(currency or ""),
             paid_amount_totals_by_currency=paid_amount_totals_by_currency,

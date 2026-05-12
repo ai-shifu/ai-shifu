@@ -48,7 +48,7 @@
       "metrics": {
         "canceledOrders": "Canceled",
         "closedOrders": "Closed",
-        "creditAmount": "Purchased Credits",
+        "creditAmount": "Available Credits",
         "paidAmount": "Paid Amount",
         "paidOrders": "Paid",
         "pendingOrders": "Pending",
@@ -58,7 +58,7 @@
       "tooltips": {
         "canceledOrders": "Canceled credit orders",
         "closedOrders": "Closed credit orders",
-        "creditAmount": "Total credits purchased by paid credit orders",
+        "creditAmount": "Total unconsumed credits currently available across all creator accounts for learning, preview, and debug usage",
         "paidAmount": "Paid amount from credit orders",
         "paidOrders": "Paid credit orders",
         "pendingOrders": "Pending credit orders",
