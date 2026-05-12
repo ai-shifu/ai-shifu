@@ -15,7 +15,7 @@ User-facing workflow and page behavior specifications live here.
 - [Operator Course Visit Analytics](../product-specs/operator-course-visit-analytics.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
@@ -23,4 +23,4 @@ User-facing workflow and page behavior specifications live here.
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`

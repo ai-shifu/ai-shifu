@@ -91,6 +91,8 @@ from flaskr.service.user.utils import get_user_language
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
+    mark_creator_role_if_needed,
+    run_creator_granted_post_auth,
 )
 from flaskr.util.uuid import generate_id
 
@@ -1917,8 +1919,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             auth_types = ["edit", "publish"]
 
         demo_shifu_ids = load_existing_demo_shifu_ids()
+        creator_upgrade_contexts: dict[str, dict[str, object]] = {}
         for contact in contacts:
             aggregate = aggregate_by_contact.get(contact)
+            created_new_user = False
             should_grant_demo_permissions = False
             if aggregate is None:
                 aggregate, created_new_user = ensure_user_for_identifier(
@@ -1953,6 +1957,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ensure_demo_course_permissions(
                     app, aggregate.user_bid, demo_ids=demo_shifu_ids
                 )
+            if permission in {"edit", "publish"}:
+                creator_granted_now = mark_creator_role_if_needed(aggregate.user_bid)
+                if creator_granted_now:
+                    creator_upgrade_contexts.setdefault(
+                        aggregate.user_bid,
+                        {
+                            "created_new_user": created_new_user,
+                            "language": aggregate.user_language,
+                        },
+                    )
 
             auth = AiCourseAuth.query.filter(
                 AiCourseAuth.course_id == shifu_bid,
@@ -1974,6 +1988,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
 
         db.session.commit()
+        for user_id, upgrade_context in creator_upgrade_contexts.items():
+            run_creator_granted_post_auth(
+                app,
+                user_id=user_id,
+                source="shifu_permission_grant",
+                created_new_user=bool(upgrade_context.get("created_new_user")),
+                language=str(upgrade_context.get("language") or ""),
+            )
         return make_common_response({"count": len(contacts)})
 
     @app.route(

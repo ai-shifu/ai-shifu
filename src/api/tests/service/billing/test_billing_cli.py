@@ -31,7 +31,9 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 from flaskr.service.config.models import Config
+from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     create_user_entity,
     load_user_aggregate_by_identifier,
@@ -127,6 +129,24 @@ def _seed_billing_cli_user(
         )
 
 
+def _seed_billing_cli_course_auth(
+    *,
+    auth_bid: str,
+    user_bid: str,
+    course_bid: str,
+    auth_types: list[str],
+) -> None:
+    dao.db.session.add(
+        AiCourseAuth(
+            course_auth_id=auth_bid,
+            course_id=course_bid,
+            user_id=user_bid,
+            auth_type=json.dumps(auth_types),
+            status=1,
+        )
+    )
+
+
 def test_billing_backfill_settlement_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:
@@ -212,6 +232,50 @@ def test_billing_backfill_trial_plans_cli_prints_helper_payload(
     assert payload["status"] == "completed"
     assert payload["granted_count"] == 2
     assert payload["kwargs"]["limit"] == 3
+
+
+def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "backfill-authoring-permission-creators"]
+    )
+
+    assert result.exit_code != 0
+    assert "Pass --user-bid, --course-bid, or --all" in result.output
+
+
+def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.backfill_authoring_permission_creators",
+        lambda app, **kwargs: {
+            "status": "completed",
+            "role_granted_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+            "--limit",
+            "4",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_granted_count"] == 1
+    assert payload["kwargs"]["limit"] == 4
+    assert payload["kwargs"]["dry_run"] is True
 
 
 def test_billing_rebuild_wallets_cli_prints_helper_payload(
@@ -734,6 +798,154 @@ def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(
                 creator_bid="creator-cli-non-creator"
             ).count()
             == 0
+        )
+
+
+def test_billing_backfill_authoring_permission_creators_dry_run_does_not_mutate(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-dry-run",
+            identify="authoring-cli-dry-run@example.com",
+            email="authoring-cli-dry-run@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-dry-run",
+            user_bid="authoring-cli-dry-run",
+            course_bid="course-authoring-cli-dry-run",
+            auth_types=["edit"],
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_would_grant_count"] == 1
+    assert payload["role_granted_count"] == 0
+    assert payload["trial_granted_count"] == 0
+
+    with billing_cli_db_app.app_context():
+        user = UserEntity.query.filter_by(user_bid="authoring-cli-dry-run").one()
+        assert user.is_creator == 0
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-dry-run").count()
+            == 0
+        )
+
+
+def test_billing_backfill_authoring_permission_creators_grants_roles_and_trials(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-edit",
+            identify="authoring-cli-edit@example.com",
+            email="authoring-cli-edit@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-publish",
+            identify="authoring-cli-publish@example.com",
+            email="authoring-cli-publish@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-view",
+            identify="authoring-cli-view@example.com",
+            email="authoring-cli-view@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-edit",
+            user_bid="authoring-cli-edit",
+            course_bid="course-authoring-cli",
+            auth_types=["edit"],
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-publish",
+            user_bid="authoring-cli-publish",
+            course_bid="course-authoring-cli",
+            auth_types=["edit", "publish"],
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-view",
+            user_bid="authoring-cli-view",
+            course_bid="course-authoring-cli",
+            auth_types=["view"],
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_granted_count"] == 2
+    assert payload["role_skipped_count"] == 1
+    assert payload["trial_granted_count"] == 2
+    assert payload["trial_skipped_count"] == 1
+
+    records_by_bid = {item["creator_bid"]: item for item in payload["records"]}
+    assert records_by_bid["authoring-cli-view"]["role_reason"] == (
+        "non_authoring_permission"
+    )
+
+    with billing_cli_db_app.app_context():
+        edit_user = UserEntity.query.filter_by(user_bid="authoring-cli-edit").one()
+        publish_user = UserEntity.query.filter_by(
+            user_bid="authoring-cli-publish"
+        ).one()
+        view_user = UserEntity.query.filter_by(user_bid="authoring-cli-view").one()
+        assert edit_user.is_creator == 1
+        assert publish_user.is_creator == 1
+        assert view_user.is_creator == 0
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-edit").count() == 1
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-publish").count()
+            == 1
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-view").count() == 0
         )
 
 
