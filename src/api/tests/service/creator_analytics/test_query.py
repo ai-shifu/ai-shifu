@@ -11,7 +11,12 @@ import pytest
 
 from flaskr.service.creator_analytics import engine as analytics_engine
 
-from .conftest import seed_archive, seed_owned_course, seed_progress
+from .conftest import (
+    seed_archive,
+    seed_bill_usage,
+    seed_owned_course,
+    seed_progress,
+)
 
 
 ENDPOINT = "/api/creator-analytics/query"
@@ -232,6 +237,106 @@ def test_limit_above_configured_max_is_rejected(mock_request_user, test_client, 
         },
     )
     assert response.get_json(force=True)["code"] == 11007
+
+
+# ---------------------------------------------------------------------------
+# bill_usage usage_scene filter — separates learner spend from creator preview
+# ---------------------------------------------------------------------------
+
+
+def test_bill_usage_filter_by_usage_scene_excludes_preview_users(
+    mock_request_user, test_client, app
+):
+    """Without `where usage_scene=1203`, learner count includes creator previews;
+    with the filter, only production learners are counted."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        # 3 production learners
+        seed_bill_usage(shifu_bid="shifu-a", user_bid="learner-1", usage_scene=1203)
+        seed_bill_usage(shifu_bid="shifu-a", user_bid="learner-2", usage_scene=1203)
+        seed_bill_usage(shifu_bid="shifu-a", user_bid="learner-3", usage_scene=1203)
+        # 2 preview spenders (creator + co-author)
+        seed_bill_usage(shifu_bid="shifu-a", user_bid="teacher-1", usage_scene=1202)
+        seed_bill_usage(shifu_bid="shifu-a", user_bid="co-author", usage_scene=1202)
+
+    # Without the filter: 5 distinct users (mixed)
+    mixed = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "bill_usage",
+            "where": [{"field": "usage_type", "op": "=", "value": 1101}],
+            "aggregate": [{"fn": "count_distinct", "field": "user_bid", "alias": "n"}],
+            "limit": 1,
+        },
+    )
+    assert mixed.get_json(force=True)["data"]["rows"] == [[5]]
+
+    # With usage_scene=1203: only 3 production learners
+    prod_only = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "bill_usage",
+            "where": [
+                {"field": "usage_type", "op": "=", "value": 1101},
+                {"field": "usage_scene", "op": "=", "value": 1203},
+            ],
+            "aggregate": [{"fn": "count_distinct", "field": "user_bid", "alias": "n"}],
+            "limit": 1,
+        },
+    )
+    assert prod_only.get_json(force=True)["data"]["rows"] == [[3]]
+
+
+def test_bill_usage_group_by_usage_scene_splits_learner_vs_preview(
+    mock_request_user, test_client, app
+):
+    """group_by usage_scene to see learner spend vs preview spend side by side."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_bill_usage(
+            shifu_bid="shifu-a",
+            user_bid="learner-1",
+            usage_scene=1203,
+            input_tokens=100,
+            output_tokens=200,
+        )
+        seed_bill_usage(
+            shifu_bid="shifu-a",
+            user_bid="teacher-1",
+            usage_scene=1202,
+            input_tokens=50,
+            output_tokens=80,
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "bill_usage",
+            "where": [{"field": "usage_type", "op": "=", "value": 1101}],
+            "select": ["usage_scene"],
+            "group_by": ["usage_scene"],
+            "aggregate": [
+                {"fn": "sum", "field": "input", "alias": "in_tok"},
+                {"fn": "sum", "field": "output", "alias": "out_tok"},
+            ],
+            "order_by": [{"field": "usage_scene", "dir": "asc"}],
+            "limit": 10,
+        },
+    )
+    rows = response.get_json(force=True)["data"]["rows"]
+    # rows shape: [[usage_scene, in_tok, out_tok], ...]
+    assert [r[0] for r in rows] == [1202, 1203]
+    assert dict((r[0], (r[1], r[2])) for r in rows) == {
+        1202: (50, 80),
+        1203: (100, 200),
+    }
 
 
 # ---------------------------------------------------------------------------

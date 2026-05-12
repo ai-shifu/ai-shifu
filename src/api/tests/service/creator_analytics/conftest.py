@@ -149,3 +149,37 @@ def seed_archive(
         )
     )
     db.session.commit()
+
+
+def seed_bill_usage(
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    usage_type: int = 1101,
+    usage_scene: int = 1203,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    usage_bid: Optional[str] = None,
+) -> str:
+    """Seed one BillUsageRecord row.
+
+    Defaults model a production learner call (usage_type=LLM, usage_scene=PROD).
+    """
+
+    bid = usage_bid or f"usage-{shifu_bid}-{user_bid}-{usage_type}-{usage_scene}"
+    now = datetime.utcnow()
+    db.session.add(
+        BillUsageRecord(
+            usage_bid=bid,
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            usage_type=usage_type,
+            usage_scene=usage_scene,
+            input=input_tokens,
+            output=output_tokens,
+            deleted=0,
+            created_at=now,
+        )
+    )
+    db.session.commit()
+    return bid

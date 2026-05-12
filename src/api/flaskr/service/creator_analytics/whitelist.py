@@ -226,6 +226,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "user_bid",
                 "progress_record_bid",
                 "usage_type",
+                "usage_scene",
                 "input",
                 "output",
                 "latency_ms",
@@ -237,10 +238,13 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "user_bid",
                 "progress_record_bid",
                 "usage_type",
+                "usage_scene",
                 "created_at",
             }
         ),
-        groupable=frozenset({"user_bid", "progress_record_bid", "usage_type"}),
+        groupable=frozenset(
+            {"user_bid", "progress_record_bid", "usage_type", "usage_scene"}
+        ),
         aggregatable={
             "usage_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
