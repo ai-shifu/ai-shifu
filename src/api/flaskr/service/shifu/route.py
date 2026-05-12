@@ -57,6 +57,7 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
+    build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
@@ -127,6 +128,7 @@ from flaskr.service.shifu.admin import (
 )
 from flaskr.service.order.api import (
     get_operator_order_detail,
+    get_operator_order_overview,
     list_operator_orders,
 )
 from flaskr.service.promo.api import (
@@ -835,6 +837,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_orders(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/orders/overview", methods=["GET"])
+    def admin_operations_order_overview():
+        """
+        Operator learning order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible learning order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OrderAdminOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_order_overview(app))
+
     @app.route(
         path_prefix + "/admin/operations/orders/<order_bid>/detail",
         methods=["GET"],
@@ -938,6 +964,33 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ),
             )
         )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/credits/overview",
+        methods=["GET"],
+    )
+    def admin_operations_credit_order_overview():
+        """
+        Operator credit order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible credit order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OperatorCreditOrderOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(build_operator_credit_orders_overview(app))
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():

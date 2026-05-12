@@ -8,6 +8,7 @@ from typing import Any
 from flask import Flask
 from sqlalchemy import case, or_
 
+from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -21,7 +22,9 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_FAILED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
@@ -60,6 +63,7 @@ from .dtos import (
     BillingOrdersPageDTO,
     BillingPlanDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
     BillingSubscriptionsPageDTO,
     BillingTopupProductDTO,
@@ -1246,6 +1250,92 @@ def build_operator_credit_orders_page(
             page_count=payload.page_count,
             page_size=payload.page_size,
             total=payload.total,
+        )
+
+
+def build_operator_credit_orders_overview(
+    app: Flask,
+) -> OperatorCreditOrderOverviewDTO:
+    """Return aggregate metrics for operator creator credit orders."""
+
+    with app.app_context():
+        summary = (
+            BillingOrder.query.outerjoin(
+                BillingProduct,
+                BillingProduct.product_bid == BillingOrder.product_bid,
+            )
+            .with_entities(
+                db.func.count(BillingOrder.id).label("total_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1), else_=0)
+                    ),
+                    0,
+                ).label("paid_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1), else_=0)
+                    ),
+                    0,
+                ).label("pending_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1), else_=0)
+                    ),
+                    0,
+                ).label("refunded_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1), else_=0)
+                    ),
+                    0,
+                ).label("closed_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1), else_=0)
+                    ),
+                    0,
+                ).label("canceled_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (
+                                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+                                db.func.coalesce(BillingProduct.credit_amount, 0),
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("credit_amount_total"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (
+                                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+                                BillingOrder.paid_amount,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_amount_total"),
+                db.func.max(BillingOrder.currency).label("currency"),
+            )
+            .filter(BillingOrder.deleted == 0)
+            .one()
+        )
+
+        return OperatorCreditOrderOverviewDTO(
+            total_order_count=int(summary.total_order_count or 0),
+            paid_order_count=int(summary.paid_order_count or 0),
+            pending_order_count=int(summary.pending_order_count or 0),
+            refunded_order_count=int(summary.refunded_order_count or 0),
+            closed_order_count=int(summary.closed_order_count or 0),
+            canceled_order_count=int(summary.canceled_order_count or 0),
+            credit_amount_total=credit_decimal_to_number(summary.credit_amount_total),
+            paid_amount_total=int(summary.paid_amount_total or 0),
+            currency=str(summary.currency or "CNY"),
         )
 
 

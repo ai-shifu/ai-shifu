@@ -8,6 +8,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from flask import Flask, current_app
+from sqlalchemy import case
 
 from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
@@ -22,6 +23,7 @@ from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
     OrderAdminDetailDTO,
+    OrderAdminOverviewDTO,
     OrderAdminPaymentDTO,
     OrderAdminSummaryDTO,
 )
@@ -1003,6 +1005,59 @@ def list_operator_orders(
             for order in orders
         ]
         return PageNationDTO(page_index, page_size, total, items)
+
+
+def get_operator_order_overview(app: Flask) -> OrderAdminOverviewDTO:
+    """Return aggregate metrics for operator learning orders."""
+    with app.app_context():
+        summary = (
+            db.session.query(
+                db.func.count(Order.id).label("total_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((Order.status == ORDER_STATUS_SUCCESS, 1), else_=0)
+                    ),
+                    0,
+                ).label("paid_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((Order.status == ORDER_STATUS_TO_BE_PAID, 1), else_=0)
+                    ),
+                    0,
+                ).label("pending_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((Order.status == ORDER_STATUS_REFUND, 1), else_=0)
+                    ),
+                    0,
+                ).label("refunded_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case((Order.status == ORDER_STATUS_TIMEOUT, 1), else_=0)
+                    ),
+                    0,
+                ).label("closed_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (Order.status == ORDER_STATUS_SUCCESS, Order.paid_price),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_amount_total"),
+            )
+            .filter(Order.deleted == 0)
+            .one()
+        )
+        return OrderAdminOverviewDTO(
+            total_order_count=int(summary.total_order_count or 0),
+            paid_order_count=int(summary.paid_order_count or 0),
+            pending_order_count=int(summary.pending_order_count or 0),
+            refunded_order_count=int(summary.refunded_order_count or 0),
+            closed_order_count=int(summary.closed_order_count or 0),
+            paid_amount_total=_format_decimal(summary.paid_amount_total),
+        )
 
 
 def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:

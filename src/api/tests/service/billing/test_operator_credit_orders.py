@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.dtos import (
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
 )
 from flaskr.service.billing.models import (
@@ -26,6 +27,7 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
 )
 from flaskr.service.billing.read_models import (
+    build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
@@ -234,6 +236,23 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     assert searched_result.total == 1
     assert searched_result.items[0].bill_order_bid == "bill-order-topup-1"
     assert searched_result.items[0].product_code == "creator-topup-small"
+
+
+def test_build_operator_credit_orders_overview_returns_aggregates():
+    app = _build_app()
+
+    result = build_operator_credit_orders_overview(app)
+
+    assert isinstance(result, OperatorCreditOrderOverviewDTO)
+    assert result.total_order_count == 2
+    assert result.paid_order_count == 1
+    assert result.pending_order_count == 0
+    assert result.refunded_order_count == 0
+    assert result.closed_order_count == 0
+    assert result.canceled_order_count == 0
+    assert result.credit_amount_total == 20
+    assert result.paid_amount_total == 19900
+    assert result.currency == "CNY"
 
 
 def test_get_operator_credit_order_detail_returns_grant_and_metadata():

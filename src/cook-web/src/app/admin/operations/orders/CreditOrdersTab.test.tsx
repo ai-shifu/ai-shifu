@@ -61,6 +61,7 @@ jest.mock('next/link', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationCreditOrdersOverview: jest.fn(),
     getAdminOperationCreditOrders: jest.fn(),
     getAdminOperationCreditOrderDetail: jest.fn(),
   },
@@ -188,15 +189,29 @@ jest.mock('@/components/ui/Sheet', () => ({
 
 const mockGetAdminOperationCreditOrders =
   api.getAdminOperationCreditOrders as jest.Mock;
+const mockGetAdminOperationCreditOrdersOverview =
+  api.getAdminOperationCreditOrdersOverview as jest.Mock;
 const mockGetAdminOperationCreditOrderDetail =
   api.getAdminOperationCreditOrderDetail as jest.Mock;
 
 describe('CreditOrdersTab', () => {
   beforeEach(() => {
+    mockGetAdminOperationCreditOrdersOverview.mockReset();
     mockGetAdminOperationCreditOrders.mockReset();
     mockGetAdminOperationCreditOrderDetail.mockReset();
     mockLanguage = 'en-US';
     window.localStorage.clear();
+    mockGetAdminOperationCreditOrdersOverview.mockResolvedValue({
+      total_order_count: 12,
+      paid_order_count: 7,
+      pending_order_count: 2,
+      refunded_order_count: 1,
+      closed_order_count: 1,
+      canceled_order_count: 1,
+      credit_amount_total: 5024,
+      paid_amount_total: 819900,
+      currency: 'CNY',
+    });
 
     mockGetAdminOperationCreditOrders.mockResolvedValue({
       items: [
@@ -319,6 +334,7 @@ describe('CreditOrdersTab', () => {
     render(<CreditOrdersTab />);
 
     await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrdersOverview).toHaveBeenCalledWith({});
       expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
@@ -339,6 +355,34 @@ describe('CreditOrdersTab', () => {
       screen.queryByText('module.billing.catalog.topups.default.title'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
+  });
+
+  test('clicks overview card to switch credit order status filter', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.creditOrders.overview.metrics.pendingOrders',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'pending',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
   });
 
   test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {

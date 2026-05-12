@@ -41,6 +41,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationOrdersOverview: jest.fn(),
     getAdminOperationOrders: jest.fn(),
   },
 }));
@@ -147,12 +148,23 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
 }));
 
 const mockGetAdminOperationOrders = api.getAdminOperationOrders as jest.Mock;
+const mockGetAdminOperationOrdersOverview =
+  api.getAdminOperationOrdersOverview as jest.Mock;
 
 describe('LearnOrdersTab', () => {
   beforeEach(() => {
     mockSearchParamsValue = '';
+    mockGetAdminOperationOrdersOverview.mockReset();
     mockGetAdminOperationOrders.mockReset();
     window.localStorage.clear();
+    mockGetAdminOperationOrdersOverview.mockResolvedValue({
+      total_order_count: 10,
+      paid_order_count: 6,
+      pending_order_count: 2,
+      refunded_order_count: 1,
+      closed_order_count: 1,
+      paid_amount_total: '456.78',
+    });
     mockGetAdminOperationOrders.mockResolvedValue({
       items: [
         {
@@ -188,6 +200,7 @@ describe('LearnOrdersTab', () => {
     render(<LearnOrdersTab />);
 
     await waitFor(() => {
+      expect(mockGetAdminOperationOrdersOverview).toHaveBeenCalledWith({});
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
@@ -207,6 +220,36 @@ describe('LearnOrdersTab', () => {
     expect(
       screen.getByText('module.operationsOrder.totalCount'),
     ).toBeInTheDocument();
+  });
+
+  test('clicks overview card to switch status filter', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.overview.metrics.pendingOrders',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '504',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
   });
 
   test('hydrates the course filter from the url query', async () => {

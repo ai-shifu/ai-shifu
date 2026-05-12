@@ -43,6 +43,28 @@
       "plan": "Credit Plan",
       "topup": "Credit Pack"
     },
+    "overview": {
+      "metrics": {
+        "canceledOrders": "Canceled",
+        "closedOrders": "Closed",
+        "creditAmount": "Purchased Credits",
+        "paidAmount": "Paid Amount",
+        "paidOrders": "Paid",
+        "pendingOrders": "Pending",
+        "refundedOrders": "Refunded",
+        "totalOrders": "Total Orders"
+      },
+      "tooltips": {
+        "canceledOrders": "Canceled credit orders",
+        "closedOrders": "Closed credit orders",
+        "creditAmount": "Total credits purchased by paid credit orders",
+        "paidAmount": "Paid amount from credit orders",
+        "paidOrders": "Paid credit orders",
+        "pendingOrders": "Pending credit orders",
+        "refundedOrders": "Refunded credit orders",
+        "totalOrders": "Total credit orders"
+      }
+    },
     "longTerm": "Long term",
     "paymentChannel": {
       "checkoutSession": "Checkout Session"
@@ -76,6 +98,27 @@
     "title": "Order Detail"
   },
   "emptyList": "No order data",
+  "overview": {
+    "activeFilter": "Current filter",
+    "metrics": {
+      "closedOrders": "Closed",
+      "paidAmount": "Paid Amount",
+      "paidOrders": "Paid",
+      "pendingOrders": "Pending",
+      "refundedOrders": "Refunded",
+      "totalOrders": "Total Orders"
+    },
+    "staleData": "Overview failed to load. Refresh to try again.",
+    "title": "Overview",
+    "tooltips": {
+      "closedOrders": "Closed learning orders",
+      "paidAmount": "Paid amount from learning orders",
+      "paidOrders": "Paid learning orders",
+      "pendingOrders": "Pending learning orders",
+      "refundedOrders": "Refunded learning orders",
+      "totalOrders": "Total learning orders"
+    }
+  },
   "filters": {
     "courseId": "Course ID",
     "courseIdPlaceholder": "Course ID",

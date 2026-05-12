@@ -38,6 +38,7 @@ import {
   formatAdminCredits,
   formatAdminPrice,
 } from '@/app/admin/lib/numberFormat';
+import { formatAdminCount } from '@/lib/admin-number-format';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
@@ -56,7 +57,9 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import type {
   AdminOperationCreditOrderItem,
   AdminOperationCreditOrderListResponse,
+  AdminOperationCreditOrderOverview,
 } from '../operation-credit-order-types';
+import OrderOverviewSection from './OrderOverviewSection';
 import CreditOrderDetailDialog from './CreditOrderDetailDialog';
 import {
   ALL_OPTION_VALUE,
@@ -76,6 +79,13 @@ type CreditOrderFilters = {
 };
 
 type ErrorState = { message: string; code?: number };
+type OverviewCard = {
+  key: string;
+  label: string;
+  value: string;
+  tooltip: string;
+  status?: string;
+};
 
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 90;
@@ -94,6 +104,18 @@ const DEFAULT_COLUMN_WIDTHS = {
   orderId: 220,
   action: 120,
 } as const;
+
+const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
+  total_order_count: 0,
+  paid_order_count: 0,
+  pending_order_count: 0,
+  refunded_order_count: 0,
+  closed_order_count: 0,
+  canceled_order_count: 0,
+  credit_amount_total: 0,
+  paid_amount_total: 0,
+  currency: 'CNY',
+};
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 
@@ -148,6 +170,13 @@ export default function CreditOrdersTab() {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<ErrorState | null>(null);
+  const [overview, setOverview] = React.useState<AdminOperationCreditOrderOverview>(
+    EMPTY_CREDIT_ORDER_OVERVIEW,
+  );
+  const [overviewError, setOverviewError] = React.useState(false);
+  const [activeOverviewStatus, setActiveOverviewStatus] = React.useState<
+    string | null
+  >(null);
   const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
     [],
   );
@@ -187,6 +216,21 @@ export default function CreditOrdersTab() {
       'creditOrders.filters.creatorKeywordPlaceholderPhone',
     );
   }, [contactType, tOperationsOrder]);
+
+  const fetchOverview = React.useCallback(async () => {
+    try {
+      const response =
+        (await api.getAdminOperationCreditOrdersOverview({})) as AdminOperationCreditOrderOverview;
+      setOverview({
+        ...EMPTY_CREDIT_ORDER_OVERVIEW,
+        ...response,
+      });
+      setOverviewError(false);
+    } catch {
+      setOverview(EMPTY_CREDIT_ORDER_OVERVIEW);
+      setOverviewError(true);
+    }
+  }, []);
 
   const fetchOrders = React.useCallback(
     async (targetPage: number, filters: CreditOrderFilters) => {
@@ -238,18 +282,124 @@ export default function CreditOrdersTab() {
     [t],
   );
 
+  const applyStatusQuickFilter = React.useCallback(
+    (status: string) => {
+      if (activeOverviewStatus === status) {
+        return;
+      }
+      const nextFilters = {
+        ...appliedFilters,
+        status,
+      };
+      setActiveOverviewStatus(status || null);
+      setDraftFilters(nextFilters);
+      setAppliedFilters(nextFilters);
+      setPageIndex(1);
+    },
+    [activeOverviewStatus, appliedFilters],
+  );
+
+  React.useEffect(() => {
+    void fetchOverview();
+  }, [fetchOverview]);
+
   React.useEffect(() => {
     void fetchOrders(1, appliedFilters);
   }, [appliedFilters, fetchOrders]);
 
+  const overviewCards = React.useMemo<OverviewCard[]>(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsOrder('creditOrders.overview.metrics.totalOrders'),
+        value: formatAdminCount(overview.total_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.totalOrders'),
+        status: '',
+      },
+      {
+        key: 'paid',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidOrders'),
+        value: formatAdminCount(overview.paid_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidOrders'),
+        status: 'paid',
+      },
+      {
+        key: 'pending',
+        label: tOperationsOrder('creditOrders.overview.metrics.pendingOrders'),
+        value: formatAdminCount(overview.pending_order_count, locale),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.pendingOrders',
+        ),
+        status: 'pending',
+      },
+      {
+        key: 'refunded',
+        label: tOperationsOrder('creditOrders.overview.metrics.refundedOrders'),
+        value: formatAdminCount(overview.refunded_order_count, locale),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.refundedOrders',
+        ),
+        status: 'refunded',
+      },
+      {
+        key: 'closed',
+        label: tOperationsOrder('creditOrders.overview.metrics.closedOrders'),
+        value: formatAdminCount(overview.closed_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.closedOrders'),
+        status: 'timeout',
+      },
+      {
+        key: 'canceled',
+        label: tOperationsOrder('creditOrders.overview.metrics.canceledOrders'),
+        value: formatAdminCount(overview.canceled_order_count, locale),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.canceledOrders',
+        ),
+        status: 'canceled',
+      },
+      {
+        key: 'credit-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.creditAmount'),
+        value: tOperationsOrder('creditOrders.creditAmountValue', {
+          credits: formatAdminCredits(overview.credit_amount_total, locale),
+        }),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.creditAmount',
+        ),
+      },
+      {
+        key: 'paid-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidAmount'),
+        value: formatAdminPrice(
+          overview.paid_amount_total,
+          overview.currency,
+          locale,
+        ),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidAmount'),
+      },
+    ],
+    [locale, overview, tOperationsOrder],
+  );
+
+  const activeOverviewCard = React.useMemo(
+    () =>
+      activeOverviewStatus
+        ? overviewCards.find(card => card.status === activeOverviewStatus) ??
+          null
+        : null,
+    [activeOverviewStatus, overviewCards],
+  );
+
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
+    setActiveOverviewStatus(null);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
+    setActiveOverviewStatus(null);
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -483,6 +633,28 @@ export default function CreditOrdersTab() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+          <OrderOverviewSection
+            title={tOperationsOrder('overview.title')}
+            cards={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              tooltip: card.tooltip,
+              onClick:
+                'status' in card
+                  ? () => applyStatusQuickFilter(card.status ?? '')
+                  : undefined,
+            }))}
+            activeCardLabel={activeOverviewCard?.label ?? null}
+            activeFilterLabel={tOperationsOrder('overview.activeFilter')}
+            clearLabel={t('common.core.close')}
+            staleMessage={
+              overviewError ? tOperationsOrder('overview.staleData') : null
+            }
+            onClearActive={() => applyStatusQuickFilter('')}
+            gridClassName='min-[1680px]:grid-cols-4'
+          />
+
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
             <div className='space-y-4'>
               <div
