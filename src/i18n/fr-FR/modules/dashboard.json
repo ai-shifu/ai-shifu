@@ -9,7 +9,7 @@
       "title": "Informations de base"
     },
     "charts": {
-      "chapterProgress": "Chapitre Progression Distribution",
+      "chapterProgress": "Distribution de la progression par chapitre",
       "learningTrend": "Tendance de l’activité d’apprentissage",
       "placeholder": "Les graphiques arrivent bientôt",
       "questionsByChapter": "Follow-up Questions by Chapitre",
