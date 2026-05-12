@@ -29,6 +29,7 @@
     "description": "Feel the learner’s experience and see how prompts personalize courses",
     "disabled": "Select a unit before debugging.",
     "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",
+    "goToBilling": "Top up credits",
     "loading": "Generating learning simulation...",
     "open": "Expand learning simulation",
     "title": "Learning Simulation",

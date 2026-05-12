@@ -43,6 +43,8 @@
 - 阅读模式首个渲染项的顶部留白要在统一容器层处理，优先把 `loading`、首个 content、首个 ask 和首个 interaction 都视为“第一个 element”，共用同一套 top padding，避免只改普通内容块导致首屏间距不一致。
 - `/c/:id` 页面 preview 模式如果要在 learner header 增加提示 banner，优先作为 header 内部第二行渲染，并同步抬高 mobile sticky header 高度、desktop header 占位和正文 top padding，不要把 banner 放成 header 同级导致吸顶和内容错位。
 - 学习页初始化排查如果需要给 QA 或运营直接复现链路，优先提供 `debug=1` 这类显式 URL 开关，把请求层、`1001` 鉴权恢复链路和页面初始化日志同步显示在页内调试面板，而不是只依赖远程控制台。
+- 预览/调试 SSE 如果在开始流式输出前就返回业务错误（如 `7101`），前端不要只停留在 `loading` 占位；应把后端返回的 `message` 直接落到聊天列表里替换 loading，保证作者侧能看到真实失败原因。
+- 作者侧预览区如果要对特定业务错误提供后续操作，优先把错误码挂在预览错误项上，再由 `LessonPreview` 按错误码渲染定向 CTA；像 `7101` 积分不足这类场景，应直接提供跳转 `/admin/billing?tab=packages` 的充值入口，而不是靠文案匹配做分支。
 
 ## Skills Index
 

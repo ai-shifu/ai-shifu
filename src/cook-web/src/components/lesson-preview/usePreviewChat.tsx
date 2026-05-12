@@ -32,6 +32,7 @@ import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
+import type { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import {
@@ -79,6 +80,9 @@ type PreviewSseResponseData = {
   generated_block_bid?: unknown;
   is_terminal?: unknown;
 };
+
+const PREVIEW_LOADING_ITEM_BID = 'loading';
+const PREVIEW_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
   input: unknown,
@@ -382,6 +386,42 @@ const resolveLatestPreviewActionableItem = (
   return [...items].reverse().find(item => isPreviewActionableItem(item));
 };
 
+export const buildPreviewBusinessErrorItem = (
+  message: string,
+  businessCode?: number,
+): ChatContentItem => ({
+  element_bid: PREVIEW_BUSINESS_ERROR_ITEM_BID,
+  generated_block_bid: PREVIEW_BUSINESS_ERROR_ITEM_BID,
+  content: message,
+  readonly: true,
+  type: ChatContentItemType.ERROR,
+  business_code: businessCode,
+});
+
+export const replacePreviewLoadingWithBusinessError = (
+  items: ChatContentItem[],
+  message: string,
+  businessCode?: number,
+): ChatContentItem[] => {
+  const normalizedMessage = message.trim();
+  if (!normalizedMessage) {
+    return items.filter(
+      item => item.generated_block_bid !== PREVIEW_LOADING_ITEM_BID,
+    );
+  }
+
+  const nextList = items.filter(
+    item =>
+      item.generated_block_bid !== PREVIEW_LOADING_ITEM_BID &&
+      item.generated_block_bid !== PREVIEW_BUSINESS_ERROR_ITEM_BID,
+  );
+
+  return [
+    ...nextList,
+    buildPreviewBusinessErrorItem(normalizedMessage, businessCode),
+  ];
+};
+
 export function usePreviewChat() {
   const { t } = useTranslation();
   const { actions } = useShifu();
@@ -653,6 +693,29 @@ export function usePreviewChat() {
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
   }, [closeAllTtsStreams]);
+
+  const handlePreviewBusinessError = useCallback(
+    (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
+      const resolvedMessage =
+        typeof errorOrMessage === 'string'
+          ? errorOrMessage.trim() || t('module.preview.llmError')
+          : errorOrMessage?.message?.trim() || t('module.preview.llmError');
+      const resolvedCode =
+        typeof errorOrMessage === 'string'
+          ? fallbackCode
+          : (errorOrMessage?.code ?? fallbackCode);
+      setTrackedContentList(prev =>
+        replacePreviewLoadingWithBusinessError(
+          prev,
+          resolvedMessage,
+          resolvedCode,
+        ),
+      );
+      setError(resolvedMessage);
+      stopPreview();
+    },
+    [setTrackedContentList, stopPreview, t],
+  );
 
   const resetPreview = useCallback(() => {
     stopPreview();
@@ -1227,8 +1290,8 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
-          element_bid: 'loading',
-          generated_block_bid: 'loading',
+          element_bid: PREVIEW_LOADING_ITEM_BID,
+          generated_block_bid: PREVIEW_LOADING_ITEM_BID,
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
@@ -1273,8 +1336,7 @@ export function usePreviewChat() {
             if (sseRef.current !== source) {
               return;
             }
-            setError(error.message || t('module.preview.llmError'));
-            stopPreview();
+            handlePreviewBusinessError(error);
           },
         });
         source.addEventListener('message', event => {
@@ -1318,19 +1380,19 @@ export function usePreviewChat() {
         source.stream();
       } catch (err) {
         console.error('preview stream error', err);
-        setError((err as Error)?.message || 'Preview failed');
+        handlePreviewBusinessError((err as Error)?.message || 'Preview failed');
         stopPreview();
         setIsLoading(false);
       }
     },
     [
       finalizePreviewItems,
+      handlePreviewBusinessError,
       handlePayload,
       resolveBaseUrl,
       setTrackedContentList,
       stopPreview,
       stopPreviewAndContinueIfNeeded,
-      t,
     ],
   );
 
