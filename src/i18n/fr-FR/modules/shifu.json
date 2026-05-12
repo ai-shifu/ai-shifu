@@ -27,7 +27,7 @@
     "action": "Déboguer",
     "close": "Réduire la simulation d’apprentissage",
     "description": "Découvrez l’expérience apprenant et voyez comment les prompts personnalisent les cours",
-    "disabled": "Sélectionner a unit before debugging.",
+    "disabled": "Sélectionnez une unité avant de déboguer.",
     "empty": "Saisissez les prompts pédagogiques à gauche, puis cliquez sur « Déboguer » pour tester la simulation d’apprentissage",
     "goToBilling": "Recharger des crédits",
     "loading": "Génération de la simulation d’apprentissage...",
