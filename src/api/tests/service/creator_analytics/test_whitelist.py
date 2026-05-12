@@ -104,6 +104,16 @@ def test_get_table_spec_returns_typed_instance() -> None:
     assert spec.table_key == "order_orders"
 
 
+@pytest.mark.parametrize("table_key", sorted(EXPECTED_TABLE_KEYS))
+def test_user_bid_is_groupable_on_every_table(table_key: str) -> None:
+    """user_bid is groupable everywhere — see plan/dev/creator-analytics-skill-simple.md."""
+
+    spec = WHITELIST[table_key]
+    assert "user_bid" in spec.groupable, (
+        f"{table_key}: user_bid must be groupable for per-learner aggregation"
+    )
+
+
 def test_operators_baseline() -> None:
     """Pin the operator set so regressions are deliberate."""
 

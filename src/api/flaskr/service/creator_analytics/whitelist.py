@@ -89,7 +89,9 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "updated_at",
             }
         ),
-        groupable=frozenset({"outline_item_bid", "status", "block_position"}),
+        groupable=frozenset(
+            {"user_bid", "outline_item_bid", "status", "block_position"}
+        ),
         aggregatable={
             "progress_record_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -123,7 +125,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "created_at",
             }
         ),
-        groupable=frozenset({"type", "role", "liked"}),
+        groupable=frozenset({"user_bid", "type", "role", "liked"}),
         aggregatable={
             "generated_block_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -154,7 +156,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "created_at",
             }
         ),
-        groupable=frozenset({"progress_record_bid", "mode", "score"}),
+        groupable=frozenset({"user_bid", "progress_record_bid", "mode", "score"}),
         aggregatable={
             "lesson_feedback_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -185,7 +187,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "created_at",
             }
         ),
-        groupable=frozenset({"status", "payment_channel"}),
+        groupable=frozenset({"user_bid", "status", "payment_channel"}),
         aggregatable={
             "order_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -207,7 +209,7 @@ WHITELIST: Mapping[str, TableSpec] = {
             }
         ),
         filterable=frozenset({"user_bid", "variable_bid", "value", "updated_at"}),
-        groupable=frozenset({"variable_bid", "value"}),
+        groupable=frozenset({"user_bid", "variable_bid", "value"}),
         aggregatable={
             "variable_value_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -238,7 +240,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "created_at",
             }
         ),
-        groupable=frozenset({"progress_record_bid", "usage_type"}),
+        groupable=frozenset({"user_bid", "progress_record_bid", "usage_type"}),
         aggregatable={
             "usage_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
@@ -254,7 +256,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         model=ShifuUserArchive,
         selectable=frozenset({"user_bid", "archived", "archived_at", "created_at"}),
         filterable=frozenset({"user_bid", "archived", "archived_at", "created_at"}),
-        groupable=frozenset({"archived"}),
+        groupable=frozenset({"user_bid", "archived"}),
         aggregatable={
             "user_bid": _DIMENSION_AGGS,
             "archived_at": _TIMESTAMP_AGGS,

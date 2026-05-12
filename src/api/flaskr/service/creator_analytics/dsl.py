@@ -148,6 +148,7 @@ def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
 
     group_by = _parse_group_by(payload.get("group_by"), spec)
     _enforce_select_group_by_compatibility(select, group_by, aggregates)
+    _enforce_user_bid_aggregation_only(select, group_by, aggregates)
 
     filters = _parse_filters(payload.get("where"), spec)
     order_by = _parse_order_by(payload.get("order_by"), select, aggregates, group_by)
@@ -421,6 +422,31 @@ def _enforce_select_group_by_compatibility(
                 ERR_INVALID_DSL,
                 f"'select' column '{col}' must appear in 'group_by' when aggregating",
             )
+
+
+def _enforce_user_bid_aggregation_only(
+    select: Sequence[str],
+    group_by: Sequence[str],
+    aggregates: Sequence[Aggregate],
+) -> None:
+    """``user_bid`` may only surface as a group-by dimension, never as a raw column.
+
+    Without this guard, ``select=["user_bid", ...]`` with no aggregate would
+    return a raw learner pseudo-ID list. We require ``user_bid`` to appear in
+    ``group_by`` whenever it appears in ``select`` — that way every row is a
+    per-learner aggregate (e.g. token spend, completion count) rather than a
+    line of detail.
+    """
+
+    if "user_bid" not in select:
+        return
+    if "user_bid" in group_by:
+        return
+    _raise(
+        ERR_INVALID_DSL,
+        "'select' containing 'user_bid' must also 'group_by' user_bid "
+        "(raw learner-id listing is not allowed)",
+    )
 
 
 def _default_alias(fn: str, field_name: Optional[str]) -> str:

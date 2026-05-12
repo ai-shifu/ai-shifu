@@ -209,7 +209,7 @@ def test_like_leading_wildcard_is_rejected(mock_request_user, test_client, app):
         {
             "shifu_bid": "shifu-a",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "where": [{"field": "user_bid", "op": "like", "value": "%abc"}],
             "limit": 10,
         },
@@ -227,7 +227,7 @@ def test_limit_above_configured_max_is_rejected(mock_request_user, test_client, 
         {
             "shifu_bid": "shifu-a",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 999999,
         },
     )

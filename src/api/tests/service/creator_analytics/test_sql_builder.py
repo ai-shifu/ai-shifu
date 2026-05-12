@@ -45,7 +45,7 @@ def test_shifu_bid_predicate_is_always_present_on_select() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 10,
         }
     )
@@ -74,7 +74,7 @@ def test_deleted_predicate_injected_for_tables_with_deleted_column() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 10,
         }
     )
@@ -86,7 +86,7 @@ def test_deleted_predicate_omitted_for_shifu_user_archives() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "shifu_user_archives",
-            "select": ["user_bid"],
+            "select": ["archived"],
             "limit": 10,
         }
     )
@@ -103,7 +103,7 @@ def test_mysql_dialect_emits_max_execution_time_hint() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 10,
         }
     )
@@ -115,7 +115,7 @@ def test_sqlite_dialect_does_not_emit_mysql_hint() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 10,
         }
     )
@@ -169,7 +169,7 @@ def test_comparison_operators_emit_predicate(op: str) -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "where": [{"field": "status", "op": op, "value": 602}],
             "limit": 10,
         }
@@ -185,7 +185,7 @@ def test_in_operator_emits_in_predicate() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "where": [{"field": "status", "op": "in", "value": [602, 603]}],
             "limit": 10,
         }
@@ -198,7 +198,7 @@ def test_between_operator_emits_between() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "where": [
                 {
                     "field": "created_at",
@@ -217,7 +217,7 @@ def test_is_null_emits_is_null() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "shifu_user_archives",
-            "select": ["user_bid"],
+            "select": ["archived"],
             "where": [{"field": "archived_at", "op": "is_null"}],
             "limit": 10,
         }
@@ -235,7 +235,7 @@ def test_limit_and_offset_present() -> None:
         {
             "shifu_bid": "shifu-abc",
             "table": "learn_progress_records",
-            "select": ["user_bid"],
+            "select": ["outline_item_bid"],
             "limit": 25,
             "offset": 5,
         }

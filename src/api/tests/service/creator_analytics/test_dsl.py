@@ -26,7 +26,7 @@ def _payload(**overrides):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "learn_progress_records",
-        "select": ["user_bid", "status"],
+        "select": ["outline_item_bid", "status"],
         "limit": 10,
     }
     base.update(overrides)
@@ -59,7 +59,7 @@ def test_minimal_select_query_parses() -> None:
     dsl = _parse(_payload())
     assert dsl.shifu_bid == "shifu-abc"
     assert dsl.table == "learn_progress_records"
-    assert dsl.select == ("user_bid", "status")
+    assert dsl.select == ("outline_item_bid", "status")
     assert dsl.aggregates == ()
     assert dsl.limit == 10
     assert dsl.offset == 0
@@ -118,7 +118,7 @@ def test_shifu_user_archives_works_without_deleted_column() -> None:
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "shifu_user_archives",
-        "select": ["user_bid"],
+        "select": ["archived"],
         "where": [{"field": "archived", "op": "=", "value": 0}],
         "limit": 10,
     }
@@ -316,7 +316,7 @@ def test_offset_negative_rejected() -> None:
 
 def test_order_by_field_must_appear_in_select_or_alias() -> None:
     payload = _payload(
-        select=["user_bid"],
+        select=["outline_item_bid"],
         order_by=[{"field": "status", "dir": "asc"}],
     )
     _assert_error(payload, ERR_INVALID_COLUMN)
@@ -324,4 +324,68 @@ def test_order_by_field_must_appear_in_select_or_alias() -> None:
 
 def test_order_by_invalid_direction_rejected() -> None:
     payload = _payload(order_by=[{"field": "user_bid", "dir": "sideways"}])
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+# ---------------------------------------------------------------------------
+# user_bid aggregation-only guard (per-learner analytics policy)
+# ---------------------------------------------------------------------------
+
+
+def test_top_n_per_learner_token_spend_parses() -> None:
+    """Top-N learners by token spend: group_by user_bid + select user_bid + sums."""
+
+    payload = {
+        "shifu_bid": "shifu-abc",
+        "table": "bill_usage",
+        "select": ["user_bid"],
+        "group_by": ["user_bid"],
+        "aggregate": [
+            {"fn": "sum", "field": "input", "alias": "in_tok"},
+            {"fn": "sum", "field": "output", "alias": "out_tok"},
+        ],
+        "order_by": [{"field": "in_tok", "dir": "desc"}],
+        "limit": 10,
+    }
+    dsl = _parse(payload)
+    assert "user_bid" in dsl.select
+    assert "user_bid" in dsl.group_by
+
+
+def test_count_distinct_user_bid_without_selecting_it_parses() -> None:
+    """count_distinct(user_bid) — user_bid as aggregate target only — still works."""
+
+    payload = _payload(
+        select=["status"],
+        group_by=["status"],
+        aggregate=[{"fn": "count_distinct", "field": "user_bid", "alias": "n"}],
+    )
+    dsl = _parse(payload)
+    assert "user_bid" not in dsl.select
+
+
+def test_select_user_bid_without_group_by_user_bid_is_rejected() -> None:
+    """Raw learner pseudo-ID listing must be blocked."""
+
+    payload = {
+        "shifu_bid": "shifu-abc",
+        "table": "order_orders",
+        "select": ["user_bid", "status", "paid_price"],
+        "limit": 100,
+    }
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
+    """select user_bid + group_by status — caught by the existing select-in-group-by rule.
+
+    Documented here for clarity: the user_bid guard piggy-backs on the existing
+    rule for the aggregate path, but we still want the surface behavior captured.
+    """
+
+    payload = _payload(
+        select=["user_bid", "status"],
+        group_by=["status"],
+        aggregate=[{"fn": "count", "alias": "n"}],
+    )
     _assert_error(payload, ERR_INVALID_DSL)
