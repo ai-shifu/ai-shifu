@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "查询使用了不支持的聚合方式",
+    "invalidColumn": "查询的字段不在白名单内",
+    "invalidDsl": "查询描述不合法",
+    "invalidLimit": "limit 或 offset 越界",
+    "invalidOperator": "查询使用了不支持的算子",
+    "invalidTable": "查询的表不在白名单内",
+    "noPermission": "无权访问该课程的分析数据",
+    "queryTimeout": "查询超过时间上限,请缩小范围后重试"
+  }
+}

@@ -53,6 +53,7 @@
     "server.billing",
     "server.check",
     "server.common",
+    "server.creatorAnalytics",
     "server.discount",
     "server.file",
     "server.genMdf",

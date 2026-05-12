@@ -5,6 +5,7 @@ def register_route(app):
     from .callback import register_callback_handler
     from .common import register_common_handler
     from .config import register_config_handler
+    from .creator_analytics import register_creator_analytics_handler
     from .dicts import register_dict_handler
     from .open_api import register_open_api_handler
     from .order import register_order_handler
@@ -20,4 +21,5 @@ def register_route(app):
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
     app = register_open_api_handler(app, prefix + "/open-api/v1")
+    app = register_creator_analytics_handler(app, prefix + "/creator-analytics")
     return app
