@@ -223,36 +223,21 @@ describe('LearnOrdersTab', () => {
     expect(
       screen.getByText('module.operationsOrder.totalCount'),
     ).toBeInTheDocument();
-  });
-
-  test('clicks overview card to switch status filter', async () => {
-    render(<LearnOrdersTab />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /^module\.operationsOrder\.overview\.metrics\.pendingOrders\b/,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
-        page_index: 1,
-        page_size: 20,
-        user_keyword: '',
-        order_bid: '',
-        shifu_bid: '',
-        course_name: '',
-        status: '504',
-        order_source: '',
-        payment_channel: '',
-        start_time: '',
-        end_time: '',
-      });
-    });
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.pendingOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.refundedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.closedOrders',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   test('activates and clears the paid overview card without refetching the default paid view', async () => {

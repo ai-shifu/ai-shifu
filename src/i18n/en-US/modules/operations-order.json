@@ -114,21 +114,15 @@
   "overview": {
     "activeFilter": "Current filter",
     "metrics": {
-      "closedOrders": "Closed",
       "paidAmount": "Paid Amount",
       "paidOrders": "Paid",
-      "pendingOrders": "Pending",
-      "refundedOrders": "Refunded",
       "totalOrders": "Total Orders"
     },
     "staleData": "Overview failed to load. Refresh to try again.",
     "title": "Overview",
     "tooltips": {
-      "closedOrders": "Closed learning orders",
       "paidAmount": "Paid amount from learning orders",
       "paidOrders": "Paid learning orders",
-      "pendingOrders": "Pending learning orders",
-      "refundedOrders": "Refunded learning orders",
       "totalOrders": "Total learning orders"
     }
   },

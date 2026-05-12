@@ -361,27 +361,6 @@ export default function LearnOrdersTab() {
         status: '502',
       },
       {
-        key: 'pending',
-        label: tOperationsOrder('overview.metrics.pendingOrders'),
-        value: formatAdminCount(overview.pending_order_count, locale),
-        tooltip: tOperationsOrder('overview.tooltips.pendingOrders'),
-        status: '504',
-      },
-      {
-        key: 'refunded',
-        label: tOperationsOrder('overview.metrics.refundedOrders'),
-        value: formatAdminCount(overview.refunded_order_count, locale),
-        tooltip: tOperationsOrder('overview.tooltips.refundedOrders'),
-        status: '503',
-      },
-      {
-        key: 'closed',
-        label: tOperationsOrder('overview.metrics.closedOrders'),
-        value: formatAdminCount(overview.closed_order_count, locale),
-        tooltip: tOperationsOrder('overview.tooltips.closedOrders'),
-        status: '505',
-      },
-      {
         key: 'paid-amount',
         label: tOperationsOrder('overview.metrics.paidAmount'),
         value: `${currencySymbol}${formatAdminNumber(
@@ -701,6 +680,7 @@ export default function LearnOrdersTab() {
               overviewError ? tOperationsOrder('overview.staleData') : null
             }
             onClearActive={clearOverviewQuickFilter}
+            gridClassName='xl:grid-cols-3 min-[1680px]:grid-cols-3'
           />
 
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
