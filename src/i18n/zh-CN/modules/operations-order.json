@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsOrder",
   "creditOrders": {
-    "creditAmountValue": "{credits} 积分",
+    "creditAmountValue": "{credits}",
     "detail": {
       "description": "查看积分订单详情",
       "labels": {
@@ -46,23 +46,15 @@
     "longTerm": "长期有效",
     "overview": {
       "metrics": {
-        "canceledOrders": "已取消",
-        "closedOrders": "已关闭",
         "creditAmount": "当前可用积分",
         "paidAmount": "实付金额",
         "paidOrders": "已支付",
-        "pendingOrders": "待支付",
-        "refundedOrders": "已退款",
         "totalOrders": "订单总数"
       },
       "tooltips": {
-        "canceledOrders": "已取消积分订单数",
-        "closedOrders": "已关闭积分订单数",
         "creditAmount": "当前所有创作者账号中尚未消耗、仍可用于学习、预览和调试的积分总和",
         "paidAmount": "已支付积分订单实付金额总和",
         "paidOrders": "已支付积分订单数",
-        "pendingOrders": "待支付积分订单数",
-        "refundedOrders": "已退款积分订单数",
         "totalOrders": "积分订单总数"
       }
     },

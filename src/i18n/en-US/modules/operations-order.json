@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsOrder",
   "creditOrders": {
-    "creditAmountValue": "{credits} credits",
+    "creditAmountValue": "{credits}",
     "detail": {
       "description": "View credit order details",
       "labels": {
@@ -46,23 +46,15 @@
     "longTerm": "Long term",
     "overview": {
       "metrics": {
-        "canceledOrders": "Canceled",
-        "closedOrders": "Closed",
         "creditAmount": "Available Credits",
         "paidAmount": "Paid Amount",
         "paidOrders": "Paid",
-        "pendingOrders": "Pending",
-        "refundedOrders": "Refunded",
         "totalOrders": "Total Orders"
       },
       "tooltips": {
-        "canceledOrders": "Canceled credit orders",
-        "closedOrders": "Closed credit orders",
         "creditAmount": "Total unconsumed credits currently available across all creator accounts for learning, preview, and debug usage",
         "paidAmount": "Paid amount from credit orders",
         "paidOrders": "Paid credit orders",
-        "pendingOrders": "Pending credit orders",
-        "refundedOrders": "Refunded credit orders",
         "totalOrders": "Total credit orders"
       }
     },

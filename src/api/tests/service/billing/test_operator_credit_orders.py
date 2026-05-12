@@ -12,6 +12,9 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -26,6 +29,7 @@ from flaskr.service.billing.models import (
     BillingProduct,
     CreditLedgerEntry,
     CreditWallet,
+    CreditWalletBucket,
 )
 from flaskr.service.billing.read_models import (
     build_operator_credit_orders_overview,
@@ -178,6 +182,44 @@ def _build_app() -> Flask:
                 ),
             ]
         )
+        dao.db.session.add_all(
+            [
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-1",
+                    wallet_bid="wallet-1",
+                    creator_bid="creator-1",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_bid="bill-order-topup-1",
+                    priority=10,
+                    original_credits=Decimal("20.0000000000"),
+                    available_credits=Decimal("20.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("0"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 27, 10, 0, 0),
+                    effective_to=datetime(2026, 5, 27, 10, 0, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                ),
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-2",
+                    wallet_bid="wallet-2",
+                    creator_bid="creator-2",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid="bill-order-plan-1",
+                    priority=10,
+                    original_credits=Decimal("22000.0000000000"),
+                    available_credits=Decimal("0"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("22000.0000000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 26, 10, 0, 0),
+                    effective_to=datetime(2027, 4, 26, 10, 0, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                ),
+            ]
+        )
         dao.db.session.commit()
     return app
 
@@ -213,6 +255,20 @@ def test_build_operator_credit_orders_page_supports_product_keyword_search():
     result = build_operator_credit_orders_page(
         app,
         product_keyword="20",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 1
+    assert result.items[0].bill_order_bid == "bill-order-topup-1"
+
+
+def test_build_operator_credit_orders_page_filters_orders_with_available_credits():
+    app = _build_app()
+
+    result = build_operator_credit_orders_page(
+        app,
+        has_available_credits=True,
         page_index=1,
         page_size=20,
     )

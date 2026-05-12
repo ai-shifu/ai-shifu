@@ -1138,6 +1138,7 @@ def build_operator_credit_orders_page(
     bill_order_bid: str = "",
     credit_order_kind: str = "",
     status: str = "",
+    has_available_credits: bool = False,
     payment_provider: str = "",
     start_time: Any = "",
     end_time: Any = "",
@@ -1191,6 +1192,17 @@ def build_operator_credit_orders_page(
 
         if status_code is not None:
             query = query.filter(BillingOrder.status == status_code)
+
+        if has_available_credits:
+            query = query.filter(
+                db.session.query(CreditWalletBucket.id)
+                .filter(
+                    CreditWalletBucket.deleted == 0,
+                    CreditWalletBucket.source_bid == BillingOrder.bill_order_bid,
+                    CreditWalletBucket.available_credits > 0,
+                )
+                .exists()
+            )
 
         if normalized_payment_provider:
             query = query.filter(

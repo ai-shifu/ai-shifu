@@ -491,6 +491,40 @@ def test_admin_operation_credit_orders_route_returns_operator_page(
     builder_mock.assert_called_once()
 
 
+def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    expected = OperatorCreditOrdersPageDTO(
+        items=[],
+        page=1,
+        page_count=0,
+        page_size=20,
+        total=0,
+    )
+
+    with patch(
+        "flaskr.service.shifu.route.build_operator_credit_orders_page",
+        return_value=expected,
+    ) as builder_mock:
+        response = test_client.get(
+            "/api/shifu/admin/operations/orders/credits",
+            query_string={
+                "has_available_credits": "true",
+            },
+            headers={"Token": "test-token"},
+        )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    builder_mock.assert_called_once()
+    assert builder_mock.call_args.kwargs["has_available_credits"] is True
+
+
 def test_admin_operation_credit_order_detail_route_returns_detail(
     test_client,
     monkeypatch,

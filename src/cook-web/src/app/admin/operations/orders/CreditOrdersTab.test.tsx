@@ -361,34 +361,26 @@ describe('CreditOrdersTab', () => {
       screen.queryByText('module.billing.catalog.topups.default.title'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
-  });
-
-  test('clicks overview card to switch credit order status filter', async () => {
-    render(<CreditOrdersTab />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.pendingOrders\b/,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
-        page_index: 1,
-        page_size: 20,
-        creator_keyword: '',
-        product_keyword: '',
-        credit_order_kind: '',
-        status: 'pending',
-        payment_provider: '',
-        start_time: '',
-        end_time: '',
-      });
-    });
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.pendingOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.refundedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.closedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.canceledOrders',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   test('activates and clears the paid overview card without refetching the default paid credit view', async () => {
@@ -466,6 +458,39 @@ describe('CreditOrdersTab', () => {
         product_keyword: '',
         credit_order_kind: '',
         status: 'paid',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('clicks available credits overview card to filter orders with remaining credits', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.creditAmount\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        has_available_credits: true,
         payment_provider: '',
         start_time: '',
         end_time: '',

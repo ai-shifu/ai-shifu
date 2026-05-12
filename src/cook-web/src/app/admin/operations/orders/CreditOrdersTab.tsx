@@ -67,13 +67,13 @@ import {
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
-import { useOverviewStatusQuickFilter } from './useOverviewStatusQuickFilter';
 
 type CreditOrderFilters = {
   creator_keyword: string;
   product_keyword: string;
   credit_order_kind: string;
   status: string;
+  has_available_credits: boolean;
   payment_provider: string;
   start_time: string;
   end_time: string;
@@ -85,7 +85,7 @@ type OverviewCard = {
   label: string;
   value: string;
   tooltip: string;
-  status?: string;
+  quickFilters?: Partial<CreditOrderFilters>;
 };
 
 const PAGE_SIZE = 20;
@@ -126,10 +126,24 @@ const createDefaultFilters = (): CreditOrderFilters => ({
   product_keyword: '',
   credit_order_kind: '',
   status: 'paid',
+  has_available_credits: false,
   payment_provider: '',
   start_time: '',
   end_time: '',
 });
+
+const areCreditOrderFiltersEqual = (
+  left: CreditOrderFilters,
+  right: CreditOrderFilters,
+): boolean =>
+  left.creator_keyword === right.creator_keyword &&
+  left.product_keyword === right.product_keyword &&
+  left.credit_order_kind === right.credit_order_kind &&
+  left.status === right.status &&
+  left.has_available_credits === right.has_available_credits &&
+  left.payment_provider === right.payment_provider &&
+  left.start_time === right.start_time &&
+  left.end_time === right.end_time;
 
 /**
  * t('module.operationsOrder.creditOrders.emptyList')
@@ -190,17 +204,11 @@ export default function CreditOrdersTab() {
   );
   const [appliedFilters, setAppliedFilters] =
     React.useState<CreditOrderFilters>(() => createDefaultFilters());
-  const {
-    activeOverviewStatus,
-    applyStatusQuickFilter,
-    clearOverviewQuickFilter,
-    resetOverviewQuickFilterState,
-  } = useOverviewStatusQuickFilter<CreditOrderFilters>({
-    appliedFilters,
-    setDraftFilters,
-    setAppliedFilters,
-    setPageIndex,
-  });
+  const [activeOverviewCardKey, setActiveOverviewCardKey] = React.useState<
+    string | null
+  >(null);
+  const [overviewFiltersBeforeApply, setOverviewFiltersBeforeApply] =
+    React.useState<CreditOrderFilters | null>(null);
   const requestIdRef = React.useRef(0);
   const lastRequestedPageRef = React.useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -259,6 +267,9 @@ export default function CreditOrdersTab() {
           product_keyword: filters.product_keyword.trim(),
           credit_order_kind: filters.credit_order_kind,
           status: filters.status,
+          ...(filters.has_available_credits
+            ? { has_available_credits: true }
+            : {}),
           payment_provider: filters.payment_provider,
           start_time: filters.start_time,
           end_time: filters.end_time,
@@ -301,6 +312,66 @@ export default function CreditOrdersTab() {
     void fetchOrders(1, appliedFilters);
   }, [appliedFilters, fetchOrders]);
 
+  const resetOverviewQuickFilterState = React.useCallback(() => {
+    setActiveOverviewCardKey(null);
+    setOverviewFiltersBeforeApply(null);
+  }, []);
+
+  const applyOverviewQuickFilter = React.useCallback(
+    (cardKey: string, quickFilters: Partial<CreditOrderFilters>) => {
+      if (activeOverviewCardKey === cardKey) {
+        return;
+      }
+      const baselineFilters =
+        activeOverviewCardKey === null
+          ? appliedFilters
+          : overviewFiltersBeforeApply || appliedFilters;
+      if (activeOverviewCardKey === null) {
+        setOverviewFiltersBeforeApply(appliedFilters);
+      }
+      const nextFilters: CreditOrderFilters = {
+        ...baselineFilters,
+        ...quickFilters,
+      };
+      setActiveOverviewCardKey(cardKey);
+      setDraftFilters(current =>
+        areCreditOrderFiltersEqual(current, nextFilters)
+          ? current
+          : nextFilters,
+      );
+      if (areCreditOrderFiltersEqual(appliedFilters, nextFilters)) {
+        return;
+      }
+      setAppliedFilters(nextFilters);
+      setPageIndex(1);
+    },
+    [activeOverviewCardKey, appliedFilters, overviewFiltersBeforeApply],
+  );
+
+  const clearOverviewQuickFilter = React.useCallback(() => {
+    if (activeOverviewCardKey === null) {
+      return;
+    }
+    const restoredFilters =
+      overviewFiltersBeforeApply || createDefaultFilters();
+    resetOverviewQuickFilterState();
+    setDraftFilters(current =>
+      areCreditOrderFiltersEqual(current, restoredFilters)
+        ? current
+        : restoredFilters,
+    );
+    if (areCreditOrderFiltersEqual(appliedFilters, restoredFilters)) {
+      return;
+    }
+    setAppliedFilters(restoredFilters);
+    setPageIndex(1);
+  }, [
+    activeOverviewCardKey,
+    appliedFilters,
+    overviewFiltersBeforeApply,
+    resetOverviewQuickFilterState,
+  ]);
+
   const overviewCards = React.useMemo<OverviewCard[]>(
     () => [
       {
@@ -308,50 +379,20 @@ export default function CreditOrdersTab() {
         label: tOperationsOrder('creditOrders.overview.metrics.totalOrders'),
         value: formatAdminCount(overview.total_order_count, locale),
         tooltip: tOperationsOrder('creditOrders.overview.tooltips.totalOrders'),
-        status: '',
+        quickFilters: {
+          status: '',
+          has_available_credits: false,
+        },
       },
       {
         key: 'paid',
         label: tOperationsOrder('creditOrders.overview.metrics.paidOrders'),
         value: formatAdminCount(overview.paid_order_count, locale),
         tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidOrders'),
-        status: 'paid',
-      },
-      {
-        key: 'pending',
-        label: tOperationsOrder('creditOrders.overview.metrics.pendingOrders'),
-        value: formatAdminCount(overview.pending_order_count, locale),
-        tooltip: tOperationsOrder(
-          'creditOrders.overview.tooltips.pendingOrders',
-        ),
-        status: 'pending',
-      },
-      {
-        key: 'refunded',
-        label: tOperationsOrder('creditOrders.overview.metrics.refundedOrders'),
-        value: formatAdminCount(overview.refunded_order_count, locale),
-        tooltip: tOperationsOrder(
-          'creditOrders.overview.tooltips.refundedOrders',
-        ),
-        status: 'refunded',
-      },
-      {
-        key: 'closed',
-        label: tOperationsOrder('creditOrders.overview.metrics.closedOrders'),
-        value: formatAdminCount(overview.closed_order_count, locale),
-        tooltip: tOperationsOrder(
-          'creditOrders.overview.tooltips.closedOrders',
-        ),
-        status: 'timeout',
-      },
-      {
-        key: 'canceled',
-        label: tOperationsOrder('creditOrders.overview.metrics.canceledOrders'),
-        value: formatAdminCount(overview.canceled_order_count, locale),
-        tooltip: tOperationsOrder(
-          'creditOrders.overview.tooltips.canceledOrders',
-        ),
-        status: 'canceled',
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: false,
+        },
       },
       {
         key: 'credit-amount',
@@ -362,6 +403,10 @@ export default function CreditOrdersTab() {
         tooltip: tOperationsOrder(
           'creditOrders.overview.tooltips.creditAmount',
         ),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: true,
+        },
       },
       {
         key: 'paid-amount',
@@ -395,16 +440,23 @@ export default function CreditOrdersTab() {
 
   const activeOverviewCard = React.useMemo(
     () =>
-      activeOverviewStatus !== null
-        ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
+      activeOverviewCardKey !== null
+        ? (overviewCards.find(card => card.key === activeOverviewCardKey) ??
           null)
         : null,
-    [activeOverviewStatus, overviewCards],
+    [activeOverviewCardKey, overviewCards],
   );
 
   const handleSearch = () => {
-    const nextFilters = { ...draftFilters };
+    const nextFilters = {
+      ...draftFilters,
+      has_available_credits:
+        activeOverviewCardKey === 'credit-amount'
+          ? false
+          : draftFilters.has_available_credits,
+    };
     resetOverviewQuickFilterState();
+    setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
@@ -652,10 +704,10 @@ export default function CreditOrdersTab() {
               label: card.label,
               value: card.value,
               tooltip: card.tooltip,
-              onClick:
-                'status' in card
-                  ? () => applyStatusQuickFilter(card.status ?? '')
-                  : undefined,
+              onClick: card.quickFilters
+                ? () =>
+                    applyOverviewQuickFilter(card.key, card.quickFilters || {})
+                : undefined,
             }))}
             activeCardLabel={activeOverviewCard?.label ?? null}
             activeFilterLabel={tOperationsOrder('overview.activeFilter')}

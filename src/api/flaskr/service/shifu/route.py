@@ -285,6 +285,26 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
     raise_param_error("datetime format invalid")
 
 
+def _parse_boolean_query_param(
+    raw_value: object,
+    *,
+    field_name: str,
+    default: bool = False,
+) -> bool:
+    if raw_value is None:
+        return default
+    if isinstance(raw_value, bool):
+        return raw_value
+    normalized = str(raw_value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise_param_error(field_name)
+
+
 def _parse_positive_query_int(
     raw_value: object,
     *,
@@ -921,6 +941,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: payment_provider
               type: string
               required: false
+            - name: has_available_credits
+              type: boolean
+              required: false
+              description: Only include orders whose granted credits still have remaining balance
             - name: start_time
               type: string
               required: false
@@ -953,6 +977,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 bill_order_bid=request.args.get("bill_order_bid", ""),
                 credit_order_kind=request.args.get("credit_order_kind", ""),
                 status=request.args.get("status", ""),
+                has_available_credits=_parse_boolean_query_param(
+                    request.args.get("has_available_credits"),
+                    field_name="has_available_credits",
+                ),
                 payment_provider=request.args.get("payment_provider", ""),
                 start_time=_parse_datetime_filter(
                     request.args.get("start_time", ""),
