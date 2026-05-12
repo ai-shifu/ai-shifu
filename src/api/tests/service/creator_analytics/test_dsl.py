@@ -152,7 +152,8 @@ def test_missing_table_rejected() -> None:
 
 
 def test_unknown_table_rejected() -> None:
-    _assert_error(_payload(table="user_users"), ERR_INVALID_TABLE)
+    # user_users is now in the whitelist; pick a name that definitely is not.
+    _assert_error(_payload(table="auth_logs"), ERR_INVALID_TABLE)
 
 
 def test_empty_select_and_aggregate_rejected() -> None:
@@ -456,3 +457,71 @@ def test_generated_content_limit_above_100_is_rejected() -> None:
 def test_generated_content_limit_at_100_is_allowed() -> None:
     dsl = _parse(_content_payload(limit=100))
     assert dsl.limit == 100
+
+
+# ---------------------------------------------------------------------------
+# user_users nickname lookup policy
+# ---------------------------------------------------------------------------
+
+
+def _user_users_payload(**overrides):
+    base = {
+        "shifu_bid": "shifu-abc",
+        "table": "user_users",
+        "select": ["user_bid", "nickname"],
+        "where": [
+            {"field": "user_bid", "op": "in", "value": ["u1", "u2", "u3"]},
+        ],
+        "limit": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_user_users_lookup_with_in_filter_parses() -> None:
+    dsl = _parse(_user_users_payload())
+    assert dsl.table == "user_users"
+    assert dsl.select == ("user_bid", "nickname")
+
+
+def test_user_users_lookup_with_equal_filter_parses() -> None:
+    payload = _user_users_payload(
+        where=[{"field": "user_bid", "op": "=", "value": "u1"}],
+    )
+    dsl = _parse(payload)
+    assert dsl.filters[0].op == "="
+
+
+def test_user_users_without_user_bid_filter_is_rejected() -> None:
+    payload = _user_users_payload(where=[])
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_with_like_user_bid_filter_is_rejected() -> None:
+    payload = _user_users_payload(
+        where=[{"field": "user_bid", "op": "like", "value": "abc"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_limit_above_50_is_rejected() -> None:
+    _assert_error(_user_users_payload(limit=51), ERR_INVALID_LIMIT)
+
+
+def test_user_users_limit_at_50_is_allowed() -> None:
+    dsl = _parse(_user_users_payload(limit=50))
+    assert dsl.limit == 50
+
+
+def test_user_users_group_by_is_rejected() -> None:
+    payload = _user_users_payload(
+        select=["nickname"],
+        group_by=["nickname"],
+        aggregate=[{"fn": "count", "alias": "n"}],
+    )
+    _assert_error(payload, ERR_INVALID_COLUMN)
+
+
+def test_user_users_select_disallowed_column_rejected() -> None:
+    payload = _user_users_payload(select=["user_bid", "avatar"])
+    _assert_error(payload, ERR_INVALID_COLUMN)

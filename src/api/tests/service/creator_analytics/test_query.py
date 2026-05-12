@@ -17,6 +17,7 @@ from .conftest import (
     seed_generated_block,
     seed_owned_course,
     seed_progress,
+    seed_user_info,
 )
 
 
@@ -164,7 +165,7 @@ def test_unknown_table_yields_invalid_table_error(mock_request_user, test_client
 
     response = _post(
         test_client,
-        {"shifu_bid": "shifu-a", "table": "user_users", "limit": 10},
+        {"shifu_bid": "shifu-a", "table": "auth_logs", "limit": 10},
     )
     assert response.get_json(force=True)["code"] == 11003
 
@@ -432,6 +433,127 @@ def test_conversation_replay_rejects_disallowed_type(
             "table": "learn_generated_blocks",
             "where": [{"field": "type", "op": "=", "value": 303}],  # input — PII
             "select": ["generated_content"],
+            "limit": 10,
+        },
+    )
+    assert response.get_json(force=True)["code"] == 11002
+
+
+# ---------------------------------------------------------------------------
+# user_users nickname lookup (PII redaction + audit log)
+# ---------------------------------------------------------------------------
+
+
+def test_user_users_lookup_returns_nicknames_for_known_user_bids(
+    mock_request_user, test_client, app, monkeypatch
+):
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(user_bid="u1", nickname="Python 学徒")
+        seed_user_info(user_bid="u2", nickname="Alice")
+        seed_user_info(user_bid="u3", nickname="not requested")
+
+    info_calls: list[tuple] = []
+    real_info = app.logger.info
+    monkeypatch.setattr(
+        app.logger,
+        "info",
+        lambda *args, **kwargs: (
+            info_calls.append((args, kwargs)),
+            real_info(*args, **kwargs),
+        )[1],
+    )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
+            "where": [{"field": "user_bid", "op": "in", "value": ["u1", "u2"]}],
+            "limit": 10,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    rows = payload["data"]["rows"]
+    assert sorted(rows) == [["u1", "Python 学徒"], ["u2", "Alice"]]
+
+    # Audit log surfaced
+    assert any(
+        args and isinstance(args[0], str) and "creator_analytics.user_lookup" in args[0]
+        for args, _ in info_calls
+    )
+
+
+def test_user_users_lookup_redacts_phone_in_nickname(
+    mock_request_user, test_client, app
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(user_bid="u1", nickname="张三 13812345678")
+        seed_user_info(user_bid="u2", nickname="contact me john@example.com")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
+            "where": [{"field": "user_bid", "op": "in", "value": ["u1", "u2"]}],
+            "limit": 10,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    rows = dict(payload["data"]["rows"])
+    assert "13812345678" not in rows["u1"]
+    assert "[REDACTED-PHONE]" in rows["u1"]
+    assert "john@example.com" not in rows["u2"]
+    assert "[REDACTED-EMAIL]" in rows["u2"]
+
+
+def test_user_users_lookup_without_view_permission_is_rejected(
+    mock_request_user, test_client, app
+):
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        # teacher-2 owns shifu-other, teacher-1 has no access
+        seed_owned_course(shifu_bid="shifu-mine", user_id="teacher-1")
+        seed_owned_course(shifu_bid="shifu-other", user_id="teacher-2")
+        seed_user_info(user_bid="u1", nickname="Anyone")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-other",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
+            "where": [{"field": "user_bid", "op": "in", "value": ["u1"]}],
+            "limit": 10,
+        },
+    )
+    assert response.get_json(force=True)["code"] == 11001
+
+
+def test_user_users_lookup_without_where_user_bid_is_rejected(
+    mock_request_user, test_client, app
+):
+    """Cannot list every learner's nickname — must supply user_bid candidates."""
+
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname"],
             "limit": 10,
         },
     )

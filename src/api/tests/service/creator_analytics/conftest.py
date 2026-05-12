@@ -21,6 +21,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
     ShifuUserArchive,
 )
+from flaskr.service.user.models import UserInfo
 
 
 def _clear_tables() -> None:
@@ -35,6 +36,7 @@ def _clear_tables() -> None:
         AiCourseAuth,
         DraftShifu,
         PublishedShifu,
+        UserInfo,
     ):
         db.session.query(model).delete()
     db.session.commit()
@@ -178,6 +180,25 @@ def seed_generated_block(
     )
     db.session.commit()
     return bid
+
+
+def seed_user_info(
+    *,
+    user_bid: str,
+    nickname: str,
+    user_identify: str = "",
+) -> None:
+    db.session.add(
+        UserInfo(
+            user_bid=user_bid,
+            user_identify=user_identify,
+            nickname=nickname,
+            avatar="",
+            language="",
+            deleted=0,
+        )
+    )
+    db.session.commit()
 
 
 def seed_bill_usage(

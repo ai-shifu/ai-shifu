@@ -54,16 +54,24 @@ def build_statement(
 
     stmt = select(*select_items).select_from(table)
 
-    where_clauses: list[ColumnElement[bool]] = [
-        table.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid),
-    ]
+    where_clauses: list[ColumnElement[bool]] = []
+    if dsl.spec.has_shifu_bid:
+        # Shifu-scoped tables: the requested shifu_bid is enforced server-side
+        # regardless of what the caller wrote in `where`. Tables without a
+        # shifu_bid column (e.g. user_users) rely on funcs.run_dsl for the
+        # permission check plus DSL-level guards (mandatory where user_bid,
+        # capped limit, PII redaction).
+        where_clauses.append(
+            table.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid)
+        )
     if dsl.spec.has_deleted:
         where_clauses.append(table.c.deleted == 0)
 
     for index, filt in enumerate(dsl.filters):
         where_clauses.append(_compile_filter(table.c[filt.field], filt, index))
 
-    stmt = stmt.where(and_(*where_clauses))
+    if where_clauses:
+        stmt = stmt.where(and_(*where_clauses))
 
     if dsl.group_by:
         stmt = stmt.group_by(*[table.c[col] for col in dsl.group_by])

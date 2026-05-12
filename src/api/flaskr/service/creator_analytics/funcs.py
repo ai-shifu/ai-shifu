@@ -12,6 +12,7 @@ from flaskr.i18n import _
 
 from .dsl import parse_dsl
 from .engine import get_analytics_engine, run_query
+from .pii import redact_pii
 from .sql_builder import build_statement
 
 
@@ -70,10 +71,56 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
             dsl.offset,
         )
 
+    if dsl.table == "user_users":
+        # Audit log for nickname lookup. The user_bid candidates were supplied
+        # by the caller; we log the count, not the values, to keep the log line
+        # bounded.
+        requested_user_bids = _user_bid_candidates(dsl.filters)
+        app.logger.info(
+            "creator_analytics.user_lookup user_id=%s shifu_bid=%s "
+            "table=user_users user_bid_count=%s limit=%s",
+            user_id,
+            dsl.shifu_bid,
+            len(requested_user_bids),
+            dsl.limit,
+        )
+
     result = run_query(app, stmt)
+    if dsl.table == "user_users":
+        _redact_user_users_rows(result)
     result["limit"] = dsl.limit
     result["offset"] = dsl.offset
     return result
+
+
+def _user_bid_candidates(filters) -> list[str]:
+    """Flatten the user_bid candidates out of the DSL filters for audit."""
+
+    out: list[str] = []
+    for f in filters:
+        if f.field != "user_bid":
+            continue
+        if isinstance(f.value, list):
+            out.extend(str(v) for v in f.value)
+        elif f.value is not None:
+            out.append(str(f.value))
+    return out
+
+
+def _redact_user_users_rows(result: Dict[str, Any]) -> None:
+    """Apply :func:`redact_pii` to the ``nickname`` column in-place."""
+
+    columns = result.get("columns") or []
+    rows = result.get("rows") or []
+    if not rows:
+        return
+    try:
+        nickname_idx = columns.index("nickname")
+    except ValueError:
+        return
+    for row in rows:
+        if 0 <= nickname_idx < len(row):
+            row[nickname_idx] = redact_pii(row[nickname_idx])
 
 
 def _raise(error_name: str) -> None:

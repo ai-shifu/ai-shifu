@@ -22,6 +22,7 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import ShifuUserArchive
+from flaskr.service.user.models import UserInfo
 
 
 ALLOWED_AGGREGATE_FUNCTIONS: FrozenSet[str] = frozenset(
@@ -57,6 +58,11 @@ class TableSpec:
     groupable: FrozenSet[str]
     aggregatable: Mapping[str, FrozenSet[str]]
     has_deleted: bool
+    # True for shifu-scoped tables (sql_builder injects WHERE shifu_bid=:sb).
+    # False for global tables like user_users — permission is still enforced
+    # by funcs.run_dsl using get_user_shifu_permissions, but the SQL cannot
+    # filter by a column the table does not have.
+    has_shifu_bid: bool = True
 
 
 _DIMENSION_AGGS: FrozenSet[str] = frozenset({"count", "count_distinct"})
@@ -268,6 +274,28 @@ WHITELIST: Mapping[str, TableSpec] = {
             "created_at": _TIMESTAMP_AGGS,
         },
         has_deleted=False,
+    ),
+    # ------------------------------------------------------------------
+    # Global user table — strictly limited to nickname lookup by a known
+    # user_bid list. Compared to the other tables this one is special:
+    #   - selectable only {user_bid, nickname} (no phone / email / avatar)
+    #   - filterable only {user_bid}; DSL enforces a where user_bid clause
+    #   - groupable / aggregatable empty (no nickname distribution probing)
+    #   - has_shifu_bid=False — table has no shifu_bid column; permission
+    #     is still gated by funcs.run_dsl via get_user_shifu_permissions
+    #   - per-query limit hard-capped to 50 (see dsl._USER_USERS_LIMIT_MAX)
+    #   - nickname values pass through PII redaction in funcs
+    #   - access is audit-logged
+    # ------------------------------------------------------------------
+    "user_users": TableSpec(
+        table_key="user_users",
+        model=UserInfo,
+        selectable=frozenset({"user_bid", "nickname"}),
+        filterable=frozenset({"user_bid"}),
+        groupable=frozenset(),
+        aggregatable={},
+        has_deleted=True,
+        has_shifu_bid=False,
     ),
 }
 

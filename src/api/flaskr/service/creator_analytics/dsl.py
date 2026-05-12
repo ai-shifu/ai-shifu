@@ -72,6 +72,11 @@ _GENERATED_CONTENT_ALLOWED_TYPES = frozenset({301, 311, 312, 321, 322})
 # the API cannot be used to export the entire conversation history in one go.
 _GENERATED_CONTENT_LIMIT_MAX = 100
 
+# Querying user_users is restricted to "look up nickname for these N known
+# user_bids" — the caller must already know the user_bid list from another
+# DSL query, and may resolve at most this many per call.
+_USER_USERS_LIMIT_MAX = 50
+
 
 def _raise(error_name: str, detail: Optional[str] = None) -> None:
     """Raise an :class:`AppException` with a stable error name.
@@ -158,14 +163,18 @@ def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
 
     group_by = _parse_group_by(payload.get("group_by"), spec)
     _enforce_select_group_by_compatibility(select, group_by, aggregates)
-    _enforce_user_bid_aggregation_only(select, group_by, aggregates)
+    _enforce_user_bid_aggregation_only(select, group_by, aggregates, table_key)
 
     filters = _parse_filters(payload.get("where"), spec)
     _enforce_generated_content_type_filter(select, filters)
+    _enforce_user_users_requires_user_bid_filter(table_key, filters)
     order_by = _parse_order_by(payload.get("order_by"), select, aggregates, group_by)
-    effective_limit_max = (
-        _GENERATED_CONTENT_LIMIT_MAX if "generated_content" in select else limit_max
-    )
+    if table_key == "user_users":
+        effective_limit_max = _USER_USERS_LIMIT_MAX
+    elif "generated_content" in select:
+        effective_limit_max = _GENERATED_CONTENT_LIMIT_MAX
+    else:
+        effective_limit_max = limit_max
     limit, offset = _parse_paging(
         payload.get("limit"), payload.get("offset"), effective_limit_max
     )
@@ -442,6 +451,7 @@ def _enforce_user_bid_aggregation_only(
     select: Sequence[str],
     group_by: Sequence[str],
     aggregates: Sequence[Aggregate],
+    table_key: str,
 ) -> None:
     """``user_bid`` may only surface as a group-by dimension, never as a raw column.
 
@@ -451,10 +461,13 @@ def _enforce_user_bid_aggregation_only(
     per-learner aggregate (e.g. token spend, completion count) rather than a
     line of detail.
 
-    Exemption: when ``generated_content`` is also being selected, the caller is
-    explicitly fetching conversation detail (creator reviewing learner Q&A).
-    The other guards (type allowlist + limit cap + audit log) gate that path,
-    so we let ``user_bid`` ride along to identify who said what.
+    Exemptions:
+      - ``generated_content`` in select: conversation-detail mode (other guards
+        gate that path — type allowlist + limit cap + audit log).
+      - ``table_key == "user_users"``: this table's only purpose is to resolve
+        a known user_bid list into nicknames; the user_bid filter is
+        mandatory (see :func:`_enforce_user_users_requires_user_bid_filter`)
+        and limit is capped to 50, so the row-detail concern doesn't apply.
     """
 
     if "user_bid" not in select:
@@ -462,7 +475,8 @@ def _enforce_user_bid_aggregation_only(
     if "user_bid" in group_by:
         return
     if "generated_content" in select:
-        # Conversation-detail mode — user_bid identifies the speaker.
+        return
+    if table_key == "user_users":
         return
     _raise(
         ERR_INVALID_DSL,
@@ -517,6 +531,39 @@ def _enforce_generated_content_type_filter(
             _raise(
                 ERR_INVALID_DSL,
                 "'generated_content' requires 'type' filter using op '=' or 'in'",
+            )
+
+
+def _enforce_user_users_requires_user_bid_filter(
+    table_key: str,
+    filters: Sequence[Filter],
+) -> None:
+    """``user_users`` must be queried by an explicit ``user_bid`` filter.
+
+    user_users is a global table (no shifu_bid column). To prevent it being
+    used as "list every learner's nickname for course X", the caller must
+    supply the user_bid candidates up-front — only the `=` and `in` operators
+    are accepted (no `like`, no range), so the surface is "look up a known
+    set" and nothing else.
+    """
+
+    if table_key != "user_users":
+        return
+
+    user_bid_filters = [f for f in filters if f.field == "user_bid"]
+    if not user_bid_filters:
+        _raise(
+            ERR_INVALID_DSL,
+            "querying 'user_users' requires a 'where' filter on 'user_bid' "
+            "using op '=' or 'in' (cannot enumerate all learners)",
+        )
+
+    for filt in user_bid_filters:
+        if filt.op not in {"=", "in"}:
+            _raise(
+                ERR_INVALID_DSL,
+                "user_users.user_bid filter must use op '=' or 'in' "
+                f"(got '{filt.op}'); 'like' and ranges are not allowed",
             )
 
 
