@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ScrollText from './ScrollText.svg';
@@ -25,6 +26,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useAlert } from '@/components/ui/UseAlert';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { Button } from '@/components/ui/Button';
+
+const CREDIT_INSUFFICIENT_BUSINESS_CODE = 7101;
 
 interface LessonPreviewProps {
   loading: boolean;
@@ -79,6 +84,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
+  const router = useRouter();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
@@ -158,6 +164,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     },
     [onHideVariable, showAlert, t],
   );
+
+  const handleGoToBilling = React.useCallback(() => {
+    router.push(BILLING_PACKAGES_HREF);
+  }, [router]);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -263,6 +273,37 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                         ) : undefined
                       }
                     />
+                  </div>
+                );
+              }
+
+              if (item.type === ChatContentItemType.ERROR) {
+                const isCreditInsufficient =
+                  item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
+                return (
+                  <div
+                    key={`${idx}-error`}
+                    className='p-0 relative'
+                    style={{ maxWidth: '100%' }}
+                  >
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={false}
+                      blockBid={item.generated_block_bid || item.element_bid}
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onSend={onSend}
+                    />
+                    {isCreditInsufficient ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        onClick={handleGoToBilling}
+                      >
+                        {t('module.shifu.previewArea.goToBilling')}
+                      </Button>
+                    ) : null}
                   </div>
                 );
               }

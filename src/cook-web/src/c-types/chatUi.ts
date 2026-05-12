@@ -48,5 +48,6 @@ export interface ChatContentItem {
   is_speakable?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  business_code?: number;
   payload?: StudyRecordPayload;
 }

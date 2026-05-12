@@ -8,15 +8,15 @@ import {
   formatBillingCreditBalance,
   formatBillingExpiryCountdown,
 } from '@/lib/billing';
+import {
+  BILLING_DETAILS_HREF,
+  BILLING_PACKAGES_HREF,
+} from '@/lib/billingNavigation';
 
 type BillingSidebarCardProps = {
   overview?: CreatorBillingOverview;
   isLoading?: boolean;
 };
-
-const BILLING_CENTER_HREF = '/admin/billing';
-const BILLING_PACKAGES_HREF = `${BILLING_CENTER_HREF}?tab=packages`;
-const BILLING_DETAILS_HREF = `${BILLING_CENTER_HREF}?tab=details`;
 
 export function BillingSidebarCard({
   overview,
