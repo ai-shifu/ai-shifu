@@ -291,12 +291,12 @@ export default function CreditOrdersTab() {
       if (activeOverviewStatus === status) {
         return;
       }
-      const nextStatus = status || '';
+      const nextStatus = status;
       if (activeOverviewStatus === null) {
         setOverviewStatusBeforeApply(appliedFilters.status || null);
       }
       if (appliedFilters.status === nextStatus) {
-        setActiveOverviewStatus(nextStatus || null);
+        setActiveOverviewStatus(nextStatus);
         setDraftFilters(current =>
           current.status === nextStatus
             ? current
@@ -311,7 +311,7 @@ export default function CreditOrdersTab() {
         ...appliedFilters,
         status: nextStatus,
       };
-      setActiveOverviewStatus(nextStatus || null);
+      setActiveOverviewStatus(nextStatus);
       setDraftFilters(nextFilters);
       setAppliedFilters(nextFilters);
       setPageIndex(1);
@@ -447,7 +447,7 @@ export default function CreditOrdersTab() {
 
   const activeOverviewCard = React.useMemo(
     () =>
-      activeOverviewStatus
+      activeOverviewStatus !== null
         ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
           null)
         : null,

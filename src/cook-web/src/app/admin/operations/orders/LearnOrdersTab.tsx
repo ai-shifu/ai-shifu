@@ -324,12 +324,12 @@ export default function LearnOrdersTab() {
       if (activeOverviewStatus === status) {
         return;
       }
-      const nextStatus = status || '';
+      const nextStatus = status;
       if (activeOverviewStatus === null) {
         setOverviewStatusBeforeApply(appliedFilters.status || null);
       }
       if (appliedFilters.status === nextStatus) {
-        setActiveOverviewStatus(nextStatus || null);
+        setActiveOverviewStatus(nextStatus);
         setDraftFilters(current =>
           current.status === nextStatus
             ? current
@@ -344,7 +344,7 @@ export default function LearnOrdersTab() {
         ...appliedFilters,
         status: nextStatus,
       };
-      setActiveOverviewStatus(nextStatus || null);
+      setActiveOverviewStatus(nextStatus);
       setDraftFilters(nextFilters);
       setAppliedFilters(nextFilters);
       setPageIndex(1);
@@ -450,7 +450,7 @@ export default function LearnOrdersTab() {
 
   const activeOverviewCard = useMemo(
     () =>
-      activeOverviewStatus
+      activeOverviewStatus !== null
         ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
           null)
         : null,

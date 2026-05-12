@@ -421,6 +421,57 @@ describe('CreditOrdersTab', () => {
     expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
   });
 
+  test('activates and clears the total overview card while restoring the default paid credit view', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.totalOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: '',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.creditOrders\.overview\.metrics\.totalOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
   test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
 

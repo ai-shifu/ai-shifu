@@ -286,6 +286,61 @@ describe('LearnOrdersTab', () => {
     expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
   });
 
+  test('activates and clears the total overview card while restoring the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.totalOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.totalOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
   test('hydrates the course filter from the url query', async () => {
     mockSearchParamsValue = 'shifu_bid=course-1';
 
