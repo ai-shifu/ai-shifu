@@ -1307,18 +1307,6 @@ def build_operator_credit_orders_overview(
                     ),
                     0,
                 ).label("canceled_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (
-                                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-                                BillingOrder.paid_amount,
-                            ),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("paid_amount_total"),
             )
             .filter(BillingOrder.deleted == 0)
             .one()

@@ -57,6 +57,7 @@ import {
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
+import { useOverviewStatusQuickFilter } from './useOverviewStatusQuickFilter';
 
 type OrderFilters = {
   user_keyword: string;
@@ -219,12 +220,6 @@ export default function LearnOrdersTab() {
   const [overview, setOverview] =
     useState<AdminOperationOrderOverview>(EMPTY_ORDER_OVERVIEW);
   const [overviewError, setOverviewError] = useState(false);
-  const [activeOverviewStatus, setActiveOverviewStatus] = useState<
-    string | null
-  >(null);
-  const [overviewStatusBeforeApply, setOverviewStatusBeforeApply] = useState<
-    string | null
-  >(null);
   const [orders, setOrders] = useState<AdminOperationOrderItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -237,6 +232,17 @@ export default function LearnOrdersTab() {
   const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(
     () => initialFilters,
   );
+  const {
+    activeOverviewStatus,
+    applyStatusQuickFilter,
+    clearOverviewQuickFilter,
+    resetOverviewQuickFilterState,
+  } = useOverviewStatusQuickFilter<OrderFilters>({
+    appliedFilters,
+    setDraftFilters,
+    setAppliedFilters,
+    setPageIndex,
+  });
   const requestIdRef = useRef(0);
   const lastRequestedPageRef = useRef(1);
   const initialFiltersRef = useRef(initialFilters);
@@ -319,76 +325,16 @@ export default function LearnOrdersTab() {
     [t],
   );
 
-  const applyStatusQuickFilter = useCallback(
-    (status: string) => {
-      if (activeOverviewStatus === status) {
-        return;
-      }
-      const nextStatus = status;
-      if (activeOverviewStatus === null) {
-        setOverviewStatusBeforeApply(appliedFilters.status || null);
-      }
-      if (appliedFilters.status === nextStatus) {
-        setActiveOverviewStatus(nextStatus);
-        setDraftFilters(current =>
-          current.status === nextStatus
-            ? current
-            : {
-                ...current,
-                status: nextStatus,
-              },
-        );
-        return;
-      }
-      const nextFilters = {
-        ...appliedFilters,
-        status: nextStatus,
-      };
-      setActiveOverviewStatus(nextStatus);
-      setDraftFilters(nextFilters);
-      setAppliedFilters(nextFilters);
-      setPageIndex(1);
-    },
-    [activeOverviewStatus, appliedFilters],
-  );
-
-  const clearOverviewQuickFilter = useCallback(() => {
-    if (activeOverviewStatus === null) {
-      return;
-    }
-    const restoredStatus = overviewStatusBeforeApply ?? '';
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
-    setDraftFilters(current =>
-      current.status === restoredStatus
-        ? current
-        : {
-            ...current,
-            status: restoredStatus,
-          },
-    );
-    if (appliedFilters.status === restoredStatus) {
-      return;
-    }
-    const nextFilters = {
-      ...appliedFilters,
-      status: restoredStatus,
-    };
-    setAppliedFilters(nextFilters);
-    setPageIndex(1);
-  }, [activeOverviewStatus, appliedFilters, overviewStatusBeforeApply]);
-
   React.useEffect(() => {
     if (areOrderFiltersEqual(initialFiltersRef.current, initialFilters)) {
       return;
     }
     initialFiltersRef.current = initialFilters;
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
+    resetOverviewQuickFilterState();
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setPageIndex(1);
-  }, [initialFilters]);
+  }, [initialFilters, resetOverviewQuickFilterState]);
 
   React.useEffect(() => {
     void fetchOverview();
@@ -459,16 +405,14 @@ export default function LearnOrdersTab() {
 
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
+    resetOverviewQuickFilterState();
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
+    resetOverviewQuickFilterState();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);

@@ -67,6 +67,7 @@ import {
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
+import { useOverviewStatusQuickFilter } from './useOverviewStatusQuickFilter';
 
 type CreditOrderFilters = {
   creator_keyword: string;
@@ -176,11 +177,6 @@ export default function CreditOrdersTab() {
       EMPTY_CREDIT_ORDER_OVERVIEW,
     );
   const [overviewError, setOverviewError] = React.useState(false);
-  const [activeOverviewStatus, setActiveOverviewStatus] = React.useState<
-    string | null
-  >(null);
-  const [overviewStatusBeforeApply, setOverviewStatusBeforeApply] =
-    React.useState<string | null>(null);
   const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
     [],
   );
@@ -194,6 +190,17 @@ export default function CreditOrdersTab() {
   );
   const [appliedFilters, setAppliedFilters] =
     React.useState<CreditOrderFilters>(() => createDefaultFilters());
+  const {
+    activeOverviewStatus,
+    applyStatusQuickFilter,
+    clearOverviewQuickFilter,
+    resetOverviewQuickFilterState,
+  } = useOverviewStatusQuickFilter<CreditOrderFilters>({
+    appliedFilters,
+    setDraftFilters,
+    setAppliedFilters,
+    setPageIndex,
+  });
   const requestIdRef = React.useRef(0);
   const lastRequestedPageRef = React.useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -285,65 +292,6 @@ export default function CreditOrdersTab() {
     },
     [t],
   );
-
-  const applyStatusQuickFilter = React.useCallback(
-    (status: string) => {
-      if (activeOverviewStatus === status) {
-        return;
-      }
-      const nextStatus = status;
-      if (activeOverviewStatus === null) {
-        setOverviewStatusBeforeApply(appliedFilters.status || null);
-      }
-      if (appliedFilters.status === nextStatus) {
-        setActiveOverviewStatus(nextStatus);
-        setDraftFilters(current =>
-          current.status === nextStatus
-            ? current
-            : {
-                ...current,
-                status: nextStatus,
-              },
-        );
-        return;
-      }
-      const nextFilters = {
-        ...appliedFilters,
-        status: nextStatus,
-      };
-      setActiveOverviewStatus(nextStatus);
-      setDraftFilters(nextFilters);
-      setAppliedFilters(nextFilters);
-      setPageIndex(1);
-    },
-    [activeOverviewStatus, appliedFilters],
-  );
-
-  const clearOverviewQuickFilter = React.useCallback(() => {
-    if (activeOverviewStatus === null) {
-      return;
-    }
-    const restoredStatus = overviewStatusBeforeApply ?? '';
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
-    setDraftFilters(current =>
-      current.status === restoredStatus
-        ? current
-        : {
-            ...current,
-            status: restoredStatus,
-          },
-    );
-    if (appliedFilters.status === restoredStatus) {
-      return;
-    }
-    const nextFilters = {
-      ...appliedFilters,
-      status: restoredStatus,
-    };
-    setAppliedFilters(nextFilters);
-    setPageIndex(1);
-  }, [activeOverviewStatus, appliedFilters, overviewStatusBeforeApply]);
 
   React.useEffect(() => {
     void fetchOverview();
@@ -456,16 +404,14 @@ export default function CreditOrdersTab() {
 
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
+    resetOverviewQuickFilterState();
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
-    setActiveOverviewStatus(null);
-    setOverviewStatusBeforeApply(null);
+    resetOverviewQuickFilterState();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
