@@ -1,0 +1,28 @@
+{
+  "__namespace__": "server.profile",
+  "__flat__": {
+    "avatar": "Avatar",
+    "birth": "Date de naissance",
+    "keyExist": "La clé existe déjà",
+    "keyRequire": "La clé est requise",
+    "keyRequired": "La clé est requise",
+    "language": "Langue",
+    "nickname": "Pseudonyme",
+    "notFound": "Profil introuvable",
+    "parentIdRequired": "L’ID parent est requis",
+    "prarentRequired": "Le parent est requis",
+    "profileIdRequired": "L’ID du profil est requis",
+    "profileKeyRequired": "La clé du profil est requise",
+    "profileTypeInvalid": "Type de profil non valide",
+    "profileTypeRequired": "Le type de profil est requis",
+    "sex": "Sexe",
+    "sexFemale": "Femme",
+    "sexMale": "Homme",
+    "sexSecret": "Non précisé",
+    "style": "Style",
+    "systemProfileKeyExist": "La clé du profil système existe déjà",
+    "systemProfileNotAllowDelete": "Le profil système ne peut pas être supprimé",
+    "systemProfileNotAllowUpdate": "Le profil système ne peut pas être modifié",
+    "userBackground": "Arrière-plan"
+  }
+}

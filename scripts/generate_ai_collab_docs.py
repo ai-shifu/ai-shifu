@@ -297,8 +297,8 @@ COOK_WEB_SPEC = DocSpec(
         "`layout.tsx`, and `route.ts` own route entry behavior while shared UI "
         "logic stays under components, hooks, stores, or `lib/`.",
         "Route all user-facing text through shared i18n JSON namespaces under "
-        "`src/i18n/`, and keep the frontend language surface limited to `en-US` "
-        "and `zh-CN` unless product scope changes.",
+        "`src/i18n/`, and keep frontend user-facing locales aligned with "
+        "`src/i18n/locales.json`.",
         "Prefer shared utilities when logic appears in two or more places. Move "
         "stable parsing, routing, and serialization code into `lib/`, `hooks/`, "
         "or `c-utils/` instead of duplicating it in pages.",

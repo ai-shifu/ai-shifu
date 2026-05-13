@@ -1,0 +1,258 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "Ajouter des crédits",
+    "moreForUser": "Plus d’actions pour {user}"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "ID du cours",
+      "courseName": "Nom du cours",
+      "createdTitle": "Cours créés",
+      "description": "Utilisateur : {user}",
+      "learningTitle": "Cours suivis",
+      "status": "Statut"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "Valide à long terme"
+  },
+  "detail": {
+    "back": "Retour à la gestion des utilisateurs",
+    "basicInfo": "Informations de base",
+    "createdCourses": "Cours créés",
+    "creditExpireAtHint": "Lorsque plusieurs périodes de validité existent, l’expiration la plus proche est affichée en premier.",
+    "creditExpireAtHintAriaLabel": "Voir l’explication d’expiration des crédits",
+    "creditLedger": "Détail des crédits",
+    "creditLedgerColumns": {
+      "amount": "Montant",
+      "balanceAfter": "Solde après",
+      "createdAt": "Modifié le",
+      "entryType": "Type",
+      "expiresAt": "Expire le",
+      "note": "Note",
+      "sourceType": "Source"
+    },
+    "creditLedgerNoteLabels": {
+      "debug_consume": "Crédits consommés par l’utilisation de débogage",
+      "gift_expire": "Crédits offerts expirés",
+      "gift_grant": "Crédits offerts attribués",
+      "learning_consume": "Crédits consommés par l’apprentissage",
+      "manual_credit": "Crédits ajoutés manuellement",
+      "manual_debit": "Crédits débités manuellement",
+      "manual_grant": "Crédits attribués manuellement",
+      "preview_consume": "Crédits consommés par la prévisualisation",
+      "refund_return": "Crédits retournés après remboursement",
+      "subscription_cycle_transition": "Les crédits d’abonnement du cycle précédent ont expiré lors de la transition de cycle",
+      "subscription_expire": "Crédits d’abonnement expirés",
+      "subscription_grant": "Crédits attribués par l’abonnement",
+      "subscription_purchase": "Crédits attribués lors de l’achat d’abonnement",
+      "subscription_renewal": "Crédits attribués lors du renouvellement d’abonnement",
+      "topup_expire": "Crédits de recharge expirés",
+      "topup_grant": "Crédits attribués par recharge",
+      "topup_purchase": "Crédits attribués lors de l’achat d’une recharge",
+      "trial_bootstrap": "Crédits attribués lors de l’activation de l’essai",
+      "trial_subscription_grant": "Crédits attribués par l’abonnement d’essai"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "Compensation",
+      "debug": "Déboguer",
+      "gift": "Cadeau",
+      "learning": "En apprentissage",
+      "manual": "Manuel",
+      "preview": "Prévisualisation",
+      "refund": "Remboursement",
+      "reward": "Récompense",
+      "subscription": "Abonnement",
+      "topup": "Recharge",
+      "trial_subscription": "Abonnement d’essai",
+      "usage": "Utilisation"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Ajustement de crédits",
+      "consume": "Consommation de crédits",
+      "debug_consume": "Consommation de débogage",
+      "expire": "Expiration des crédits",
+      "gift_expire": "Expiration des crédits offerts",
+      "gift_grant": "Attribution cadeau",
+      "grant": "Attribution de crédits",
+      "hold": "Blocage de crédits",
+      "learning_consume": "Consommation apprentissage",
+      "manual_credit": "Crédit manuel",
+      "manual_debit": "Débit manuel",
+      "manual_grant": "Attribution manuelle",
+      "preview_consume": "Consommation prévisualisation",
+      "refund": "Retour de remboursement",
+      "refund_return": "Retour de remboursement",
+      "release": "Libération de crédits",
+      "subscription_expire": "Expiration des crédits d’abonnement",
+      "subscription_grant": "Attribution d’abonnement",
+      "topup_expire": "Expiration recharge",
+      "topup_grant": "Attribution recharge",
+      "trial_subscription_grant": "Attribution d’abonnement d’essai"
+    },
+    "creditsOverview": "Vue d’ensemble des crédits",
+    "creditsOverviewLabels": {
+      "availableCredits": "Solde total de crédits",
+      "creditsExpireAt": "Validité des crédits",
+      "subscriptionCredits": "Solde de crédits d’abonnement",
+      "topupCredits": "Solde de crédits de recharge"
+    },
+    "emptyCourses": "Aucun cours",
+    "emptyCredits": "Aucune entrée de crédit",
+    "learningCourses": "Cours suivis",
+    "learningProgress": "Progression",
+    "loadingCredits": "Chargement",
+    "overview": "Vue d’ensemble",
+    "tabs": {
+      "createdCourses": "Cours créés",
+      "credits": "Détail des crédits",
+      "learningCourses": "Cours suivis"
+    },
+    "title": "Détail utilisateur"
+  },
+  "emptyList": "Aucun utilisateur",
+  "filters": {
+    "createdAt": "Créé le",
+    "email": "E-mail",
+    "mobile": "Mobile",
+    "nickname": "Pseudonyme",
+    "role": "Rôle",
+    "status": "Statut"
+  },
+  "grantDialog": {
+    "confirmButton": "Confirmer l’ajout",
+    "confirmDescription": "Veuillez confirmer les détails d’ajout de crédits. Une fois confirmé, l’effet est immédiat.",
+    "confirmSummary": {
+      "amount": "Crédits ajoutés",
+      "note": "Note",
+      "source": "Source",
+      "validityPreset": "Validité"
+    },
+    "confirmTitle": "Confirmer l’ajout de crédits",
+    "description": "Utilisez cette boîte de dialogue pour ajouter des crédits de récompense ou de compensation depuis les opérations.",
+    "fields": {
+      "amount": "Crédits",
+      "note": "Note",
+      "source": "Source",
+      "type": "Type",
+      "validityPreset": "Validité"
+    },
+    "placeholders": {
+      "amount": "Saisir le montant de crédits",
+      "note": "Facultatif. Indiquez la raison de cet ajout",
+      "source": "Sélectionner la source",
+      "validityPreset": "Sélectionner la validité"
+    },
+    "sourceOptions": {
+      "compensation": "Compensation",
+      "reward": "Récompense"
+    },
+    "submitButton": "Confirmer",
+    "submitSuccess": "Crédits ajoutés avec succès",
+    "summary": {
+      "account": "Compte",
+      "availableCredits": "Solde de crédits",
+      "currentExpireAt": "Valide jusqu’au",
+      "nickname": "Pseudonyme"
+    },
+    "title": "Ajouter des crédits",
+    "typeValue": "Attribution manuelle",
+    "validation": {
+      "amountRequired": "Saisir un montant de crédits supérieur à 0",
+      "sourceRequired": "Sélectionner une source",
+      "validityPresetRequired": "Sélectionner une validité prédéfinie"
+    },
+    "validityHint": "Sans abonnement actif, la validité ne peut pas être réglée sur « Aligner sur l’expiration de l’abonnement actuel ».",
+    "validityOptions": {
+      "alignSubscription": "Aligner sur l’expiration de l’abonnement actuel",
+      "oneDay": "1 jour après attribution",
+      "oneMonth": "1 mois après attribution",
+      "oneYear": "1 an après attribution",
+      "sevenDays": "7 jours après attribution",
+      "threeMonths": "3 mois après attribution"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "E-mail",
+    "google": "Google",
+    "phone": "Mobile",
+    "unknown": "Inconnu",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "Filtre rapide",
+    "metrics": {
+      "creators": "Créateurs",
+      "guests": "Invités",
+      "learners": "Apprenants",
+      "learningActive30d": "Apprenants actifs (30 j)",
+      "newUsers30d": "Nouveaux utilisateurs (30 j)",
+      "paidUsers": "Utilisateurs payants",
+      "paidUsers30d": "Utilisateurs payants (30 j)",
+      "registeredUsers": "Utilisateurs inscrits",
+      "registeredUsers30d": "Utilisateurs inscrits (30 j)",
+      "totalUsers": "Total utilisateurs"
+    },
+    "staleData": "Échec de l’actualisation de la vue d’ensemble. Affichage du dernier instantané réussi.",
+    "title": "Vue d’ensemble",
+    "tooltips": {
+      "creators": "Utilisateurs créateurs",
+      "guests": "Utilisateurs invités",
+      "learners": "Utilisateurs avec enregistrements d’apprentissage",
+      "learningActive30d": "Utilisateurs avec activité d’apprentissage au cours des 30 derniers jours",
+      "newUsers30d": "Nouveaux utilisateurs au cours des 30 derniers jours",
+      "paidUsers": "Utilisateurs en statut payé (activations importées incluses)",
+      "paidUsers30d": "Utilisateurs ayant payé avec succès au cours des 30 derniers jours (activations importées incluses)",
+      "registeredUsers": "Utilisateurs inscrits",
+      "registeredUsers30d": "Utilisateurs ayant terminé l’inscription au cours des 30 derniers jours",
+      "totalUsers": "Tous les utilisateurs"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "E-mail",
+    "google": "Google",
+    "imported": "Importé",
+    "phone": "Mobile",
+    "unknown": "Inconnu",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "Créateur",
+    "learner": "Apprenant",
+    "operator": "Opérateur",
+    "regular": "Standard",
+    "unknown": "Inconnu"
+  },
+  "statusLabels": {
+    "paid": "Payé",
+    "registered": "Inscrit",
+    "unknown": "Inconnu",
+    "unregistered": "Non inscrit"
+  },
+  "table": {
+    "action": "Action",
+    "availableCredits": "Total des crédits",
+    "createdAt": "Créé le",
+    "createdCourses": "Cours créés",
+    "creditsExpireAt": "Expiration des crédits",
+    "email": "E-mail",
+    "guestUser": "Invité",
+    "lastLearningAt": "Dernier apprentissage",
+    "lastLoginAt": "Dernière connexion",
+    "learningCourses": "Cours suivis",
+    "loginMethods": "Méthodes de connexion",
+    "mobile": "Mobile",
+    "nickname": "Pseudonyme",
+    "registrationSource": "Source d’inscription",
+    "role": "Rôle",
+    "status": "Statut",
+    "subscriptionCredits": "Crédits d’abonnement",
+    "topupCredits": "Crédits de recharge",
+    "totalPaidAmount": "Total payé",
+    "updatedAt": "Mis à jour le",
+    "userId": "ID utilisateur"
+  },
+  "title": "Gestion des utilisateurs"
+}

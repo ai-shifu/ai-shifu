@@ -1,14 +1,10 @@
 import { UserInfo } from './index';
 
+export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR';
+
 export interface LegalUrls {
-  agreement: {
-    'zh-CN': string;
-    'en-US': string;
-  };
-  privacy: {
-    'zh-CN': string;
-    'en-US': string;
-  };
+  agreement: Record<SupportedLocale, string>;
+  privacy: Record<SupportedLocale, string>;
 }
 
 export interface EnvStoreState {

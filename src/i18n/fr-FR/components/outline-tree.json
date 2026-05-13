@@ -1,0 +1,8 @@
+{
+  "__namespace__": "component.outlineTree",
+  "cancel": "Annuler",
+  "confirm": "Confirmer",
+  "confirmDelete": "Confirmer la suppression",
+  "confirmDeleteDescription": "Cette action est irréversible. Voulez-vous vraiment supprimer ?",
+  "delete": "Supprimer"
+}

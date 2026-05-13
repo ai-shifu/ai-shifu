@@ -1,0 +1,200 @@
+{
+  "__namespace__": "module.shifuSetting",
+  "addKeyword": "Ajouter un mot-clé",
+  "archive": "Archiver le cours",
+  "archiveConfirm": "L’archivage déplace ce cours dans « Archivé ». Vous pourrez le restaurer plus tard ; la modification et l’apprentissage restent disponibles pendant l’archivage.",
+  "archiveSuccess": "Cours archivé",
+  "archiveTitle": "Archiver le cours ?",
+  "askModel": "Modèle de suivi",
+  "askPreview": "Tester le suivi",
+  "askPreviewLoading": "Test...",
+  "askPreviewQuestion": "Question de test",
+  "askPreviewQuestionPlaceholder": "Saisir une question pour tester les paramètres de suivi",
+  "askPreviewQuestionRequired": "Veuillez saisir une question de test",
+  "askPreviewResult": "Résultat du test",
+  "askPreviewUsedFallback": "Le fournisseur {provider} a échoué, bascule vers le LLM de secours",
+  "askPreviewUsedProvider": "Fournisseur utilisé: {provider}",
+  "askProviderConfigInvalidJson": "{field} doit être un objet JSON valide",
+  "askProviderConfigRequired": "{field} est requis",
+  "askProviderDescriptions": {
+    "coze": "Utiliser l’API de chat du bot Coze pour le suivi.",
+    "coze_workflow": "Utiliser l’API d’exécution de workflow Coze pour le suivi.",
+    "dify": "Utiliser l’application de chat Dify pour le suivi.",
+    "llm": "Utiliser uniquement le LLM de suivi intégré.",
+    "volc_knowledge": "Utiliser l’API de recherche de base de connaissances Volcengine pour le suivi."
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Jeton d’accès personnel Coze.",
+        "label": "Clé API"
+      },
+      "bot_id": {
+        "hint": "Identifiant du bot Coze.",
+        "label": "ID du bot"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Jeton d’accès personnel Coze.",
+        "label": "Clé API"
+      },
+      "workflow_id": {
+        "hint": "Identifiant du workflow Coze.",
+        "label": "ID du workflow"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Clé API de l’application Dify.",
+        "label": "Clé API"
+      },
+      "base_url": {
+        "hint": "URL de base Dify, p. ex. https://api.dify.ai/v1",
+        "label": "URL de base"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "ID de compte Volcengine pour l’en-tête V-Account-Id.",
+        "label": "ID du compte"
+      },
+      "ak": {
+        "hint": "Clé d’accès Volcengine.",
+        "label": "Clé d’accès"
+      },
+      "collection_name": {
+        "hint": "Nom de la collection de base de connaissances.",
+        "label": "Nom de la collection"
+      },
+      "sk": {
+        "hint": "Clé secrète Volcengine.",
+        "label": "Clé secrète"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "Fournisseur uniquement",
+    "provider_then_llm": "Fournisseur puis LLM"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Workflow Coze",
+    "dify": "Dify",
+    "llm": "LLM",
+    "volc_knowledge": "Base de connaissances Volcengine"
+  },
+  "askProviderSelect": "Sélectionner le fournisseur",
+  "askTemperature": "Température de suivi",
+  "askTemperatureHint": "Définir la créativité de génération du suivi (0-2)",
+  "askTitle": "Paramètres de suivi",
+  "draftConflictDescription": "Ce cours a été mis à jour par {phone}. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",
+  "draftConflictRefresh": "Charger la dernière version",
+  "draftConflictSynced": "Cette leçon a été mise à jour par {phone}. Le contenu le plus récent a été synchronisé.",
+  "draftConflictTitle": "Cours mis à jour",
+  "draftConflictUnknownUser": "un autre utilisateur",
+  "draftSelfUpdateDescription": "Cette leçon a été mise à jour dans une autre page ou un autre outil. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",
+  "draftSelfUpdateSynced": "Cette leçon a été mise à jour dans une autre page ou un autre outil. Le contenu le plus récent a été synchronisé.",
+  "draftSelfUpdateTitle": "Contenu mis à jour ailleurs",
+  "fileSizeLimit": "La taille du fichier ne peut pas dépasser 2 Mo",
+  "imageFormatHint": "Formats pris en charge : JPG, PNG. Taille maximale 2 Mo, ratio recommandé 1:1",
+  "inputKeywords": "Saisissez un mot-clé et appuyez sur Entrée",
+  "keywords": "Mots-clés",
+  "learningUrl": "URL d’apprentissage",
+  "number": "Nombre",
+  "permissionContactRequired": "Veuillez saisir au moins un contact",
+  "permissionCount": "Utilisateurs partagés: {count}/{max}",
+  "permissionDialogTitle": "Autorisations partagées",
+  "permissionDuplicate": "Déjà partagé : {values}",
+  "permissionEdit": "Modificateur",
+  "permissionEditChangeItem": "{identifier} : {from} → {to}",
+  "permissionEditChangeTitle": "Modifications d’autorisation",
+  "permissionEditConfirmTitle": "Confirmer les changements d’autorisations ?",
+  "permissionEditNoChanges": "Aucune modification à enregistrer",
+  "permissionEditRemoveTitle": "Sera supprimé",
+  "permissionEditSuccess": "Modifications d’autorisation enregistrées",
+  "permissionEmailInvalid": "Veuillez saisir des adresses e-mail valides : {values}",
+  "permissionEmailLabel": "Adresses e-mail",
+  "permissionEmailPlaceholder": "Saisir des adresses e-mail, séparées par des virgules ou des retours à la ligne",
+  "permissionEmpty": "Aucun utilisateur partagé pour le moment",
+  "permissionGrant": "Attribuer",
+  "permissionGrantConfirmDesc": "Accorder l’accès <strong>{permission}</strong> pour {contactType}",
+  "permissionGrantConfirmTitle": "Confirmer l’accès partagé",
+  "permissionGrantSuccess": "Autorisations accordées",
+  "permissionLabel": "Autorisation",
+  "permissionLimit": "Jusqu’à {count} utilisateurs partagés autorisés",
+  "permissionLoading": "Chargement...",
+  "permissionManage": "Gérer",
+  "permissionOwnerNotAllowed": "Vous ne pouvez pas accorder d’autorisations au créateur du cours",
+  "permissionPhoneInvalid": "Veuillez saisir des numéros de téléphone valides : {values}",
+  "permissionPhoneLabel": "Numéros de téléphone",
+  "permissionPhonePlaceholder": "Saisir des numéros de téléphone pour accorder l’accès partagé en lot",
+  "permissionPublish": "Publier",
+  "permissionPublishHint": "La publication inclut l’autorisation de modification",
+  "permissionPublishHintWrapped": "({hint})",
+  "permissionReadOnly": "Lecture seule",
+  "permissionRemove": "Retirer",
+  "permissionRemoveUndo": "Annuler la suppression",
+  "permissionRemoved": "Supprimé",
+  "permissionSectionDesc": "Accorder l’accès à ce cours à d’autres utilisateurs",
+  "permissionSectionTitle": "Autorisations partagées",
+  "permissionTabGrant": "Accorder l’accès",
+  "permissionTabList": "Utilisateurs partagés",
+  "placeholder": "Veuillez saisir",
+  "previewUrl": "URL de prévisualisation",
+  "price": "Prix",
+  "priceUnit": "Unité",
+  "selectModelHint": "Il est recommandé d’utiliser le modèle par défaut",
+  "selected": "Sélectionné",
+  "shifuAvatar": "Avatar",
+  "shifuDescription": "Description",
+  "shifuDescriptionEmpty": "La description ne peut pas être vide",
+  "shifuDescriptionMaxLength": "La description ne peut pas dépasser 500 caractères",
+  "shifuName": "Nom",
+  "shifuNameEmpty": "Le nom ne peut pas être vide",
+  "shifuNameMaxLength": "Le nom ne peut pas dépasser {maxLength} caractères",
+  "shifuPriceEmpty": "Le prix ne peut pas être vide",
+  "shifuPriceFormat": "Le prix doit être un nombre valide",
+  "shifuPrompt": "Prompt du cours",
+  "shifuPromptHint": "Définissez le public, le ton et les garde-fous du cours",
+  "shifuPromptMaxLength": "Le prompt ne peut pas dépasser 20 000 caractères",
+  "shifuPromptPlaceholder": "Veuillez saisir le prompt",
+  "shifuTemperature": "Température",
+  "shifuTemperatureFormat": "La température doit être un nombre valide",
+  "shifuTemperatureMax": "La température ne peut pas dépasser 2",
+  "shifuTemperatureMin": "La température ne peut pas être inférieure à 0",
+  "supportedFormats": "Seuls les formats JPG et PNG sont pris en charge",
+  "temperatureHint": "Définir la créativité de la sortie IA (0-2)",
+  "temperatureHint2": "Plus la température est basse, plus la sortie est stable mais moins créative ; plus elle est élevée, plus la sortie est instable mais créative",
+  "title": "Paramètres du cours",
+  "ttsDescription": "Une fois activé, les leçons sont enseignées avec PPT et lecture vocale",
+  "ttsEmotion": "Émotion",
+  "ttsEmotionDefault": "Par défaut",
+  "ttsModel": "Modèle",
+  "ttsPitch": "Hauteur",
+  "ttsPitchHint": "Ajuster la hauteur (plage propre au fournisseur)",
+  "ttsPreview": "Prévisualiser la voix",
+  "ttsPreviewLoading": "Chargement...",
+  "ttsPreviewStop": "Arrêter",
+  "ttsProvider": "Fournisseur",
+  "ttsProviderHint": "Sélectionner un fournisseur TTS",
+  "ttsProviderRequiredDesc": "Veuillez choisir un fournisseur vocal avant d’activer le mode écoute.",
+  "ttsProviderRequiredTitle": "Sélectionner un fournisseur TTS",
+  "ttsSelectEmotion": "Sélectionner une émotion",
+  "ttsSelectModel": "Sélectionner un modèle",
+  "ttsSelectProvider": "Sélectionner le fournisseur",
+  "ttsSelectVoice": "Sélectionner une voix",
+  "ttsSpeed": "Vitesse",
+  "ttsSpeedHint": "Ajuster la vitesse de parole (plage propre au fournisseur)",
+  "ttsTitle": "Mode écoute",
+  "ttsVoice": "Voix",
+  "unarchive": "Restaurer le cours",
+  "unarchiveConfirm": "La restauration replace le cours dans « Tous ». La modification et l’apprentissage restent disponibles.",
+  "unarchiveSuccess": "Cours restauré",
+  "unarchiveTitle": "Restaurer le cours ?",
+  "upload": "Téléverser",
+  "uploadFailed": "Échec du téléversement, veuillez réessayer plus tard",
+  "uploading": "Téléversement",
+  "useLearnerLanguageDescription": "Une fois activé, l’IA enseignera dans la langue choisie par l’apprenant",
+  "useLearnerLanguageTitle": "Traduction automatique"
+}

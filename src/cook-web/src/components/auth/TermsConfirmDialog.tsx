@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/AlertDialog';
 import { Trans, useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { EnvStoreState, SupportedLocale } from '@/c-types/store';
+import { normalizeLanguage } from '@/i18n';
 
 interface TermsConfirmDialogProps {
   open: boolean;
@@ -30,9 +31,7 @@ export function TermsConfirmDialog({
   const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
 
   // Get current language URL with fallback
-  const langKey = (i18n.language || 'en-US').startsWith('zh')
-    ? 'zh-CN'
-    : 'en-US';
+  const langKey = normalizeLanguage(i18n.language) as SupportedLocale;
   const agreementUrl =
     legalUrls?.agreement?.[langKey] || legalUrls?.agreement?.['en-US'] || '';
   const privacyUrl =

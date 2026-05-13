@@ -605,6 +605,7 @@ class BillingLedgerAdjustResultDTO(BillingBaseDTO):
 class RuntimeLocalizedUrlDTO(BillingBaseDTO):
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
+    fr_fr: str = Field(alias="fr-FR")
 
 
 class RuntimeLegalUrlsDTO(BillingBaseDTO):

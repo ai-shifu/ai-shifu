@@ -128,7 +128,7 @@ from .wallets import adjust_credit_wallet_balance
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
-_OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US")
+_OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
 
 def _is_public_trial_catalog_product(row: BillingProduct) -> bool:

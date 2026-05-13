@@ -417,11 +417,11 @@ When adding or modifying environment variables:
 - Shared translations live under `src/i18n/<locale>`
 - Do not add primary translations under `public/locales`
 - Backend should reference translation keys via shared helpers
-- Frontend language surface currently stays limited to `en-US` and `zh-CN`
+- Frontend user-facing locales must stay aligned with `src/i18n/locales.json`
 
 When adding a new namespace:
 
-- Update both languages
+- Update every supported locale
 - Run `python scripts/generate_languages.py`
 - Run `python scripts/check_translations.py`
 - Run `python scripts/check_translation_usage.py --fail-on-unused`

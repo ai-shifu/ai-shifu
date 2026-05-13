@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.learn",
+  "__flat__": {
+    "askProviderTimeout": "Le service de connaissances externe a expiré. Veuillez réessayer plus tard.",
+    "askProviderUnavailable": "Le service de connaissances externe est temporairement indisponible.",
+    "generatedBlockNotFound": "Bloc généré introuvable",
+    "invalidAction": "Action non valide",
+    "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",
+    "nextChapterButton": "Suivant",
+    "outputInProgress": "Le contenu est encore en cours de génération. Veuillez patienter avant de réessayer."
+  }
+}

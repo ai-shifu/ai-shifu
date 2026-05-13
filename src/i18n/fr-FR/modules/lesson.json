@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "La réinitialisation effacera les données d’apprentissage actuelles. Confirmer ?",
+    "confirmTitle": "Confirmer la réinitialisation",
+    "title": "Réinitialiser"
+  },
+  "tooltip": {
+    "paidExclusive": "Accès premium payant"
+  }
+}

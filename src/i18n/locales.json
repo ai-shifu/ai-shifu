@@ -5,6 +5,10 @@
       "label": "English",
       "rtl": false
     },
+    "fr-FR": {
+      "label": "Français",
+      "rtl": false
+    },
     "zh-CN": {
       "label": "中文",
       "rtl": false

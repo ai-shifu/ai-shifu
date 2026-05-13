@@ -220,10 +220,10 @@ export default function CreditOrdersTab() {
     });
 
   const locale = i18n?.language || 'en-US';
-  const isEnglish = locale.startsWith('en');
+  const usesLatinLabels = !locale.startsWith('zh');
   const filterControlClassName = cn(
     'min-w-0 flex-1',
-    isEnglish && 'xl:max-w-[220px]',
+    usesLatinLabels && 'xl:max-w-[220px]',
   );
   const creatorKeywordPlaceholder = React.useMemo(() => {
     if (contactType === 'email') {

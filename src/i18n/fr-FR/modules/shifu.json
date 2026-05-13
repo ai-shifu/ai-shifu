@@ -1,0 +1,53 @@
+{
+  "__namespace__": "module.shifu",
+  "creationArea": {
+    "descriptionPrefix": "Écrire au format",
+    "descriptionSuffix": "pour guider l’enseignement par IA",
+    "modeCode": "Pro",
+    "modeText": "Simple",
+    "title": "Prompts pédagogiques"
+  },
+  "history": {
+    "collapse": "Réduire",
+    "confirmDescription": "Après confirmation, le contenu actuel de la leçon sera entièrement remplacé par cette version.",
+    "confirmLoadFailed": "Échec du chargement du contenu de cette version. Veuillez réessayer plus tard.",
+    "confirmTitle": "Confirmer la restauration",
+    "contentEmpty": "Cette version n’a aucun contenu",
+    "empty": "Aucun historique",
+    "expand": "Développer le texte complet",
+    "loading": "Chargement...",
+    "restore": "Restaurer cette version",
+    "restoreLessonDeleted": "Cette leçon a été supprimée par un autre éditeur et ne peut pas être restaurée. Veuillez actualiser et réessayer.",
+    "restoring": "Restauration...",
+    "title": "Historique",
+    "unknownUser": "Utilisateur inconnu"
+  },
+  "newChapter": "Ajouter un chapitre",
+  "previewArea": {
+    "action": "Déboguer",
+    "close": "Réduire la simulation d’apprentissage",
+    "description": "Découvrez l’expérience apprenant et voyez comment les prompts personnalisent les cours",
+    "disabled": "Sélectionnez une unité avant de déboguer.",
+    "empty": "Saisissez les prompts pédagogiques à gauche, puis cliquez sur « Déboguer » pour tester la simulation d’apprentissage",
+    "goToBilling": "Recharger des crédits",
+    "loading": "Génération de la simulation d’apprentissage...",
+    "open": "Développer la simulation d’apprentissage",
+    "title": "Simulation d’apprentissage",
+    "variablesCollapse": "Réduire",
+    "variablesDescription": "Des apprenants différents définissent des variables différentes pour obtenir des cours différents",
+    "variablesEmpty": "Aucune variable",
+    "variablesExpand": "Développer",
+    "variablesHideSingleConfirmDesc": "Masquer « {name} ». Vous pouvez le restaurer en cliquant sur « Tout afficher ».",
+    "variablesHideSingleConfirmTitle": "Masquer la variable",
+    "variablesHideUnused": "Masquer les inutilisés",
+    "variablesHideUnusedConfirmDesc": "Masquer les variables personnalisées non utilisées dans le cours. Après masquage, vous pouvez cliquer sur ce bouton pour les afficher de nouveau.",
+    "variablesHideUnusedConfirmTitle": "Masquer les variables personnalisées inutilisées",
+    "variablesHideUnusedTooltip": "Masquer les variables personnalisées non utilisées dans le cours",
+    "variablesPlaceholder": "INCONNU",
+    "variablesRestoreHidden": "Tout afficher",
+    "variablesRestoreHiddenConfirmDesc": "Afficher toutes les variables du cours. Après affichage, vous pouvez cliquer sur ce bouton pour masquer les variables personnalisées inutilisées.",
+    "variablesRestoreHiddenConfirmTitle": "Afficher toutes les variables",
+    "variablesRestoreHiddenTooltip": "Afficher toutes les variables du cours",
+    "variablesTitle": "Variables"
+  }
+}

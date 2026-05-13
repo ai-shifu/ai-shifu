@@ -1,0 +1,26 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "defaultChapterName": "Chapitre sans titre",
+    "defaultLessonName": "Leçon sans titre",
+    "draftConflict": "Le contenu du cours a été mis à jour par un autre utilisateur",
+    "importFileInvalid": "Le fichier d'importation n'est pas valide",
+    "noPermission": "Aucune autorisation",
+    "outlineItemNotFound": "Élément de plan introuvable",
+    "outlineNameTooLong": "Le nom du plan est trop long",
+    "parentOutlineNotFound": "Plan parent introuvable",
+    "permissionContactLimit": "Les autorisations partagées dépassent la limite ({count})",
+    "shifuDescriptionTooLong": "La description du cours est trop longue (max 500 caractères)",
+    "shifuNameRequired": "Le nom du cours est requis",
+    "shifuNameTooLong": "Le nom du cours est trop long (max {max_length} caractères)",
+    "shifuNotFound": "Cours introuvable",
+    "shifuPriceTooLow": "Le prix du cours est trop bas (min {min_shifu_price})",
+    "shifuStructNotFound": "Structure du cours introuvable",
+    "transferCreatorDemoNotAllowed": "Les cours de démonstration intégrés ne peuvent pas changer de créateur",
+    "transferCreatorSameUser": "L'utilisateur cible est déjà le créateur",
+    "transferCreatorTargetNotFound": "Utilisateur cible du transfert introuvable",
+    "ttsNotEnabled": "La synthèse vocale n'est pas activée",
+    "unitNameTooLong": "Le nom de l'unité est trop long",
+    "unitNotFound": "Unité introuvable"
+  }
+}

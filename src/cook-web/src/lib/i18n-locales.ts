@@ -6,9 +6,25 @@ type LocalesMetadata = {
 
 const rawMetadata = process.env.NEXT_PUBLIC_I18N_META;
 
-const metadata: LocalesMetadata = rawMetadata
-  ? (JSON.parse(rawMetadata) as LocalesMetadata)
-  : { default: 'en-US', locales: {} };
+const fallbackMetadata: LocalesMetadata = {
+  default: 'en-US',
+  locales: {},
+  namespaces: [],
+};
+
+const parseMetadata = (raw: string | undefined): LocalesMetadata => {
+  if (!raw) {
+    return fallbackMetadata;
+  }
+
+  try {
+    return JSON.parse(raw) as LocalesMetadata;
+  } catch {
+    return fallbackMetadata;
+  }
+};
+
+const metadata = parseMetadata(rawMetadata);
 
 export const localeEntries = Object.entries(metadata.locales) as [
   string,

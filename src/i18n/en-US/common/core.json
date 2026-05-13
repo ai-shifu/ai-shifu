@@ -22,6 +22,7 @@
   "errorSaveFailed": "Save failed: Invalid server response",
   "expand": "Expand",
   "follow": "Follow",
+  "legalFallbackEnglishNotice": "The French legal document is not available yet. The English version below is the current reference.",
   "logout": "Logout",
   "mobileUnsupportedDescription": "Please use a desktop device to view this page",
   "mobileUnsupportedTitle": "This page is not supported on mobile devices",
