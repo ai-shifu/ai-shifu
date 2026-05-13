@@ -412,47 +412,136 @@ describe('useChatLogicHook stream cleanup', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    jest.useFakeTimers();
-    try {
-      let audioPromise: Promise<unknown> | undefined;
-      act(() => {
-        audioPromise = result.current.requestAudioForBlock('element-1', {
-          listen: true,
-        });
+    let audioPromise: Promise<unknown> | undefined;
+    act(() => {
+      audioPromise = result.current.requestAudioForBlock('element-1', {
+        listen: true,
       });
+    });
 
-      expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
-        expect.objectContaining({
-          generated_block_bid: 'generated-block-1',
-          listen: true,
+    expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generated_block_bid: 'generated-block-1',
+        listen: true,
+      }),
+    );
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/generated-block-1.mp3',
+          audio_bid: 'audio-1',
+          duration_ms: 321,
+          position: 0,
+        },
+      });
+      await audioPromise;
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'element-1')
+        ?.audioUrl,
+    ).toBe('https://example.com/generated-block-1.mp3');
+    expect(close).not.toHaveBeenCalled();
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/generated-block-1-position-1.mp3',
+          audio_bid: 'audio-2',
+          duration_ms: 654,
+          position: 1,
+        },
+      });
+    });
+
+    const audioTracks =
+      result.current.items.find(item => item.element_bid === 'element-1')
+        ?.audioTracks ?? [];
+    expect(audioTracks.map(track => track.audioUrl)).toEqual([
+      'https://example.com/generated-block-1.mp3',
+      'https://example.com/generated-block-1-position-1.mp3',
+    ]);
+    expect(close).not.toHaveBeenCalled();
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: true,
+      });
+    });
+    expect(close).toHaveBeenCalled();
+  });
+
+  it('closes non-listen generated-block audio after the first complete event', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-manual-1',
+          element_bid: 'element-manual-1',
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+        }
+      | undefined;
+    const close = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close,
+      };
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
         }),
-      );
+      {
+        wrapper,
+      },
+    );
 
-      await act(async () => {
-        ttsRequest?.onMessage({
-          type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
-          content: {
-            audio_url: 'https://example.com/generated-block-1.mp3',
-            audio_bid: 'audio-1',
-            duration_ms: 321,
-            position: 0,
-          },
-        });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let audioPromise: Promise<unknown> | undefined;
+    act(() => {
+      audioPromise = result.current.requestAudioForBlock('element-manual-1');
+    });
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/manual.mp3',
+          audio_bid: 'manual-audio-1',
+          duration_ms: 123,
+          position: 0,
+        },
       });
+      await audioPromise;
+    });
 
-      expect(
-        result.current.items.find(item => item.element_bid === 'element-1')
-          ?.audioUrl,
-      ).toBe('https://example.com/generated-block-1.mp3');
-
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-        await audioPromise;
-      });
-      expect(close).toHaveBeenCalled();
-    } finally {
-      jest.useRealTimers();
-    }
+    expect(close).toHaveBeenCalled();
   });
 
   it('clears loading after a control-only stream closes', async () => {

@@ -85,6 +85,7 @@ interface LessonFeedbackPopupState {
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
+const TTS_BACKFILL_IDLE_TIMEOUT_MS = 120000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 const DEFAULT_LISTEN_AUDIO_POSITION = 0;
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
@@ -3060,13 +3061,77 @@ function useChatLogicHook({
 
       return new Promise((resolve, reject) => {
         let finalizeTimer: ReturnType<typeof setTimeout> | null = null;
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
         let latestComplete: AudioCompleteData | null = null;
+        let hasResolved = false;
+
+        const clearTimers = () => {
+          if (finalizeTimer) {
+            clearTimeout(finalizeTimer);
+            finalizeTimer = null;
+          }
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+          }
+        };
+
+        const resolveOnce = (value: AudioCompleteData | null) => {
+          if (hasResolved) {
+            return;
+          }
+          hasResolved = true;
+          resolve(value);
+        };
+
+        const markAudioStreamSettled = () => {
+          if (!shouldApplyResult()) {
+            return;
+          }
+          setTrackedContentList(prev =>
+            prev.map(item => {
+              if (!matchItemBid(item, targetElementBid)) {
+                return item;
+              }
+              return {
+                ...item,
+                isAudioStreaming: false,
+                audioTracks: (item.audioTracks ?? []).map(track => ({
+                  ...track,
+                  isAudioStreaming: false,
+                })),
+              };
+            }),
+          );
+        };
+
+        const finishStream = (value: AudioCompleteData | null) => {
+          clearTimers();
+          markAudioStreamSettled();
+          closeTtsStream(sourceBlockBid);
+          resolveOnce(value);
+        };
+
+        const resetIdleTimer = () => {
+          if (!effectiveListenRequestEnabled) {
+            return;
+          }
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+          }
+          idleTimer = setTimeout(() => {
+            finishStream(latestComplete);
+          }, TTS_BACKFILL_IDLE_TIMEOUT_MS);
+        };
+
         const source = streamGeneratedBlockAudio({
           shifu_bid: shifuBid,
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
           listen: effectiveListenRequestEnabled,
           onMessage: response => {
+            resetIdleTimer();
+
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               if (!shouldApplyResult()) {
                 return;
@@ -3093,8 +3158,7 @@ function useChatLogicHook({
 
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               if (!shouldApplyResult()) {
-                closeTtsStream(sourceBlockBid);
-                resolve(null);
+                finishStream(null);
                 return;
               }
 
@@ -3107,20 +3171,23 @@ function useChatLogicHook({
               setTrackedContentList(prevState =>
                 upsertAudioComplete(prevState, targetElementBid, audioComplete),
               );
-              if (finalizeTimer) {
-                clearTimeout(finalizeTimer);
+              if (effectiveListenRequestEnabled) {
+                resolveOnce(latestComplete ?? null);
+                return;
               }
-              const delayMs = effectiveListenRequestEnabled ? 500 : 0;
+              clearTimers();
               finalizeTimer = setTimeout(() => {
-                closeTtsStream(sourceBlockBid);
-                resolve(latestComplete ?? null);
-              }, delayMs);
+                finishStream(latestComplete ?? null);
+              }, 0);
+              return;
+            }
+
+            if (response?.type === SSE_OUTPUT_TYPE.TEXT_END) {
+              finishStream(latestComplete);
             }
           },
           onError: () => {
-            if (finalizeTimer) {
-              clearTimeout(finalizeTimer);
-            }
+            clearTimers();
             if (shouldApplyResult()) {
               setTrackedContentList(prev =>
                 prev.map(item => {
@@ -3135,6 +3202,7 @@ function useChatLogicHook({
               );
             }
             closeTtsStream(sourceBlockBid);
+            hasResolved = true;
             reject(new Error('TTS stream failed'));
           },
         });

@@ -235,6 +235,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert complete_positions == [0, 1]
         assert segment_positions == [0, 1]
         assert synthesized_texts == ["First.", "Second."]
+        assert events[-1].type == GeneratedType.DONE
         audio_complete_events = [
             event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
         ]
@@ -425,3 +426,213 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         assert complete_positions == [0, 1]
         assert synthesized_texts == ["A", "Second page."]
+        assert events[-1].type == GeneratedType.DONE
+
+    def test_stream_generated_block_audio_listen_reuses_partial_segment_cache(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-cache-1"
+        shifu_bid = "shifu-cache-1"
+        generated_block_bid = "gen-cache-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            block = self.LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid="progress-cache-1",
+                user_bid=user_bid,
+                block_bid="block-cache-1",
+                outline_item_bid="outline-cache-1",
+                shifu_bid=shifu_bid,
+                type=1,
+                role=1,
+                generated_content="First.\n\nSecond.",
+                position=0,
+                block_content_conf="",
+                status=1,
+            )
+            db.session.add(block)
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid="el-cache-text-1",
+                        progress_record_bid="progress-cache-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-cache-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-cache-1",
+                        run_event_seq=1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=0,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="First.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-cache-text-2",
+                        progress_record_bid="progress-cache-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-cache-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-cache-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Second.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-cache-0",
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    progress_record_bid="progress-cache-1",
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url="https://example.com/audio-cache-0.mp3",
+                    oss_bucket="test-bucket",
+                    oss_object_key="tts-audio/audio-cache-0.mp3",
+                    duration_ms=1000,
+                    file_size=10,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id="voice",
+                    voice_settings={},
+                    model="test-model",
+                    text_length=len("First."),
+                    segment_count=1,
+                    subtitle_cues=[
+                        {
+                            "text": "First.",
+                            "start_ms": 0,
+                            "end_ms": 1000,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+            lambda *_args, **_kwargs: (
+                "minimax",
+                "test-model",
+                type(
+                    "Voice",
+                    (),
+                    {
+                        "voice_id": "voice",
+                        "speed": 1.0,
+                        "pitch": 0,
+                        "emotion": "",
+                        "volume": 1.0,
+                    },
+                )(),
+                type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            ),
+        )
+
+        synthesized_texts = []
+
+        def _fake_yield_tts_segments(*, text, **_kwargs):
+            synthesized_texts.append(text)
+            yield (0, b"fake-audio", 123, text, 1, 1)
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._yield_tts_segments",
+            _fake_yield_tts_segments,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
+            lambda parts: b"".join(parts),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+            lambda *_args, **_kwargs: 1000,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
+            lambda _app, _audio_bytes, audio_bid: (
+                f"https://example.com/{audio_bid}.mp3",
+                "test-bucket",
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.record_tts_usage",
+            lambda *_args, **_kwargs: None,
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert [event.content.position for event in audio_complete_events] == [0, 1]
+        assert audio_complete_events[0].content.audio_url == (
+            "https://example.com/audio-cache-0.mp3"
+        )
+        assert synthesized_texts == ["Second."]
+        assert events[-1].type == GeneratedType.DONE
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert [r.position for r in records] == [0, 1]
+            assert records[0].audio_bid == "audio-cache-0"

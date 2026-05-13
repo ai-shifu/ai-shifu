@@ -951,12 +951,48 @@ def _build_audio_complete_message(
     )
 
 
+def _build_tts_done_message(
+    *,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> RunMarkdownFlowDTO:
+    return RunMarkdownFlowDTO(
+        outline_bid=outline_bid or "",
+        generated_block_bid=generated_block_bid or "",
+        type=GeneratedType.DONE,
+        content="",
+    )
+
+
 def _subtitle_cues_from_audio_record(
     audio_record: LearnGeneratedAudio | None,
 ) -> list[dict]:
     if audio_record is None:
         return []
     return normalize_subtitle_cues(getattr(audio_record, "subtitle_cues", None))
+
+
+def _audio_record_matches_speakable_text(
+    audio_record: LearnGeneratedAudio | None,
+    speakable_text: str,
+) -> bool:
+    if audio_record is None or not getattr(audio_record, "oss_url", ""):
+        return False
+
+    cleaned_text = preprocess_for_tts(speakable_text or "")
+    expected_length = len(cleaned_text or "")
+    if expected_length <= 0:
+        return False
+
+    record_text_length = int(getattr(audio_record, "text_length", 0) or 0)
+    if record_text_length > 0:
+        return record_text_length == expected_length
+
+    subtitle_cues = _subtitle_cues_from_audio_record(audio_record)
+    cue_text = " ".join(str(cue.get("text") or "") for cue in subtitle_cues)
+    if not cue_text.strip():
+        return False
+    return len(preprocess_for_tts(cue_text) or "") == expected_length
 
 
 def _yield_stream_tts_audio_segments(
@@ -1124,12 +1160,14 @@ def stream_generated_block_audio(
                     continue
                 existing_by_position[pos] = record
 
-            has_segmented_records = len(existing_by_position) > 1 or any(
-                pos > 0 for pos in existing_by_position
-            )
-            if expected_segment_count > 1 and not has_segmented_records:
-                # Existing single-audio records are not compatible with AV mode.
-                existing_by_position = {}
+            if expected_segment_count > 1 and 0 in existing_by_position:
+                first_record = existing_by_position[0]
+                if not _audio_record_matches_speakable_text(
+                    first_record, speakable_segments[0]
+                ):
+                    # Legacy single-audio records cover the whole generated block,
+                    # so they cannot satisfy the first segmented listen track.
+                    existing_by_position.pop(0, None)
 
             if expected_segment_count and all(
                 pos in existing_by_position for pos in range(expected_segment_count)
@@ -1145,6 +1183,10 @@ def stream_generated_block_audio(
                         position=pos,
                         subtitle_cues=_subtitle_cues_from_audio_record(record),
                     )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
                 return
 
             usage_scene = (
@@ -1255,6 +1297,10 @@ def stream_generated_block_audio(
                 app,
                 unknown_error_log="AV TTS synthesis failed",
                 body=_generate_av_audio,
+            )
+            yield _build_tts_done_message(
+                outline_bid=generated_block.outline_item_bid or "",
+                generated_block_bid=generated_block_bid,
             )
 
             return
