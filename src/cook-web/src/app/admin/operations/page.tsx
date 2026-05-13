@@ -9,7 +9,6 @@ import React, {
   type CSSProperties,
 } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
@@ -335,7 +334,6 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionTargetPrefix')
  */
 const OperationsPage = () => {
-  const router = useRouter();
   const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { toast } = useToast();
@@ -691,7 +689,7 @@ const OperationsPage = () => {
     if (!detailUrl) {
       return;
     }
-    router.push(detailUrl);
+    window.open(detailUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handlePromptDetailOpenChange = useCallback((nextOpen: boolean) => {

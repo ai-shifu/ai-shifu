@@ -11,11 +11,12 @@ import { ErrorWithCode } from '@/lib/request';
 import OperationsPage from './page';
 
 const mockReplace = jest.fn();
-const mockPush = jest.fn();
+const mockWindowOpen = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
 const mockCopyText = jest.fn();
 const originalLocation = window.location;
+const originalOpen = window.open;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
@@ -46,7 +47,6 @@ const mockUserState: {
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
-    push: mockPush,
   }),
 }));
 
@@ -399,6 +399,11 @@ describe('OperationsPage', () => {
         search: '',
       },
     });
+    Object.defineProperty(window, 'open', {
+      configurable: true,
+      writable: true,
+      value: mockWindowOpen,
+    });
   });
 
   afterAll(() => {
@@ -406,11 +411,16 @@ describe('OperationsPage', () => {
       configurable: true,
       value: originalLocation,
     });
+    Object.defineProperty(window, 'open', {
+      configurable: true,
+      writable: true,
+      value: originalOpen,
+    });
   });
 
   beforeEach(() => {
     mockReplace.mockReset();
-    mockPush.mockReset();
+    mockWindowOpen.mockReset();
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
@@ -578,7 +588,11 @@ describe('OperationsPage', () => {
         name: 'Course 1',
       }),
     );
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      '/admin/operations/course-1',
+      '_blank',
+      'noopener,noreferrer',
+    );
 
     const firstRow = screen.getByText('Course 1').closest('tr');
     expect(firstRow).not.toBeNull();
