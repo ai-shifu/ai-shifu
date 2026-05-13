@@ -22,13 +22,22 @@ const MainInterface = ({
   const pathname = usePathname();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
   const isOperator = useUserStore(state =>
     Boolean(state.userInfo?.is_operator),
   );
-  const menuReady = isInitialized && !isGuest;
+  const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
+  const hasResolvedAdminSession =
+    hasAuthenticatedAdminSession && Boolean(currentUserId);
+  const menuReady = hasResolvedAdminSession;
 
   useEffect(() => {
-    if (!isInitialized || !isGuest || typeof window === 'undefined') {
+    if (
+      !isInitialized ||
+      hasAuthenticatedAdminSession ||
+      typeof window === 'undefined'
+    ) {
       return;
     }
 
@@ -36,7 +45,7 @@ const MainInterface = ({
       window.location.pathname + window.location.search,
     );
     window.location.href = `/login?redirect=${currentPath}`;
-  }, [isGuest, isInitialized]);
+  }, [hasAuthenticatedAdminSession, isInitialized]);
 
   useEffect(() => {
     document.title = t('common.core.adminTitle');

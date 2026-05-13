@@ -218,6 +218,7 @@ export const useUserStore = create<
         const tokenData = tokenTool.get();
         const initialToken = tokenData.token;
         let tokenChangedDuringFetch = false;
+        let appliedGuestFallbackWithoutToken = false;
         debugInfo('[auth-chain] initUser start', {
           hasInitialToken: Boolean(initialToken),
           isGuestToken: tokenData.faked,
@@ -293,6 +294,19 @@ export const useUserStore = create<
             return;
           }
 
+          // Keep admin and other protected surfaces out of a false
+          // authenticated state when guest bootstrap fails before any token exists.
+          if (!initialToken && !latestTokenData.token) {
+            appliedGuestFallbackWithoutToken = true;
+            set({
+              userInfo: null,
+              isGuest: true,
+              isLoggedIn: false,
+              isInitialized: true,
+            });
+            return;
+          }
+
           // Only reset to guest if it's a clear authentication error (not network or server issues)
           if (
             error?.status === 403 ||
@@ -325,6 +339,9 @@ export const useUserStore = create<
             );
           }
         } finally {
+          if (appliedGuestFallbackWithoutToken) {
+            return;
+          }
           get()._updateUserStatus();
         }
       })();
