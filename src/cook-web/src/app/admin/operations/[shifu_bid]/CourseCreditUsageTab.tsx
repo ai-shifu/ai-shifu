@@ -536,7 +536,7 @@ export default function CourseCreditUsageTab({
                           <AdminTooltipText
                             text={resolveAccount(row)}
                             emptyValue={emptyValue}
-                            className='mx-auto block max-w-[180px] font-semibold text-foreground'
+                            className='mx-auto block max-w-[180px] text-foreground'
                           />
                         </TableCell>
                         <TableCell
