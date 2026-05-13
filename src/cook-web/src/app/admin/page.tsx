@@ -177,7 +177,11 @@ const ScriptManagementPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
+  const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
+  const hasResolvedAdminSession =
+    hasAuthenticatedAdminSession && Boolean(currentUserId);
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
@@ -410,15 +414,21 @@ const ScriptManagementPage = () => {
   }, [archiveLoading, archiveTarget, canManageArchive, t, toast]);
 
   useEffect(() => {
-    if (!isInitialized || !adminReady) {
+    if (!hasResolvedAdminSession || !adminReady) {
       return;
     }
     resetListAndFetch();
-  }, [activeTab, i18n.language, isInitialized, adminReady, resetListAndFetch]);
+  }, [
+    activeTab,
+    adminReady,
+    hasResolvedAdminSession,
+    i18n.language,
+    resetListAndFetch,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isInitialized || !adminReady) return;
+    if (!container || !hasResolvedAdminSession || !adminReady) return;
 
     const observer = new IntersectionObserver(
       entries => {
@@ -431,24 +441,21 @@ const ScriptManagementPage = () => {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hasMore, isInitialized, adminReady]);
+  }, [adminReady, hasMore, hasResolvedAdminSession]);
 
   // Centralized login check - redirect if not logged in after initialization
   useEffect(() => {
-    if (isInitialized && isGuest) {
+    if (isInitialized && !hasAuthenticatedAdminSession) {
       const currentPath = encodeURIComponent(
         window.location.pathname + window.location.search,
       );
       window.location.href = `/login?redirect=${currentPath}`;
       return;
     }
-  }, [isInitialized, isGuest]);
+  }, [hasAuthenticatedAdminSession, isInitialized]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      return;
-    }
-    if (isGuest) {
+    if (!hasResolvedAdminSession) {
       setAdminReady(false);
       return;
     }
@@ -456,12 +463,20 @@ const ScriptManagementPage = () => {
     let cancelled = false;
     const ensureAdminPermissions = async () => {
       try {
+        setError(null);
         await api.ensureAdminCreator({});
-      } catch (error) {
-        console.error('Failed to ensure admin creator permissions:', error);
-      } finally {
         if (!cancelled) {
           setAdminReady(true);
+        }
+      } catch (error) {
+        console.error('Failed to ensure admin creator permissions:', error);
+        if (!cancelled) {
+          const resolvedError = error as ErrorWithCode;
+          setError({
+            message: resolvedError.message || t('common.core.unknownError'),
+            code: resolvedError.code,
+          });
+          setAdminReady(false);
         }
       }
     };
@@ -472,7 +487,7 @@ const ScriptManagementPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [isInitialized, isGuest]);
+  }, [hasResolvedAdminSession, t]);
 
   if (error) {
     return (
