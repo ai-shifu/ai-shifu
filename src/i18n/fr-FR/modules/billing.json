@@ -6,7 +6,7 @@
       "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou négatif pour les consommer selon l’ordre standard des compartiments.",
       "errors": {
         "amountInvalid": "Saisir un montant décimal non nul avec jusqu’à 10 décimales.",
-        "creatorBidRequired": "Créateur bid is required."
+        "creatorBidRequired": "Le BID du créateur est requis."
       },
       "fields": {
         "amount": "Montant de l’ajustement",
@@ -54,8 +54,8 @@
       "empty": "Aucun instantané de droits pour le moment.",
       "loadError": "Impossible de charger les données de droits admin.",
       "source": {
-        "default": "Par défaut fallback",
-        "productPayload": "Produit payload",
+        "default": "Valeur de secours par défaut",
+        "productPayload": "Données du produit",
         "snapshot": "Instantané enregistré"
       },
       "table": {
@@ -164,7 +164,7 @@
   "capabilities": {
     "description": "Ce résumé indique quelles surfaces de facturation sont actives dans l’interface et lesquelles restent limitées à des flux internes ou protégés par configuration.",
     "fallbackDescription": "Le statut des capacités est suivi depuis le registre de facturation.",
-    "fallbackTitle": "Facturation capability",
+    "fallbackTitle": "Capacité de facturation",
     "items": {
       "adminDomains": {
         "description": "Les pages admin de liaison et d’audit de domaines restent accessibles.",
@@ -191,12 +191,12 @@
         "title": "Abonnements admin"
       },
       "billingFeatureFlag": {
-        "description": "Le feature flag de facturation reste désactivé par défaut dans la configuration initiale.",
-        "title": "Facturation feature flag"
+        "description": "L’indicateur de fonctionnalité de facturation reste désactivé par défaut dans la configuration initiale.",
+        "title": "Indicateur de facturation"
       },
       "creatorCatalog": {
         "description": "Les cartes de catalogue pour les forfaits et recharges restent actives.",
-        "title": "Créateur catalog"
+        "title": "Catalogue créateur"
       },
       "creatorOrders": {
         "description": "Les flux de commandes créateur, synchronisation, remboursement et recharge restent activés.",
@@ -212,19 +212,19 @@
       },
       "dailyAggregateRebuild": {
         "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
-        "title": "Quotidien aggregate rebuild"
+        "title": "Reconstruction des agrégats quotidiens"
       },
       "domainVerifyRefresh": {
         "description": "L’actualisation de vérification de domaine reste interne uniquement.",
-        "title": "Domaine verify refresh"
+        "title": "Actualisation de la vérification de domaine"
       },
       "lowBalanceAlerts": {
         "description": "La génération d’alertes de solde faible reste interne uniquement.",
         "title": "Alertes de solde faible"
       },
       "providerReconcile": {
-        "description": "Fournisseur reconcile remains an internal recovery flow.",
-        "title": "Fournisseur reconcile"
+        "description": "Le rapprochement fournisseur reste un flux interne de récupération.",
+        "title": "Rapprochement fournisseur"
       },
       "renewalCompensation": {
         "description": "La compensation de renouvellement et de nouvelle tentative reste interne uniquement.",
@@ -236,7 +236,7 @@
       },
       "runtimeBillingExtensions": {
         "description": "La configuration d’exécution expose toujours les droits de facturation et le contexte de domaine.",
-        "title": "Extensions de facturation runtime"
+        "title": "Extensions d’exécution de facturation"
       },
       "usageSettlement": {
         "description": "Le règlement et la relecture d’utilisation restent des flux internes tâche/CLI.",
@@ -244,12 +244,12 @@
       },
       "walletBucketExpiration": {
         "description": "L’expiration des compartiments de portefeuille reste interne uniquement.",
-        "title": "Portefeuille bucket expiration"
+        "title": "Expiration des compartiments de portefeuille"
       }
     },
     "status": {
       "active": "Actif",
-      "defaultDisabled": "Par défaut disabled",
+      "defaultDisabled": "Désactivé par défaut",
       "internalOnly": "Interne uniquement"
     },
     "summary": {
@@ -257,7 +257,7 @@
       "defaultDisabled": "{count} désactivés par défaut",
       "internalOnly": "{count} internes uniquement"
     },
-    "title": "Capability Statut"
+    "title": "Statut des capacités"
   },
   "catalog": {
     "actions": {
@@ -310,7 +310,7 @@
     }
   },
   "checkout": {
-    "agreementLink": "Crédit Purchase Agreement",
+    "agreementLink": "Contrat d’achat de crédits",
     "agreementPrefix": "J’ai lu et j’accepte les",
     "cancel": "Annuler",
     "confirm": "Continuer vers le paiement",
@@ -319,7 +319,7 @@
     "priceLabel": "Prix",
     "processing": "Traitement...",
     "productLabel": "Produit",
-    "providerLabel": "Paiement provider",
+    "providerLabel": "Fournisseur de paiement",
     "subject": {
       "plan": {
         "day": "Forfait quotidien",
@@ -327,7 +327,7 @@
         "year": "Forfait annuel"
       }
     },
-    "title": "Confirmer purchase",
+    "title": "Confirmer l’achat",
     "topupDescription": "Vous allez ouvrir un paiement de recharge de crédits ponctuelle.",
     "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment."
   },
@@ -472,7 +472,7 @@
       "refund": "Commande remboursée",
       "subscriptionRenewal": "Renouvellement d’abonnement",
       "subscriptionStart": "Début d’abonnement",
-      "subscriptionUpgrade": "Abonnement upgrade",
+      "subscriptionUpgrade": "Mise à niveau d’abonnement",
       "topup": "Commande de recharge"
     }
   },
@@ -480,7 +480,7 @@
     "availableCreditsLabel": "Crédits disponibles",
     "feedback": {
       "cancelSuccess": "L’abonnement sera annulé à la fin de la période actuelle.",
-      "resumeSuccess": "Renouvellement d’abonnement has been restored."
+      "resumeSuccess": "Le renouvellement de l’abonnement a été rétabli."
     },
     "loadError": "Impossible de charger les données de facturation. Actualisez et réessayez.",
     "walletTitle": "Crédits Vue d’ensemble"
@@ -516,8 +516,8 @@
         "techBasic": "Support technique de base"
       },
       "common": {
-        "allLearning": "Tous learning features",
-        "allTeachingAndLearning": "Tous teaching & research features",
+        "allLearning": "Toutes les fonctionnalités d’apprentissage",
+        "allTeachingAndLearning": "Toutes les fonctionnalités d’enseignement et de recherche",
         "createDebugPublish": "Créer, déboguer et publier des cours",
         "higherConcurrency": "Support de concurrence supérieur",
         "unlimitedCourses": "Cours illimités"
@@ -525,7 +525,7 @@
       "daily": {
         "preview": "Accès quotidien rapide pour cycles courts de validation",
         "publish": "Couverture courte durée pour publication et onboarding",
-        "support": "Quotidien plan operational support"
+        "support": "Support opérationnel du forfait quotidien"
       },
       "free": {
         "preview": "Diffusion aux apprenants et import de comptes",
@@ -584,11 +584,11 @@
       "title": "Essai"
     },
     "intervalTabs": {
-      "daily": "Quotidien Forfaits",
-      "monthly": "Mensuel Forfaits",
+      "daily": "Forfaits quotidiens",
+      "monthly": "Forfaits mensuels",
       "plans": "Forfaits de crédits",
       "topup": "Packs de crédits",
-      "yearly": "Annuel Forfaits"
+      "yearly": "Forfaits annuels"
     },
     "scale": {
       "advanced": {
@@ -609,21 +609,21 @@
       "pro": {
         "students": "500 à 1 500 sessions apprenant"
       },
-      "sectionTitle": "Apprenant capacity (est.)"
+      "sectionTitle": "Capacité apprenant estimée"
     },
     "subtitle": "Choisissez le forfait de crédits adapté.",
     "table": {
-      "creditsRowLabel": "Crédits per cycle",
+      "creditsRowLabel": "Crédits par cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Droits",
       "studentsRowLabel": "Sessions apprenant estimées",
-      "validityRowLabel": "Crédit validity"
+      "validityRowLabel": "Validité des crédits"
     },
     "title": "Acheter des crédits",
     "topup": {
       "creditLabel": "{credits} crédits",
       "noteFrozen": "Les crédits de recharge ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
-      "noteInstant": "Crédits take effect immediately after purchase."
+      "noteInstant": "Les crédits prennent effet immédiatement après l’achat."
     },
     "topupComingSoon": "Bientôt disponible",
     "validity": {

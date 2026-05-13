@@ -1,3 +1,5 @@
+import { getLocaleLabel, localeCodes } from '@/lib/i18n-locales';
+
 export const SEX = {
   MALE: 'male',
   FEMALE: 'female',
@@ -10,17 +12,20 @@ export const SEX_NAMES = {
   [SEX.SECRET]: '保密',
 };
 
-export const LANGUAGE_DICT = {
-  'zh-CN': '中文',
-  'en-US': 'English',
-  'fr-FR': 'Français',
-};
+export const LANGUAGE_DICT = Object.fromEntries(
+  localeCodes.map(code => [code, getLocaleLabel(code)]),
+);
 
 export const selectDefaultLanguage = language => {
-  if (language.includes('en')) {
+  const normalized = String(language ?? '')
+    .trim()
+    .replace('_', '-')
+    .toLowerCase();
+
+  if (normalized.startsWith('en')) {
     return 'en-US';
   }
-  if (language.includes('fr')) {
+  if (normalized.startsWith('fr')) {
     return 'fr-FR';
   }
 

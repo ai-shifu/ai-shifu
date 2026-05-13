@@ -11,7 +11,7 @@
         "failureMessage": "Raison de l’échec",
         "grantSourceId": "ID de source d’attribution",
         "grantSourceType": "Type de source d’attribution",
-        "grantedCredits": "Granted Crédits",
+        "grantedCredits": "Crédits attribués",
         "orderType": "Type de commande",
         "paidAt": "Payé le",
         "productCode": "Code produit",
@@ -23,15 +23,15 @@
         "grant": "Enregistrement d’attribution",
         "metadata": "Métadonnées",
         "payment": "Infos de paiement",
-        "product": "Crédit Forfait Info",
+        "product": "Infos du forfait de crédits",
         "summary": "Infos de commande"
       },
-      "title": "Crédit Commande Détail"
+      "title": "Détail de la commande de crédits"
     },
     "emptyList": "Aucune donnée de commande de crédits",
     "filters": {
       "creatorKeyword": "Utilisateur",
-      "creatorKeywordPlaceholderEmail": "ID utilisateur / email",
+      "creatorKeywordPlaceholderEmail": "ID utilisateur / e-mail",
       "creatorKeywordPlaceholderPhone": "ID utilisateur / téléphone",
       "orderKind": "Type de commande",
       "paymentProvider": "Fournisseur",
@@ -45,7 +45,7 @@
     },
     "longTerm": "Long terme",
     "paymentChannel": {
-      "checkoutSession": "Session Checkout"
+      "checkoutSession": "Session de paiement"
     },
     "productIntervals": {
       "day": "Quotidien",
@@ -99,7 +99,7 @@
   },
   "source": {
     "couponRedeem": "Utilisation du coupon",
-    "importActivation": "Importer Activation",
+    "importActivation": "Activation importée",
     "openApi": "Attribution API ouverte",
     "userPurchase": "Achat utilisateur"
   },
@@ -112,7 +112,7 @@
     "empty": "Aucune donnée de commande",
     "orderId": "ID de commande",
     "paidAmount": "Payé",
-    "paymentChannel": "Paiement Channel",
+    "paymentChannel": "Canal de paiement",
     "source": "Source de commande",
     "status": "Statut",
     "updatedAt": "Commande mise à jour le",
@@ -122,8 +122,8 @@
   },
   "tabs": {
     "credits": "Commandes de crédits",
-    "learn": "Learning Commandes"
+    "learn": "Commandes d’apprentissage"
   },
-  "title": "Commande Gestion",
+  "title": "Gestion des commandes",
   "totalCount": "{count} commandes"
 }

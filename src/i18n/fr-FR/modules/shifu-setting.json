@@ -27,7 +27,7 @@
     "coze": {
       "api_key": {
         "hint": "Jeton d’accès personnel Coze.",
-        "label": "API Key"
+        "label": "Clé API"
       },
       "bot_id": {
         "hint": "Identifiant du bot Coze.",
@@ -37,7 +37,7 @@
     "coze_workflow": {
       "api_key": {
         "hint": "Jeton d’accès personnel Coze.",
-        "label": "API Key"
+        "label": "Clé API"
       },
       "workflow_id": {
         "hint": "Identifiant du workflow Coze.",
@@ -47,7 +47,7 @@
     "dify": {
       "api_key": {
         "hint": "Clé API de l’application Dify.",
-        "label": "API Key"
+        "label": "Clé API"
       },
       "base_url": {
         "hint": "URL de base Dify, p. ex. https://api.dify.ai/v1",
@@ -65,11 +65,11 @@
       },
       "collection_name": {
         "hint": "Nom de la collection de base de connaissances.",
-        "label": "Collection Nom"
+        "label": "Nom de la collection"
       },
       "sk": {
         "hint": "Clé secrète Volcengine.",
-        "label": "Confidentiel Key"
+        "label": "Clé secrète"
       }
     }
   },
@@ -84,10 +84,10 @@
     "llm": "LLM",
     "volc_knowledge": "Base de connaissances Volcengine"
   },
-  "askProviderSelect": "Sélectionner provider",
+  "askProviderSelect": "Sélectionner le fournisseur",
   "askTemperature": "Température de suivi",
   "askTemperatureHint": "Définir la créativité de génération du suivi (0-2)",
-  "askTitle": "Follow-up Paramètres",
+  "askTitle": "Paramètres de suivi",
   "draftConflictDescription": "Ce cours a été mis à jour par {phone}. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",
   "draftConflictRefresh": "Charger la dernière version",
   "draftConflictSynced": "Cette leçon a été mise à jour par {phone}. Le contenu le plus récent a été synchronisé.",
@@ -102,33 +102,33 @@
   "keywords": "Mots-clés",
   "learningUrl": "URL d’apprentissage",
   "number": "Nombre",
-  "permissionContactRequired": "Veuillez saisir at least one contact",
+  "permissionContactRequired": "Veuillez saisir au moins un contact",
   "permissionCount": "Utilisateurs partagés: {count}/{max}",
   "permissionDialogTitle": "Autorisations partagées",
   "permissionDuplicate": "Déjà partagé : {values}",
   "permissionEdit": "Modificateur",
   "permissionEditChangeItem": "{identifier} : {from} → {to}",
-  "permissionEditChangeTitle": "Autorisation changes",
+  "permissionEditChangeTitle": "Modifications d’autorisation",
   "permissionEditConfirmTitle": "Confirmer les changements d’autorisations ?",
   "permissionEditNoChanges": "Aucune modification à enregistrer",
   "permissionEditRemoveTitle": "Sera supprimé",
-  "permissionEditSuccess": "Autorisation changes saved",
-  "permissionEmailInvalid": "Veuillez saisir valid email addresses: {values}",
-  "permissionEmailLabel": "Adresse e-mailes",
+  "permissionEditSuccess": "Modifications d’autorisation enregistrées",
+  "permissionEmailInvalid": "Veuillez saisir des adresses e-mail valides : {values}",
+  "permissionEmailLabel": "Adresses e-mail",
   "permissionEmailPlaceholder": "Saisir des adresses e-mail, séparées par des virgules ou des retours à la ligne",
   "permissionEmpty": "Aucun utilisateur partagé pour le moment",
   "permissionGrant": "Attribuer",
   "permissionGrantConfirmDesc": "Accorder l’accès <strong>{permission}</strong> pour {contactType}",
-  "permissionGrantConfirmTitle": "Confirmer shared access",
-  "permissionGrantSuccess": "Autorisations granted",
+  "permissionGrantConfirmTitle": "Confirmer l’accès partagé",
+  "permissionGrantSuccess": "Autorisations accordées",
   "permissionLabel": "Autorisation",
   "permissionLimit": "Jusqu’à {count} utilisateurs partagés autorisés",
   "permissionLoading": "Chargement...",
   "permissionManage": "Gérer",
   "permissionOwnerNotAllowed": "Vous ne pouvez pas accorder d’autorisations au créateur du cours",
-  "permissionPhoneInvalid": "Veuillez saisir valid phone numbers: {values}",
+  "permissionPhoneInvalid": "Veuillez saisir des numéros de téléphone valides : {values}",
   "permissionPhoneLabel": "Numéros de téléphone",
-  "permissionPhonePlaceholder": "Saisir phone numbers to grant shared access in bulk",
+  "permissionPhonePlaceholder": "Saisir des numéros de téléphone pour accorder l’accès partagé en lot",
   "permissionPublish": "Publier",
   "permissionPublishHint": "La publication inclut l’autorisation de modification",
   "permissionPublishHintWrapped": "({hint})",
@@ -166,7 +166,7 @@
   "supportedFormats": "Seuls les formats JPG et PNG sont pris en charge",
   "temperatureHint": "Définir la créativité de la sortie IA (0-2)",
   "temperatureHint2": "Plus la température est basse, plus la sortie est stable mais moins créative ; plus elle est élevée, plus la sortie est instable mais créative",
-  "title": "Cours Paramètres",
+  "title": "Paramètres du cours",
   "ttsDescription": "Une fois activé, les leçons sont enseignées avec PPT et lecture vocale",
   "ttsEmotion": "Émotion",
   "ttsEmotionDefault": "Par défaut",
@@ -177,12 +177,12 @@
   "ttsPreviewLoading": "Chargement...",
   "ttsPreviewStop": "Arrêter",
   "ttsProvider": "Fournisseur",
-  "ttsProviderHint": "Sélectionner a TTS provider",
-  "ttsProviderRequiredDesc": "Veuillez choisir a voice provider before enabling listen mode.",
-  "ttsProviderRequiredTitle": "Sélectionner a TTS provider",
+  "ttsProviderHint": "Sélectionner un fournisseur TTS",
+  "ttsProviderRequiredDesc": "Veuillez choisir un fournisseur vocal avant d’activer le mode écoute.",
+  "ttsProviderRequiredTitle": "Sélectionner un fournisseur TTS",
   "ttsSelectEmotion": "Sélectionner une émotion",
   "ttsSelectModel": "Sélectionner un modèle",
-  "ttsSelectProvider": "Sélectionner provider",
+  "ttsSelectProvider": "Sélectionner le fournisseur",
   "ttsSelectVoice": "Sélectionner une voix",
   "ttsSpeed": "Vitesse",
   "ttsSpeedHint": "Ajuster la vitesse de parole (plage propre au fournisseur)",
@@ -190,7 +190,7 @@
   "ttsVoice": "Voix",
   "unarchive": "Restaurer le cours",
   "unarchiveConfirm": "La restauration replace le cours dans « Tous ». La modification et l’apprentissage restent disponibles.",
-  "unarchiveSuccess": "Cours restored",
+  "unarchiveSuccess": "Cours restauré",
   "unarchiveTitle": "Restaurer le cours ?",
   "upload": "Téléverser",
   "uploadFailed": "Échec du téléversement, veuillez réessayer plus tard",

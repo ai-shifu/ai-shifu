@@ -6,7 +6,7 @@
   "coursePromptDialog": {
     "copy": "Copier",
     "copyFailed": "Échec de la copie du prompt du cours",
-    "copySuccess": "Prompt du cours copied",
+    "copySuccess": "Prompt du cours copié",
     "empty": "Aucun prompt de cours",
     "title": "Prompt du cours"
   },
@@ -74,8 +74,8 @@
         "currentRecordHint": "Lire dans l’ordre : sortie originale -> suivi actuel -> réponse système actuelle.",
         "fields": {
           "chapter": "Chapitre / Leçon",
-          "currentAnswer": "Actuel System Answer",
-          "currentFollowUp": "Actuel Follow-up",
+          "currentAnswer": "Réponse système actuelle",
+          "currentFollowUp": "Suivi actuel",
           "followUpTime": "Heure de suivi",
           "nickname": "Pseudonyme",
           "sourceOutput": "Sortie originale",
@@ -85,21 +85,21 @@
         },
         "sections": {
           "basicInfo": "Informations de base",
-          "currentRecord": "Actuel Follow-up Détail",
+          "currentRecord": "Détail du suivi actuel",
           "timeline": "Chronologie"
         },
         "sourceUnavailable": "Impossible de localiser la sortie originale de cet enregistrement historique.",
         "timeline": {
-          "current": "Actuel Turn",
+          "current": "Tour actuel",
           "student": "Apprenant",
           "teacher": "Système"
         },
-        "title": "Follow-up Détail"
+        "title": "Détail du suivi"
       },
       "emptyValue": "--",
       "filters": {
-        "chapterKeyword": "Chapitre / Leçon Recherche",
-        "chapterKeywordPlaceholder": "Chapitre / Leçon Titre",
+        "chapterKeyword": "Recherche chapitre / leçon",
+        "chapterKeywordPlaceholder": "Titre du chapitre / de la leçon",
         "followUpTime": "Heure de suivi",
         "lessonKeyword": "Recherche de leçon",
         "lessonKeywordPlaceholder": "Titre de la leçon",
@@ -123,12 +123,12 @@
       "table": {
         "action": "Action",
         "chapter": "Chapitre",
-        "content": "Follow-up Contenu",
+        "content": "Contenu du suivi",
         "createdAt": "Heure de suivi",
         "detailAction": "Voir le détail",
         "empty": "Aucune donnée de suivi",
         "lesson": "Leçon",
-        "title": "Follow-up Liste",
+        "title": "Liste des suivis",
         "turnIndex": "Tour",
         "user": "Utilisateur"
       },
@@ -158,8 +158,8 @@
       "back": "Retour au détail du cours",
       "emptyValue": "--",
       "filters": {
-        "chapterKeyword": "Chapitre / Leçon Recherche",
-        "chapterKeywordPlaceholder": "Chapitre / Leçon Titre",
+        "chapterKeyword": "Recherche chapitre / leçon",
+        "chapterKeywordPlaceholder": "Titre du chapitre / de la leçon",
         "commentStatus": "Commentaire",
         "commentStatusAll": "Tous",
         "commentStatusCommented": "Avec commentaire",
@@ -175,7 +175,7 @@
         "search": "Rechercher",
         "sortBy": "Trier",
         "sortByLatest": "Plus récent d’abord",
-        "sortByLowScore": "Lowest Note First",
+        "sortByLowScore": "Note la plus basse d’abord",
         "timePlaceholder": "Début / fin de la notation",
         "userKeyword": "Recherche utilisateur",
         "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
@@ -225,7 +225,7 @@
     "usersDescription": "Consulter les utilisateurs liés au cours, leur progression d’apprentissage, leur statut de paiement et leur activité récente.",
     "usersFilters": {
       "all": "Tous",
-      "learningStatus": "Learning Statut",
+      "learningStatus": "Statut d’apprentissage",
       "paymentPaid": "Payé",
       "paymentStatus": "Paiement",
       "paymentUnpaid": "Non payé",
@@ -247,7 +247,7 @@
       "lastLearnedAt": "Dernier apprentissage",
       "lastLoginAt": "Dernière connexion",
       "learningProgress": "Progression",
-      "learningStatus": "Learning Statut",
+      "learningStatus": "Statut d’apprentissage",
       "nickname": "Pseudonyme",
       "totalPaidAmount": "Montant payé",
       "userId": "ID utilisateur",
@@ -271,13 +271,13 @@
     "status": "Statut"
   },
   "overview": {
-    "activeFilter": "Quick Filtre",
+    "activeFilter": "Filtre rapide",
     "metrics": {
-      "createdLast7d": "Nouveau Cours (7d)",
-      "draftCourses": "Draft Cours",
+      "createdLast7d": "Nouveaux cours (7 j)",
+      "draftCourses": "Cours en brouillon",
       "learningActive30d": "Cours avec apprentissage (30 j)",
       "ordered30d": "Cours avec commandes (30 j)",
-      "publishedCourses": "Published Cours",
+      "publishedCourses": "Cours publiés",
       "totalCourses": "Total des cours"
     },
     "title": "Vue d’ensemble",
@@ -286,7 +286,7 @@
       "draftCourses": "Cours jamais publiés",
       "learningActive30d": "Cours avec apprentissage dans les 30 derniers jours",
       "ordered30d": "Cours avec commandes payées dans les 30 derniers jours",
-      "publishedCourses": "Cours published at least once",
+      "publishedCourses": "Cours publiés au moins une fois",
       "totalCourses": "Total des cours"
     }
   },

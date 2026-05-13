@@ -12,8 +12,8 @@
       "chapterProgress": "Distribution de la progression par chapitre",
       "learningTrend": "Tendance de l’activité d’apprentissage",
       "placeholder": "Les graphiques arrivent bientôt",
-      "questionsByChapter": "Follow-up Questions by Chapitre",
-      "questionsByTime": "Follow-up Questions by Heure",
+      "questionsByChapter": "Questions de suivi par chapitre",
+      "questionsByTime": "Questions de suivi par heure",
       "title": "Graphiques"
     },
     "courseIdLabel": "ID du cours",
@@ -24,7 +24,7 @@
         "progress": "Progression",
         "questions": "Total des questions"
       },
-      "empty": "Apprenant list is coming soon",
+      "empty": "La liste des apprenants arrive bientôt",
       "title": "Liste des apprenants"
     },
     "metrics": {

@@ -1,3 +1,5 @@
+import sharedLocalesMetadata from '../../../i18n/locales.json';
+
 type LocalesMetadata = {
   default: string;
   locales: Record<string, { label: string; rtl?: boolean }>;
@@ -8,7 +10,7 @@ const rawMetadata = process.env.NEXT_PUBLIC_I18N_META;
 
 const metadata: LocalesMetadata = rawMetadata
   ? (JSON.parse(rawMetadata) as LocalesMetadata)
-  : { default: 'en-US', locales: {} };
+  : (sharedLocalesMetadata as LocalesMetadata);
 
 export const localeEntries = Object.entries(metadata.locales) as [
   string,

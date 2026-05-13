@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.profiles",
   "add": "Ajouter",
-  "addNewVariable": "Ajouter Nouveau Variable",
+  "addNewVariable": "Ajouter une nouvelle variable",
   "cancel": "Annuler",
   "confirm": "Confirmer",
   "confirmDelete": "Confirmer la suppression",

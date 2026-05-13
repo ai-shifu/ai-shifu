@@ -1,6 +1,6 @@
 {
   "__namespace__": "server.genMdf",
-  "MDF_API_CONNECTION_ERROR": "Échec to connect to MDF service",
+  "MDF_API_CONNECTION_ERROR": "Échec de la connexion au service MDF",
   "MDF_API_ERROR": "Échec de la conversion MDF",
   "MDF_API_INVALID_RESPONSE": "Réponse invalide du service MDF",
   "MDF_API_NOT_CONFIGURED": "Le service de conversion MDF n’est pas configuré",
