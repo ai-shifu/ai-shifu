@@ -256,6 +256,37 @@ describe('listenModeUtils', () => {
     ]);
   });
 
+  it('falls back to audio track subtitle cues when payload cues are absent', () => {
+    const subtitleCues = resolveListenSlideSubtitleCues(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 1,
+            audioUrl: 'https://example.com/audio-1.mp3',
+            subtitleCues: [
+              {
+                text: '第二段字幕。',
+                start_ms: 0,
+                end_ms: 900,
+                segment_index: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(subtitleCues).toEqual([
+      {
+        text: '第二段字幕',
+        start_ms: 0,
+        end_ms: 900,
+        segment_index: 0,
+        position: 1,
+      },
+    ]);
+  });
+
   it('strips disallowed trailing punctuation from subtitle cues', () => {
     const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({

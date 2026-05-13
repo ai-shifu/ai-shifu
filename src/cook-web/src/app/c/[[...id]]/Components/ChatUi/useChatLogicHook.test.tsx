@@ -434,6 +434,15 @@ describe('useChatLogicHook stream cleanup', () => {
           audio_bid: 'audio-1',
           duration_ms: 321,
           position: 0,
+          subtitle_cues: [
+            {
+              text: '第一段字幕。',
+              start_ms: 0,
+              end_ms: 321,
+              segment_index: 0,
+              position: 0,
+            },
+          ],
         },
       });
       await audioPromise;
@@ -453,6 +462,15 @@ describe('useChatLogicHook stream cleanup', () => {
           audio_bid: 'audio-2',
           duration_ms: 654,
           position: 1,
+          subtitle_cues: [
+            {
+              text: '第二段字幕。',
+              start_ms: 0,
+              end_ms: 654,
+              segment_index: 0,
+              position: 1,
+            },
+          ],
         },
       });
     });
@@ -463,6 +481,26 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(audioTracks.map(track => track.audioUrl)).toEqual([
       'https://example.com/generated-block-1.mp3',
       'https://example.com/generated-block-1-position-1.mp3',
+    ]);
+    expect(audioTracks.map(track => track.subtitleCues)).toEqual([
+      [
+        {
+          text: '第一段字幕。',
+          start_ms: 0,
+          end_ms: 321,
+          segment_index: 0,
+          position: 0,
+        },
+      ],
+      [
+        {
+          text: '第二段字幕。',
+          start_ms: 0,
+          end_ms: 654,
+          segment_index: 0,
+          position: 1,
+        },
+      ],
     ]);
     expect(close).not.toHaveBeenCalled();
 

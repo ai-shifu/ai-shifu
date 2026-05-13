@@ -252,3 +252,6 @@ def preprocess_for_tts(text: str) -> str:
     text = "\n".join(lines)
 
     return text.strip()
+
+
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor  # noqa: E402,F401

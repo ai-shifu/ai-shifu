@@ -114,6 +114,46 @@ const normalizeOptionalNumber = (value: unknown) => {
   return Number.isFinite(normalized) ? normalized : undefined;
 };
 
+const normalizeAudioCompleteSubtitleCues = (
+  value: unknown,
+): AudioCompleteData['subtitle_cues'] => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const subtitleCues = value.reduce<
+    NonNullable<AudioCompleteData['subtitle_cues']>
+  >((result, rawCue) => {
+    if (!rawCue || typeof rawCue !== 'object') {
+      return result;
+    }
+
+    const cue = rawCue as Record<string, unknown>;
+    const text = typeof cue.text === 'string' ? cue.text : '';
+    const startMs = normalizeOptionalNumber(cue.start_ms);
+    const endMs = normalizeOptionalNumber(cue.end_ms);
+
+    if (!text || startMs === undefined || endMs === undefined) {
+      return result;
+    }
+
+    const segmentIndex = normalizeOptionalNumber(cue.segment_index);
+    const position = normalizeOptionalNumber(cue.position);
+
+    result.push({
+      text,
+      start_ms: startMs,
+      end_ms: endMs,
+      ...(segmentIndex === undefined ? {} : { segment_index: segmentIndex }),
+      ...(position === undefined ? {} : { position }),
+    });
+
+    return result;
+  }, []);
+
+  return subtitleCues.length > 0 ? subtitleCues : undefined;
+};
+
 const resolveStudyRecordAudioComplete = (
   record: StudyRecordItem,
 ): Partial<AudioCompleteData> | null => {
@@ -146,6 +186,9 @@ const resolveStudyRecordAudioComplete = (
     !Array.isArray(audioPayload.av_contract)
       ? (audioPayload.av_contract as Record<string, any>)
       : undefined;
+  const subtitleCues = normalizeAudioCompleteSubtitleCues(
+    audioPayload?.subtitle_cues,
+  );
 
   return {
     audio_url: audioUrl,
@@ -154,6 +197,7 @@ const resolveStudyRecordAudioComplete = (
     ...(position === undefined ? {} : { position }),
     ...(slideId ? { slide_id: slideId } : {}),
     ...(avContract ? { av_contract: avContract } : {}),
+    ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
   };
 };
 
@@ -185,6 +229,7 @@ const hydrateAudioTracksWithCompleteUrl = (
     isAudioStreaming: false,
     slideId: audioComplete.slide_id ?? targetTrack.slideId,
     avContract: audioComplete.av_contract ?? targetTrack.avContract,
+    subtitleCues: audioComplete.subtitle_cues ?? targetTrack.subtitleCues,
   };
   const nextTracks =
     targetIndex >= 0
@@ -233,6 +278,9 @@ const normalizeAudioCompletePayload = (
     !Array.isArray(rawAvContract)
       ? (rawAvContract as Record<string, any>)
       : undefined;
+  const subtitleCues = normalizeAudioCompleteSubtitleCues(
+    source.subtitle_cues ?? source.subtitleCues,
+  );
 
   return {
     audio_url: audioUrl,
@@ -241,6 +289,7 @@ const normalizeAudioCompletePayload = (
     ...(position === undefined ? {} : { position }),
     ...(slideId ? { slide_id: slideId } : {}),
     ...(avContract === undefined ? {} : { av_contract: avContract }),
+    ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
   };
 };
 
@@ -837,6 +886,7 @@ function useChatLogicHook({
               elementId: audio.element_id,
               slideId: audio.slide_id,
               avContract: audio.av_contract ?? null,
+              subtitleCues: audio.subtitle_cues,
             },
           ];
           track.isAudioStreaming = Boolean(

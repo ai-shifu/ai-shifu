@@ -201,6 +201,7 @@ export interface AudioSegmentData {
   element_id?: string;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface AudioCompleteData {
@@ -210,6 +211,7 @@ export interface AudioCompleteData {
   position?: number;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface ListenSlideData {

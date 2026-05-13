@@ -53,16 +53,12 @@ const sortSubtitleCues = (cues: ElementSubtitleCue[]) =>
 
 interface ListenSlideSubtitleCueSource {
   payload?: StudyRecordPayload;
+  audioTracks?: AudioTrack[];
 }
 
-export const resolveListenSlideSubtitleCues = (
-  item: ListenSlideSubtitleCueSource,
+const normalizeRawSubtitleCues = (
+  rawSubtitleCues: unknown,
 ): ElementSubtitleCue[] | undefined => {
-  const audioPayload = item.payload?.audio as
-    | StudyRecordAudioPayload
-    | undefined;
-  const rawSubtitleCues = audioPayload?.subtitle_cues as unknown;
-
   if (!Array.isArray(rawSubtitleCues)) {
     return undefined;
   }
@@ -107,15 +103,64 @@ export const resolveListenSlideSubtitleCues = (
     : undefined;
 };
 
+const resolveAudioTrackSubtitleCues = (
+  tracks: AudioTrack[] = [],
+): unknown[] => {
+  return sortByPosition(tracks).flatMap(track => {
+    if (track.subtitleCues?.length) {
+      return track.subtitleCues.map(cue => ({
+        ...cue,
+        position: cue.position ?? track.position,
+      }));
+    }
+
+    return sortSegmentsByIndex(track.audioSegments ?? []).flatMap(segment =>
+      (segment.subtitleCues ?? []).map(cue => ({
+        ...cue,
+        position: cue.position ?? segment.position ?? track.position,
+      })),
+    );
+  });
+};
+
+export const resolveListenSlideSubtitleCues = (
+  item: ListenSlideSubtitleCueSource,
+): ElementSubtitleCue[] | undefined => {
+  const audioPayload = item.payload?.audio as
+    | StudyRecordAudioPayload
+    | undefined;
+  const payloadSubtitleCues = normalizeRawSubtitleCues(
+    audioPayload?.subtitle_cues,
+  );
+
+  if (payloadSubtitleCues?.length) {
+    return payloadSubtitleCues;
+  }
+
+  const trackSubtitleCues = resolveAudioTrackSubtitleCues(
+    item.audioTracks ?? [],
+  );
+  return trackSubtitleCues.length > 0
+    ? normalizeRawSubtitleCues(trackSubtitleCues)
+    : undefined;
+};
+
 export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   const trackByPosition = new Map<number, AudioTrack>();
 
   (item.audioTracks ?? []).forEach(track => {
     const position = Number(track.position ?? 0);
+    const trackSubtitleCues = track.subtitleCues?.length
+      ? track.subtitleCues
+      : sortSegmentsByIndex(track.audioSegments ?? []).flatMap(
+          segment => segment.subtitleCues ?? [],
+        );
     trackByPosition.set(position, {
       ...track,
       position,
       audioSegments: sortSegmentsByIndex(track.audioSegments ?? []),
+      subtitleCues:
+        trackSubtitleCues.length > 0 ? trackSubtitleCues : undefined,
     });
   });
 
