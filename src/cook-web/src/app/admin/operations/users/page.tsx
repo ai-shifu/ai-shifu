@@ -413,6 +413,18 @@ export default function AdminOperationUsersPage() {
       maxWidth: COLUMN_MAX_WIDTH,
     });
 
+  const handleUserDetailClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, userBid: string) => {
+      const userDetailUrl = buildAdminOperationsUserDetailUrl(userBid);
+      if (!userDetailUrl) {
+        return;
+      }
+      event.preventDefault();
+      window.open(userDetailUrl, '_blank', 'noopener,noreferrer');
+    },
+    [],
+  );
+
   const resolveStatusLabel = useCallback(
     (status: string) => {
       const normalized =
@@ -1348,6 +1360,9 @@ export default function AdminOperationUsersPage() {
                           {userDetailUrl ? (
                             <Link
                               href={userDetailUrl}
+                              onClick={event =>
+                                handleUserDetailClick(event, user.user_bid)
+                              }
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(user.user_bid)}
@@ -1367,6 +1382,9 @@ export default function AdminOperationUsersPage() {
                           ) : userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
+                              onClick={event =>
+                                handleUserDetailClick(event, user.user_bid)
+                              }
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(primaryContact)}
