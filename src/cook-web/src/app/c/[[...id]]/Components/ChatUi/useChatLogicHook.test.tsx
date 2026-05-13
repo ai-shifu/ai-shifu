@@ -365,15 +365,68 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('uses generated_block_bid for audio backfill and writes audio to the rendered element', async () => {
+  it('uses generated_block_bid for audio backfill and writes audio to speakable elements by history order', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
       elements: [
         {
           element_type: 'text',
-          content: 'History content without audio',
+          content: 'First history content without audio',
           generated_block_bid: 'generated-block-1',
           element_bid: 'element-1',
+          element_index: 0,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+        {
+          element_type: 'html',
+          content: '<section>First visual marker</section>',
+          generated_block_bid: 'generated-block-1',
+          element_bid: 'visual-1',
+          element_index: 1,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: false,
+          is_renderable: true,
+          is_marker: true,
+          is_new: false,
+        },
+        {
+          element_type: 'text',
+          content: 'Second history content without audio',
+          generated_block_bid: 'generated-block-1',
+          element_bid: 'element-2',
+          element_index: 2,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+        {
+          element_type: 'html',
+          content: '<section>Second visual marker</section>',
+          generated_block_bid: 'generated-block-1',
+          element_bid: 'visual-2',
+          element_index: 3,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: false,
+          is_renderable: true,
+          is_marker: true,
+          is_new: false,
+        },
+        {
+          element_type: 'text',
+          content: 'Third history content without audio',
+          generated_block_bid: 'generated-block-1',
+          element_bid: 'element-3',
+          element_index: 4,
           like_status: 'none',
           user_input: '',
           is_speakable: true,
@@ -434,6 +487,7 @@ describe('useChatLogicHook stream cleanup', () => {
           audio_bid: 'audio-1',
           duration_ms: 321,
           position: 0,
+          stream_element_number: 0,
           subtitle_cues: [
             {
               text: '第一段字幕。',
@@ -475,14 +529,35 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    const audioTracks =
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+        content: {
+          audio_url: 'https://example.com/generated-block-1-position-2.mp3',
+          audio_bid: 'audio-3',
+          duration_ms: 987,
+          position: 2,
+          stream_element_number: 99,
+          subtitle_cues: [
+            {
+              text: '第三段字幕。',
+              start_ms: 0,
+              end_ms: 987,
+              segment_index: 0,
+              position: 2,
+            },
+          ],
+        },
+      });
+    });
+
+    const firstElementAudioTracks =
       result.current.items.find(item => item.element_bid === 'element-1')
         ?.audioTracks ?? [];
-    expect(audioTracks.map(track => track.audioUrl)).toEqual([
+    expect(firstElementAudioTracks.map(track => track.audioUrl)).toEqual([
       'https://example.com/generated-block-1.mp3',
-      'https://example.com/generated-block-1-position-1.mp3',
     ]);
-    expect(audioTracks.map(track => track.subtitleCues)).toEqual([
+    expect(firstElementAudioTracks.map(track => track.subtitleCues)).toEqual([
       [
         {
           text: '第一段字幕。',
@@ -492,6 +567,24 @@ describe('useChatLogicHook stream cleanup', () => {
           position: 0,
         },
       ],
+    ]);
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'visual-1')
+        ?.audioTracks ?? [],
+    ).toEqual([]);
+    expect(
+      result.current.items.find(item => item.element_bid === 'visual-2')
+        ?.audioTracks ?? [],
+    ).toEqual([]);
+
+    const secondElementAudioTracks =
+      result.current.items.find(item => item.element_bid === 'element-2')
+        ?.audioTracks ?? [];
+    expect(secondElementAudioTracks.map(track => track.audioUrl)).toEqual([
+      'https://example.com/generated-block-1-position-1.mp3',
+    ]);
+    expect(secondElementAudioTracks.map(track => track.subtitleCues)).toEqual([
       [
         {
           text: '第二段字幕。',
@@ -499,6 +592,24 @@ describe('useChatLogicHook stream cleanup', () => {
           end_ms: 654,
           segment_index: 0,
           position: 1,
+        },
+      ],
+    ]);
+
+    const thirdElementAudioTracks =
+      result.current.items.find(item => item.element_bid === 'element-3')
+        ?.audioTracks ?? [];
+    expect(thirdElementAudioTracks.map(track => track.audioUrl)).toEqual([
+      'https://example.com/generated-block-1-position-2.mp3',
+    ]);
+    expect(thirdElementAudioTracks.map(track => track.subtitleCues)).toEqual([
+      [
+        {
+          text: '第三段字幕。',
+          start_ms: 0,
+          end_ms: 987,
+          segment_index: 0,
+          position: 2,
         },
       ],
     ]);

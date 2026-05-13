@@ -5,6 +5,7 @@ import {
   hasListenModeDisplayOnlyContent,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillCandidate,
+  resolveListenSlideAudioSource,
   resolveListenSlideSubtitleCues,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
@@ -112,6 +113,35 @@ describe('listenModeUtils', () => {
 
     expect(hasPlayableListenAudioForItem(item)).toBe(true);
     expect(getMissingListenModeAudioBlockBids([item])).toEqual([]);
+  });
+
+  it('uses completed audio url as the canonical slide source over stale stream segments', () => {
+    const source = resolveListenSlideAudioSource(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+            isAudioStreaming: false,
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'partial-audio',
+                durationMs: 100,
+                isFinal: false,
+                position: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(source).toEqual({
+      audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+      audioSegments: undefined,
+      isAudioStreaming: false,
+    });
   });
 
   it('does not make non-speakable content a listen-mode backfill candidate', () => {

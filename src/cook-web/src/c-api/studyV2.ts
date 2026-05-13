@@ -198,6 +198,8 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   element_id?: string;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
@@ -209,6 +211,8 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
   subtitle_cues?: SubtitleCueData[];

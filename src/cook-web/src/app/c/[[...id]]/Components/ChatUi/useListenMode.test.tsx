@@ -137,4 +137,109 @@ describe('useListenAudioSequence', () => {
 
     await waitFor(() => expect(slide).toHaveBeenCalledWith(2));
   });
+
+  it('continues late audio positions that arrive on another element in the same generated block', async () => {
+    let currentPage = 0;
+    const slide = jest.fn((page: number) => {
+      currentPage = page;
+    });
+    const deckRef = {
+      current: {
+        getIndices: () => ({ h: currentPage }),
+        slide,
+      } as unknown as Reveal.Api,
+    };
+    const currentPptPageRef = { current: 0 };
+    const activeElementBidRef = { current: null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: true };
+    const firstContent = createContentItem({
+      element_bid: 'element-1',
+      generated_block_bid: 'generated-block-1',
+    });
+    const secondContent = createContentItem({
+      element_bid: 'element-2',
+      generated_block_bid: 'generated-block-1',
+    });
+    const contentByBid = new Map<string, ChatContentItem>([
+      ['element-1', firstContent],
+      ['element-2', secondContent],
+    ]);
+    const audioContentByBid = new Map<string, ChatContentItem>([
+      ['element-1', firstContent],
+      ['element-2', secondContent],
+    ]);
+    const setIsAudioPlaying = jest.fn();
+    const firstAudioBid = buildListenAudioSequenceBid('element-1', 0);
+    const secondAudioBid = buildListenAudioSequenceBid('element-2', 1);
+
+    const { rerender, result } = renderHook(
+      ({
+        audioAndInteractionList,
+        sequenceStartSignal,
+      }: {
+        audioAndInteractionList: AudioInteractionItem[];
+        sequenceStartSignal: number;
+      }) =>
+        useListenAudioSequence({
+          audioAndInteractionList,
+          deckRef,
+          currentPptPageRef,
+          activeElementBidRef,
+          pendingAutoNextRef,
+          shouldStartSequenceRef,
+          sequenceStartSignal,
+          contentByBid,
+          audioContentByBid,
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: resolveListenAudioSourceBid,
+          allowAutoPlayback: true,
+          isAudioPlaying: false,
+          setIsAudioPlaying,
+        }),
+      {
+        initialProps: {
+          audioAndInteractionList: [
+            createAudioItem({
+              element_bid: firstAudioBid,
+              generated_block_bid: 'generated-block-1',
+              page: 0,
+            }),
+          ],
+          sequenceStartSignal: 1,
+        },
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.activeSequenceElementBid).toBe(firstAudioBid),
+    );
+
+    slide.mockClear();
+    rerender({
+      audioAndInteractionList: [
+        createAudioItem({
+          element_bid: firstAudioBid,
+          generated_block_bid: 'generated-block-1',
+          page: 0,
+        }),
+        createAudioItem({
+          element_bid: secondAudioBid,
+          generated_block_bid: 'generated-block-1',
+          page: 2,
+          audioPosition: 1,
+          audioUrl: 'https://example.com/audio-position-1.mp3',
+        }),
+      ],
+      sequenceStartSignal: 1,
+    });
+
+    await waitFor(() =>
+      expect(result.current.activeSequenceElementBid).toBe(secondAudioBid),
+    );
+    expect(slide).toHaveBeenCalledWith(2);
+  });
 });

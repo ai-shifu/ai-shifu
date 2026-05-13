@@ -994,13 +994,39 @@ export const useListenAudioSequence = ({
       const lastPlayedSourceBid = resolveContentBid(
         lastPlayedAudioBidRef.current,
       );
-      const shouldResumeLateAudioFromSameBlock =
-        !isSequenceActive &&
+      const lastPlayedItem = lastPlayedAudioBidRef.current
+        ? audioAndInteractionList.find(
+            item => item.element_bid === lastPlayedAudioBidRef.current,
+          )
+        : undefined;
+      const newItemGeneratedBlockBid =
+        newItem?.generated_block_bid ||
+        (newItemSourceBid
+          ? contentByBid.get(newItemSourceBid)?.generated_block_bid ||
+            audioContentByBid.get(newItemSourceBid)?.generated_block_bid
+          : undefined);
+      const lastPlayedGeneratedBlockBid =
+        lastPlayedItem?.generated_block_bid ||
+        (lastPlayedSourceBid
+          ? contentByBid.get(lastPlayedSourceBid)?.generated_block_bid ||
+            audioContentByBid.get(lastPlayedSourceBid)?.generated_block_bid
+          : undefined);
+      const isIdleAtTail =
+        isSequenceActive &&
         !isAudioPlayingNow &&
+        currentIndex >= 0 &&
+        currentIndex === prevLength - 1 &&
+        newItemIndex === nextLength - 1;
+      const shouldResumeLateAudioFromSameBlock =
+        !isAudioPlayingNow &&
+        (!isSequenceActive || isIdleAtTail) &&
         Boolean(
-          newItemSourceBid &&
-          lastPlayedSourceBid &&
-          newItemSourceBid === lastPlayedSourceBid,
+          (newItemSourceBid &&
+            lastPlayedSourceBid &&
+            newItemSourceBid === lastPlayedSourceBid) ||
+          (newItemGeneratedBlockBid &&
+            lastPlayedGeneratedBlockBid &&
+            newItemGeneratedBlockBid === lastPlayedGeneratedBlockBid),
         );
 
       if (newItem?.page === currentPage) {
@@ -1032,12 +1058,6 @@ export const useListenAudioSequence = ({
           // Guard against interruption: only block when audio is actively playing.
           // If sequence is idle at tail, allow continuing with appended item.
           const isSwitchingToDifferentItem = currentIndex !== newItemIndex;
-          const isIdleAtTail =
-            isSequenceActive &&
-            !isAudioPlayingNow &&
-            currentIndex >= 0 &&
-            currentIndex === prevLength - 1 &&
-            newItemIndex === nextLength - 1;
           const shouldBlockAutoSwitch =
             isAudioPlayingNow && isSwitchingToDifferentItem;
 
@@ -1072,6 +1092,8 @@ export const useListenAudioSequence = ({
     sequenceInteraction,
     deckRef,
     currentPptPageRef,
+    audioContentByBid,
+    contentByBid,
     resolveContentBid,
     resolveSequenceStartIndex,
     shouldSkipAppendAutoPlayFromRecentEnded,

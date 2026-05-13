@@ -183,6 +183,17 @@ export const resolveListenSlideAudioSource = (
 
   // Keep one canonical source in slide playback to avoid duplicated playback.
   if (playableTracks.length > 0) {
+    const completedTrack = playableTracks.find(track =>
+      Boolean(track.audioUrl?.trim()),
+    );
+    if (completedTrack?.audioUrl) {
+      return {
+        audioUrl: completedTrack.audioUrl,
+        audioSegments: undefined,
+        isAudioStreaming: false,
+      };
+    }
+
     const trackAudioSegments = mergeAudioSegmentDataList(
       item.element_bid,
       getAudioSegmentDataListFromTracks(playableTracks),

@@ -10,6 +10,8 @@ export interface AudioSegment {
   durationMs: number;
   isFinal: boolean;
   position?: number;
+  streamElementNumber?: number;
+  streamElementType?: string;
   elementId?: string;
   slideId?: string;
   avContract?: Record<string, any> | null;
@@ -115,6 +117,10 @@ export interface AudioSegmentPayload {
   is_final?: boolean;
   isFinal?: boolean;
   position?: number;
+  stream_element_number?: number;
+  streamElementNumber?: number;
+  stream_element_type?: string;
+  streamElementType?: string;
   element_id?: string;
   elementId?: string;
   slide_id?: string;
@@ -197,6 +203,9 @@ export const normalizeAudioSegmentPayload = (
     durationMs: payload.duration_ms ?? payload.durationMs ?? 0,
     isFinal: payload.is_final ?? payload.isFinal ?? false,
     position: payload.position,
+    streamElementNumber:
+      payload.stream_element_number ?? payload.streamElementNumber,
+    streamElementType: payload.stream_element_type ?? payload.streamElementType,
     elementId: payload.element_id ?? payload.elementId,
     slideId: payload.slide_id ?? payload.slideId,
     avContract: payload.av_contract ?? payload.avContract ?? null,
@@ -212,6 +221,8 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   durationMs: segment.duration_ms,
   isFinal: segment.is_final,
   position: normalizeAudioPosition(segment.position),
+  streamElementNumber: segment.stream_element_number,
+  streamElementType: segment.stream_element_type,
   elementId: segment.element_id,
   slideId: segment.slide_id,
   avContract: segment.av_contract ?? null,
@@ -226,6 +237,8 @@ export const toAudioSegmentData = (
   duration_ms: segment.durationMs,
   is_final: segment.isFinal,
   position: normalizeAudioPosition(segment.position),
+  stream_element_number: segment.streamElementNumber,
+  stream_element_type: segment.streamElementType,
   element_id: segment.elementId,
   slide_id: segment.slideId,
   av_contract: segment.avContract ?? null,

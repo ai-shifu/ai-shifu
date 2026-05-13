@@ -267,6 +267,15 @@ const normalizeAudioCompletePayload = (
     normalizeOptionalNumber(source.durationMs) ??
     0;
   const position = normalizeOptionalNumber(source.position);
+  const streamElementNumber =
+    normalizeOptionalNumber(source.stream_element_number) ??
+    normalizeOptionalNumber(source.streamElementNumber);
+  const streamElementType =
+    (typeof source.stream_element_type === 'string' &&
+      source.stream_element_type) ||
+    (typeof source.streamElementType === 'string' &&
+      source.streamElementType) ||
+    undefined;
   const slideId =
     (typeof source.slide_id === 'string' && source.slide_id) ||
     (typeof source.slideId === 'string' && source.slideId) ||
@@ -287,6 +296,10 @@ const normalizeAudioCompletePayload = (
     audio_bid: audioBid,
     duration_ms: durationMs,
     ...(position === undefined ? {} : { position }),
+    ...(streamElementNumber === undefined
+      ? {}
+      : { stream_element_number: streamElementNumber }),
+    ...(streamElementType ? { stream_element_type: streamElementType } : {}),
     ...(slideId ? { slide_id: slideId } : {}),
     ...(avContract === undefined ? {} : { av_contract: avContract }),
     ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
@@ -3162,6 +3175,44 @@ function useChatLogicHook({
           resolveOnce(value);
         };
 
+        const resolveAudioEventTargetElementBid = (
+          eventTarget?: {
+            position?: number;
+            stream_element_number?: number;
+            streamElementNumber?: number;
+          } | null,
+        ) => {
+          const blockItems = contentListRef.current.filter(
+            item =>
+              item.type === ChatContentItemType.CONTENT &&
+              item.generated_block_bid === sourceBlockBid,
+          );
+          const speakableBlockItems = blockItems.filter(
+            item => item.is_speakable !== false,
+          );
+          const streamElementNumber =
+            normalizeOptionalNumber(eventTarget?.stream_element_number) ??
+            normalizeOptionalNumber(eventTarget?.streamElementNumber);
+          if (streamElementNumber !== undefined) {
+            const matchedItem = speakableBlockItems.find(
+              item => Number(item.element_index) === streamElementNumber,
+            );
+            if (matchedItem?.element_bid) {
+              return matchedItem.element_bid;
+            }
+          }
+
+          const position = normalizeOptionalNumber(eventTarget?.position);
+          if (position !== undefined) {
+            const matchedItem = speakableBlockItems[position];
+            if (matchedItem?.element_bid) {
+              return matchedItem.element_bid;
+            }
+          }
+
+          return targetElementBid;
+        };
+
         const resetIdleTimer = () => {
           if (!effectiveListenRequestEnabled) {
             return;
@@ -3196,10 +3247,12 @@ function useChatLogicHook({
               if (!audioSegment) {
                 return;
               }
+              const audioTargetElementBid =
+                resolveAudioEventTargetElementBid(audioSegment);
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
-                  targetElementBid,
+                  audioTargetElementBid,
                   toAudioSegmentData(audioSegment),
                 ),
               );
@@ -3218,8 +3271,14 @@ function useChatLogicHook({
                 return;
               }
               latestComplete = audioComplete ?? latestComplete;
+              const audioTargetElementBid =
+                resolveAudioEventTargetElementBid(audioComplete);
               setTrackedContentList(prevState =>
-                upsertAudioComplete(prevState, targetElementBid, audioComplete),
+                upsertAudioComplete(
+                  prevState,
+                  audioTargetElementBid,
+                  audioComplete,
+                ),
               );
               if (effectiveListenRequestEnabled) {
                 resolveOnce(latestComplete ?? null);
