@@ -209,12 +209,13 @@ const createCourseUserFilters = (): CourseUserFilters => ({
   paymentStatus: FILTER_ALL_OPTION,
 });
 
-const createCourseCreditUsageFilters = (): AdminOperationCourseCreditUsageFilters => ({
-  keyword: '',
-  mode: FILTER_ALL_OPTION,
-  startTime: '',
-  endTime: '',
-});
+const createCourseCreditUsageFilters =
+  (): AdminOperationCourseCreditUsageFilters => ({
+    keyword: '',
+    mode: FILTER_ALL_OPTION,
+    startTime: '',
+    endTime: '',
+  });
 
 function ClearableTextInput({
   value,
@@ -926,7 +927,6 @@ export default function AdminOperationCourseDetailPage() {
     [courseUserPageCount, currentCourseUserPage],
   );
 
-
   const handleCourseCreditUsageSearch = useCallback(() => {
     const nextFilters = {
       ...courseCreditUsageFiltersDraft,
@@ -947,11 +947,7 @@ export default function AdminOperationCourseDetailPage() {
     (nextPage: number) => {
       const currentPage = courseCreditUsages.page || 1;
       const pageCount = Math.max(courseCreditUsages.page_count || 0, 1);
-      if (
-        nextPage < 1 ||
-        nextPage > pageCount ||
-        nextPage === currentPage
-      ) {
+      if (nextPage < 1 || nextPage > pageCount || nextPage === currentPage) {
         return;
       }
       setCourseCreditUsagePage(nextPage);
@@ -1377,7 +1373,6 @@ export default function AdminOperationCourseDetailPage() {
     ],
   );
 
-
   const renderChapterResizeHandle = (key: ChapterColumnKey) => (
     <span
       className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
@@ -1391,7 +1386,6 @@ export default function AdminOperationCourseDetailPage() {
       {...getUserResizeHandleProps(key)}
     />
   );
-
 
   const basicInfoItems = useMemo(
     () => [
@@ -1459,7 +1453,6 @@ export default function AdminOperationCourseDetailPage() {
   useEffect(() => {
     autoAdjustUserColumns(courseUserRows);
   }, [autoAdjustUserColumns, courseUserRows]);
-
 
   if (!isReady) {
     return <Loading />;

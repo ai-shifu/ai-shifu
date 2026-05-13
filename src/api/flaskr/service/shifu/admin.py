@@ -53,7 +53,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
@@ -2977,7 +2976,9 @@ def _build_credit_usage_user_keyword_filter(
     )
 
     if "@" in normalized:
-        credential_identifier_filter = db.func.lower(AuthCredential.identifier) == normalized
+        credential_identifier_filter = (
+            db.func.lower(AuthCredential.identifier) == normalized
+        )
         user_identifier_filter = db.func.lower(UserEntity.user_identify) == normalized
     elif normalized.isdigit():
         credential_identifier_filter = AuthCredential.identifier == normalized
@@ -3946,9 +3947,7 @@ def get_operator_course_credit_usages(
             )
 
         total = (
-            db.session.query(db.func.count())
-            .select_from(query.subquery())
-            .scalar()
+            db.session.query(db.func.count()).select_from(query.subquery()).scalar()
             or 0
         )
         if total == 0:

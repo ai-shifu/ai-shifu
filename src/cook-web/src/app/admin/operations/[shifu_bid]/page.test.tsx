@@ -492,7 +492,9 @@ describe('AdminOperationCourseDetailPage', () => {
     });
 
     expect(
-      screen.getByText('module.operationsCourse.detail.creditUsage.filters.userKeyword'),
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.filters.userKeyword',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(

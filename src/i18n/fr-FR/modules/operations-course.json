@@ -60,6 +60,38 @@
       "has": "Présent",
       "unknown": "Inconnu"
     },
+    "creditUsage": {
+      "count": "{count} enregistrements",
+      "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
+      "filters": {
+        "mode": "Scène d'utilisation",
+        "modeAll": "Tous",
+        "reset": "Réinitialiser",
+        "time": "Heure",
+        "timePlaceholder": "Sélectionner une plage horaire",
+        "userKeyword": "Utilisateur",
+        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
+        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme"
+      },
+      "modes": {
+        "ask": "Relance",
+        "learn": "Apprentissage",
+        "listen": "Écoute",
+        "unknown": "Scène inconnue"
+      },
+      "table": {
+        "chapter": "Chapitre",
+        "createdAt": "Heure de consommation",
+        "credits": "Crédits consommés",
+        "empty": "Aucun enregistrement de consommation de crédits",
+        "lesson": "Leçon",
+        "mode": "Scène",
+        "model": "Modèle",
+        "nickname": "Surnom"
+      },
+      "title": "Consommation de crédits"
+    },
+    "creditUsageTab": "Consommation de crédits",
     "fields": {
       "courseId": "ID du cours",
       "courseName": "Nom du cours",
@@ -221,40 +253,8 @@
       "student": "Apprenant"
     },
     "users": "Utilisateurs",
-    "creditUsageTab": "Consommation de crédits",
     "usersCount": "{count} utilisateurs du cours",
     "usersDescription": "Consulter les utilisateurs liés au cours, leur progression d’apprentissage, leur statut de paiement et leur activité récente.",
-    "creditUsage": {
-      "title": "Consommation de crédits",
-      "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
-      "count": "{count} enregistrements",
-      "filters": {
-        "userKeyword": "Utilisateur",
-        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme",
-        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
-        "mode": "Scène d'utilisation",
-        "modeAll": "Tous",
-        "time": "Heure",
-        "timePlaceholder": "Sélectionner une plage horaire",
-        "reset": "Réinitialiser"
-      },
-      "modes": {
-        "learn": "Apprentissage",
-        "listen": "Écoute",
-        "ask": "Relance",
-        "unknown": "Scène inconnue"
-      },
-      "table": {
-        "createdAt": "Heure de consommation",
-        "nickname": "Surnom",
-        "mode": "Scène",
-        "chapter": "Chapitre",
-        "lesson": "Leçon",
-        "credits": "Crédits consommés",
-        "model": "Modèle",
-        "empty": "Aucun enregistrement de consommation de crédits"
-      }
-    },
     "usersFilters": {
       "all": "Tous",
       "learningStatus": "Statut d’apprentissage",

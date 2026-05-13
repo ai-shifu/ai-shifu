@@ -241,7 +241,10 @@ export default function CourseCreditUsageTab({
         }
         const required = texts.reduce(
           (maxWidth, text) =>
-            Math.max(maxWidth, estimateColumnWidth(text, multiplierMap[key] ?? 7)),
+            Math.max(
+              maxWidth,
+              estimateColumnWidth(text, multiplierMap[key] ?? 7),
+            ),
           Number(CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS[key]),
         );
         if (
@@ -312,7 +315,9 @@ export default function CourseCreditUsageTab({
               <Select
                 value={filtersDraft.mode}
                 onValueChange={value =>
-                  onModeChange(value as AdminOperationCourseCreditUsageModeFilter)
+                  onModeChange(
+                    value as AdminOperationCourseCreditUsageModeFilter,
+                  )
                 }
               >
                 <SelectTrigger className='h-9'>
@@ -341,7 +346,9 @@ export default function CourseCreditUsageTab({
               <AdminDateRangeFilter
                 startValue={filtersDraft.startTime}
                 endValue={filtersDraft.endTime}
-                triggerAriaLabel={tOperations('detail.creditUsage.filters.time')}
+                triggerAriaLabel={tOperations(
+                  'detail.creditUsage.filters.time',
+                )}
                 placeholder={tOperations(
                   'detail.creditUsage.filters.timePlaceholder',
                 )}
