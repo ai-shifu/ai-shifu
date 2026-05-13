@@ -11,6 +11,10 @@ import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import {
+  formatAdminCount,
+  formatAdminNumber,
+} from '@/app/admin/lib/numberFormat';
+import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
@@ -46,7 +50,9 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import type {
   AdminOperationOrderItem,
   AdminOperationOrderListResponse,
+  AdminOperationOrderOverview,
 } from '../operation-order-types';
+import OrderOverviewSection from './OrderOverviewSection';
 import OperatorOrderDetailSheet from './OperatorOrderDetailSheet';
 import {
   ALL_OPTION_VALUE,
@@ -54,6 +60,7 @@ import {
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
+import { useOverviewStatusQuickFilter } from './useOverviewStatusQuickFilter';
 
 type OrderFilters = {
   user_keyword: string;
@@ -68,6 +75,13 @@ type OrderFilters = {
 };
 
 type ErrorState = { message: string; code?: number };
+type OverviewCard = {
+  key: string;
+  label: string;
+  value: string;
+  tooltip: string;
+  status?: string;
+};
 
 const PAGE_SIZE = 20;
 const DEFAULT_ORDER_STATUS = '502';
@@ -87,6 +101,15 @@ const DEFAULT_COLUMN_WIDTHS = {
   source: 130,
   action: 120,
 } as const;
+
+const EMPTY_ORDER_OVERVIEW: AdminOperationOrderOverview = {
+  total_order_count: 0,
+  paid_order_count: 0,
+  pending_order_count: 0,
+  refunded_order_count: 0,
+  closed_order_count: 0,
+  paid_amount_total: '0',
+};
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 
@@ -188,7 +211,8 @@ export default function LearnOrdersTab() {
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
-  const isEnglish = (i18n?.language || 'en-US').startsWith('en');
+  const locale = i18n?.language || 'en-US';
+  const isEnglish = locale.startsWith('en');
   const filterControlClassName = cn(
     'min-w-0 flex-1',
     isEnglish && 'xl:max-w-[220px]',
@@ -196,6 +220,9 @@ export default function LearnOrdersTab() {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [overview, setOverview] =
+    useState<AdminOperationOrderOverview>(EMPTY_ORDER_OVERVIEW);
+  const [overviewError, setOverviewError] = useState(false);
   const [orders, setOrders] = useState<AdminOperationOrderItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -208,6 +235,17 @@ export default function LearnOrdersTab() {
   const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(
     () => initialFilters,
   );
+  const {
+    activeOverviewStatus,
+    applyStatusQuickFilter,
+    clearOverviewQuickFilter,
+    resetOverviewQuickFilterState,
+  } = useOverviewStatusQuickFilter<OrderFilters>({
+    appliedFilters,
+    setDraftFilters,
+    setAppliedFilters,
+    setPageIndex,
+  });
   const requestIdRef = useRef(0);
   const lastRequestedPageRef = useRef(1);
   const initialFiltersRef = useRef(initialFilters);
@@ -225,6 +263,21 @@ export default function LearnOrdersTab() {
     }
     return tOperationsOrder('filters.userKeywordPlaceholderPhone');
   }, [contactType, tOperationsOrder]);
+
+  const fetchOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationOrdersOverview(
+        {},
+      )) as AdminOperationOrderOverview;
+      setOverview({
+        ...EMPTY_ORDER_OVERVIEW,
+        ...response,
+      });
+      setOverviewError(false);
+    } catch {
+      setOverviewError(true);
+    }
+  }, []);
 
   const fetchOrders = useCallback(
     async (targetPage: number, filters: OrderFilters) => {
@@ -280,23 +333,68 @@ export default function LearnOrdersTab() {
       return;
     }
     initialFiltersRef.current = initialFilters;
+    resetOverviewQuickFilterState();
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setPageIndex(1);
-  }, [initialFilters]);
+  }, [initialFilters, resetOverviewQuickFilterState]);
+
+  React.useEffect(() => {
+    void fetchOverview();
+  }, [fetchOverview]);
 
   React.useEffect(() => {
     void fetchOrders(1, appliedFilters);
   }, [appliedFilters, fetchOrders]);
 
+  const overviewCards = useMemo<OverviewCard[]>(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsOrder('overview.metrics.totalOrders'),
+        value: formatAdminCount(overview.total_order_count, locale),
+        tooltip: tOperationsOrder('overview.tooltips.totalOrders'),
+        status: '',
+      },
+      {
+        key: 'paid',
+        label: tOperationsOrder('overview.metrics.paidOrders'),
+        value: formatAdminCount(overview.paid_order_count, locale),
+        tooltip: tOperationsOrder('overview.tooltips.paidOrders'),
+        status: '502',
+      },
+      {
+        key: 'paid-amount',
+        label: tOperationsOrder('overview.metrics.paidAmount'),
+        value: `${currencySymbol}${formatAdminNumber(
+          overview.paid_amount_total,
+          locale,
+        )}`,
+        tooltip: tOperationsOrder('overview.tooltips.paidAmount'),
+      },
+    ],
+    [currencySymbol, locale, overview, tOperationsOrder],
+  );
+
+  const activeOverviewCard = useMemo(
+    () =>
+      activeOverviewStatus !== null
+        ? (overviewCards.find(card => card.status === activeOverviewStatus) ??
+          null)
+        : null,
+    [activeOverviewStatus, overviewCards],
+  );
+
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
+    resetOverviewQuickFilterState();
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
+    resetOverviewQuickFilterState();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -566,6 +664,28 @@ export default function LearnOrdersTab() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+          <OrderOverviewSection
+            title={tOperationsOrder('overview.title')}
+            cards={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              tooltip: card.tooltip,
+              onClick:
+                'status' in card
+                  ? () => applyStatusQuickFilter(card.status ?? '')
+                  : undefined,
+            }))}
+            activeCardLabel={activeOverviewCard?.label ?? null}
+            activeFilterLabel={tOperationsOrder('overview.activeFilter')}
+            clearLabel={t('common.core.close')}
+            staleMessage={
+              overviewError ? tOperationsOrder('overview.staleData') : null
+            }
+            onClearActive={clearOverviewQuickFilter}
+            gridClassName='xl:grid-cols-3 min-[1680px]:grid-cols-3'
+          />
+
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
             <div className='space-y-4'>
               <div

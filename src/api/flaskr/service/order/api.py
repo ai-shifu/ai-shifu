@@ -6,6 +6,7 @@ from flaskr.service.order.admin import (
     _load_shifu_map,
     _load_user_map,
     get_operator_order_detail,
+    get_operator_order_overview,
     list_operator_orders,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "_load_shifu_map",
     "_load_user_map",
     "get_operator_order_detail",
+    "get_operator_order_overview",
     "list_operator_orders",
 ]

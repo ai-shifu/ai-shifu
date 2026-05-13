@@ -19,12 +19,17 @@ from flaskr.service.order.admin import (
     _apply_order_source_filter,
     _load_matching_user_bids_for_keyword,
     get_operator_order_detail,
+    get_operator_order_overview,
     get_order_detail,
     list_operator_orders,
     list_orders,
     _resolve_order_source,
 )
-from flaskr.service.order.admin_dtos import OrderAdminDetailDTO, OrderAdminSummaryDTO
+from flaskr.service.order.admin_dtos import (
+    OrderAdminDetailDTO,
+    OrderAdminOverviewDTO,
+    OrderAdminSummaryDTO,
+)
 
 
 class DummyOrder:
@@ -284,6 +289,34 @@ def test_list_operator_orders_applies_order_source_filter():
     assert isinstance(result, PageNationDTO)
 
 
+def test_get_operator_order_overview_returns_aggregates():
+    app = Flask(__name__)
+    summary = SimpleNamespace(
+        total_order_count=12,
+        paid_order_count=7,
+        pending_order_count=2,
+        refunded_order_count=1,
+        closed_order_count=2,
+        paid_amount_total="456.78",
+    )
+    query_mock = MagicMock()
+    query_mock.filter.return_value = query_mock
+    query_mock.one.return_value = summary
+
+    with patch("flaskr.service.order.admin.db") as db_mock:
+        db_mock.session.query.return_value = query_mock
+
+        result = get_operator_order_overview(app)
+
+    assert isinstance(result, OrderAdminOverviewDTO)
+    assert result.total_order_count == 12
+    assert result.paid_order_count == 7
+    assert result.pending_order_count == 2
+    assert result.refunded_order_count == 1
+    assert result.closed_order_count == 2
+    assert result.paid_amount_total == "456.78"
+
+
 def test_get_operator_order_detail_returns_detail_dto():
     app = Flask(__name__)
     order = DummyOrder()
@@ -456,6 +489,61 @@ def test_admin_operation_credit_orders_route_returns_operator_page(
     assert payload["code"] == 0
     assert payload["data"]["items"][0]["bill_order_bid"] == "bill-order-1"
     builder_mock.assert_called_once()
+
+
+def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    expected = OperatorCreditOrdersPageDTO(
+        items=[],
+        page=1,
+        page_count=0,
+        page_size=20,
+        total=0,
+    )
+
+    with patch(
+        "flaskr.service.shifu.route.build_operator_credit_orders_page",
+        return_value=expected,
+    ) as builder_mock:
+        response = test_client.get(
+            "/api/shifu/admin/operations/orders/credits",
+            query_string={
+                "has_available_credits": "true",
+            },
+            headers={"Token": "test-token"},
+        )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    builder_mock.assert_called_once()
+    assert builder_mock.call_args.kwargs["has_available_credits"] is True
+
+
+def test_admin_operation_credit_orders_route_rejects_invalid_available_credit_filter(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/orders/credits",
+        query_string={
+            "has_available_credits": "maybe",
+        },
+        headers={"Token": "test-token"},
+    )
+
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] != 0
+    assert "has_available_credits is not a boolean" in payload["message"]
 
 
 def test_admin_operation_credit_order_detail_route_returns_detail(

@@ -37,6 +37,15 @@ export type AdminOperationOrderListResponse = {
   total: number;
 };
 
+export type AdminOperationOrderOverview = {
+  total_order_count: number;
+  paid_order_count: number;
+  pending_order_count: number;
+  refunded_order_count: number;
+  closed_order_count: number;
+  paid_amount_total: string;
+};
+
 export type AdminOperationOrderActivity = {
   active_id: string;
   active_name: string;

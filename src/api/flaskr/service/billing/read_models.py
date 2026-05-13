@@ -8,6 +8,7 @@ from typing import Any
 from flask import Flask
 from sqlalchemy import case, or_
 
+from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -21,7 +22,9 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_FAILED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
@@ -60,6 +63,7 @@ from .dtos import (
     BillingOrdersPageDTO,
     BillingPlanDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
     BillingSubscriptionsPageDTO,
     BillingTopupProductDTO,
@@ -1134,6 +1138,7 @@ def build_operator_credit_orders_page(
     bill_order_bid: str = "",
     credit_order_kind: str = "",
     status: str = "",
+    has_available_credits: bool = False,
     payment_provider: str = "",
     start_time: Any = "",
     end_time: Any = "",
@@ -1187,6 +1192,17 @@ def build_operator_credit_orders_page(
 
         if status_code is not None:
             query = query.filter(BillingOrder.status == status_code)
+
+        if has_available_credits:
+            query = query.filter(
+                db.session.query(CreditWalletBucket.id)
+                .filter(
+                    CreditWalletBucket.deleted == 0,
+                    CreditWalletBucket.source_bid == BillingOrder.bill_order_bid,
+                    CreditWalletBucket.available_credits > 0,
+                )
+                .exists()
+            )
 
         if normalized_payment_provider:
             query = query.filter(
@@ -1246,6 +1262,116 @@ def build_operator_credit_orders_page(
             page_count=payload.page_count,
             page_size=payload.page_size,
             total=payload.total,
+        )
+
+
+def build_operator_credit_orders_overview(
+    app: Flask,
+) -> OperatorCreditOrderOverviewDTO:
+    """Return aggregate metrics for operator creator credit orders."""
+
+    with app.app_context():
+        summary = (
+            BillingOrder.query.with_entities(
+                db.func.count(BillingOrder.id).label("total_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("pending_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("refunded_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("closed_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("canceled_order_count"),
+            )
+            .filter(BillingOrder.deleted == 0)
+            .one()
+        )
+        available_credit_total = (
+            db.session.query(
+                db.func.coalesce(
+                    db.func.sum(CreditWallet.available_credits),
+                    0,
+                )
+            )
+            .filter(CreditWallet.deleted == 0)
+            .scalar()
+        )
+        paid_amount_rows = (
+            db.session.query(
+                BillingOrder.currency.label("currency"),
+                db.func.coalesce(
+                    db.func.sum(BillingOrder.paid_amount),
+                    0,
+                ).label("paid_amount_total"),
+            )
+            .filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            )
+            .group_by(BillingOrder.currency)
+            .all()
+        )
+        paid_amount_totals_by_currency = {
+            str(row.currency or "CNY"): int(row.paid_amount_total or 0)
+            for row in paid_amount_rows
+        }
+        if len(paid_amount_totals_by_currency) == 1:
+            currency, paid_amount_total = next(
+                iter(paid_amount_totals_by_currency.items())
+            )
+        elif len(paid_amount_totals_by_currency) == 0:
+            currency, paid_amount_total = "CNY", 0
+        else:
+            currency, paid_amount_total = "", 0
+
+        return OperatorCreditOrderOverviewDTO(
+            total_order_count=int(summary.total_order_count or 0),
+            paid_order_count=int(summary.paid_order_count or 0),
+            pending_order_count=int(summary.pending_order_count or 0),
+            refunded_order_count=int(summary.refunded_order_count or 0),
+            closed_order_count=int(summary.closed_order_count or 0),
+            canceled_order_count=int(summary.canceled_order_count or 0),
+            available_credit_total=credit_decimal_to_number(available_credit_total),
+            paid_amount_total=paid_amount_total,
+            currency=str(currency or ""),
+            paid_amount_totals_by_currency=paid_amount_totals_by_currency,
         )
 
 
