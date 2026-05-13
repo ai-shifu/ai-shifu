@@ -221,8 +221,40 @@
       "student": "Apprenant"
     },
     "users": "Utilisateurs",
+    "creditUsageTab": "Consommation de crédits",
     "usersCount": "{count} utilisateurs du cours",
     "usersDescription": "Consulter les utilisateurs liés au cours, leur progression d’apprentissage, leur statut de paiement et leur activité récente.",
+    "creditUsage": {
+      "title": "Consommation de crédits",
+      "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
+      "count": "{count} enregistrements",
+      "filters": {
+        "userKeyword": "Utilisateur",
+        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme",
+        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
+        "mode": "Scène d'utilisation",
+        "modeAll": "Tous",
+        "time": "Heure",
+        "timePlaceholder": "Sélectionner une plage horaire",
+        "reset": "Réinitialiser"
+      },
+      "modes": {
+        "learn": "Apprentissage",
+        "listen": "Écoute",
+        "ask": "Relance",
+        "unknown": "Scène inconnue"
+      },
+      "table": {
+        "createdAt": "Heure de consommation",
+        "nickname": "Surnom",
+        "mode": "Scène",
+        "chapter": "Chapitre",
+        "lesson": "Leçon",
+        "credits": "Crédits consommés",
+        "model": "Modèle",
+        "empty": "Aucun enregistrement de consommation de crédits"
+      }
+    },
     "usersFilters": {
       "all": "Tous",
       "learningStatus": "Statut d’apprentissage",

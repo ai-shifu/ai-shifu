@@ -2,7 +2,7 @@
 title: Operator Course Detail Page
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-05-13
 canonical: true
 ---
 
@@ -61,6 +61,25 @@ The backend detail payload should return:
 - Keep the page aligned with the existing admin detail card style used in dashboard pages
 - Use i18n keys in `module.operationsCourse`
 - Keep the bottom section optimized for inspection rather than rich editing
+- Keep `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx` as the route
+  entry and orchestration layer, but split heavy bottom-tab UI into dedicated
+  local components as the page grows
+
+### Frontend Structure Follow-up
+
+- Current preferred split order:
+  1. credit usage tab
+  2. users tab
+  3. chapter tab table / detail helpers
+- Split rules:
+  - do not change existing backend contracts while only restructuring UI
+  - keep route params, operator guard, tab switching, and data-fetch orchestration
+    in `page.tsx`
+  - move tab-local rendering, column sizing, and filter presentation into
+    dedicated sibling components
+- Goal:
+  - reduce the size and review risk of `page.tsx`
+  - allow later tab-level iteration without re-reading the whole detail page
 
 ### Verification
 

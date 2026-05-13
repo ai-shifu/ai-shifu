@@ -221,8 +221,40 @@
       "student": "学员"
     },
     "users": "用户数据",
+    "creditUsageTab": "积分消耗",
     "usersCount": "共 {count} 课程用户",
     "usersDescription": "查看课程相关用户的学习进度、付费情况与最近活跃时间。",
+    "creditUsage": {
+      "title": "积分消耗",
+      "description": "查看该课程的积分消耗记录。",
+      "count": "{count} 条记录",
+      "filters": {
+        "userKeyword": "用户",
+        "userKeywordPlaceholderPhone": "输入手机号 / 昵称",
+        "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
+        "mode": "消耗场景",
+        "modeAll": "全部",
+        "time": "时间",
+        "timePlaceholder": "选择时间范围",
+        "reset": "重置"
+      },
+      "modes": {
+        "learn": "学习",
+        "listen": "听课",
+        "ask": "追问",
+        "unknown": "未知场景"
+      },
+      "table": {
+        "createdAt": "消耗时间",
+        "nickname": "昵称",
+        "mode": "消耗场景",
+        "chapter": "章节",
+        "lesson": "小节",
+        "credits": "消耗积分",
+        "model": "模型",
+        "empty": "暂无积分消耗记录"
+      }
+    },
     "usersFilters": {
       "all": "全部",
       "learningStatus": "学习状态",

@@ -221,8 +221,40 @@
       "student": "Student"
     },
     "users": "Users",
+    "creditUsageTab": "Credit Usage",
     "usersCount": "{count} course users",
     "usersDescription": "Review course-related users, their learning progress, payment status, and recent activity.",
+    "creditUsage": {
+      "title": "Credit Usage",
+      "description": "Review credit consumption records for this course.",
+      "count": "{count} records",
+      "filters": {
+        "userKeyword": "User",
+        "userKeywordPlaceholderPhone": "Enter phone or nickname",
+        "userKeywordPlaceholderEmail": "Enter email or nickname",
+        "mode": "Usage mode",
+        "modeAll": "All",
+        "time": "Time",
+        "timePlaceholder": "Select time range",
+        "reset": "Reset"
+      },
+      "modes": {
+        "learn": "Learning",
+        "listen": "Listen",
+        "ask": "Follow-up",
+        "unknown": "Unknown mode"
+      },
+      "table": {
+        "createdAt": "Consumed At",
+        "nickname": "Nickname",
+        "mode": "Usage Mode",
+        "chapter": "Chapter",
+        "lesson": "Lesson",
+        "credits": "Credits Consumed",
+        "model": "Model",
+        "empty": "No credit usage records"
+      }
+    },
     "usersFilters": {
       "all": "All",
       "learningStatus": "Learning Status",
