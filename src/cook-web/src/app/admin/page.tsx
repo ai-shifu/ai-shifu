@@ -184,6 +184,7 @@ const ScriptManagementPage = () => {
     hasAuthenticatedAdminSession && Boolean(currentUserId);
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
+  const [permissionRetryNonce, setPermissionRetryNonce] = useState(0);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
@@ -491,7 +492,7 @@ const ScriptManagementPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [hasResolvedAdminSession, t]);
+  }, [hasResolvedAdminSession, permissionRetryNonce, t]);
 
   if (error) {
     return (
@@ -500,7 +501,9 @@ const ScriptManagementPage = () => {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() => {
-            resetListAndFetch();
+            setError(null);
+            setAdminReady(false);
+            setPermissionRetryNonce(value => value + 1);
           }}
         />
       </div>
