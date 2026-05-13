@@ -471,11 +471,15 @@ const ScriptManagementPage = () => {
       } catch (error) {
         console.error('Failed to ensure admin creator permissions:', error);
         if (!cancelled) {
-          const resolvedError = error as ErrorWithCode;
-          setError({
-            message: resolvedError.message || t('common.core.unknownError'),
-            code: resolvedError.code,
-          });
+          if (error instanceof ErrorWithCode) {
+            setError({ message: error.message, code: error.code });
+          } else {
+            const message =
+              error instanceof Error
+                ? error.message
+                : t('common.core.unknownError');
+            setError({ message, code: 0 });
+          }
           setAdminReady(false);
         }
       }

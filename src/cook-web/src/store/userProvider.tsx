@@ -30,17 +30,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const wxcodeEnabled =
       typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
-    const onWxcodeProtectedRoute =
-      typeof window !== 'undefined' &&
-      (window.location.pathname.startsWith('/c') ||
-        window.location.pathname.startsWith('/admin'));
+    const pathname =
+      typeof window !== 'undefined' ? window.location.pathname : '';
+    const onCourseRoute = pathname.startsWith('/c');
+    const onAdminRoute = pathname.startsWith('/admin');
 
-    if (
-      wxcodeEnabled &&
-      onWxcodeProtectedRoute &&
-      inWechat() &&
-      !inMiniProgram()
-    ) {
+    if (wxcodeEnabled && (onCourseRoute || onAdminRoute) && inWechat() && !inMiniProgram()) {
       const params = parseUrlParams() as Record<string, string | undefined>;
       const codeInUrl = params.code;
 
@@ -49,8 +44,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (!codeInUrl && !wechatCode) {
-        if (appId) {
+        if (onAdminRoute && appId) {
           wechatLogin({ appId });
+          return;
+        }
+
+        if (onCourseRoute) {
+          // `/c` keeps its existing route-local OAuth redirect flow and only
+          // waits here until that path hydrates a usable wxcode.
           return;
         }
       }

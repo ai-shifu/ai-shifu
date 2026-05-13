@@ -126,4 +126,25 @@ describe('UserProvider', () => {
     expect(mockWechatLogin).not.toHaveBeenCalled();
     expect(mockUpdateWechatCode).not.toHaveBeenCalled();
   });
+
+  test('keeps course-route wxcode waiting in the shared provider without triggering OAuth redirect', () => {
+    mockInWechat.mockReturnValue(true);
+    mockInMiniProgram.mockReturnValue(false);
+    mockParseUrlParams.mockReturnValue({});
+    Object.assign(window.location, {
+      href: 'https://app.ai-shifu.cn/c/test-course',
+      pathname: '/c/test-course',
+      search: '',
+    });
+
+    render(
+      <UserProvider>
+        <div aria-label='content' />
+      </UserProvider>,
+    );
+
+    expect(mockInitUser).not.toHaveBeenCalled();
+    expect(mockWechatLogin).not.toHaveBeenCalled();
+    expect(mockUpdateWechatCode).not.toHaveBeenCalled();
+  });
 });
