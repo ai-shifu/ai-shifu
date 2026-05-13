@@ -136,7 +136,10 @@ export default function CourseCreditUsageTab({
     maxWidth: CREDIT_USAGE_COLUMN_MAX_WIDTH,
   });
 
-  const clearLabel = useMemo(() => t('common.core.close'), [t]);
+  const clearLabel = useMemo(
+    () => t('module.chat.lessonFeedbackClearInput'),
+    [t],
+  );
   const rows = useMemo(() => data.items || [], [data.items]);
   const currentPage = data.page || 1;
   const pageCount = Math.max(data.page_count || 0, 1);
