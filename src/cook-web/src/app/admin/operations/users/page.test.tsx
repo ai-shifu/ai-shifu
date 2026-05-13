@@ -10,10 +10,8 @@ import api from '@/api';
 import AdminOperationUsersPage from './page';
 
 const mockReplace = jest.fn();
-const mockWindowOpen = jest.fn();
 const mockMutateBillingOverview = jest.fn();
 const originalLocation = window.location;
-const originalOpen = window.open;
 const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
@@ -287,7 +285,6 @@ const mockGetAdminOperationUserDetail =
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
-    mockWindowOpen.mockReset();
     mockMutateBillingOverview.mockReset();
     mockGetAdminOperationUsersOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
@@ -411,22 +408,12 @@ describe('AdminOperationUsersPage', () => {
         search: '',
       },
     });
-    Object.defineProperty(window, 'open', {
-      configurable: true,
-      writable: true,
-      value: mockWindowOpen,
-    });
   });
 
   afterAll(() => {
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: originalLocation,
-    });
-    Object.defineProperty(window, 'open', {
-      configurable: true,
-      writable: true,
-      value: originalOpen,
     });
   });
 
@@ -484,18 +471,38 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.table.createdCourses (2)',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'href',
+      '/admin/operations/users/user-1',
+    );
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
+    );
     expect(
       screen.getByRole('link', { name: 'user-1@example.com' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-1');
-    fireEvent.click(screen.getByRole('link', { name: 'user-1@example.com' }));
-    expect(mockWindowOpen).toHaveBeenCalledWith(
-      '/admin/operations/users/user-1',
-      '_blank',
-      'noopener,noreferrer',
-    );
+    expect(
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('target', '_blank');
+    expect(
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
       'href',
       '/admin/operations/users/user-1#credits',
+    );
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
     );
     expect(
       screen.getByRole('button', {
@@ -947,6 +954,12 @@ describe('AdminOperationUsersPage', () => {
     expect(
       await screen.findByRole('link', { name: 'user-no-contact' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-no-contact');
+    expect(
+      screen.getByRole('link', { name: 'user-no-contact' }),
+    ).toHaveAttribute('target', '_blank');
+    expect(
+      screen.getByRole('link', { name: 'user-no-contact' }),
+    ).toHaveAttribute('rel', 'noopener noreferrer');
     const row = screen
       .getByRole('link', { name: 'user-no-contact' })
       .closest('tr');

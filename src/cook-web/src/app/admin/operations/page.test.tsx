@@ -11,12 +11,10 @@ import { ErrorWithCode } from '@/lib/request';
 import OperationsPage from './page';
 
 const mockReplace = jest.fn();
-const mockWindowOpen = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
 const mockCopyText = jest.fn();
 const originalLocation = window.location;
-const originalOpen = window.open;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
@@ -48,6 +46,22 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
 }));
 
 jest.mock('@/api', () => ({
@@ -399,11 +413,6 @@ describe('OperationsPage', () => {
         search: '',
       },
     });
-    Object.defineProperty(window, 'open', {
-      configurable: true,
-      writable: true,
-      value: mockWindowOpen,
-    });
   });
 
   afterAll(() => {
@@ -411,16 +420,10 @@ describe('OperationsPage', () => {
       configurable: true,
       value: originalLocation,
     });
-    Object.defineProperty(window, 'open', {
-      configurable: true,
-      writable: true,
-      value: originalOpen,
-    });
   });
 
   beforeEach(() => {
     mockReplace.mockReset();
-    mockWindowOpen.mockReset();
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
@@ -583,15 +586,17 @@ describe('OperationsPage', () => {
   test('navigates from course name and transfers creator from the action menu', async () => {
     await renderAndWaitForLoadedPage();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Course 1',
-      }),
-    );
-    expect(mockWindowOpen).toHaveBeenCalledWith(
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'href',
       '/admin/operations/course-1',
+    );
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'target',
       '_blank',
-      'noopener,noreferrer',
+    );
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
     );
 
     const firstRow = screen.getByText('Course 1').closest('tr');
