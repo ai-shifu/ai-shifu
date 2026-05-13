@@ -52,7 +52,7 @@ from flaskr.api.tts import (
     is_tts_configured,
 )
 from flaskr.service.tts import preprocess_for_tts
-from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -1096,7 +1096,7 @@ def _yield_run_tts_audio_events(
     from flaskr.common.config import get_config
 
     max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS") or 300
-    processor = StreamingTTSProcessor(
+    processor = create_streaming_tts_processor(
         app=app,
         generated_block_bid=generated_block.generated_block_bid or "",
         outline_bid=generated_block.outline_item_bid or "",
