@@ -334,9 +334,15 @@ def _resolve_course_credit_usage_mode_filter(value: str) -> str:
     return ""
 
 
-def _build_course_credit_usage_ask_filter() -> Any:
-    generation_name = db.func.lower(
-        BillUsageRecord.extra["generation_name"].as_string()
+def _build_course_credit_usage_generation_name_expr() -> Any:
+    return db.func.lower(BillUsageRecord.extra["generation_name"].as_string())
+
+
+def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) -> Any:
+    generation_name = (
+        generation_name
+        if generation_name is not None
+        else _build_course_credit_usage_generation_name_expr()
     )
     return or_(
         generation_name.contains("/user_follow_ask/"),
@@ -345,14 +351,18 @@ def _build_course_credit_usage_ask_filter() -> Any:
     )
 
 
-def _build_course_credit_usage_learn_filter() -> Any:
-    generation_name = db.func.lower(
-        BillUsageRecord.extra["generation_name"].as_string()
+def _build_course_credit_usage_learn_filter(
+    generation_name: Any | None = None,
+) -> Any:
+    generation_name = (
+        generation_name
+        if generation_name is not None
+        else _build_course_credit_usage_generation_name_expr()
     )
     return or_(
         generation_name.is_(None),
         generation_name == "",
-        not_(_build_course_credit_usage_ask_filter()),
+        not_(_build_course_credit_usage_ask_filter(generation_name)),
     )
 
 
@@ -3890,10 +3900,28 @@ def get_operator_course_credit_usages(
         if str(filters.get("mode", "") or "").strip() and not mode_filter:
             raise_param_error("mode")
 
+        # Limit ledger aggregation to this course's production usage rows first.
+        course_credit_usage_bids = (
+            db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
+            .filter(
+                BillUsageRecord.shifu_bid == normalized_shifu_bid,
+                BillUsageRecord.deleted == 0,
+                BillUsageRecord.billable == 1,
+                BillUsageRecord.status == 0,
+                BillUsageRecord.record_level == 0,
+                BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            )
+            .subquery()
+        )
+
         credit_usage_ledger_totals = (
             db.session.query(
                 CreditLedgerEntry.source_bid.label("usage_bid"),
                 db.func.sum(CreditLedgerEntry.amount).label("ledger_amount"),
+            )
+            .join(
+                course_credit_usage_bids,
+                course_credit_usage_bids.c.usage_bid == CreditLedgerEntry.source_bid,
             )
             .filter(
                 CreditLedgerEntry.deleted == 0,
@@ -3933,17 +3961,18 @@ def get_operator_course_credit_usages(
         if end_time:
             query = query.filter(BillUsageRecord.created_at <= end_time)
 
+        generation_name_expr = _build_course_credit_usage_generation_name_expr()
         if mode_filter == COURSE_CREDIT_USAGE_MODE_LISTEN:
             query = query.filter(BillUsageRecord.usage_type == BILL_USAGE_TYPE_TTS)
         elif mode_filter == COURSE_CREDIT_USAGE_MODE_ASK:
             query = query.filter(
                 BillUsageRecord.usage_type != BILL_USAGE_TYPE_TTS,
-                _build_course_credit_usage_ask_filter(),
+                _build_course_credit_usage_ask_filter(generation_name_expr),
             )
         elif mode_filter == COURSE_CREDIT_USAGE_MODE_LEARN:
             query = query.filter(
                 BillUsageRecord.usage_type != BILL_USAGE_TYPE_TTS,
-                _build_course_credit_usage_learn_filter(),
+                _build_course_credit_usage_learn_filter(generation_name_expr),
             )
 
         total = (
