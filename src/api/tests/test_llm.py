@@ -365,6 +365,57 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
     assert models == llm.DEEPSEEK_FALLBACK_MODELS
 
 
+def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
+    captured = {}
+
+    def fake_completion(model, *args, **kwargs):
+        captured["model"] = model
+        captured["kwargs"] = kwargs
+        return iter([FakeResponse("chunk-1", content="ok", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://example.com"},
+        models=[],
+        prefix=llm.QWEN_PREFIX,
+        wildcard_prefixes=(llm.QWEN_PREFIX,),
+        reload_params=llm._reload_qwen_params,
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"qwen": provider_state})
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {})
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_CONFIG_HINTS",
+        {"qwen": "QWEN_API_KEY,QWEN_API_URL"},
+    )
+
+    responses = list(
+        llm.chat_llm(
+            app=app,
+            user_id="user-1",
+            span=DummySpan(),
+            model="qwen/deepseek-v4-flash",
+            messages=[{"role": "user", "content": "hello"}],
+            temperature="0.7",
+            generation_name="qwen-test",
+        )
+    )
+
+    assert [resp.result for resp in responses] == ["ok"]
+    assert captured["model"] == "deepseek-v4-flash"
+    assert captured["kwargs"]["temperature"] == 0.7
+    assert captured["kwargs"]["extra_body"] == {"enable_thinking": False}
+
+
+def test_qwen_provider_config_keeps_prefix_fallback():
+    qwen_config = next(
+        config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == "qwen"
+    )
+
+    assert qwen_config.wildcard_prefixes == (llm.QWEN_PREFIX,)
+
+
 def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     captured_kwargs = {}
 
