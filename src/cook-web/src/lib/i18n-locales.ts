@@ -1,5 +1,3 @@
-import sharedLocalesMetadata from '../../../i18n/locales.json';
-
 type LocalesMetadata = {
   default: string;
   locales: Record<string, { label: string; rtl?: boolean }>;
@@ -8,9 +6,25 @@ type LocalesMetadata = {
 
 const rawMetadata = process.env.NEXT_PUBLIC_I18N_META;
 
-const metadata: LocalesMetadata = rawMetadata
-  ? (JSON.parse(rawMetadata) as LocalesMetadata)
-  : (sharedLocalesMetadata as LocalesMetadata);
+const fallbackMetadata: LocalesMetadata = {
+  default: 'en-US',
+  locales: {},
+  namespaces: [],
+};
+
+const parseMetadata = (raw: string | undefined): LocalesMetadata => {
+  if (!raw) {
+    return fallbackMetadata;
+  }
+
+  try {
+    return JSON.parse(raw) as LocalesMetadata;
+  } catch {
+    return fallbackMetadata;
+  }
+};
+
+const metadata = parseMetadata(rawMetadata);
 
 export const localeEntries = Object.entries(metadata.locales) as [
   string,

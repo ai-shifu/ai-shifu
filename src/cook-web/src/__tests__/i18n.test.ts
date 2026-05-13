@@ -38,4 +38,30 @@ describe('i18n language normalization', () => {
       globalAny.window = prevWindow;
     });
   });
+
+  test('locale helpers expose labels from injected metadata', async () => {
+    const meta = {
+      default: 'en-US',
+      locales: {
+        'en-US': { label: 'English' },
+        'zh-CN': { label: '中文' },
+        'fr-FR': { label: 'Français' },
+      },
+      namespaces: ['common.core'],
+    };
+
+    jest.resetModules();
+    process.env.NEXT_PUBLIC_I18N_META = JSON.stringify(meta);
+
+    const { getLocaleLabel, localeEntries, namespaces } =
+      await import('../lib/i18n-locales');
+
+    expect(localeEntries.map(([code]) => code)).toEqual([
+      'en-US',
+      'zh-CN',
+      'fr-FR',
+    ]);
+    expect(getLocaleLabel('fr-FR')).toBe('Français');
+    expect(namespaces).toEqual(['common.core']);
+  });
 });
