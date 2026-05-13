@@ -18,7 +18,6 @@
 - Frontend: `src/cook-web/SKILL.md`
 - Frontend skills index: `src/cook-web/skills/README.md`
 - Backend skills index: `src/api/skills/README.md`
-- Repo workflow skill: `skills/github-pr-branch-checkout/SKILL.md`
 
 ## Migration Notes
 
