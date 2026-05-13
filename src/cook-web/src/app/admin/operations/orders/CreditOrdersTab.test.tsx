@@ -498,6 +498,56 @@ describe('CreditOrdersTab', () => {
     });
   });
 
+  test('preserves available credits quick filter when refining with search', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.creditAmount\b/,
+      }),
+    );
+
+    await screen.findByText('module.operationsOrder.overview.activeFilter');
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.creditOrders.filters.creatorKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: '13800138000' },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '13800138000',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        has_available_credits: true,
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(
+      screen.getByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+  });
+
   test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
 

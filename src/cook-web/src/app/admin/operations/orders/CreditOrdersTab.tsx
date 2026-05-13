@@ -448,14 +448,13 @@ export default function CreditOrdersTab() {
   );
 
   const handleSearch = () => {
-    const nextFilters = {
-      ...draftFilters,
-      has_available_credits:
-        activeOverviewCardKey === 'credit-amount'
-          ? false
-          : draftFilters.has_available_credits,
-    };
-    resetOverviewQuickFilterState();
+    const nextFilters = draftFilters;
+    const shouldPreserveOverviewQuickFilter =
+      activeOverviewCardKey === 'credit-amount' &&
+      nextFilters.has_available_credits;
+    if (!shouldPreserveOverviewQuickFilter) {
+      resetOverviewQuickFilterState();
+    }
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
