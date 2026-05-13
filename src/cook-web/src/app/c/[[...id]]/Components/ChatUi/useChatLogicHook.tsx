@@ -40,7 +40,9 @@ import {
   getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
   mergeAudioSegmentDataList,
+  normalizeAudioSegmentPayload,
   sortAudioTracksByPosition,
+  toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
@@ -95,6 +97,11 @@ interface SSEParams {
   input_type: SSE_INPUT_TYPE;
   reload_generated_block_bid?: string;
   reload_element_bid?: string;
+}
+
+interface RequestAudioForBlockOptions {
+  listen?: boolean;
+  shouldApplyResult?: () => boolean;
 }
 
 const normalizeOptionalNumber = (value: unknown) => {
@@ -188,6 +195,54 @@ const hydrateAudioTracksWithCompleteUrl = (
   return sortAudioTracksByPosition(nextTracks);
 };
 
+const normalizeAudioCompletePayload = (
+  payload: unknown,
+): AudioCompleteData | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const source = payload as Record<string, unknown>;
+  const audioUrl =
+    (typeof source.audio_url === 'string' && source.audio_url.trim()) ||
+    (typeof source.audioUrl === 'string' && source.audioUrl.trim()) ||
+    '';
+
+  if (!audioUrl) {
+    return null;
+  }
+
+  const audioBid =
+    (typeof source.audio_bid === 'string' && source.audio_bid) ||
+    (typeof source.audioBid === 'string' && source.audioBid) ||
+    '';
+  const durationMs =
+    normalizeOptionalNumber(source.duration_ms) ??
+    normalizeOptionalNumber(source.durationMs) ??
+    0;
+  const position = normalizeOptionalNumber(source.position);
+  const slideId =
+    (typeof source.slide_id === 'string' && source.slide_id) ||
+    (typeof source.slideId === 'string' && source.slideId) ||
+    undefined;
+  const rawAvContract = source.av_contract ?? source.avContract;
+  const avContract =
+    rawAvContract &&
+    typeof rawAvContract === 'object' &&
+    !Array.isArray(rawAvContract)
+      ? (rawAvContract as Record<string, any>)
+      : undefined;
+
+  return {
+    audio_url: audioUrl,
+    audio_bid: audioBid,
+    duration_ms: durationMs,
+    ...(position === undefined ? {} : { position }),
+    ...(slideId ? { slide_id: slideId } : {}),
+    ...(avContract === undefined ? {} : { av_contract: avContract }),
+  };
+};
+
 export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
@@ -228,6 +283,7 @@ export interface UseChatSessionResult {
   ) => void;
   requestAudioForBlock: (
     elementBid: string,
+    options?: RequestAudioForBlockOptions,
   ) => Promise<AudioCompleteData | null>;
   reGenerateConfirm: {
     open: boolean;
@@ -1898,11 +1954,21 @@ function useChatLogicHook({
                 return;
               }
               // Handle audio segment during TTS streaming
-              const audioSegment = response.content as AudioSegmentData;
+              const audioSegment = normalizeAudioSegmentPayload(
+                response.content as Parameters<
+                  typeof normalizeAudioSegmentPayload
+                >[0],
+              );
+              if (!audioSegment) {
+                return;
+              }
               if (blockId) {
                 setTrackedContentList(prevState =>
-                  upsertAudioSegment(prevState, blockId, audioSegment, items =>
-                    ensureContentItem(items, blockId),
+                  upsertAudioSegment(
+                    prevState,
+                    blockId,
+                    toAudioSegmentData(audioSegment),
+                    items => ensureContentItem(items, blockId),
                   ),
                 );
               }
@@ -1911,7 +1977,12 @@ function useChatLogicHook({
                 return;
               }
               // Handle audio completion with OSS URL
-              const audioComplete = response.content as AudioCompleteData;
+              const audioComplete = normalizeAudioCompletePayload(
+                response.content,
+              );
+              if (!audioComplete) {
+                return;
+              }
               if (blockId) {
                 setTrackedContentList(prevState =>
                   upsertAudioComplete(
@@ -2907,14 +2978,24 @@ function useChatLogicHook({
   }, []);
 
   const requestAudioForBlock = useCallback(
-    async (elementBid: string): Promise<AudioCompleteData | null> => {
+    async (
+      elementBid: string,
+      options: RequestAudioForBlockOptions = {},
+    ): Promise<AudioCompleteData | null> => {
       if (!elementBid) {
         return null;
       }
 
       const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
+      const effectiveListenRequestEnabled =
+        options.listen ?? listenRequestEnabled;
+      const shouldApplyResult = () => options.shouldApplyResult?.() ?? true;
 
       if (!allowTtsStreaming) {
+        return null;
+      }
+
+      if (!shouldApplyResult()) {
         return null;
       }
 
@@ -2924,7 +3005,11 @@ function useChatLogicHook({
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
       );
-      if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
+      if (
+        !effectiveListenRequestEnabled &&
+        cachedTrack?.audioUrl &&
+        !cachedTrack.isAudioStreaming
+      ) {
         return {
           audio_url: cachedTrack.audioUrl,
           audio_bid: '',
@@ -2959,23 +3044,44 @@ function useChatLogicHook({
           shifu_bid: shifuBid,
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
-          listen: listenRequestEnabled,
+          listen: effectiveListenRequestEnabled,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              if (!shouldApplyResult()) {
+                return;
+              }
+
               const audioPayload = response.content ?? response.data;
+              const audioSegment = normalizeAudioSegmentPayload(
+                audioPayload as Parameters<
+                  typeof normalizeAudioSegmentPayload
+                >[0],
+              );
+              if (!audioSegment) {
+                return;
+              }
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
                   sourceBlockBid,
-                  audioPayload as AudioSegmentData,
+                  toAudioSegmentData(audioSegment),
                 ),
               );
               return;
             }
 
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              if (!shouldApplyResult()) {
+                closeTtsStream(sourceBlockBid);
+                resolve(null);
+                return;
+              }
+
               const audioPayload = response.content ?? response.data;
-              const audioComplete = audioPayload as AudioCompleteData;
+              const audioComplete = normalizeAudioCompletePayload(audioPayload);
+              if (!audioComplete) {
+                return;
+              }
               latestComplete = audioComplete ?? latestComplete;
               setTrackedContentList(prevState =>
                 upsertAudioComplete(prevState, sourceBlockBid, audioComplete),
@@ -2983,7 +3089,7 @@ function useChatLogicHook({
               if (finalizeTimer) {
                 clearTimeout(finalizeTimer);
               }
-              const delayMs = isListenMode ? 500 : 0;
+              const delayMs = effectiveListenRequestEnabled ? 500 : 0;
               finalizeTimer = setTimeout(() => {
                 closeTtsStream(sourceBlockBid);
                 resolve(latestComplete ?? null);
@@ -2994,17 +3100,19 @@ function useChatLogicHook({
             if (finalizeTimer) {
               clearTimeout(finalizeTimer);
             }
-            setTrackedContentList(prev =>
-              prev.map(item => {
-                if (!matchItemBid(item, sourceBlockBid)) {
-                  return item;
-                }
-                return {
-                  ...item,
-                  isAudioStreaming: false,
-                };
-              }),
-            );
+            if (shouldApplyResult()) {
+              setTrackedContentList(prev =>
+                prev.map(item => {
+                  if (!matchItemBid(item, sourceBlockBid)) {
+                    return item;
+                  }
+                  return {
+                    ...item,
+                    isAudioStreaming: false,
+                  };
+                }),
+              );
+            }
             closeTtsStream(sourceBlockBid);
             reject(new Error('TTS stream failed'));
           },
@@ -3017,7 +3125,6 @@ function useChatLogicHook({
       allowTtsStreaming,
       closeTtsStream,
       effectivePreviewMode,
-      isListenMode,
       listenRequestEnabled,
       matchItemBid,
       resolveSourceGeneratedBlockBid,

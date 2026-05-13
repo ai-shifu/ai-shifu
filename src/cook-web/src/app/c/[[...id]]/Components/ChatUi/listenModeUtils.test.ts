@@ -1,5 +1,8 @@
 import {
   canRequestListenModeTtsForItem,
+  getMissingListenModeAudioBlockBids,
+  hasPlayableListenAudioForItem,
+  isListenModeAudioBackfillCandidate,
   resolveListenSlideSubtitleCues,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
@@ -63,6 +66,62 @@ describe('listenModeUtils', () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it('selects only missing speakable blocks for listen-mode audio backfill', () => {
+    const missingBids = getMissingListenModeAudioBlockBids([
+      createContentItem({
+        element_bid: 'missing-speakable',
+        is_speakable: true,
+      }),
+      createContentItem({
+        element_bid: 'already-has-audio',
+        is_speakable: true,
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: 'https://example.com/audio.mp3',
+          },
+        ],
+      }),
+      createContentItem({
+        element_bid: 'visual-only',
+        is_speakable: false,
+      }),
+      createContentItem({
+        element_bid: 'loading',
+        is_speakable: true,
+      }),
+    ]);
+
+    expect(missingBids).toEqual(['missing-speakable']);
+  });
+
+  it('treats streaming audio tracks as playable during listen-mode backfill', () => {
+    const item = createContentItem({
+      audioTracks: [
+        {
+          position: 0,
+          isAudioStreaming: true,
+          audioSegments: [],
+        },
+      ],
+    });
+
+    expect(hasPlayableListenAudioForItem(item)).toBe(true);
+    expect(getMissingListenModeAudioBlockBids([item])).toEqual([]);
+  });
+
+  it('does not make non-speakable content a listen-mode backfill candidate', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          is_speakable: false,
+          audioTracks: [],
+          audio_segments: [],
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('only returns ready bids for speakable content blocks', () => {

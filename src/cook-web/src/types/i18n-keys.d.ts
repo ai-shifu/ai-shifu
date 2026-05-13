@@ -704,6 +704,7 @@ export type I18nKey =
   | 'module.chat.lessonFeedbackPrompt'
   | 'module.chat.lessonFeedbackScoreRequired'
   | 'module.chat.lessonFeedbackSubmitted'
+  | 'module.chat.listenAudioBackfillFailed'
   | 'module.chat.listenInteractionHint'
   | 'module.chat.listenModeTtsDisabled'
   | 'module.chat.listenModeUpgradeDialogDescription'

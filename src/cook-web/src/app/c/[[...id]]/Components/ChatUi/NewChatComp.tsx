@@ -40,7 +40,6 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { ELEMENT_TYPE } from '@/c-api/studyV2';
 import { syncCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
@@ -55,12 +54,19 @@ import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
+import {
+  getMissingListenModeAudioBlockBids,
+  hasPlayableListenAudioForItem,
+  isListenModeAudioBackfillCandidate,
+} from './listenModeUtils';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { Button } from '@/components/ui/Button';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
+
+type ListenAudioBackfillStatus = 'idle' | 'preparing' | 'failed';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -180,26 +186,10 @@ const buildReadModeItemsWithAskState = ({
   return nextItems;
 };
 
-const getFirstHistoryTextContentItem = (items: ChatContentItem[]) =>
-  items.find(
-    item =>
-      item.isHistory === true &&
-      item.type === ChatContentItemType.CONTENT &&
-      item.element_type === ELEMENT_TYPE.TEXT,
-  );
-
-const hasItemAudio = (item?: ChatContentItem) =>
-  Boolean(item?.audio_url?.trim() || item?.audioUrl?.trim());
-
-const shouldBlockListenModeForLegacyHistory = (items: ChatContentItem[]) => {
-  const firstTextContentItem = getFirstHistoryTextContentItem(items);
-
-  if (!firstTextContentItem) {
-    return false;
-  }
-
-  return !hasItemAudio(firstTextContentItem);
-};
+const isContentItemWithElementBid = (item: ChatContentItem) =>
+  item.type === ChatContentItemType.CONTENT &&
+  Boolean(item.element_bid?.trim()) &&
+  item.element_bid !== 'loading';
 
 export const NewChatComponents = ({
   className,
@@ -293,6 +283,14 @@ export const NewChatComponents = ({
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
   const [showListenModeUpgradeDialog, setShowListenModeUpgradeDialog] =
     useState(false);
+  const [listenAudioBackfillStatus, setListenAudioBackfillStatus] =
+    useState<ListenAudioBackfillStatus>('idle');
+  const listenAudioBackfillInFlightRef = useRef<Record<string, Promise<any>>>(
+    {},
+  );
+  const listenAudioBackfillLessonIdRef = useRef('');
+  const listenAudioBackfillAutoEnterRef = useRef(false);
+  const suppressNextListenToReadBackfillCancelRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -360,15 +358,15 @@ export const NewChatComponents = ({
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
-  const { learningMode, showLearningModeToggle, updateLearningMode } =
-    useSystemStore(
-      useShallow(state => ({
-        learningMode: state.learningMode,
-        showLearningModeToggle: state.showLearningModeToggle,
-        updateLearningMode: state.updateLearningMode,
-      })),
-    );
+  const { learningMode, updateLearningMode } = useSystemStore(
+    useShallow(state => ({
+      learningMode: state.learningMode,
+      updateLearningMode: state.updateLearningMode,
+    })),
+  );
   const isListenMode = learningMode === 'listen';
+  const learningModeRef = useRef(learningMode);
+  learningModeRef.current = learningMode;
   const previousLearningModeRef = useRef(learningMode);
   const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
   const pendingListenAfterResetLessonIdRef = useRef<string | null>(null);
@@ -398,6 +396,14 @@ export const NewChatComponents = ({
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
   );
+
+  useEffect(() => {
+    listenAudioBackfillLessonIdRef.current = resolvedLessonId;
+    listenAudioBackfillInFlightRef.current = {};
+    listenAudioBackfillAutoEnterRef.current = false;
+    suppressNextListenToReadBackfillCancelRef.current = false;
+    setListenAudioBackfillStatus('idle');
+  }, [resolvedLessonId]);
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -487,7 +493,7 @@ export const NewChatComponents = ({
     updateSelectedLesson,
     getNextLessonId,
     scrollToLesson,
-    listenRequestEnabled: showLearningModeToggle,
+    listenRequestEnabled: isListenModeActive,
     shouldPromptLessonFeedback:
       isPromptContextSettled &&
       (isListenModeActive ? isListenFeedbackReady : isAtBottom),
@@ -495,6 +501,31 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const requestListenAudioBackfillForBlock = useCallback(
+    (blockBid: string, lessonIdAtRequest: string) => {
+      const existingPromise = listenAudioBackfillInFlightRef.current[blockBid];
+      if (existingPromise) {
+        return existingPromise;
+      }
+
+      const trackedPromise = requestAudioForBlock(blockBid, {
+        listen: true,
+        shouldApplyResult: () =>
+          listenAudioBackfillLessonIdRef.current === lessonIdAtRequest,
+      }).finally(() => {
+        if (
+          listenAudioBackfillInFlightRef.current[blockBid] === trackedPromise
+        ) {
+          delete listenAudioBackfillInFlightRef.current[blockBid];
+        }
+      });
+
+      listenAudioBackfillInFlightRef.current[blockBid] = trackedPromise;
+      return trackedPromise;
+    },
+    [requestAudioForBlock],
+  );
 
   const baseAskListByAnchorElementBid = useMemo(
     () => buildAskListByAnchorElementBid(items),
@@ -561,21 +592,125 @@ export const NewChatComponents = ({
     const previousLearningMode = previousLearningModeRef.current;
     previousLearningModeRef.current = learningMode;
 
+    if (previousLearningMode === 'listen' && learningMode === 'read') {
+      if (suppressNextListenToReadBackfillCancelRef.current) {
+        suppressNextListenToReadBackfillCancelRef.current = false;
+      } else {
+        listenAudioBackfillAutoEnterRef.current = false;
+      }
+    }
+
     if (previousLearningMode !== 'read' || learningMode !== 'listen') {
+      return;
+    }
+
+    if (!isListenModeAvailable) {
+      updateLearningMode('read');
+      return;
+    }
+
+    if (previewMode || listenAudioBackfillStatus === 'preparing') {
       return;
     }
 
     const sourceItems = lastReadModeItemsRef.current.length
       ? lastReadModeItemsRef.current
       : items;
+    const contentItems = sourceItems.filter(isContentItemWithElementBid);
 
-    if (!shouldBlockListenModeForLegacyHistory(sourceItems)) {
+    if (!contentItems.length) {
       return;
     }
 
-    setShowListenModeUpgradeDialog(true);
-    updateLearningMode('read');
-  }, [items, learningMode, updateLearningMode]);
+    const hasBackfillCandidate = contentItems.some(
+      isListenModeAudioBackfillCandidate,
+    );
+    const hasPlayableAudio = contentItems.some(hasPlayableListenAudioForItem);
+
+    if (!hasBackfillCandidate) {
+      if (!hasPlayableAudio) {
+        setListenAudioBackfillStatus('failed');
+        setShowListenModeUpgradeDialog(true);
+        updateLearningMode('read');
+      }
+      return;
+    }
+
+    const missingAudioBlockBids =
+      getMissingListenModeAudioBlockBids(contentItems);
+
+    if (!missingAudioBlockBids.length) {
+      setListenAudioBackfillStatus('idle');
+      return;
+    }
+
+    const lessonIdAtRequest = resolvedLessonId;
+    const shouldWaitForFirstAudio = !hasPlayableAudio;
+    let hasEnteredListenMode = false;
+
+    listenAudioBackfillLessonIdRef.current = lessonIdAtRequest;
+    listenAudioBackfillAutoEnterRef.current = shouldWaitForFirstAudio;
+    setListenAudioBackfillStatus('preparing');
+
+    if (shouldWaitForFirstAudio) {
+      suppressNextListenToReadBackfillCancelRef.current = true;
+      updateLearningMode('read');
+    }
+
+    const backfillPromises = missingAudioBlockBids.map(blockBid =>
+      requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
+        .then(result => {
+          if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
+            return null;
+          }
+
+          if (
+            result &&
+            shouldWaitForFirstAudio &&
+            !hasEnteredListenMode &&
+            listenAudioBackfillAutoEnterRef.current &&
+            learningModeRef.current === 'read'
+          ) {
+            hasEnteredListenMode = true;
+            listenAudioBackfillAutoEnterRef.current = false;
+            updateLearningMode('listen');
+          }
+
+          return result;
+        })
+        .catch(() => null),
+    );
+
+    void Promise.all(backfillPromises).then(results => {
+      if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
+        return;
+      }
+
+      const hasGeneratedAudio = results.some(Boolean);
+      listenAudioBackfillAutoEnterRef.current = false;
+      setListenAudioBackfillStatus(
+        hasGeneratedAudio || hasPlayableAudio ? 'idle' : 'failed',
+      );
+
+      if (hasGeneratedAudio || hasPlayableAudio) {
+        return;
+      }
+
+      fail(t('module.chat.listenAudioBackfillFailed'));
+      setShowListenModeUpgradeDialog(true);
+      updateLearningMode('read');
+    });
+  }, [
+    isListenModeAvailable,
+    items,
+    learningMode,
+    listenAudioBackfillStatus,
+    previewMode,
+    requestListenAudioBackfillForBlock,
+    resolvedLessonId,
+    t,
+    updateLearningMode,
+  ]);
 
   useEffect(() => {
     const pendingLessonId = pendingListenAfterResetLessonIdRef.current;

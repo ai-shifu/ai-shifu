@@ -202,6 +202,57 @@ export const canRequestListenModeTtsForItem = (
   );
 };
 
+export const hasPlayableListenAudioForItem = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.audio_url?.trim() ||
+    item?.audioUrl?.trim() ||
+    item?.isAudioStreaming ||
+    (item?.audio_segments?.length ?? 0) > 0 ||
+    hasAudioContentInTracks(item?.audioTracks ?? []),
+  );
+
+export const isListenModeAudioBackfillCandidate = (
+  item?: ChatContentItem | null,
+) => {
+  if (!item || item.type !== 'content') {
+    return false;
+  }
+
+  const elementBid = item.element_bid?.trim();
+  if (!elementBid || elementBid === 'loading') {
+    return false;
+  }
+
+  return item.is_speakable !== false;
+};
+
+export const getMissingListenModeAudioBlockBids = (
+  items: ChatContentItem[],
+) => {
+  const seen = new Set<string>();
+  const missingBids: string[] = [];
+
+  items.forEach(item => {
+    if (!isListenModeAudioBackfillCandidate(item)) {
+      return;
+    }
+
+    if (hasPlayableListenAudioForItem(item)) {
+      return;
+    }
+
+    const elementBid = item.element_bid?.trim();
+    if (!elementBid || seen.has(elementBid)) {
+      return;
+    }
+
+    seen.add(elementBid);
+    missingBids.push(elementBid);
+  });
+
+  return missingBids;
+};
+
 export const resolveListenModeTtsReadyElementBids = (
   items: ChatContentItem[],
 ) => {

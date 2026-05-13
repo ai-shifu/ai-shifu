@@ -1429,7 +1429,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                       locale={
                         normalizeLanguage(
                           (i18n.resolvedLanguage ?? i18n.language) as string,
-                        ) as 'en-US' | 'zh-CN' | 'fr-FR'
+                        ) === 'zh-CN'
+                          ? 'zh-CN'
+                          : 'en-US'
                       }
                       disabled={currentShifu?.readonly}
                       content={editorContent}

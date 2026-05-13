@@ -190,6 +190,7 @@ describe('useChatLogicHook stream cleanup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockStreamGeneratedBlockAudio.mockReset();
     activeRun = undefined;
 
     mockGetLessonStudyRecord.mockResolvedValue({
@@ -268,6 +269,100 @@ describe('useChatLogicHook stream cleanup', () => {
     onPayModalOpen: jest.fn(),
     chatBoxBottomRef: { current: document.createElement('div') },
     onGoChapter: jest.fn(),
+  });
+
+  it('sends listen=false in the run body when listen requests are disabled', async () => {
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockGetRunMessage.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({
+        listen: false,
+      }),
+    );
+  });
+
+  it('sends listen=true in the run body when listen requests are enabled', async () => {
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockGetRunMessage.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({
+        listen: true,
+      }),
+    );
+  });
+
+  it('can force listen=true for generated-block audio backfill while the run body uses listen=false', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'History content without audio',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+    mockStreamGeneratedBlockAudio.mockReturnValue({
+      close: jest.fn(),
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      void result.current.requestAudioForBlock('content-1', { listen: true });
+    });
+
+    expect(mockGetRunMessage.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({
+        listen: false,
+      }),
+    );
+    expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generated_block_bid: 'content-1',
+        listen: true,
+      }),
+    );
   });
 
   it('clears loading after a control-only stream closes', async () => {
@@ -521,7 +616,7 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('pushes an error item and shows a destructive toast after 3s of run stream inactivity', async () => {
+  it('pushes an error item and shows a destructive toast after the run stream idle timeout', async () => {
     jest.useFakeTimers();
 
     const { result } = renderHook(
@@ -538,7 +633,7 @@ describe('useChatLogicHook stream cleanup', () => {
     await waitFor(() => expect(activeRun).toBeDefined());
 
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(15000);
     });
 
     await waitFor(() =>
