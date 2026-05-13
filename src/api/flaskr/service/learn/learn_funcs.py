@@ -1166,7 +1166,7 @@ def stream_generated_block_audio(
                 )
                 return
 
-        provider, tts_model, voice_settings, audio_settings = (
+        provider, tts_model, voice_settings, _audio_settings = (
             _resolve_shifu_tts_settings(
                 app,
                 shifu_bid=shifu_bid,
@@ -1307,86 +1307,17 @@ def stream_generated_block_audio(
                 param_message="No speakable text available for TTS synthesis",
             )
 
-        audio_bid = uuid.uuid4().hex
-        usage_scene = (
-            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
-        )
-        usage_context = _build_tts_usage_context(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=generated_block.outline_item_bid or "",
-            progress_record_bid=generated_block.progress_record_bid or "",
-            generated_block_bid=generated_block_bid,
-            audio_bid=audio_bid,
-            usage_scene=usage_scene,
-        )
-        parent_usage_bid = generate_id(app)
-        usage_metadata = _build_tts_usage_metadata(
-            voice_settings=voice_settings,
-            audio_settings=audio_settings,
-        )
-        stats = {"segment_count": 0, "total_word_count": 0}
-        audio_parts: list[bytes] = []
-        subtitle_cues: list[dict] = []
-
         def _generate_single_audio():
-            yield from _yield_stream_tts_audio_segments(
+            yield from _yield_run_tts_audio_events(
                 app=app,
                 text=raw_text,
                 provider=provider,
                 tts_model=tts_model,
                 voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                usage_context=usage_context,
-                parent_usage_bid=parent_usage_bid,
-                usage_metadata=usage_metadata,
-                outline_bid=generated_block.outline_item_bid or "",
-                generated_block_bid=generated_block_bid,
-                audio_parts=audio_parts,
-                subtitle_cues=subtitle_cues,
-                stats=stats,
-            )
-            segment_count = int(stats.get("segment_count", 0))
-            total_word_count = int(stats.get("total_word_count", 0))
-
-            oss_url, duration_ms = _finalize_tts_stream_audio(
-                app,
-                audio_parts=audio_parts,
-                subtitle_cues=subtitle_cues,
-                audio_bid=audio_bid,
-                audio_settings=audio_settings,
-                voice_settings=voice_settings,
-                tts_model=tts_model,
-                cleaned_text=cleaned_text,
-                segment_count=segment_count,
-                persist_audio=True,
-                generated_block_bid=generated_block_bid,
-                progress_record_bid=generated_block.progress_record_bid,
+                generated_block=generated_block,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
-            )
-
-            _record_stream_summary_usage(
-                app,
-                usage_context,
-                usage_bid=parent_usage_bid,
-                provider=provider,
-                tts_model=tts_model,
-                raw_text=raw_text,
-                cleaned_text=cleaned_text,
-                total_word_count=total_word_count,
-                duration_ms=int(duration_ms or 0),
-                segment_count=segment_count,
-                usage_metadata=usage_metadata,
-            )
-
-            yield _build_audio_complete_message(
-                outline_bid=generated_block.outline_item_bid or "",
-                generated_block_bid=generated_block_bid,
-                audio_url=oss_url,
-                audio_bid=audio_bid,
-                duration_ms=int(duration_ms or 0),
-                subtitle_cues=subtitle_cues,
+                preview_mode=preview_mode,
             )
 
         yield from _yield_with_tts_error_mapping(

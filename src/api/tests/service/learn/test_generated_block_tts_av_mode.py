@@ -116,6 +116,82 @@ class TestGeneratedBlockListenTtsElementFirst:
         with cls.app.app_context():
             dao.db.create_all()
 
+    def test_stream_generated_block_audio_non_listen_uses_run_tts_processor(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-manual-1"
+        shifu_bid = "shifu-manual-1"
+        generated_block_bid = "gen-manual-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-manual-1",
+                    user_bid=user_bid,
+                    block_bid="block-manual-1",
+                    outline_item_bid="outline-manual-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="Manual audio backfill.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=False,
+            )
+        )
+
+        audio_segment_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+        ]
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert synthesized_texts == ["Manual audio backfill."]
+        assert [event.content.position for event in audio_segment_events] == [0]
+        assert [event.content.position for event in audio_complete_events] == [0]
+        assert audio_complete_events[0].content.subtitle_cues[0].text == (
+            "Manual audio backfill."
+        )
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert [record.position for record in records] == [0]
+            assert records[0].subtitle_cues[0]["text"] == ("Manual audio backfill.")
+
     def test_stream_generated_block_audio_listen_uses_text_elements_only(
         self, monkeypatch
     ):
