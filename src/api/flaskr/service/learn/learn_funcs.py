@@ -1143,8 +1143,9 @@ def stream_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
+        raw_text = generated_block.generated_content or ""
         if not listen:
-            existing_audio = (
+            existing_audios = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
                     LearnGeneratedAudio.user_bid == user_bid,
@@ -1153,7 +1154,15 @@ def stream_generated_block_audio(
                     LearnGeneratedAudio.deleted == 0,
                 )
                 .order_by(LearnGeneratedAudio.id.desc())
-                .first()
+                .all()
+            )
+            existing_audio = next(
+                (
+                    audio
+                    for audio in existing_audios
+                    if _audio_record_matches_speakable_text(audio, raw_text)
+                ),
+                None,
             )
             if existing_audio and existing_audio.oss_url:
                 yield _build_audio_complete_message(
@@ -1174,7 +1183,6 @@ def stream_generated_block_audio(
             )
         )
 
-        raw_text = generated_block.generated_content or ""
         if listen:
             from flaskr.service.learn.listen_element_history import (
                 get_final_elements_for_generated_block,

@@ -192,6 +192,135 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert [record.position for record in records] == [0]
             assert records[0].subtitle_cues[0]["text"] == ("Manual audio backfill.")
 
+    def test_stream_generated_block_audio_non_listen_ignores_segmented_listen_cache(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-manual-cache-1"
+        shifu_bid = "shifu-manual-cache-1"
+        generated_block_bid = "gen-manual-cache-1"
+        generated_content = "Whole manual audio sentence."
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-manual-cache-1",
+                    user_bid=user_bid,
+                    block_bid="block-manual-cache-1",
+                    outline_item_bid="outline-manual-cache-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add_all(
+                [
+                    self.LearnGeneratedAudio(
+                        audio_bid="audio-cache-position-0",
+                        generated_block_bid=generated_block_bid,
+                        position=0,
+                        progress_record_bid="progress-manual-cache-1",
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        oss_url="https://example.com/listen-position-0.mp3",
+                        oss_bucket="test-bucket",
+                        oss_object_key="tts-audio/listen-position-0.mp3",
+                        duration_ms=1000,
+                        file_size=10,
+                        audio_format="mp3",
+                        sample_rate=24000,
+                        voice_id="voice",
+                        voice_settings={},
+                        model="test-model",
+                        text_length=len("First page."),
+                        segment_count=1,
+                        subtitle_cues=[
+                            {
+                                "text": "First page.",
+                                "start_ms": 0,
+                                "end_ms": 1000,
+                                "segment_index": 0,
+                                "position": 0,
+                            }
+                        ],
+                        status=AUDIO_STATUS_COMPLETED,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedAudio(
+                        audio_bid="audio-cache-position-1",
+                        generated_block_bid=generated_block_bid,
+                        position=1,
+                        progress_record_bid="progress-manual-cache-1",
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        oss_url="https://example.com/listen-position-1.mp3",
+                        oss_bucket="test-bucket",
+                        oss_object_key="tts-audio/listen-position-1.mp3",
+                        duration_ms=1000,
+                        file_size=10,
+                        audio_format="mp3",
+                        sample_rate=24000,
+                        voice_id="voice",
+                        voice_settings={},
+                        model="test-model",
+                        text_length=len("Second page."),
+                        segment_count=1,
+                        subtitle_cues=[
+                            {
+                                "text": "Second page.",
+                                "start_ms": 0,
+                                "end_ms": 1000,
+                                "segment_index": 0,
+                                "position": 1,
+                            }
+                        ],
+                        status=AUDIO_STATUS_COMPLETED,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=False,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert synthesized_texts == [generated_content]
+        assert audio_complete_events[-1].content.audio_url not in {
+            "https://example.com/listen-position-0.mp3",
+            "https://example.com/listen-position-1.mp3",
+        }
+        assert audio_complete_events[-1].content.subtitle_cues[0].text == (
+            generated_content
+        )
+
     def test_stream_generated_block_audio_listen_uses_text_elements_only(
         self, monkeypatch
     ):
