@@ -35,7 +35,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     const onCourseRoute = pathname.startsWith('/c');
     const onAdminRoute = pathname.startsWith('/admin');
 
-    if (wxcodeEnabled && (onCourseRoute || onAdminRoute) && inWechat() && !inMiniProgram()) {
+    if (
+      wxcodeEnabled &&
+      (onCourseRoute || onAdminRoute) &&
+      inWechat() &&
+      !inMiniProgram()
+    ) {
       const params = parseUrlParams() as Record<string, string | undefined>;
       const codeInUrl = params.code;
 
