@@ -335,6 +335,9 @@ def create_shifu_draft(
             shifu_state=STATUS_DRAFT,
             is_favorite=False,
             archived=False,
+            can_manage_archive=True,
+            can_manage_permissions=True,
+            created_user_bid=user_id,
         )
 
 
@@ -696,6 +699,9 @@ def get_shifu_draft_list(
                 STATUS_DRAFT,
                 bool(is_favorite),
                 is_archived(shifu_draft),
+                can_manage_archive=True,
+                can_manage_permissions=(shifu_draft.created_user_bid == user_id),
+                created_user_bid=shifu_draft.created_user_bid or "",
             )
             for shifu_draft in shifu_drafts
         ]
@@ -786,6 +792,9 @@ def get_shifu_published_list(
                 STATUS_PUBLISHED,
                 False,
                 False,
+                can_manage_archive=True,
+                can_manage_permissions=(shifu.created_user_bid == user_id),
+                created_user_bid=shifu.created_user_bid or "",
             )
             for shifu in shifus
         ]

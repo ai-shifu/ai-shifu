@@ -124,7 +124,7 @@
   "permissionLabel": "权限范围",
   "permissionLimit": "最多可共享 {count} 个用户",
   "permissionLoading": "加载中...",
-  "permissionManage": "管理",
+  "permissionManage": "共享权限",
   "permissionOwnerNotAllowed": "不可为课程创作者本人开通权限",
   "permissionPhoneInvalid": "请输入正确的手机号：{values}",
   "permissionPhoneLabel": "手机号",
