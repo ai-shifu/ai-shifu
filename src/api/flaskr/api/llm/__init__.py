@@ -496,6 +496,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         prefix=QWEN_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
+        wildcard_prefixes=(QWEN_PREFIX,),
         config_hint="QWEN_API_KEY,QWEN_API_URL",
         custom_llm_provider="openai",
         reload_params=_reload_qwen_params,
