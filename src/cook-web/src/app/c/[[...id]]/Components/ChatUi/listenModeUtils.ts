@@ -300,8 +300,23 @@ export const buildSlidePageMapping = (
   pageIndices: number[],
   fallbackPage: number,
 ): ListenSlidePageMapping => {
+  const itemIdentityBids = new Set(
+    [item.element_bid, item.generated_block_bid].filter(Boolean),
+  );
   const blockSlides = [...(item.listenSlides ?? [])]
-    .filter(slide => slide.element_bid === item.element_bid)
+    .filter(slide => {
+      const slideIdentityBids = [
+        slide.element_bid,
+        slide.target_element_bid,
+        slide.generated_block_bid,
+      ].filter(Boolean);
+
+      if (slideIdentityBids.length === 0) {
+        return true;
+      }
+
+      return slideIdentityBids.some(bid => itemIdentityBids.has(bid));
+    })
     .sort(
       (a, b) =>
         Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||

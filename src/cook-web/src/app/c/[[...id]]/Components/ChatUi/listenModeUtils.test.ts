@@ -1,4 +1,5 @@
 import {
+  buildSlidePageMapping,
   canRequestListenModeTtsForItem,
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
@@ -142,6 +143,35 @@ describe('listenModeUtils', () => {
 
     expect(ready.has('speakable-block')).toBe(true);
     expect(ready.has('visual-only-block')).toBe(false);
+  });
+
+  it('maps listen slides by generated block identity when element ids differ', () => {
+    const mapping = buildSlidePageMapping(
+      createContentItem({
+        element_bid: 'rendered-text-element',
+        generated_block_bid: 'generated-block-1',
+        listenSlides: [
+          {
+            slide_id: 'slide-1',
+            element_bid: 'generated-block-1',
+            generated_block_bid: 'generated-block-1',
+            target_element_bid: 'rendered-text-element',
+            slide_index: 0,
+            audio_position: 0,
+            visual_kind: 'image',
+            segment_type: 'markdown',
+            segment_content: '![figure](figure.png)',
+            source_span: [0, 20],
+            is_placeholder: false,
+          },
+        ],
+      }),
+      [3],
+      0,
+    );
+
+    expect(mapping.pageBySlideId.get('slide-1')).toBe(3);
+    expect(mapping.resolvePageByPosition(0)).toBe(3);
   });
 
   it('maps payload subtitle cues into normalized slide metadata', () => {
