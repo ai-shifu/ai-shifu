@@ -417,7 +417,23 @@ function useChatLogicHook({
     return item.element_bid === bid;
   }, []);
 
-  const resolveSourceGeneratedBlockBid = useCallback((bid: string) => bid, []);
+  const resolveAudioBlockTarget = useCallback((bid: string) => {
+    const item = contentListRef.current.find(
+      contentItem =>
+        contentItem.element_bid === bid ||
+        contentItem.generated_block_bid === bid,
+    );
+
+    return {
+      elementBid: item?.element_bid || bid,
+      generatedBlockBid: item?.generated_block_bid || bid,
+    };
+  }, []);
+
+  const resolveSourceGeneratedBlockBid = useCallback(
+    (bid: string) => resolveAudioBlockTarget(bid).generatedBlockBid,
+    [resolveAudioBlockTarget],
+  );
 
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
@@ -2986,7 +3002,10 @@ function useChatLogicHook({
         return null;
       }
 
-      const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
+      const {
+        elementBid: targetElementBid,
+        generatedBlockBid: sourceBlockBid,
+      } = resolveAudioBlockTarget(elementBid);
       const effectiveListenRequestEnabled =
         options.listen ?? listenRequestEnabled;
       const shouldApplyResult = () => options.shouldApplyResult?.() ?? true;
@@ -3000,7 +3019,9 @@ function useChatLogicHook({
       }
 
       const existingItem = contentListRef.current.find(
-        item => item.element_bid === elementBid,
+        item =>
+          item.element_bid === targetElementBid ||
+          item.generated_block_bid === sourceBlockBid,
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -3023,7 +3044,7 @@ function useChatLogicHook({
 
       setTrackedContentList(prev =>
         prev.map(item => {
-          if (!matchItemBid(item, sourceBlockBid)) {
+          if (!matchItemBid(item, targetElementBid)) {
             return item;
           }
 
@@ -3063,7 +3084,7 @@ function useChatLogicHook({
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
-                  sourceBlockBid,
+                  targetElementBid,
                   toAudioSegmentData(audioSegment),
                 ),
               );
@@ -3084,7 +3105,7 @@ function useChatLogicHook({
               }
               latestComplete = audioComplete ?? latestComplete;
               setTrackedContentList(prevState =>
-                upsertAudioComplete(prevState, sourceBlockBid, audioComplete),
+                upsertAudioComplete(prevState, targetElementBid, audioComplete),
               );
               if (finalizeTimer) {
                 clearTimeout(finalizeTimer);
@@ -3103,7 +3124,7 @@ function useChatLogicHook({
             if (shouldApplyResult()) {
               setTrackedContentList(prev =>
                 prev.map(item => {
-                  if (!matchItemBid(item, sourceBlockBid)) {
+                  if (!matchItemBid(item, targetElementBid)) {
                     return item;
                   }
                   return {
@@ -3127,7 +3148,7 @@ function useChatLogicHook({
       effectivePreviewMode,
       listenRequestEnabled,
       matchItemBid,
-      resolveSourceGeneratedBlockBid,
+      resolveAudioBlockTarget,
       setTrackedContentList,
       shifuBid,
     ],
