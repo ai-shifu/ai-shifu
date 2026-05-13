@@ -56,6 +56,7 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import {
   getMissingListenModeAudioBlockBids,
+  hasListenModeDisplayOnlyContent,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillCandidate,
 } from './listenModeUtils';
@@ -626,12 +627,16 @@ export const NewChatComponents = ({
       isListenModeAudioBackfillCandidate,
     );
     const hasPlayableAudio = contentItems.some(hasPlayableListenAudioForItem);
+    const hasDisplayOnlyContent = hasListenModeDisplayOnlyContent(sourceItems);
 
     if (!hasBackfillCandidate) {
-      if (!hasPlayableAudio) {
+      if (!hasPlayableAudio && !hasDisplayOnlyContent) {
         setListenAudioBackfillStatus('failed');
         setShowListenModeUpgradeDialog(true);
         updateLearningMode('read');
+      } else {
+        setListenAudioBackfillStatus('idle');
+        setShowListenModeUpgradeDialog(false);
       }
       return;
     }

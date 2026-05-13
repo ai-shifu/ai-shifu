@@ -226,6 +226,30 @@ export const isListenModeAudioBackfillCandidate = (
   return item.is_speakable !== false;
 };
 
+export const hasListenModeDisplayOnlyContent = (items: ChatContentItem[]) => {
+  return items.some(item => {
+    const elementBid = item.element_bid?.trim();
+    if (!elementBid || elementBid === 'loading') {
+      return false;
+    }
+
+    if (item.type === 'interaction') {
+      return true;
+    }
+
+    if (item.type !== 'content' || item.is_speakable !== false) {
+      return false;
+    }
+
+    return Boolean(
+      item.content?.trim() ||
+      item.listenSlides?.length ||
+      item.is_renderable ||
+      item.is_marker,
+    );
+  });
+};
+
 export const getMissingListenModeAudioBlockBids = (
   items: ChatContentItem[],
 ) => {
