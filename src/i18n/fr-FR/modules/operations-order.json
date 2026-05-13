@@ -44,6 +44,20 @@
       "topup": "Pack de crédits"
     },
     "longTerm": "Long terme",
+    "overview": {
+      "metrics": {
+        "creditAmount": "Crédits disponibles",
+        "paidAmount": "Montant payé",
+        "paidOrders": "Payées",
+        "totalOrders": "Total des commandes"
+      },
+      "tooltips": {
+        "creditAmount": "Total des crédits non consommés actuellement disponibles sur tous les comptes créateurs pour l’apprentissage, la prévisualisation et le débogage",
+        "paidAmount": "Montant payé des commandes de crédits",
+        "paidOrders": "Commandes de crédits payées",
+        "totalOrders": "Total des commandes de crédits"
+      }
+    },
     "paymentChannel": {
       "checkoutSession": "Session de paiement"
     },
@@ -94,8 +108,23 @@
     "timeRangePlaceholder": "Plage de dates",
     "userKeyword": "Utilisateur",
     "userKeywordPlaceholder": "ID utilisateur / téléphone / e-mail",
-    "userKeywordPlaceholderEmail": "ID utilisateur / email",
+    "userKeywordPlaceholderEmail": "ID utilisateur / e-mail",
     "userKeywordPlaceholderPhone": "ID utilisateur / téléphone"
+  },
+  "overview": {
+    "activeFilter": "Filtre actuel",
+    "metrics": {
+      "paidAmount": "Montant payé",
+      "paidOrders": "Payées",
+      "totalOrders": "Total des commandes"
+    },
+    "staleData": "Échec du chargement de la vue d’ensemble. Actualisez pour réessayer.",
+    "title": "Vue d’ensemble",
+    "tooltips": {
+      "paidAmount": "Montant payé des commandes d’apprentissage",
+      "paidOrders": "Commandes d’apprentissage payées",
+      "totalOrders": "Total des commandes d’apprentissage"
+    }
   },
   "source": {
     "couponRedeem": "Utilisation du coupon",

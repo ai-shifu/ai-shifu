@@ -57,6 +57,7 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
+    build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
@@ -129,6 +130,7 @@ from flaskr.service.shifu.admin import (
 )
 from flaskr.service.order.api import (
     get_operator_order_detail,
+    get_operator_order_overview,
     list_operator_orders,
 )
 from flaskr.service.promo.api import (
@@ -283,6 +285,26 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
         except ValueError:
             continue
     raise_param_error("datetime format invalid")
+
+
+def _parse_boolean_query_param(
+    raw_value: object,
+    *,
+    field_name: str,
+    default: bool = False,
+) -> bool:
+    if raw_value is None:
+        return default
+    if isinstance(raw_value, bool):
+        return raw_value
+    normalized = str(raw_value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise_param_error(f"{field_name} is not a boolean")
 
 
 def _parse_positive_query_int(
@@ -837,6 +859,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_orders(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/orders/overview", methods=["GET"])
+    def admin_operations_order_overview():
+        """
+        Operator learning order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible learning order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OrderAdminOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_order_overview(app))
+
     @app.route(
         path_prefix + "/admin/operations/orders/<order_bid>/detail",
         methods=["GET"],
@@ -897,6 +943,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: payment_provider
               type: string
               required: false
+            - name: has_available_credits
+              type: boolean
+              required: false
+              description: Only include orders whose granted credits still have remaining balance
             - name: start_time
               type: string
               required: false
@@ -929,6 +979,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 bill_order_bid=request.args.get("bill_order_bid", ""),
                 credit_order_kind=request.args.get("credit_order_kind", ""),
                 status=request.args.get("status", ""),
+                has_available_credits=_parse_boolean_query_param(
+                    request.args.get("has_available_credits"),
+                    field_name="has_available_credits",
+                ),
                 payment_provider=request.args.get("payment_provider", ""),
                 start_time=_parse_datetime_filter(
                     request.args.get("start_time", ""),
@@ -940,6 +994,33 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ),
             )
         )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/credits/overview",
+        methods=["GET"],
+    )
+    def admin_operations_credit_order_overview():
+        """
+        Operator credit order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible credit order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OperatorCreditOrderOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(build_operator_credit_orders_overview(app))
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():

@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
+  formatAdminCount,
   formatAdminCredits,
   formatAdminPrice,
 } from '@/app/admin/lib/numberFormat';
@@ -56,7 +57,9 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import type {
   AdminOperationCreditOrderItem,
   AdminOperationCreditOrderListResponse,
+  AdminOperationCreditOrderOverview,
 } from '../operation-credit-order-types';
+import OrderOverviewSection from './OrderOverviewSection';
 import CreditOrderDetailDialog from './CreditOrderDetailDialog';
 import {
   ALL_OPTION_VALUE,
@@ -70,12 +73,20 @@ type CreditOrderFilters = {
   product_keyword: string;
   credit_order_kind: string;
   status: string;
+  has_available_credits: boolean;
   payment_provider: string;
   start_time: string;
   end_time: string;
 };
 
 type ErrorState = { message: string; code?: number };
+type OverviewCard = {
+  key: string;
+  label: string;
+  value: string;
+  tooltip: string;
+  quickFilters?: Partial<CreditOrderFilters>;
+};
 
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 90;
@@ -95,6 +106,19 @@ const DEFAULT_COLUMN_WIDTHS = {
   action: 120,
 } as const;
 
+const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
+  total_order_count: 0,
+  paid_order_count: 0,
+  pending_order_count: 0,
+  refunded_order_count: 0,
+  closed_order_count: 0,
+  canceled_order_count: 0,
+  available_credit_total: 0,
+  paid_amount_total: 0,
+  currency: 'CNY',
+  paid_amount_totals_by_currency: {},
+};
+
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 
 const createDefaultFilters = (): CreditOrderFilters => ({
@@ -102,10 +126,24 @@ const createDefaultFilters = (): CreditOrderFilters => ({
   product_keyword: '',
   credit_order_kind: '',
   status: 'paid',
+  has_available_credits: false,
   payment_provider: '',
   start_time: '',
   end_time: '',
 });
+
+const areCreditOrderFiltersEqual = (
+  left: CreditOrderFilters,
+  right: CreditOrderFilters,
+): boolean =>
+  left.creator_keyword === right.creator_keyword &&
+  left.product_keyword === right.product_keyword &&
+  left.credit_order_kind === right.credit_order_kind &&
+  left.status === right.status &&
+  left.has_available_credits === right.has_available_credits &&
+  left.payment_provider === right.payment_provider &&
+  left.start_time === right.start_time &&
+  left.end_time === right.end_time;
 
 /**
  * t('module.operationsOrder.creditOrders.emptyList')
@@ -148,6 +186,11 @@ export default function CreditOrdersTab() {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<ErrorState | null>(null);
+  const [overview, setOverview] =
+    React.useState<AdminOperationCreditOrderOverview>(
+      EMPTY_CREDIT_ORDER_OVERVIEW,
+    );
+  const [overviewError, setOverviewError] = React.useState(false);
   const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
     [],
   );
@@ -161,6 +204,11 @@ export default function CreditOrdersTab() {
   );
   const [appliedFilters, setAppliedFilters] =
     React.useState<CreditOrderFilters>(() => createDefaultFilters());
+  const [activeOverviewCardKey, setActiveOverviewCardKey] = React.useState<
+    string | null
+  >(null);
+  const [overviewFiltersBeforeApply, setOverviewFiltersBeforeApply] =
+    React.useState<CreditOrderFilters | null>(null);
   const requestIdRef = React.useRef(0);
   const lastRequestedPageRef = React.useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -188,6 +236,21 @@ export default function CreditOrdersTab() {
     );
   }, [contactType, tOperationsOrder]);
 
+  const fetchOverview = React.useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationCreditOrdersOverview(
+        {},
+      )) as AdminOperationCreditOrderOverview;
+      setOverview({
+        ...EMPTY_CREDIT_ORDER_OVERVIEW,
+        ...response,
+      });
+      setOverviewError(false);
+    } catch {
+      setOverviewError(true);
+    }
+  }, []);
+
   const fetchOrders = React.useCallback(
     async (targetPage: number, filters: CreditOrderFilters) => {
       const requestId = requestIdRef.current + 1;
@@ -204,6 +267,9 @@ export default function CreditOrdersTab() {
           product_keyword: filters.product_keyword.trim(),
           credit_order_kind: filters.credit_order_kind,
           status: filters.status,
+          ...(filters.has_available_credits
+            ? { has_available_credits: true }
+            : {}),
           payment_provider: filters.payment_provider,
           start_time: filters.start_time,
           end_time: filters.end_time,
@@ -239,17 +305,164 @@ export default function CreditOrdersTab() {
   );
 
   React.useEffect(() => {
+    void fetchOverview();
+  }, [fetchOverview]);
+
+  React.useEffect(() => {
     void fetchOrders(1, appliedFilters);
   }, [appliedFilters, fetchOrders]);
 
+  const resetOverviewQuickFilterState = React.useCallback(() => {
+    setActiveOverviewCardKey(null);
+    setOverviewFiltersBeforeApply(null);
+  }, []);
+
+  const applyOverviewQuickFilter = React.useCallback(
+    (cardKey: string, quickFilters: Partial<CreditOrderFilters>) => {
+      if (activeOverviewCardKey === cardKey) {
+        return;
+      }
+      const baselineFilters =
+        activeOverviewCardKey === null
+          ? appliedFilters
+          : overviewFiltersBeforeApply || appliedFilters;
+      if (activeOverviewCardKey === null) {
+        setOverviewFiltersBeforeApply(appliedFilters);
+      }
+      const nextFilters: CreditOrderFilters = {
+        ...baselineFilters,
+        ...quickFilters,
+      };
+      setActiveOverviewCardKey(cardKey);
+      setDraftFilters(current =>
+        areCreditOrderFiltersEqual(current, nextFilters)
+          ? current
+          : nextFilters,
+      );
+      if (areCreditOrderFiltersEqual(appliedFilters, nextFilters)) {
+        return;
+      }
+      setAppliedFilters(nextFilters);
+      setPageIndex(1);
+    },
+    [activeOverviewCardKey, appliedFilters, overviewFiltersBeforeApply],
+  );
+
+  const clearOverviewQuickFilter = React.useCallback(() => {
+    if (activeOverviewCardKey === null) {
+      return;
+    }
+    const restoredFilters =
+      overviewFiltersBeforeApply || createDefaultFilters();
+    resetOverviewQuickFilterState();
+    setDraftFilters(current =>
+      areCreditOrderFiltersEqual(current, restoredFilters)
+        ? current
+        : restoredFilters,
+    );
+    if (areCreditOrderFiltersEqual(appliedFilters, restoredFilters)) {
+      return;
+    }
+    setAppliedFilters(restoredFilters);
+    setPageIndex(1);
+  }, [
+    activeOverviewCardKey,
+    appliedFilters,
+    overviewFiltersBeforeApply,
+    resetOverviewQuickFilterState,
+  ]);
+
+  const overviewCards = React.useMemo<OverviewCard[]>(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsOrder('creditOrders.overview.metrics.totalOrders'),
+        value: formatAdminCount(overview.total_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.totalOrders'),
+        quickFilters: {
+          status: '',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'paid',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidOrders'),
+        value: formatAdminCount(overview.paid_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidOrders'),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'credit-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.creditAmount'),
+        value: tOperationsOrder('creditOrders.creditAmountValue', {
+          credits: formatAdminCredits(overview.available_credit_total, locale),
+        }),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.creditAmount',
+        ),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: true,
+        },
+      },
+      {
+        key: 'paid-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidAmount'),
+        value: (() => {
+          const paidAmountEntries = Object.entries(
+            overview.paid_amount_totals_by_currency || {},
+          );
+          if (paidAmountEntries.length > 1) {
+            return paidAmountEntries
+              .map(([currency, amount]) =>
+                formatAdminPrice(amount, currency, locale),
+              )
+              .join(' / ');
+          }
+          if (paidAmountEntries.length === 1) {
+            const [currency, amount] = paidAmountEntries[0];
+            return formatAdminPrice(amount, currency, locale);
+          }
+          return formatAdminPrice(
+            overview.paid_amount_total,
+            overview.currency,
+            locale,
+          );
+        })(),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidAmount'),
+      },
+    ],
+    [locale, overview, tOperationsOrder],
+  );
+
+  const activeOverviewCard = React.useMemo(
+    () =>
+      activeOverviewCardKey !== null
+        ? (overviewCards.find(card => card.key === activeOverviewCardKey) ??
+          null)
+        : null,
+    [activeOverviewCardKey, overviewCards],
+  );
+
   const handleSearch = () => {
-    const nextFilters = { ...draftFilters };
+    const nextFilters = draftFilters;
+    const shouldPreserveOverviewQuickFilter =
+      activeOverviewCardKey === 'credit-amount' &&
+      nextFilters.has_available_credits;
+    if (!shouldPreserveOverviewQuickFilter) {
+      resetOverviewQuickFilterState();
+    }
+    setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
+    resetOverviewQuickFilterState();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -483,6 +696,28 @@ export default function CreditOrdersTab() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+          <OrderOverviewSection
+            title={tOperationsOrder('overview.title')}
+            cards={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              tooltip: card.tooltip,
+              onClick: card.quickFilters
+                ? () =>
+                    applyOverviewQuickFilter(card.key, card.quickFilters || {})
+                : undefined,
+            }))}
+            activeCardLabel={activeOverviewCard?.label ?? null}
+            activeFilterLabel={tOperationsOrder('overview.activeFilter')}
+            clearLabel={t('common.core.close')}
+            staleMessage={
+              overviewError ? tOperationsOrder('overview.staleData') : null
+            }
+            onClearActive={clearOverviewQuickFilter}
+            gridClassName='min-[1680px]:grid-cols-4'
+          />
+
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
             <div className='space-y-4'>
               <div
