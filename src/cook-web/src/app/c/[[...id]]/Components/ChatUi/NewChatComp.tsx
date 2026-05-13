@@ -692,7 +692,17 @@ export const NewChatComponents = ({
       }
 
       const hasGeneratedAudio = results.some(Boolean);
+      const hasBackfillFailure = results.some(result => !result);
       listenAudioBackfillAutoEnterRef.current = false;
+
+      if (hasBackfillFailure) {
+        setListenAudioBackfillStatus('failed');
+        fail(t('module.chat.listenAudioBackfillFailed'));
+        setShowListenModeUpgradeDialog(true);
+        updateLearningMode('read');
+        return;
+      }
+
       setListenAudioBackfillStatus(
         hasGeneratedAudio || hasPlayableAudio ? 'idle' : 'failed',
       );

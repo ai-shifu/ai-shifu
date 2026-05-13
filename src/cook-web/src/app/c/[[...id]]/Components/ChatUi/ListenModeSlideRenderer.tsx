@@ -50,6 +50,23 @@ type ListenSlideElement = SlideElement & {
   subtitle_cues?: ElementSubtitleCue[];
 };
 
+type ListenSlideBufferingText =
+  | string
+  | {
+      waitingForAudio?: string;
+      loadingAudio?: string;
+      waitingForMoreAudio?: string;
+    };
+
+type ListenSlideProps = Omit<
+  React.ComponentProps<typeof Slide>,
+  'bufferingText'
+> & {
+  bufferingText?: ListenSlideBufferingText;
+};
+
+const ListenSlide = Slide as React.ComponentType<ListenSlideProps>;
+
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
@@ -1393,7 +1410,7 @@ const ListenModeSlideRenderer = ({
             ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
             : desktopAskOverlay
           : null}
-        <Slide
+        <ListenSlide
           // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
@@ -1406,17 +1423,15 @@ const ListenModeSlideRenderer = ({
             copyButtonText: t('module.renderUi.core.copyCode'),
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
-          bufferingText={
-            {
-              waitingForAudio: t(
-                'module.chat.slideAudioBufferingWaitingForAudio',
-              ),
-              loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
-              waitingForMoreAudio: t(
-                'module.chat.slideAudioBufferingWaitingForMoreAudio',
-              ),
-            } as unknown as string
-          }
+          bufferingText={{
+            waitingForAudio: t(
+              'module.chat.slideAudioBufferingWaitingForAudio',
+            ),
+            loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
+            waitingForMoreAudio: t(
+              'module.chat.slideAudioBufferingWaitingForMoreAudio',
+            ),
+          }}
           onPlayerVisibilityChange={handlePlayerVisibilityChange}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={

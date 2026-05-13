@@ -693,6 +693,226 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(close).toHaveBeenCalled();
   });
 
+  it('starts the listen-mode backfill idle timeout before the first SSE message', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-idle-1',
+          element_bid: 'element-idle-1',
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const close = jest.fn();
+    mockStreamGeneratedBlockAudio.mockReturnValue({
+      close,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    jest.useFakeTimers();
+    try {
+      let audioPromise: Promise<unknown> | undefined;
+      act(() => {
+        audioPromise = result.current.requestAudioForBlock('element-idle-1', {
+          listen: true,
+        });
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(120000);
+        await audioPromise;
+      });
+
+      expect(close).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('closes listen-mode backfill when the result should no longer apply during a segment', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-stale-1',
+          element_bid: 'element-stale-1',
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+        }
+      | undefined;
+    const close = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close,
+      };
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let shouldApply = true;
+    let audioPromise: Promise<unknown> | undefined;
+    act(() => {
+      audioPromise = result.current.requestAudioForBlock('element-stale-1', {
+        listen: true,
+        shouldApplyResult: () => shouldApply,
+      });
+    });
+
+    shouldApply = false;
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
+        content: {
+          segment_index: 0,
+          audio_data: 'base64-audio',
+          duration_ms: 100,
+          is_final: false,
+          position: 0,
+        },
+      });
+      await audioPromise;
+    });
+
+    expect(close).toHaveBeenCalled();
+  });
+
+  it('clears track streaming state when generated-block audio backfill errors', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-error-1',
+          element_bid: 'element-error-1',
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+          onError: () => void;
+        }
+      | undefined;
+    const close = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close,
+      };
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          listenRequestEnabled: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let audioPromise: Promise<unknown> | undefined;
+    act(() => {
+      audioPromise = result.current
+        .requestAudioForBlock('element-error-1', { listen: true })
+        .catch(error => error);
+    });
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
+        content: {
+          segment_index: 0,
+          audio_data: 'base64-audio',
+          duration_ms: 100,
+          is_final: false,
+          position: 0,
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'element-error-1')
+        ?.audioTracks?.[0]?.isAudioStreaming,
+    ).toBe(true);
+
+    await act(async () => {
+      ttsRequest?.onError();
+      await audioPromise;
+    });
+
+    const erroredItem = result.current.items.find(
+      item => item.element_bid === 'element-error-1',
+    );
+    expect(erroredItem?.isAudioStreaming).toBe(false);
+    expect(erroredItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
+    expect(close).toHaveBeenCalled();
+  });
+
   it('clears loading after a control-only stream closes', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper,

@@ -51,7 +51,8 @@ from flaskr.api.tts import (
     synthesize_text,
     is_tts_configured,
 )
-from flaskr.service.tts import StreamingTTSProcessor, preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,

@@ -40,7 +40,9 @@ import {
   getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
   mergeAudioSegmentDataList,
+  normalizeAudioCompletePayload,
   normalizeAudioSegmentPayload,
+  normalizeAudioSubtitleCues,
   sortAudioTracksByPosition,
   toAudioSegmentData,
   upsertAudioComplete,
@@ -114,46 +116,6 @@ const normalizeOptionalNumber = (value: unknown) => {
   return Number.isFinite(normalized) ? normalized : undefined;
 };
 
-const normalizeAudioCompleteSubtitleCues = (
-  value: unknown,
-): AudioCompleteData['subtitle_cues'] => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const subtitleCues = value.reduce<
-    NonNullable<AudioCompleteData['subtitle_cues']>
-  >((result, rawCue) => {
-    if (!rawCue || typeof rawCue !== 'object') {
-      return result;
-    }
-
-    const cue = rawCue as Record<string, unknown>;
-    const text = typeof cue.text === 'string' ? cue.text : '';
-    const startMs = normalizeOptionalNumber(cue.start_ms);
-    const endMs = normalizeOptionalNumber(cue.end_ms);
-
-    if (!text || startMs === undefined || endMs === undefined) {
-      return result;
-    }
-
-    const segmentIndex = normalizeOptionalNumber(cue.segment_index);
-    const position = normalizeOptionalNumber(cue.position);
-
-    result.push({
-      text,
-      start_ms: startMs,
-      end_ms: endMs,
-      ...(segmentIndex === undefined ? {} : { segment_index: segmentIndex }),
-      ...(position === undefined ? {} : { position }),
-    });
-
-    return result;
-  }, []);
-
-  return subtitleCues.length > 0 ? subtitleCues : undefined;
-};
-
 const resolveStudyRecordAudioComplete = (
   record: StudyRecordItem,
 ): Partial<AudioCompleteData> | null => {
@@ -184,11 +146,9 @@ const resolveStudyRecordAudioComplete = (
     audioPayload?.av_contract &&
     typeof audioPayload.av_contract === 'object' &&
     !Array.isArray(audioPayload.av_contract)
-      ? (audioPayload.av_contract as Record<string, any>)
+      ? (audioPayload.av_contract as Record<string, unknown>)
       : undefined;
-  const subtitleCues = normalizeAudioCompleteSubtitleCues(
-    audioPayload?.subtitle_cues,
-  );
+  const subtitleCues = normalizeAudioSubtitleCues(audioPayload?.subtitle_cues);
 
   return {
     audio_url: audioUrl,
@@ -239,71 +199,6 @@ const hydrateAudioTracksWithCompleteUrl = (
       : [...tracks, nextTrack];
 
   return sortAudioTracksByPosition(nextTracks);
-};
-
-const normalizeAudioCompletePayload = (
-  payload: unknown,
-): AudioCompleteData | null => {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const source = payload as Record<string, unknown>;
-  const audioUrl =
-    (typeof source.audio_url === 'string' && source.audio_url.trim()) ||
-    (typeof source.audioUrl === 'string' && source.audioUrl.trim()) ||
-    '';
-
-  if (!audioUrl) {
-    return null;
-  }
-
-  const audioBid =
-    (typeof source.audio_bid === 'string' && source.audio_bid) ||
-    (typeof source.audioBid === 'string' && source.audioBid) ||
-    '';
-  const durationMs =
-    normalizeOptionalNumber(source.duration_ms) ??
-    normalizeOptionalNumber(source.durationMs) ??
-    0;
-  const position = normalizeOptionalNumber(source.position);
-  const streamElementNumber =
-    normalizeOptionalNumber(source.stream_element_number) ??
-    normalizeOptionalNumber(source.streamElementNumber);
-  const streamElementType =
-    (typeof source.stream_element_type === 'string' &&
-      source.stream_element_type) ||
-    (typeof source.streamElementType === 'string' &&
-      source.streamElementType) ||
-    undefined;
-  const slideId =
-    (typeof source.slide_id === 'string' && source.slide_id) ||
-    (typeof source.slideId === 'string' && source.slideId) ||
-    undefined;
-  const rawAvContract = source.av_contract ?? source.avContract;
-  const avContract =
-    rawAvContract &&
-    typeof rawAvContract === 'object' &&
-    !Array.isArray(rawAvContract)
-      ? (rawAvContract as Record<string, any>)
-      : undefined;
-  const subtitleCues = normalizeAudioCompleteSubtitleCues(
-    source.subtitle_cues ?? source.subtitleCues,
-  );
-
-  return {
-    audio_url: audioUrl,
-    audio_bid: audioBid,
-    duration_ms: durationMs,
-    ...(position === undefined ? {} : { position }),
-    ...(streamElementNumber === undefined
-      ? {}
-      : { stream_element_number: streamElementNumber }),
-    ...(streamElementType ? { stream_element_type: streamElementType } : {}),
-    ...(slideId ? { slide_id: slideId } : {}),
-    ...(avContract === undefined ? {} : { av_contract: avContract }),
-    ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
-  };
 };
 
 export interface UseChatSessionParams {
@@ -3235,15 +3130,12 @@ function useChatLogicHook({
 
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               if (!shouldApplyResult()) {
+                finishStream(null);
                 return;
               }
 
               const audioPayload = response.content ?? response.data;
-              const audioSegment = normalizeAudioSegmentPayload(
-                audioPayload as Parameters<
-                  typeof normalizeAudioSegmentPayload
-                >[0],
-              );
+              const audioSegment = normalizeAudioSegmentPayload(audioPayload);
               if (!audioSegment) {
                 return;
               }
@@ -3297,19 +3189,7 @@ function useChatLogicHook({
           },
           onError: () => {
             clearTimers();
-            if (shouldApplyResult()) {
-              setTrackedContentList(prev =>
-                prev.map(item => {
-                  if (!matchItemBid(item, targetElementBid)) {
-                    return item;
-                  }
-                  return {
-                    ...item,
-                    isAudioStreaming: false,
-                  };
-                }),
-              );
-            }
+            markAudioStreamSettled();
             closeTtsStream(sourceBlockBid);
             hasResolved = true;
             reject(new Error('TTS stream failed'));
@@ -3317,6 +3197,7 @@ function useChatLogicHook({
         });
 
         ttsSseRef.current[sourceBlockBid] = source;
+        resetIdleTimer();
       });
     },
     [
