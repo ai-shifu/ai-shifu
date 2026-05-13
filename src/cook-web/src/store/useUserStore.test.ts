@@ -1,3 +1,5 @@
+import { useUserStore } from './useUserStore';
+
 const mockGetUserInfo = jest.fn();
 const mockRegisterTmp = jest.fn();
 const mockIdentifyUmamiUser = jest.fn();
@@ -53,8 +55,6 @@ jest.mock('@/lib/google-oauth-session', () => ({
 jest.mock('@/c-common/tools/tracking', () => ({
   identifyUmamiUser: (...args: unknown[]) => mockIdentifyUmamiUser(...args),
 }));
-
-import { useUserStore } from './useUserStore';
 
 describe('useUserStore.initUser', () => {
   beforeEach(() => {
