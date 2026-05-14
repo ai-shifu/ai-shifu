@@ -33,6 +33,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 18. 听课模式组装 item 时，如果 final `element` 事件只把完整 `audio_url` 放在 element 顶层或 `payload.audio`，而当前 item 已经有 `audioTracks/audio_segments`，必须把完整 URL 回填到对应 position 的 `audioTracks`；不要让 Slide 映射层因为优先使用 `audioTracks` 而丢掉完整 mp3 URL。
 19. 当需要在线上显式区分 buffering 卡住原因时，优先把 loading 文案拆成“未收到当前页音频 / 正在加载当前页音频 / 正在等待当前页后续音频片段”三类可配置文案，不要继续只透传单一字符串。
 20. `AudioPlayer` 已经播放过流式 `audio_segment` 后，不要在同一播放会话中切到 `audio_complete.audio_url` 续播；完整 URL 只用于未来重播或零 segment 缓存回放，否则 mp3 拼接/seek 偏差会导致句首几个字重复。
+21. 阅读模式和听课模式互相切换前，必须先派发全局停止事件，关闭当前 lesson 内仍在进行的 `/run` SSE 和 generated-block TTS SSE；停止逻辑必须同步清理 block 顶层与 `audioTracks` 内部的 `isAudioStreaming`，并让补音频 Promise 结束，避免再次切回听课时沿用旧的“正在合成”状态。
 
 ## 备注
 

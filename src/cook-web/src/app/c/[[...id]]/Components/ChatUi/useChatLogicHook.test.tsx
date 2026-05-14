@@ -4,6 +4,7 @@ import { toast } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -911,6 +912,93 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(erroredItem?.isAudioStreaming).toBe(false);
     expect(erroredItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
     expect(close).toHaveBeenCalled();
+  });
+
+  it('closes run and generated-block TTS streams on a global stop event', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History content without audio',
+          generated_block_bid: 'generated-block-stop-1',
+          element_bid: 'element-stop-1',
+          element_index: 0,
+          like_status: 'none',
+          user_input: '',
+          is_speakable: true,
+          is_renderable: true,
+          is_marker: false,
+          is_new: false,
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    let ttsRequest:
+      | {
+          onMessage: (response: unknown) => void;
+        }
+      | undefined;
+    const closeTtsSource = jest.fn();
+    mockStreamGeneratedBlockAudio.mockImplementation(params => {
+      ttsRequest = params;
+      return {
+        close: closeTtsSource,
+      };
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let audioPromise: Promise<unknown> | undefined;
+    act(() => {
+      audioPromise = result.current.requestAudioForBlock('element-stop-1', {
+        listen: true,
+      });
+    });
+
+    await waitFor(() => expect(ttsRequest).toBeDefined());
+
+    await act(async () => {
+      ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
+        content: {
+          segment_index: 0,
+          audio_data: 'base64-audio',
+          duration_ms: 100,
+          is_final: false,
+          position: 0,
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'element-stop-1')
+          ?.audioTracks?.[0]?.isAudioStreaming,
+      ).toBe(true),
+    );
+
+    await act(async () => {
+      stopAllActiveLessonStreams();
+      await audioPromise;
+    });
+
+    expect(activeRun?.source.close).toHaveBeenCalled();
+    expect(closeTtsSource).toHaveBeenCalled();
+    expect(result.current.isOutputInProgress).toBe(false);
+
+    const stoppedItem = result.current.items.find(
+      item => item.element_bid === 'element-stop-1',
+    );
+    expect(stoppedItem?.isAudioStreaming).toBe(false);
+    expect(stoppedItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
   });
 
   it('clears loading after a control-only stream closes', async () => {

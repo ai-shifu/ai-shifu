@@ -107,6 +107,8 @@ interface RequestAudioForBlockOptions {
   shouldApplyResult?: () => boolean;
 }
 
+type TtsStreamCancel = (options?: { updateState?: boolean }) => void;
+
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === undefined || value === null) {
     return undefined;
@@ -324,6 +326,7 @@ function useChatLogicHook({
     null,
   );
   const ttsSseRef = useRef<Record<string, any>>({});
+  const ttsStreamCancelRef = useRef<Record<string, TtsStreamCancel>>({});
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
@@ -1380,6 +1383,7 @@ function useChatLogicHook({
     }
 
     isStreamingRef.current = false;
+    setIsOutputInProgress(false);
 
     const completedElementBid = currentBlockIdRef.current || '';
     setTrackedContentList(prevState => {
@@ -1387,23 +1391,39 @@ function useChatLogicHook({
       if (completedElementBid) {
         nextList = finalizeElementOutputInList(nextList, completedElementBid);
       }
-      return nextList.map(item =>
-        item.isAudioStreaming
-          ? {
-              ...item,
-              isAudioStreaming: false,
-            }
-          : item,
-      );
+      return nextList.map(item => {
+        const audioTracks = item.audioTracks ?? [];
+        const hasStreamingTrack = audioTracks.some(track =>
+          Boolean(track.isAudioStreaming),
+        );
+        if (!item.isAudioStreaming && !hasStreamingTrack) {
+          return item;
+        }
+
+        return {
+          ...item,
+          isAudioStreaming: false,
+          audioTracks: hasStreamingTrack
+            ? audioTracks.map(track => ({
+                ...track,
+                isAudioStreaming: false,
+              }))
+            : item.audioTracks,
+        };
+      });
     });
 
     currentBlockIdRef.current = null;
     currentContentRef.current = '';
     setCurrentStreamingElementBid('');
 
+    Object.values(ttsStreamCancelRef.current).forEach(cancel => {
+      cancel();
+    });
     Object.values(ttsSseRef.current).forEach(source => {
       source?.close?.();
     });
+    ttsStreamCancelRef.current = {};
     ttsSseRef.current = {};
   }, [
     clearRunStreamTimeout,
@@ -2075,7 +2095,7 @@ function useChatLogicHook({
     ) => {
       const targetLessonId =
         'detail' in event ? event.detail?.lessonId || '' : '';
-      if (!targetLessonId || targetLessonId !== outlineBid) {
+      if (targetLessonId && targetLessonId !== outlineBid) {
         return;
       }
 
@@ -2946,10 +2966,12 @@ function useChatLogicHook({
   const closeTtsStream = useCallback((blockId: string) => {
     const source = ttsSseRef.current[blockId];
     if (!source) {
+      delete ttsStreamCancelRef.current[blockId];
       return;
     }
     source.close();
     delete ttsSseRef.current[blockId];
+    delete ttsStreamCancelRef.current[blockId];
   }, []);
 
   const requestAudioForBlock = useCallback(
@@ -3068,6 +3090,15 @@ function useChatLogicHook({
           markAudioStreamSettled();
           closeTtsStream(sourceBlockBid);
           resolveOnce(value);
+        };
+
+        const cancelStream: TtsStreamCancel = ({ updateState = true } = {}) => {
+          clearTimers();
+          if (updateState) {
+            markAudioStreamSettled();
+          }
+          resolveOnce(null);
+          closeTtsStream(sourceBlockBid);
         };
 
         const resolveAudioEventTargetElementBid = (
@@ -3191,12 +3222,15 @@ function useChatLogicHook({
             clearTimers();
             markAudioStreamSettled();
             closeTtsStream(sourceBlockBid);
-            hasResolved = true;
-            reject(new Error('TTS stream failed'));
+            if (!hasResolved) {
+              hasResolved = true;
+              reject(new Error('TTS stream failed'));
+            }
           },
         });
 
         ttsSseRef.current[sourceBlockBid] = source;
+        ttsStreamCancelRef.current[sourceBlockBid] = cancelStream;
         resetIdleTimer();
       });
     },
@@ -3214,9 +3248,13 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
+      Object.values(ttsStreamCancelRef.current).forEach(cancel => {
+        cancel({ updateState: false });
+      });
       Object.values(ttsSseRef.current).forEach(source => {
         source?.close?.();
       });
+      ttsStreamCancelRef.current = {};
       ttsSseRef.current = {};
     };
   }, []);

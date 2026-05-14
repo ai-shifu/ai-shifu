@@ -17,3 +17,11 @@ export const stopActiveLessonStream = (lessonId: string) => {
     }),
   );
 };
+
+export const stopAllActiveLessonStreams = () => {
+  events.dispatchEvent(
+    new CustomEvent(EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM, {
+      detail: {},
+    }),
+  );
+};

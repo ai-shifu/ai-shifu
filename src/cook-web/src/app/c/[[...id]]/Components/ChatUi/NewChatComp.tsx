@@ -54,6 +54,7 @@ import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
+import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import {
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
@@ -418,6 +419,9 @@ export const NewChatComponents = ({
     if (isListenModeActive) {
       return;
     }
+    listenAudioBackfillLessonIdRef.current = '';
+    listenAudioBackfillInFlightRef.current = {};
+    setListenAudioBackfillStatus('idle');
     requestExclusive(() => {});
     releaseExclusive();
     currentPlayingBlockBidRef.current = null;
@@ -567,6 +571,7 @@ export const NewChatComponents = ({
     }
 
     if (!isListenModeAvailable) {
+      stopAllActiveLessonStreams();
       updateLearningMode('read');
       return;
     }

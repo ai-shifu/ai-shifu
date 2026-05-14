@@ -32,6 +32,7 @@ import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
+import { stopAllActiveLessonStreams } from './events';
 
 const parseBooleanQueryParam = (value?: string) => {
   if (typeof value !== 'string') {
@@ -239,7 +240,8 @@ export default function ChatLayout({
       return;
     }
 
-    // Sync course preference or URL override into the global learning mode state.
+    // Stop active lesson streams before applying a URL or course-driven mode change.
+    stopAllActiveLessonStreams();
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,

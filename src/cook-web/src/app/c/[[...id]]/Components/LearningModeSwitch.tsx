@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import {
   getLearningModeShortLabel,
   LEARNING_MODE_OPTIONS,
@@ -27,6 +28,12 @@ export const LearningModeSwitch = ({
       updateLearningMode: state.updateLearningMode,
     })),
   );
+  const handleLearningModeToggle = () => {
+    const nextLearningMode = learningMode === 'listen' ? 'read' : 'listen';
+
+    stopAllActiveLessonStreams();
+    updateLearningMode(nextLearningMode);
+  };
 
   return (
     <button
@@ -38,9 +45,7 @@ export const LearningModeSwitch = ({
         size === 'desktop' ? styles.learningModeSwitchDesktop : '',
         className,
       )}
-      onClick={() =>
-        updateLearningMode(learningMode === 'listen' ? 'read' : 'listen')
-      }
+      onClick={handleLearningModeToggle}
     >
       {LEARNING_MODE_OPTIONS.map(option => {
         const isActive = learningMode === option.mode;
