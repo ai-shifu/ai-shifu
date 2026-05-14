@@ -114,6 +114,34 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
+  it('strips custom-button markup from typewriter content', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'text',
+            content:
+              '流式正文<custom-button-after-content><span>Ask</span></custom-button-after-content>',
+            element_bid: 'streaming-text-with-button',
+            shouldUseTypewriter: true,
+          } as any
+        }
+        mobileStyle={true}
+        blockBid='streaming-text-with-button'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enableTypewriter: true,
+        content: '流式正文',
+      }),
+    );
+  });
+
   it('keeps non-candidate text elements out of typewriter mode', () => {
     render(
       <ContentBlock

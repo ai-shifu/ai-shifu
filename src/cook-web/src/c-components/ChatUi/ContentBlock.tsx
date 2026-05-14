@@ -10,6 +10,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
+import { stripCustomButtonAfterContent } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 
@@ -75,9 +76,6 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
-    const handleTypeFinished = useCallback(() => {
-      onTypeFinished?.(blockBid, item.content || '');
-    }, [blockBid, item.content, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
@@ -94,6 +92,12 @@ const ContentBlock = memo(
       enableStreamingTypewriter &&
       item.shouldUseTypewriter === true &&
       item.element_type === 'text';
+    const renderedContent = shouldEnableTypewriter
+      ? (stripCustomButtonAfterContent(item.content) ?? '')
+      : (item.content || '');
+    const handleTypeFinished = useCallback(() => {
+      onTypeFinished?.(blockBid, renderedContent);
+    }, [blockBid, onTypeFinished, renderedContent]);
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -111,7 +115,7 @@ const ContentBlock = memo(
         <ContentRender
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={STREAMING_TEXT_TYPING_SPEED}
-          content={item.content || ''}
+          content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
           userInput={resolvedUserInput}

@@ -1311,7 +1311,10 @@ export const NewChatComponents = ({
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={true}
+                        enableStreamingTypewriter={
+                          !readModeTypewriterCache[item.element_bid || '']
+                            ?.isFinished
+                        }
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
