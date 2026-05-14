@@ -589,7 +589,7 @@ def test_user_users_lookup_by_phone_returns_masked_user_identify(
     assert payload["code"] == 0
     rows = payload["data"]["rows"]
     assert len(rows) == 1
-    row = dict(zip(payload["data"]["columns"], rows[0]))
+    row = dict(zip(payload["data"]["columns"], rows[0], strict=True))
     assert row["user_bid"] == "u1"
     assert row["user_identify"] == "138*****000"
     assert "13800138000" not in str(rows)
@@ -620,7 +620,7 @@ def test_user_users_lookup_by_email_returns_masked_user_identify(
 
     payload = response.get_json(force=True)
     assert payload["code"] == 0
-    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0]))
+    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0], strict=True))
     assert row["user_identify"] == "te*****@example.com"
     assert "test@example.com" not in str(payload["data"]["rows"])
 
@@ -651,7 +651,7 @@ def test_user_users_nickname_redacted_and_user_identify_masked_independently(
 
     payload = response.get_json(force=True)
     assert payload["code"] == 0
-    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0]))
+    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0], strict=True))
     assert "[REDACTED-PHONE]" in row["nickname"]  # nickname: full redaction
     assert "13812345678" not in row["nickname"]
     assert row["user_identify"] == "138*****000"  # user_identify: partial mask
@@ -703,7 +703,7 @@ def test_user_users_lookup_by_phone_audit_log_emitted(
         )[1],
     )
 
-    _post(
+    resp = _post(
         test_client,
         {
             "shifu_bid": "shifu-a",
@@ -713,6 +713,7 @@ def test_user_users_lookup_by_phone_audit_log_emitted(
             "limit": 1,
         },
     )
+    assert resp.get_json(force=True)["code"] == 0
 
     assert any(
         args

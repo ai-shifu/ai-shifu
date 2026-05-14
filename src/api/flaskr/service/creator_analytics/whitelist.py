@@ -313,6 +313,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "usage_type",
                 "provider",
                 "model",
+                "billing_metric",
                 "consumed_credits",
                 "record_count",
             }
@@ -324,6 +325,7 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "usage_type",
                 "provider",
                 "model",
+                "billing_metric",
             }
         ),
         groupable=frozenset(
@@ -333,12 +335,14 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "usage_type",
                 "provider",
                 "model",
+                "billing_metric",
             }
         ),
         aggregatable={
             "consumed_credits": _NUMERIC_AGGS,
             "record_count": _NUMERIC_AGGS,
             "stat_date": _TIMESTAMP_AGGS,
+            "billing_metric": _DIMENSION_AGGS,
         },
         has_deleted=True,
         has_shifu_bid=True,

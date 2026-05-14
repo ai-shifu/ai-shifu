@@ -219,7 +219,10 @@ def seed_bill_daily_metric(
 ) -> None:
     """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
 
-    bid = daily_usage_metric_bid or f"dm-{shifu_bid}-{stat_date}-{usage_type}"
+    bid = (
+        daily_usage_metric_bid
+        or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"
+    )
     now = datetime.utcnow()
     db.session.add(
         BillingDailyUsageMetric(
