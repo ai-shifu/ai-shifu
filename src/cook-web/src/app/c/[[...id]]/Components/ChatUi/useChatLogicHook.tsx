@@ -1865,6 +1865,14 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              if (response.is_terminal === true) {
+                cleanupRunStreamState();
+                try {
+                  source?.close?.();
+                } catch {}
+                return;
+              }
+
               const completedElementBid =
                 currentBlockIdRef.current || blockId || '';
               setCurrentStreamingElementBid('');

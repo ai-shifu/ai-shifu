@@ -60,6 +60,43 @@
       "has": "有",
       "unknown": "未知"
     },
+    "creditUsage": {
+      "count": "{count} 条记录",
+      "description": "查看该课程的积分消耗记录。",
+      "filters": {
+        "mode": "消耗场景",
+        "modeAll": "全部",
+        "reset": "重置",
+        "time": "时间",
+        "timePlaceholder": "选择时间范围",
+        "userKeyword": "用户",
+        "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "输入手机号 / 昵称"
+      },
+      "modelSummary": {
+        "multiple": "{model} 等 {count} 个"
+      },
+      "modes": {
+        "ask": "追问",
+        "learn": "学习",
+        "listen": "听课",
+        "mixed": "混合",
+        "unknown": "未知场景"
+      },
+      "table": {
+        "chapter": "章节",
+        "createdAt": "消耗时间",
+        "credits": "总消耗积分",
+        "empty": "暂无积分消耗记录",
+        "lesson": "小节",
+        "mode": "消耗场景",
+        "model": "模型",
+        "nickname": "昵称",
+        "usageCount": "消耗次数"
+      },
+      "title": "积分消耗"
+    },
+    "creditUsageTab": "积分消耗",
     "fields": {
       "courseId": "课程ID",
       "courseName": "课程名",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from flaskr.common.swagger import register_schema_to_swagger
 
@@ -874,6 +874,102 @@ class AdminOperationCourseRatingListDTO(BaseModel):
     def __json__(self) -> dict[str, Any]:
         return {
             "summary": self.summary.__json__(),
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationCourseCreditUsageItemDTO(BaseModel):
+    """Operator-facing course credit usage row."""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    group_key: str = Field(
+        default="",
+        description="Grouped row business key or raw usage key",
+        required=False,
+    )
+    usage_bid: str = Field(..., description="Usage business identifier", required=False)
+    progress_record_bid: str = Field(
+        default="",
+        description="Progress record business identifier",
+        required=False,
+    )
+    generated_block_bid: str = Field(
+        default="",
+        description="Generated block business identifier",
+        required=False,
+    )
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    chapter_outline_item_bid: str = Field(
+        default="",
+        description="Chapter outline item business identifier",
+        required=False,
+    )
+    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    lesson_outline_item_bid: str = Field(
+        default="",
+        description="Lesson outline item business identifier",
+        required=False,
+    )
+    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    usage_mode: str = Field(
+        default="",
+        description="Credit usage mode: learn/listen/ask",
+        required=False,
+    )
+    provider: str = Field(default="", description="Provider name", required=False)
+    model: str = Field(default="", description="Provider model", required=False)
+    usage_count: int = Field(
+        default=1,
+        description="Grouped usage row count",
+        required=False,
+    )
+    model_variant_count: int = Field(
+        default=0,
+        description="Distinct provider/model count inside the row",
+        required=False,
+    )
+    consumed_credits: int | float = Field(
+        default=0,
+        description="Consumed credits",
+        required=False,
+    )
+    created_at: str = Field(default="", description="Created at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseCreditUsageListDTO(BaseModel):
+    """Operator-facing course credit usage list payload."""
+
+    view: str = Field(
+        default="grouped",
+        description="Response view mode: grouped/raw",
+        required=False,
+    )
+    items: list[AdminOperationCourseCreditUsageItemDTO] = Field(
+        default_factory=list,
+        description="Paginated credit usage rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "view": self.view,
             "items": [item.__json__() for item in self.items],
             "page": self.page,
             "page_size": self.page_size,

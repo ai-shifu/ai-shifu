@@ -1348,6 +1348,8 @@ export default function AdminOperationUsersPage() {
                           {userDetailUrl ? (
                             <Link
                               href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(user.user_bid)}
@@ -1367,6 +1369,8 @@ export default function AdminOperationUsersPage() {
                           ) : userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(primaryContact)}
@@ -1456,6 +1460,8 @@ export default function AdminOperationUsersPage() {
                           {userDetailUrl && user.available_credits ? (
                             <Link
                               href={`${userDetailUrl}#credits`}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(

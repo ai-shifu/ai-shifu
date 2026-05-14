@@ -23,6 +23,7 @@ EXPECTED_TABLE_KEYS = {
     "order_orders",
     "var_variable_values",
     "bill_usage",
+    "bill_daily_usage_metrics",
     "shifu_user_archives",
     "user_users",
 }
@@ -30,6 +31,10 @@ EXPECTED_TABLE_KEYS = {
 # Tables whose rows are shifu-scoped (sql_builder injects WHERE shifu_bid=:sb).
 # user_users is global and gated by funcs.run_dsl permission check instead.
 SHIFU_SCOPED_TABLE_KEYS = EXPECTED_TABLE_KEYS - {"user_users"}
+
+# Learner-grained tables that expose user_bid — bill_daily_usage_metrics is a
+# daily summary table without user_bid.
+USER_BID_GROUPABLE_TABLE_KEYS = SHIFU_SCOPED_TABLE_KEYS - {"bill_daily_usage_metrics"}
 
 
 def test_whitelist_covers_expected_tables() -> None:
@@ -119,9 +124,9 @@ def test_get_table_spec_returns_typed_instance() -> None:
     assert spec.table_key == "order_orders"
 
 
-@pytest.mark.parametrize("table_key", sorted(SHIFU_SCOPED_TABLE_KEYS))
+@pytest.mark.parametrize("table_key", sorted(USER_BID_GROUPABLE_TABLE_KEYS))
 def test_user_bid_is_groupable_on_every_shifu_scoped_table(table_key: str) -> None:
-    """user_bid is groupable on the 7 shifu-scoped tables — per-learner aggregation."""
+    """user_bid is groupable on learner-grained shifu-scoped tables."""
 
     spec = WHITELIST[table_key]
     assert "user_bid" in spec.groupable, (
@@ -146,3 +151,11 @@ def test_operators_baseline() -> None:
     assert "like" in ALLOWED_OPERATORS
     assert "is_null" in ALLOWED_OPERATORS
     assert "join" not in ALLOWED_OPERATORS
+
+
+def test_bill_daily_usage_metrics_has_shifu_bid_and_deleted() -> None:
+    """bill_daily_usage_metrics is shifu-scoped and soft-deletable."""
+
+    spec = WHITELIST["bill_daily_usage_metrics"]
+    assert spec.has_shifu_bid is True
+    assert spec.has_deleted is True

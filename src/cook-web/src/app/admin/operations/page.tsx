@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, {
   useCallback,
   useEffect,
@@ -9,7 +10,6 @@ import React, {
   type CSSProperties,
 } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
@@ -335,7 +335,6 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionTargetPrefix')
  */
 const OperationsPage = () => {
-  const router = useRouter();
   const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { toast } = useToast();
@@ -684,14 +683,6 @@ const OperationsPage = () => {
       return;
     }
     fetchCourses(nextPage, filters, quickFilter);
-  };
-
-  const handleDetailClick = (course: AdminOperationCourseItem) => {
-    const detailUrl = buildAdminOperationsCourseDetailUrl(course.shifu_bid);
-    if (!detailUrl) {
-      return;
-    }
-    router.push(detailUrl);
   };
 
   const handlePromptDetailOpenChange = useCallback((nextOpen: boolean) => {
@@ -1559,6 +1550,9 @@ const OperationsPage = () => {
                 {courses.map(course => {
                   const creatorDisplay = resolveActorDisplay(course, 'creator');
                   const updaterDisplay = resolveActorDisplay(course, 'updater');
+                  const detailUrl = buildAdminOperationsCourseDetailUrl(
+                    course.shifu_bid,
+                  );
 
                   return (
                     <TableRow key={course.shifu_bid}>
@@ -1572,16 +1566,24 @@ const OperationsPage = () => {
                         className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('courseName')}
                       >
-                        <button
-                          type='button'
-                          className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
-                          onClick={() => handleDetailClick(course)}
-                        >
-                          {renderTooltipText(
+                        {detailUrl ? (
+                          <Link
+                            href={detailUrl}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
+                          >
+                            {renderTooltipText(
+                              course.course_name,
+                              'truncate text-center',
+                            )}
+                          </Link>
+                        ) : (
+                          renderTooltipText(
                             course.course_name,
                             'truncate text-center',
-                          )}
-                        </button>
+                          )
+                        )}
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'

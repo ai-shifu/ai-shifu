@@ -11,7 +11,7 @@ User-facing workflow and page behavior specifications live here.
 - [Mobile 404 Follow-up: Sequencing Improvement Plan](../product-specs/mobile-404-sequencing-followup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Course Detail Page](../product-specs/operator-course-detail-page.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-13` | Canonical: `true`
 - [Operator Course Visit Analytics](../product-specs/operator-course-visit-analytics.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)
