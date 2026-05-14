@@ -69,7 +69,7 @@ import { useToast } from '@/hooks/useToast';
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
-import { useShifu } from '@/store';
+import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   AskProviderSchemaValidationError,
@@ -1027,11 +1027,17 @@ export default function ShifuSettingDialog({
     closeTtsPreviewStream();
 
     const baseUrl = getResolvedBaseURL();
+    const token = useUserStore.getState().getToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Request-ID': uuidv4().replace(/-/g, ''),
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      headers.Token = token;
+    }
     const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
-      },
+      headers,
       payload: JSON.stringify({
         provider: resolvedProvider,
         model: ttsModel || '',
