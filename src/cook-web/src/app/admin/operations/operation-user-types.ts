@@ -126,6 +126,7 @@ export type AdminOperationUserCreditGrantResponse = {
 
 export type AdminOperationUserGrantBootstrapResponse = {
   plans: BillingPlan[];
+  current_subscription_product_display_name_i18n_key: string;
   notification_status: string;
 };
 

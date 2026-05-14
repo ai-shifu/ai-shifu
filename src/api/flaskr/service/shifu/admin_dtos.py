@@ -460,6 +460,11 @@ class AdminOperationUserGrantBootstrapDTO(BaseModel):
         description="Grantable billing plans",
         required=False,
     )
+    current_subscription_product_display_name_i18n_key: str = Field(
+        default="",
+        description="Current active subscription product display name i18n key",
+        required=False,
+    )
     notification_status: str = Field(
         default="template_pending",
         description="Current admin package notification template status",
@@ -469,6 +474,9 @@ class AdminOperationUserGrantBootstrapDTO(BaseModel):
     def __json__(self) -> dict[str, Any]:
         return {
             "plans": [item.__json__() for item in self.plans],
+            "current_subscription_product_display_name_i18n_key": (
+                self.current_subscription_product_display_name_i18n_key
+            ),
             "notification_status": self.notification_status,
         }
 

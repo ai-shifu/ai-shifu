@@ -329,12 +329,13 @@ def _seed_billing_subscription(
     subscription_bid: str,
     current_period_start_at: datetime,
     current_period_end_at: datetime,
+    product_bid: str = "product-1",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 ):
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
-        product_bid="product-1",
+        product_bid=product_bid,
         status=status,
         billing_provider="manual",
         provider_subscription_id="",
@@ -1835,6 +1836,13 @@ def test_get_operator_user_grant_bootstrap_returns_active_plans(app):
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "package-bootstrap-target@example.com")],
         )
+        _seed_billing_subscription(
+            creator_bid="package-bootstrap-target",
+            subscription_bid="subscription-package-bootstrap-target",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 9, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
 
         result = get_operator_user_grant_bootstrap(
             app,
@@ -1843,6 +1851,10 @@ def test_get_operator_user_grant_bootstrap_returns_active_plans(app):
 
     assert len(result.plans) == 1
     assert result.plans[0].product_bid == "bill-product-plan-monthly"
+    assert (
+        result.current_subscription_product_display_name_i18n_key
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
     assert result.notification_status == "template_pending"
 
 
@@ -2642,6 +2654,13 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
             providers=[("email", "user-grant-bootstrap-route@example.com")],
         )
+        _seed_billing_subscription(
+            creator_bid="user-grant-bootstrap-route",
+            subscription_bid="subscription-user-grant-bootstrap-route",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 8, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
 
     response = test_client.get(
         "/api/shifu/admin/operations/users/user-grant-bootstrap-route/credit-grant/bootstrap",
@@ -2652,6 +2671,10 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["notification_status"] == "template_pending"
+    assert (
+        payload["data"]["current_subscription_product_display_name_i18n_key"]
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
     assert payload["data"]["plans"][0]["product_bid"] == "bill-product-plan-monthly"
 
 

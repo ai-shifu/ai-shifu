@@ -164,6 +164,7 @@
       "amount": "Saisir le montant des crédits",
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
+      "productLoading": "Chargement des forfaits...",
       "source": "Sélectionnez une source",
       "validityPreset": "Sélectionnez une validité"
     },
@@ -177,7 +178,9 @@
       "account": "Compte",
       "availableCredits": "Solde de crédits",
       "currentExpireAt": "Valide jusqu’au",
-      "nickname": "Pseudo"
+      "currentPackage": "Forfait actuel",
+      "nickname": "Pseudo",
+      "package": "Forfait"
     },
     "title": "Attribuer crédits/forfait",
     "validation": {

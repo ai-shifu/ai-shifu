@@ -164,6 +164,7 @@
       "amount": "请输入积分数值",
       "note": "可选，记录本次发放说明",
       "product": "请选择套餐",
+      "productLoading": "套餐加载中...",
       "source": "请选择来源",
       "validityPreset": "请选择有效期"
     },
@@ -177,7 +178,9 @@
       "account": "账号",
       "availableCredits": "积分余额",
       "currentExpireAt": "有效期到",
-      "nickname": "昵称"
+      "currentPackage": "当前套餐",
+      "nickname": "昵称",
+      "package": "套餐"
     },
     "title": "发放积分/套餐",
     "validation": {

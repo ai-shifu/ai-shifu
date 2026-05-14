@@ -164,6 +164,7 @@
       "amount": "Enter credit amount",
       "note": "Optional. Record the reason for this grant",
       "product": "Select a package",
+      "productLoading": "Loading packages...",
       "source": "Select source",
       "validityPreset": "Select validity"
     },
@@ -177,7 +178,9 @@
       "account": "Account",
       "availableCredits": "Credit Balance",
       "currentExpireAt": "Valid Until",
-      "nickname": "Nickname"
+      "currentPackage": "Current Package",
+      "nickname": "Nickname",
+      "package": "Package"
     },
     "title": "Grant Credits/Package",
     "validation": {

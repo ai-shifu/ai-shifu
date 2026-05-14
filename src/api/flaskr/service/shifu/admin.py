@@ -36,6 +36,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     CreditLedgerEntry,
     CreditWalletBucket,
 )
@@ -545,6 +546,30 @@ def _load_active_subscription_end_map(
             continue
         subscription_end_map[creator_bid] = subscription.current_period_end_at
     return subscription_end_map
+
+
+def _load_active_subscription_product_display_name_i18n_key(
+    creator_bid: str,
+    *,
+    as_of: datetime,
+) -> str:
+    subscription = load_primary_active_subscription(creator_bid, as_of=as_of)
+    if subscription is None:
+        return ""
+
+    normalized_product_bid = str(subscription.product_bid or "").strip()
+    if not normalized_product_bid:
+        return ""
+
+    product = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == normalized_product_bid,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+    return str(getattr(product, "display_name_i18n_key", "") or "").strip()
 
 
 def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
@@ -5218,8 +5243,17 @@ def get_operator_user_grant_bootstrap(
         user = _load_operator_user_or_raise(normalized_user_bid)
         _assert_operator_user_grant_target_supported(user)
         catalog = build_billing_catalog(app)
+        current_subscription_product_display_name_i18n_key = (
+            _load_active_subscription_product_display_name_i18n_key(
+                normalized_user_bid,
+                as_of=datetime.now(),
+            )
+        )
         return AdminOperationUserGrantBootstrapDTO(
             plans=catalog.plans,
+            current_subscription_product_display_name_i18n_key=(
+                current_subscription_product_display_name_i18n_key
+            ),
             notification_status="template_pending",
         )
 

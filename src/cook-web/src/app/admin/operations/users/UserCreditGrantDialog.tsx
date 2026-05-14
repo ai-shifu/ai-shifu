@@ -180,6 +180,9 @@ const resolveEstimatedPlanExpiry = (
   return '';
 };
 
+const stripValidityLabelPrefix = (value: string): string =>
+  value.replace(/^[^:：]+[:：]\s*/, '').trim();
+
 const SummaryField = ({
   label,
   value,
@@ -305,7 +308,7 @@ export default function UserCreditGrantDialog({
       setBootstrapLoading(false);
       return;
     }
-    if (grantMode !== 'package' || bootstrapPayload) {
+    if (bootstrapPayload) {
       return;
     }
 
@@ -349,7 +352,7 @@ export default function UserCreditGrantDialog({
     return () => {
       active = false;
     };
-  }, [bootstrapPayload, grantMode, open, tOperationsUsers, user]);
+  }, [bootstrapPayload, open, tOperationsUsers, user]);
 
   const sourceOptions = useMemo(
     () => [
@@ -421,15 +424,17 @@ export default function UserCreditGrantDialog({
     ? formatAdminCredits(Number(selectedPlan.credit_amount || 0), i18n.language)
     : '--';
   const packageValidityLabel = selectedPlan
-    ? resolveBillingPlanValidityLabel(t, selectedPlan)
+    ? stripValidityLabelPrefix(resolveBillingPlanValidityLabel(t, selectedPlan))
     : '--';
+  const currentPackageLabel =
+    bootstrapPayload?.current_subscription_product_display_name_i18n_key
+      ? t(bootstrapPayload.current_subscription_product_display_name_i18n_key)
+      : '--';
   const packageExpiryHint = selectedPlan
-    ? tOperationsUsers('grantDialog.packageFields.expiryHintResolved', {
-        dateTime: formatBillingCompactDateTime(
-          estimatedPlanExpiry,
-          i18n.language,
-        ),
-      })
+    ? tOperationsUsers('grantDialog.packageFields.expiryHintResolved').replace(
+        /{{\s*dateTime\s*}}/g,
+        formatBillingCompactDateTime(estimatedPlanExpiry, i18n.language),
+      )
     : tOperationsUsers('grantDialog.packageFields.expiryHintPending');
 
   const updateCreditField = <K extends keyof CreditFormState>(
@@ -647,7 +652,7 @@ export default function UserCreditGrantDialog({
 
           <div className='min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4'>
             <div className='rounded-xl border border-border/70 bg-muted/[0.16] px-4 py-3'>
-              <div className='grid gap-x-5 gap-y-3 sm:grid-cols-2'>
+              <div className='grid gap-x-5 gap-y-3 sm:grid-cols-3'>
                 <SummaryField
                   label={tOperationsUsers('grantDialog.summary.account')}
                   value={accountLabel}
@@ -664,6 +669,10 @@ export default function UserCreditGrantDialog({
                     Number(user?.available_credits || 0),
                     i18n.language,
                   )}
+                />
+                <SummaryField
+                  label={tOperationsUsers('grantDialog.summary.currentPackage')}
+                  value={currentPackageLabel}
                 />
                 <SummaryField
                   label={tOperationsUsers(
@@ -826,22 +835,36 @@ export default function UserCreditGrantDialog({
                           updatePackageField('productBid', value)
                         }
                       >
-                        <SelectTrigger disabled={bootstrapLoading}>
+                        <SelectTrigger>
                           <SelectValue
                             placeholder={tOperationsUsers(
-                              'grantDialog.placeholders.product',
+                              bootstrapLoading
+                                ? 'grantDialog.placeholders.productLoading'
+                                : 'grantDialog.placeholders.product',
                             )}
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {(bootstrapPayload?.plans || []).map(plan => (
+                          {bootstrapLoading &&
+                          !(bootstrapPayload?.plans.length || 0) ? (
                             <SelectItem
-                              key={plan.product_bid}
-                              value={plan.product_bid}
+                              value='__loading'
+                              disabled
                             >
-                              {t(plan.display_name)}
+                              {tOperationsUsers(
+                                'grantDialog.placeholders.productLoading',
+                              )}
                             </SelectItem>
-                          ))}
+                          ) : (
+                            (bootstrapPayload?.plans || []).map(plan => (
+                              <SelectItem
+                                key={plan.product_bid}
+                                value={plan.product_bid}
+                              >
+                                {t(plan.display_name)}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -857,31 +880,33 @@ export default function UserCreditGrantDialog({
                     ) : null}
                   </div>
 
-                  <div className='rounded-xl border border-border/70 bg-muted/[0.12] px-4 py-3'>
-                    <div className='grid gap-x-5 gap-y-3 sm:grid-cols-2'>
-                      <SummaryField
-                        label={tOperationsUsers(
-                          'grantDialog.packageFields.packageName',
-                        )}
-                        value={packageName}
-                      />
-                      <SummaryField
-                        label={tOperationsUsers(
-                          'grantDialog.packageFields.credits',
-                        )}
-                        value={packageCreditsLabel}
-                      />
-                      <SummaryField
-                        label={tOperationsUsers(
-                          'grantDialog.packageFields.validity',
-                        )}
-                        value={packageValidityLabel}
-                      />
+                  {selectedPlan ? (
+                    <div className='rounded-xl border border-border/70 bg-muted/[0.12] px-4 py-3'>
+                      <div className='grid gap-x-5 gap-y-3 sm:grid-cols-2'>
+                        <SummaryField
+                          label={tOperationsUsers(
+                            'grantDialog.packageFields.packageName',
+                          )}
+                          value={packageName}
+                        />
+                        <SummaryField
+                          label={tOperationsUsers(
+                            'grantDialog.packageFields.credits',
+                          )}
+                          value={packageCreditsLabel}
+                        />
+                        <SummaryField
+                          label={tOperationsUsers(
+                            'grantDialog.packageFields.validity',
+                          )}
+                          value={packageValidityLabel}
+                        />
+                      </div>
+                      <div className='mt-3 text-xs text-muted-foreground'>
+                        {packageExpiryHint}
+                      </div>
                     </div>
-                    <div className='mt-3 text-xs text-muted-foreground'>
-                      {packageExpiryHint}
-                    </div>
-                  </div>
+                  ) : null}
 
                   <div className='space-y-2'>
                     <div className='grid gap-2 sm:grid-cols-[80px_minmax(0,1fr)] sm:items-start'>
