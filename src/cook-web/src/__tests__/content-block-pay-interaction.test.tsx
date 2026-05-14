@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import ContentBlock from '@/c-components/ChatUi/ContentBlock';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
@@ -140,6 +140,38 @@ describe('ContentBlock pay interaction overrides', () => {
         content: '流式正文',
       }),
     );
+  });
+
+  it('renders rich-content follow-up buttons outside content render with stripped inner content', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'svg',
+            content:
+              '<svg viewBox="0 0 10 10"></svg><custom-button-after-content><img src="/ask.svg" alt="ask" width="14" height="14" /><span>追问</span></custom-button-after-content>',
+            element_bid: 'rich-with-button',
+            shouldUseTypewriter: false,
+          } as any
+        }
+        mobileStyle={true}
+        blockBid='rich-with-button'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: '<svg viewBox="0 0 10 10"></svg>',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'ask 追问',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('keeps non-candidate text elements out of typewriter mode', () => {

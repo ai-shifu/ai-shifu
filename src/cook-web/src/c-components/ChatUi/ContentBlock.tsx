@@ -10,7 +10,11 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { stripCustomButtonAfterContent } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
+import {
+  extractCustomButtonAfterContentInnerHtml,
+  hasCustomButtonAfterContent,
+  stripCustomButtonAfterContent,
+} from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 
@@ -92,9 +96,17 @@ const ContentBlock = memo(
       enableStreamingTypewriter &&
       item.shouldUseTypewriter === true &&
       item.element_type === 'text';
-    const renderedContent = shouldEnableTypewriter
-      ? (stripCustomButtonAfterContent(item.content) ?? '')
-      : (item.content || '');
+    const isRichContentElement =
+      item.type === ChatContentItemType.CONTENT && item.element_type !== 'text';
+    const shouldRenderExternalCustomButton =
+      isRichContentElement && hasCustomButtonAfterContent(item.content);
+    const renderedContent =
+      shouldEnableTypewriter || shouldRenderExternalCustomButton
+        ? (stripCustomButtonAfterContent(item.content) ?? '')
+        : (item.content || '');
+    const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
+      ? extractCustomButtonAfterContentInnerHtml(item.content)
+      : '';
     const handleTypeFinished = useCallback(() => {
       onTypeFinished?.(blockBid, renderedContent);
     }, [blockBid, onTypeFinished, renderedContent]);
@@ -129,6 +141,19 @@ const ContentBlock = memo(
           onSend={_onSend}
           onTypeFinished={handleTypeFinished}
         />
+        {shouldRenderExternalCustomButton && externalCustomButtonInnerHtml ? (
+          <button
+            className='content-render-custom-button-after-content mt-3'
+            onClick={handleClick}
+          >
+            <span
+              className='content-render-custom-button-after-content-inner'
+              dangerouslySetInnerHTML={{
+                __html: externalCustomButtonInnerHtml,
+              }}
+            />
+          </button>
+        ) : null}
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
             <AudioPlayer
