@@ -59,6 +59,7 @@ import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import {
   buildVisibleReadModeItems,
   normalizeReadModeTypewriterContent,
+  shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
@@ -1307,13 +1308,19 @@ export const NewChatComponents = ({
                       {isLongPressed && mobileStyle && (
                         <div className='long-press-overlay' />
                       )}
+                      {/*
+                        Keep typewriter enabled when the current element content
+                        has already grown beyond the finished cache snapshot.
+                      */}
                       <ContentBlock
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
                         enableStreamingTypewriter={
-                          !readModeTypewriterCache[item.element_bid || '']
-                            ?.isFinished
+                          shouldEnableReadModeTypewriter(
+                            item,
+                            readModeTypewriterCache[item.element_bid || ''],
+                          )
                         }
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}

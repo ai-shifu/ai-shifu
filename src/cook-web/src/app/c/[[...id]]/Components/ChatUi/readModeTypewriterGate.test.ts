@@ -4,6 +4,7 @@ import {
   buildVisibleReadModeItems,
   isReadModeTextContentItemReady,
   normalizeReadModeTypewriterContent,
+  shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
@@ -90,6 +91,50 @@ describe('readModeTypewriterGate', () => {
         },
       },
     );
+  });
+
+  it('keeps typewriter enabled when the current text content outgrows a finished cache entry', () => {
+    const appendedText = createTextItem({
+      content: 'First text\n\nSecond text',
+    });
+    const finishedCacheEntry: ReadModeTypewriterCache['text-1'] = {
+      content: 'First text',
+      isFinished: true,
+    };
+
+    expect(
+      shouldEnableReadModeTypewriter(appendedText, finishedCacheEntry),
+    ).toBe(true);
+  });
+
+  it('keeps typewriter enabled for a non-final text item after the current chunk finishes', () => {
+    const unfinishedText = createTextItem({
+      content: 'First text',
+      is_final: false,
+    });
+    const finishedCacheEntry: ReadModeTypewriterCache['text-1'] = {
+      content: 'First text',
+      isFinished: true,
+    };
+
+    expect(
+      shouldEnableReadModeTypewriter(unfinishedText, finishedCacheEntry),
+    ).toBe(true);
+  });
+
+  it('does not re-enable typewriter for a finished text item when content is only rewritten', () => {
+    const rewrittenText = createTextItem({
+      content: 'Rewritten first text',
+      is_final: true,
+    });
+    const finishedCacheEntry: ReadModeTypewriterCache['text-1'] = {
+      content: 'First text',
+      isFinished: true,
+    };
+
+    expect(
+      shouldEnableReadModeTypewriter(rewrittenText, finishedCacheEntry),
+    ).toBe(false);
   });
 
   it('treats non-typewriter text items as ready when no cache entry exists', () => {
