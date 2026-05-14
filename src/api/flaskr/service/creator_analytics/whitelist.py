@@ -18,6 +18,7 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
@@ -234,10 +235,16 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "progress_record_bid",
                 "usage_type",
                 "usage_scene",
+                "provider",
+                "model",
+                "record_level",
                 "input",
+                "input_cache",
                 "output",
+                "total",
                 "latency_ms",
                 "created_at",
+                "billable",
             }
         ),
         filterable=frozenset(
@@ -246,17 +253,30 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "progress_record_bid",
                 "usage_type",
                 "usage_scene",
+                "provider",
+                "model",
+                "record_level",
+                "billable",
                 "created_at",
             }
         ),
         groupable=frozenset(
-            {"user_bid", "progress_record_bid", "usage_type", "usage_scene"}
+            {
+                "user_bid",
+                "progress_record_bid",
+                "usage_type",
+                "usage_scene",
+                "provider",
+                "model",
+            }
         ),
         aggregatable={
             "usage_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
             "input": _NUMERIC_AGGS,
+            "input_cache": _NUMERIC_AGGS,
             "output": _NUMERIC_AGGS,
+            "total": _NUMERIC_AGGS,
             "latency_ms": _NUMERIC_AGGS,
             "created_at": _TIMESTAMP_AGGS,
         },
@@ -274,6 +294,54 @@ WHITELIST: Mapping[str, TableSpec] = {
             "created_at": _TIMESTAMP_AGGS,
         },
         has_deleted=False,
+    ),
+    # ------------------------------------------------------------------
+    # Daily pre-aggregated credit usage — one row per (stat_date, shifu,
+    # usage_scene, usage_type, provider, model, billing_metric).
+    # `consumed_credits` is the authoritative credit-cost figure; it is
+    # already rate-adjusted by the billing settlement job.
+    # Unlike bill_usage.total (raw token/char count), consumed_credits
+    # reflects the actual deduction from the creator's wallet.
+    # ------------------------------------------------------------------
+    "bill_daily_usage_metrics": TableSpec(
+        table_key="bill_daily_usage_metrics",
+        model=BillingDailyUsageMetric,
+        selectable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+                "consumed_credits",
+                "record_count",
+            }
+        ),
+        filterable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+            }
+        ),
+        groupable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+            }
+        ),
+        aggregatable={
+            "consumed_credits": _NUMERIC_AGGS,
+            "record_count": _NUMERIC_AGGS,
+            "stat_date": _TIMESTAMP_AGGS,
+        },
+        has_deleted=True,
+        has_shifu_bid=True,
     ),
     # ------------------------------------------------------------------
     # Global user table — limited to nickname/identify lookup by a known

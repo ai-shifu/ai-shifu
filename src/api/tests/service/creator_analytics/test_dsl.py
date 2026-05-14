@@ -600,3 +600,126 @@ def test_user_users_user_identify_not_groupable() -> None:
         aggregate=[{"fn": "count", "alias": "n"}],
     )
     _assert_error(payload, ERR_INVALID_COLUMN)
+
+
+# ---------------------------------------------------------------------------
+# bill_daily_usage_metrics — new credit-cost table (v3)
+# ---------------------------------------------------------------------------
+
+
+def _daily_metric_payload(**overrides):
+    base = {
+        "shifu_bid": "shifu-abc",
+        "table": "bill_daily_usage_metrics",
+        "aggregate": [
+            {"fn": "sum", "field": "consumed_credits", "alias": "total_credits"}
+        ],
+        "where": [{"field": "usage_scene", "op": "=", "value": 1203}],
+        "limit": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_bill_daily_consumed_credits_parses() -> None:
+    """Sum consumed_credits filtered by stat_date range — baseline credit query."""
+
+    payload = _daily_metric_payload(
+        where=[
+            {"field": "usage_scene", "op": "=", "value": 1203},
+            {
+                "field": "stat_date",
+                "op": "between",
+                "value": ["2026-05-01", "2026-05-14"],
+            },
+        ],
+    )
+    dsl = _parse(payload)
+    assert dsl.table == "bill_daily_usage_metrics"
+    assert dsl.aggregates[0].fn == "sum"
+    assert dsl.aggregates[0].alias == "total_credits"
+
+
+def test_bill_daily_group_by_usage_type_parses() -> None:
+    """Group by usage_type and usage_scene — LLM vs TTS credit split."""
+
+    payload = _daily_metric_payload(
+        select=["usage_type", "usage_scene"],
+        aggregate=[{"fn": "sum", "field": "consumed_credits", "alias": "credits"}],
+        group_by=["usage_type", "usage_scene"],
+        where=[{"field": "usage_scene", "op": "=", "value": 1203}],
+    )
+    dsl = _parse(payload)
+    assert "usage_type" in dsl.group_by
+    assert "usage_scene" in dsl.group_by
+
+
+def test_bill_daily_select_shifu_bid_rejected() -> None:
+    """shifu_bid is injected, callers must not reference it in bill_daily_usage_metrics."""
+
+    payload = _daily_metric_payload(select=["shifu_bid", "stat_date"])
+    _assert_error(payload, ERR_INVALID_COLUMN)
+
+
+# ---------------------------------------------------------------------------
+# bill_usage — new fields (provider, model, record_level, total, input_cache)
+# ---------------------------------------------------------------------------
+
+
+def _bill_usage_payload(**overrides):
+    base = {
+        "shifu_bid": "shifu-abc",
+        "table": "bill_usage",
+        "select": ["user_bid", "usage_type"],
+        "where": [{"field": "user_bid", "op": "=", "value": "u1"}],
+        "group_by": ["user_bid", "usage_type"],
+        "limit": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_bill_usage_provider_filterable() -> None:
+    payload = _bill_usage_payload(
+        where=[
+            {"field": "user_bid", "op": "=", "value": "u1"},
+            {"field": "provider", "op": "=", "value": "openai"},
+        ],
+    )
+    dsl = _parse(payload)
+    provider_filters = [f for f in dsl.filters if f.field == "provider"]
+    assert provider_filters
+
+
+def test_bill_usage_record_level_filterable() -> None:
+    payload = _bill_usage_payload(
+        where=[
+            {"field": "user_bid", "op": "=", "value": "u1"},
+            {"field": "record_level", "op": "=", "value": 0},
+        ],
+    )
+    dsl = _parse(payload)
+    rl_filters = [f for f in dsl.filters if f.field == "record_level"]
+    assert rl_filters
+
+
+def test_bill_usage_total_aggregatable() -> None:
+    payload = _bill_usage_payload(
+        select=["user_bid"],
+        aggregate=[{"fn": "sum", "field": "total", "alias": "total_tokens"}],
+        group_by=["user_bid"],
+        where=[{"field": "user_bid", "op": "=", "value": "u1"}],
+    )
+    dsl = _parse(payload)
+    assert any(a.alias == "total_tokens" for a in dsl.aggregates)
+
+
+def test_bill_usage_input_cache_aggregatable() -> None:
+    payload = _bill_usage_payload(
+        select=["user_bid"],
+        aggregate=[{"fn": "sum", "field": "input_cache", "alias": "cached"}],
+        group_by=["user_bid"],
+        where=[{"field": "user_bid", "op": "=", "value": "u1"}],
+    )
+    dsl = _parse(payload)
+    assert any(a.alias == "cached" for a in dsl.aggregates)
