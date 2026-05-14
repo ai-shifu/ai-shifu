@@ -1001,6 +1001,50 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(stoppedItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
   });
 
+  it('resumes an interrupted read run after returning from listen mode', async () => {
+    const { result, rerender } = renderHook(
+      ({ isListenMode }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          isListenMode: false,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+    const interruptedRunSource = activeRun?.source;
+
+    await act(async () => {
+      stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
+    });
+
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(false));
+    expect(interruptedRunSource?.close).toHaveBeenCalled();
+
+    rerender({ isListenMode: true });
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+
+    rerender({ isListenMode: false });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+    expect(mockGetRunMessage.mock.calls[initialRunCount]?.[3]).toEqual(
+      expect.objectContaining({
+        input: '',
+        input_type: SSE_INPUT_TYPE.NORMAL,
+        listen: false,
+      }),
+    );
+  });
+
   it('clears loading after a control-only stream closes', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper,

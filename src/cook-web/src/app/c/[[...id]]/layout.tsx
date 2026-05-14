@@ -241,7 +241,7 @@ export default function ChatLayout({
     }
 
     // Stop active lesson streams before applying a URL or course-driven mode change.
-    stopAllActiveLessonStreams();
+    stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,

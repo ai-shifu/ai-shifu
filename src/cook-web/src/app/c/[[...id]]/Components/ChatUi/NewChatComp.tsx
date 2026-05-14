@@ -571,7 +571,7 @@ export const NewChatComponents = ({
     }
 
     if (!isListenModeAvailable) {
-      stopAllActiveLessonStreams();
+      stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
       updateLearningMode('read');
       return;
     }

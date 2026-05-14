@@ -34,8 +34,10 @@ describe('LearningModeSwitch', () => {
 
   it('stops active lesson streams before switching modes', () => {
     const eventsInOrder: string[] = [];
-    const stopListener = () => {
+    const stopListener = (event: Event | CustomEvent<{ reason?: string }>) => {
+      const reason = 'detail' in event ? event.detail?.reason : undefined;
       eventsInOrder.push(`stop:${useSystemStore.getState().learningMode}`);
+      eventsInOrder.push(`reason:${reason ?? ''}`);
     };
     events.addEventListener(
       BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
@@ -52,7 +54,11 @@ describe('LearningModeSwitch', () => {
       );
       eventsInOrder.push(`mode:${useSystemStore.getState().learningMode}`);
 
-      expect(eventsInOrder).toEqual(['stop:read', 'mode:listen']);
+      expect(eventsInOrder).toEqual([
+        'stop:read',
+        'reason:learning-mode-switch',
+        'mode:listen',
+      ]);
     } finally {
       events.removeEventListener(
         BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,

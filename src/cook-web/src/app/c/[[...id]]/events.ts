@@ -6,22 +6,37 @@ export const EVENT_NAMES = {
 
 export const events = new EventTarget();
 
-export const stopActiveLessonStream = (lessonId: string) => {
+export type StopActiveLessonStreamReason = 'learning-mode-switch';
+
+export interface StopActiveLessonStreamOptions {
+  reason?: StopActiveLessonStreamReason;
+}
+
+export interface StopActiveLessonStreamDetail extends StopActiveLessonStreamOptions {
+  lessonId?: string;
+}
+
+export const stopActiveLessonStream = (
+  lessonId: string,
+  options: StopActiveLessonStreamOptions = {},
+) => {
   if (!lessonId) {
     return;
   }
 
   events.dispatchEvent(
     new CustomEvent(EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM, {
-      detail: { lessonId },
+      detail: { lessonId, ...options },
     }),
   );
 };
 
-export const stopAllActiveLessonStreams = () => {
+export const stopAllActiveLessonStreams = (
+  options: StopActiveLessonStreamOptions = {},
+) => {
   events.dispatchEvent(
     new CustomEvent(EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM, {
-      detail: {},
+      detail: { ...options },
     }),
   );
 };

@@ -31,7 +31,7 @@ export const LearningModeSwitch = ({
   const handleLearningModeToggle = () => {
     const nextLearningMode = learningMode === 'listen' ? 'read' : 'listen';
 
-    stopAllActiveLessonStreams();
+    stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
     updateLearningMode(nextLearningMode);
   };
 
