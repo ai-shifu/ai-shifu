@@ -119,13 +119,13 @@ const resolveCreditLedgerLabel = (
   fallbackCode: string,
   emptyValue: string,
 ): string => {
-  const normalizedDisplayCode = displayCode.trim();
-  if (normalizedDisplayCode) {
-    return tOperationsUsers(`detail.${type}.${normalizedDisplayCode}`, {
-      defaultValue: normalizedDisplayCode,
-    });
+  const normalizedCode = displayCode.trim() || fallbackCode.trim();
+  if (!normalizedCode) {
+    return emptyValue;
   }
-  return fallbackCode.trim() || emptyValue;
+  return tOperationsUsers(`detail.${type}.${normalizedCode}`, {
+    defaultValue: normalizedCode,
+  });
 };
 
 const resolveCreditLedgerNote = (note: string, emptyValue: string): string => {
@@ -567,16 +567,10 @@ export default function UserCreditLedgerTab({
             pageIndex={pageIndex}
             pageCount={pageCount}
             onPageChange={onPageChange}
-            prevLabel={t('module.order.paginationPrev', 'Previous')}
-            nextLabel={t('module.order.paginationNext', 'Next')}
-            prevAriaLabel={t(
-              'module.order.paginationPrevAriaLabel',
-              'Go to previous page',
-            )}
-            nextAriaLabel={t(
-              'module.order.paginationNextAriaLabel',
-              'Go to next page',
-            )}
+            prevLabel={t('module.order.paginationPrev')}
+            nextLabel={t('module.order.paginationNext')}
+            prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
+            nextAriaLabel={t('module.order.paginationNextAriaLabel')}
             className='justify-end w-auto mx-0'
           />
         ) : null}

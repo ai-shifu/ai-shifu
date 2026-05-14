@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
 from sqlalchemy import and_, case, not_, or_
-from sqlalchemy.orm import defer
+from sqlalchemy.orm import aliased, defer
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
@@ -5310,6 +5310,30 @@ def _load_bill_usage_record_map(
     return usage_map
 
 
+def _build_latest_bill_usage_record_subquery():
+    return (
+        db.session.query(
+            BillUsageRecord.usage_bid.label("usage_bid"),
+            db.func.max(BillUsageRecord.id).label("max_id"),
+        )
+        .filter(BillUsageRecord.deleted == 0)
+        .group_by(BillUsageRecord.usage_bid)
+        .subquery()
+    )
+
+
+def _build_latest_billing_order_subquery():
+    return (
+        db.session.query(
+            BillingOrder.bill_order_bid.label("bill_order_bid"),
+            db.func.max(BillingOrder.id).label("max_id"),
+        )
+        .filter(BillingOrder.deleted == 0)
+        .group_by(BillingOrder.bill_order_bid)
+        .subquery()
+    )
+
+
 def _find_matching_operator_course_bids_by_name(
     shifu_bids: Sequence[str],
     course_name: str,
@@ -5326,18 +5350,33 @@ def _find_matching_operator_course_bids_by_name(
     if not normalized_shifu_bids:
         return set()
 
+    def _load_matching_bids(model) -> Set[str]:
+        latest_subquery = (
+            db.session.query(db.func.max(model.id).label("max_id"))
+            .filter(
+                model.deleted == 0,
+                model.shifu_bid.in_(normalized_shifu_bids),
+            )
+            .group_by(model.shifu_bid)
+            .subquery()
+        )
+        rows = (
+            db.session.query(model.shifu_bid)
+            .filter(
+                model.id.in_(db.session.query(latest_subquery.c.max_id)),
+                model.title.ilike(f"%{normalized_course_name}%"),
+            )
+            .all()
+        )
+        return {
+            str(shifu_bid or "").strip()
+            for (shifu_bid,) in rows
+            if str(shifu_bid or "").strip()
+        }
+
     matching_bids: Set[str] = set()
-    for course in _load_latest_courses_by_shifu_bids(DraftShifu, normalized_shifu_bids):
-        title = str(getattr(course, "title", "") or "").strip().lower()
-        if normalized_course_name in title:
-            matching_bids.add(str(course.shifu_bid or "").strip())
-    for course in _load_latest_courses_by_shifu_bids(
-        PublishedShifu,
-        normalized_shifu_bids,
-    ):
-        title = str(getattr(course, "title", "") or "").strip().lower()
-        if normalized_course_name in title:
-            matching_bids.add(str(course.shifu_bid or "").strip())
+    matching_bids.update(_load_matching_bids(DraftShifu))
+    matching_bids.update(_load_matching_bids(PublishedShifu))
     return matching_bids
 
 
@@ -5429,9 +5468,6 @@ def get_operator_user_credits(
                 )
             )
 
-        order_by_query = query.order_by(
-            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
-        )
         has_grant_source_filter = (
             credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
             and grant_source != OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
@@ -5441,95 +5477,97 @@ def get_operator_user_credits(
             bool(resolved_course_query) or has_consume_usage_filter
         )
 
-        if not has_grant_source_filter and not has_consume_sub_filter:
-            total = query.count()
-            page_offset = (safe_page_index - 1) * safe_page_size
-            paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
-            order_map = _load_billing_order_map(
-                [str(row.source_bid or "").strip() for row in paged_rows]
-            )
-            items = [
-                _build_operator_user_credit_ledger_item(row, order_map=order_map)
-                for row in paged_rows
-            ]
-            return AdminOperationUserCreditLedgerPageDTO(
-                summary=summary,
-                items=items,
-                page=safe_page_index,
-                page_size=safe_page_size,
-                total=total,
-                page_count=((total + safe_page_size - 1) // safe_page_size)
-                if total
-                else 0,
-            )
-
-        rows = order_by_query.all()
-        order_map: Dict[str, BillingOrder] = {}
-
         if has_grant_source_filter:
-            order_map = _load_billing_order_map(
-                [str(row.source_bid or "").strip() for row in rows]
-            )
-            rows = [
-                row
-                for row in rows
-                if _is_operator_user_credit_grant_row(row)
-                and _resolve_operator_user_credit_grant_filter_key(
-                    row,
-                    metadata=_build_operator_user_credit_merged_metadata(
-                        row,
-                        order_map=order_map,
-                    ),
+            if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
+                query = query.filter(
+                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_TOPUP
                 )
-                == grant_source
-            ]
-        elif has_consume_sub_filter:
-            usage_map = _load_bill_usage_record_map(
-                [str(row.source_bid or "").strip() for row in rows]
-            )
-            matching_course_bids = _find_matching_operator_course_bids_by_name(
-                [
-                    str(
-                        getattr(
-                            usage_map.get(str(row.source_bid or "").strip()),
-                            "shifu_bid",
-                            "",
-                        )
-                        or ""
-                    ).strip()
-                    for row in rows
-                ],
-                resolved_course_query,
-            )
-            filtered_rows: list[CreditLedgerEntry] = []
-            for row in rows:
-                if not _is_operator_user_credit_consume_row(row):
-                    continue
-                usage = usage_map.get(str(row.source_bid or "").strip())
-                if usage is None and (
-                    resolved_course_query or has_consume_usage_filter
+            elif grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL:
+                query = query.filter(
+                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL
+                )
+            else:
+                latest_order_subquery = _build_latest_billing_order_subquery()
+                latest_order = aliased(BillingOrder)
+                checkout_type_expr = db.func.lower(
+                    db.func.coalesce(
+                        CreditLedgerEntry.metadata_json["checkout_type"].as_string(),
+                        latest_order.metadata_json["checkout_type"].as_string(),
+                        "",
+                    )
+                )
+                query = (
+                    query.outerjoin(
+                        latest_order_subquery,
+                        latest_order_subquery.c.bill_order_bid
+                        == CreditLedgerEntry.source_bid,
+                    )
+                    .outerjoin(
+                        latest_order,
+                        latest_order.id == latest_order_subquery.c.max_id,
+                    )
+                    .filter(
+                        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+                    )
+                )
+                if (
+                    grant_source
+                    == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION
                 ):
-                    continue
-                usage_shifu_bid = str(getattr(usage, "shifu_bid", "") or "").strip()
-                if resolved_course_query:
-                    if usage_shifu_bid != resolved_course_query and (
-                        not matching_course_bids
-                        or usage_shifu_bid not in matching_course_bids
-                    ):
-                        continue
-                if usage_mode and usage_mode != "all":
-                    if _resolve_course_credit_usage_mode(usage) != usage_mode:
-                        continue
-                filtered_rows.append(row)
-            rows = filtered_rows
+                    query = query.filter(checkout_type_expr == "trial_bootstrap")
+                else:
+                    query = query.filter(checkout_type_expr != "trial_bootstrap")
+        elif has_consume_sub_filter:
+            latest_usage_subquery = _build_latest_bill_usage_record_subquery()
+            usage_row = aliased(BillUsageRecord)
+            query = query.join(
+                latest_usage_subquery,
+                latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
+            ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
+            if resolved_course_query:
+                candidate_shifu_bids = [
+                    str(shifu_bid or "").strip()
+                    for (shifu_bid,) in query.with_entities(usage_row.shifu_bid)
+                    .distinct()
+                    .all()
+                    if str(shifu_bid or "").strip()
+                ]
+                matching_course_bids = _find_matching_operator_course_bids_by_name(
+                    candidate_shifu_bids,
+                    resolved_course_query,
+                )
+                course_filters = [usage_row.shifu_bid == resolved_course_query]
+                if matching_course_bids:
+                    course_filters.append(
+                        usage_row.shifu_bid.in_(sorted(matching_course_bids))
+                    )
+                query = query.filter(or_(*course_filters))
 
-        total = len(rows)
-        page_offset = (safe_page_index - 1) * safe_page_size
-        paged_rows = rows[page_offset : page_offset + safe_page_size]
-        if not order_map:
-            order_map = _load_billing_order_map(
-                [str(row.source_bid or "").strip() for row in paged_rows]
+            generation_name_expr = db.func.lower(
+                usage_row.extra["generation_name"].as_string()
             )
+            if usage_mode == COURSE_CREDIT_USAGE_MODE_LISTEN:
+                query = query.filter(usage_row.usage_type == BILL_USAGE_TYPE_TTS)
+            elif usage_mode == COURSE_CREDIT_USAGE_MODE_ASK:
+                query = query.filter(
+                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+                    _build_course_credit_usage_ask_filter(generation_name_expr),
+                )
+            elif usage_mode == COURSE_CREDIT_USAGE_MODE_LEARN:
+                query = query.filter(
+                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+                    _build_course_credit_usage_learn_filter(generation_name_expr),
+                )
+
+        order_by_query = query.order_by(
+            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+        )
+        total = query.count()
+        page_offset = (safe_page_index - 1) * safe_page_size
+        paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
+        order_map = _load_billing_order_map(
+            [str(row.source_bid or "").strip() for row in paged_rows]
+        )
         items = [
             _build_operator_user_credit_ledger_item(row, order_map=order_map)
             for row in paged_rows
