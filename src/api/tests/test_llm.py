@@ -460,6 +460,23 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     assert captured_kwargs["kwargs"]["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
+def test_gemini_params_use_minimal_reasoning_with_explicit_allowlist():
+    params = llm._reload_gemini_params("gemini-3.1-flash-lite", 0.3)
+
+    assert params == {
+        "temperature": 0.3,
+        "allowed_openai_params": ["reasoning_effort"],
+        "reasoning_effort": "minimal",
+    }
+
+
+def test_gemini_25_pro_params_use_lowest_supported_reasoning():
+    params = llm._reload_gemini_params("gemini-2.5-pro", 0.3)
+
+    assert params["allowed_openai_params"] == ["reasoning_effort"]
+    assert params["reasoning_effort"] == "low"
+
+
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
 

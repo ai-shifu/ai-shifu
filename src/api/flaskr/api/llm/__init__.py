@@ -428,24 +428,25 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
-    if model_id.startswith("gemini-2.5-pro"):
-        return {
-            "reasoning_effort": "low",
-            "temperature": temperature,
-        }
-    if model_id.startswith("gemini-3"):
-        return {
-            "reasoning_effort": "low",
-            "temperature": temperature,
-        }
-    if model_id.startswith("gemini"):
-        return {
-            "reasoning_effort": "none",
-            "temperature": temperature,
-        }
-    return {
+    # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
+    # Gemini model ids are not included in LiteLLM's supported-params table yet,
+    # so explicitly allow reasoning_effort for Gemini requests.
+    params: Dict[str, Any] = {
         "temperature": temperature,
+        "allowed_openai_params": ["reasoning_effort"],
     }
+    if model_id.startswith("gemini-3"):
+        # Gemini 3 Flash-family supports minimal thinking; LiteLLM falls back to
+        # low for Gemini 3 models that do not support minimal.
+        params["reasoning_effort"] = "minimal"
+    elif model_id.startswith("gemini-2.5-pro"):
+        # Gemini 2.5 Pro cannot disable thinking, so use the lowest supported
+        # reasoning level.
+        params["reasoning_effort"] = "low"
+    elif model_id.startswith("gemini"):
+        # Older Gemini models can use the cost-optimized no-thinking mapping.
+        params["reasoning_effort"] = "none"
+    return params
 
 
 def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
