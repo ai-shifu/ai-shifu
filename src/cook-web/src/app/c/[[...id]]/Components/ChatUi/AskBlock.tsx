@@ -101,6 +101,7 @@ export default function AskBlock({
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
   const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const previousExpandedRef = useRef(expanded);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
@@ -143,6 +144,7 @@ export default function AskBlock({
         newList[lastIndex] = {
           ...newList[lastIndex],
           isStreaming: false,
+          shouldUseTypewriter: false,
         };
       }
       return newList;
@@ -164,6 +166,7 @@ export default function AskBlock({
             ...newList[lastIndex],
             content: nextText,
             isStreaming: true,
+            shouldUseTypewriter: newList[lastIndex].shouldUseTypewriter ?? true,
           };
         }
         return newList;
@@ -189,6 +192,7 @@ export default function AskBlock({
             content: nextText,
             isStreaming: true,
             element_bid: answerElementBid || newList[lastIndex].element_bid,
+            shouldUseTypewriter: newList[lastIndex].shouldUseTypewriter ?? true,
           };
         }
         return newList;
@@ -232,6 +236,7 @@ export default function AskBlock({
         content: '',
         isStreaming: true,
         element_bid: '',
+        shouldUseTypewriter: true,
       },
     ]);
 
@@ -369,6 +374,35 @@ export default function AskBlock({
       setIsFullscreen(false);
     }
   }, [expanded]);
+
+  useEffect(() => {
+    const previousExpanded = previousExpandedRef.current;
+    previousExpandedRef.current = expanded;
+
+    if (previousExpanded === expanded) {
+      return;
+    }
+
+    setAskList(element_bid, prev => {
+      let hasChanges = false;
+      const nextList = prev.map(item => {
+        if (
+          item.type !== BLOCK_TYPE.ANSWER ||
+          item.shouldUseTypewriter !== true
+        ) {
+          return item;
+        }
+
+        hasChanges = true;
+        return {
+          ...item,
+          shouldUseTypewriter: false,
+        };
+      });
+
+      return hasChanges ? nextList : prev;
+    });
+  }, [element_bid, expanded, setAskList]);
 
   useEffect(() => {
     return () => {
@@ -526,56 +560,66 @@ export default function AskBlock({
             : undefined
         }
       >
-        {messagesToShow.map((message, index) => (
-          <div
-            key={index}
-            className={cn(styles.messageWrapper)}
-            onClick={() => handleClickTitle(index)}
-            style={{
-              justifyContent:
-                message.type === BLOCK_TYPE.ASK ? 'flex-end' : 'flex-start',
-            }}
-          >
-            {message.type === BLOCK_TYPE.ASK ? (
-              <div
-                className={cn(
-                  styles.userMessage,
-                  expanded && styles.isExpanded,
-                )}
-              >
-                {message.content}
-              </div>
-            ) : (
-              <div
-                className={cn(styles.assistantMessage, styles.askIframeWrapper)}
-              >
-                <ContentRender
-                  content={message.content}
-                  customRenderBar={
-                    message.isStreaming
-                      ? () =>
-                          message.content?.trim() ? (
-                            <StreamingLoadingDotsBar />
-                          ) : (
-                            <LoadingBar />
-                          )
-                      : () => null
-                  }
-                  onSend={() => {}}
-                  userInput={''}
-                  interactionDefaultValueOptions={
-                    lessonFeedbackInteractionDefaultValueOptions
-                  }
-                  enableTypewriter={true}
-                  typingSpeed={40}
-                  readonly={true}
-                  copyButtonText={copyButtonText}
-                  copiedButtonText={copiedButtonText}
-                />
-              </div>
-            )}
-          </div>
-        ))}
+        {messagesToShow.map((message, index) => {
+          const messageRenderKey = `${message.type}-${message.element_bid || index}`;
+          const shouldEnableMessageTypewriter =
+            message.type === BLOCK_TYPE.ANSWER &&
+            message.shouldUseTypewriter === true;
+
+          return (
+            <div
+              key={messageRenderKey}
+              className={cn(styles.messageWrapper)}
+              onClick={() => handleClickTitle(index)}
+              style={{
+                justifyContent:
+                  message.type === BLOCK_TYPE.ASK ? 'flex-end' : 'flex-start',
+              }}
+            >
+              {message.type === BLOCK_TYPE.ASK ? (
+                <div
+                  className={cn(
+                    styles.userMessage,
+                    expanded && styles.isExpanded,
+                  )}
+                >
+                  {message.content}
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    styles.assistantMessage,
+                    styles.askIframeWrapper,
+                  )}
+                >
+                  <ContentRender
+                    content={message.content}
+                    customRenderBar={
+                      message.isStreaming
+                        ? () =>
+                            message.content?.trim() ? (
+                              <StreamingLoadingDotsBar />
+                            ) : (
+                              <LoadingBar />
+                            )
+                        : () => null
+                    }
+                    onSend={() => {}}
+                    userInput={''}
+                    interactionDefaultValueOptions={
+                      lessonFeedbackInteractionDefaultValueOptions
+                    }
+                    enableTypewriter={shouldEnableMessageTypewriter}
+                    typingSpeed={40}
+                    readonly={true}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
