@@ -1010,6 +1010,54 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toContain('<custom-button-after-content>');
   });
 
+  it('keeps previously streamed text when a resumed run sends a cumulative content snapshot', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line',
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.find(item => item.element_bid === 'content-text-1')
+          ?.content,
+      ).toContain('<custom-button-after-content>'),
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'First line and second line',
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.content,
+    ).toContain('First line and second line');
+  });
+
   it('keeps the mobile follow-up button after finalized content receives another element update', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,

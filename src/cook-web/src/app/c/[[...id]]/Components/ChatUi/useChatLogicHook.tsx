@@ -9,7 +9,7 @@ import {
 import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import {
-  fixMarkdownStream,
+  mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
@@ -68,6 +68,7 @@ import {
   hasCustomButtonAfterContent,
   inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
+  stripCustomButtonAfterContent,
   syncCustomButtonAfterContent,
 } from './chatUiUtils';
 
@@ -1706,9 +1707,22 @@ function useChatLogicHook({
                 return;
               }
 
-              const prevText = currentContentRef.current || '';
-              const delta = fixMarkdownStream(prevText, response.content || '');
-              const nextText = prevText + delta;
+              const existingItem = blockId
+                ? contentListRef.current.find(item => item.element_bid === blockId)
+                : undefined;
+              const existingText =
+                stripCustomButtonAfterContent(existingItem?.content) || '';
+              const prevText = currentContentRef.current || existingText;
+              const nextText = mergeStreamingMarkdownText(
+                prevText,
+                response.content || '',
+              );
+
+              if (blockId) {
+                currentBlockIdRef.current = blockId;
+                setCurrentStreamingElementBid(blockId);
+              }
+
               currentContentRef.current = nextText;
               const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
@@ -1724,6 +1738,7 @@ function useChatLogicHook({
                           previousContent: item.content,
                           buttonMarkup: getAskButtonMarkup(),
                         }),
+                        is_final: false,
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??
@@ -1739,6 +1754,7 @@ function useChatLogicHook({
                       content: displayText,
                       user_input: '',
                       readonly: false,
+                      is_final: false,
                       shouldUseTypewriter: true,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
