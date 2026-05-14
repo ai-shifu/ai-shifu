@@ -155,7 +155,7 @@
     "packageFields": {
       "credits": "积分数",
       "expiryHintPending": "发放成功后立即生效，截止日期将根据套餐有效期自动计算。",
-      "expiryHintResolved": "发放成功后立即生效，预计截止日期为 {{dateTime}}。",
+      "expiryHintResolved": "发放成功后立即生效，预计截止日期为 {dateTime}。",
       "packageName": "套餐名",
       "product": "套餐",
       "validity": "有效期"

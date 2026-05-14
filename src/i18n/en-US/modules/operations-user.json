@@ -155,7 +155,7 @@
     "packageFields": {
       "credits": "Credits",
       "expiryHintPending": "The package takes effect immediately after the grant succeeds, and the valid-until time will be calculated automatically from the package validity.",
-      "expiryHintResolved": "The package takes effect immediately after the grant succeeds. Estimated valid until: {{dateTime}}.",
+      "expiryHintResolved": "The package takes effect immediately after the grant succeeds. Estimated valid until: {dateTime}.",
       "packageName": "Package Name",
       "product": "Package",
       "validity": "Validity"

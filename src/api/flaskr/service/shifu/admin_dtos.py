@@ -407,14 +407,14 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent credit grants",
-        required=False,
+        required=True,
     )
-    amount: str = Field(..., description="Granted credits amount", required=False)
+    amount: str = Field(..., description="Granted credits amount", required=True)
     grant_source: str = Field(
-        ..., description="Grant source: reward or compensation", required=False
+        ..., description="Grant source: reward or compensation", required=True
     )
     validity_preset: str = Field(
-        ..., description="Grant validity preset", required=False
+        ..., description="Grant validity preset", required=True
     )
     note: str = Field(default="", description="Optional operator note", required=False)
 
@@ -488,12 +488,12 @@ class AdminOperationUserPackageGrantRequestDTO(BaseModel):
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent package grants",
-        required=False,
+        required=True,
     )
     product_bid: str = Field(
         ...,
         description="Granted billing plan product identifier",
-        required=False,
+        required=True,
     )
     note: str = Field(default="", description="Optional operator note", required=False)
 

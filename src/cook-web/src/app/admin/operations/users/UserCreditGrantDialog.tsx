@@ -567,10 +567,12 @@ export default function UserCreditGrantDialog({
     grantMode === 'credits'
       ? [
           {
+            id: 'mode',
             label: tOperationsUsers('grantDialog.confirmSummary.mode'),
             value: tOperationsUsers('grantDialog.modeOptions.credits'),
           },
           {
+            id: 'source',
             label: tOperationsUsers('grantDialog.confirmSummary.source'),
             value:
               sourceOptions.find(
@@ -578,10 +580,12 @@ export default function UserCreditGrantDialog({
               )?.label || '--',
           },
           {
+            id: 'amount',
             label: tOperationsUsers('grantDialog.confirmSummary.amount'),
             value: creditFormState.amount.trim() || '--',
           },
           {
+            id: 'validityPreset',
             label: tOperationsUsers(
               'grantDialog.confirmSummary.validityPreset',
             ),
@@ -591,32 +595,38 @@ export default function UserCreditGrantDialog({
               )?.label || '--',
           },
           {
+            id: 'note',
             label: tOperationsUsers('grantDialog.confirmSummary.note'),
             value: creditFormState.note.trim() || '--',
           },
         ]
       : [
           {
+            id: 'mode',
             label: tOperationsUsers('grantDialog.confirmSummary.mode'),
             value: tOperationsUsers('grantDialog.modeOptions.package'),
           },
           {
+            id: 'package',
             label: tOperationsUsers('grantDialog.confirmSummary.package'),
             value: packageName,
           },
           {
+            id: 'packageCredits',
             label: tOperationsUsers(
               'grantDialog.confirmSummary.packageCredits',
             ),
             value: packageCreditsLabel,
           },
           {
+            id: 'packageValidity',
             label: tOperationsUsers(
               'grantDialog.confirmSummary.packageValidity',
             ),
             value: packageValidityLabel,
           },
           {
+            id: 'packageExpireAt',
             label: tOperationsUsers(
               'grantDialog.confirmSummary.packageExpireAt',
             ),
@@ -627,6 +637,7 @@ export default function UserCreditGrantDialog({
               ) || '--',
           },
           {
+            id: 'note',
             label: tOperationsUsers('grantDialog.confirmSummary.note'),
             value: packageFormState.note.trim() || '--',
           },
@@ -988,7 +999,7 @@ export default function UserCreditGrantDialog({
             />
             {confirmSummaryItems.map(item => (
               <ConfirmSummaryItem
-                key={item.label}
+                key={item.id}
                 label={item.label}
                 value={item.value}
               />

@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Add an operator-facing "发放积分/套餐" entry in user management so operators can
+Add an operator-facing `grantDialog.title` / `page.actions.grantCredits` entry in user management so operators can
 either keep granting manual credits or switch to granting an active billing
 plan package. The package grant must become effective immediately, compute the
 valid-until time from the selected plan, and keep the grant path isolated from
@@ -30,7 +30,8 @@ transaction.
 
 ## Decision Log
 
-- Use the label `发放积分/套餐` for both the list action and dialog title.
+- Use the shared i18n label `grantDialog.title` / `page.actions.grantCredits`
+  for both the list action and dialog title.
 - Keep the existing credit-grant API contract untouched; add a separate package
   bootstrap route and a separate package-grant route.
 - Reuse billing order/subscription/credit activation logic by creating a
@@ -102,7 +103,8 @@ transaction.
 ## Validation and Acceptance
 
 - In user management, creator/operator rows show an enabled
-  `发放积分/套餐` action; other roles show the same action disabled.
+  `grantDialog.title` / `page.actions.grantCredits` action; other roles show
+  the same action disabled.
 - The dialog opens in credit mode by default and still submits the existing
   credit-grant payload unchanged.
 - Switching to package mode loads active billing plans, shows plan details,

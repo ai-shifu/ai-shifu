@@ -155,7 +155,7 @@
     "packageFields": {
       "credits": "Crédits",
       "expiryHintPending": "Le forfait prend effet immédiatement après une attribution réussie, et sa date de fin sera calculée automatiquement selon sa validité.",
-      "expiryHintResolved": "Le forfait prend effet immédiatement après une attribution réussie. Date de fin estimée : {{dateTime}}.",
+      "expiryHintResolved": "Le forfait prend effet immédiatement après une attribution réussie. Date de fin estimée : {dateTime}.",
       "packageName": "Nom du forfait",
       "product": "Forfait",
       "validity": "Validité"

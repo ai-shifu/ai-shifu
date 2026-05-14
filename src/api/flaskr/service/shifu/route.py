@@ -37,6 +37,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import ValidationError
 from flask import (
     Flask,
     request,
@@ -1445,11 +1446,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator user credits grant result
         """
         _require_operator()
+        payload_data = request.get_json(silent=True) or {}
         try:
             payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
-                request.get_json() or {}
+                payload_data
             )
-        except Exception:
+        except ValidationError:
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
@@ -1487,11 +1489,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator user package grant result
         """
         _require_operator()
+        payload_data = request.get_json(silent=True) or {}
         try:
             payload = AdminOperationUserPackageGrantRequestDTO.model_validate(
-                request.get_json() or {}
+                payload_data
             )
-        except Exception:
+        except ValidationError:
             raise_param_error("package_grant_payload")
         return make_common_response(
             grant_operator_user_package(

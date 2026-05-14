@@ -2678,6 +2678,36 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
     assert payload["data"]["plans"][0]["product_bid"] == "bill-product-plan-monthly"
 
 
+def test_admin_operation_user_grant_bootstrap_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-grant-bootstrap-route-denied",
+            identify="user-grant-bootstrap-route-denied@example.com",
+            nickname="Grant Bootstrap Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-grant-bootstrap-route-denied@example.com")],
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-grant-bootstrap-route-denied/credit-grant/bootstrap",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
 def test_admin_operation_user_package_grant_route_returns_payload(
     app,
     test_client,
@@ -2721,6 +2751,44 @@ def test_admin_operation_user_package_grant_route_returns_payload(
     assert payload["data"]["notification_status"] == "template_pending"
     assert payload["data"]["summary"]["available_credits"] == "5"
     assert payload["data"]["current_period_end_at"].endswith("Z")
+
+
+def test_admin_operation_user_package_grant_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-package-grant-route-denied",
+            identify="user-package-grant-route-denied@example.com",
+            nickname="Package Grant Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-package-grant-route-denied@example.com")],
+        )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/user-package-grant-route-denied/packages/grant",
+        json={
+            "request_id": "route-package-grant-request-denied",
+            "product_bid": "bill-product-plan-monthly",
+            "note": "route denied",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
 
 
 def test_admin_operation_user_credit_grant_route_requires_operator(
