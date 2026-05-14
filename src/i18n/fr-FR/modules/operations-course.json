@@ -60,6 +60,43 @@
       "has": "Présent",
       "unknown": "Inconnu"
     },
+    "creditUsage": {
+      "count": "{count} enregistrements",
+      "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
+      "filters": {
+        "mode": "Scène d'utilisation",
+        "modeAll": "Tous",
+        "reset": "Réinitialiser",
+        "time": "Heure",
+        "timePlaceholder": "Sélectionner une plage horaire",
+        "userKeyword": "Utilisateur",
+        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
+        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme"
+      },
+      "modelSummary": {
+        "multiple": "{model} et {count} modèles"
+      },
+      "modes": {
+        "ask": "Relance",
+        "learn": "Apprentissage",
+        "listen": "Écoute",
+        "mixed": "Mixte",
+        "unknown": "Scène inconnue"
+      },
+      "table": {
+        "chapter": "Chapitre",
+        "createdAt": "Heure de consommation",
+        "credits": "Total des crédits consommés",
+        "empty": "Aucun enregistrement de consommation de crédits",
+        "lesson": "Leçon",
+        "mode": "Scène",
+        "model": "Modèle",
+        "nickname": "Surnom",
+        "usageCount": "Nombre d'utilisations"
+      },
+      "title": "Consommation de crédits"
+    },
+    "creditUsageTab": "Consommation de crédits",
     "fields": {
       "courseId": "ID du cours",
       "courseName": "Nom du cours",

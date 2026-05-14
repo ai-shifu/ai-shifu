@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
-from sqlalchemy import and_, case, or_
+from sqlalchemy import and_, case, not_, or_
 from sqlalchemy.orm import defer
 
 from flaskr.common.cache_provider import cache as redis
@@ -40,6 +40,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.primitives import (
+    credit_decimal_to_number,
     quantize_credit_amount as _quantize_credit_amount,
 )
 from flaskr.service.billing.queries import (
@@ -52,7 +53,9 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.learn_dtos import ElementType
 from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.const import (
@@ -77,6 +80,8 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseDetailBasicInfoDTO,
     AdminOperationCourseDetailChapterDTO,
     AdminOperationCourseDetailDTO,
+    AdminOperationCourseCreditUsageItemDTO,
+    AdminOperationCourseCreditUsageListDTO,
     AdminOperationCourseFollowUpCurrentRecordDTO,
     AdminOperationCourseFollowUpDetailBasicInfoDTO,
     AdminOperationCourseFollowUpDetailDTO,
@@ -216,6 +221,13 @@ OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED = "imported"
 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
 COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE = 100
 COURSE_RATING_LIST_MAX_PAGE_SIZE = 100
+COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE = 100
+COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
+COURSE_CREDIT_USAGE_VIEW_RAW = "raw"
+COURSE_CREDIT_USAGE_MODE_LEARN = "learn"
+COURSE_CREDIT_USAGE_MODE_LISTEN = "listen"
+COURSE_CREDIT_USAGE_MODE_ASK = "ask"
+COURSE_CREDIT_USAGE_MODE_MIXED = "mixed"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
 OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION = "align_subscription"
@@ -293,6 +305,169 @@ def _resolve_course_rating_sort_by(value: str) -> str:
     if normalized == "score_asc":
         return normalized
     return ""
+
+
+def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
+    usage_type = int(getattr(row, "usage_type", 0) or 0)
+    if usage_type == BILL_USAGE_TYPE_TTS:
+        return COURSE_CREDIT_USAGE_MODE_LISTEN
+
+    metadata = _normalize_metadata_json(getattr(row, "extra", None))
+    generation_name = str(metadata.get("generation_name", "") or "").strip().lower()
+    if (
+        "/user_follow_ask/" in generation_name
+        or generation_name.startswith("lesson_ask/")
+        or generation_name.startswith("lesson_preview_ask/")
+    ):
+        return COURSE_CREDIT_USAGE_MODE_ASK
+
+    return COURSE_CREDIT_USAGE_MODE_LEARN
+
+
+def _resolve_course_credit_usage_mode_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {
+        "",
+        "all",
+        COURSE_CREDIT_USAGE_MODE_LEARN,
+        COURSE_CREDIT_USAGE_MODE_LISTEN,
+        COURSE_CREDIT_USAGE_MODE_ASK,
+    }:
+        return normalized
+    return ""
+
+
+def _resolve_course_credit_usage_view(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"", COURSE_CREDIT_USAGE_VIEW_GROUPED}:
+        return COURSE_CREDIT_USAGE_VIEW_GROUPED
+    if normalized == COURSE_CREDIT_USAGE_VIEW_RAW:
+        return normalized
+    return ""
+
+
+def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
+    normalized_provider = str(provider or "").strip()
+    normalized_model = str(model or "").strip()
+    if normalized_provider and normalized_model:
+        return f"{normalized_provider} / {normalized_model}"
+    return normalized_provider or normalized_model
+
+
+def _build_course_credit_usage_group_key(
+    progress_record_bid: str,
+    usage_mode: str,
+    usage_bid: str,
+) -> str:
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    normalized_usage_mode = str(usage_mode or "").strip()
+    normalized_usage_bid = str(usage_bid or "").strip()
+    if normalized_progress_record_bid:
+        return (
+            f"{normalized_progress_record_bid}:{normalized_usage_mode}"
+            if normalized_usage_mode
+            else normalized_progress_record_bid
+        )
+    return normalized_usage_bid
+
+
+def _build_operator_course_credit_usage_item(
+    *,
+    usage_row: BillUsageRecord,
+    ledger_amount: Any,
+    user_map: Dict[str, Dict[str, Any]],
+    outline_context_map: Dict[str, Dict[str, str]],
+    group_key: str = "",
+    usage_count: int = 1,
+    usage_mode: str = "",
+    provider: str = "",
+    model: str = "",
+    model_variant_count: int = 0,
+    consumed_credits: Any = None,
+    created_at: Any = None,
+) -> AdminOperationCourseCreditUsageItemDTO:
+    user_bid = str(getattr(usage_row, "user_bid", "") or "").strip()
+    outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
+    context = outline_context_map.get(
+        outline_item_bid,
+        {
+            "chapter_outline_item_bid": "",
+            "chapter_title": "",
+            "lesson_outline_item_bid": outline_item_bid,
+            "lesson_title": "",
+        },
+    )
+    user = user_map.get(user_bid, {})
+    resolved_provider = str(
+        provider or getattr(usage_row, "provider", "") or ""
+    ).strip()
+    resolved_model = str(model or getattr(usage_row, "model", "") or "").strip()
+    resolved_usage_mode = usage_mode or _resolve_course_credit_usage_mode(usage_row)
+    resolved_created_at = (
+        created_at if created_at is not None else getattr(usage_row, "created_at", None)
+    )
+    if consumed_credits in ("", None):
+        resolved_consumed_credits = credit_decimal_to_number(
+            abs(Decimal(str(ledger_amount or 0)))
+        )
+    else:
+        resolved_consumed_credits = credit_decimal_to_number(
+            Decimal(str(consumed_credits or 0))
+        )
+
+    return AdminOperationCourseCreditUsageItemDTO(
+        group_key=group_key or str(getattr(usage_row, "usage_bid", "") or ""),
+        usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
+        progress_record_bid=str(getattr(usage_row, "progress_record_bid", "") or ""),
+        generated_block_bid=str(getattr(usage_row, "generated_block_bid", "") or ""),
+        user_bid=user_bid,
+        mobile=str(user.get("mobile", "") or ""),
+        email=str(user.get("email", "") or ""),
+        nickname=str(user.get("nickname", "") or ""),
+        chapter_outline_item_bid=str(context.get("chapter_outline_item_bid", "") or ""),
+        chapter_title=str(context.get("chapter_title", "") or ""),
+        lesson_outline_item_bid=str(context.get("lesson_outline_item_bid", "") or ""),
+        lesson_title=str(context.get("lesson_title", "") or ""),
+        usage_mode=resolved_usage_mode,
+        provider=resolved_provider,
+        model=resolved_model,
+        usage_count=max(int(usage_count or 0), 1),
+        model_variant_count=max(int(model_variant_count or 0), 0),
+        consumed_credits=resolved_consumed_credits,
+        created_at=_format_operator_datetime(resolved_created_at),
+    )
+
+
+def _build_course_credit_usage_generation_name_expr() -> Any:
+    return db.func.lower(BillUsageRecord.extra["generation_name"].as_string())
+
+
+def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) -> Any:
+    generation_name = (
+        generation_name
+        if generation_name is not None
+        else _build_course_credit_usage_generation_name_expr()
+    )
+    return or_(
+        generation_name.contains("/user_follow_ask/"),
+        generation_name.startswith("lesson_ask/"),
+        generation_name.startswith("lesson_preview_ask/"),
+    )
+
+
+def _build_course_credit_usage_learn_filter(
+    generation_name: Any | None = None,
+) -> Any:
+    generation_name = (
+        generation_name
+        if generation_name is not None
+        else _build_course_credit_usage_generation_name_expr()
+    )
+    return or_(
+        generation_name.is_(None),
+        generation_name == "",
+        not_(_build_course_credit_usage_ask_filter(generation_name)),
+    )
 
 
 def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
@@ -2897,6 +3072,62 @@ def _build_follow_up_user_keyword_filter(
     return or_(credential_match_exists, user_match_exists)
 
 
+def _build_credit_usage_user_keyword_filter(
+    user_bid_column: Any, keyword: str
+) -> Any | None:
+    normalized = _normalize_identifier(keyword)
+    if not normalized:
+        return None
+
+    nickname_match_exists = (
+        db.session.query(UserEntity.id)
+        .filter(
+            UserEntity.user_bid == user_bid_column,
+            UserEntity.deleted == 0,
+            UserEntity.nickname.ilike(f"%{normalized}%"),
+        )
+        .exists()
+    )
+
+    if "@" in normalized:
+        credential_identifier_filter = (
+            db.func.lower(AuthCredential.identifier) == normalized
+        )
+        user_identifier_filter = db.func.lower(UserEntity.user_identify) == normalized
+    elif normalized.isdigit():
+        credential_identifier_filter = AuthCredential.identifier == normalized
+        user_identifier_filter = UserEntity.user_identify == normalized
+    else:
+        return nickname_match_exists
+
+    credential_match_exists = (
+        db.session.query(AuthCredential.id)
+        .filter(
+            AuthCredential.user_bid == user_bid_column,
+            AuthCredential.deleted == 0,
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
+            credential_identifier_filter,
+        )
+        .exists()
+    )
+
+    user_identifier_match_exists = (
+        db.session.query(UserEntity.id)
+        .filter(
+            UserEntity.user_bid == user_bid_column,
+            UserEntity.deleted == 0,
+            user_identifier_filter,
+        )
+        .exists()
+    )
+
+    return or_(
+        nickname_match_exists,
+        credential_match_exists,
+        user_identifier_match_exists,
+    )
+
+
 def _resolve_follow_up_matching_outline_bids(
     outline_context_map: Dict[str, Dict[str, str]],
     chapter_keyword: str,
@@ -3736,6 +3967,262 @@ def get_operator_course_users(
         end = start + safe_page_size
         paged_items = items[start:end]
         return PageNationDTO(safe_page_index, safe_page_size, total, paged_items)
+
+
+def get_operator_course_credit_usages(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    page_index: int,
+    page_size: int,
+    filters: Optional[dict] = None,
+) -> AdminOperationCourseCreditUsageListDTO:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        if not normalized_shifu_bid:
+            raise_param_error("shifu_bid is required")
+
+        safe_page_index = max(int(page_index or 1), 1)
+        safe_page_size = min(
+            max(int(page_size or 20), 1),
+            COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
+        )
+        filters = filters or {}
+
+        _detail_source, outline_items = _load_operator_course_outline_items(
+            normalized_shifu_bid
+        )
+        outline_context_map = _build_course_outline_context_map(outline_items)
+
+        keyword = str(filters.get("keyword", "") or "").strip()
+        mode_filter = _resolve_course_credit_usage_mode_filter(
+            str(filters.get("mode", "") or "")
+        )
+        view = _resolve_course_credit_usage_view(str(filters.get("view", "") or ""))
+        start_time = filters.get("start_time")
+        end_time = filters.get("end_time")
+
+        if str(filters.get("mode", "") or "").strip() and not mode_filter:
+            raise_param_error("mode")
+        if str(filters.get("view", "") or "").strip() and not view:
+            raise_param_error("view")
+
+        # Limit ledger aggregation to this course's production usage rows first.
+        course_credit_usage_bids = (
+            db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
+            .filter(
+                BillUsageRecord.shifu_bid == normalized_shifu_bid,
+                BillUsageRecord.deleted == 0,
+                BillUsageRecord.billable == 1,
+                BillUsageRecord.status == 0,
+                BillUsageRecord.record_level == 0,
+                BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            )
+            .subquery()
+        )
+
+        credit_usage_ledger_totals = (
+            db.session.query(
+                CreditLedgerEntry.source_bid.label("usage_bid"),
+                db.func.sum(CreditLedgerEntry.amount).label("ledger_amount"),
+            )
+            .join(
+                course_credit_usage_bids,
+                course_credit_usage_bids.c.usage_bid == CreditLedgerEntry.source_bid,
+            )
+            .filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+            )
+            .group_by(CreditLedgerEntry.source_bid)
+            .subquery()
+        )
+
+        query = db.session.query(
+            BillUsageRecord,
+            credit_usage_ledger_totals.c.ledger_amount,
+        ).join(
+            credit_usage_ledger_totals,
+            credit_usage_ledger_totals.c.usage_bid == BillUsageRecord.usage_bid,
+        )
+
+        query = query.filter(
+            BillUsageRecord.shifu_bid == normalized_shifu_bid,
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.billable == 1,
+            BillUsageRecord.status == 0,
+            BillUsageRecord.record_level == 0,
+            BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            credit_usage_ledger_totals.c.ledger_amount < 0,
+        )
+
+        user_keyword_filter = _build_credit_usage_user_keyword_filter(
+            BillUsageRecord.user_bid,
+            keyword,
+        )
+        if user_keyword_filter is not None:
+            query = query.filter(user_keyword_filter)
+        if start_time:
+            query = query.filter(BillUsageRecord.created_at >= start_time)
+        if end_time:
+            query = query.filter(BillUsageRecord.created_at <= end_time)
+
+        generation_name_expr = _build_course_credit_usage_generation_name_expr()
+        if mode_filter == COURSE_CREDIT_USAGE_MODE_LISTEN:
+            query = query.filter(BillUsageRecord.usage_type == BILL_USAGE_TYPE_TTS)
+        elif mode_filter == COURSE_CREDIT_USAGE_MODE_ASK:
+            query = query.filter(
+                BillUsageRecord.usage_type != BILL_USAGE_TYPE_TTS,
+                _build_course_credit_usage_ask_filter(generation_name_expr),
+            )
+        elif mode_filter == COURSE_CREDIT_USAGE_MODE_LEARN:
+            query = query.filter(
+                BillUsageRecord.usage_type != BILL_USAGE_TYPE_TTS,
+                _build_course_credit_usage_learn_filter(generation_name_expr),
+            )
+
+        rows = query.order_by(
+            BillUsageRecord.created_at.desc(), BillUsageRecord.id.desc()
+        ).all()
+
+        if not rows:
+            return AdminOperationCourseCreditUsageListDTO(
+                view=view or COURSE_CREDIT_USAGE_VIEW_GROUPED,
+                items=[],
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=0,
+                page_count=0,
+            )
+
+        user_map = _load_user_map(
+            sorted(
+                {
+                    str(getattr(usage_row, "user_bid", "") or "").strip()
+                    for usage_row, _ledger_amount in rows
+                    if str(getattr(usage_row, "user_bid", "") or "").strip()
+                }
+            )
+        )
+
+        raw_items: list[AdminOperationCourseCreditUsageItemDTO] = []
+        for usage_row, ledger_amount in rows:
+            model_display = _build_course_credit_usage_model_display(
+                str(getattr(usage_row, "provider", "") or ""),
+                str(getattr(usage_row, "model", "") or ""),
+            )
+            raw_items.append(
+                _build_operator_course_credit_usage_item(
+                    usage_row=usage_row,
+                    ledger_amount=ledger_amount,
+                    user_map=user_map,
+                    outline_context_map=outline_context_map,
+                    group_key=str(getattr(usage_row, "usage_bid", "") or ""),
+                    usage_count=1,
+                    usage_mode=_resolve_course_credit_usage_mode(usage_row),
+                    model_variant_count=1 if model_display else 0,
+                )
+            )
+        if view == COURSE_CREDIT_USAGE_VIEW_RAW:
+            total = len(raw_items)
+            start = (safe_page_index - 1) * safe_page_size
+            paged_items = raw_items[start : start + safe_page_size]
+            return AdminOperationCourseCreditUsageListDTO(
+                view=COURSE_CREDIT_USAGE_VIEW_RAW,
+                items=paged_items,
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=total,
+                page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
+            )
+
+        grouped_payloads: Dict[str, Dict[str, Any]] = {}
+        grouped_order: list[str] = []
+        for item in raw_items:
+            progress_record_bid = str(item.progress_record_bid or "").strip()
+            usage_mode = str(item.usage_mode or "").strip()
+            group_key = _build_course_credit_usage_group_key(
+                progress_record_bid=progress_record_bid,
+                usage_mode=usage_mode,
+                usage_bid=str(item.usage_bid or "").strip(),
+            )
+            if not group_key:
+                continue
+
+            payload = grouped_payloads.get(group_key)
+            if payload is None:
+                model_entries: Dict[str, tuple[str, str]] = {}
+                model_display = _build_course_credit_usage_model_display(
+                    item.provider,
+                    item.model,
+                )
+                if model_display:
+                    model_entries[model_display] = (item.provider, item.model)
+                grouped_payloads[group_key] = {
+                    "base_item": item,
+                    "usage_count": 1,
+                    "consumed_credits": Decimal(str(item.consumed_credits or 0)),
+                    "model_entries": model_entries,
+                }
+                grouped_order.append(group_key)
+                continue
+
+            payload["usage_count"] += 1
+            payload["consumed_credits"] += Decimal(str(item.consumed_credits or 0))
+            model_display = _build_course_credit_usage_model_display(
+                item.provider,
+                item.model,
+            )
+            if model_display and model_display not in payload["model_entries"]:
+                payload["model_entries"][model_display] = (item.provider, item.model)
+
+        grouped_items: list[AdminOperationCourseCreditUsageItemDTO] = []
+        for group_key in grouped_order:
+            payload = grouped_payloads[group_key]
+            base_item = payload["base_item"]
+            model_entries = payload["model_entries"]
+            primary_provider = ""
+            primary_model = ""
+            if model_entries:
+                primary_provider, primary_model = next(iter(model_entries.values()))
+            grouped_items.append(
+                AdminOperationCourseCreditUsageItemDTO(
+                    group_key=group_key,
+                    usage_bid=base_item.usage_bid,
+                    progress_record_bid=base_item.progress_record_bid,
+                    generated_block_bid=base_item.generated_block_bid,
+                    user_bid=base_item.user_bid,
+                    mobile=base_item.mobile,
+                    email=base_item.email,
+                    nickname=base_item.nickname,
+                    chapter_outline_item_bid=base_item.chapter_outline_item_bid,
+                    chapter_title=base_item.chapter_title,
+                    lesson_outline_item_bid=base_item.lesson_outline_item_bid,
+                    lesson_title=base_item.lesson_title,
+                    usage_mode=base_item.usage_mode,
+                    provider=primary_provider,
+                    model=primary_model,
+                    usage_count=payload["usage_count"],
+                    model_variant_count=len(model_entries),
+                    consumed_credits=credit_decimal_to_number(
+                        payload["consumed_credits"]
+                    ),
+                    created_at=base_item.created_at,
+                )
+            )
+
+        total = len(grouped_items)
+        start = (safe_page_index - 1) * safe_page_size
+        paged_items = grouped_items[start : start + safe_page_size]
+        return AdminOperationCourseCreditUsageListDTO(
+            view=COURSE_CREDIT_USAGE_VIEW_GROUPED,
+            items=paged_items,
+            page=safe_page_index,
+            page_size=safe_page_size,
+            total=total,
+            page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
+        )
 
 
 def get_operator_course_follow_ups(

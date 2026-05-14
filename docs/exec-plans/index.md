@@ -7,6 +7,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 ## Active
 
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
+- [Operator Course Detail Tab Splitting](./active/operator-course-detail-tab-splitting.md)
 
 ## Completed
 

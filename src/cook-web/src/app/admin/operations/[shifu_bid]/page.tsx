@@ -59,12 +59,15 @@ import {
   buildAdminOperationsCourseRatingsUrl,
 } from '../operation-course-routes';
 import type {
+  AdminOperationCourseCreditUsageFilters,
+  AdminOperationCourseCreditUsageListResponse,
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
   AdminOperationCourseDetailResponse,
   AdminOperationCourseUserItem,
   AdminOperationCourseUsersResponse,
 } from '../operation-course-types';
+import CourseCreditUsageTab from './CourseCreditUsageTab';
 import useOperatorGuard from '../useOperatorGuard';
 
 type ErrorState = { message: string; code?: number };
@@ -80,7 +83,7 @@ type CourseUserFilters = {
   learningStatus: string;
   paymentStatus: CourseUserPaymentStatus;
 };
-type CourseDetailTab = 'chapters' | 'users';
+type CourseDetailTab = 'chapters' | 'users' | 'creditUsage';
 
 const EMPTY_CHAPTER_DETAIL: AdminOperationCourseChapterDetailResponse = {
   outline_item_bid: '',
@@ -134,6 +137,7 @@ const USER_COLUMN_KEYS = Object.keys(
   USER_COLUMN_DEFAULT_WIDTHS,
 ) as UserColumnKey[];
 const USER_PAGE_SIZE = 20;
+const COURSE_CREDIT_USAGE_PAGE_SIZE = 20;
 const FILTER_ALL_OPTION = 'all';
 
 const EMPTY_COURSE_USERS_RESPONSE: AdminOperationCourseUsersResponse = {
@@ -143,6 +147,16 @@ const EMPTY_COURSE_USERS_RESPONSE: AdminOperationCourseUsersResponse = {
   page_size: USER_PAGE_SIZE,
   total: 0,
 };
+
+const EMPTY_COURSE_CREDIT_USAGE_RESPONSE: AdminOperationCourseCreditUsageListResponse =
+  {
+    view: 'grouped',
+    items: [],
+    page: 1,
+    page_count: 0,
+    page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
+    total: 0,
+  };
 
 const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
   basic_info: {
@@ -195,6 +209,14 @@ const createCourseUserFilters = (): CourseUserFilters => ({
   learningStatus: FILTER_ALL_OPTION,
   paymentStatus: FILTER_ALL_OPTION,
 });
+
+const createCourseCreditUsageFilters =
+  (): AdminOperationCourseCreditUsageFilters => ({
+    keyword: '',
+    mode: FILTER_ALL_OPTION,
+    startTime: '',
+    endTime: '',
+  });
 
 function ClearableTextInput({
   value,
@@ -317,6 +339,33 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.usersTable.action')
  * t('module.operationsCourse.detail.usersTable.empty')
  * t('module.operationsCourse.detail.usersTable.detailAction')
+ * t('module.operationsCourse.detail.creditUsageTab')
+ * t('module.operationsCourse.detail.creditUsage.title')
+ * t('module.operationsCourse.detail.creditUsage.description')
+ * t('module.operationsCourse.detail.creditUsage.count')
+ * t('module.operationsCourse.detail.creditUsage.filters.userKeyword')
+ * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderPhone')
+ * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderEmail')
+ * t('module.operationsCourse.detail.creditUsage.filters.mode')
+ * t('module.operationsCourse.detail.creditUsage.filters.modeAll')
+ * t('module.operationsCourse.detail.creditUsage.filters.time')
+ * t('module.operationsCourse.detail.creditUsage.filters.timePlaceholder')
+ * t('module.operationsCourse.detail.creditUsage.filters.reset')
+ * t('module.operationsCourse.detail.creditUsage.modes.learn')
+ * t('module.operationsCourse.detail.creditUsage.modes.listen')
+ * t('module.operationsCourse.detail.creditUsage.modes.ask')
+ * t('module.operationsCourse.detail.creditUsage.modes.mixed')
+ * t('module.operationsCourse.detail.creditUsage.modes.unknown')
+ * t('module.operationsCourse.detail.creditUsage.modelSummary.multiple')
+ * t('module.operationsCourse.detail.creditUsage.table.createdAt')
+ * t('module.operationsCourse.detail.creditUsage.table.nickname')
+ * t('module.operationsCourse.detail.creditUsage.table.mode')
+ * t('module.operationsCourse.detail.creditUsage.table.chapter')
+ * t('module.operationsCourse.detail.creditUsage.table.lesson')
+ * t('module.operationsCourse.detail.creditUsage.table.usageCount')
+ * t('module.operationsCourse.detail.creditUsage.table.credits')
+ * t('module.operationsCourse.detail.creditUsage.table.model')
+ * t('module.operationsCourse.detail.creditUsage.table.empty')
  * t('module.operationsCourse.detail.userRole.operator')
  * t('module.operationsCourse.detail.userRole.creator')
  * t('module.operationsCourse.detail.userRole.student')
@@ -361,6 +410,24 @@ export default function AdminOperationCourseDetailPage() {
   );
   const [courseUserPage, setCourseUserPage] = useState(1);
   const courseUsersRequestIdRef = useRef(0);
+  const [courseCreditUsageFiltersDraft, setCourseCreditUsageFiltersDraft] =
+    useState<AdminOperationCourseCreditUsageFilters>(
+      createCourseCreditUsageFilters,
+    );
+  const [courseCreditUsageFilters, setCourseCreditUsageFilters] =
+    useState<AdminOperationCourseCreditUsageFilters>(
+      createCourseCreditUsageFilters,
+    );
+  const [courseCreditUsages, setCourseCreditUsages] =
+    useState<AdminOperationCourseCreditUsageListResponse>(
+      EMPTY_COURSE_CREDIT_USAGE_RESPONSE,
+    );
+  const [courseCreditUsagesLoading, setCourseCreditUsagesLoading] =
+    useState(false);
+  const [courseCreditUsagesError, setCourseCreditUsagesError] =
+    useState<ErrorState | null>(null);
+  const [courseCreditUsagePage, setCourseCreditUsagePage] = useState(1);
+  const courseCreditUsagesRequestIdRef = useRef(0);
   const {
     setColumnWidths: setChapterColumnWidths,
     getColumnStyle: getChapterColumnStyle,
@@ -385,7 +452,6 @@ export default function AdminOperationCourseDetailPage() {
     minWidth: USER_COLUMN_MIN_WIDTH,
     maxWidth: USER_COLUMN_MAX_WIDTH,
   });
-
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
@@ -422,7 +488,6 @@ export default function AdminOperationCourseDetailPage() {
         : tOperations('detail.usersTable.accountPhone'),
     [contactMode, tOperations],
   );
-
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
       setError({ message: unknownErrorMessage });
@@ -505,6 +570,69 @@ export default function AdminOperationCourseDetailPage() {
     [courseUserFilters, shifuBid, unknownErrorMessage],
   );
 
+  const fetchCourseCreditUsages = useCallback(
+    async (
+      targetPage: number,
+      nextFilters?: AdminOperationCourseCreditUsageFilters,
+    ) => {
+      if (!shifuBid.trim()) {
+        setCourseCreditUsagesError({ message: unknownErrorMessage });
+        setCourseCreditUsages(EMPTY_COURSE_CREDIT_USAGE_RESPONSE);
+        return;
+      }
+
+      const resolvedFilters = nextFilters ?? courseCreditUsageFilters;
+      const requestId = courseCreditUsagesRequestIdRef.current + 1;
+      courseCreditUsagesRequestIdRef.current = requestId;
+      setCourseCreditUsagesLoading(true);
+      setCourseCreditUsagesError(null);
+
+      try {
+        const response = (await api.getAdminOperationCourseCreditUsages({
+          shifu_bid: shifuBid,
+          page: targetPage,
+          page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
+          view: 'grouped',
+          keyword: resolvedFilters.keyword.trim(),
+          mode:
+            resolvedFilters.mode === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.mode,
+          start_time: resolvedFilters.startTime,
+          end_time: resolvedFilters.endTime,
+        })) as AdminOperationCourseCreditUsageListResponse;
+        if (requestId !== courseCreditUsagesRequestIdRef.current) {
+          return;
+        }
+        setCourseCreditUsages({
+          view: response?.view || 'grouped',
+          items: response?.items || [],
+          page: response?.page || targetPage,
+          page_count: response?.page_count || 0,
+          page_size: response?.page_size || COURSE_CREDIT_USAGE_PAGE_SIZE,
+          total: response?.total || 0,
+        });
+      } catch (err) {
+        if (requestId !== courseCreditUsagesRequestIdRef.current) {
+          return;
+        }
+        setCourseCreditUsages(EMPTY_COURSE_CREDIT_USAGE_RESPONSE);
+        if (err instanceof ErrorWithCode) {
+          setCourseCreditUsagesError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setCourseCreditUsagesError({ message: err.message });
+        } else {
+          setCourseCreditUsagesError({ message: unknownErrorMessage });
+        }
+      } finally {
+        if (requestId === courseCreditUsagesRequestIdRef.current) {
+          setCourseCreditUsagesLoading(false);
+        }
+      }
+    },
+    [courseCreditUsageFilters, shifuBid, unknownErrorMessage],
+  );
+
   useEffect(() => {
     if (!isReady) {
       return;
@@ -518,6 +646,19 @@ export default function AdminOperationCourseDetailPage() {
     }
     fetchCourseUsers(courseUserPage, courseUserFilters);
   }, [activeTab, courseUserFilters, courseUserPage, fetchCourseUsers, isReady]);
+
+  useEffect(() => {
+    if (!isReady || activeTab !== 'creditUsage') {
+      return;
+    }
+    fetchCourseCreditUsages(courseCreditUsagePage, courseCreditUsageFilters);
+  }, [
+    activeTab,
+    courseCreditUsageFilters,
+    courseCreditUsagePage,
+    fetchCourseCreditUsages,
+    isReady,
+  ]);
 
   const formatUnknownEnumLabel = useCallback(
     (labelKey: string, rawValue?: string) => {
@@ -790,6 +931,34 @@ export default function AdminOperationCourseDetailPage() {
       setCourseUserPage(nextPage);
     },
     [courseUserPageCount, currentCourseUserPage],
+  );
+
+  const handleCourseCreditUsageSearch = useCallback(() => {
+    const nextFilters = {
+      ...courseCreditUsageFiltersDraft,
+      keyword: courseCreditUsageFiltersDraft.keyword.trim(),
+    };
+    setCourseCreditUsageFilters(nextFilters);
+    setCourseCreditUsagePage(1);
+  }, [courseCreditUsageFiltersDraft]);
+
+  const handleCourseCreditUsageReset = useCallback(() => {
+    const nextFilters = createCourseCreditUsageFilters();
+    setCourseCreditUsageFiltersDraft(nextFilters);
+    setCourseCreditUsageFilters(nextFilters);
+    setCourseCreditUsagePage(1);
+  }, []);
+
+  const handleCourseCreditUsagePageChange = useCallback(
+    (nextPage: number) => {
+      const currentPage = courseCreditUsages.page || 1;
+      const pageCount = Math.max(courseCreditUsages.page_count || 0, 1);
+      if (nextPage < 1 || nextPage > pageCount || nextPage === currentPage) {
+        return;
+      }
+      setCourseCreditUsagePage(nextPage);
+    },
+    [courseCreditUsages.page, courseCreditUsages.page_count],
   );
 
   const chapterRows = useMemo(
@@ -1419,6 +1588,9 @@ export default function AdminOperationCourseDetailPage() {
                   <TabsTrigger value='users'>
                     {tOperations('detail.users')}
                   </TabsTrigger>
+                  <TabsTrigger value='creditUsage'>
+                    {tOperations('detail.creditUsageTab')}
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -1427,12 +1599,7 @@ export default function AdminOperationCourseDetailPage() {
                 className='mt-0'
               >
                 <Card>
-                  <CardHeader className='pb-4'>
-                    <CardTitle className='text-base font-semibold tracking-normal'>
-                      {tOperations('detail.chapters')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className='pt-0'>
+                  <CardContent className='pt-6'>
                     <AdminTableShell
                       loading={false}
                       isEmpty={chapterRows.length === 0}
@@ -1740,17 +1907,7 @@ export default function AdminOperationCourseDetailPage() {
                 className='mt-0'
               >
                 <Card className='overflow-hidden border-border/80 shadow-sm ring-1 ring-border/40'>
-                  <CardHeader className='gap-1.5 border-b border-border/70 bg-muted/[0.08] px-6 pb-2.5 pt-4'>
-                    <div className='flex flex-col gap-1 md:flex-row md:items-baseline md:gap-3'>
-                      <CardTitle className='text-base font-semibold tracking-normal'>
-                        {tOperations('detail.users')}
-                      </CardTitle>
-                      <p className='text-sm text-muted-foreground'>
-                        {tOperations('detail.usersDescription')}
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className='space-y-3 px-6 pb-6 pt-2.5'>
+                  <CardContent className='space-y-3 px-6 py-6'>
                     <form
                       className='rounded-xl border border-border bg-muted/20 p-3'
                       onSubmit={event => {
@@ -2227,6 +2384,43 @@ export default function AdminOperationCourseDetailPage() {
                     />
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent
+                value='creditUsage'
+                className='mt-0'
+              >
+                <CourseCreditUsageTab
+                  filtersDraft={courseCreditUsageFiltersDraft}
+                  data={courseCreditUsages}
+                  loading={courseCreditUsagesLoading}
+                  error={courseCreditUsagesError}
+                  contactMode={contactMode}
+                  defaultUserName={defaultUserName}
+                  emptyValue={emptyValue}
+                  onKeywordChange={value =>
+                    setCourseCreditUsageFiltersDraft(prev => ({
+                      ...prev,
+                      keyword: value,
+                    }))
+                  }
+                  onModeChange={value =>
+                    setCourseCreditUsageFiltersDraft(prev => ({
+                      ...prev,
+                      mode: value,
+                    }))
+                  }
+                  onDateRangeChange={({ start, end }) =>
+                    setCourseCreditUsageFiltersDraft(prev => ({
+                      ...prev,
+                      startTime: start,
+                      endTime: end,
+                    }))
+                  }
+                  onSearch={handleCourseCreditUsageSearch}
+                  onReset={handleCourseCreditUsageReset}
+                  onPageChange={handleCourseCreditUsagePageChange}
+                />
               </TabsContent>
             </Tabs>
           </div>

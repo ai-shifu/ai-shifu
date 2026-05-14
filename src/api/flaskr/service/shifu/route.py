@@ -112,6 +112,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_credit_usages,
     get_operator_course_overview,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
@@ -1587,6 +1588,95 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         }
         return make_common_response(
             get_operator_course_users(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages",
+        methods=["GET"],
+    )
+    def admin_operation_course_credit_usages(shifu_bid: str):
+        """
+        Get operator course credit usage list
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: mode
+              in: query
+              type: string
+              required: false
+              description: Credit usage mode filter
+            - name: view
+              in: query
+              type: string
+              required: false
+              description: Credit usage view mode, grouped or raw
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
+        responses:
+            200:
+                description: Operator course credit usage list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "mode": request.args.get("mode", ""),
+            "view": request.args.get("view", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            get_operator_course_credit_usages(
                 app,
                 shifu_bid=shifu_bid,
                 page_index=page_index,
