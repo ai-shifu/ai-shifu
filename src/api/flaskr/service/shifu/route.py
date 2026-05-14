@@ -3475,7 +3475,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             set_language(original_language)
 
     @app.route(path_prefix + "/ask/preview", methods=["POST"])
-    @bypass_token_validation
     def ask_preview_api():
         """
         Preview ask provider output with current settings
@@ -3756,7 +3755,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(config)
 
     @app.route(path_prefix + "/tts/preview", methods=["POST"])
-    @bypass_token_validation
     def tts_preview_api():
         """
         Preview TTS with specified settings
