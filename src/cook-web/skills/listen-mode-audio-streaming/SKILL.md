@@ -32,6 +32,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 17. 听课模式把后端 `subtitle_cues[].text` 透传给 `markdown-flow-ui/slide` 前，要先过滤尾部终止标点：默认删除句号、逗号、冒号、分号等收尾符号，但保留问号、叹号、省略号，以及成对标点的后半个（如 `”`、`）`、`》`）。
 18. 听课模式组装 item 时，如果 final `element` 事件只把完整 `audio_url` 放在 element 顶层或 `payload.audio`，而当前 item 已经有 `audioTracks/audio_segments`，必须把完整 URL 回填到对应 position 的 `audioTracks`；不要让 Slide 映射层因为优先使用 `audioTracks` 而丢掉完整 mp3 URL。
 19. 当需要在线上显式区分 buffering 卡住原因时，优先把 loading 文案拆成“未收到当前页音频 / 正在加载当前页音频 / 正在等待当前页后续音频片段”三类可配置文案，不要继续只透传单一字符串。
+20. `AudioPlayer` 已经播放过流式 `audio_segment` 后，不要在同一播放会话中切到 `audio_complete.audio_url` 续播；完整 URL 只用于未来重播或零 segment 缓存回放，否则 mp3 拼接/seek 偏差会导致句首几个字重复。
 
 ## 备注
 
