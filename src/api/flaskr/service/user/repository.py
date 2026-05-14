@@ -22,6 +22,7 @@ from flaskr.service.user.consts import (
     USER_STATE_UNREGISTERED,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
 
 
@@ -200,6 +201,8 @@ def _normalize_identifier(provider: str, identifier: Optional[str]) -> str:
     normalized = identifier.strip()
     if provider in {"email"}:
         return normalized.lower()
+    if provider in {"phone"}:
+        return normalize_phone_identifier(normalized)
     return normalized
 
 
@@ -338,18 +341,6 @@ def load_user_aggregate_by_identifier(
     if not normalized:
         return None
 
-    # Direct match on canonical identifier first
-    entity = (
-        UserEntity.query.filter_by(user_identify=normalized)
-        .order_by(UserEntity.id.asc())
-        .first()
-    )
-    if entity:
-        return _build_user_aggregate(
-            entity,
-            credentials=list_credentials(user_bid=entity.user_bid),
-        )
-
     provider_candidates = providers or []
     if not provider_candidates:
         if "@" in normalized:
@@ -357,10 +348,29 @@ def load_user_aggregate_by_identifier(
         else:
             provider_candidates = ["phone", "email"]
 
+    lookup_identifiers = [normalized]
+    for provider in provider_candidates:
+        provider_normalized = _normalize_identifier(provider, normalized)
+        if provider_normalized and provider_normalized not in lookup_identifiers:
+            lookup_identifiers.append(provider_normalized)
+
+    # Direct match on canonical identifiers first.
+    for lookup_identifier in lookup_identifiers:
+        entity = (
+            UserEntity.query.filter_by(user_identify=lookup_identifier)
+            .order_by(UserEntity.id.asc())
+            .first()
+        )
+        if entity:
+            return _build_user_aggregate(
+                entity,
+                credentials=list_credentials(user_bid=entity.user_bid),
+            )
+
     for provider in provider_candidates:
         credential = find_credential(
             provider_name=provider,
-            identifier=_normalize_identifier(provider, normalized),
+            identifier=normalized,
         )
         if credential:
             return load_user_aggregate(credential.user_bid)
@@ -684,6 +694,8 @@ def upsert_credential(
     metadata: Dict[str, Optional[str]],
     verified: bool,
 ) -> AuthCredential:
+    subject_id = _normalize_identifier(provider_name, subject_id)
+    identifier = _normalize_identifier(provider_name, identifier)
     credential = AuthCredential.query.filter_by(
         user_bid=user_bid,
         provider_name=provider_name,
@@ -721,6 +733,7 @@ def upsert_credential(
 def find_credential(
     *, provider_name: str, identifier: str, user_bid: Optional[str] = None
 ) -> Optional[AuthCredential]:
+    identifier = _normalize_identifier(provider_name, identifier)
     query = AuthCredential.query.filter_by(
         provider_name=provider_name,
         identifier=identifier,

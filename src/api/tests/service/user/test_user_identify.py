@@ -127,6 +127,54 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
         assert updated.verify_code_used == 1
 
 
+def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app):
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.dao import db
+    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import UserVerifyCode
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+        phone_flow.redis = _FakeRedis()
+
+        _reset_user_auth_tables()
+        phone = "15500005555"
+        code = "1234"
+        record = UserVerifyCode(
+            phone=phone,
+            mail="",
+            verify_code=code,
+            verify_code_type=1,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+        try:
+            token, _created, _ctx = phone_flow.verify_phone_code(
+                app, user_id=None, phone=f"+86{phone}", code=code
+            )
+
+            entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
+            assert entity is not None
+            assert entity.user_identify == phone
+            credential = AuthCredential.query.filter_by(
+                provider_name="phone",
+                identifier=phone,
+                user_bid=entity.user_bid,
+            ).first()
+            assert credential is not None
+
+            updated = UserVerifyCode.query.filter_by(id=record.id).first()
+            assert updated is not None
+            assert updated.verify_code_used == 1
+        finally:
+            UserVerifyCode.query.filter_by(id=record.id).delete()
+            _reset_user_auth_tables()
+
+
 def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db

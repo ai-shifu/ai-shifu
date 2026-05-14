@@ -16,6 +16,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.models import UserVerifyCode
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 
 CodeKind = Literal["sms", "email"]
 
@@ -158,6 +159,10 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
 
         redis.delete(*cache_keys)
         return
+
+    identifier = normalize_phone_identifier(identifier)
+    if not identifier:
+        raise_error("server.common.unknownError")
 
     cache_key = app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + identifier
     cached = redis.get(cache_key)

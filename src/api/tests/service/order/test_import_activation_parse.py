@@ -1,6 +1,10 @@
 import pytest
 
-from flaskr.service.order.admin import parse_import_activation_entries
+from flaskr.service.order.admin import normalize_mobile, parse_import_activation_entries
+
+
+def test_normalize_mobile_strips_cn_prefix():
+    assert normalize_mobile("+8613800138004") == "13800138004"
 
 
 def test_parse_import_activation_entries_phone_multiple_numbers():

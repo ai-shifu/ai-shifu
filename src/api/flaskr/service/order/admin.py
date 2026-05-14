@@ -68,6 +68,7 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import ensure_demo_course_permissions
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.util.timezone import serialize_with_app_timezone
@@ -137,7 +138,7 @@ EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 def normalize_mobile(mobile: str) -> str:
     """Normalize and validate a mobile number (11 digits)."""
-    normalized_mobile = str(mobile or "").strip()
+    normalized_mobile = normalize_phone_identifier(mobile)
     if not normalized_mobile:
         raise_param_error("mobile")
     if not MOBILE_PATTERN.fullmatch(normalized_mobile):
