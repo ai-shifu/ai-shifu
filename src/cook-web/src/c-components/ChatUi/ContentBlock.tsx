@@ -29,7 +29,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
-  onTypeFinished?: (blockBid: string) => void;
+  onTypeFinished?: (blockBid: string, content: string) => void;
   enableStreamingTypewriter?: boolean;
 }
 
@@ -76,8 +76,8 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
     const handleTypeFinished = useCallback(() => {
-      onTypeFinished?.(blockBid);
-    }, [blockBid, onTypeFinished]);
+      onTypeFinished?.(blockBid, item.content || '');
+    }, [blockBid, item.content, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));

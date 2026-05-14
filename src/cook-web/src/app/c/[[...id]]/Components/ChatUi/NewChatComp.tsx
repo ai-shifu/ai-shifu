@@ -56,6 +56,11 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
+import {
+  buildVisibleReadModeItems,
+  syncReadModeTypewriterCache,
+  type ReadModeTypewriterCache,
+} from './readModeTypewriterGate';
 
 interface NewChatComponentsProps {
   className?: string;
@@ -362,6 +367,8 @@ export const NewChatComponents = ({
   const isListenMode = learningMode === 'listen';
   const previousLearningModeRef = useRef(learningMode);
   const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
+  const [readModeTypewriterCache, setReadModeTypewriterCache] =
+    useState<ReadModeTypewriterCache>({});
   const pendingListenAfterResetLessonIdRef = useRef<string | null>(null);
   const listenModeRestoreReadyRef = useRef(false);
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
@@ -508,14 +515,45 @@ export const NewChatComponents = ({
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
   console.log('readModeItems', readModeItems);  
+  const visibleReadModeItems = useMemo(
+    () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
+    [readModeItems, readModeTypewriterCache],
+  );
+  const handleReadModeTypeFinished = useCallback(
+    (blockBid: string, content: string) => {
+      if (!blockBid) {
+        return;
+      }
+
+      setReadModeTypewriterCache(prevCache => {
+        const existingEntry = prevCache[blockBid];
+        if (
+          existingEntry?.content === content &&
+          existingEntry.isFinished === true
+        ) {
+          return prevCache;
+        }
+
+        return {
+          ...prevCache,
+          [blockBid]: {
+            content,
+            isFinished: true,
+          },
+        };
+      });
+    },
+    [],
+  );
   const getReadModeElementPadding = useCallback(
     (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
     [],
   );
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
-    !readModeItems.some(item => item.element_bid === 'loading');
-  const isReadModeStreamingDotsFirstElement = readModeItems.length === 0;
+    !visibleReadModeItems.some(item => item.element_bid === 'loading');
+  const isReadModeStreamingDotsFirstElement =
+    visibleReadModeItems.length === 0;
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -544,6 +582,12 @@ export const NewChatComponents = ({
 
     lastReadModeItemsRef.current = items;
   }, [items, learningMode]);
+
+  useEffect(() => {
+    setReadModeTypewriterCache(prevCache =>
+      syncReadModeTypewriterCache(readModeItems, prevCache),
+    );
+  }, [readModeItems]);
 
   useEffect(() => {
     const previousLearningMode = previousLearningModeRef.current;
@@ -1122,7 +1166,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {readModeItems.map((item, idx) => {
+                {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
@@ -1277,6 +1321,7 @@ export const NewChatComponents = ({
                         showAudioAction={shouldShowAudioAction}
                         onAudioPlayStateChange={handleAudioPlayStateChange}
                         onAudioEnded={handleAudioEnded}
+                        onTypeFinished={handleReadModeTypeFinished}
                       />
                     </div>
                   );
@@ -1284,7 +1329,9 @@ export const NewChatComponents = ({
                 {shouldShowReadModeStreamingDots ? (
                   <div
                     style={{
-                      margin: readModeItems.length ? '16px auto 0' : '0 auto',
+                      margin: visibleReadModeItems.length
+                        ? '16px auto 0'
+                        : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: getReadModeElementPadding(
                         isReadModeStreamingDotsFirstElement,
