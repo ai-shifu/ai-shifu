@@ -4,8 +4,12 @@ import api from '@/api';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 
 const mockToast = jest.fn();
+const mockGetAdminOperationUserGrantBootstrap =
+  api.getAdminOperationUserGrantBootstrap as jest.Mock;
 const mockGrantAdminOperationUserCredits =
   api.grantAdminOperationUserCredits as jest.Mock;
+const mockGrantAdminOperationUserPackage =
+  api.grantAdminOperationUserPackage as jest.Mock;
 const translationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
 const baseTranslation = (namespace?: string | string[]) => {
@@ -22,7 +26,9 @@ const baseTranslation = (namespace?: string | string[]) => {
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationUserGrantBootstrap: jest.fn(),
     grantAdminOperationUserCredits: jest.fn(),
+    grantAdminOperationUserPackage: jest.fn(),
   },
 }));
 
@@ -238,8 +244,30 @@ const baseUser = {
 describe('UserCreditGrantDialog', () => {
   beforeEach(() => {
     mockToast.mockReset();
+    mockGetAdminOperationUserGrantBootstrap.mockReset();
     mockGrantAdminOperationUserCredits.mockReset();
+    mockGrantAdminOperationUserPackage.mockReset();
     mockLanguage = 'en-US';
+    mockGetAdminOperationUserGrantBootstrap.mockResolvedValue({
+      plans: [
+        {
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+          description:
+            'module.billing.catalog.plans.creatorMonthly.description',
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          currency: 'CNY',
+          price_amount: 990,
+          credit_amount: 5,
+          auto_renew_enabled: true,
+          highlights: [],
+        },
+      ],
+      notification_status: 'template_pending',
+    });
     mockGrantAdminOperationUserCredits.mockResolvedValue({
       user_bid: 'user-1',
       amount: '10',
@@ -253,6 +281,22 @@ describe('UserCreditGrantDialog', () => {
         subscription_credits: '22',
         topup_credits: '0',
         credits_expire_at: '2026-04-22T00:00:00Z',
+        has_active_subscription: true,
+      },
+    });
+    mockGrantAdminOperationUserPackage.mockResolvedValue({
+      user_bid: 'user-1',
+      product_bid: 'bill-product-plan-monthly',
+      subscription_bid: 'subscription-1',
+      bill_order_bid: 'bill-order-1',
+      current_period_start_at: '2026-04-21T00:00:00Z',
+      current_period_end_at: '2026-05-20T23:59:59Z',
+      notification_status: 'template_pending',
+      summary: {
+        available_credits: '17',
+        subscription_credits: '17',
+        topup_credits: '0',
+        credits_expire_at: '2026-05-20T23:59:59Z',
         has_active_subscription: true,
       },
     });
@@ -363,6 +407,76 @@ describe('UserCreditGrantDialog', () => {
     expect(handleGranted).toHaveBeenCalledWith(
       expect.objectContaining({
         ledger_bid: 'ledger-1',
+      }),
+    );
+    expect(handleOpenChange).toHaveBeenCalledWith(false);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.operationsUser.grantDialog.submitSuccess',
+    });
+  });
+
+  test('submits a confirmed package grant and reports success', async () => {
+    const handleGranted = jest.fn();
+    const handleOpenChange = jest.fn();
+
+    render(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={handleOpenChange}
+        onGranted={handleGranted}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.modeOptions.package',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.catalog.plans.creatorMonthly.title',
+      }),
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsUser.grantDialog.placeholders.note',
+      ),
+      {
+        target: { value: 'package note' },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.confirmButton',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsUser.grantDialog.packageConfirmTitle',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.submitButton',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGrantAdminOperationUserPackage).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        request_id: 'testrequestid',
+        product_bid: 'bill-product-plan-monthly',
+        note: 'package note',
+      });
+    });
+
+    expect(handleGranted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bill_order_bid: 'bill-order-1',
       }),
     );
     expect(handleOpenChange).toHaveBeenCalledWith(false);

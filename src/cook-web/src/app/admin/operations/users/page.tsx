@@ -430,6 +430,13 @@ export default function AdminOperationUsersPage() {
     [tOperationsUsers],
   );
 
+  const canGrantBenefitsToUser = useCallback(
+    (user: AdminOperationUserItem) =>
+      user.user_roles.includes('creator') ||
+      user.user_roles.includes('operator'),
+    [],
+  );
+
   const resolveLoginMethodLabel = useCallback(
     (method: string) => {
       const normalized = normalizeLoginMethodLabelKey(method);
@@ -1547,7 +1554,12 @@ export default function AdminOperationUsersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align='center'>
                                 <DropdownMenuItem
-                                  onClick={() => setGrantDialogUser(user)}
+                                  disabled={!canGrantBenefitsToUser(user)}
+                                  onClick={() => {
+                                    if (canGrantBenefitsToUser(user)) {
+                                      setGrantDialogUser(user);
+                                    }
+                                  }}
                                 >
                                   {tOperationsUsers('actions.grantCredits')}
                                 </DropdownMenuItem>

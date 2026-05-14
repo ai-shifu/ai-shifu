@@ -115,9 +115,11 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: ({
     children,
     onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    disabled,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
     <button
       type='button'
+      disabled={disabled}
       onClick={onClick}
     >
       {children}
@@ -578,6 +580,51 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
+  });
+
+  test('disables the grant action for unsupported target roles', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-regular',
+          mobile: '',
+          email: 'user-regular@example.com',
+          nickname: 'Regular User',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'zh-CN',
+          learning_course_count: 0,
+          learning_courses: [],
+          created_course_count: 0,
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
+          has_active_subscription: false,
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationUsersPage />);
+
+    const actionButton = await screen.findByRole('button', {
+      name: 'module.operationsUser.actions.grantCredits',
+    });
+
+    expect(actionButton).toBeDisabled();
   });
 
   test('revalidates billing overview after credits are granted successfully', async () => {
