@@ -223,6 +223,10 @@ def send_sms_code(
 
 def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
     with app.app_context():
+        email = str(email or "").strip().lower()
+        if not email:
+            raise_error("server.common.unknownError")
+
         # Check IP ban status
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip

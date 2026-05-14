@@ -357,7 +357,10 @@ def load_user_aggregate_by_identifier(
     # Direct match on canonical identifiers first.
     for lookup_identifier in lookup_identifiers:
         entity = (
-            UserEntity.query.filter_by(user_identify=lookup_identifier)
+            UserEntity.query.filter(
+                UserEntity.user_identify == lookup_identifier,
+                UserEntity.deleted == 0,
+            )
             .order_by(UserEntity.id.asc())
             .first()
         )
@@ -368,12 +371,13 @@ def load_user_aggregate_by_identifier(
             )
 
     for provider in provider_candidates:
-        credential = find_credential(
-            provider_name=provider,
-            identifier=normalized,
-        )
-        if credential:
-            return load_user_aggregate(credential.user_bid)
+        for lookup_identifier in lookup_identifiers:
+            credential = find_credential(
+                provider_name=provider,
+                identifier=lookup_identifier,
+            )
+            if credential:
+                return load_user_aggregate(credential.user_bid)
 
     return None
 
@@ -694,13 +698,21 @@ def upsert_credential(
     metadata: Dict[str, Optional[str]],
     verified: bool,
 ) -> AuthCredential:
+    raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
-    credential = AuthCredential.query.filter_by(
-        user_bid=user_bid,
-        provider_name=provider_name,
-        identifier=identifier,
-    ).first()
+    lookup_identifiers = [identifier]
+    if raw_identifier and raw_identifier not in lookup_identifiers:
+        lookup_identifiers.append(raw_identifier)
+    credential = (
+        AuthCredential.query.filter(
+            AuthCredential.user_bid == user_bid,
+            AuthCredential.provider_name == provider_name,
+            AuthCredential.identifier.in_(lookup_identifiers),
+        )
+        .order_by(AuthCredential.deleted.asc(), AuthCredential.id.asc())
+        .first()
+    )
 
     raw_profile = serialize_raw_profile(provider_name, metadata)
     state = CREDENTIAL_STATE_VERIFIED if verified else CREDENTIAL_STATE_UNVERIFIED
@@ -733,15 +745,19 @@ def upsert_credential(
 def find_credential(
     *, provider_name: str, identifier: str, user_bid: Optional[str] = None
 ) -> Optional[AuthCredential]:
+    raw_identifier = (identifier or "").strip()
     identifier = _normalize_identifier(provider_name, identifier)
-    query = AuthCredential.query.filter_by(
-        provider_name=provider_name,
-        identifier=identifier,
-        deleted=0,
+    lookup_identifiers = [identifier]
+    if raw_identifier and raw_identifier not in lookup_identifiers:
+        lookup_identifiers.append(raw_identifier)
+    query = AuthCredential.query.filter(
+        AuthCredential.provider_name == provider_name,
+        AuthCredential.identifier.in_(lookup_identifiers),
+        AuthCredential.deleted == 0,
     )
     if user_bid:
-        query = query.filter_by(user_bid=user_bid)
-    return query.first()
+        query = query.filter(AuthCredential.user_bid == user_bid)
+    return query.order_by(AuthCredential.id.asc()).first()
 
 
 def list_credentials(
