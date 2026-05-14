@@ -78,7 +78,7 @@
       },
       "modes": {
         "ask": "Follow-up",
-        "learn": "Learning",
+        "learn": "Read",
         "listen": "Listen",
         "mixed": "Mixed",
         "unknown": "Unknown mode"

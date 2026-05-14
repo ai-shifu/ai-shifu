@@ -6,15 +6,25 @@ import { useParams, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
+import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Label } from '@/components/ui/Label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import {
   Table,
   TableBody,
@@ -39,9 +49,13 @@ import { formatOperatorNaiveDateTime } from '../dateTime';
 import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
+  AdminOperationUserCreditFilters,
+  AdminOperationUserCreditGrantSourceFilter,
   AdminOperationUserCreditSummary,
   AdminOperationUserCreditsResponse,
   AdminOperationUserDetailResponse,
+  AdminOperationUserCreditTypeFilter,
+  AdminOperationUserCreditUsageModeFilter,
 } from '../../operation-user-types';
 import useOperatorGuard from '../../useOperatorGuard';
 
@@ -51,6 +65,7 @@ type DetailTab = 'credits' | 'learning' | 'created';
 const CREDITS_PAGE_SIZE = 10;
 const EMPTY_VALUE = '--';
 const DEFAULT_VISIBLE_COURSE_COUNT = 10;
+const FILTER_ALL_OPTION = 'all';
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
@@ -65,6 +80,14 @@ const createEmptyCreditsResponse = (): AdminOperationUserCreditsResponse => ({
   page_count: 0,
   page_size: CREDITS_PAGE_SIZE,
   total: 0,
+});
+const createUserCreditFilters = (): AdminOperationUserCreditFilters => ({
+  creditType: FILTER_ALL_OPTION,
+  grantSource: FILTER_ALL_OPTION,
+  courseQuery: '',
+  usageMode: FILTER_ALL_OPTION,
+  startTime: '',
+  endTime: '',
 });
 type OperatorUsersTranslator = (
   key: string,
@@ -113,6 +136,26 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.operationsUser.detail.emptyCourses')
  * t('module.operationsUser.detail.emptyCredits')
  * t('module.operationsUser.detail.creditLedger')
+ * t('module.operationsUser.detail.creditLedgerFilters.type')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.consume')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.grant')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.other')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSource')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.subscription')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.trial_subscription')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.topup')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.manual')
+ * t('module.operationsUser.detail.creditLedgerFilters.course')
+ * t('module.operationsUser.detail.creditLedgerFilters.coursePlaceholder')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageMode')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.learn')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.listen')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask')
+ * t('module.operationsUser.detail.creditLedgerFilters.time')
+ * t('module.operationsUser.detail.creditLedgerFilters.timePlaceholder')
  * t('module.operationsUser.detail.creditLedgerColumns.createdAt')
  * t('module.operationsUser.detail.creditLedgerColumns.entryType')
  * t('module.operationsUser.detail.creditLedgerColumns.sourceType')
@@ -281,10 +324,7 @@ const CourseTable = ({
 
   return (
     <Card className='shadow-sm'>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-3'>
+      <CardContent className='space-y-3 pt-6'>
         <TooltipProvider delayDuration={150}>
           <Table className='table-fixed'>
             <colgroup>
@@ -377,20 +417,292 @@ const CourseTable = ({
   );
 };
 
+const sanitizeCreditFiltersByType = (
+  filters: AdminOperationUserCreditFilters,
+): AdminOperationUserCreditFilters => {
+  if (filters.creditType === 'grant') {
+    return {
+      ...filters,
+      courseQuery: '',
+      usageMode: FILTER_ALL_OPTION,
+    };
+  }
+  if (filters.creditType === 'consume') {
+    return {
+      ...filters,
+      grantSource: FILTER_ALL_OPTION,
+    };
+  }
+  if (filters.creditType === 'other') {
+    return {
+      ...filters,
+      grantSource: FILTER_ALL_OPTION,
+      courseQuery: '',
+      usageMode: FILTER_ALL_OPTION,
+    };
+  }
+  return createUserCreditFilters();
+};
+
+const CreditLedgerFilters = ({
+  filtersDraft,
+  loading,
+  onChange,
+  onSearch,
+  onReset,
+}: {
+  filtersDraft: AdminOperationUserCreditFilters;
+  loading: boolean;
+  onChange: (filters: AdminOperationUserCreditFilters) => void;
+  onSearch: () => void;
+  onReset: () => void;
+}) => {
+  const { t } = useTranslation();
+  const { t: tOperationsUsers } = useTranslation('module.operationsUser');
+  const showGrantFilters = filtersDraft.creditType === 'grant';
+  const showConsumeFilters = filtersDraft.creditType === 'consume';
+  const showOtherFilters = filtersDraft.creditType === 'other';
+
+  return (
+    <form
+      className='rounded-xl border border-border bg-muted/20 p-3'
+      onSubmit={event => {
+        event.preventDefault();
+        onSearch();
+      }}
+    >
+      <div className='flex flex-col gap-3 xl:flex-row xl:items-end'>
+        <div className='flex flex-col gap-2 xl:w-[240px] xl:flex-none'>
+          <Label className='text-xs font-medium text-muted-foreground'>
+            {tOperationsUsers('detail.creditLedgerFilters.type')}
+          </Label>
+          <Select
+            value={filtersDraft.creditType}
+            onValueChange={value =>
+              onChange(
+                sanitizeCreditFiltersByType({
+                  ...filtersDraft,
+                  creditType: value as AdminOperationUserCreditTypeFilter,
+                }),
+              )
+            }
+          >
+            <SelectTrigger className='h-9'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL_OPTION}>
+                {tOperationsUsers('detail.creditLedgerFilters.typeOptions.all')}
+              </SelectItem>
+              <SelectItem value='consume'>
+                {tOperationsUsers(
+                  'detail.creditLedgerFilters.typeOptions.consume',
+                )}
+              </SelectItem>
+              <SelectItem value='grant'>
+                {tOperationsUsers(
+                  'detail.creditLedgerFilters.typeOptions.grant',
+                )}
+              </SelectItem>
+              <SelectItem value='other'>
+                {tOperationsUsers(
+                  'detail.creditLedgerFilters.typeOptions.other',
+                )}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {showGrantFilters ? (
+          <div className='flex flex-1 flex-col gap-2'>
+            <Label className='text-xs font-medium text-muted-foreground'>
+              {tOperationsUsers('detail.creditLedgerFilters.grantSource')}
+            </Label>
+            <Select
+              value={filtersDraft.grantSource}
+              onValueChange={value =>
+                onChange({
+                  ...filtersDraft,
+                  grantSource:
+                    value as AdminOperationUserCreditGrantSourceFilter,
+                })
+              }
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={FILTER_ALL_OPTION}>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.grantSourceOptions.all',
+                  )}
+                </SelectItem>
+                <SelectItem value='subscription'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.grantSourceOptions.subscription',
+                  )}
+                </SelectItem>
+                <SelectItem value='topup'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.grantSourceOptions.topup',
+                  )}
+                </SelectItem>
+                <SelectItem value='trial_subscription'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.grantSourceOptions.trial_subscription',
+                  )}
+                </SelectItem>
+                <SelectItem value='manual'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.grantSourceOptions.manual',
+                  )}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        {showConsumeFilters ? (
+          <div className='flex flex-1 flex-col gap-2'>
+            <Label className='text-xs font-medium text-muted-foreground'>
+              {tOperationsUsers('detail.creditLedgerFilters.course')}
+            </Label>
+            <ClearableTextInput
+              value={filtersDraft.courseQuery}
+              placeholder={tOperationsUsers(
+                'detail.creditLedgerFilters.coursePlaceholder',
+              )}
+              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              onChange={value =>
+                onChange({
+                  ...filtersDraft,
+                  courseQuery: value,
+                })
+              }
+            />
+          </div>
+        ) : null}
+
+        {showConsumeFilters ? (
+          <div className='flex flex-1 flex-col gap-2'>
+            <Label className='text-xs font-medium text-muted-foreground'>
+              {tOperationsUsers('detail.creditLedgerFilters.usageMode')}
+            </Label>
+            <Select
+              value={filtersDraft.usageMode}
+              onValueChange={value =>
+                onChange({
+                  ...filtersDraft,
+                  usageMode: value as AdminOperationUserCreditUsageModeFilter,
+                })
+              }
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={FILTER_ALL_OPTION}>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageModeOptions.all',
+                  )}
+                </SelectItem>
+                <SelectItem value='learn'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageModeOptions.learn',
+                  )}
+                </SelectItem>
+                <SelectItem value='listen'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageModeOptions.listen',
+                  )}
+                </SelectItem>
+                <SelectItem value='ask'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageModeOptions.ask',
+                  )}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        {showGrantFilters || showConsumeFilters || showOtherFilters ? (
+          <div
+            className={cn(
+              'flex flex-1 flex-col gap-2',
+              showOtherFilters && 'xl:w-[420px] xl:flex-none',
+            )}
+          >
+            <Label className='text-xs font-medium text-muted-foreground'>
+              {tOperationsUsers('detail.creditLedgerFilters.time')}
+            </Label>
+            <AdminDateRangeFilter
+              startValue={filtersDraft.startTime}
+              endValue={filtersDraft.endTime}
+              triggerAriaLabel={tOperationsUsers(
+                'detail.creditLedgerFilters.time',
+              )}
+              placeholder={tOperationsUsers(
+                'detail.creditLedgerFilters.timePlaceholder',
+              )}
+              resetLabel={t('module.order.filters.reset')}
+              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              onChange={({ start, end }) =>
+                onChange({
+                  ...filtersDraft,
+                  startTime: start,
+                  endTime: end,
+                })
+              }
+            />
+          </div>
+        ) : null}
+
+        <div className='flex min-h-9 shrink-0 items-center justify-start gap-2 xl:ml-auto xl:justify-end'>
+          <Button
+            type='button'
+            variant='outline'
+            className='h-9 px-4'
+            onClick={onReset}
+            disabled={loading}
+          >
+            {t('module.order.filters.reset')}
+          </Button>
+          <Button
+            type='submit'
+            className='h-9 px-4'
+            disabled={loading}
+          >
+            {t('module.order.filters.search')}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+};
+
 const CreditLedgerTable = ({
+  filtersDraft,
   loading,
   error,
   items,
   pageIndex,
   pageCount,
+  onFiltersChange,
+  onSearch,
+  onReset,
   onPageChange,
   onRetry,
 }: {
+  filtersDraft: AdminOperationUserCreditFilters;
   loading: boolean;
   error: ErrorState | null;
   items: AdminOperationUserCreditsResponse['items'];
   pageIndex: number;
   pageCount: number;
+  onFiltersChange: (filters: AdminOperationUserCreditFilters) => void;
+  onSearch: () => void;
+  onReset: () => void;
   onPageChange: (page: number) => void;
   onRetry: () => void;
 }) => {
@@ -414,12 +726,14 @@ const CreditLedgerTable = ({
       className='shadow-sm'
       data-testid='admin-operation-user-credit-ledger-card'
     >
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>
-          {tOperationsUsers('detail.creditLedger')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-4'>
+      <CardContent className='space-y-4 pt-6'>
+        <CreditLedgerFilters
+          filtersDraft={filtersDraft}
+          loading={loading}
+          onChange={onFiltersChange}
+          onSearch={onSearch}
+          onReset={onReset}
+        />
         <TooltipProvider delayDuration={150}>
           <div
             className='overflow-auto'
@@ -593,6 +907,7 @@ export default function AdminOperationUserDetailPage() {
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const creditsSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedCreditStateRef = useRef(false);
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState<ErrorState | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
@@ -600,6 +915,10 @@ export default function AdminOperationUserDetailPage() {
   const [detailRetryNonce, setDetailRetryNonce] = useState(0);
   const [creditsRetryNonce, setCreditsRetryNonce] = useState(0);
   const [creditsPageIndex, setCreditsPageIndex] = useState(1);
+  const [creditFiltersDraft, setCreditFiltersDraft] =
+    useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
+  const [creditFilters, setCreditFilters] =
+    useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
   const [activeTab, setActiveTab] = useState<DetailTab>('credits');
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
@@ -725,9 +1044,15 @@ export default function AdminOperationUserDetailPage() {
   }, [detailRetryNonce, isReady, t, userBid, userBidState.errorMessage]);
 
   useEffect(() => {
+    if (!hasInitializedCreditStateRef.current) {
+      hasInitializedCreditStateRef.current = true;
+      return;
+    }
     setCreditsPageIndex(1);
     setCreditsError(null);
     setCredits(createEmptyCreditsResponse());
+    setCreditFiltersDraft(createUserCreditFilters());
+    setCreditFilters(createUserCreditFilters());
     setActiveTab('credits');
   }, [userBid]);
 
@@ -746,6 +1071,32 @@ export default function AdminOperationUserDetailPage() {
           user_bid: userBid,
           page_index: creditsPageIndex,
           page_size: CREDITS_PAGE_SIZE,
+          credit_type:
+            creditFilters.creditType === FILTER_ALL_OPTION
+              ? ''
+              : creditFilters.creditType,
+          grant_source:
+            creditFilters.creditType === 'grant' &&
+            creditFilters.grantSource !== FILTER_ALL_OPTION
+              ? creditFilters.grantSource
+              : '',
+          course_query:
+            creditFilters.creditType === 'consume'
+              ? creditFilters.courseQuery.trim()
+              : '',
+          usage_mode:
+            creditFilters.creditType === 'consume' &&
+            creditFilters.usageMode !== FILTER_ALL_OPTION
+              ? creditFilters.usageMode
+              : '',
+          start_time:
+            creditFilters.creditType !== FILTER_ALL_OPTION
+              ? creditFilters.startTime
+              : '',
+          end_time:
+            creditFilters.creditType !== FILTER_ALL_OPTION
+              ? creditFilters.endTime
+              : '',
         })) as AdminOperationUserCreditsResponse;
         if (cancelled) {
           return;
@@ -781,12 +1132,30 @@ export default function AdminOperationUserDetailPage() {
     };
   }, [
     creditsPageIndex,
+    creditFilters,
     creditsRetryNonce,
     isReady,
     t,
     userBid,
     userBidState.errorMessage,
   ]);
+
+  const handleCreditSearch = () => {
+    const nextFilters = sanitizeCreditFiltersByType({
+      ...creditFiltersDraft,
+      courseQuery: creditFiltersDraft.courseQuery.trim(),
+    });
+    setCreditFiltersDraft(nextFilters);
+    setCreditFilters(nextFilters);
+    setCreditsPageIndex(1);
+  };
+
+  const handleCreditReset = () => {
+    const nextFilters = createUserCreditFilters();
+    setCreditFiltersDraft(nextFilters);
+    setCreditFilters(nextFilters);
+    setCreditsPageIndex(1);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined' || detailLoading) {
@@ -1069,11 +1438,15 @@ export default function AdminOperationUserDetailPage() {
                     className='mt-0'
                   >
                     <CreditLedgerTable
+                      filtersDraft={creditFiltersDraft}
                       loading={creditsLoading}
                       error={creditsError}
                       items={credits.items}
                       pageIndex={credits.page || creditsPageIndex}
                       pageCount={credits.page_count || 0}
+                      onFiltersChange={setCreditFiltersDraft}
+                      onSearch={handleCreditSearch}
+                      onReset={handleCreditReset}
                       onPageChange={page => setCreditsPageIndex(page)}
                       onRetry={() => setCreditsRetryNonce(value => value + 1)}
                     />

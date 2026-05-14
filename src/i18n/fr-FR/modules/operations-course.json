@@ -78,7 +78,7 @@
       },
       "modes": {
         "ask": "Relance",
-        "learn": "Apprentissage",
+        "learn": "Lecture",
         "listen": "Écoute",
         "mixed": "Mixte",
         "unknown": "Scène inconnue"
