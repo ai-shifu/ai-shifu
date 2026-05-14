@@ -11,7 +11,6 @@ import { ErrorWithCode } from '@/lib/request';
 import OperationsPage from './page';
 
 const mockReplace = jest.fn();
-const mockPush = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
 const mockCopyText = jest.fn();
@@ -46,8 +45,23 @@ const mockUserState: {
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
-    push: mockPush,
   }),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
 }));
 
 jest.mock('@/api', () => ({
@@ -410,7 +424,6 @@ describe('OperationsPage', () => {
 
   beforeEach(() => {
     mockReplace.mockReset();
-    mockPush.mockReset();
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
@@ -573,12 +586,18 @@ describe('OperationsPage', () => {
   test('navigates from course name and transfers creator from the action menu', async () => {
     await renderAndWaitForLoadedPage();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Course 1',
-      }),
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'href',
+      '/admin/operations/course-1',
     );
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
+    );
 
     const firstRow = screen.getByText('Course 1').closest('tr');
     expect(firstRow).not.toBeNull();
