@@ -507,6 +507,7 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  console.log('readModeItems', readModeItems);  
   const getReadModeElementPadding = useCallback(
     (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
     [],
