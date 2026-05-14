@@ -1,4 +1,5 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { stripCustomButtonAfterContent } from './chatUiUtils';
 
 export interface ReadModeTypewriterCacheEntry {
   content: string;
@@ -10,7 +11,8 @@ export type ReadModeTypewriterCache = Record<
   ReadModeTypewriterCacheEntry
 >;
 
-const getItemContent = (item: ChatContentItem) => item.content || '';
+const getItemContent = (item: ChatContentItem) =>
+  stripCustomButtonAfterContent(item.content) || '';
 
 export const isReadModeTextContentItem = (item: ChatContentItem) =>
   item.type === ChatContentItemType.CONTENT &&

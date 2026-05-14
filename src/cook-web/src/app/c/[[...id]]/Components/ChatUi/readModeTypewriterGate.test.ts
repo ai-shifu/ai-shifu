@@ -1,4 +1,5 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { appendCustomButtonAfterContent } from './chatUiUtils';
 import {
   buildVisibleReadModeItems,
   isReadModeTextContentItemReady,
@@ -87,5 +88,30 @@ describe('readModeTypewriterGate', () => {
         },
       },
     );
+  });
+
+  it('keeps finished state when mobile follow-up button markup is appended', () => {
+    const finalizedText = createTextItem({
+      is_final: true,
+      isHistory: true,
+      content: appendCustomButtonAfterContent(
+        'First text',
+        '<custom-button-after-content><span>Ask</span></custom-button-after-content>',
+      ),
+    });
+    const secondHtml = createHtmlItem();
+    const initialCache: ReadModeTypewriterCache = {
+      'text-1': {
+        content: 'First text',
+        isFinished: true,
+      },
+    };
+
+    expect(
+      syncReadModeTypewriterCache([finalizedText, secondHtml], initialCache),
+    ).toStrictEqual(initialCache);
+    expect(
+      buildVisibleReadModeItems([finalizedText, secondHtml], initialCache),
+    ).toStrictEqual([finalizedText, secondHtml]);
   });
 });
