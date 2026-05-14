@@ -5427,18 +5427,47 @@ def get_operator_user_credits(
                 )
             )
 
-        rows = query.order_by(
+        order_by_query = query.order_by(
             CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
-        ).all()
-
-        order_map = _load_billing_order_map(
-            [str(row.source_bid or "").strip() for row in rows]
         )
-
-        if (
+        has_grant_source_filter = (
             credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
             and grant_source != OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
-        ):
+        )
+        has_consume_usage_filter = usage_mode not in {"", "all"}
+        has_consume_sub_filter = credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME and (
+            bool(resolved_course_query) or has_consume_usage_filter
+        )
+
+        if not has_grant_source_filter and not has_consume_sub_filter:
+            total = query.count()
+            page_offset = (safe_page_index - 1) * safe_page_size
+            paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
+            order_map = _load_billing_order_map(
+                [str(row.source_bid or "").strip() for row in paged_rows]
+            )
+            items = [
+                _build_operator_user_credit_ledger_item(row, order_map=order_map)
+                for row in paged_rows
+            ]
+            return AdminOperationUserCreditLedgerPageDTO(
+                summary=summary,
+                items=items,
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=total,
+                page_count=((total + safe_page_size - 1) // safe_page_size)
+                if total
+                else 0,
+            )
+
+        rows = order_by_query.all()
+        order_map: Dict[str, BillingOrder] = {}
+
+        if has_grant_source_filter:
+            order_map = _load_billing_order_map(
+                [str(row.source_bid or "").strip() for row in rows]
+            )
             rows = [
                 row
                 for row in rows
@@ -5452,7 +5481,7 @@ def get_operator_user_credits(
                 )
                 == grant_source
             ]
-        elif credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME:
+        elif has_consume_sub_filter:
             usage_map = _load_bill_usage_record_map(
                 [str(row.source_bid or "").strip() for row in rows]
             )
@@ -5475,7 +5504,9 @@ def get_operator_user_credits(
                 if not _is_operator_user_credit_consume_row(row):
                     continue
                 usage = usage_map.get(str(row.source_bid or "").strip())
-                if usage is None:
+                if usage is None and (
+                    resolved_course_query or has_consume_usage_filter
+                ):
                     continue
                 usage_shifu_bid = str(getattr(usage, "shifu_bid", "") or "").strip()
                 if resolved_course_query:
@@ -5493,6 +5524,10 @@ def get_operator_user_credits(
         total = len(rows)
         page_offset = (safe_page_index - 1) * safe_page_size
         paged_rows = rows[page_offset : page_offset + safe_page_size]
+        if not order_map:
+            order_map = _load_billing_order_map(
+                [str(row.source_bid or "").strip() for row in paged_rows]
+            )
         items = [
             _build_operator_user_credit_ledger_item(row, order_map=order_map)
             for row in paged_rows

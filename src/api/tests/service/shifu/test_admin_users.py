@@ -1694,6 +1694,64 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app):
     assert other_result.total == 3
 
 
+def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfiltered(
+    app,
+):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-missing-usage-user",
+            identify="credits-missing-usage@example.com",
+            nickname="Credits Missing Usage",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-missing-usage@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            available_credits="8.0000000000",
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            wallet_bucket_bid="bucket-consume-missing-usage",
+            ledger_bid="ledger-consume-missing-usage",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-missing",
+            amount="-1.0000000000",
+            balance_after="7.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+
+        unfiltered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "consume"},
+        )
+        filtered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "usage_mode": "ask",
+            },
+        )
+
+    assert [item.ledger_bid for item in unfiltered_result.items] == [
+        "ledger-consume-missing-usage"
+    ]
+    assert unfiltered_result.total == 1
+    assert filtered_result.total == 0
+
+
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(
     app,
 ):
