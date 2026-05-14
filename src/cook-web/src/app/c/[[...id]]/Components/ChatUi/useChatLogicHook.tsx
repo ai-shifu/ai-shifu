@@ -548,7 +548,6 @@ function useChatLogicHook({
             targetItem.content,
             getAskButtonMarkup(),
           ),
-          isHistory: true, // Prevent AskButton from triggering typewriter
         };
       }
 
@@ -791,6 +790,7 @@ function useChatLogicHook({
       options?: {
         appendAskButton?: boolean;
         isHistory?: boolean;
+        shouldUseTypewriter?: boolean;
         listenSlides?: ListenSlideData[];
         previousItem?: ChatContentItem;
       },
@@ -845,7 +845,15 @@ function useChatLogicHook({
           options?.previousItem?.user_input ??
           '',
         readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
+        isHistory: options?.isHistory,
+        is_final:
+          options?.previousItem?.is_final === true
+            ? true
+            : Boolean(record.is_final),
+        shouldUseTypewriter:
+          options?.shouldUseTypewriter ??
+          options?.previousItem?.shouldUseTypewriter ??
+          false,
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -1590,10 +1598,12 @@ function useChatLogicHook({
               currentContentRef.current = '';
               setCurrentStreamingElementBid(itemBid);
 
+              const previousItem = contentListRef.current.find(
+                item => item.element_bid === itemBid,
+              );
               const nextItem = buildElementContentItem(elementRecord, {
-                previousItem: contentListRef.current.find(
-                  item => item.element_bid === itemBid,
-                ),
+                previousItem,
+                shouldUseTypewriter: previousItem?.shouldUseTypewriter ?? true,
                 listenSlides: pendingSlidesRef.current[itemBid],
               });
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
@@ -1729,6 +1739,7 @@ function useChatLogicHook({
                       content: displayText,
                       user_input: '',
                       readonly: false,
+                      shouldUseTypewriter: true,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
                       listenSlides: pendingSlidesRef.current[blockId],
@@ -2024,6 +2035,7 @@ function useChatLogicHook({
         const nextItem = buildElementContentItem(item, {
           appendAskButton: true,
           isHistory: true,
+          shouldUseTypewriter: false,
         });
         const hitIndex = result.findIndex(
           contentItem => contentItem.element_bid === itemBid,

@@ -92,7 +92,7 @@ const ContentBlock = memo(
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
     const shouldEnableTypewriter =
       enableStreamingTypewriter &&
-      !item.isHistory &&
+      item.shouldUseTypewriter === true &&
       item.element_type === 'text';
 
     if (isLessonFeedbackInteraction) {

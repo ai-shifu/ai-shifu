@@ -791,6 +791,64 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it('does not inherit history state when run stream updates an existing history element', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'text',
+          content: 'History lesson summary',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.isHistory,
+    ).toBe(true);
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.shouldUseTypewriter,
+    ).toBe(false);
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_type: 'text',
+          content: 'Updated lesson summary',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.isHistory,
+    ).toBeUndefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.shouldUseTypewriter,
+    ).toBe(false);
+  });
+
   it('finalizes previous mobile content when a new element arrives', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
@@ -891,6 +949,10 @@ describe('useChatLogicHook stream cleanup', () => {
           ?.content,
       ).toContain('<custom-button-after-content>'),
     );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.isHistory,
+    ).toBeUndefined();
     expect(
       result.current.items.find(
         item =>
@@ -1000,6 +1062,70 @@ describe('useChatLogicHook stream cleanup', () => {
       result.current.items.find(item => item.element_bid === 'content-html-1')
         ?.content,
     ).toContain('<custom-button-after-content>');
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-html-1')
+        ?.is_final,
+    ).toBe(true);
+  });
+
+  it('keeps a finalized element final when a later element snapshot still reports false', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First text',
+          like_status: 'none',
+          is_final: false,
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-2',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-2',
+          generated_block_bid: 'content-text-2',
+          element_type: 'text',
+          content: 'Second text',
+          like_status: 'none',
+          is_final: false,
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.is_final,
+    ).toBe(true);
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First text updated',
+          like_status: 'none',
+          is_final: false,
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.is_final,
+    ).toBe(true);
   });
 
   it('keeps ask block position by history sequence order instead of anchor position', async () => {

@@ -87,7 +87,7 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
-  it('enables typewriter only for non-history streaming text elements', () => {
+  it('enables typewriter only for text elements marked as typewriter candidates', () => {
     render(
       <ContentBlock
         item={
@@ -96,7 +96,7 @@ describe('ContentBlock pay interaction overrides', () => {
             element_type: 'text',
             content: '流式正文',
             element_bid: 'streaming-text',
-            isHistory: false,
+            shouldUseTypewriter: true,
           } as any
         }
         mobileStyle={false}
@@ -114,7 +114,7 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
-  it('keeps history text elements out of typewriter mode', () => {
+  it('keeps non-candidate text elements out of typewriter mode', () => {
     render(
       <ContentBlock
         item={
@@ -123,7 +123,7 @@ describe('ContentBlock pay interaction overrides', () => {
             element_type: 'text',
             content: '历史正文',
             element_bid: 'history-text',
-            isHistory: true,
+            shouldUseTypewriter: false,
           } as any
         }
         mobileStyle={false}

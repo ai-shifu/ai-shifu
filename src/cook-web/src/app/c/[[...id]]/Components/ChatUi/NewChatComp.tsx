@@ -58,6 +58,7 @@ import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import {
   buildVisibleReadModeItems,
+  normalizeReadModeTypewriterContent,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
@@ -525,10 +526,12 @@ export const NewChatComponents = ({
         return;
       }
 
+      const normalizedContent = normalizeReadModeTypewriterContent(content);
+
       setReadModeTypewriterCache(prevCache => {
         const existingEntry = prevCache[blockBid];
         if (
-          existingEntry?.content === content &&
+          existingEntry?.content === normalizedContent &&
           existingEntry.isFinished === true
         ) {
           return prevCache;
@@ -537,7 +540,7 @@ export const NewChatComponents = ({
         return {
           ...prevCache,
           [blockBid]: {
-            content,
+            content: normalizedContent,
             isFinished: true,
           },
         };

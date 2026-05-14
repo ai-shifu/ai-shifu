@@ -3,6 +3,7 @@ import { appendCustomButtonAfterContent } from './chatUiUtils';
 import {
   buildVisibleReadModeItems,
   isReadModeTextContentItemReady,
+  normalizeReadModeTypewriterContent,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
@@ -15,6 +16,7 @@ const createTextItem = (
   content: 'First text',
   element_type: 'text',
   is_final: false,
+  shouldUseTypewriter: true,
   ...overrides,
 });
 
@@ -53,10 +55,10 @@ describe('readModeTypewriterGate', () => {
     ).toStrictEqual([firstText, secondHtml]);
   });
 
-  it('keeps previously tracked streamed text gated even after it becomes history', () => {
-    const trackedHistoryText = createTextItem({
+  it('keeps previously tracked streamed text gated even after typewriter is disabled', () => {
+    const trackedText = createTextItem({
       is_final: true,
-      isHistory: true,
+      shouldUseTypewriter: false,
     });
     const secondHtml = createHtmlItem();
     const cache: ReadModeTypewriterCache = {
@@ -66,10 +68,10 @@ describe('readModeTypewriterGate', () => {
       },
     };
 
-    expect(isReadModeTextContentItemReady(trackedHistoryText, cache)).toBe(false);
+    expect(isReadModeTextContentItemReady(trackedText, cache)).toBe(false);
     expect(
-      buildVisibleReadModeItems([trackedHistoryText, secondHtml], cache),
-    ).toStrictEqual([trackedHistoryText]);
+      buildVisibleReadModeItems([trackedText, secondHtml], cache),
+    ).toStrictEqual([trackedText]);
   });
 
   it('resets the cache entry when a tracked text item receives new content', () => {
@@ -90,10 +92,34 @@ describe('readModeTypewriterGate', () => {
     );
   });
 
+  it('treats non-typewriter text items as ready when no cache entry exists', () => {
+    const finalizedStaticText = createTextItem({
+      is_final: true,
+      shouldUseTypewriter: false,
+    });
+    const secondHtml = createHtmlItem();
+
+    expect(isReadModeTextContentItemReady(finalizedStaticText, {})).toBe(true);
+    expect(
+      buildVisibleReadModeItems([finalizedStaticText, secondHtml], {}),
+    ).toStrictEqual([finalizedStaticText, secondHtml]);
+  });
+
+  it('normalizes typewriter cache content by stripping mobile follow-up button markup', () => {
+    expect(
+      normalizeReadModeTypewriterContent(
+        appendCustomButtonAfterContent(
+          'First text',
+          '<custom-button-after-content><span>Ask</span></custom-button-after-content>',
+        ),
+      ),
+    ).toBe('First text');
+  });
+
   it('keeps finished state when mobile follow-up button markup is appended', () => {
     const finalizedText = createTextItem({
       is_final: true,
-      isHistory: true,
+      shouldUseTypewriter: false,
       content: appendCustomButtonAfterContent(
         'First text',
         '<custom-button-after-content><span>Ask</span></custom-button-after-content>',

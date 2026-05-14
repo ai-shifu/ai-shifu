@@ -11,8 +11,12 @@ export type ReadModeTypewriterCache = Record<
   ReadModeTypewriterCacheEntry
 >;
 
+export const normalizeReadModeTypewriterContent = (
+  content?: string | null,
+) => stripCustomButtonAfterContent(content) || '';
+
 const getItemContent = (item: ChatContentItem) =>
-  stripCustomButtonAfterContent(item.content) || '';
+  normalizeReadModeTypewriterContent(item.content);
 
 export const isReadModeTextContentItem = (item: ChatContentItem) =>
   item.type === ChatContentItemType.CONTENT &&
@@ -23,7 +27,7 @@ export const shouldTrackReadModeTypewriter = (
   cacheEntry?: ReadModeTypewriterCacheEntry,
 ) =>
   isReadModeTextContentItem(item) &&
-  (!item.isHistory || Boolean(cacheEntry));
+  (item.shouldUseTypewriter === true || Boolean(cacheEntry));
 
 export const syncReadModeTypewriterCache = (
   items: ChatContentItem[],
@@ -68,7 +72,7 @@ export const isReadModeTextContentItemReady = (
   const itemBid = item.element_bid || '';
   const cacheEntry = itemBid ? cache[itemBid] : undefined;
   if (!cacheEntry) {
-    return item.isHistory === true;
+    return item.shouldUseTypewriter !== true;
   }
 
   return (
