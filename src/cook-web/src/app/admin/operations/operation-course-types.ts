@@ -132,6 +132,59 @@ export type AdminOperationCourseUsersResponse = {
   total: number;
 };
 
+export type AdminOperationCourseCreditUsageMode =
+  | 'learn'
+  | 'listen'
+  | 'ask'
+  | 'mixed'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
+
+export type AdminOperationCourseCreditUsageModeFilter =
+  | 'all'
+  | 'learn'
+  | 'listen'
+  | 'ask';
+
+export type AdminOperationCourseCreditUsageFilters = {
+  keyword: string;
+  mode: AdminOperationCourseCreditUsageModeFilter;
+  startTime: string;
+  endTime: string;
+};
+
+export type AdminOperationCourseCreditUsageItem = {
+  group_key: string;
+  usage_bid: string;
+  progress_record_bid: string;
+  generated_block_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  usage_mode: AdminOperationCourseCreditUsageMode;
+  provider: string;
+  model: string;
+  usage_count: number;
+  model_variant_count: number;
+  consumed_credits: number;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageListResponse = {
+  view: AdminOperationCourseCreditUsageView;
+  items: AdminOperationCourseCreditUsageItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
 export type AdminOperationCourseFollowUpSummary = {
   follow_up_count: number;
   user_count: number;

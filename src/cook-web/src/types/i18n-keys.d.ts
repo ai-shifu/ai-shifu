@@ -1787,6 +1787,7 @@ export type I18nKey =
   | 'module.shifu.previewArea.description'
   | 'module.shifu.previewArea.disabled'
   | 'module.shifu.previewArea.empty'
+  | 'module.shifu.previewArea.goToBilling'
   | 'module.shifu.previewArea.loading'
   | 'module.shifu.previewArea.open'
   | 'module.shifu.previewArea.title'

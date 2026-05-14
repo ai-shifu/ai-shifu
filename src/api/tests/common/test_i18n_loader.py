@@ -27,6 +27,17 @@ def test_load_and_translate_basic():
     assert t("module.chat.ask") == "追问"
 
 
+def test_french_language_loads_shared_translations():
+    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
+    app = Flask(__name__)
+
+    load_translations(app)
+
+    # Set a supported French language and verify shared JSON is loaded
+    set_language("fr-FR")
+    assert t("module.chat.ask") == "Demander"
+
+
 def test_language_fallback_to_default():
     os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
     app = Flask(__name__)
@@ -34,7 +45,7 @@ def test_language_fallback_to_default():
     load_translations(app)
 
     # Set an unsupported language and verify fallback to en-US
-    set_language("fr-FR")
+    set_language("de-DE")
     assert t("module.chat.ask") == "Ask"
 
 

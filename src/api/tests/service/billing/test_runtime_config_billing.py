@@ -61,8 +61,10 @@ def runtime_config_client(monkeypatch):
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
+        "LEGAL_AGREEMENT_URL_FR_FR": "/legal/agreement/fr",
         "LEGAL_PRIVACY_URL_ZH_CN": "/legal/privacy/zh",
         "LEGAL_PRIVACY_URL_EN_US": "/legal/privacy/en",
+        "LEGAL_PRIVACY_URL_FR_FR": "",
         "GEN_MDF_API_URL": "",
     }
 
@@ -196,6 +198,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "fr-FR": "/legal/agreement/fr",
     }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
@@ -329,6 +332,7 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
+        "fr-FR": "",
     }
 
 

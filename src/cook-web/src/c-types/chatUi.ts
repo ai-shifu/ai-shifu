@@ -50,5 +50,6 @@ export interface ChatContentItem {
   is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  business_code?: number;
   payload?: StudyRecordPayload;
 }

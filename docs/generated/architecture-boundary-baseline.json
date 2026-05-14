@@ -936,6 +936,14 @@
       "target": "flaskr.service.profile.funcs",
       "message": "flaskr/service/user/phone_flow.py imports cross-service module flaskr.service.profile.funcs outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable DTO/model/const modules, or a deliberate service API boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/creator_analytics/funcs.py|flaskr.service.shifu.permissions",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/creator_analytics/funcs.py",
+      "target": "flaskr.service.shifu.permissions",
+      "message": "flaskr/service/creator_analytics/funcs.py imports cross-service module flaskr.service.shifu.permissions outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     }
   ]
 }

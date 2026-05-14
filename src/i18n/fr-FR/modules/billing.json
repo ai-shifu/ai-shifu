@@ -1,0 +1,747 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "adjust": {
+      "cancel": "Annuler",
+      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou négatif pour les consommer selon l’ordre standard des compartiments.",
+      "errors": {
+        "amountInvalid": "Saisir un montant décimal non nul avec jusqu’à 10 décimales.",
+        "creatorBidRequired": "Le BID du créateur est requis."
+      },
+      "fields": {
+        "amount": "Montant de l’ajustement",
+        "creatorBid": "BID du créateur",
+        "note": "Note"
+      },
+      "help": {
+        "amount": "Exemples : 12.5000000 pour attribuer des crédits, -8.0000000 pour débiter des crédits."
+      },
+      "open": "Ajuster les crédits",
+      "placeholders": {
+        "amount": "12.5000000 ou -8.0000000",
+        "creatorBid": "creator_bid",
+        "note": "Raison de l’ajustement manuel"
+      },
+      "quickAction": "Ajuster ce créateur",
+      "submit": "Appliquer l’ajustement",
+      "submitting": "Application...",
+      "success": "Grand livre mis à jour pour {creatorBid}. Crédits disponibles : {availableCredits}.",
+      "title": "Ajustement manuel des crédits"
+    },
+    "attention": "À traiter",
+    "backToCreatorBilling": "Retour au centre de facturation",
+    "domains": {
+      "description": "Auditer les domaines personnalisés des créateurs, vérifier les droits et repérer les hôtes nécessitant un suivi.",
+      "empty": "Aucune liaison de domaine personnalisé pour le moment.",
+      "loadError": "Impossible de charger les données d’audit des domaines admin.",
+      "table": {
+        "creator": "Créateur",
+        "effective": "Effectif",
+        "entitlement": "Domaine entitlement",
+        "host": "Hôte",
+        "lastVerified": "Dernière vérification",
+        "ssl": "SSL",
+        "status": "Statut"
+      },
+      "title": "Audits de domaine",
+      "values": {
+        "effective": "Effectif",
+        "inactive": "Inactif"
+      }
+    },
+    "entitlements": {
+      "description": "Examiner l’instantané effectif des droits résolu pour chaque espace créateur.",
+      "empty": "Aucun instantané de droits pour le moment.",
+      "loadError": "Impossible de charger les données de droits admin.",
+      "source": {
+        "default": "Valeur de secours par défaut",
+        "productPayload": "Données du produit",
+        "snapshot": "Instantané enregistré"
+      },
+      "table": {
+        "analytics": "Niveau d’analyse",
+        "creator": "Créateur",
+        "features": "Fonctionnalités",
+        "priority": "Classe de priorité",
+        "source": "Source",
+        "support": "Niveau de support",
+        "window": "Fenêtre effective"
+      },
+      "title": "Droits"
+    },
+    "exceptions": {
+      "description": "Se concentrer sur les abonnements et commandes nécessitant encore un suivi manuel.",
+      "empty": "Aucune exception de facturation pour le moment.",
+      "fields": {
+        "amount": "Montant",
+        "createdAt": "Créé le",
+        "detail": "Détail",
+        "periodEnd": "Fin de période",
+        "renewalEvent": "Événement de renouvellement"
+      },
+      "loadError": "Impossible de charger les données d’exception de facturation.",
+      "sections": {
+        "orders": "Commandes à traiter",
+        "subscriptions": "Abonnements à traiter"
+      },
+      "title": "Exceptions"
+    },
+    "orders": {
+      "description": "Examiner les commandes de facturation de tous les créateurs et repérer les actions fournisseur en échec.",
+      "empty": "Aucune commande de facturation pour le moment.",
+      "loadError": "Impossible de charger les données de commandes admin.",
+      "table": {
+        "amount": "Montant",
+        "createdAt": "Créé le",
+        "creator": "Créateur",
+        "failure": "Échec",
+        "order": "Commande",
+        "provider": "Fournisseur",
+        "status": "Statut"
+      },
+      "title": "Commandes"
+    },
+    "pagination": {
+      "page": "Page {page} / {pageCount} · {total} enregistrements"
+    },
+    "reports": {
+      "description": "Consulter les agrégats d’utilisation et de grand livre multi-créateurs sans quitter la console d’opérations.",
+      "sections": {
+        "ledger": {
+          "description": "Mouvements du grand livre multi-créateurs par jour, source et type d’écriture.",
+          "title": "Agrégats du grand livre"
+        },
+        "usage": {
+          "description": "Agrégats des coûts d’utilisation par créateur, shifu, scène et métrique.",
+          "title": "Agrégats d’utilisation"
+        }
+      },
+      "table": {
+        "creator": "Créateur"
+      },
+      "title": "Rapports"
+    },
+    "subscriptions": {
+      "description": "Inspecter les abonnements créateur, soldes de portefeuille et contexte de renouvellement.",
+      "empty": "Aucun abonnement pour le moment.",
+      "loadError": "Impossible de charger les données d’abonnement admin.",
+      "table": {
+        "availableCredits": "Crédits disponibles",
+        "creator": "Créateur",
+        "currentPeriodEnd": "Fin de période actuelle",
+        "product": "Produit",
+        "provider": "Fournisseur",
+        "renewal": "Contexte de renouvellement",
+        "renewalStatus": "Événement de renouvellement",
+        "scheduled": "Planifié",
+        "status": "Statut"
+      },
+      "title": "Abonnements"
+    },
+    "subtitle": "Vue opérations pour les abonnements, paiements échoués et exceptions de facturation.",
+    "tabs": {
+      "domains": "Domaines",
+      "entitlements": "Droits",
+      "exceptions": "Exceptions",
+      "orders": "Commandes",
+      "reports": "Rapports",
+      "subscriptions": "Abonnements"
+    },
+    "title": "Opérations de facturation"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "Recharger maintenant",
+      "openOrders": "Ouvrir les enregistrements de paiement",
+      "resumeSubscription": "Reprendre l’abonnement"
+    },
+    "cancelScheduled": "Cet abonnement doit se terminer à la fin de la période actuelle. Reprenez-le pour conserver les crédits récurrents actifs.",
+    "lowBalance": "Le portefeuille du créateur n’a plus de crédits. Lancez une recharge avant le prochain règlement.",
+    "lowBalanceDescription": "Vos crédits sont épuisés ; le contenu généré par IA est indisponible pour le moment.",
+    "lowBalanceTitle": "Vos crédits sont épuisés. L’IA fait une pause.",
+    "subscriptionPastDue": "Le renouvellement de l’abonnement est bloqué. Consultez les enregistrements de paiement et synchronisez le dernier statut fournisseur."
+  },
+  "capabilities": {
+    "description": "Ce résumé indique quelles surfaces de facturation sont actives dans l’interface et lesquelles restent limitées à des flux internes ou protégés par configuration.",
+    "fallbackDescription": "Le statut des capacités est suivi depuis le registre de facturation.",
+    "fallbackTitle": "Capacité de facturation",
+    "items": {
+      "adminDomains": {
+        "description": "Les pages admin de liaison et d’audit de domaines restent accessibles.",
+        "title": "Domaines admin"
+      },
+      "adminEntitlements": {
+        "description": "La revue admin des droits reste activée.",
+        "title": "Droits admin"
+      },
+      "adminLedgerAdjust": {
+        "description": "L’ajustement admin du grand livre reste disponible.",
+        "title": "Ajustement admin du grand livre"
+      },
+      "adminOrders": {
+        "description": "La revue admin des commandes de facturation reste activée.",
+        "title": "Commandes admin"
+      },
+      "adminReports": {
+        "description": "Les rapports admin d’utilisation et de grand livre restent activés.",
+        "title": "Rapports admin"
+      },
+      "adminSubscriptions": {
+        "description": "La revue admin des abonnements reste activée.",
+        "title": "Abonnements admin"
+      },
+      "billingFeatureFlag": {
+        "description": "L’indicateur de fonctionnalité de facturation reste désactivé par défaut dans la configuration initiale.",
+        "title": "Indicateur de facturation"
+      },
+      "creatorCatalog": {
+        "description": "Les cartes de catalogue pour les forfaits et recharges restent actives.",
+        "title": "Catalogue créateur"
+      },
+      "creatorOrders": {
+        "description": "Les flux de commandes créateur, synchronisation, remboursement et recharge restent activés.",
+        "title": "Commandes créateur"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "Les flux de paiement, annulation et reprise d’abonnement créateur restent activés.",
+        "title": "Cycle de vie de l’abonnement créateur"
+      },
+      "creatorWalletLedger": {
+        "description": "Les compartiments de portefeuille et les modèles de lecture du grand livre restent activés.",
+        "title": "Portefeuille et grand livre du créateur"
+      },
+      "dailyAggregateRebuild": {
+        "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
+        "title": "Reconstruction des agrégats quotidiens"
+      },
+      "domainVerifyRefresh": {
+        "description": "L’actualisation de vérification de domaine reste interne uniquement.",
+        "title": "Actualisation de la vérification de domaine"
+      },
+      "lowBalanceAlerts": {
+        "description": "La génération d’alertes de solde faible reste interne uniquement.",
+        "title": "Alertes de solde faible"
+      },
+      "providerReconcile": {
+        "description": "Le rapprochement fournisseur reste un flux interne de récupération.",
+        "title": "Rapprochement fournisseur"
+      },
+      "renewalCompensation": {
+        "description": "La compensation de renouvellement et de nouvelle tentative reste interne uniquement.",
+        "title": "Compensation de renouvellement"
+      },
+      "renewalTaskQueue": {
+        "description": "L’exécution du worker de renouvellement reste désactivée par défaut dans la configuration initiale.",
+        "title": "File de tâches de renouvellement"
+      },
+      "runtimeBillingExtensions": {
+        "description": "La configuration d’exécution expose toujours les droits de facturation et le contexte de domaine.",
+        "title": "Extensions d’exécution de facturation"
+      },
+      "usageSettlement": {
+        "description": "Le règlement et la relecture d’utilisation restent des flux internes tâche/CLI.",
+        "title": "Règlement d’utilisation"
+      },
+      "walletBucketExpiration": {
+        "description": "L’expiration des compartiments de portefeuille reste interne uniquement.",
+        "title": "Expiration des compartiments de portefeuille"
+      }
+    },
+    "status": {
+      "active": "Actif",
+      "defaultDisabled": "Désactivé par défaut",
+      "internalOnly": "Interne uniquement"
+    },
+    "summary": {
+      "active": "{count} actifs",
+      "defaultDisabled": "{count} désactivés par défaut",
+      "internalOnly": "{count} internes uniquement"
+    },
+    "title": "Statut des capacités"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "Traitement..."
+    },
+    "badges": {
+      "bestValue": "Meilleur choix",
+      "recommended": "Populaire"
+    },
+    "labels": {
+      "everyDays": "tous les {count} jours",
+      "everyMonths": "tous les {count} mois",
+      "everyYears": "tous les {count} ans",
+      "perDay": "quotidien",
+      "perMonth": "mensuel",
+      "perYear": "annuel",
+      "providerAlipay": "Alipay",
+      "providerManual": "Manuel",
+      "providerPingxx": "Pingxx / Alipay QR",
+      "providerStripe": "Stripe",
+      "providerWechatpay": "WeChat Pay"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "Idéal pour tester un cours léger.",
+        "title": "Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "Idéal pour servir un petit nombre d’apprenants.",
+        "title": "Basic"
+      },
+      "creatorYearly": {
+        "description": "Idéal pour les grandes organisations.",
+        "title": "Pro"
+      },
+      "creatorYearlyLite": {
+        "description": "Idéal pour les petites et moyennes organisations.",
+        "title": "Avancé"
+      },
+      "creatorYearlyPremium": {
+        "description": "Idéal pour les très grandes organisations.",
+        "title": "Premium"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "Complète votre forfait actuel. Les crédits inutilisés expirent avec la période du forfait.",
+        "title": "Pack de {credits} crédits"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "Contrat d’achat de crédits",
+    "agreementPrefix": "J’ai lu et j’accepte les",
+    "cancel": "Annuler",
+    "confirm": "Continuer vers le paiement",
+    "creditsLabel": "Crédits",
+    "planDescription": "Voici les détails de paiement de votre forfait de crédits.",
+    "priceLabel": "Prix",
+    "processing": "Traitement...",
+    "productLabel": "Produit",
+    "providerLabel": "Fournisseur de paiement",
+    "subject": {
+      "plan": {
+        "day": "Forfait quotidien",
+        "month": "Forfait mensuel",
+        "year": "Forfait annuel"
+      }
+    },
+    "title": "Confirmer l’achat",
+    "topupDescription": "Vous allez ouvrir un paiement de recharge de crédits ponctuelle.",
+    "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment."
+  },
+  "common": {
+    "empty": "Non disponible"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "Mettre à niveau"
+    },
+    "subtitle": "Consulter le total des crédits, les soldes par catégorie et la fenêtre effective de chaque source de crédits.",
+    "table": {
+      "balance": "Solde",
+      "creditType": "Type",
+      "validUntil": "Expire le"
+    },
+    "title": "Crédits Vue d’ensemble",
+    "topupAvailabilityLabel": "Sans expiration",
+    "topupAvailabilityTooltip": "Un abonnement actif est requis pour utiliser les packs de crédits",
+    "totalCreditsDescription": "Les crédits sont consommés par ordre de priorité : crédits du forfait > packs de crédits",
+    "totalCreditsLabel": "Solde de crédits",
+    "usageTable": {
+      "columns": {
+        "scene": "Élément d’utilisation"
+      },
+      "title": "Crédit usage details"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "Pas encore vérifié"
+    },
+    "ssl": {
+      "issued": "SSL émis",
+      "not_requested": "SSL non demandé",
+      "pending": "SSL en attente"
+    },
+    "status": {
+      "disabled": "Désactivé",
+      "failed": "Échec de la vérification",
+      "pending": "En attente verification",
+      "verified": "Vérifié"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "Avancé",
+      "basic": "Basic",
+      "enterprise": "Entreprise"
+    },
+    "flags": {
+      "branding": "Personnalisation de marque",
+      "customDomain": "Domaine personnalisé",
+      "disabled": "Désactivé",
+      "enabled": "Activé"
+    },
+    "metrics": {
+      "analyticsTier": "Niveau d’analyse",
+      "maxConcurrency": "Concurrence maximale",
+      "priorityClass": "Classe de priorité",
+      "supportTier": "Niveau de support"
+    },
+    "priority": {
+      "priority": "Priorité",
+      "standard": "Standard",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "Heures ouvrées",
+      "priority": "Support prioritaire",
+      "selfServe": "Libre-service"
+    }
+  },
+  "ledger": {
+    "bucketDescription": "Consulter les compartiments source, les soldes restants et l’ordre de consommation.",
+    "category": {
+      "subscription": "Crédits du forfait",
+      "topup": "Pack de crédits"
+    },
+    "empty": "Aucun compartiment de portefeuille pour le moment. Les crédits apparaîtront ici après votre première attribution.",
+    "entriesDescription": "Les enregistrements d’attribution, consommation, remboursement et expiration au niveau écriture seront connectés dans la prochaine tâche de facturation.",
+    "entriesTitle": "Écritures du grand livre",
+    "entryType": {
+      "adjustment": "Ajustement",
+      "consume": "Consommer",
+      "expire": "Expiration",
+      "grant": "Attribuer",
+      "hold": "Retenir",
+      "refund": "Remboursement",
+      "release": "Libérer"
+    },
+    "loadError": "Impossible de charger les données des compartiments de portefeuille. Actualisez et réessayez.",
+    "neverExpires": "Suit l’expiration des crédits du forfait",
+    "pagination": {
+      "page": "Page {page} / {pageCount} · {total} écritures"
+    },
+    "source": {
+      "gift": "Crédits offerts",
+      "manual": "Ajustement manuel",
+      "refund": "Retour de remboursement",
+      "subscription": "Crédits du forfait",
+      "topup": "Pack de crédits",
+      "usage": "Règlement d’utilisation"
+    },
+    "summary": {
+      "activeBuckets": "Compartiments actifs",
+      "nextExpiry": "Prochaine expiration",
+      "totalAvailable": "Crédits du compartiment"
+    },
+    "table": {
+      "action": "Action",
+      "amount": "Quantité",
+      "availableCredits": "Crédits disponibles",
+      "balanceAfter": "Solde après",
+      "createdAt": "Heure",
+      "detail": "Détails",
+      "effectiveWindow": "Fenêtre effective",
+      "entryType": "Type d’entrée",
+      "priority": "Priorité",
+      "source": "Source",
+      "status": "Statut"
+    },
+    "usageScene": {
+      "debug": "Déboguer",
+      "preview": "Prévisualisation",
+      "production": "Étude",
+      "tts": "Voix"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "Annulé",
+      "failed": "Échec",
+      "init": "Initialisé",
+      "paid": "Payé",
+      "pending": "En attente",
+      "refunded": "Remboursé",
+      "timeout": "Expiré"
+    },
+    "type": {
+      "manual": "Commande manuelle",
+      "refund": "Commande remboursée",
+      "subscriptionRenewal": "Renouvellement d’abonnement",
+      "subscriptionStart": "Début d’abonnement",
+      "subscriptionUpgrade": "Mise à niveau d’abonnement",
+      "topup": "Commande de recharge"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "Crédits disponibles",
+    "feedback": {
+      "cancelSuccess": "L’abonnement sera annulé à la fin de la période actuelle.",
+      "resumeSuccess": "Le renouvellement de l’abonnement a été rétabli."
+    },
+    "loadError": "Impossible de charger les données de facturation. Actualisez et réessayez.",
+    "walletTitle": "Crédits Vue d’ensemble"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "Acheter maintenant",
+      "currentSubscription": "Abonnement actuel",
+      "currentUsing": "Forfait actuel",
+      "downgradeDisabled": "Rétrogradation indisponible",
+      "freeTrial": "Inactif",
+      "nonMemberTooltip": "Vous êtes actuellement sur l’offre non membre. Aucune action n’est nécessaire.",
+      "subscribeNow": "S’abonner maintenant",
+      "upgradeNow": "Mettre à niveau",
+      "upgradeOnlyTooltip": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
+    },
+    "creditPeriod": {
+      "oneTime": "Une fois"
+    },
+    "creditSummary": {
+      "daily": "Crédits quotidiens {credits}",
+      "days": "Crédits tous les {count} jours : {credits}",
+      "monthly": "Crédits mensuels {credits}",
+      "months": "Crédits tous les {count} mois : {credits}",
+      "yearly": "Crédits annuels {credits}",
+      "years": "Crédits tous les {count} ans : {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "Tout ce qui est inclus dans Basic, plus :",
+        "parallelProcessing": "Capacité de traitement parallèle supérieure",
+        "taskPriority": "Traitement prioritaire des tâches",
+        "techBasic": "Support technique de base"
+      },
+      "common": {
+        "allLearning": "Toutes les fonctionnalités d’apprentissage",
+        "allTeachingAndLearning": "Toutes les fonctionnalités d’enseignement et de recherche",
+        "createDebugPublish": "Créer, déboguer et publier des cours",
+        "higherConcurrency": "Support de concurrence supérieur",
+        "unlimitedCourses": "Cours illimités"
+      },
+      "daily": {
+        "preview": "Accès quotidien rapide pour cycles courts de validation",
+        "publish": "Couverture courte durée pour publication et onboarding",
+        "support": "Support opérationnel du forfait quotidien"
+      },
+      "free": {
+        "preview": "Diffusion aux apprenants et import de comptes",
+        "publish": "Création de cours et stockage de contenu"
+      },
+      "monthly": {
+        "preview": "Diffusion aux apprenants et import de comptes",
+        "publish": "Création de cours et stockage de contenu"
+      },
+      "premium": {
+        "concurrencyQuota": "Quota de concurrence supérieur",
+        "dedicatedSupport": "Support technique dédié",
+        "includesLabel": "Tout ce qui est inclus dans Pro, plus :",
+        "onboarding": "Session de formation dédiée à la création de cours"
+      },
+      "pro": {
+        "branding": "Marque personnalisée",
+        "customDomain": "Domaine personnalisé",
+        "includesLabel": "Tout ce qui est inclus dans Avancé, plus :",
+        "techPriority": "Support technique prioritaire"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "Capacité de traitement parallèle supérieure",
+          "publish": "Traitement prioritaire des tâches"
+        },
+        "premium": {
+          "analytics": "Quota de concurrence supérieur",
+          "branding": "Marque personnalisée",
+          "domain": "Domaine personnalisé",
+          "priority": "Support technique dédié",
+          "support": "Session de formation dédiée à la création de cours"
+        },
+        "pro": {
+          "analytics": "Support technique prioritaire",
+          "branding": "Marque personnalisée",
+          "domain": "Domaine personnalisé",
+          "priority": "Capacité de traitement parallèle supérieure",
+          "support": "Support technique de base"
+        }
+      }
+    },
+    "featuresTitle": "Avantages inclus :",
+    "footnote": {
+      "learnerEstimateIntro": "Les sessions apprenant estimées reposent sur l’expérience de la plateforme ; la capacité réelle dépend de la consommation effective de crédits. Base de référence :",
+      "learnerEstimateMode": "Le mode écoute est activé pour le cours (consommation de crédits nettement plus élevée)",
+      "learnerEstimateModel": "Toutes les sections utilisent le modèle par défaut",
+      "learnerEstimateScale": "Un passage d’étude complet : environ 10 sections, avec une moyenne d’environ 15 minutes d’étude normale par section",
+      "validity": "Validité des crédits : les forfaits mensuels sont valables 30 jours à compter du jour de réception inclus ; les forfaits annuels sont valables par année calendaire à compter du jour de réception. Les deux expirent à 23:59 le jour d’expiration."
+    },
+    "free": {
+      "creditSummary": "{credits} crédits bonus",
+      "description": "Idéal pour une première découverte.",
+      "priceNote": "/ valable pendant {days} jours après l’inscription",
+      "priceNoteGranted": "/ activé le {grantedAt}, valable jusqu’au {expiresAt}",
+      "title": "Essai"
+    },
+    "intervalTabs": {
+      "daily": "Forfaits quotidiens",
+      "monthly": "Forfaits mensuels",
+      "plans": "Forfaits de crédits",
+      "topup": "Packs de crédits",
+      "yearly": "Forfaits annuels"
+    },
+    "scale": {
+      "advanced": {
+        "students": "250 à 750 sessions apprenant"
+      },
+      "basic": {
+        "students": "5 à 15 sessions apprenant"
+      },
+      "free": {
+        "students": "5 à 15 sessions apprenant"
+      },
+      "lite": {
+        "students": "Moins d’une session apprenant"
+      },
+      "premium": {
+        "students": "1 100 à 3 300 sessions apprenant"
+      },
+      "pro": {
+        "students": "500 à 1 500 sessions apprenant"
+      },
+      "sectionTitle": "Capacité apprenant estimée"
+    },
+    "subtitle": "Choisissez le forfait de crédits adapté.",
+    "table": {
+      "creditsRowLabel": "Crédits par cycle",
+      "emptyValue": "—",
+      "featuresRowLabel": "Droits",
+      "studentsRowLabel": "Sessions apprenant estimées",
+      "validityRowLabel": "Validité des crédits"
+    },
+    "title": "Acheter des crédits",
+    "topup": {
+      "creditLabel": "{credits} crédits",
+      "noteFrozen": "Les crédits de recharge ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
+      "noteInstant": "Les crédits prennent effet immédiatement après l’achat."
+    },
+    "topupComingSoon": "Bientôt disponible",
+    "validity": {
+      "daily": "Validité : comptée depuis le jour d’achat, valable chaque jour",
+      "days": "Validité : comptée depuis le jour d’achat, renouvelée tous les {count} jours",
+      "free": "Validité : valable pendant {days} jours après l’inscription",
+      "monthly": "Valable 30 jours à compter du jour d’achat inclus",
+      "months": "Validité : renouvelée toutes les {count} périodes de 30 jours à compter du jour d’achat inclus",
+      "yearly": "Validité : comptée par année calendaire depuis la date d’achat",
+      "years": "Validité : renouvelée toutes les {count} années calendaires depuis la date d’achat"
+    },
+    "validityShort": {
+      "free": "{days} jours",
+      "monthly": "{count, plural, one {# mois} other {# mois}}",
+      "yearly": "{count, plural, one {# an} other {# ans}}"
+    }
+  },
+  "page": {
+    "adminLink": "Ouvrir les opérations de facturation",
+    "tabs": {
+      "ledger": "Détail des crédits",
+      "plans": "Acheter des crédits"
+    }
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "Annuler effective",
+      "downgradeEffective": "Rétrogradation effective",
+      "expire": "Expiration",
+      "reconcile": "Rapprochement",
+      "renewal": "Renouvellement",
+      "retry": "Réessayer"
+    },
+    "status": {
+      "canceled": "Annulé",
+      "failed": "Échec",
+      "pending": "En attente",
+      "processing": "Traitement",
+      "succeeded": "Réussi"
+    }
+  },
+  "reports": {
+    "empty": "Aucune donnée de rapport quotidien pour le moment.",
+    "loadError": "Impossible de charger les rapports de facturation pour le moment.",
+    "metric": {
+      "llmCacheTokens": "Tokens cache LLM",
+      "llmInputTokens": "Tokens d’entrée LLM",
+      "llmOutputTokens": "Tokens de sortie LLM",
+      "ttsInputChars": "Caractères d’entrée TTS",
+      "ttsOutputChars": "Caractères de sortie TTS",
+      "ttsRequestCount": "Nombre de requêtes TTS"
+    },
+    "table": {
+      "count": "Nombre d’entrées",
+      "credits": "Crédits",
+      "date": "Date",
+      "entryType": "Type d’entrée",
+      "metric": "Métrique",
+      "provider": "Fournisseur / Modèle",
+      "rawAmount": "Montant brut",
+      "scene": "Scène",
+      "shifu": "Shifu",
+      "source": "Source",
+      "usageType": "Type d’utilisation",
+      "window": "Fenêtre"
+    },
+    "usageType": {
+      "llm": "LLM",
+      "tts": "TTS"
+    }
+  },
+  "result": {
+    "countdown": "Redirection vers le centre de facturation dans {seconds} s",
+    "errorTitle": "Échec de la synchronisation de facturation",
+    "missingOrder": "Commande de facturation introuvable. Ouvrez le centre de facturation et réessayez depuis votre liste de commandes.",
+    "openBilling": "Ouvrir le centre de facturation",
+    "pending": "Le paiement est encore en cours de traitement. Vous pourrez réessayer la synchronisation dans un instant.",
+    "pendingTitle": "En attente de confirmation de facturation",
+    "processing": "Synchronisation du statut de paiement",
+    "retry": "Réessayer la synchronisation",
+    "success": "Paiement confirmé. Vos données de facturation sont en cours d’actualisation.",
+    "successTitle": "Facturation mise à jour"
+  },
+  "sidebar": {
+    "creditsLabel": "Crédits",
+    "cta": "Ouvrir le centre de facturation",
+    "dailyBalanceTitle": "Solde quotidien",
+    "dailyTitle": "Forfait quotidien",
+    "description": "Consulter votre forfait, vos crédits et les prochaines actions de facturation.",
+    "expired": "Expiré",
+    "expiresInDays": "Expire dans {days} jours",
+    "monthlyBalanceTitle": "Solde mensuel",
+    "monthlyTitle": "Forfait mensuel",
+    "nonMemberBalanceTitle": "Solde de crédits",
+    "nonMemberTitle": "Non membre",
+    "periodLabel": "Période",
+    "placeholderValue": "--",
+    "subscriptionPending": "Bientôt disponible",
+    "subscriptionStatusLabel": "Abonnement",
+    "summaryTitle": "Crédits",
+    "upgradeCta": "Mettre à niveau",
+    "usageCta": "Voir les détails",
+    "yearlyBalanceTitle": "Solde annuel",
+    "yearlyTitle": "Forfait annuel"
+  },
+  "status": {
+    "active": "Actif",
+    "cancelScheduled": "Annuler scheduled",
+    "canceled": "Annulé",
+    "draft": "Brouillon",
+    "expired": "Expiré",
+    "none": "Non commencé",
+    "pastDue": "En retard",
+    "paused": "En pause"
+  },
+  "welcomeTrial": {
+    "confirm": "Compris, c’est parti !",
+    "description": "En tant que nouvel utilisateur, vous bénéficiez gratuitement d’un forfait Basic de {days} jours avec {credits} crédits. Commencez à créer votre premier cours maintenant !",
+    "title": "Bienvenue dans {appName}"
+  }
+}

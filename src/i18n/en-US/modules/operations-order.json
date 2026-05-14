@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsOrder",
   "creditOrders": {
-    "creditAmountValue": "{credits} credits",
+    "creditAmountValue": "{credits}",
     "detail": {
       "description": "View credit order details",
       "labels": {
@@ -44,6 +44,20 @@
       "topup": "Credit Pack"
     },
     "longTerm": "Long term",
+    "overview": {
+      "metrics": {
+        "creditAmount": "Available Credits",
+        "paidAmount": "Paid Amount",
+        "paidOrders": "Paid",
+        "totalOrders": "Total Orders"
+      },
+      "tooltips": {
+        "creditAmount": "Total unconsumed credits currently available across all creator accounts for learning, preview, and debug usage",
+        "paidAmount": "Paid amount from credit orders",
+        "paidOrders": "Paid credit orders",
+        "totalOrders": "Total credit orders"
+      }
+    },
     "paymentChannel": {
       "checkoutSession": "Checkout Session"
     },
@@ -96,6 +110,21 @@
     "userKeywordPlaceholder": "User ID / phone / email",
     "userKeywordPlaceholderEmail": "User ID / email",
     "userKeywordPlaceholderPhone": "User ID / phone"
+  },
+  "overview": {
+    "activeFilter": "Current filter",
+    "metrics": {
+      "paidAmount": "Paid Amount",
+      "paidOrders": "Paid",
+      "totalOrders": "Total Orders"
+    },
+    "staleData": "Overview failed to load. Refresh to try again.",
+    "title": "Overview",
+    "tooltips": {
+      "paidAmount": "Paid amount from learning orders",
+      "paidOrders": "Paid learning orders",
+      "totalOrders": "Total learning orders"
+    }
   },
   "source": {
     "couponRedeem": "Coupon Redemption",

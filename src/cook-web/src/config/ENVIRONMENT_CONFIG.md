@@ -107,8 +107,10 @@ const googleRedirect = '/login/google-callback';
 const legalUrls = environment.legalUrls;
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
+const agreementUrlFrFR = legalUrls.agreement['fr-FR']; // 法文服务协议URL
 const privacyUrlZhCN = legalUrls.privacy['zh-CN']; // 中文隐私政策URL
 const privacyUrlEnUS = legalUrls.privacy['en-US']; // 英文隐私政策URL
+const privacyUrlFrFR = legalUrls.privacy['fr-FR']; // 法文隐私政策URL
 ```
 
 ### 在API路由中使用

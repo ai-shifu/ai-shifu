@@ -2,7 +2,7 @@
 title: Operator Course Creator Transfer
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-05-12
 canonical: true
 ---
 
@@ -24,6 +24,10 @@ permissions.
   grant the two onboarding demo-course permissions using the same logic as the
   shared-permission flow.
 - After transfer, the new user becomes the course creator.
+- If the target user was not already a creator, run the creator-grant
+  post-auth extensions after the ownership transaction commits. This
+  bootstraps the public trial plan through the existing billing hook and remains
+  idempotent when trial credits already exist.
 - Existing shared permissions are preserved as-is.
 - The previous creator does not receive any special fallback permission.
 - Creator-facing ownership checks, dashboard ownership, and order ownership are
@@ -84,12 +88,15 @@ Response body:
 5. If not found, create with `ensure_user_for_identifier(...)`.
 6. If the user is unregistered, promote to `USER_STATE_REGISTERED`.
 7. Upsert the credential for the provided identifier.
-8. Mark the target user as creator with `mark_user_roles(..., is_creator=True)`.
+8. Mark the target user as creator only if they were not already a creator, and
+   remember whether the creator role was granted by this transfer.
 9. Update all rows for the shifu bid in `DraftShifu` and `PublishedShifu` so
    legacy creator checks do not keep matching stale draft revisions.
 10. Commit the ownership update first, then clear both the shifu permission
     cache for the previous and new creator and the cached shifu-creator
     mapping used by request context hydration.
+11. If step 8 granted creator access for the first time, run creator-grant
+    post-auth extensions so billing can create the free trial credits.
 
 ### Reuse
 

@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsOrder",
   "creditOrders": {
-    "creditAmountValue": "{credits} 积分",
+    "creditAmountValue": "{credits}",
     "detail": {
       "description": "查看积分订单详情",
       "labels": {
@@ -44,6 +44,20 @@
       "topup": "积分包"
     },
     "longTerm": "长期有效",
+    "overview": {
+      "metrics": {
+        "creditAmount": "当前可用积分",
+        "paidAmount": "实付金额",
+        "paidOrders": "已支付",
+        "totalOrders": "订单总数"
+      },
+      "tooltips": {
+        "creditAmount": "当前所有创作者账号中尚未消耗、仍可用于学习、预览和调试的积分总和",
+        "paidAmount": "已支付积分订单实付金额总和",
+        "paidOrders": "已支付积分订单数",
+        "totalOrders": "积分订单总数"
+      }
+    },
     "paymentChannel": {
       "checkoutSession": "Checkout Session"
     },
@@ -96,6 +110,21 @@
     "userKeywordPlaceholder": "输入用户 ID / 手机号 / 邮箱",
     "userKeywordPlaceholderEmail": "输入用户 ID / 邮箱",
     "userKeywordPlaceholderPhone": "输入用户 ID / 手机号"
+  },
+  "overview": {
+    "activeFilter": "当前筛选",
+    "metrics": {
+      "paidAmount": "实付金额",
+      "paidOrders": "已支付",
+      "totalOrders": "订单总数"
+    },
+    "staleData": "数据概览加载失败，请刷新重试",
+    "title": "数据概览",
+    "tooltips": {
+      "paidAmount": "已支付学习订单实付金额总和",
+      "paidOrders": "已支付学习订单数",
+      "totalOrders": "学习订单总数"
+    }
   },
   "source": {
     "couponRedeem": "兑换码兑换",

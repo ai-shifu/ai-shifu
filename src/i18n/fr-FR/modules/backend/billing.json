@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "creditInsufficient": "Crédits insuffisants. Achetez une recharge ou un abonnement avant de continuer.",
+    "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour ce créateur.",
+    "disabled": "La facturation est actuellement désactivée.",
+    "domainBindingNotFound": "La liaison de domaine personnalisé demandée est introuvable.",
+    "domainHostConflict": "Ce domaine personnalisé est déjà lié à un autre créateur.",
+    "subscriptionInactive": "Un abonnement actif est requis. Les crédits de recharge ne peuvent être achetés ou utilisés que pendant la période d’abonnement.",
+    "subscriptionUpgradeOnly": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
+  }
+}

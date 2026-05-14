@@ -72,7 +72,7 @@ export function MdfConvertDialog({
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Pass i18n language code directly to backend (e.g., 'zh-CN', 'en-US')
+  // Pass i18n language code directly to backend (e.g., 'zh-CN', 'en-US', 'fr-FR')
   const language = i18n.language;
 
   // Reset state when dialog opens

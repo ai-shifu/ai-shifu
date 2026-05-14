@@ -8,6 +8,52 @@ from flaskr.common.swagger import register_schema_to_swagger
 
 
 @register_schema_to_swagger
+class OrderAdminOverviewDTO(BaseModel):
+    """Overview metrics shown above the operator learning order list."""
+
+    total_order_count: int = Field(
+        default=0,
+        description="Total visible order count",
+        required=False,
+    )
+    paid_order_count: int = Field(
+        default=0,
+        description="Visible paid order count",
+        required=False,
+    )
+    pending_order_count: int = Field(
+        default=0,
+        description="Visible pending order count",
+        required=False,
+    )
+    refunded_order_count: int = Field(
+        default=0,
+        description="Visible refunded order count",
+        required=False,
+    )
+    closed_order_count: int = Field(
+        default=0,
+        description="Visible closed order count",
+        required=False,
+    )
+    paid_amount_total: str = Field(
+        default="0",
+        description="Total paid amount for successful orders",
+        required=False,
+    )
+
+    def __json__(self):
+        return {
+            "total_order_count": self.total_order_count,
+            "paid_order_count": self.paid_order_count,
+            "pending_order_count": self.pending_order_count,
+            "refunded_order_count": self.refunded_order_count,
+            "closed_order_count": self.closed_order_count,
+            "paid_amount_total": self.paid_amount_total,
+        }
+
+
+@register_schema_to_swagger
 class OrderAdminSummaryDTO(BaseModel):
     """Summary information for an order in admin views."""
 

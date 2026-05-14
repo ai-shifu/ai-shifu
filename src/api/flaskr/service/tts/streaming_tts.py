@@ -33,6 +33,7 @@ from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     export_audio_range_best_effort,
     get_audio_duration_ms,
+    try_get_audio_duration_ms,
 )
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.audio_record_utils import (
@@ -72,6 +73,11 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 # Global thread pool for TTS synthesis
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
 
+_EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
+_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "volcengine"}
+_EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
+_VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
+
 _VISUAL_SLIDE_KINDS = frozenset(
     {
         "fence",
@@ -85,6 +91,21 @@ _VISUAL_SLIDE_KINDS = frozenset(
         "md_img",
     }
 )
+
+
+def _is_retryable_empty_audio_error(error: Exception, provider_name: str) -> bool:
+    normalized_provider = (provider_name or "").strip().lower()
+    return (
+        normalized_provider in _EMPTY_AUDIO_RETRY_PROVIDERS
+        and _EMPTY_AUDIO_ERROR_MESSAGE in str(error)
+    )
+
+
+def _should_use_volcengine_timestamp_stream(tts_provider: str) -> bool:
+    normalized_provider = (tts_provider or "").strip().lower()
+    return normalized_provider in _VOLCENGINE_TIMESTAMP_PROVIDERS
+
+
 _VISUAL_SKIP_KINDS = frozenset(
     {
         "fence",
@@ -119,6 +140,14 @@ class TTSSegment:
     latency_ms: int = 0
     error: Optional[str] = None
     is_ready: bool = False
+
+
+@dataclass
+class _MinimaxFallbackAudio:
+    audio_data: bytes
+    duration_ms: int
+    word_count: int
+    audio_format: str
 
 
 class StreamingTTSProcessor:
@@ -178,6 +207,9 @@ class StreamingTTSProcessor:
             self.voice_settings.emotion = emotion
         self.audio_settings = get_default_audio_settings(tts_provider)
         self._use_minimax_http_stream = should_use_minimax_http_stream(tts_provider)
+        self._use_volcengine_timestamp_stream = _should_use_volcengine_timestamp_stream(
+            tts_provider
+        )
 
         # State
         self._buffer = ""
@@ -226,9 +258,9 @@ class StreamingTTSProcessor:
             return
 
         self._buffer += chunk
-        if self._use_minimax_http_stream:
-            # MiniMax HTTP streaming is request-scoped: we send one request for
-            # the whole mdflow text element when this processor is finalized.
+        if self._use_minimax_http_stream or self._use_volcengine_timestamp_stream:
+            # Provider timestamp streams are request-scoped: send one request
+            # for the whole mdflow text element when this processor is finalized.
             return
 
         # Check if we should submit a new TTS task
@@ -387,6 +419,46 @@ class StreamingTTSProcessor:
                     f"Submitted finalize trailing fragment: {len(tail_text)} chars"
                 )
 
+    def _synthesize_text_with_retry(
+        self,
+        *,
+        text: str,
+        voice_settings: VoiceSettings,
+        audio_settings: AudioSettings,
+        tts_provider: str = "",
+        tts_model: str = "",
+        segment_index: int | None = None,
+    ):
+        result = None
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = synthesize_text(
+                    text=text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=tts_model,
+                    provider_name=tts_provider,
+                )
+                break
+            except Exception as e:
+                if attempt < max_attempts and _is_retryable_empty_audio_error(
+                    e, tts_provider
+                ):
+                    logger.warning(
+                        "TTS segment %s returned no audio; retrying once: provider=%s model=%s text_len=%s",
+                        segment_index if segment_index is not None else "request",
+                        tts_provider or "(auto)",
+                        tts_model or "(unset)",
+                        len(text or ""),
+                    )
+                    time.sleep(_EMPTY_AUDIO_RETRY_DELAY_SECONDS)
+                    continue
+                raise
+        if result is None:
+            raise ValueError("TTS synthesis returned no result")
+        return result
+
     def _synthesize_in_thread(
         self,
         segment: TTSSegment,
@@ -399,12 +471,13 @@ class StreamingTTSProcessor:
         with self.app.app_context():
             try:
                 segment_start = time.monotonic()
-                result = synthesize_text(
+                result = self._synthesize_text_with_retry(
                     text=segment.text,
                     voice_settings=voice_settings,
                     audio_settings=audio_settings,
-                    model=tts_model,
-                    provider_name=tts_provider,
+                    tts_provider=tts_provider,
+                    tts_model=tts_model,
+                    segment_index=segment.index,
                 )
                 segment.audio_data = result.audio_data
                 segment.duration_ms = result.duration_ms
@@ -1062,7 +1135,19 @@ class StreamingTTSProcessor:
 
         try:
             final_audio = concat_audio_best_effort(audio_data_list)
+            if not final_audio:
+                logger.warning(
+                    "No decodable audio data produced during TTS finalization. "
+                    "segments=%s, audio_bid=%s",
+                    len(audio_data_list),
+                    self._audio_bid,
+                )
+                return
             final_duration_ms = get_audio_duration_ms(final_audio)
+            final_duration_ms = max(
+                int(final_duration_ms or 0),
+                self._subtitle_cues_end_ms(effective_subtitle_cues),
+            )
             file_size = len(final_audio)
 
             from flaskr.service.tts.tts_handler import upload_audio_to_oss
@@ -1140,6 +1225,57 @@ class StreamingTTSProcessor:
         except Exception as e:
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
 
+    def _synthesize_minimax_complete_fallback(
+        self,
+        provider: MinimaxTTSProvider,
+        *,
+        request_text: str,
+        request_format: str,
+        request_index: int,
+    ) -> Optional[_MinimaxFallbackAudio]:
+        try:
+            result = provider.synthesize(
+                text=request_text,
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                model=self.tts_model,
+            )
+        except Exception as exc:
+            logger.warning(
+                "MiniMax complete synthesis fallback failed. request_index=%s, "
+                "text_length=%s, error=%s",
+                request_index,
+                len(request_text or ""),
+                exc,
+            )
+            logger.debug("MiniMax complete synthesis fallback traceback", exc_info=True)
+            return None
+
+        audio_data = result.audio_data or b""
+        audio_format = (
+            result.format or request_format or self.audio_settings.format or "mp3"
+        )
+        decoded_duration_ms = try_get_audio_duration_ms(
+            audio_data,
+            format=audio_format,
+        )
+        if decoded_duration_ms is None or decoded_duration_ms <= 0:
+            logger.warning(
+                "MiniMax complete synthesis fallback returned undecodable audio. "
+                "request_index=%s, bytes=%s, format=%s",
+                request_index,
+                len(audio_data),
+                audio_format,
+            )
+            return None
+
+        return _MinimaxFallbackAudio(
+            audio_data=audio_data,
+            duration_ms=int(result.duration_ms or decoded_duration_ms or 0),
+            word_count=int(result.word_count or 0),
+            audio_format=audio_format,
+        )
+
     def _finalize_minimax_http_stream(
         self,
         *,
@@ -1170,6 +1306,7 @@ class StreamingTTSProcessor:
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
             request_final_subtitle_cues: list[dict[str, Any]] = []
+            request_final_subtitle_cues_are_provider = False
             request_live_subtitle_cues: list[dict[str, Any]] = []
 
             for chunk in provider.stream_synthesize(
@@ -1209,10 +1346,12 @@ class StreamingTTSProcessor:
 
                 if chunk.is_final:
                     if request_duration_ms <= 0:
-                        request_duration_ms = get_audio_duration_ms(
+                        decoded_duration_ms = try_get_audio_duration_ms(
                             accumulated_audio,
                             format=request_format or "mp3",
                         )
+                        if decoded_duration_ms is not None:
+                            request_duration_ms = int(decoded_duration_ms or 0)
                     if progressive_request_subtitle_cues and (
                         self._subtitle_cues_cover_text(
                             progressive_request_subtitle_cues,
@@ -1220,6 +1359,7 @@ class StreamingTTSProcessor:
                         )
                     ):
                         request_final_subtitle_cues = progressive_request_subtitle_cues
+                        request_final_subtitle_cues_are_provider = True
                         target_end_ms = max(
                             request_subtitle_coverage_end_ms, source_emitted_ms
                         )
@@ -1278,11 +1418,25 @@ class StreamingTTSProcessor:
                     and source_emitted_ms == 0
                     and target_end_ms >= int(request_duration_ms or 0)
                 ):
-                    audio_piece = accumulated_audio
-                    piece_duration_ms = request_duration_ms or get_audio_duration_ms(
-                        audio_piece,
+                    decoded_duration_ms = try_get_audio_duration_ms(
+                        accumulated_audio,
                         format=request_format or "mp3",
                     )
+                    if decoded_duration_ms is not None and decoded_duration_ms > 0:
+                        audio_piece = accumulated_audio
+                        piece_duration_ms = int(
+                            request_duration_ms or decoded_duration_ms
+                        )
+                    else:
+                        logger.warning(
+                            "MiniMax HTTP stream produced undecodable final audio; "
+                            "will try complete synthesis fallback. request_index=%s, "
+                            "bytes=%s, format=%s, trace_id=%s",
+                            request_index,
+                            len(accumulated_audio or b""),
+                            request_format or "mp3",
+                            getattr(chunk, "trace_id", ""),
+                        )
 
                 if not audio_piece or piece_duration_ms <= 0:
                     continue
@@ -1309,6 +1463,19 @@ class StreamingTTSProcessor:
                 )
                 yield event
 
+            fallback_audio: Optional[_MinimaxFallbackAudio] = None
+            if live_request_emitted_ms <= 0:
+                fallback_audio = self._synthesize_minimax_complete_fallback(
+                    provider,
+                    request_text=request_text,
+                    request_format=request_format,
+                    request_index=request_index,
+                )
+                if fallback_audio is not None:
+                    request_duration_ms = int(fallback_audio.duration_ms or 0)
+                    if fallback_audio.word_count:
+                        request_word_count = int(fallback_audio.word_count or 0)
+
             if request_duration_ms <= 0:
                 request_duration_ms = source_emitted_ms or live_request_emitted_ms
             if request_word_count:
@@ -1323,6 +1490,7 @@ class StreamingTTSProcessor:
                     request_text,
                 ):
                     request_final_subtitle_cues = request_subtitle_cues
+                    request_final_subtitle_cues_are_provider = True
                 else:
                     if request_subtitle_cues:
                         logger.debug(
@@ -1343,6 +1511,37 @@ class StreamingTTSProcessor:
                             offset_ms=subtitle_offset_ms,
                         )
                     )
+            if (
+                fallback_audio is not None
+                and not request_final_subtitle_cues_are_provider
+            ):
+                request_final_subtitle_cues = (
+                    self._build_minimax_fallback_subtitle_cues(
+                        request_text,
+                        duration_ms=int(fallback_audio.duration_ms or 0),
+                        offset_ms=subtitle_offset_ms,
+                    )
+                )
+            if fallback_audio is not None and live_request_emitted_ms <= 0:
+                live_request_emitted_ms = int(fallback_audio.duration_ms or 0)
+                request_live_subtitle_cues = (
+                    self._build_minimax_live_request_subtitle_cues(
+                        request_final_subtitle_cues,
+                        provider_offset_ms=subtitle_offset_ms,
+                        live_offset_ms=live_offset_ms,
+                        live_request_end_ms=live_request_emitted_ms,
+                    )
+                )
+                progressive_subtitle_cues = normalize_subtitle_cues(
+                    list(live_subtitle_cues or []) + request_live_subtitle_cues
+                )
+                _segment_index, event = self._store_stream_audio_segment(
+                    audio_data=fallback_audio.audio_data,
+                    duration_ms=fallback_audio.duration_ms,
+                    text=request_text,
+                    subtitle_cues=progressive_subtitle_cues,
+                )
+                yield event
             final_subtitle_cues.extend(request_final_subtitle_cues)
             if not request_live_subtitle_cues and live_request_emitted_ms > 0:
                 request_live_subtitle_cues = (
@@ -1394,6 +1593,112 @@ class StreamingTTSProcessor:
             commit=commit,
         )
 
+    def _apply_subtitle_context(
+        self, subtitle_cues: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        contextualized: list[dict[str, Any]] = []
+        for index, cue in enumerate(normalize_subtitle_cues(subtitle_cues)):
+            item = dict(cue)
+            item["position"] = self.position
+            item["segment_index"] = int(item.get("segment_index", index) or index)
+            contextualized.append(item)
+        return normalize_subtitle_cues(contextualized)
+
+    def _finalize_volcengine_timestamp_stream(
+        self,
+        *,
+        raw_text: str,
+        cleaned_text: str,
+        cleaned_text_length: int,
+        commit: bool,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        request_text = (cleaned_text or "").strip()
+        if not self._enabled or not request_text:
+            return
+
+        request_started_at = time.monotonic()
+        result = self._synthesize_text_with_retry(
+            text=request_text,
+            voice_settings=self.voice_settings,
+            audio_settings=self.audio_settings,
+            tts_model=self.tts_model,
+            tts_provider=self.tts_provider,
+            segment_index=0,
+        )
+        if not result.audio_data:
+            logger.warning("Volcengine timestamp stream returned no audio")
+            return
+
+        request_duration_ms = int(result.duration_ms or 0)
+        if request_duration_ms <= 0:
+            request_duration_ms = get_audio_duration_ms(
+                result.audio_data,
+                format=result.format or self.audio_settings.format or "mp3",
+            )
+        request_word_count = int(result.word_count or 0)
+        if request_word_count:
+            self._word_count_total += request_word_count
+
+        provider_subtitle_cues = self._apply_subtitle_context(
+            list(getattr(result, "subtitle_cues", []) or [])
+        )
+        if provider_subtitle_cues and self._subtitle_cues_cover_text(
+            provider_subtitle_cues,
+            request_text,
+        ):
+            final_subtitle_cues = provider_subtitle_cues
+        else:
+            if provider_subtitle_cues:
+                logger.debug(
+                    "Volcengine subtitles did not cover full request text; "
+                    "using fallback cues. subtitles=%s",
+                    len(provider_subtitle_cues),
+                )
+            final_subtitle_cues = self._build_minimax_fallback_subtitle_cues(
+                request_text,
+                duration_ms=int(request_duration_ms or 0),
+            )
+            final_subtitle_cues = self._apply_subtitle_context(final_subtitle_cues)
+
+        _segment_index, event = self._store_stream_audio_segment(
+            audio_data=result.audio_data,
+            duration_ms=int(request_duration_ms or 0),
+            text=request_text,
+            subtitle_cues=final_subtitle_cues,
+        )
+        yield event
+
+        from flaskr.service.tts.tts_usage_recorder import record_tts_segment_usage
+
+        record_tts_segment_usage(
+            app=self.app,
+            usage_context=self.usage_context,
+            provider=self.tts_provider or "",
+            model=self.tts_model or "",
+            segment_text=request_text,
+            word_count=request_word_count,
+            duration_ms=int(request_duration_ms or 0),
+            latency_ms=int((time.monotonic() - request_started_at) * 1000),
+            voice_settings=self.voice_settings,
+            audio_settings=self.audio_settings,
+            is_stream=True,
+            parent_usage_bid=self._usage_parent_bid,
+            segment_index=0,
+        )
+
+        with self._lock:
+            all_segments = list(self._all_audio_data)
+
+        yield from self._yield_audio_complete_from_segments(
+            all_segments=all_segments,
+            raw_text=raw_text,
+            cleaned_text=cleaned_text,
+            cleaned_text_length=cleaned_text_length,
+            subtitle_cues=final_subtitle_cues,
+            event_subtitle_cues=final_subtitle_cues,
+            commit=commit,
+        )
+
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -1428,6 +1733,17 @@ class StreamingTTSProcessor:
             self._raw_offset = len(self._buffer)
             self._buffer = ""
             yield from self._finalize_minimax_http_stream(
+                raw_text=raw_text,
+                cleaned_text=cleaned_text.strip(),
+                cleaned_text_length=cleaned_text_length,
+                commit=commit,
+            )
+            return
+
+        if self._use_volcengine_timestamp_stream:
+            self._raw_offset = len(self._buffer)
+            self._buffer = ""
+            yield from self._finalize_volcengine_timestamp_stream(
                 raw_text=raw_text,
                 cleaned_text=cleaned_text.strip(),
                 cleaned_text_length=cleaned_text_length,

@@ -73,6 +73,27 @@ def _insert_email_credential(
     return credential
 
 
+def _insert_phone_credential(
+    user_bid: str,
+    phone: str,
+    *,
+    state: int = CREDENTIAL_STATE_VERIFIED,
+) -> AuthCredential:
+    credential = AuthCredential(
+        credential_bid=uuid.uuid4().hex[:32],
+        user_bid=user_bid,
+        provider_name="phone",
+        subject_id=phone,
+        subject_format="phone",
+        identifier=phone,
+        raw_profile='{"provider": "phone", "metadata": {}}',
+        state=state,
+        deleted=0,
+    )
+    db.session.add(credential)
+    return credential
+
+
 def _create_user(
     user_bid: str,
     email: str,
@@ -130,6 +151,72 @@ def test_load_user_aggregate_by_identifier_uses_credentials(app, user_bid):
             assert aggregate is not None
             assert aggregate.email == email
             assert aggregate.username == email
+        finally:
+            AuthCredential.query.filter_by(user_bid=user_bid).delete()
+            UserEntity.query.filter_by(user_bid=user_bid).delete()
+            db.session.commit()
+
+
+def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(app):
+    email = f"{uuid.uuid4().hex[:12]}@example.com"
+    deleted_user_bid = uuid.uuid4().hex[:32]
+    active_user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        deleted_entity = create_user_entity(
+            user_bid=deleted_user_bid,
+            identify=email,
+            nickname="Deleted User",
+            language="en-US",
+            avatar="",
+            state=USER_STATE_REGISTERED,
+        )
+        deleted_entity.deleted = 1
+        create_user_entity(
+            user_bid=active_user_bid,
+            identify=email,
+            nickname="Active User",
+            language="en-US",
+            avatar="",
+            state=USER_STATE_REGISTERED,
+        )
+        db.session.commit()
+        try:
+            aggregate = load_user_aggregate_by_identifier(email, providers=["email"])
+
+            assert aggregate is not None
+            assert aggregate.user_bid == active_user_bid
+            assert aggregate.display_name == "Active User"
+        finally:
+            UserEntity.query.filter(
+                UserEntity.user_bid.in_([deleted_user_bid, active_user_bid])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+
+
+def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credential(
+    app,
+):
+    phone = "15500008888"
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Legacy Phone",
+            language="en-US",
+            avatar="",
+            state=USER_STATE_REGISTERED,
+        )
+        _insert_phone_credential(user_bid, f"+86{phone}")
+        db.session.commit()
+        try:
+            aggregate = load_user_aggregate_by_identifier(
+                f"+86{phone}", providers=["phone"]
+            )
+
+            assert aggregate is not None
+            assert aggregate.user_bid == user_bid
+            assert aggregate.mobile == f"+86{phone}"
         finally:
             AuthCredential.query.filter_by(user_bid=user_bid).delete()
             UserEntity.query.filter_by(user_bid=user_bid).delete()

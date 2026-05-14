@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "The query used a disallowed aggregate function.",
+    "invalidColumn": "The requested column is not in the whitelist.",
+    "invalidDsl": "The query description is invalid.",
+    "invalidLimit": "limit or offset is out of range.",
+    "invalidOperator": "The query used a disallowed operator.",
+    "invalidTable": "The requested table is not in the whitelist.",
+    "noPermission": "You do not have permission to query this course's analytics.",
+    "queryTimeout": "Query exceeded the time budget. Narrow the scope and retry."
+  }
+}

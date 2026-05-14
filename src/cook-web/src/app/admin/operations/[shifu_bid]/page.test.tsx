@@ -13,6 +13,7 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseDetail = jest.fn();
 const mockGetAdminOperationCourseUsers = jest.fn();
+const mockGetAdminOperationCourseCreditUsages = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
@@ -50,6 +51,8 @@ jest.mock('@/api', () => ({
       mockGetAdminOperationCourseDetail(...args),
     getAdminOperationCourseUsers: (...args: unknown[]) =>
       mockGetAdminOperationCourseUsers(...args),
+    getAdminOperationCourseCreditUsages: (...args: unknown[]) =>
+      mockGetAdminOperationCourseCreditUsages(...args),
     getAdminOperationCourseChapterDetail: (...args: unknown[]) =>
       mockGetAdminOperationCourseChapterDetail(...args),
   },
@@ -253,11 +256,23 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   };
 
+  const openCreditUsageTab = async () => {
+    fireEvent.click(
+      await screen.findByRole('tab', {
+        name: /module\.operationsCourse\.detail\.creditUsageTab/,
+      }),
+    );
+    await screen.findByRole('button', {
+      name: 'module.order.filters.search',
+    });
+  };
+
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseDetail.mockReset();
     mockGetAdminOperationCourseUsers.mockReset();
+    mockGetAdminOperationCourseCreditUsages.mockReset();
     mockGetAdminOperationCourseChapterDetail.mockReset();
     mockCopyText.mockReset();
     mockToastShow.mockReset();
@@ -295,6 +310,36 @@ describe('AdminOperationCourseDetailPage', () => {
           last_learning_at: '2026-04-08T11:30:00Z',
           joined_at: '2026-04-07T09:00:00Z',
           last_login_at: '2026-04-08T12:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockGetAdminOperationCourseCreditUsages.mockResolvedValue({
+      view: 'grouped',
+      items: [
+        {
+          group_key: 'progress-1:learn',
+          usage_bid: 'usage-2',
+          progress_record_bid: 'progress-1',
+          generated_block_bid: '',
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          usage_mode: 'learn',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-a',
+          usage_count: 2,
+          model_variant_count: 2,
+          consumed_credits: 17,
+          created_at: '2026-04-08T12:30:00Z',
         },
       ],
       page: 1,
@@ -429,6 +474,49 @@ describe('AdminOperationCourseDetailPage', () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/operations');
+  });
+
+  test('loads credit usage tab on demand and renders credit rows', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(mockGetAdminOperationCourseCreditUsages).not.toHaveBeenCalled();
+
+    await openCreditUsageTab();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        view: 'grouped',
+        keyword: '',
+        mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.filters.userKeyword',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'module.operationsCourse.detail.creditUsage.modes.learn',
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.modelSummary.multiple',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.creditUsage.table.usageCount',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('17')).toBeInTheDocument();
   });
 
   test('formats course metrics and learning progress without grouping in Chinese locale', async () => {

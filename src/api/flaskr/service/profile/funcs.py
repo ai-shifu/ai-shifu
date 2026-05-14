@@ -194,9 +194,13 @@ def get_profile_labels():
         },
         "language": {
             "label": _("server.profile.language"),
-            "items": ["中文", "English"],
+            "items": ["中文", "English", "Français"],
             "mapping": "user_language",
-            "items_mapping": {"zh-CN": "中文", "en-US": "English"},
+            "items_mapping": {
+                "zh-CN": "中文",
+                "en-US": "English",
+                "fr-FR": "Français",
+            },
             "default": "zh-CN",
         },
         "sys_user_style": {

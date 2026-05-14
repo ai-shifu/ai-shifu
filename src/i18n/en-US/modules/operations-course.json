@@ -60,6 +60,43 @@
       "has": "Has",
       "unknown": "Unknown"
     },
+    "creditUsage": {
+      "count": "{count} records",
+      "description": "Review credit consumption records for this course.",
+      "filters": {
+        "mode": "Usage mode",
+        "modeAll": "All",
+        "reset": "Reset",
+        "time": "Time",
+        "timePlaceholder": "Select time range",
+        "userKeyword": "User",
+        "userKeywordPlaceholderEmail": "Enter email or nickname",
+        "userKeywordPlaceholderPhone": "Enter phone or nickname"
+      },
+      "modelSummary": {
+        "multiple": "{model} and {count} models"
+      },
+      "modes": {
+        "ask": "Follow-up",
+        "learn": "Learning",
+        "listen": "Listen",
+        "mixed": "Mixed",
+        "unknown": "Unknown mode"
+      },
+      "table": {
+        "chapter": "Chapter",
+        "createdAt": "Consumed At",
+        "credits": "Total Credits Consumed",
+        "empty": "No credit usage records",
+        "lesson": "Lesson",
+        "mode": "Usage Mode",
+        "model": "Model",
+        "nickname": "Nickname",
+        "usageCount": "Usage Count"
+      },
+      "title": "Credit Usage"
+    },
+    "creditUsageTab": "Credit Usage",
     "fields": {
       "courseId": "Course ID",
       "courseName": "Course Name",

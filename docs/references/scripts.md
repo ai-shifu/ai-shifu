@@ -10,7 +10,7 @@ This repository includes a small set of scripts focused on internationalization 
 
 - scripts/check_translations.py
   - Validates that every locale has the same files and JSON structure, and that values are strings.
-  - Prevents shape drift between `en-US` and `zh-CN`.
+  - Prevents shape drift across all supported locales.
 
 - scripts/create_translation_namespace.py
   - Scaffolds a new namespace across locales with the correct `__namespace__` header.

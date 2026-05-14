@@ -35,10 +35,12 @@ import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
+import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -47,7 +49,9 @@ interface ShifuCardProps {
   isFavorite: boolean;
   archived?: boolean;
   canManageArchive?: boolean;
+  canManagePermissions?: boolean;
   onArchiveRequest?: () => void;
+  onPermissionRequest?: () => void;
 }
 
 const CARD_CONTAINER_CLASS =
@@ -62,9 +66,13 @@ const ShifuCard = ({
   isFavorite,
   archived,
   canManageArchive,
+  canManagePermissions,
   onArchiveRequest,
+  onPermissionRequest,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
+  const showMenu = Boolean(canManageArchive || canManagePermissions);
+
   return (
     <div className='relative w-full h-full group'>
       <Link
@@ -107,7 +115,7 @@ const ShifuCard = ({
           </CardContent>
         </Card>
       </Link>
-      {canManageArchive && (
+      {showMenu && (
         <DropdownMenu>
           {/* Reveal the menu when hovering the whole card, while keeping click behavior unchanged. */}
           <div className='absolute top-0 right-0 h-10 w-10 flex items-center justify-center z-10 group'>
@@ -133,16 +141,28 @@ const ShifuCard = ({
             sideOffset={0}
             className='min-w-0'
           >
-            <DropdownMenuItem
-              onSelect={event => {
-                event.stopPropagation();
-                onArchiveRequest?.();
-              }}
-            >
-              {archived
-                ? t('module.shifuSetting.unarchive')
-                : t('module.shifuSetting.archive')}
-            </DropdownMenuItem>
+            {canManageArchive && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onArchiveRequest?.();
+                }}
+              >
+                {archived
+                  ? t('module.shifuSetting.unarchive')
+                  : t('module.shifuSetting.archive')}
+              </DropdownMenuItem>
+            )}
+            {canManagePermissions && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onPermissionRequest?.();
+                }}
+              >
+                {t('module.shifuSetting.permissionManage')}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -157,9 +177,14 @@ const ScriptManagementPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
+  const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
+  const hasResolvedAdminSession =
+    hasAuthenticatedAdminSession && Boolean(currentUserId);
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
+  const [permissionRetryNonce, setPermissionRetryNonce] = useState(0);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
@@ -171,6 +196,8 @@ const ScriptManagementPage = () => {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<Shifu | null>(null);
+  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
+  const [permissionTarget, setPermissionTarget] = useState<Shifu | null>(null);
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
@@ -316,9 +343,27 @@ const ScriptManagementPage = () => {
     [currentUserId],
   );
 
+  const canManagePermissions = useCallback(
+    (shifu: Shifu) => {
+      if (typeof shifu.can_manage_permissions === 'boolean') {
+        return shifu.can_manage_permissions;
+      }
+      return (
+        Boolean(shifu.created_user_bid) &&
+        shifu.created_user_bid === currentUserId
+      );
+    },
+    [currentUserId],
+  );
+
   const handleArchiveRequest = useCallback((shifu: Shifu) => {
     setArchiveTarget(shifu);
     setArchiveDialogOpen(true);
+  }, []);
+
+  const handlePermissionRequest = useCallback((shifu: Shifu) => {
+    setPermissionTarget(shifu);
+    setPermissionDialogOpen(true);
   }, []);
 
   const handleArchiveConfirm = useCallback(async () => {
@@ -370,15 +415,21 @@ const ScriptManagementPage = () => {
   }, [archiveLoading, archiveTarget, canManageArchive, t, toast]);
 
   useEffect(() => {
-    if (!isInitialized || !adminReady) {
+    if (!hasResolvedAdminSession || !adminReady) {
       return;
     }
     resetListAndFetch();
-  }, [activeTab, i18n.language, isInitialized, adminReady, resetListAndFetch]);
+  }, [
+    activeTab,
+    adminReady,
+    hasResolvedAdminSession,
+    i18n.language,
+    resetListAndFetch,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isInitialized || !adminReady) return;
+    if (!container || !hasResolvedAdminSession || !adminReady) return;
 
     const observer = new IntersectionObserver(
       entries => {
@@ -391,24 +442,21 @@ const ScriptManagementPage = () => {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hasMore, isInitialized, adminReady]);
+  }, [adminReady, hasMore, hasResolvedAdminSession]);
 
   // Centralized login check - redirect if not logged in after initialization
   useEffect(() => {
-    if (isInitialized && isGuest) {
+    if (isInitialized && !hasAuthenticatedAdminSession) {
       const currentPath = encodeURIComponent(
         window.location.pathname + window.location.search,
       );
       window.location.href = `/login?redirect=${currentPath}`;
       return;
     }
-  }, [isInitialized, isGuest]);
+  }, [hasAuthenticatedAdminSession, isInitialized]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      return;
-    }
-    if (isGuest) {
+    if (!hasResolvedAdminSession) {
       setAdminReady(false);
       return;
     }
@@ -416,12 +464,24 @@ const ScriptManagementPage = () => {
     let cancelled = false;
     const ensureAdminPermissions = async () => {
       try {
+        setError(null);
         await api.ensureAdminCreator({});
-      } catch (error) {
-        console.error('Failed to ensure admin creator permissions:', error);
-      } finally {
         if (!cancelled) {
           setAdminReady(true);
+        }
+      } catch (error) {
+        console.error('Failed to ensure admin creator permissions:', error);
+        if (!cancelled) {
+          if (error instanceof ErrorWithCode) {
+            setError({ message: error.message, code: error.code });
+          } else {
+            const message =
+              error instanceof Error
+                ? error.message
+                : t('common.core.unknownError');
+            setError({ message, code: 0 });
+          }
+          setAdminReady(false);
         }
       }
     };
@@ -432,7 +492,7 @@ const ScriptManagementPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [isInitialized, isGuest]);
+  }, [hasResolvedAdminSession, permissionRetryNonce, t]);
 
   if (error) {
     return (
@@ -441,7 +501,9 @@ const ScriptManagementPage = () => {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() => {
-            resetListAndFetch();
+            setError(null);
+            setAdminReady(false);
+            setPermissionRetryNonce(value => value + 1);
           }}
         />
       </div>
@@ -451,6 +513,23 @@ const ScriptManagementPage = () => {
   return (
     <>
       <MobileUnsupportedDialog />
+      <ShifuPermissionDialog
+        open={permissionDialogOpen}
+        onOpenChange={nextOpen => {
+          setPermissionDialogOpen(nextOpen);
+          if (!nextOpen) {
+            setPermissionTarget(null);
+          }
+        }}
+        shifu={
+          permissionTarget
+            ? {
+                bid: permissionTarget.bid,
+                created_user_bid: permissionTarget.created_user_bid,
+              }
+            : null
+        }
+      />
       <AlertDialog
         open={archiveDialogOpen}
         onOpenChange={open => {
@@ -556,7 +635,9 @@ const ScriptManagementPage = () => {
                   isFavorite={shifu.is_favorite || false}
                   archived={Boolean(shifu.archived)}
                   canManageArchive={canManageArchive(shifu)}
+                  canManagePermissions={canManagePermissions(shifu)}
                   onArchiveRequest={() => handleArchiveRequest(shifu)}
+                  onPermissionRequest={() => handlePermissionRequest(shifu)}
                 />
               ))}
             </div>

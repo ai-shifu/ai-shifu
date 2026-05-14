@@ -104,9 +104,13 @@ const api = {
   importActivationOrder: 'POST /order/admin/orders/import-activation',
   getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrdersOverview:
+    'GET /shifu/admin/operations/orders/overview',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrdersOverview:
+    'GET /shifu/admin/operations/orders/credits/overview',
   getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
   getAdminOperationCreditOrderDetail:
     'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
@@ -151,6 +155,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseCreditUsages:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages',
   getAdminOperationCourseRatings:
     'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
