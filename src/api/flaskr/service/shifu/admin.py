@@ -354,6 +354,23 @@ def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
     return normalized_provider or normalized_model
 
 
+def _build_course_credit_usage_group_key(
+    progress_record_bid: str,
+    usage_mode: str,
+    usage_bid: str,
+) -> str:
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    normalized_usage_mode = str(usage_mode or "").strip()
+    normalized_usage_bid = str(usage_bid or "").strip()
+    if normalized_progress_record_bid:
+        return (
+            f"{normalized_progress_record_bid}:{normalized_usage_mode}"
+            if normalized_usage_mode
+            else normalized_progress_record_bid
+        )
+    return normalized_usage_bid
+
+
 def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
@@ -4124,7 +4141,12 @@ def get_operator_course_credit_usages(
         grouped_order: list[str] = []
         for item in raw_items:
             progress_record_bid = str(item.progress_record_bid or "").strip()
-            group_key = progress_record_bid or str(item.usage_bid or "").strip()
+            usage_mode = str(item.usage_mode or "").strip()
+            group_key = _build_course_credit_usage_group_key(
+                progress_record_bid=progress_record_bid,
+                usage_mode=usage_mode,
+                usage_bid=str(item.usage_bid or "").strip(),
+            )
             if not group_key:
                 continue
 
@@ -4141,11 +4163,6 @@ def get_operator_course_credit_usages(
                     "base_item": item,
                     "usage_count": 1,
                     "consumed_credits": Decimal(str(item.consumed_credits or 0)),
-                    "usage_modes": (
-                        {str(item.usage_mode or "").strip()}
-                        if item.usage_mode
-                        else set()
-                    ),
                     "model_entries": model_entries,
                 }
                 grouped_order.append(group_key)
@@ -4153,9 +4170,6 @@ def get_operator_course_credit_usages(
 
             payload["usage_count"] += 1
             payload["consumed_credits"] += Decimal(str(item.consumed_credits or 0))
-            usage_mode = str(item.usage_mode or "").strip()
-            if usage_mode:
-                payload["usage_modes"].add(usage_mode)
             model_display = _build_course_credit_usage_model_display(
                 item.provider,
                 item.model,
@@ -4167,13 +4181,6 @@ def get_operator_course_credit_usages(
         for group_key in grouped_order:
             payload = grouped_payloads[group_key]
             base_item = payload["base_item"]
-            usage_modes = payload["usage_modes"]
-            if len(usage_modes) == 1:
-                usage_mode = next(iter(usage_modes))
-            elif len(usage_modes) > 1:
-                usage_mode = COURSE_CREDIT_USAGE_MODE_MIXED
-            else:
-                usage_mode = ""
             model_entries = payload["model_entries"]
             primary_provider = ""
             primary_model = ""
@@ -4193,7 +4200,7 @@ def get_operator_course_credit_usages(
                     chapter_title=base_item.chapter_title,
                     lesson_outline_item_bid=base_item.lesson_outline_item_bid,
                     lesson_title=base_item.lesson_title,
-                    usage_mode=usage_mode,
+                    usage_mode=base_item.usage_mode,
                     provider=primary_provider,
                     model=primary_model,
                     usage_count=payload["usage_count"],

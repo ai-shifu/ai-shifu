@@ -74,7 +74,7 @@
         "userKeywordPlaceholderPhone": "Enter phone or nickname"
       },
       "modelSummary": {
-        "multiple": "{{model}} and {{count}} models"
+        "multiple": "{model} and {count} models"
       },
       "modes": {
         "ask": "Follow-up",

@@ -1919,21 +1919,23 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["view"] == "grouped"
-    assert payload["data"]["total"] == 3
+    assert payload["data"]["total"] == 4
     assert [item["group_key"] for item in payload["data"]["items"]] == [
-        "progress-1",
-        "progress-2",
-        "progress-3",
+        "progress-1:listen",
+        "progress-2:ask",
+        "progress-1:learn",
+        "progress-3:learn",
     ]
     assert payload["data"]["items"][0]["usage_bid"] == "usage-listen-1"
-    assert payload["data"]["items"][0]["usage_mode"] == "mixed"
-    assert payload["data"]["items"][0]["usage_count"] == 2
-    assert payload["data"]["items"][0]["model_variant_count"] == 2
-    assert payload["data"]["items"][0]["consumed_credits"] == 17
+    assert payload["data"]["items"][0]["usage_mode"] == "listen"
+    assert payload["data"]["items"][0]["usage_count"] == 1
+    assert payload["data"]["items"][0]["model_variant_count"] == 1
+    assert payload["data"]["items"][0]["consumed_credits"] == 12
     assert payload["data"]["items"][1]["usage_mode"] == "ask"
     assert payload["data"]["items"][1]["email"] == "student2@example.com"
     assert payload["data"]["items"][1]["chapter_title"] == "Chapter 2"
     assert payload["data"]["items"][2]["usage_mode"] == "learn"
+    assert payload["data"]["items"][2]["consumed_credits"] == 5
 
     filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
@@ -1945,7 +1947,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert filtered_response.status_code == 200
     assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["total"] == 1
-    assert filtered_payload["data"]["items"][0]["group_key"] == "progress-2"
+    assert filtered_payload["data"]["items"][0]["group_key"] == "progress-2:ask"
     assert filtered_payload["data"]["items"][0]["usage_bid"] == "usage-ask-1"
 
     phone_filtered_response = test_client.get(
@@ -1958,7 +1960,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert phone_filtered_response.status_code == 200
     assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 1
-    assert phone_filtered_payload["data"]["items"][0]["group_key"] == "progress-1"
+    assert phone_filtered_payload["data"]["items"][0]["group_key"] == "progress-1:listen"
     assert phone_filtered_payload["data"]["items"][0]["usage_count"] == 1
     assert phone_filtered_payload["data"]["items"][0]["consumed_credits"] == 12
 
@@ -1973,8 +1975,8 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert learn_filtered_payload["code"] == 0
     assert learn_filtered_payload["data"]["total"] == 2
     assert [item["group_key"] for item in learn_filtered_payload["data"]["items"]] == [
-        "progress-1",
-        "progress-3",
+        "progress-1:learn",
+        "progress-3:learn",
     ]
     assert learn_filtered_payload["data"]["items"][0]["usage_mode"] == "learn"
     assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 5
@@ -1987,9 +1989,10 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert paged_response.status_code == 200
     assert paged_payload["code"] == 0
-    assert paged_payload["data"]["total"] == 3
+    assert paged_payload["data"]["total"] == 4
     assert [item["group_key"] for item in paged_payload["data"]["items"]] == [
-        "progress-3",
+        "progress-1:learn",
+        "progress-3:learn",
     ]
 
     partial_phone_filtered_response = test_client.get(
@@ -2014,7 +2017,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert nickname_filtered_response.status_code == 200
     assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 3
+    assert nickname_filtered_payload["data"]["total"] == 4
 
     raw_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"

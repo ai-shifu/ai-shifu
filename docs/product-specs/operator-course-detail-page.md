@@ -91,7 +91,8 @@ The backend detail payload should return:
   - add a grouped credit-usage view for operators
   - keep grouping on the backend so pagination, totals, and ordering remain
     correct
-  - use `progress_record_bid` as the primary grouping key
+  - use `progress_record_bid + usage_mode` as the primary grouping key so
+    learning, listen, and follow-up rows stay separate
   - keep rows without `progress_record_bid` as standalone rows instead of
     forcing them into a group
 - Grouped rows should summarize:
@@ -101,7 +102,6 @@ The backend detail payload should return:
   - chapter
   - lesson
   - usage mode summary
-  - usage count
   - total consumed credits
   - model summary
 - Future extension:

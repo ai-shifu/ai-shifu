@@ -74,7 +74,7 @@
         "userKeywordPlaceholderPhone": "输入手机号 / 昵称"
       },
       "modelSummary": {
-        "multiple": "{{model}} 等 {{count}} 个"
+        "multiple": "{model} 等 {count} 个"
       },
       "modes": {
         "ask": "追问",

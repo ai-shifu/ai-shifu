@@ -321,7 +321,7 @@ describe('AdminOperationCourseDetailPage', () => {
       view: 'grouped',
       items: [
         {
-          group_key: 'progress-1',
+          group_key: 'progress-1:learn',
           usage_bid: 'usage-2',
           progress_record_bid: 'progress-1',
           generated_block_bid: '',
@@ -333,9 +333,9 @@ describe('AdminOperationCourseDetailPage', () => {
           chapter_title: 'Chapter 1',
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
-          usage_mode: 'mixed',
-          provider: 'volcengine',
-          model: 'cancan-2.0',
+          usage_mode: 'learn',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-a',
           usage_count: 2,
           model_variant_count: 2,
           consumed_credits: 17,
@@ -503,7 +503,7 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        'module.operationsCourse.detail.creditUsage.modes.mixed',
+        'module.operationsCourse.detail.creditUsage.modes.learn',
       ).length,
     ).toBeGreaterThan(0);
     expect(
@@ -512,11 +512,10 @@ describe('AdminOperationCourseDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'module.operationsCourse.detail.creditUsage.table.usageCount',
       ),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    ).not.toBeInTheDocument();
     expect(screen.getByText('17')).toBeInTheDocument();
   });
 

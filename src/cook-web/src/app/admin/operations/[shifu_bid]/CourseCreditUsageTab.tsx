@@ -13,7 +13,6 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -52,7 +51,6 @@ type CreditUsageColumnKey =
   | 'mode'
   | 'chapter'
   | 'lesson'
-  | 'usageCount'
   | 'credits'
   | 'model';
 
@@ -67,7 +65,6 @@ const CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS = {
   mode: 110,
   chapter: 160,
   lesson: 160,
-  usageCount: 100,
   credits: 120,
   model: 220,
 } as const;
@@ -125,7 +122,7 @@ export default function CourseCreditUsageTab({
   onPageChange: (page: number) => void;
 }) {
   const { t } = useTranslation();
-  const { t: tOperations, i18n } = useTranslation('module.operationsCourse');
+  const { t: tOperations } = useTranslation('module.operationsCourse');
   const {
     setColumnWidths,
     getColumnStyle,
@@ -233,7 +230,6 @@ export default function CourseCreditUsageTab({
       mode: row => [resolveModeLabel(row.usage_mode)],
       chapter: row => [row.chapter_title || emptyValue],
       lesson: row => [row.lesson_title || emptyValue],
-      usageCount: row => [String(row.usage_count || 0)],
       credits: row => [String(row.consumed_credits || 0)],
       model: row => [resolveModelDisplay(row)],
     };
@@ -244,7 +240,6 @@ export default function CourseCreditUsageTab({
       mode: 5.5,
       chapter: 6,
       lesson: 6,
-      usageCount: 5,
       credits: 5.5,
       model: 6,
     };
@@ -403,7 +398,7 @@ export default function CourseCreditUsageTab({
           loading={loading}
           isEmpty={!error && rows.length === 0}
           emptyContent={tOperations('detail.creditUsage.table.empty')}
-          emptyColSpan={9}
+          emptyColSpan={8}
           withTooltipProvider={!error}
           tableWrapperClassName='overflow-auto'
           loadingClassName='min-h-[240px]'
@@ -511,16 +506,6 @@ export default function CourseCreditUsageTab({
                           ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
                           'h-10 whitespace-nowrap bg-muted/80 text-xs',
                         )}
-                        style={getColumnStyle('usageCount')}
-                      >
-                        {tOperations('detail.creditUsage.table.usageCount')}
-                        {renderResizeHandle('usageCount')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
                         style={getColumnStyle('credits')}
                       >
                         {tOperations('detail.creditUsage.table.credits')}
@@ -602,17 +587,6 @@ export default function CourseCreditUsageTab({
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-[180px]'
                           />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
-                          style={getColumnStyle('usageCount')}
-                        >
-                          <span className='font-medium tabular-nums text-foreground'>
-                            {formatAdminCount(
-                              row.usage_count || 0,
-                              i18n.language,
-                            )}
-                          </span>
                         </TableCell>
                         <TableCell
                           className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'

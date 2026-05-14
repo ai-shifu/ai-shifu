@@ -74,7 +74,7 @@
         "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme"
       },
       "modelSummary": {
-        "multiple": "{{model}} et {{count}} modèles"
+        "multiple": "{model} et {count} modèles"
       },
       "modes": {
         "ask": "Relance",
