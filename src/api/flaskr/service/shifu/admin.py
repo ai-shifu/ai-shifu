@@ -5286,9 +5286,9 @@ def _load_bill_usage_record_map(
 ) -> Dict[str, BillUsageRecord]:
     normalized_usage_bids = sorted(
         {
-        str(usage_bid or "").strip()
-        for usage_bid in usage_bids
-        if str(usage_bid or "").strip()
+            str(usage_bid or "").strip()
+            for usage_bid in usage_bids
+            if str(usage_bid or "").strip()
         }
     )
     if not normalized_usage_bids:
