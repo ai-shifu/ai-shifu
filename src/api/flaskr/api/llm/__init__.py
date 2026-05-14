@@ -298,7 +298,6 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
-
 def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
     message = str(exc)
     return (
