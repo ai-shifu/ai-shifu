@@ -525,3 +525,78 @@ def test_user_users_group_by_is_rejected() -> None:
 def test_user_users_select_disallowed_column_rejected() -> None:
     payload = _user_users_payload(select=["user_bid", "avatar"])
     _assert_error(payload, ERR_INVALID_COLUMN)
+
+
+# ---------------------------------------------------------------------------
+# user_users user_identify filter policy (v2)
+# ---------------------------------------------------------------------------
+
+
+def _user_users_identify_payload(**overrides):
+    base = {
+        "shifu_bid": "shifu-abc",
+        "table": "user_users",
+        "select": ["user_bid", "user_identify"],
+        "where": [
+            {"field": "user_identify", "op": "=", "value": "13800138000"},
+        ],
+        "limit": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_user_users_filter_by_user_identify_eq_parses() -> None:
+    dsl = _parse(_user_users_identify_payload())
+    assert dsl.table == "user_users"
+    assert "user_identify" in dsl.select
+    assert dsl.filters[0].field == "user_identify"
+    assert dsl.filters[0].op == "="
+
+
+def test_user_users_select_user_identify_with_user_bid_anchor_parses() -> None:
+    payload = _user_users_payload(select=["user_bid", "nickname", "user_identify"])
+    dsl = _parse(payload)
+    assert "user_identify" in dsl.select
+
+
+def test_user_users_filter_by_user_identify_in_is_rejected() -> None:
+    payload = _user_users_identify_payload(
+        where=[
+            {
+                "field": "user_identify",
+                "op": "in",
+                "value": ["13800138000", "13900139000"],
+            }
+        ],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_filter_by_user_identify_like_is_rejected() -> None:
+    payload = _user_users_identify_payload(
+        where=[{"field": "user_identify", "op": "like", "value": "138%"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_filter_by_user_identify_gt_is_rejected() -> None:
+    payload = _user_users_identify_payload(
+        where=[{"field": "user_identify", "op": ">", "value": "13800138000"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_no_anchor_filter_rejected() -> None:
+    """Neither user_bid nor user_identify filter — must be rejected."""
+    payload = _user_users_identify_payload(where=[])
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_user_users_user_identify_not_groupable() -> None:
+    payload = _user_users_identify_payload(
+        select=["user_identify"],
+        group_by=["user_identify"],
+        aggregate=[{"fn": "count", "alias": "n"}],
+    )
+    _assert_error(payload, ERR_INVALID_COLUMN)

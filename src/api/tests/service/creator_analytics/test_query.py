@@ -561,6 +561,168 @@ def test_user_users_lookup_without_where_user_bid_is_rejected(
 
 
 # ---------------------------------------------------------------------------
+# user_users user_identify lookup (v2: phone/email filter + masking)
+# ---------------------------------------------------------------------------
+
+
+def test_user_users_lookup_by_phone_returns_masked_user_identify(
+    mock_request_user, test_client, app
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(user_bid="u1", nickname="张三", user_identify="13800138000")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "user_identify"],
+            "where": [{"field": "user_identify", "op": "=", "value": "13800138000"}],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    rows = payload["data"]["rows"]
+    assert len(rows) == 1
+    row = dict(zip(payload["data"]["columns"], rows[0]))
+    assert row["user_bid"] == "u1"
+    assert row["user_identify"] == "138*****000"
+    assert "13800138000" not in str(rows)
+
+
+def test_user_users_lookup_by_email_returns_masked_user_identify(
+    mock_request_user, test_client, app
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(
+            user_bid="u1", nickname="Alice", user_identify="test@example.com"
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "user_identify"],
+            "where": [
+                {"field": "user_identify", "op": "=", "value": "test@example.com"}
+            ],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0]))
+    assert row["user_identify"] == "te*****@example.com"
+    assert "test@example.com" not in str(payload["data"]["rows"])
+
+
+def test_user_users_nickname_redacted_and_user_identify_masked_independently(
+    mock_request_user, test_client, app
+):
+    """nickname PII fully redacted; user_identify column partially masked — independent."""
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(
+            user_bid="u1",
+            nickname="张三 13812345678",
+            user_identify="13800138000",
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "nickname", "user_identify"],
+            "where": [{"field": "user_bid", "op": "=", "value": "u1"}],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    row = dict(zip(payload["data"]["columns"], payload["data"]["rows"][0]))
+    assert "[REDACTED-PHONE]" in row["nickname"]  # nickname: full redaction
+    assert "13812345678" not in row["nickname"]
+    assert row["user_identify"] == "138*****000"  # user_identify: partial mask
+    assert "13800138000" not in row["user_identify"]
+
+
+def test_user_users_user_identify_in_filter_rejected(
+    mock_request_user, test_client, app
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "user_identify"],
+            "where": [
+                {
+                    "field": "user_identify",
+                    "op": "in",
+                    "value": ["13800138000", "13900139000"],
+                },
+            ],
+            "limit": 10,
+        },
+    )
+    assert response.get_json(force=True)["code"] == 11002
+
+
+def test_user_users_lookup_by_phone_audit_log_emitted(
+    mock_request_user, test_client, app, monkeypatch
+):
+    mock_request_user()
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a")
+        seed_user_info(user_bid="u1", nickname="张三", user_identify="13800138000")
+
+    info_calls: list[tuple] = []
+    real_info = app.logger.info
+    monkeypatch.setattr(
+        app.logger,
+        "info",
+        lambda *args, **kwargs: (
+            info_calls.append((args, kwargs)),
+            real_info(*args, **kwargs),
+        )[1],
+    )
+
+    _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "user_users",
+            "select": ["user_bid", "user_identify"],
+            "where": [{"field": "user_identify", "op": "=", "value": "13800138000"}],
+            "limit": 1,
+        },
+    )
+
+    assert any(
+        args
+        and isinstance(args[0], str)
+        and "creator_analytics.user_lookup" in args[0]
+        and "user_identify" in "".join(str(a) for a in args)
+        for args, _ in info_calls
+    )
+
+
+# ---------------------------------------------------------------------------
 # Engine isolation
 # ---------------------------------------------------------------------------
 
