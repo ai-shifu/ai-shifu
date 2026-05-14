@@ -82,7 +82,7 @@ interface LessonFeedbackPopupState {
 }
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
-const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
+const RUN_STREAM_IDLE_TIMEOUT_MS = 3000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 const DEFAULT_LISTEN_AUDIO_POSITION = 0;
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
@@ -1814,6 +1814,14 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              if (response.is_terminal === true) {
+                cleanupRunStreamState();
+                try {
+                  source?.close?.();
+                } catch {}
+                return;
+              }
+
               const completedElementBid =
                 currentBlockIdRef.current || blockId || '';
               setCurrentStreamingElementBid('');
