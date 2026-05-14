@@ -124,7 +124,9 @@ def _ensure_notification_extension_metadata(
     operator_user_bid: str,
     grant_channel: str,
 ) -> str:
-    metadata = dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
     extensions = metadata.get("notification_extensions")
     if not isinstance(extensions, dict):
         extensions = {}
