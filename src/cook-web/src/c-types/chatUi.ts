@@ -46,6 +46,7 @@ export interface ChatContentItem {
   is_new?: boolean;
   is_renderable?: boolean;
   is_speakable?: boolean;
+  is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
   payload?: StudyRecordPayload;

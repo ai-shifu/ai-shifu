@@ -552,6 +552,11 @@ function useChatLogicHook({
         };
       }
 
+      nextItems[targetIndex] = {
+        ...nextItems[targetIndex],
+        is_final: true,
+      };
+
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
     },
     [finalizeLikeStatusByParent, getAskButtonMarkup, isListenMode, mobileStyle],
