@@ -321,13 +321,14 @@ export const getMissingListenModeAudioBlockBids = (
       return;
     }
 
-    const elementBid = item.element_bid?.trim();
-    if (!elementBid || seen.has(elementBid)) {
+    const requestBid =
+      item.generated_block_bid?.trim() || item.element_bid?.trim();
+    if (!requestBid || seen.has(requestBid)) {
       return;
     }
 
-    seen.add(elementBid);
-    missingBids.push(elementBid);
+    seen.add(requestBid);
+    missingBids.push(requestBid);
   });
 
   return missingBids;

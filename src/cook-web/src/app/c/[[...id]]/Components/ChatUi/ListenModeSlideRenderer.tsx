@@ -87,6 +87,7 @@ interface ListenModeSlideRendererProps {
     isAudioSequenceActive: boolean;
   }) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
+  isPreparingAudio?: boolean;
 }
 
 type ResolveRenderSequence = (params: {
@@ -411,6 +412,7 @@ const ListenModeSlideRenderer = ({
   onPlayerVisibilityChange,
   onPlaybackStateChange,
   onMobileViewModeChange,
+  isPreparingAudio = false,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -1446,7 +1448,7 @@ const ListenModeSlideRenderer = ({
           playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
-        {isLoading ? (
+        {isLoading || isPreparingAudio ? (
           <div
             className={cn(
               'pointer-events-none absolute inset-0 z-[91] flex items-center justify-center backdrop-blur-sm',
@@ -1455,7 +1457,14 @@ const ListenModeSlideRenderer = ({
                 : 'bg-[var(--color-slide-desktop-bg)]/70',
             )}
           >
-            <Loader2 className='size-6 animate-spin text-primary' />
+            <div className='flex flex-col items-center gap-3 text-primary'>
+              <Loader2 className='size-6 animate-spin' />
+              {isPreparingAudio ? (
+                <span className='text-sm font-medium'>
+                  {t('module.chat.slideAudioBufferingWaitingForAudio')}
+                </span>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>

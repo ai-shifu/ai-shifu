@@ -100,6 +100,28 @@ describe('listenModeUtils', () => {
     expect(missingBids).toEqual(['missing-speakable']);
   });
 
+  it('deduplicates listen-mode audio backfill by generated block bid', () => {
+    const missingBids = getMissingListenModeAudioBlockBids([
+      createContentItem({
+        element_bid: 'text-position-0',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+      }),
+      createContentItem({
+        element_bid: 'text-position-1',
+        generated_block_bid: 'generated-block-1',
+        is_speakable: true,
+      }),
+      createContentItem({
+        element_bid: 'text-position-2',
+        generated_block_bid: 'generated-block-2',
+        is_speakable: true,
+      }),
+    ]);
+
+    expect(missingBids).toEqual(['generated-block-1', 'generated-block-2']);
+  });
+
   it('treats streaming audio tracks as playable during listen-mode backfill', () => {
     const item = createContentItem({
       audioTracks: [
@@ -113,6 +135,22 @@ describe('listenModeUtils', () => {
 
     expect(hasPlayableListenAudioForItem(item)).toBe(true);
     expect(getMissingListenModeAudioBlockBids([item])).toEqual([]);
+  });
+
+  it('passes item streaming state through to slide audio source while waiting for first audio', () => {
+    expect(
+      resolveListenSlideAudioSource(
+        createContentItem({
+          isAudioStreaming: true,
+          audioTracks: [],
+          audio_segments: [],
+        }),
+      ),
+    ).toEqual({
+      audioUrl: undefined,
+      audioSegments: undefined,
+      isAudioStreaming: true,
+    });
   });
 
   it('uses completed audio url as the canonical slide source over stale stream segments', () => {

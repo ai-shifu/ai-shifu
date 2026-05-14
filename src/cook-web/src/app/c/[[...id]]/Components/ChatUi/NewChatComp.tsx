@@ -390,6 +390,8 @@ export const NewChatComponents = ({
   const isListenPlaybackBusy =
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
+  const isListenAudioPreparingVisible =
+    listenAudioBackfillStatus === 'preparing' && !isListenPlaybackBusy;
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
@@ -1251,6 +1253,7 @@ export const NewChatComponents = ({
             onSend={memoizedOnSend}
             onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             onPlaybackStateChange={setListenPlaybackState}
+            isPreparingAudio={isListenAudioPreparingVisible}
           />
         ) : (
           <div
