@@ -12,7 +12,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
@@ -22,6 +22,7 @@ from flaskr.service.user.consts import (
     USER_STATE_PAID,
 )
 from flaskr.service.user.models import UserInfo as UserEntity, UserVerifyCode
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import (
     generate_token,
     ensure_admin_creator_and_demo_permissions,
@@ -287,28 +288,51 @@ def verify_phone_code(
     if FIX_CHECK_CODE is None:
         configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 
-    code_key = app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone
+    raw_phone = (phone or "").strip()
+    normalized_phone = normalize_phone_identifier(raw_phone)
+    if not normalized_phone:
+        raise_param_error("mobile")
+    lookup_phones = [normalized_phone]
+    if raw_phone and raw_phone not in lookup_phones:
+        lookup_phones.append(raw_phone)
+    code_keys = [
+        app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + lookup_phone
+        for lookup_phone in lookup_phones
+    ]
     if code != FIX_CHECK_CODE:
-        cached = redis.get(code_key)
+        cached = None
+        cached_phone = normalized_phone
+        for code_key, lookup_phone in zip(code_keys, lookup_phones):
+            cached = redis.get(code_key)
+            if cached is not None:
+                cached_phone = lookup_phone
+                break
         if cached is not None:
             cached_str = (
                 cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
             )
             if code != cached_str:
                 raise_error("server.user.smsCheckError")
-            _consume_latest_sms_code_from_db(app, phone, code)
+            status = _consume_latest_sms_code_from_db(app, cached_phone, code)
+            if status != "ok" and cached_phone != normalized_phone:
+                _consume_latest_sms_code_from_db(app, normalized_phone, code)
         else:
-            status = _consume_latest_sms_code_from_db(app, phone, code)
+            status = "expired"
+            for lookup_phone in lookup_phones:
+                status = _consume_latest_sms_code_from_db(app, lookup_phone, code)
+                if status == "ok":
+                    break
+                if status == "invalid":
+                    break
             if status == "invalid":
                 raise_error("server.user.smsCheckError")
             if status != "ok":
                 raise_error("server.user.smsSendExpired")
 
-    redis.delete(code_key)
+    redis.delete(*code_keys)
 
     created_new_user = False
     creator_granted_now = False
-    normalized_phone = phone.strip()
     normalized_course_id = str(course_id or "").strip() or None
 
     with transactional_session():

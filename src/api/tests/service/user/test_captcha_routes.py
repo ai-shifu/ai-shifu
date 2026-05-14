@@ -196,3 +196,33 @@ def test_console_send_sms_code_does_not_require_captcha_ticket(
     assert response.status_code == 200
     assert body["code"] == 0
     assert body["data"]["expire_in"] > 0
+
+
+def test_console_send_sms_code_normalizes_cn_prefix(test_client, app, monkeypatch):
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.user.models import UserVerifyCode
+
+    captured = []
+    monkeypatch.setattr(
+        user_utils,
+        "send_sms_code_ali",
+        lambda _app, _mobile, _code: captured.append(_mobile) or True,
+    )
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/console_send_sms_code",
+        {"mobile": "+8613800138003"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+    assert captured == ["13800138003"]
+
+    with app.app_context():
+        record = (
+            UserVerifyCode.query.filter_by(phone="13800138003")
+            .order_by(UserVerifyCode.id.desc())
+            .first()
+        )
+        assert record is not None

@@ -8,6 +8,7 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.dao import db
 
@@ -18,7 +19,7 @@ def import_user(
     """Import user and enable course"""
     app.logger.info(f"import_user: {mobile}, {course_id}")
     with app.app_context():
-        normalized_mobile = str(mobile or "").strip()
+        normalized_mobile = normalize_phone_identifier(mobile)
         if not normalized_mobile:
             raise RuntimeError("Mobile must not be empty for import_user")
 
