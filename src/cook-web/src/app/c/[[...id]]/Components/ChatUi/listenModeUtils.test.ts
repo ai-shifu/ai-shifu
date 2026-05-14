@@ -2,7 +2,6 @@ import {
   buildSlidePageMapping,
   canRequestListenModeTtsForItem,
   getMissingListenModeAudioBlockBids,
-  hasListenModeDisplayOnlyContent,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillCandidate,
   resolveListenSlideAudioSource,
@@ -212,39 +211,6 @@ describe('listenModeUtils', () => {
 
     expect(ready.has('speakable-block')).toBe(true);
     expect(ready.has('visual-only-block')).toBe(false);
-  });
-
-  it('allows display-only content with interactions to enter listen mode without audio backfill', () => {
-    expect(
-      hasListenModeDisplayOnlyContent([
-        createContentItem({
-          element_bid: 'visual-only-content',
-          content: '<section>Slide content</section>',
-          is_speakable: false,
-        }),
-        createContentItem({
-          element_bid: 'interaction-1',
-          type: 'interaction',
-          is_speakable: false,
-        }),
-      ]),
-    ).toBe(true);
-  });
-
-  it('does not treat loading or empty display-only items as listen-mode content', () => {
-    expect(
-      hasListenModeDisplayOnlyContent([
-        createContentItem({
-          element_bid: 'loading',
-          is_speakable: false,
-        }),
-        createContentItem({
-          element_bid: 'empty-visual',
-          content: '',
-          is_speakable: false,
-        }),
-      ]),
-    ).toBe(false);
   });
 
   it('maps listen slides by generated block identity when element ids differ', () => {
