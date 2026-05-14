@@ -18,6 +18,7 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
@@ -234,10 +235,16 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "progress_record_bid",
                 "usage_type",
                 "usage_scene",
+                "provider",
+                "model",
+                "record_level",
                 "input",
+                "input_cache",
                 "output",
+                "total",
                 "latency_ms",
                 "created_at",
+                "billable",
             }
         ),
         filterable=frozenset(
@@ -246,17 +253,30 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "progress_record_bid",
                 "usage_type",
                 "usage_scene",
+                "provider",
+                "model",
+                "record_level",
+                "billable",
                 "created_at",
             }
         ),
         groupable=frozenset(
-            {"user_bid", "progress_record_bid", "usage_type", "usage_scene"}
+            {
+                "user_bid",
+                "progress_record_bid",
+                "usage_type",
+                "usage_scene",
+                "provider",
+                "model",
+            }
         ),
         aggregatable={
             "usage_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
             "input": _NUMERIC_AGGS,
+            "input_cache": _NUMERIC_AGGS,
             "output": _NUMERIC_AGGS,
+            "total": _NUMERIC_AGGS,
             "latency_ms": _NUMERIC_AGGS,
             "created_at": _TIMESTAMP_AGGS,
         },
@@ -276,22 +296,79 @@ WHITELIST: Mapping[str, TableSpec] = {
         has_deleted=False,
     ),
     # ------------------------------------------------------------------
-    # Global user table — strictly limited to nickname lookup by a known
-    # user_bid list. Compared to the other tables this one is special:
-    #   - selectable only {user_bid, nickname} (no phone / email / avatar)
-    #   - filterable only {user_bid}; DSL enforces a where user_bid clause
-    #   - groupable / aggregatable empty (no nickname distribution probing)
+    # Daily pre-aggregated credit usage — one row per (stat_date, shifu,
+    # usage_scene, usage_type, provider, model, billing_metric).
+    # `consumed_credits` is the authoritative credit-cost figure; it is
+    # already rate-adjusted by the billing settlement job.
+    # Unlike bill_usage.total (raw token/char count), consumed_credits
+    # reflects the actual deduction from the creator's wallet.
+    # ------------------------------------------------------------------
+    "bill_daily_usage_metrics": TableSpec(
+        table_key="bill_daily_usage_metrics",
+        model=BillingDailyUsageMetric,
+        selectable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+                "billing_metric",
+                "consumed_credits",
+                "record_count",
+            }
+        ),
+        filterable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+                "billing_metric",
+            }
+        ),
+        groupable=frozenset(
+            {
+                "stat_date",
+                "usage_scene",
+                "usage_type",
+                "provider",
+                "model",
+                "billing_metric",
+            }
+        ),
+        aggregatable={
+            "consumed_credits": _NUMERIC_AGGS,
+            "record_count": _NUMERIC_AGGS,
+            "stat_date": _TIMESTAMP_AGGS,
+            "billing_metric": _DIMENSION_AGGS,
+        },
+        has_deleted=True,
+        has_shifu_bid=True,
+    ),
+    # ------------------------------------------------------------------
+    # Global user table — limited to nickname/identify lookup by a known
+    # user_bid list or an exact user_identify (phone/email) match.
+    # Compared to the other tables this one is special:
+    #   - selectable {user_bid, nickname, user_identify}
+    #   - filterable {user_bid, user_identify}; DSL enforces that at least
+    #     one anchor filter is present: user_bid (= or in) or
+    #     user_identify (= only — no in/like/range to block enumeration)
+    #   - groupable / aggregatable empty (no distribution probing)
     #   - has_shifu_bid=False — table has no shifu_bid column; permission
     #     is still gated by funcs.run_dsl via get_user_shifu_permissions
     #   - per-query limit hard-capped to 50 (see dsl._USER_USERS_LIMIT_MAX)
     #   - nickname values pass through PII redaction in funcs
+    #   - user_identify values pass through PII masking in funcs
+    #     (middle digits replaced with *****, not fully redacted)
     #   - access is audit-logged
     # ------------------------------------------------------------------
     "user_users": TableSpec(
         table_key="user_users",
         model=UserInfo,
-        selectable=frozenset({"user_bid", "nickname"}),
-        filterable=frozenset({"user_bid"}),
+        selectable=frozenset({"user_bid", "nickname", "user_identify"}),
+        filterable=frozenset({"user_bid", "user_identify"}),
         groupable=frozenset(),
         aggregatable={},
         has_deleted=True,

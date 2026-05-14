@@ -40,3 +40,46 @@ def redact_pii(text: str) -> str:
     text = _EMAIL_RE.sub("[REDACTED-EMAIL]", text)
     text = _ID_CARD_RE.sub("[REDACTED-IDCARD]", text)
     return text
+
+
+# ---------------------------------------------------------------------------
+# Masking helpers for dedicated PII fields (user_identify)
+# These preserve enough characters to let a creator cross-reference their own
+# student list while hiding the full value from casual inspection.
+# ---------------------------------------------------------------------------
+
+
+def _mask_phone(value: str) -> str:
+    """Return a masked Chinese phone number: ``138*****000``."""
+    return value[:3] + "*****" + value[-3:]
+
+
+def _mask_email(value: str) -> str:
+    """Return a masked email address: ``te*****@example.com``.
+
+    At most the first two characters of the local part are preserved;
+    the domain (including ``@``) is kept intact.
+    """
+    at_idx = value.find("@")
+    if at_idx < 0:
+        return value
+    local = value[:at_idx]
+    domain = value[at_idx:]
+    prefix = local[:2] if len(local) >= 2 else local
+    return prefix + "*****" + domain
+
+
+def mask_user_identify(value: str) -> str:
+    """Return a masked ``user_identify`` value.
+
+    Detects whether the value is a phone number or email and applies the
+    appropriate masking.  Unrecognised formats are returned unchanged.
+    Empty or non-string values are returned as-is.
+    """
+    if not isinstance(value, str) or not value:
+        return value
+    if _PHONE_CN_RE.fullmatch(value):
+        return _mask_phone(value)
+    if "@" in value:
+        return _mask_email(value)
+    return value
