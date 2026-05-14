@@ -150,6 +150,7 @@ const EMPTY_COURSE_USERS_RESPONSE: AdminOperationCourseUsersResponse = {
 
 const EMPTY_COURSE_CREDIT_USAGE_RESPONSE: AdminOperationCourseCreditUsageListResponse =
   {
+    view: 'grouped',
     items: [],
     page: 1,
     page_count: 0,
@@ -353,12 +354,15 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.creditUsage.modes.learn')
  * t('module.operationsCourse.detail.creditUsage.modes.listen')
  * t('module.operationsCourse.detail.creditUsage.modes.ask')
+ * t('module.operationsCourse.detail.creditUsage.modes.mixed')
  * t('module.operationsCourse.detail.creditUsage.modes.unknown')
+ * t('module.operationsCourse.detail.creditUsage.modelSummary.multiple')
  * t('module.operationsCourse.detail.creditUsage.table.createdAt')
  * t('module.operationsCourse.detail.creditUsage.table.nickname')
  * t('module.operationsCourse.detail.creditUsage.table.mode')
  * t('module.operationsCourse.detail.creditUsage.table.chapter')
  * t('module.operationsCourse.detail.creditUsage.table.lesson')
+ * t('module.operationsCourse.detail.creditUsage.table.usageCount')
  * t('module.operationsCourse.detail.creditUsage.table.credits')
  * t('module.operationsCourse.detail.creditUsage.table.model')
  * t('module.operationsCourse.detail.creditUsage.table.empty')
@@ -588,6 +592,7 @@ export default function AdminOperationCourseDetailPage() {
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
+          view: 'grouped',
           keyword: resolvedFilters.keyword.trim(),
           mode:
             resolvedFilters.mode === FILTER_ALL_OPTION
@@ -600,6 +605,7 @@ export default function AdminOperationCourseDetailPage() {
           return;
         }
         setCourseCreditUsages({
+          view: response?.view || 'grouped',
           items: response?.items || [],
           page: response?.page || targetPage,
           page_count: response?.page_count || 0,

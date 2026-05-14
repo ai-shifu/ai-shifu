@@ -73,21 +73,26 @@
         "userKeywordPlaceholderEmail": "Enter email or nickname",
         "userKeywordPlaceholderPhone": "Enter phone or nickname"
       },
+      "modelSummary": {
+        "multiple": "{{model}} and {{count}} models"
+      },
       "modes": {
         "ask": "Follow-up",
         "learn": "Learning",
         "listen": "Listen",
+        "mixed": "Mixed",
         "unknown": "Unknown mode"
       },
       "table": {
         "chapter": "Chapter",
         "createdAt": "Consumed At",
-        "credits": "Credits Consumed",
+        "credits": "Total Credits Consumed",
         "empty": "No credit usage records",
         "lesson": "Lesson",
         "mode": "Usage Mode",
         "model": "Model",
-        "nickname": "Nickname"
+        "nickname": "Nickname",
+        "usageCount": "Usage Count"
       },
       "title": "Credit Usage"
     },

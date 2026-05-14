@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from flaskr.common.swagger import register_schema_to_swagger
 
@@ -886,6 +886,13 @@ class AdminOperationCourseRatingListDTO(BaseModel):
 class AdminOperationCourseCreditUsageItemDTO(BaseModel):
     """Operator-facing course credit usage row."""
 
+    model_config = ConfigDict(protected_namespaces=())
+
+    group_key: str = Field(
+        default="",
+        description="Grouped row business key or raw usage key",
+        required=False,
+    )
     usage_bid: str = Field(..., description="Usage business identifier", required=False)
     progress_record_bid: str = Field(
         default="",
@@ -920,6 +927,16 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
     )
     provider: str = Field(default="", description="Provider name", required=False)
     model: str = Field(default="", description="Provider model", required=False)
+    usage_count: int = Field(
+        default=1,
+        description="Grouped usage row count",
+        required=False,
+    )
+    model_variant_count: int = Field(
+        default=0,
+        description="Distinct provider/model count inside the row",
+        required=False,
+    )
     consumed_credits: int | float = Field(
         default=0,
         description="Consumed credits",
@@ -935,6 +952,11 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
 class AdminOperationCourseCreditUsageListDTO(BaseModel):
     """Operator-facing course credit usage list payload."""
 
+    view: str = Field(
+        default="grouped",
+        description="Response view mode: grouped/raw",
+        required=False,
+    )
     items: list[AdminOperationCourseCreditUsageItemDTO] = Field(
         default_factory=list,
         description="Paginated credit usage rows",
@@ -947,6 +969,7 @@ class AdminOperationCourseCreditUsageListDTO(BaseModel):
 
     def __json__(self) -> dict[str, Any]:
         return {
+            "view": self.view,
             "items": [item.__json__() for item in self.items],
             "page": self.page,
             "page_size": self.page_size,

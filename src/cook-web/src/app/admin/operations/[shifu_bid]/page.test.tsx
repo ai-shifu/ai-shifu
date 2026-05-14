@@ -318,9 +318,11 @@ describe('AdminOperationCourseDetailPage', () => {
       total: 1,
     });
     mockGetAdminOperationCourseCreditUsages.mockResolvedValue({
+      view: 'grouped',
       items: [
         {
-          usage_bid: 'usage-1',
+          group_key: 'progress-1',
+          usage_bid: 'usage-2',
           progress_record_bid: 'progress-1',
           generated_block_bid: '',
           user_bid: 'student-1',
@@ -331,10 +333,12 @@ describe('AdminOperationCourseDetailPage', () => {
           chapter_title: 'Chapter 1',
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
-          usage_mode: 'listen',
+          usage_mode: 'mixed',
           provider: 'volcengine',
           model: 'cancan-2.0',
-          consumed_credits: 12,
+          usage_count: 2,
+          model_variant_count: 2,
+          consumed_credits: 17,
           created_at: '2026-04-08T12:30:00Z',
         },
       ],
@@ -484,6 +488,7 @@ describe('AdminOperationCourseDetailPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        view: 'grouped',
         keyword: '',
         mode: '',
         start_time: '',
@@ -498,11 +503,21 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        'module.operationsCourse.detail.creditUsage.modes.listen',
+        'module.operationsCourse.detail.creditUsage.modes.mixed',
       ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText('volcengine / cancan-2.0')).toBeInTheDocument();
-    expect(screen.getAllByText('12').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.modelSummary.multiple',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.table.usageCount',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('17')).toBeInTheDocument();
   });
 
   test('formats course metrics and learning progress without grouping in Chinese locale', async () => {

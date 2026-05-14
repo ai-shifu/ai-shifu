@@ -1632,6 +1632,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Credit usage mode filter
+            - name: view
+              in: query
+              type: string
+              required: false
+              description: Credit usage view mode, grouped or raw
             - name: start_time
               in: query
               type: string
@@ -1660,6 +1665,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         filters = {
             "keyword": request.args.get("keyword", ""),
             "mode": request.args.get("mode", ""),
+            "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
                 is_end=False,

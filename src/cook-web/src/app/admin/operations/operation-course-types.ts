@@ -136,7 +136,10 @@ export type AdminOperationCourseCreditUsageMode =
   | 'learn'
   | 'listen'
   | 'ask'
+  | 'mixed'
   | LooseString;
+
+export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
 
 export type AdminOperationCourseCreditUsageModeFilter =
   | 'all'
@@ -152,6 +155,7 @@ export type AdminOperationCourseCreditUsageFilters = {
 };
 
 export type AdminOperationCourseCreditUsageItem = {
+  group_key: string;
   usage_bid: string;
   progress_record_bid: string;
   generated_block_bid: string;
@@ -166,11 +170,14 @@ export type AdminOperationCourseCreditUsageItem = {
   usage_mode: AdminOperationCourseCreditUsageMode;
   provider: string;
   model: string;
+  usage_count: number;
+  model_variant_count: number;
   consumed_credits: number;
   created_at: string;
 };
 
 export type AdminOperationCourseCreditUsageListResponse = {
+  view: AdminOperationCourseCreditUsageView;
   items: AdminOperationCourseCreditUsageItem[];
   page: number;
   page_count: number;

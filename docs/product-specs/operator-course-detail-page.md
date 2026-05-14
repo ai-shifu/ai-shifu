@@ -81,6 +81,34 @@ The backend detail payload should return:
   - reduce the size and review risk of `page.tsx`
   - allow later tab-level iteration without re-reading the whole detail page
 
+### Credit Usage Aggregation Follow-up
+
+- The current credit-usage list is settlement-accurate, but it is too granular
+  for operator inspection because it shows one row per settled `usage_bid`.
+- The operator-facing view should evolve without changing billing or settlement
+  behavior.
+- Implemented in this branch:
+  - add a grouped credit-usage view for operators
+  - keep grouping on the backend so pagination, totals, and ordering remain
+    correct
+  - use `progress_record_bid` as the primary grouping key
+  - keep rows without `progress_record_bid` as standalone rows instead of
+    forcing them into a group
+- Grouped rows should summarize:
+  - latest consumed time
+  - learner account
+  - nickname
+  - chapter
+  - lesson
+  - usage mode summary
+  - usage count
+  - total consumed credits
+  - model summary
+- Future extension:
+  - keep the grouped view as the default operator overview
+  - later add grouped-to-raw drill-down so operators can inspect underlying
+    usage rows without replacing grouped view as the primary mode
+
 ### Verification
 
 - Add focused backend tests for the new operator detail response
