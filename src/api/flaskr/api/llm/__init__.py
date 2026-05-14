@@ -298,6 +298,15 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
+
+def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        "repeating the same chunk" in message
+        and exc.__class__.__module__.startswith("litellm")
+    )
+
+
 def _stream_litellm_completion(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
@@ -855,28 +864,38 @@ def chat_llm(
             params,
             kwargs,
         )
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    True if res.choices[0].finish_reason else False,
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
-                )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
+        try:
+            for res in response:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                if len(res.choices) and res.choices[0].delta.content:
+                    response_text += res.choices[0].delta.content
+                    yield LLMStreamResponse(
+                        res.id,
+                        True if res.choices[0].finish_reason else False,
+                        False,
+                        res.choices[0].delta.content,
+                        res.choices[0].finish_reason,
+                        None,
+                    )
+                res_usage = getattr(res, "usage", None)
+                if res_usage:
+                    input_cache_tokens = _extract_input_cache(res_usage)
+                    usage = ModelUsage(
+                        unit="TOKENS",
+                        input=res_usage.prompt_tokens,
+                        output=res_usage.completion_tokens,
+                        total=res_usage.total_tokens,
+                    )
+        except Exception as exc:
+            if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
+                raise
+            app.logger.warning(
+                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | error=%s",
+                invoke_model,
+                len(response_text),
+                exc,
+            )
     else:
         raise_error_with_args(
             "server.llm.modelNotSupported",
