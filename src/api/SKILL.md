@@ -13,7 +13,6 @@
 - `skills/shifu-authoring-flow/SKILL.md`
 - `skills/user-auth-flows/SKILL.md`
 - `skills/gen-mdf-proxy/SKILL.md`
-- `skills/listen-element-finalization/SKILL.md`
 
 ## When To Add A Skill
 

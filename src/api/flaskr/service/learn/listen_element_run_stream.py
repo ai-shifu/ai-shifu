@@ -860,7 +860,5 @@ class ListenElementRunStreamMixin:
                     content_text=state.raw_content,
                     payload=ElementPayloadDTO(audio=default_audio, previous_visuals=[]),
                 )
-                # Emit the finalized fallback snapshot so the live SSE consumer
-                # sees the same terminal element state as the persisted record.
-                yield self._element_message(element)
+                self._persist_element(element)
         self._block_states.pop(generated_block_bid, None)
