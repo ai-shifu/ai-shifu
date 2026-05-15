@@ -1,6 +1,7 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copy course",
     "transferCreator": "Transfer creator"
   },
   "coursePromptDialog": {
@@ -365,5 +366,23 @@
     "sameCreator": "The target contact already belongs to the current creator",
     "submitSuccess": "Creator transferred",
     "title": "Transfer Creator"
+  },
+  "copyCourseDialog": {
+    "title": "Copy course",
+    "description": "Copy the latest draft into a new draft course for the target creator. Shared permissions are not copied.",
+    "currentCreator": "Current creator",
+    "newCourseName": "New course name",
+    "identifier": "Target creator",
+    "contactPlaceholderEmail": "Enter the target creator email",
+    "contactPlaceholderPhone": "Enter the target creator phone number",
+    "identifierRequired": "Enter a valid target creator contact",
+    "confirm": "Confirm copy",
+    "submitSuccess": "Course copied successfully",
+    "confirmTitle": "Confirm copy course",
+    "confirmDescriptionPrefix": "Copy the latest draft of",
+    "confirmDescriptionCourseSuffix": "to create a new draft course for",
+    "confirmDescriptionTargetPrefix": "named",
+    "courseNameFallback": "Course",
+    "courseNameSuffix": "-Copy"
   }
 }

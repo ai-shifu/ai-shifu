@@ -10,6 +10,8 @@
     "outlineNameTooLong": "Outline name is too long",
     "parentOutlineNotFound": "Parent outline not found",
     "permissionContactLimit": "Shared permissions exceed the limit ({count})",
+    "copyCourseDemoNotAllowed": "Builtin demo courses cannot be copied",
+    "copyCourseDraftNotFound": "Latest draft not found for this course",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
     "shifuNameRequired": "Course name is required",
     "shifuNameTooLong": "Course name is too long (max {max_length} characters)",
@@ -21,6 +23,8 @@
     "transferCreatorTargetNotFound": "Transfer target user not found",
     "ttsNotEnabled": "Text-to-Speech is not enabled",
     "unitNameTooLong": "Unit name is too long",
-    "unitNotFound": "Unit not found"
+    "unitNotFound": "Unit not found",
+    "copyCourseTitleFallback": "Course",
+    "copyCourseTitleSuffix": "-Copy"
   }
 }

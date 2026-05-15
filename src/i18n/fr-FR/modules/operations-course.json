@@ -1,6 +1,7 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copier le cours",
     "transferCreator": "Transférer le créateur"
   },
   "coursePromptDialog": {
@@ -365,5 +366,23 @@
     "sameCreator": "Le contact cible appartient déjà au créateur actuel",
     "submitSuccess": "Créateur transferred",
     "title": "Transfer Créateur"
+  },
+  "copyCourseDialog": {
+    "title": "Copier le cours",
+    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible. Les autorisations partagées ne sont pas copiées.",
+    "currentCreator": "Créateur actuel",
+    "newCourseName": "Nom du nouveau cours",
+    "identifier": "Créateur cible",
+    "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
+    "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
+    "identifierRequired": "Saisissez un contact valide pour le créateur cible",
+    "confirm": "Confirmer la copie",
+    "submitSuccess": "Cours copié avec succès",
+    "confirmTitle": "Confirmer la copie du cours",
+    "confirmDescriptionPrefix": "Copier le dernier brouillon de",
+    "confirmDescriptionCourseSuffix": "pour créer un nouveau cours brouillon pour",
+    "confirmDescriptionTargetPrefix": "nommé",
+    "courseNameFallback": "Cours",
+    "courseNameSuffix": "-Copie"
   }
 }

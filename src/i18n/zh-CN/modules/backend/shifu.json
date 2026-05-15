@@ -10,6 +10,8 @@
     "outlineNameTooLong": "大纲名称过长",
     "parentOutlineNotFound": "父级大纲不存在",
     "permissionContactLimit": "共享权限最多支持{count}个用户",
+    "copyCourseDemoNotAllowed": "内置引导课程不支持复制",
+    "copyCourseDraftNotFound": "当前课程缺少可复制的最新草稿",
     "shifuDescriptionTooLong": "课程描述不能超过500个字符",
     "shifuNameRequired": "请输入课程名称",
     "shifuNameTooLong": "课程名称不能超过{max_length}个字符",
@@ -21,6 +23,8 @@
     "transferCreatorTargetNotFound": "未找到目标创作者用户",
     "ttsNotEnabled": "语音合成未开启",
     "unitNameTooLong": "单元名称过长",
-    "unitNotFound": "单元不存在"
+    "unitNotFound": "单元不存在",
+    "copyCourseTitleFallback": "课程",
+    "copyCourseTitleSuffix": "-副本"
   }
 }

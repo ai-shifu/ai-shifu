@@ -194,6 +194,19 @@ const buildCreatedLast7DaysFilters = (): Pick<
   };
 };
 
+const buildCopyCourseName = (
+  courseName: string | undefined,
+  fallbackName: string,
+  suffix: string,
+): string => {
+  const normalizedCourseName = courseName?.trim() || fallbackName;
+  const maxLength = 100;
+  if (normalizedCourseName.length + suffix.length <= maxLength) {
+    return `${normalizedCourseName}${suffix}`;
+  }
+  return `${normalizedCourseName.slice(0, maxLength - suffix.length)}${suffix}`;
+};
+
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
   value: string,
@@ -270,6 +283,7 @@ const ClearableTextInput = ({
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.operationsCourse.title')
  * t('module.operationsCourse.emptyList')
+ * t('module.operationsCourse.actions.copyCourse')
  * t('module.operationsCourse.actions.transferCreator')
  * t('module.operationsCourse.detail.title')
  * t('module.operationsCourse.detail.back')
@@ -333,6 +347,20 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionPrefix')
  * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionCourseSuffix')
  * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionTargetPrefix')
+ * t('module.operationsCourse.copyCourseDialog.title')
+ * t('module.operationsCourse.copyCourseDialog.description')
+ * t('module.operationsCourse.copyCourseDialog.currentCreator')
+ * t('module.operationsCourse.copyCourseDialog.newCourseName')
+ * t('module.operationsCourse.copyCourseDialog.identifier')
+ * t('module.operationsCourse.copyCourseDialog.contactPlaceholderEmail')
+ * t('module.operationsCourse.copyCourseDialog.contactPlaceholderPhone')
+ * t('module.operationsCourse.copyCourseDialog.identifierRequired')
+ * t('module.operationsCourse.copyCourseDialog.confirm')
+ * t('module.operationsCourse.copyCourseDialog.submitSuccess')
+ * t('module.operationsCourse.copyCourseDialog.confirmTitle')
+ * t('module.operationsCourse.copyCourseDialog.confirmDescriptionPrefix')
+ * t('module.operationsCourse.copyCourseDialog.confirmDescriptionCourseSuffix')
+ * t('module.operationsCourse.copyCourseDialog.confirmDescriptionTargetPrefix')
  */
 const OperationsPage = () => {
   const { t, i18n } = useTranslation();
@@ -428,6 +456,15 @@ const OperationsPage = () => {
   const [promptDetailLoading, setPromptDetailLoading] = useState(false);
   const [promptDetailError, setPromptDetailError] = useState('');
   const [canTogglePromptDetail, setCanTogglePromptDetail] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyTargetCourse, setCopyTargetCourse] =
+    useState<AdminOperationCourseItem | null>(null);
+  const [copyContactType, setCopyContactType] =
+    useState<TransferContactType>(defaultTransferContactType);
+  const [copyIdentifier, setCopyIdentifier] = useState('');
+  const [copyLoading, setCopyLoading] = useState(false);
+  const [copyError, setCopyError] = useState('');
+  const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
@@ -753,6 +790,35 @@ const OperationsPage = () => {
     [defaultTransferContactType],
   );
 
+  const handleCopyDialogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setCopyDialogOpen(nextOpen);
+      if (nextOpen) {
+        return;
+      }
+      setCopyTargetCourse(null);
+      setCopyContactType(defaultTransferContactType);
+      setCopyIdentifier('');
+      setCopyError('');
+      setCopyConfirmOpen(false);
+      setCopyLoading(false);
+    },
+    [defaultTransferContactType],
+  );
+
+  const handleCopyCourseClick = useCallback(
+    (course: AdminOperationCourseItem) => {
+      setCopyTargetCourse(course);
+      setCopyContactType(defaultTransferContactType);
+      setCopyIdentifier('');
+      setCopyError('');
+      setCopyConfirmOpen(false);
+      setCopyLoading(false);
+      setCopyDialogOpen(true);
+    },
+    [defaultTransferContactType],
+  );
+
   const handleTransferCreatorClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setTransferTargetCourse(course);
@@ -821,10 +887,38 @@ const OperationsPage = () => {
     return resolveActorDisplay(transferTargetCourse, 'creator');
   }, [resolveActorDisplay, transferTargetCourse]);
   const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
+  const copyCreatorDisplay = useMemo(() => {
+    if (!copyTargetCourse) {
+      return { primary: '--', secondary: '' };
+    }
+    return resolveActorDisplay(copyTargetCourse, 'creator');
+  }, [copyTargetCourse, resolveActorDisplay]);
+  const copyCourseName = copyTargetCourse?.course_name?.trim() || '--';
+  const copyCourseNameFallback = useMemo(
+    () => tOperations('copyCourseDialog.courseNameFallback'),
+    [tOperations],
+  );
+  const copyCourseNameSuffix = useMemo(
+    () => tOperations('copyCourseDialog.courseNameSuffix'),
+    [tOperations],
+  );
+  const copyNewCourseName = useMemo(
+    () =>
+      buildCopyCourseName(
+        copyTargetCourse?.course_name,
+        copyCourseNameFallback,
+        copyCourseNameSuffix,
+      ),
+    [copyCourseNameFallback, copyCourseNameSuffix, copyTargetCourse?.course_name],
+  );
 
   const normalizedTransferIdentifier = useMemo(
     () => normalizeTransferIdentifier(transferContactType, transferIdentifier),
     [transferContactType, transferIdentifier],
+  );
+  const normalizedCopyIdentifier = useMemo(
+    () => normalizeTransferIdentifier(copyContactType, copyIdentifier),
+    [copyContactType, copyIdentifier],
   );
   const transferCurrentCreatorIdentifier = useMemo(() => {
     if (!transferTargetCourse) {
@@ -843,12 +937,24 @@ const OperationsPage = () => {
         : tOperations('transferCreatorDialog.contactPlaceholderPhone'),
     [tOperations, transferContactType],
   );
+  const copyIdentifierPlaceholder = useMemo(
+    () =>
+      copyContactType === 'email'
+        ? tOperations('copyCourseDialog.contactPlaceholderEmail')
+        : tOperations('copyCourseDialog.contactPlaceholderPhone'),
+    [copyContactType, tOperations],
+  );
   const transferHintText = useMemo(
     () => tOperations('transferCreatorDialog.description'),
     [tOperations],
   );
+  const copyHintText = useMemo(
+    () => tOperations('copyCourseDialog.description'),
+    [tOperations],
+  );
   const transferCurrentCreatorText = transferCurrentCreatorIdentifier || '--';
   const transferTargetCreatorText = normalizedTransferIdentifier || '--';
+  const copyTargetCreatorText = normalizedCopyIdentifier || '--';
 
   useEffect(() => {
     if (!transferDialogOpen) {
@@ -862,6 +968,20 @@ const OperationsPage = () => {
     transferContactOptions,
     transferContactType,
     transferDialogOpen,
+  ]);
+
+  useEffect(() => {
+    if (!copyDialogOpen) {
+      return;
+    }
+    if (!transferContactOptions.includes(copyContactType)) {
+      setCopyContactType(defaultTransferContactType);
+    }
+  }, [
+    copyContactType,
+    copyDialogOpen,
+    defaultTransferContactType,
+    transferContactOptions,
   ]);
 
   const handleTransferSubmit = useCallback(() => {
@@ -896,6 +1016,20 @@ const OperationsPage = () => {
     transferCurrentCreatorIdentifier,
     transferTargetCourse,
   ]);
+
+  const handleCopySubmit = useCallback(() => {
+    if (!copyTargetCourse) {
+      return;
+    }
+
+    if (!isValidTransferIdentifier(copyContactType, normalizedCopyIdentifier)) {
+      setCopyError(tOperations('copyCourseDialog.identifierRequired'));
+      return;
+    }
+
+    setCopyError('');
+    setCopyConfirmOpen(true);
+  }, [copyContactType, copyTargetCourse, normalizedCopyIdentifier, tOperations]);
 
   const handleTransferConfirm = useCallback(async () => {
     if (!transferTargetCourse) {
@@ -934,6 +1068,45 @@ const OperationsPage = () => {
     toast,
     transferContactType,
     transferTargetCourse,
+  ]);
+
+  const handleCopyConfirm = useCallback(async () => {
+    if (!copyTargetCourse) {
+      return;
+    }
+
+    setCopyConfirmOpen(false);
+    setCopyError('');
+    setCopyLoading(true);
+    try {
+      await api.copyAdminOperationCourse({
+        shifu_bid: copyTargetCourse.shifu_bid,
+        contact_type: copyContactType,
+        identifier: normalizedCopyIdentifier,
+      });
+      toast({
+        title: tOperations('copyCourseDialog.submitSuccess'),
+      });
+      handleCopyDialogOpenChange(false);
+      await fetchCourses(requestedPageRef.current, filters, quickFilter);
+    } catch (error) {
+      setCopyError(
+        error instanceof Error ? error.message : t('common.core.unknownError'),
+      );
+    } finally {
+      setCopyLoading(false);
+    }
+  }, [
+    copyContactType,
+    copyTargetCourse,
+    fetchCourses,
+    filters,
+    handleCopyDialogOpenChange,
+    normalizedCopyIdentifier,
+    quickFilter,
+    t,
+    tOperations,
+    toast,
   ]);
 
   const estimateWidth = (text: string, multiplier = 7) => {
@@ -1702,6 +1875,11 @@ const OperationsPage = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='center'>
                               <DropdownMenuItem
+                                onClick={() => handleCopyCourseClick(course)}
+                              >
+                                {tOperations('actions.copyCourse')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() =>
                                   handleTransferCreatorClick(course)
                                 }
@@ -1827,6 +2005,147 @@ const OperationsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        <Dialog
+          open={copyDialogOpen}
+          onOpenChange={handleCopyDialogOpenChange}
+        >
+          <DialogContent className='overflow-hidden p-0 gap-0 sm:max-w-[440px]'>
+            <DialogHeader className='border-b border-border px-6 pb-4 pt-6'>
+              <DialogTitle>{tOperations('copyCourseDialog.title')}</DialogTitle>
+              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                {copyHintText}
+              </p>
+            </DialogHeader>
+
+            <div className='space-y-5 px-6 py-5'>
+              <div className='rounded-xl border border-border bg-muted/[0.18] p-3.5'>
+                <div className='space-y-3'>
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('table.courseName')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyCourseName}
+                    </div>
+                  </div>
+
+                  <div className='h-px bg-border/80' />
+
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('copyCourseDialog.newCourseName')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyNewCourseName}
+                    </div>
+                  </div>
+
+                  <div className='h-px bg-border/80' />
+
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('copyCourseDialog.currentCreator')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyCreatorDisplay.secondary ||
+                        copyCreatorDisplay.primary ||
+                        '--'}
+                    </div>
+                    {copyCreatorDisplay.primary &&
+                    copyCreatorDisplay.secondary ? (
+                      <div className='text-sm text-muted-foreground'>
+                        {copyCreatorDisplay.primary}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className='space-y-2.5'>
+                <Label
+                  htmlFor='copy-course-identifier'
+                  className='text-sm font-medium text-foreground'
+                >
+                  {tOperations('copyCourseDialog.identifier')}
+                </Label>
+                <Input
+                  id='copy-course-identifier'
+                  value={copyIdentifier}
+                  placeholder={copyIdentifierPlaceholder}
+                  className='h-11 rounded-lg'
+                  onChange={event => {
+                    setCopyIdentifier(event.target.value);
+                    if (copyError) {
+                      setCopyError('');
+                    }
+                  }}
+                  autoComplete='off'
+                />
+                {copyError ? (
+                  <p className='text-sm text-destructive'>{copyError}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <DialogFooter className='gap-2 border-t border-border bg-background px-6 py-4'>
+              <Button
+                variant='outline'
+                onClick={() => handleCopyDialogOpenChange(false)}
+                disabled={copyLoading}
+                className='min-w-24'
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                onClick={handleCopySubmit}
+                disabled={copyLoading || !copyTargetCourse}
+                className='min-w-28'
+              >
+                {tOperations('copyCourseDialog.confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={copyConfirmOpen} onOpenChange={setCopyConfirmOpen}>
+          <AlertDialogContent className='sm:max-w-[420px]'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tOperations('copyCourseDialog.confirmTitle')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className='leading-8 text-muted-foreground'>
+                  {tOperations('copyCourseDialog.confirmDescriptionPrefix')}
+                  <span className='mx-1 text-foreground'>{copyCourseName}</span>
+                  {tOperations(
+                    'copyCourseDialog.confirmDescriptionCourseSuffix',
+                  )}
+                  <span className='mx-1 text-foreground'>
+                    {copyTargetCreatorText}
+                  </span>
+                  {tOperations(
+                    'copyCourseDialog.confirmDescriptionTargetPrefix',
+                  )}
+                  <span className='ml-1 font-semibold text-foreground'>
+                    {copyNewCourseName}
+                  </span>
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={copyLoading}>
+                {t('common.core.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCopyConfirm}
+                disabled={copyLoading}
+              >
+                {tOperations('copyCourseDialog.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Dialog
           open={transferDialogOpen}
           onOpenChange={handleTransferDialogOpenChange}

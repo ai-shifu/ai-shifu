@@ -12,6 +12,7 @@ from sqlalchemy.orm import defer
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
 from flaskr.common.umami_client import get_course_visit_count_30d
+from flaskr.i18n import _
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
@@ -125,6 +126,12 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.demo_courses import is_builtin_demo_course
+from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    save_outline_tree_history,
+    save_shifu_history,
+)
 from flaskr.service.shifu.models import (
     AiCourseAuth,
     DraftOutlineItem,
@@ -132,6 +139,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
@@ -158,6 +166,7 @@ from flaskr.service.user.utils import (
     mark_creator_role_if_needed,
     run_creator_granted_post_auth,
 )
+from markdown_flow import MarkdownFlow
 
 COURSE_STATUS_PUBLISHED = "published"
 COURSE_STATUS_UNPUBLISHED = "unpublished"
@@ -2021,6 +2030,154 @@ def _load_latest_course_for_transfer(shifu_bid: str):
     )
 
 
+def _load_latest_active_draft_outlines(shifu_bid: str) -> list[DraftOutlineItem]:
+    latest_outline_ids = (
+        db.session.query(
+            DraftOutlineItem.outline_item_bid.label("outline_item_bid"),
+            db.func.max(DraftOutlineItem.id).label("max_id"),
+        )
+        .filter(
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.deleted == 0,
+        )
+        .group_by(DraftOutlineItem.outline_item_bid)
+        .subquery()
+    )
+    return (
+        db.session.query(DraftOutlineItem)
+        .join(latest_outline_ids, DraftOutlineItem.id == latest_outline_ids.c.max_id)
+        .order_by(DraftOutlineItem.position.asc(), DraftOutlineItem.id.asc())
+        .all()
+    )
+
+
+def _build_course_copy_title(source_title: str) -> str:
+    normalized_title = str(source_title or "").strip() or _(
+        "server.shifu.copyCourseTitleFallback"
+    )
+    suffix = _("server.shifu.copyCourseTitleSuffix")
+    max_length = 100
+    if len(normalized_title) + len(suffix) <= max_length:
+        return f"{normalized_title}{suffix}"
+    return f"{normalized_title[: max_length - len(suffix)]}{suffix}"
+
+
+def _build_outline_history_tree(
+    outlines: Sequence[DraftOutlineItem],
+) -> list[HistoryItem]:
+    outline_children_map: Dict[str, list[DraftOutlineItem]] = {}
+    for outline in outlines:
+        parent_bid = str(outline.parent_bid or "").strip()
+        outline_children_map.setdefault(parent_bid, []).append(outline)
+
+    def _count_blocks(content: str) -> int:
+        if not content:
+            return 0
+        mdflow = MarkdownFlow(content).set_output_language(
+            get_markdownflow_output_language()
+        )
+        return len(mdflow.get_all_blocks())
+
+    def _build(parent_bid: str) -> list[HistoryItem]:
+        children = outline_children_map.get(parent_bid, [])
+        children.sort(key=lambda item: (item.position or "", item.id))
+        history_items: list[HistoryItem] = []
+        for child in children:
+            history_items.append(
+                HistoryItem(
+                    bid=str(child.outline_item_bid or "").strip(),
+                    id=int(child.id),
+                    type="outline",
+                    children=_build(str(child.outline_item_bid or "").strip()),
+                    child_count=_count_blocks(child.content or ""),
+                )
+            )
+        return history_items
+
+    return _build("")
+
+
+def _prepare_operator_target_creator(
+    app: Flask,
+    *,
+    contact_type: str,
+    identifier: str,
+    previous_creator_user_bid: str = "",
+    allow_same_user: bool = False,
+) -> Dict[str, Any]:
+    normalized_contact_type = str(contact_type or "").strip().lower()
+    normalized_identifier = _normalize_identifier(identifier)
+
+    existing_aggregate = load_user_aggregate_by_identifier(
+        normalized_identifier,
+        providers=[normalized_contact_type],
+    )
+    created_new_user = False
+    granted_demo_permissions = False
+    if existing_aggregate is None:
+        target_aggregate, created_new_user = ensure_user_for_identifier(
+            app,
+            provider=normalized_contact_type,
+            identifier=normalized_identifier,
+            defaults={
+                "identify": normalized_identifier,
+                "nickname": "",
+                "state": USER_STATE_REGISTERED,
+            },
+        )
+    else:
+        target_aggregate = existing_aggregate
+
+    target_user_bid = str(target_aggregate.user_bid or "").strip()
+    if not target_user_bid:
+        raise_error("server.shifu.transferCreatorTargetNotFound")
+    if (
+        previous_creator_user_bid
+        and not allow_same_user
+        and target_user_bid == previous_creator_user_bid
+    ):
+        raise_error("server.shifu.transferCreatorSameUser")
+
+    should_grant_demo_permissions = created_new_user
+    if (
+        existing_aggregate is not None
+        and existing_aggregate.state == USER_STATE_UNREGISTERED
+    ):
+        set_user_state(target_user_bid, USER_STATE_REGISTERED)
+        should_grant_demo_permissions = True
+
+    upsert_credential(
+        app,
+        user_bid=target_user_bid,
+        provider_name=normalized_contact_type,
+        subject_id=normalized_identifier,
+        subject_format=normalized_contact_type,
+        identifier=normalized_identifier,
+        metadata={},
+        verified=True,
+    )
+
+    if should_grant_demo_permissions:
+        demo_shifu_ids = load_existing_demo_shifu_ids()
+        if demo_shifu_ids:
+            ensure_demo_course_permissions(
+                app,
+                target_user_bid,
+                demo_ids=demo_shifu_ids,
+            )
+            granted_demo_permissions = True
+
+    creator_granted_now = mark_creator_role_if_needed(target_user_bid)
+    return {
+        "target_aggregate": target_aggregate,
+        "target_user_bid": target_user_bid,
+        "normalized_identifier": normalized_identifier,
+        "created_new_user": created_new_user,
+        "granted_demo_permissions": granted_demo_permissions,
+        "creator_granted_now": creator_granted_now,
+    }
+
+
 def _load_recent_learning_active_course_bids(
     *,
     since: datetime,
@@ -2122,63 +2279,17 @@ def transfer_operator_course_creator(
             raise_error("server.shifu.transferCreatorDemoNotAllowed")
 
         previous_creator_user_bid = str(latest_course.created_user_bid or "").strip()
-
-        existing_aggregate = load_user_aggregate_by_identifier(
-            normalized_identifier,
-            providers=[normalized_contact_type],
-        )
-        created_new_user = False
-        granted_demo_permissions = False
-        if existing_aggregate is None:
-            target_aggregate, created_new_user = ensure_user_for_identifier(
-                app,
-                provider=normalized_contact_type,
-                identifier=normalized_identifier,
-                defaults={
-                    "identify": normalized_identifier,
-                    "nickname": "",
-                    "state": USER_STATE_REGISTERED,
-                },
-            )
-        else:
-            target_aggregate = existing_aggregate
-
-        target_user_bid = str(target_aggregate.user_bid or "").strip()
-        if not target_user_bid:
-            raise_error("server.shifu.transferCreatorTargetNotFound")
-        if target_user_bid == previous_creator_user_bid:
-            raise_error("server.shifu.transferCreatorSameUser")
-
-        should_grant_demo_permissions = created_new_user
-        if (
-            existing_aggregate is not None
-            and existing_aggregate.state == USER_STATE_UNREGISTERED
-        ):
-            set_user_state(target_user_bid, USER_STATE_REGISTERED)
-            should_grant_demo_permissions = True
-
-        upsert_credential(
+        target_creator_result = _prepare_operator_target_creator(
             app,
-            user_bid=target_user_bid,
-            provider_name=normalized_contact_type,
-            subject_id=normalized_identifier,
-            subject_format=normalized_contact_type,
+            contact_type=normalized_contact_type,
             identifier=normalized_identifier,
-            metadata={},
-            verified=True,
+            previous_creator_user_bid=previous_creator_user_bid,
         )
-
-        if should_grant_demo_permissions:
-            demo_shifu_ids = load_existing_demo_shifu_ids()
-            if demo_shifu_ids:
-                ensure_demo_course_permissions(
-                    app,
-                    target_user_bid,
-                    demo_ids=demo_shifu_ids,
-                )
-                granted_demo_permissions = True
-
-        creator_granted_now = mark_creator_role_if_needed(target_user_bid)
+        target_aggregate = target_creator_result["target_aggregate"]
+        target_user_bid = target_creator_result["target_user_bid"]
+        created_new_user = target_creator_result["created_new_user"]
+        granted_demo_permissions = target_creator_result["granted_demo_permissions"]
+        creator_granted_now = target_creator_result["creator_granted_now"]
         _update_course_creator_bid(normalized_shifu_bid, target_user_bid)
 
         db.session.commit()
@@ -2200,6 +2311,129 @@ def transfer_operator_course_creator(
         return {
             "shifu_bid": normalized_shifu_bid,
             "previous_creator_user_bid": previous_creator_user_bid,
+            "target_creator_user_bid": target_user_bid,
+            "created_new_user": created_new_user,
+            "granted_demo_permissions": granted_demo_permissions,
+        }
+
+
+def copy_operator_course(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    contact_type: str,
+    identifier: str,
+    operator_user_bid: str,
+) -> Dict[str, Any]:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        normalized_contact_type = str(contact_type or "").strip().lower()
+        normalized_identifier = _normalize_identifier(identifier)
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+
+        source_draft = get_latest_shifu_draft(normalized_shifu_bid)
+        if not source_draft:
+            raise_error("server.shifu.copyCourseDraftNotFound")
+        if not _is_operator_visible_course(source_draft):
+            raise_error("server.shifu.copyCourseDemoNotAllowed")
+
+        target_creator_result = _prepare_operator_target_creator(
+            app,
+            contact_type=normalized_contact_type,
+            identifier=normalized_identifier,
+            previous_creator_user_bid=str(source_draft.created_user_bid or "").strip(),
+            allow_same_user=True,
+        )
+        target_aggregate = target_creator_result["target_aggregate"]
+        target_user_bid = target_creator_result["target_user_bid"]
+        created_new_user = target_creator_result["created_new_user"]
+        granted_demo_permissions = target_creator_result["granted_demo_permissions"]
+        creator_granted_now = target_creator_result["creator_granted_now"]
+
+        action_user_bid = normalized_operator_user_bid or target_user_bid
+        now = datetime.now()
+        new_shifu_bid = generate_id(app)
+        new_course_name = _build_course_copy_title(source_draft.title)
+
+        new_draft = source_draft.clone()
+        new_draft.shifu_bid = new_shifu_bid
+        new_draft.title = new_course_name
+        new_draft.created_at = now
+        new_draft.updated_at = now
+        new_draft.created_user_bid = target_user_bid
+        new_draft.updated_user_bid = action_user_bid
+        new_draft.deleted = 0
+        db.session.add(new_draft)
+        db.session.flush()
+
+        source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
+        source_outline_map = {
+            str(item.outline_item_bid or "").strip(): item for item in source_outlines
+        }
+        outline_bid_map: Dict[str, str] = {}
+        copied_outlines: Dict[str, DraftOutlineItem] = {}
+
+        for source_outline in source_outlines:
+            old_outline_bid = str(source_outline.outline_item_bid or "").strip()
+            new_outline_bid = generate_id(app)
+            outline_bid_map[old_outline_bid] = new_outline_bid
+
+            new_outline = source_outline.clone()
+            new_outline.shifu_bid = new_shifu_bid
+            new_outline.outline_item_bid = new_outline_bid
+            new_outline.parent_bid = ""
+            new_outline.prerequisite_item_bids = ""
+            new_outline.created_at = now
+            new_outline.updated_at = now
+            new_outline.created_user_bid = target_user_bid
+            new_outline.updated_user_bid = action_user_bid
+            new_outline.deleted = 0
+            db.session.add(new_outline)
+            db.session.flush()
+            copied_outlines[old_outline_bid] = new_outline
+
+        for old_outline_bid, copied_outline in copied_outlines.items():
+            source_outline = source_outline_map[old_outline_bid]
+            parent_old_bid = str(source_outline.parent_bid or "").strip()
+            if parent_old_bid:
+                copied_outline.parent_bid = outline_bid_map.get(parent_old_bid, "")
+
+            prerequisite_old_bids = [
+                bid.strip()
+                for bid in str(source_outline.prerequisite_item_bids or "").split(",")
+                if bid.strip()
+            ]
+            copied_outline.prerequisite_item_bids = ",".join(
+                outline_bid_map[bid]
+                for bid in prerequisite_old_bids
+                if bid in outline_bid_map
+            )
+
+        save_shifu_history(app, action_user_bid, new_shifu_bid, new_draft.id)
+        outline_tree = _build_outline_history_tree(list(copied_outlines.values()))
+        save_outline_tree_history(
+            app,
+            action_user_bid,
+            new_shifu_bid,
+            outline_tree,
+            new_draft.id,
+        )
+
+        db.session.commit()
+        if creator_granted_now:
+            run_creator_granted_post_auth(
+                app,
+                user_id=target_user_bid,
+                source="operator_copy_course",
+                login_context="admin",
+                created_new_user=created_new_user,
+                language=target_aggregate.user_language,
+            )
+
+        return {
+            "source_shifu_bid": normalized_shifu_bid,
+            "new_shifu_bid": new_shifu_bid,
+            "new_course_name": new_course_name,
             "target_creator_user_bid": target_user_bid,
             "created_new_user": created_new_user,
             "granted_demo_permissions": granted_demo_permissions,

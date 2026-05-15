@@ -70,6 +70,7 @@ jest.mock('@/api', () => ({
     getAdminOperationCoursesOverview: jest.fn(),
     getAdminOperationCourses: jest.fn(),
     getAdminOperationCoursePrompt: jest.fn(),
+    copyAdminOperationCourse: jest.fn(),
     transferAdminOperationCourseCreator: jest.fn(),
   },
 }));
@@ -377,6 +378,8 @@ const mockGetAdminOperationCoursesOverview =
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
 const mockGetAdminOperationCoursePrompt =
   api.getAdminOperationCoursePrompt as jest.Mock;
+const mockCopyAdminOperationCourse =
+  api.copyAdminOperationCourse as jest.Mock;
 const mockTransferAdminOperationCourseCreator =
   api.transferAdminOperationCourseCreator as jest.Mock;
 
@@ -430,6 +433,7 @@ describe('OperationsPage', () => {
     mockGetAdminOperationCoursesOverview.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
+    mockCopyAdminOperationCourse.mockReset();
     mockTransferAdminOperationCourseCreator.mockReset();
     mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
@@ -491,6 +495,7 @@ describe('OperationsPage', () => {
     mockGetAdminOperationCoursePrompt.mockResolvedValue({
       course_prompt: LONG_COURSE_PROMPT,
     });
+    mockCopyAdminOperationCourse.mockResolvedValue({});
     mockTransferAdminOperationCourseCreator.mockResolvedValue({});
   });
 
@@ -685,6 +690,122 @@ describe('OperationsPage', () => {
     expect(
       screen.queryByText('module.operationsCourse.transferCreatorDialog.title'),
     ).not.toBeInTheDocument();
+  });
+
+  test('shows inline validation and request errors for copy course', async () => {
+    mockCopyAdminOperationCourse.mockRejectedValueOnce(new Error('copy failed'));
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.copyCourseDialog.identifierRequired',
+      ),
+    ).toBeInTheDocument();
+    expect(mockCopyAdminOperationCourse).not.toHaveBeenCalled();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-target@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    expect(await screen.findByText('copy failed')).toBeInTheDocument();
+    expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+      shifu_bid: 'course-1',
+      contact_type: 'email',
+      identifier: 'copy-target@example.com',
+    });
+  });
+
+  test('copies course successfully and refreshes the list', async () => {
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-owner@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        contact_type: 'email',
+        identifier: 'copy-owner@example.com',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.operationsCourse.copyCourseDialog.submitSuccess',
+    });
   });
 
   test('opens course prompt detail dialog and toggles expand state', async () => {
