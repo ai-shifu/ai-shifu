@@ -2,6 +2,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
 import {
   buildVisibleReadModeItems,
+  isTrailingVisibleReadModeTextItem,
   isReadModeTextContentItemReady,
   normalizeReadModeTypewriterContent,
   resolveReadModeTypewriterKeepAliveElementBid,
@@ -29,6 +30,16 @@ const createHtmlItem = (
   element_bid: 'html-1',
   content: '<div>Second block</div>',
   element_type: 'html',
+  ...overrides,
+});
+
+const createInteractionItem = (
+  overrides: Partial<ChatContentItem> = {},
+): ChatContentItem => ({
+  type: ChatContentItemType.INTERACTION,
+  element_bid: 'interaction-1',
+  content: '?[Next//_sys_next_chapter]',
+  element_type: 'interaction',
   ...overrides,
 });
 
@@ -143,10 +154,9 @@ describe('readModeTypewriterGate', () => {
   it('does not keep the previous session text alive before the new stream emits its first element', () => {
     expect(
       resolveReadModeTypewriterKeepAliveElementBid({
-        previousKeepAliveElementBid: 'text-1',
-        previousOutputInProgress: false,
         isOutputInProgress: true,
-        currentStreamingElementBid: '',
+        currentStreamingTextElementBid: '',
+        currentOutputTextElementBid: '',
       }),
     ).toBe('');
   });
@@ -154,12 +164,45 @@ describe('readModeTypewriterGate', () => {
   it('preserves the current session text keep-alive bid between streamed segments', () => {
     expect(
       resolveReadModeTypewriterKeepAliveElementBid({
-        previousKeepAliveElementBid: 'text-1',
-        previousOutputInProgress: true,
         isOutputInProgress: true,
-        currentStreamingElementBid: '',
+        currentStreamingTextElementBid: '',
+        currentOutputTextElementBid: 'text-1',
       }),
     ).toBe('text-1');
+  });
+
+  it('does not let a later interaction steal the current text keep-alive anchor', () => {
+    expect(
+      resolveReadModeTypewriterKeepAliveElementBid({
+        isOutputInProgress: true,
+        currentStreamingTextElementBid: '',
+        currentOutputTextElementBid: 'text-1',
+      }),
+    ).toBe('text-1');
+  });
+
+  it('switches keep-alive to the latest streamed text element when a new text starts', () => {
+    expect(
+      resolveReadModeTypewriterKeepAliveElementBid({
+        isOutputInProgress: true,
+        currentStreamingTextElementBid: 'text-2',
+        currentOutputTextElementBid: 'text-1',
+      }),
+    ).toBe('text-2');
+  });
+
+  it('treats the trailing text item as keep-alive eligible only when it is the last visible item', () => {
+    const trailingText = createTextItem({ is_final: true });
+
+    expect(isTrailingVisibleReadModeTextItem([trailingText], 'text-1')).toBe(
+      true,
+    );
+    expect(
+      isTrailingVisibleReadModeTextItem(
+        [trailingText, createInteractionItem()],
+        'text-1',
+      ),
+    ).toBe(false);
   });
 
   it('does not re-enable typewriter for a finished text item when content is only rewritten', () => {

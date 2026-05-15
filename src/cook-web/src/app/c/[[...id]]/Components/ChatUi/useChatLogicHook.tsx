@@ -217,6 +217,7 @@ export interface UseChatSessionResult {
   isLoading: boolean;
   isOutputInProgress: boolean;
   currentStreamingElementBid: string;
+  currentTypewriterElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
   toggleAskExpanded: (parentElementBid: string) => void;
@@ -292,6 +293,8 @@ function useChatLogicHook({
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
   const [currentStreamingElementBid, setCurrentStreamingElementBid] =
+    useState('');
+  const [currentTypewriterElementBid, setCurrentTypewriterElementBid] =
     useState('');
   // const [isTypeFinished, setIsTypeFinished] = useState(false);
   const isTypeFinishedRef = useRef(false);
@@ -1383,6 +1386,7 @@ function useChatLogicHook({
     currentBlockIdRef.current = null;
     currentContentRef.current = '';
     setCurrentStreamingElementBid('');
+    setCurrentTypewriterElementBid('');
 
     Object.values(ttsSseRef.current).forEach(source => {
       source?.close?.();
@@ -1419,6 +1423,7 @@ function useChatLogicHook({
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
+      setCurrentTypewriterElementBid('');
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -1462,6 +1467,7 @@ function useChatLogicHook({
         currentBlockIdRef.current = null;
         currentContentRef.current = '';
         setCurrentStreamingElementBid('');
+        setCurrentTypewriterElementBid('');
       };
 
       const handleRunStreamTimeout = () => {
@@ -1650,6 +1656,9 @@ function useChatLogicHook({
               currentBlockIdRef.current = itemBid;
               currentContentRef.current = '';
               setCurrentStreamingElementBid(itemBid);
+              if (elementType === 'text') {
+                setCurrentTypewriterElementBid(itemBid);
+              }
 
               const previousItem = contentListRef.current.find(
                 item => item.element_bid === itemBid,
@@ -1775,6 +1784,7 @@ function useChatLogicHook({
               if (blockId) {
                 currentBlockIdRef.current = blockId;
                 setCurrentStreamingElementBid(blockId);
+                setCurrentTypewriterElementBid(blockId);
               }
 
               currentContentRef.current = nextText;
@@ -3109,6 +3119,7 @@ function useChatLogicHook({
     isLoading,
     isOutputInProgress,
     currentStreamingElementBid,
+    currentTypewriterElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,

@@ -60,6 +60,7 @@ import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import {
   buildVisibleReadModeItems,
   isReadModeTextContentItem,
+  isTrailingVisibleReadModeTextItem,
   normalizeReadModeTypewriterContent,
   resolveReadModeTypewriterKeepAliveElementBid,
   shouldEnableReadModeTypewriter,
@@ -302,8 +303,6 @@ export const NewChatComponents = ({
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
   const [showListenModeUpgradeDialog, setShowListenModeUpgradeDialog] =
     useState(false);
-  const previousReadModeOutputInProgressRef = useRef(false);
-  const previousReadModeKeepAliveElementBidRef = useRef('');
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -478,6 +477,7 @@ export const NewChatComponents = ({
     isLoading,
     isOutputInProgress,
     currentStreamingElementBid,
+    currentTypewriterElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -545,16 +545,30 @@ export const NewChatComponents = ({
         .find(item => isReadModeTextContentItem(item))?.element_bid || '',
     [visibleReadModeItems],
   );
+  const isTrailingVisibleReadModeItemText = useMemo(
+    () =>
+      isTrailingVisibleReadModeTextItem(
+        visibleReadModeItems,
+        trailingVisibleReadModeTextBid,
+      ),
+    [trailingVisibleReadModeTextBid, visibleReadModeItems],
+  );
   const readModeTypewriterKeepAliveElementBid = useMemo(
     () =>
       resolveReadModeTypewriterKeepAliveElementBid({
-        previousKeepAliveElementBid:
-          previousReadModeKeepAliveElementBidRef.current,
-        previousOutputInProgress: previousReadModeOutputInProgressRef.current,
         isOutputInProgress,
-        currentStreamingElementBid,
+        currentStreamingTextElementBid:
+          trailingVisibleReadModeTextBid === currentStreamingElementBid
+            ? currentStreamingElementBid
+            : '',
+        currentOutputTextElementBid: currentTypewriterElementBid,
       }),
-    [currentStreamingElementBid, isOutputInProgress],
+    [
+      currentStreamingElementBid,
+      currentTypewriterElementBid,
+      isOutputInProgress,
+      trailingVisibleReadModeTextBid,
+    ],
   );
   const handleReadModeTypeFinished = useCallback(
     (blockBid: string, content: string) => {
@@ -626,12 +640,6 @@ export const NewChatComponents = ({
       syncReadModeTypewriterCache(readModeItems, prevCache),
     );
   }, [readModeItems]);
-
-  useEffect(() => {
-    previousReadModeOutputInProgressRef.current = isOutputInProgress;
-    previousReadModeKeepAliveElementBidRef.current =
-      readModeTypewriterKeepAliveElementBid;
-  }, [isOutputInProgress, readModeTypewriterKeepAliveElementBid]);
 
   useEffect(() => {
     const previousLearningMode = previousLearningModeRef.current;
@@ -1402,6 +1410,7 @@ export const NewChatComponents = ({
                           {
                             keepAliveWhileStreaming:
                               isOutputInProgress &&
+                              isTrailingVisibleReadModeItemText &&
                               readModeTypewriterKeepAliveElementBid ===
                                 item.element_bid &&
                               trailingVisibleReadModeTextBid ===

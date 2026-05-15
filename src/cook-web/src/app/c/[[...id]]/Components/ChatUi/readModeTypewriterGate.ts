@@ -7,10 +7,9 @@ export interface ReadModeTypewriterCacheEntry {
 }
 
 export interface ReadModeTypewriterKeepAliveOptions {
-  previousKeepAliveElementBid: string;
-  previousOutputInProgress: boolean;
   isOutputInProgress: boolean;
-  currentStreamingElementBid: string;
+  currentStreamingTextElementBid: string;
+  currentOutputTextElementBid: string;
 }
 
 export type ReadModeTypewriterCache = Record<
@@ -64,20 +63,17 @@ export const shouldTrackReadModeTypewriter = (
   (item.shouldUseTypewriter === true || Boolean(cacheEntry));
 
 export const resolveReadModeTypewriterKeepAliveElementBid = ({
-  previousKeepAliveElementBid,
-  previousOutputInProgress,
   isOutputInProgress,
-  currentStreamingElementBid,
+  currentStreamingTextElementBid,
+  currentOutputTextElementBid,
 }: ReadModeTypewriterKeepAliveOptions) => {
   if (!isOutputInProgress) {
     return '';
   }
 
-  if (!previousOutputInProgress) {
-    return currentStreamingElementBid || '';
-  }
-
-  return currentStreamingElementBid || previousKeepAliveElementBid;
+  // Keep the active typewriter session tied to the latest streamed text
+  // element, so non-text elements like interactions do not steal the anchor.
+  return currentStreamingTextElementBid || currentOutputTextElementBid || '';
 };
 
 export const syncReadModeTypewriterCache = (
@@ -147,4 +143,20 @@ export const buildVisibleReadModeItems = (
   }
 
   return visibleItems;
+};
+
+export const isTrailingVisibleReadModeTextItem = (
+  items: ChatContentItem[],
+  elementBid: string,
+) => {
+  if (!elementBid || !items.length) {
+    return false;
+  }
+
+  const trailingItem = items[items.length - 1];
+  return (
+    Boolean(trailingItem) &&
+    trailingItem.element_bid === elementBid &&
+    isReadModeTextContentItem(trailingItem)
+  );
 };
