@@ -13,7 +13,6 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import (
@@ -28,7 +27,6 @@ from flaskr.service.user.models import UserInfo
 def _clear_tables() -> None:
     for model in (
         BillingDailyUsageMetric,
-        BillUsageRecord,
         VariableValue,
         LearnLessonFeedback,
         LearnGeneratedBlock,
@@ -244,47 +242,3 @@ def seed_bill_daily_metric(
         )
     )
     db.session.commit()
-
-
-def seed_bill_usage(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    usage_type: int = 1101,
-    usage_scene: int = 1203,
-    input_tokens: int = 0,
-    input_cache: int = 0,
-    output_tokens: int = 0,
-    total: int = 0,
-    provider: str = "openai",
-    model: str = "gpt-4o",
-    record_level: int = 0,
-    usage_bid: Optional[str] = None,
-) -> str:
-    """Seed one BillUsageRecord row.
-
-    Defaults model a production learner call (usage_type=LLM, usage_scene=PROD).
-    """
-
-    bid = usage_bid or f"usage-{shifu_bid}-{user_bid}-{usage_type}-{usage_scene}"
-    now = datetime.utcnow()
-    db.session.add(
-        BillUsageRecord(
-            usage_bid=bid,
-            shifu_bid=shifu_bid,
-            user_bid=user_bid,
-            usage_type=usage_type,
-            usage_scene=usage_scene,
-            input=input_tokens,
-            input_cache=input_cache,
-            output=output_tokens,
-            total=total,
-            provider=provider,
-            model=model,
-            record_level=record_level,
-            deleted=0,
-            created_at=now,
-        )
-    )
-    db.session.commit()
-    return bid

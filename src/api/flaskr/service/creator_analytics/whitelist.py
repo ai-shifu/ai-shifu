@@ -19,7 +19,6 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.billing.models import BillingDailyUsageMetric
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import ShifuUserArchive
@@ -222,63 +221,6 @@ WHITELIST: Mapping[str, TableSpec] = {
             "variable_value_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
             "updated_at": _TIMESTAMP_AGGS,
-        },
-        has_deleted=True,
-    ),
-    "bill_usage": TableSpec(
-        table_key="bill_usage",
-        model=BillUsageRecord,
-        selectable=frozenset(
-            {
-                "usage_bid",
-                "user_bid",
-                "progress_record_bid",
-                "usage_type",
-                "usage_scene",
-                "provider",
-                "model",
-                "record_level",
-                "input",
-                "input_cache",
-                "output",
-                "total",
-                "latency_ms",
-                "created_at",
-                "billable",
-            }
-        ),
-        filterable=frozenset(
-            {
-                "user_bid",
-                "progress_record_bid",
-                "usage_type",
-                "usage_scene",
-                "provider",
-                "model",
-                "record_level",
-                "billable",
-                "created_at",
-            }
-        ),
-        groupable=frozenset(
-            {
-                "user_bid",
-                "progress_record_bid",
-                "usage_type",
-                "usage_scene",
-                "provider",
-                "model",
-            }
-        ),
-        aggregatable={
-            "usage_bid": _DIMENSION_AGGS,
-            "user_bid": _DIMENSION_AGGS,
-            "input": _NUMERIC_AGGS,
-            "input_cache": _NUMERIC_AGGS,
-            "output": _NUMERIC_AGGS,
-            "total": _NUMERIC_AGGS,
-            "latency_ms": _NUMERIC_AGGS,
-            "created_at": _TIMESTAMP_AGGS,
         },
         has_deleted=True,
     ),
