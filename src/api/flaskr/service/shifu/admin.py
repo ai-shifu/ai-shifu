@@ -77,7 +77,11 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import (
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
+)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import Variable
@@ -122,6 +126,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
+    SHIFU_NAME_MAX_LENGTH,
     UNIT_TYPE_VALUE_GUEST,
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
@@ -2057,10 +2062,21 @@ def _build_course_copy_title(source_title: str) -> str:
         "server.shifu.copyCourseTitleFallback"
     )
     suffix = _("server.shifu.copyCourseTitleSuffix")
-    max_length = 100
-    if len(normalized_title) + len(suffix) <= max_length:
+    if len(normalized_title) + len(suffix) <= SHIFU_NAME_MAX_LENGTH:
         return f"{normalized_title}{suffix}"
-    return f"{normalized_title[: max_length - len(suffix)]}{suffix}"
+    return f"{normalized_title[: SHIFU_NAME_MAX_LENGTH - len(suffix)]}{suffix}"
+
+
+def _resolve_course_copy_title(source_title: str, requested_title: str) -> str:
+    normalized_requested_title = str(requested_title or "").strip()
+    if normalized_requested_title:
+        if len(normalized_requested_title) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong",
+                max_length=SHIFU_NAME_MAX_LENGTH,
+            )
+        return normalized_requested_title
+    return _build_course_copy_title(source_title)
 
 
 def _build_outline_history_tree(
@@ -2357,6 +2373,7 @@ def copy_operator_course(
     contact_type: str,
     identifier: str,
     operator_user_bid: str,
+    new_course_name: str = "",
 ) -> Dict[str, Any]:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2386,11 +2403,14 @@ def copy_operator_course(
         action_user_bid = normalized_operator_user_bid or target_user_bid
         now = datetime.now()
         new_shifu_bid = generate_id(app)
-        new_course_name = _build_course_copy_title(source_draft.title)
+        resolved_new_course_name = _resolve_course_copy_title(
+            source_draft.title,
+            new_course_name,
+        )
 
         new_draft = source_draft.clone()
         new_draft.shifu_bid = new_shifu_bid
-        new_draft.title = new_course_name
+        new_draft.title = resolved_new_course_name
         new_draft.created_at = now
         new_draft.updated_at = now
         new_draft.created_user_bid = target_user_bid
@@ -2473,7 +2493,7 @@ def copy_operator_course(
         return {
             "source_shifu_bid": normalized_shifu_bid,
             "new_shifu_bid": new_shifu_bid,
-            "new_course_name": new_course_name,
+            "new_course_name": resolved_new_course_name,
             "target_creator_user_bid": target_user_bid,
             "created_new_user": created_new_user,
             "granted_demo_permissions": granted_demo_permissions,

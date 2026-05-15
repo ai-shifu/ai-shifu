@@ -2020,6 +2020,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 contact_type=contact_type,
                 identifier=identifiers[0],
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                new_course_name=str(payload.get("new_course_name", "") or ""),
             )
         )
 

@@ -1,7 +1,7 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
-    "copyCourseDemoNotAllowed": "Builtin demo courses cannot be copied",
+    "copyCourseDemoNotAllowed": "Built-in demo courses cannot be copied",
     "copyCourseDraftNotFound": "Latest draft not found for this course",
     "copyCourseTitleFallback": "Course",
     "copyCourseTitleSuffix": "-Copy",
@@ -20,7 +20,7 @@
     "shifuNotFound": "Course not found",
     "shifuPriceTooLow": "Course price is too low (min {min_shifu_price})",
     "shifuStructNotFound": "Course structure not found",
-    "transferCreatorDemoNotAllowed": "Builtin demo courses cannot change creator",
+    "transferCreatorDemoNotAllowed": "Built-in demo courses cannot change creator",
     "transferCreatorSameUser": "The target user is already the creator",
     "transferCreatorTargetNotFound": "Transfer target user not found",
     "ttsNotEnabled": "Text-to-Speech is not enabled",

@@ -513,6 +513,7 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = "route-copy@example.com"
+    requested_course_name = "Operator Requested Copy Name"
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email="route-owner@example.com")
@@ -533,6 +534,7 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
         json={
             "contact_type": "email",
             "identifier": target_email,
+            "new_course_name": requested_course_name,
         },
         headers={"Token": "test-token"},
     )
@@ -543,3 +545,4 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     assert payload["data"]["source_shifu_bid"] == shifu_bid
     assert payload["data"]["target_creator_user_bid"] == "route-target"
     assert payload["data"]["new_shifu_bid"] != shifu_bid
+    assert payload["data"]["new_course_name"] == requested_course_name
