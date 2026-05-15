@@ -4,6 +4,7 @@ import {
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
   isListenModeAudioBackfillCandidate,
+  isListenModeAudioBackfillReady,
   resolveListenSlideAudioSource,
   resolveListenSlideSubtitleCues,
   resolveListenModeTtsReadyElementBids,
@@ -191,6 +192,32 @@ describe('listenModeUtils', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('requires streamed content to be persisted-ready before audio backfill', () => {
+    expect(
+      isListenModeAudioBackfillReady(
+        createContentItem({
+          is_speakable: true,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isListenModeAudioBackfillReady(
+        createContentItem({
+          is_speakable: true,
+          isAudioBackfillReady: true,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isListenModeAudioBackfillReady(
+        createContentItem({
+          is_speakable: true,
+          isHistory: true,
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('only returns ready bids for speakable content blocks', () => {

@@ -330,6 +330,7 @@ function useChatLogicHook({
   const ttsSseRef = useRef<Record<string, any>>({});
   const ttsStreamCancelRef = useRef<Record<string, TtsStreamCancel>>({});
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
+  const audioBackfillReadyBlockBidsRef = useRef<Set<string>>(new Set());
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -396,6 +397,16 @@ function useChatLogicHook({
   const resolveSourceGeneratedBlockBid = useCallback(
     (bid: string) => resolveAudioBlockTarget(bid).generatedBlockBid,
     [resolveAudioBlockTarget],
+  );
+
+  const isAudioBackfillReadyForBlock = useCallback(
+    (generatedBlockBid?: string | null, elementBid?: string | null) =>
+      Boolean(
+        (generatedBlockBid &&
+          audioBackfillReadyBlockBidsRef.current.has(generatedBlockBid)) ||
+        (elementBid && audioBackfillReadyBlockBidsRef.current.has(elementBid)),
+      ),
+    [],
   );
 
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
@@ -817,6 +828,108 @@ function useChatLogicHook({
     [],
   );
 
+  const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
+    return [...slides].sort(
+      (a, b) =>
+        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
+        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
+    );
+  }, []);
+
+  const mergeListenSlides = useCallback(
+    (...slideLists: Array<ListenSlideData[] | undefined>) => {
+      const slideById = new Map<string, ListenSlideData>();
+      slideLists.flat().forEach(slide => {
+        if (!slide?.slide_id) {
+          return;
+        }
+        slideById.set(slide.slide_id, {
+          ...(slideById.get(slide.slide_id) ?? {}),
+          ...slide,
+        });
+      });
+      return sortSlidesByTimeline([...slideById.values()]);
+    },
+    [sortSlidesByTimeline],
+  );
+
+  const upsertListenSlide = useCallback(
+    (slides: ListenSlideData[] = [], incoming: ListenSlideData) =>
+      mergeListenSlides(slides, [incoming]),
+    [mergeListenSlides],
+  );
+
+  const resolveListenSlideIdentityBids = useCallback(
+    (
+      ...sources: Array<
+        Partial<StudyRecordItem & ListenSlideData> | string | null | undefined
+      >
+    ) => {
+      const bids = new Set<string>();
+      sources.forEach(source => {
+        if (!source) {
+          return;
+        }
+        if (typeof source === 'string') {
+          if (source.trim()) {
+            bids.add(source.trim());
+          }
+          return;
+        }
+        [
+          source.target_element_bid,
+          source.element_bid,
+          source.generated_block_bid,
+        ].forEach(bid => {
+          if (typeof bid === 'string' && bid.trim()) {
+            bids.add(bid.trim());
+          }
+        });
+      });
+      return Array.from(bids);
+    },
+    [],
+  );
+
+  const getPendingListenSlides = useCallback(
+    (identityBids: string[]) => {
+      const slideLists = identityBids
+        .map(bid => pendingSlidesRef.current[bid])
+        .filter(Boolean);
+      return mergeListenSlides(...slideLists);
+    },
+    [mergeListenSlides],
+  );
+
+  const clearPendingListenSlides = useCallback((identityBids: string[]) => {
+    identityBids.forEach(bid => {
+      delete pendingSlidesRef.current[bid];
+    });
+  }, []);
+
+  const stashPendingListenSlide = useCallback(
+    (identityBids: string[], slide: ListenSlideData) => {
+      identityBids.forEach(bid => {
+        pendingSlidesRef.current[bid] = upsertListenSlide(
+          pendingSlidesRef.current[bid] ?? [],
+          slide,
+        );
+      });
+    },
+    [upsertListenSlide],
+  );
+
+  const itemMatchesListenSlideIdentity = useCallback(
+    (item: ChatContentItem, identityBids: Set<string>) =>
+      Boolean(
+        identityBids.has(item.element_bid) ||
+        (item.generated_block_bid &&
+          identityBids.has(item.generated_block_bid)) ||
+        (item.target_element_bid && identityBids.has(item.target_element_bid)),
+      ),
+    [],
+  );
+
   const buildElementContentItem = useCallback(
     (
       record: StudyRecordItem,
@@ -851,6 +964,13 @@ function useChatLogicHook({
       const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
+      const generatedBlockBid = record.generated_block_bid || itemBid;
+      const identityBids = resolveListenSlideIdentityBids(
+        record,
+        itemBid,
+        generatedBlockBid,
+      );
+      const pendingListenSlides = getPendingListenSlides(identityBids);
       const rawContent = record.content ?? '';
       const contentWithAskButton =
         options?.appendAskButton &&
@@ -869,7 +989,7 @@ function useChatLogicHook({
         ...options?.previousItem,
         ...record,
         element_bid: itemBid,
-        generated_block_bid: record.generated_block_bid || itemBid,
+        generated_block_bid: generatedBlockBid,
         content,
         customRenderBar: () => null,
         user_input:
@@ -878,6 +998,11 @@ function useChatLogicHook({
           '',
         readonly: options?.previousItem?.readonly ?? false,
         isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
+        isAudioBackfillReady:
+          options?.isHistory ||
+          options?.previousItem?.isHistory ||
+          options?.previousItem?.isAudioBackfillReady ||
+          isAudioBackfillReadyForBlock(generatedBlockBid, itemBid),
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -895,16 +1020,23 @@ function useChatLogicHook({
           mergedAudioSegments.length > 0
             ? mergedAudioSegments
             : options?.previousItem?.audio_segments,
-        listenSlides:
-          options?.listenSlides ?? options?.previousItem?.listenSlides,
+        listenSlides: mergeListenSlides(
+          options?.previousItem?.listenSlides,
+          options?.listenSlides,
+          pendingListenSlides,
+        ),
       };
     },
     [
       getAskButtonMarkup,
+      getPendingListenSlides,
       isListenMode,
+      isAudioBackfillReadyForBlock,
+      mergeListenSlides,
       mobileStyle,
       normalizeHistoryAudioTracks,
       resolveElementItemBid,
+      resolveListenSlideIdentityBids,
       resolveRecordUserInput,
     ],
   );
@@ -1302,33 +1434,6 @@ function useChatLogicHook({
     [setTrackedContentList],
   );
 
-  const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
-    return [...slides].sort(
-      (a, b) =>
-        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
-        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
-    );
-  }, []);
-
-  const upsertListenSlide = useCallback(
-    (slides: ListenSlideData[] = [], incoming: ListenSlideData) => {
-      const nextSlides = [...slides];
-      const hitIndex = nextSlides.findIndex(
-        slide => slide.slide_id === incoming.slide_id,
-      );
-      if (hitIndex >= 0) {
-        nextSlides[hitIndex] = {
-          ...nextSlides[hitIndex],
-          ...incoming,
-        };
-      } else {
-        nextSlides.push(incoming);
-      }
-      return sortSlidesByTimeline(nextSlides);
-    },
-    [sortSlidesByTimeline],
-  );
-
   const ensureContentItem = useCallback(
     (items: ChatContentItem[], blockId: string): ChatContentItem[] => {
       if (!blockId || blockId === 'loading') {
@@ -1690,19 +1795,24 @@ function useChatLogicHook({
               currentContentRef.current = '';
               setCurrentStreamingElementBid(itemBid);
 
+              const elementIdentityBids = resolveListenSlideIdentityBids(
+                elementRecord,
+                itemBid,
+                elementRecord.generated_block_bid,
+              );
+              const elementIdentitySet = new Set(elementIdentityBids);
               const nextItem = buildElementContentItem(elementRecord, {
-                previousItem: contentListRef.current.find(
-                  item => item.element_bid === itemBid,
+                previousItem: contentListRef.current.find(item =>
+                  itemMatchesListenSlideIdentity(item, elementIdentitySet),
                 ),
-                listenSlides: pendingSlidesRef.current[itemBid],
               });
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
                 nextItem.content,
               );
 
               setTrackedContentList(prevState => {
-                const hitIndex = prevState.findIndex(
-                  item => item.element_bid === itemBid,
+                const hitIndex = prevState.findIndex(item =>
+                  itemMatchesListenSlideIdentity(item, elementIdentitySet),
                 );
                 let nextList = prevState;
 
@@ -1720,10 +1830,7 @@ function useChatLogicHook({
 
                 return nextList;
               });
-
-              if (pendingSlidesRef.current[itemBid]) {
-                delete pendingSlidesRef.current[itemBid];
-              }
+              clearPendingListenSlides(elementIdentityBids);
 
               if (isLessonFeedbackInteraction && nextItem.element_bid) {
                 openLessonFeedbackPopup({
@@ -1802,23 +1909,46 @@ function useChatLogicHook({
               currentContentRef.current = nextText;
               const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
+                const generatedBlockBid =
+                  response?.generated_block_bid || blockId;
+                const contentIdentityBids = resolveListenSlideIdentityBids(
+                  {
+                    element_bid: blockId,
+                    generated_block_bid: generatedBlockBid,
+                  },
+                  blockId,
+                  generatedBlockBid,
+                );
+                const contentIdentitySet = new Set(contentIdentityBids);
+                const pendingListenSlides =
+                  getPendingListenSlides(contentIdentityBids);
                 setTrackedContentList(prevState => {
                   let hasItem = false;
                   const updatedList = prevState.map(item => {
-                    if (item.element_bid === blockId) {
+                    if (
+                      itemMatchesListenSlideIdentity(item, contentIdentitySet)
+                    ) {
                       hasItem = true;
                       return {
                         ...item,
+                        generated_block_bid:
+                          item.generated_block_bid || generatedBlockBid,
+                        isAudioBackfillReady:
+                          item.isAudioBackfillReady ||
+                          isAudioBackfillReadyForBlock(
+                            generatedBlockBid,
+                            blockId,
+                          ),
                         content: inheritCustomButtonAfterContent({
                           nextContent: displayText,
                           previousContent: item.content,
                           buttonMarkup: getAskButtonMarkup(),
                         }),
                         customRenderBar: () => null,
-                        listenSlides:
-                          item.listenSlides ??
-                          pendingSlidesRef.current[blockId] ??
+                        listenSlides: mergeListenSlides(
                           item.listenSlides,
+                          pendingListenSlides,
+                        ),
                       };
                     }
                     return item;
@@ -1831,14 +1961,16 @@ function useChatLogicHook({
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
-                      listenSlides: pendingSlidesRef.current[blockId],
+                      generated_block_bid: generatedBlockBid,
+                      isAudioBackfillReady: isAudioBackfillReadyForBlock(
+                        generatedBlockBid,
+                        blockId,
+                      ),
+                      listenSlides: pendingListenSlides,
                     });
                   }
                   return updatedList;
                 });
-                if (pendingSlidesRef.current[blockId]) {
-                  delete pendingSlidesRef.current[blockId];
-                }
               }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
               const { status, outline_bid } = response.content;
@@ -1912,48 +2044,101 @@ function useChatLogicHook({
               }
             } else if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
               const incomingSlide = response.content as ListenSlideData;
-              const slideElementBid =
-                incomingSlide?.element_bid ||
-                incomingSlide?.target_element_bid ||
-                currentBlockIdRef.current ||
-                blockId ||
-                '';
+              const slideIdentityBids = resolveListenSlideIdentityBids(
+                incomingSlide,
+                incomingSlide?.element_bid,
+                incomingSlide?.target_element_bid,
+                incomingSlide?.generated_block_bid,
+                response?.generated_block_bid,
+                currentBlockIdRef.current,
+                blockId,
+              );
+              const slideElementBid = slideIdentityBids[0] || '';
               if (!slideElementBid || !incomingSlide?.slide_id) {
                 return;
               }
 
               const nextSlide = {
                 ...incomingSlide,
-                element_bid: slideElementBid,
+                element_bid: incomingSlide.element_bid || slideElementBid,
+                generated_block_bid:
+                  incomingSlide.generated_block_bid ||
+                  response?.generated_block_bid ||
+                  blockId ||
+                  undefined,
               };
+              const nextSlideIdentityBids = resolveListenSlideIdentityBids(
+                nextSlide,
+                ...slideIdentityBids,
+              );
+              const nextSlideIdentitySet = new Set(nextSlideIdentityBids);
+              stashPendingListenSlide(nextSlideIdentityBids, nextSlide);
 
               setTrackedContentList(prevState => {
                 const hasContentBlock = prevState.some(item =>
-                  matchItemBid(item, slideElementBid),
+                  itemMatchesListenSlideIdentity(item, nextSlideIdentitySet),
                 );
                 if (!hasContentBlock) {
-                  const pending =
-                    pendingSlidesRef.current[slideElementBid] ?? [];
-                  pendingSlidesRef.current[slideElementBid] = upsertListenSlide(
-                    pending,
-                    nextSlide,
-                  );
                   return prevState;
                 }
 
                 return prevState.map(item => {
-                  if (!matchItemBid(item, slideElementBid)) {
+                  if (
+                    !itemMatchesListenSlideIdentity(item, nextSlideIdentitySet)
+                  ) {
                     return item;
                   }
                   return {
                     ...item,
-                    listenSlides: upsertListenSlide(
-                      item.listenSlides ?? [],
+                    listenSlides: mergeListenSlides(item.listenSlides, [
                       nextSlide,
-                    ),
+                    ]),
                   };
                 });
               });
+            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_BACKFILL_READY) {
+              const readyContent = response.content as
+                | {
+                    generated_block_bid?: string;
+                    element_bids?: unknown;
+                  }
+                | undefined;
+              const readyBlockBid =
+                response.generated_block_bid ||
+                readyContent?.generated_block_bid ||
+                '';
+              if (!readyBlockBid) {
+                return;
+              }
+
+              audioBackfillReadyBlockBidsRef.current.add(readyBlockBid);
+              const readyElementBids = Array.isArray(readyContent?.element_bids)
+                ? readyContent.element_bids.filter(
+                    (elementBid): elementBid is string =>
+                      typeof elementBid === 'string' && elementBid.length > 0,
+                  )
+                : [];
+              readyElementBids.forEach(elementBid => {
+                audioBackfillReadyBlockBidsRef.current.add(elementBid);
+              });
+
+              const readyBids = new Set([readyBlockBid, ...readyElementBids]);
+              setTrackedContentList(prevState =>
+                prevState.map(item => {
+                  if (
+                    item.generated_block_bid === readyBlockBid ||
+                    readyBids.has(item.element_bid)
+                  ) {
+                    return {
+                      ...item,
+                      generated_block_bid:
+                        item.generated_block_bid || readyBlockBid,
+                      isAudioBackfillReady: true,
+                    };
+                  }
+                  return item;
+                }),
+              );
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               if (!allowTtsStreaming) {
                 return;
@@ -2072,21 +2257,27 @@ function useChatLogicHook({
       allowTtsStreaming,
       appendRunBusinessError,
       appendRunTimeoutError,
+      clearPendingListenSlides,
       clearRunStreamTimeout,
       ensureContentItem,
       finalizeElementOutputInList,
       getAskButtonMarkup,
+      getPendingListenSlides,
       isAskOrAnswerElementType,
+      isAudioBackfillReadyForBlock,
       isLessonFeedbackContent,
       isListenMode,
+      itemMatchesListenSlideIdentity,
       matchItemBid,
+      mergeListenSlides,
       mobileStyle,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
+      resolveListenSlideIdentityBids,
+      stashPendingListenSlide,
       upsertAskMessageByParent,
-      upsertListenSlide,
       updateUserInfo,
     ],
   );
@@ -2128,6 +2319,10 @@ function useChatLogicHook({
   useEffect(() => {
     runRef.current = run;
   }, [run]);
+
+  useEffect(() => {
+    audioBackfillReadyBlockBidsRef.current.clear();
+  }, [outlineBid]);
 
   /**
    * Transforms persisted study records into chat-friendly content items.

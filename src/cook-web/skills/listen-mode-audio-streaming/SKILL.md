@@ -29,7 +29,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 14. 听课模式 `run` 的 `audio_segment` 若已生成当前累计字幕 cue，必须同步透传到对应 element patch 的 `payload.audio.subtitle_cues`，不要等到 `audio_complete` 才返回字幕。
 15. 课程设置里的 `tts_enabled` 虽然沿用后端字段名，但前端产品语义视为“听课模式开关”；改动作者端文案或 learner 端默认模式时，必须同时检查设置页文案、课程信息映射和 `/c/...` 布局层默认 `learningMode` 是否一致。
 16. 阅读/听课模式切换只切换课时展示形态，不应硬断正在进行的 `/run` SSE；只有重修、离开课时、lesson reset 等真实生命周期结束场景才触发全局 stream stop。
-17. 进入听课模式后持续扫描当前 lesson 已有正文中 `is_speakable !== false` 且有有效 `element_bid` 的内容块；缺音频时复用 `generated-blocks/:id/tts?listen=true` 补生成，并对同一 generated block 做 in-flight 去重。第一段音频可播后允许进入播放，整条 TTS SSE 继续补齐后续 position；没有可补正文或补音频失败时，不再提示重修或强制切回阅读，只保持当前模式并用 toast/缓冲态反馈。
+17. 进入听课模式后持续扫描当前 lesson 已有正文中 `is_speakable !== false` 且有有效 `element_bid` 的内容块；历史回放内容天然可补，流式 `/run` 新内容必须等后端在原有事务 commit 之后发出 `audio_backfill_ready` 才能调用 `generated-blocks/:id/tts?listen=true`，禁止用尚未提交的 streaming element 直接补音频。补生成对同一 generated block 做 in-flight 去重；第一段音频可播后允许进入播放，整条 TTS SSE 继续补齐后续 position；没有可补正文或补音频失败时，不再提示重修或强制切回阅读，只保持当前模式并用 toast/缓冲态反馈。
 18. 听课模式把后端 `subtitle_cues[].text` 透传给 `markdown-flow-ui/slide` 前，要先过滤尾部终止标点：默认删除句号、逗号、冒号、分号等收尾符号，但保留问号、叹号、省略号，以及成对标点的后半个（如 `”`、`）`、`》`）。
 19. 听课模式组装 item 时，如果 final `element` 事件只把完整 `audio_url` 放在 element 顶层或 `payload.audio`，而当前 item 已经有 `audioTracks/audio_segments`，必须把完整 URL 回填到对应 position 的 `audioTracks`；不要让 Slide 映射层因为优先使用 `audioTracks` 而丢掉完整 mp3 URL。
 20. 当需要在线上显式区分 buffering 卡住原因时，优先把 loading 文案拆成“未收到当前页音频 / 正在加载当前页音频 / 正在等待当前页后续音频片段”三类可配置文案，不要继续只透传单一字符串。

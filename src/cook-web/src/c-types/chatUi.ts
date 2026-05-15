@@ -25,6 +25,7 @@ export interface ChatContentItem {
   readonly?: boolean;
   isHistory?: boolean;
   element_bid: string;
+  target_element_bid?: string;
   element_index?: number;
   generated_block_bid?: string;
   ask_element_bid?: string;
@@ -39,6 +40,7 @@ export interface ChatContentItem {
   audioUrl?: string;
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
+  isAudioBackfillReady?: boolean;
   audioDurationMs?: number;
   listenSlides?: ListenSlideData[];
   element_type?: ElementType;

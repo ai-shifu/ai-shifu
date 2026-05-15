@@ -136,6 +136,7 @@ jest.mock('@/c-api/studyV2', () => {
       PROFILE_UPDATE: 'update_user_info',
       AUDIO_SEGMENT: 'audio_segment',
       AUDIO_COMPLETE: 'audio_complete',
+      AUDIO_BACKFILL_READY: 'audio_backfill_ready',
       NEW_SLIDE: 'new_slide',
     },
     SYS_INTERACTION_TYPE: {
@@ -1614,6 +1615,131 @@ describe('useChatLogicHook stream cleanup', () => {
       result.current.items.find(item => item.element_bid === 'content-text-2')
         ?.content,
     ).not.toContain('<custom-button-after-content>');
+  });
+
+  it('marks streamed elements audio-backfill-ready only after the persisted ready event', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-block-ready-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'element-ready-1',
+          generated_block_bid: 'generated-block-ready-1',
+          element_type: 'text',
+          content: 'Persisted later',
+          is_speakable: true,
+          like_status: 'none',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'element-ready-1')
+        ?.isAudioBackfillReady,
+    ).toBeFalsy();
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-block-ready-1',
+        type: SSE_OUTPUT_TYPE.AUDIO_BACKFILL_READY,
+        content: {
+          generated_block_bid: 'generated-block-ready-1',
+          element_bids: ['element-ready-1'],
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'element-ready-1')
+        ?.isAudioBackfillReady,
+    ).toBe(true);
+  });
+
+  it('carries streamed visual slides from a generated block to its final element', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        element_bid: 'streaming-block-visual-1',
+        generated_block_bid: 'generated-visual-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'Generating visual...',
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-visual-1',
+        type: SSE_OUTPUT_TYPE.NEW_SLIDE,
+        content: {
+          slide_id: 'slide-visual-1',
+          target_element_bid: 'element-visual-1',
+          generated_block_bid: 'generated-visual-1',
+          slide_index: 0,
+          audio_position: 0,
+          visual_kind: 'image',
+          segment_type: 'markdown',
+          segment_content: '![diagram](https://example.com/diagram.png)',
+          source_span: [0, 18],
+          is_placeholder: false,
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(
+        item => item.generated_block_bid === 'generated-visual-1',
+      )?.listenSlides,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slide_id: 'slide-visual-1',
+          segment_content: '![diagram](https://example.com/diagram.png)',
+        }),
+      ]),
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-visual-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'element-visual-1',
+          generated_block_bid: 'generated-visual-1',
+          element_type: 'text',
+          content: 'Final visual explanation',
+          is_speakable: true,
+          like_status: 'none',
+        },
+      });
+    });
+
+    expect(
+      result.current.items.find(
+        item => item.element_bid === 'streaming-block-visual-1',
+      ),
+    ).toBeUndefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'element-visual-1')
+        ?.listenSlides,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slide_id: 'slide-visual-1',
+          generated_block_bid: 'generated-visual-1',
+        }),
+      ]),
+    );
   });
 
   it('adds the mobile follow-up button only after text end for the current element', async () => {

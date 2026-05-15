@@ -81,6 +81,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  AUDIO_BACKFILL_READY: 'audio_backfill_ready',
   NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =

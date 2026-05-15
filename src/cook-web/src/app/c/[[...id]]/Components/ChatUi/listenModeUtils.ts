@@ -282,6 +282,13 @@ export const isListenModeAudioBackfillCandidate = (
   return item.is_speakable !== false;
 };
 
+export const isListenModeAudioBackfillReady = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.isHistory ||
+    item?.isAudioBackfillReady ||
+    hasPlayableListenAudioForItem(item),
+  );
+
 export const getMissingListenModeAudioBlockBids = (
   items: ChatContentItem[],
 ) => {

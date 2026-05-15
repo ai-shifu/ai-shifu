@@ -57,6 +57,7 @@ import { isListenModeActive as getIsListenModeActive } from '../learningModeOpti
 import {
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
+  isListenModeAudioBackfillReady,
   isListenModeAudioBackfillCandidate,
 } from './listenModeUtils';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
@@ -597,18 +598,30 @@ export const NewChatComponents = ({
       return;
     }
 
-    const hasBackfillCandidate = contentItems.some(
+    const backfillCandidateItems = contentItems.filter(
       isListenModeAudioBackfillCandidate,
     );
     const hasPlayableAudio = contentItems.some(hasPlayableListenAudioForItem);
+    const readyBackfillCandidateItems = backfillCandidateItems.filter(
+      isListenModeAudioBackfillReady,
+    );
 
-    if (!hasBackfillCandidate) {
-      setListenAudioBackfillStatus('idle');
+    if (!backfillCandidateItems.length) {
+      setListenAudioBackfillStatus(
+        isOutputInProgress && !hasPlayableAudio ? 'preparing' : 'idle',
+      );
+      return;
+    }
+
+    if (!readyBackfillCandidateItems.length) {
+      setListenAudioBackfillStatus(
+        isOutputInProgress && !hasPlayableAudio ? 'preparing' : 'idle',
+      );
       return;
     }
 
     const missingAudioBlockBids = getMissingListenModeAudioBlockBids(
-      contentItems,
+      readyBackfillCandidateItems,
     ).filter(
       blockBid => !listenAudioBackfillFailedBlockBidsRef.current.has(blockBid),
     );
