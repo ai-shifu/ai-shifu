@@ -648,7 +648,7 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(latest_subquery))
-            .order_by(DraftShifu.title.asc(), DraftShifu.shifu_bid.asc())
+            .order_by(DraftShifu.updated_at.desc(), DraftShifu.id.desc())
             .all()
         )
 
