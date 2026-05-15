@@ -664,6 +664,7 @@ def test_bill_usage_table_rejected() -> None:
 
 
 def _generated_blocks_payload(**overrides):
+    """Build a baseline DSL payload for learn_generated_blocks tests."""
     base = {
         "shifu_bid": "shifu-abc",
         "table": "learn_generated_blocks",
@@ -780,6 +781,7 @@ def test_bill_daily_creator_bid_filter_rejected() -> None:
 
 
 def _shifu_meta_payload(table_key="shifu_published_shifus", **overrides):
+    """Build a baseline DSL payload for shifu metadata-table tests."""
     base = {
         "shifu_bid": "shifu-abc",
         "table": table_key,
@@ -853,6 +855,49 @@ def test_shifu_meta_title_like_minimum_accepted() -> None:
     )
     dsl = _parse(payload)
     assert dsl.filters[0].op == "like"
+
+
+def test_shifu_meta_title_like_underscore_rejected() -> None:
+    """SQL `_` single-char wildcard would let a caller scan with `'a_%'`
+    (one literal char + a wildcard floor). The metadata contract is strict
+    prefix matching — reject any `_` regardless of position."""
+
+    payload = _shifu_meta_payload(
+        where=[{"field": "title", "op": "like", "value": "a_%"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_shifu_meta_title_like_double_underscore_rejected() -> None:
+    """Original bypass case raised in PR #1769 review: `'__%'` passes the
+    `rstrip('%')` length check (2 chars) but is wildcard-only. Must reject."""
+
+    payload = _shifu_meta_payload(
+        where=[{"field": "title", "op": "like", "value": "__%"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_shifu_meta_title_like_internal_percent_rejected() -> None:
+    """`'a%b'` would be 3 non-wildcard chars under naive counting, but the
+    middle `%` violates the prefix-only contract — reject."""
+
+    payload = _shifu_meta_payload(
+        where=[{"field": "title", "op": "like", "value": "a%b"}],
+    )
+    _assert_error(payload, ERR_INVALID_DSL)
+
+
+def test_shifu_meta_title_like_exact_match_accepted() -> None:
+    """A `like` value without any wildcard is just an exact match;
+    accepting it preserves the "look up this exact title" use case."""
+
+    payload = _shifu_meta_payload(
+        where=[{"field": "title", "op": "like", "value": "AI"}],
+    )
+    dsl = _parse(payload)
+    assert dsl.filters[0].op == "like"
+    assert dsl.filters[0].value == "AI"
 
 
 def test_shifu_meta_limit_capped_at_50() -> None:

@@ -621,10 +621,13 @@ def _enforce_shifu_meta_table_constraints(
     ``count_distinct(shifu_bid)`` returns the size of the caller's owned set,
     which is a side channel even without revealing the individual bids).
 
-    The ``title`` column is the only free-text filter target. ``like`` is
-    already gated to trailing-% only in :func:`_validate_filter_value`; here
-    we require at least :data:`_LIKE_MIN_NON_WILDCARD_CHARS` non-wildcard
-    characters so a caller cannot enumerate with ``like "a%"``.
+    The ``title`` column is the only free-text filter target. The generic
+    :func:`_validate_filter_value` only blocks leading ``%``; that is too
+    permissive for metadata lookups, where the design contract is strict
+    prefix matching. Here we additionally reject any ``_`` (SQL single-char
+    wildcard) and any ``%`` other than a single trailing one, then require
+    at least :data:`_LIKE_MIN_NON_WILDCARD_CHARS` literal characters so a
+    caller cannot enumerate with ``like "__%"`` / ``like "a%b"`` / etc.
     """
 
     if table_key not in _SHIFU_META_TABLES:
@@ -643,7 +646,19 @@ def _enforce_shifu_meta_table_constraints(
         )
     for filt in filters:
         if filt.field == "title" and filt.op == "like":
-            non_wildcard = filt.value.rstrip("%")
+            value = filt.value
+            # Metadata-table title lookup is strict prefix matching:
+            # only an optional trailing '%' wildcard is allowed. Reject any
+            # '_' (SQL single-char wildcard) and any '%' that is not the
+            # final character, so patterns like "__%" / "a%b" cannot bypass
+            # the non-wildcard length floor below.
+            if "_" in value or "%" in value[:-1]:
+                _raise(
+                    ERR_INVALID_DSL,
+                    "'title' 'like' only supports an optional trailing '%' "
+                    "wildcard (no '_' / no internal '%')",
+                )
+            non_wildcard = value[:-1] if value.endswith("%") else value
             if len(non_wildcard) < _LIKE_MIN_NON_WILDCARD_CHARS:
                 _raise(
                     ERR_INVALID_DSL,
