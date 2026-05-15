@@ -7,6 +7,7 @@ from typing import Optional
 import pytest
 
 from flaskr.dao import db
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
@@ -26,6 +27,7 @@ from flaskr.service.user.models import UserInfo
 
 def _clear_tables() -> None:
     for model in (
+        BillingDailyUsageMetric,
         BillUsageRecord,
         VariableValue,
         LearnLessonFeedback,
@@ -201,6 +203,49 @@ def seed_user_info(
     db.session.commit()
 
 
+def seed_bill_daily_metric(
+    *,
+    shifu_bid: str,
+    stat_date: str,
+    creator_bid: str = "creator-1",
+    usage_scene: int = 1203,
+    usage_type: int = 1101,
+    provider: str = "openai",
+    model: str = "gpt-4o",
+    billing_metric: int = 1,
+    consumed_credits: float = 10.0,
+    record_count: int = 5,
+    daily_usage_metric_bid: Optional[str] = None,
+) -> None:
+    """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
+
+    bid = (
+        daily_usage_metric_bid
+        or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"
+    )
+    now = datetime.utcnow()
+    db.session.add(
+        BillingDailyUsageMetric(
+            daily_usage_metric_bid=bid,
+            stat_date=stat_date,
+            creator_bid=creator_bid,
+            shifu_bid=shifu_bid,
+            usage_scene=usage_scene,
+            usage_type=usage_type,
+            provider=provider,
+            model=model,
+            billing_metric=billing_metric,
+            raw_amount=0,
+            record_count=record_count,
+            consumed_credits=consumed_credits,
+            window_started_at=now,
+            window_ended_at=now,
+            deleted=0,
+        )
+    )
+    db.session.commit()
+
+
 def seed_bill_usage(
     *,
     shifu_bid: str,
@@ -208,7 +253,12 @@ def seed_bill_usage(
     usage_type: int = 1101,
     usage_scene: int = 1203,
     input_tokens: int = 0,
+    input_cache: int = 0,
     output_tokens: int = 0,
+    total: int = 0,
+    provider: str = "openai",
+    model: str = "gpt-4o",
+    record_level: int = 0,
     usage_bid: Optional[str] = None,
 ) -> str:
     """Seed one BillUsageRecord row.
@@ -226,7 +276,12 @@ def seed_bill_usage(
             usage_type=usage_type,
             usage_scene=usage_scene,
             input=input_tokens,
+            input_cache=input_cache,
             output=output_tokens,
+            total=total,
+            provider=provider,
+            model=model,
+            record_level=record_level,
             deleted=0,
             created_at=now,
         )

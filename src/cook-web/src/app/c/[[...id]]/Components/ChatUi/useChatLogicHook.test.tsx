@@ -1165,11 +1165,12 @@ describe('useChatLogicHook stream cleanup', () => {
 
   it('stops auto-continuation after the current lesson reports completed', async () => {
     const params = buildBaseParams();
-    renderHook(() => useChatLogicHook(params), {
+    const { result } = renderHook(() => useChatLogicHook(params), {
       wrapper,
     });
 
     await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
     const initialRunCount = mockGetRunMessage.mock.calls.length;
 
     await act(async () => {
@@ -1208,6 +1209,8 @@ describe('useChatLogicHook stream cleanup', () => {
       status_value: 'completed',
     });
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(false));
+    expect(activeRun?.source.close).toHaveBeenCalled();
   });
 
   it('keeps interaction elements that arrive after lesson completion updates', async () => {

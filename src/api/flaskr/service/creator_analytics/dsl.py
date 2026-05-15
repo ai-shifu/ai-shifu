@@ -538,24 +538,29 @@ def _enforce_user_users_requires_user_bid_filter(
     table_key: str,
     filters: Sequence[Filter],
 ) -> None:
-    """``user_users`` must be queried by an explicit ``user_bid`` filter.
+    """``user_users`` must be queried by an explicit anchor filter.
 
     user_users is a global table (no shifu_bid column). To prevent it being
-    used as "list every learner's nickname for course X", the caller must
-    supply the user_bid candidates up-front — only the `=` and `in` operators
-    are accepted (no `like`, no range), so the surface is "look up a known
-    set" and nothing else.
+    used as "list every learner's nickname/phone for course X", the caller
+    must supply one of:
+
+    - ``user_bid`` filter with op ``=`` or ``in`` (look up a known set), OR
+    - ``user_identify`` filter with op ``=`` only (exact phone/email reverse
+      lookup — ``in`` is blocked to prevent batch enumeration attacks).
     """
 
     if table_key != "user_users":
         return
 
     user_bid_filters = [f for f in filters if f.field == "user_bid"]
-    if not user_bid_filters:
+    user_identify_filters = [f for f in filters if f.field == "user_identify"]
+
+    if not user_bid_filters and not user_identify_filters:
         _raise(
             ERR_INVALID_DSL,
             "querying 'user_users' requires a 'where' filter on 'user_bid' "
-            "using op '=' or 'in' (cannot enumerate all learners)",
+            "(op '=' or 'in') or 'user_identify' (op '=') "
+            "(cannot enumerate all learners)",
         )
 
     for filt in user_bid_filters:
@@ -564,6 +569,15 @@ def _enforce_user_users_requires_user_bid_filter(
                 ERR_INVALID_DSL,
                 "user_users.user_bid filter must use op '=' or 'in' "
                 f"(got '{filt.op}'); 'like' and ranges are not allowed",
+            )
+
+    for filt in user_identify_filters:
+        if filt.op != "=":
+            _raise(
+                ERR_INVALID_DSL,
+                "user_users.user_identify filter must use op '=' only "
+                f"(got '{filt.op}'); 'in', 'like', and ranges are not allowed "
+                "(batch enumeration of registered phone/email is not permitted)",
             )
 
 

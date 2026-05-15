@@ -1,6 +1,9 @@
 {
   "__namespace__": "server.billing",
   "__flat__": {
+    "adminPlanGrantAlreadyActive": "当前用户已生效同一套餐，暂不支持重复发放",
+    "adminPlanGrantProviderManagedConflict": "当前用户已有支付渠道托管的有效套餐，暂不支持后台直接发放套餐，请等待当前套餐到期后再操作。",
+    "adminPlanGrantRoleUnsupported": "当前用户身份不支持发放积分或套餐",
     "creditInsufficient": "积分余额不足，暂时无法继续调用，请先充值或开通订阅",
     "customDomainDisabled": "当前创作者未开通自定义域名权益",
     "disabled": "积分计费功能当前未启用",

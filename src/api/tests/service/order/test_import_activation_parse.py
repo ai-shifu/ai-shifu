@@ -1,6 +1,25 @@
 import pytest
 
-from flaskr.service.order.admin import parse_import_activation_entries
+from flaskr.service.common.models import AppException
+from flaskr.service.order.admin import normalize_mobile, parse_import_activation_entries
+
+
+@pytest.mark.parametrize(
+    ("input_phone", "expected"),
+    [
+        ("+8613800138004", "13800138004"),
+        ("13800138004", "13800138004"),
+        ("  +8613800138004  ", "13800138004"),
+    ],
+)
+def test_normalize_mobile_handles_valid_edge_cases(input_phone, expected):
+    assert normalize_mobile(input_phone) == expected
+
+
+@pytest.mark.parametrize("input_phone", ["", None])
+def test_normalize_mobile_rejects_empty_values(input_phone):
+    with pytest.raises(AppException):
+        normalize_mobile(input_phone)
 
 
 def test_parse_import_activation_entries_phone_multiple_numbers():

@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flaskr.i18n import _
 
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_param_error
 from flaskr.common.cache_provider import cache as redis
 from ...dao import db
 from flaskr.api.sms.aliyun import send_sms_code_ali
@@ -19,6 +19,7 @@ import json
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
@@ -147,7 +148,10 @@ def send_sms_code(
     captcha_ticket: str = None,
     require_captcha: bool = True,
 ):
+    phone = normalize_phone_identifier(phone)
     with app.app_context():
+        if not phone:
+            raise_param_error("mobile")
         if require_captcha:
             consume_captcha_ticket(app, captcha_ticket)
 
@@ -219,6 +223,10 @@ def send_sms_code(
 
 def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
     with app.app_context():
+        email = str(email or "").strip().lower()
+        if not email:
+            raise_error("server.common.unknownError")
+
         # Check IP ban status
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip

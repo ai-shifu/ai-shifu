@@ -9,6 +9,7 @@ from flaskr.service.user.password_utils import (
     validate_password_strength,
 )
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.repository import (
     find_credential,
@@ -383,7 +384,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)
-        mobile = payload.get("mobile", None)
+        mobile = normalize_phone_identifier(payload.get("mobile", None))
         captcha_ticket = payload.get("captcha_ticket", None)
         if not mobile:
             raise_param_error("mobile")
@@ -408,7 +409,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)
-        mobile = payload.get("mobile", None)
+        mobile = normalize_phone_identifier(payload.get("mobile", None))
         if not mobile:
             raise_param_error("mobile")
         if "X-Forwarded-For" in request.headers:
@@ -452,7 +453,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         with app.app_context():
             payload = request.get_json(silent=True)
             payload = payload if isinstance(payload, dict) else {}
-            mobile = payload.get("mobile", None)
+            mobile = normalize_phone_identifier(payload.get("mobile", None))
             sms_code = payload.get("sms_code", None)
             course_id = payload.get("course_id", None)
             language = payload.get("language", None)
@@ -867,14 +868,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         for c in creds:
             if c.provider_name in ("phone", "email") and c.identifier:
                 normalized = (
-                    c.identifier.lower() if c.provider_name == "email" else c.identifier
+                    c.identifier.lower()
+                    if c.provider_name == "email"
+                    else normalize_phone_identifier(c.identifier)
                 )
                 available_identifiers.append(normalized)
 
         selected_identifier = None
         if identifier:
             normalized = (
-                identifier.strip().lower() if "@" in identifier else identifier.strip()
+                identifier.strip().lower()
+                if "@" in identifier
+                else normalize_phone_identifier(identifier)
             )
             if normalized not in available_identifiers:
                 # Avoid leaking whether another account exists for the identifier.
@@ -978,7 +983,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         raw_identifier = identifier.strip()
         normalized_identifier = (
-            raw_identifier.lower() if "@" in raw_identifier else raw_identifier
+            raw_identifier.lower()
+            if "@" in raw_identifier
+            else normalize_phone_identifier(raw_identifier)
         )
 
         # Reset is only allowed for existing users. New users must go through
@@ -990,7 +997,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_error("server.user.userNotFound")
 
         # Verify identity via verification code without creating/merging users.
-        consume_verification_code(app, identifier=raw_identifier, code=code)
+        consume_verification_code(app, identifier=normalized_identifier, code=code)
 
         user_bid = aggregate.user_bid
         subject_format = "email" if "@" in normalized_identifier else "phone"

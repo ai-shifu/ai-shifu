@@ -62,6 +62,9 @@
   "server.billing.domainHostConflict": 7105,
   "server.billing.domainBindingNotFound": 7106,
   "server.billing.subscriptionUpgradeOnly": 7107,
+  "server.billing.adminPlanGrantAlreadyActive": 7108,
+  "server.billing.adminPlanGrantProviderManagedConflict": 7109,
+  "server.billing.adminPlanGrantRoleUnsupported": 7110,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,
