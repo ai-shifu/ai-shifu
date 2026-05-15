@@ -25,15 +25,24 @@ EXPECTED_TABLE_KEYS = {
     "bill_daily_usage_metrics",
     "shifu_user_archives",
     "user_users",
+    "shifu_published_shifus",
+    "shifu_draft_shifus",
 }
 
 # Tables whose rows are shifu-scoped (sql_builder injects WHERE shifu_bid=:sb).
 # user_users is global and gated by funcs.run_dsl permission check instead.
 SHIFU_SCOPED_TABLE_KEYS = EXPECTED_TABLE_KEYS - {"user_users"}
 
+# Course metadata tables — answer "what is this course currently called".
+# Aggregates and group_by are blocked here to prevent permission-edge probes.
+SHIFU_META_TABLE_KEYS = {"shifu_published_shifus", "shifu_draft_shifus"}
+
 # Learner-grained tables that expose user_bid — bill_daily_usage_metrics is a
-# daily summary table without user_bid.
-USER_BID_GROUPABLE_TABLE_KEYS = SHIFU_SCOPED_TABLE_KEYS - {"bill_daily_usage_metrics"}
+# daily summary table without user_bid; shifu metadata tables describe the
+# course, not learner activity.
+USER_BID_GROUPABLE_TABLE_KEYS = (
+    SHIFU_SCOPED_TABLE_KEYS - {"bill_daily_usage_metrics"} - SHIFU_META_TABLE_KEYS
+)
 
 
 def test_whitelist_covers_expected_tables() -> None:
@@ -164,3 +173,135 @@ def test_bill_usage_is_not_whitelisted() -> None:
     """Creators cannot query raw token usage; only credit aggregates are exposed."""
 
     assert "bill_usage" not in WHITELIST
+
+
+# ---------------------------------------------------------------------------
+# learn_generated_blocks — new field coverage + status auto-filter
+# ---------------------------------------------------------------------------
+
+
+def test_learn_generated_blocks_exposes_new_followup_fields() -> None:
+    """status / position / outline_item_bid are needed for follow-up pairing
+    (per the 2026-05-15 follow-up query handbook PDF §6)."""
+
+    spec = WHITELIST["learn_generated_blocks"]
+    for col in ("status", "position", "outline_item_bid"):
+        assert col in spec.selectable, (
+            f"learn_generated_blocks.{col} must be selectable"
+        )
+        assert col in spec.filterable, (
+            f"learn_generated_blocks.{col} must be filterable"
+        )
+    assert "outline_item_bid" in spec.groupable
+    assert "status" in spec.groupable
+    # position is not group-able — it is a within-row ordering index, not a
+    # dimension; grouping on it would explode the row count and is rarely
+    # what an author intends.
+    assert "position" not in spec.groupable
+    assert "outline_item_bid" in spec.aggregatable
+
+
+def test_learn_generated_blocks_auto_filters_active_status() -> None:
+    """Rerolled history rows (status=0) must be excluded from creator views.
+
+    This pairs with sql_builder which injects AND status = 1; the spec flag
+    is the source of truth for that injection.
+    """
+
+    spec = WHITELIST["learn_generated_blocks"]
+    assert spec.auto_filter_status_active is True
+
+
+@pytest.mark.parametrize(
+    "table_key",
+    sorted(EXPECTED_TABLE_KEYS - {"learn_generated_blocks"}),
+)
+def test_other_tables_do_not_auto_filter_status(table_key: str) -> None:
+    """Only learn_generated_blocks opts into status=1 auto-injection."""
+
+    spec = WHITELIST[table_key]
+    assert spec.auto_filter_status_active is False
+
+
+# ---------------------------------------------------------------------------
+# bill_daily_usage_metrics — creator_bid surface
+# ---------------------------------------------------------------------------
+
+
+def test_bill_daily_usage_metrics_exposes_creator_bid() -> None:
+    """creator_bid lets the author see which wallet the course's credits hit;
+    shifu_bid isolation already constrains the value to the caller's own bid."""
+
+    spec = WHITELIST["bill_daily_usage_metrics"]
+    assert "creator_bid" in spec.selectable
+    assert "creator_bid" in spec.groupable
+    # Deliberately NOT in filterable / aggregatable: the SQL builder already
+    # restricts rows via shifu_bid, so a creator_bid filter would be
+    # redundant; keeping it out blocks "where creator_bid = 'someone-else'"
+    # attempts even though shifu_bid isolation would still defeat them.
+    assert "creator_bid" not in spec.filterable
+    assert "creator_bid" not in spec.aggregatable
+
+
+# ---------------------------------------------------------------------------
+# shifu metadata tables — double-gate + no-aggregate side channel
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
+def test_shifu_meta_tables_are_creator_scoped(table_key: str) -> None:
+    """Both metadata tables enforce row ownership via created_user_bid in
+    addition to the funcs.run_dsl shifu permission check."""
+
+    spec = WHITELIST[table_key]
+    assert spec.creator_scoped_column == "created_user_bid"
+    assert spec.has_shifu_bid is True  # double-gate: shifu scope + row owner
+    assert spec.has_deleted is True
+
+
+@pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
+def test_shifu_meta_tables_block_aggregate_and_group_by(table_key: str) -> None:
+    """count_distinct(shifu_bid) etc. would leak the size of the caller's
+    owned set; keep these tables strictly row-lookup only."""
+
+    spec = WHITELIST[table_key]
+    assert spec.aggregatable == {}
+    assert spec.groupable == frozenset()
+
+
+@pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
+def test_shifu_meta_tables_minimum_select_surface(table_key: str) -> None:
+    """Author-secret prompt fields (llm_system_prompt, ask_*) must never be
+    selectable — they are creator IP and stay out of the analytics surface
+    even for the owner. shifu_bid is also intentionally not selectable here
+    (covered by test_shifu_bid_and_deleted_are_never_user_addressable)."""
+
+    spec = WHITELIST[table_key]
+    assert spec.selectable == frozenset(
+        {"title", "created_user_bid", "created_at", "updated_at"}
+    )
+    for forbidden in (
+        "llm",
+        "llm_system_prompt",
+        "ask_llm",
+        "ask_llm_system_prompt",
+        "ask_provider_config",
+        "keywords",
+        "description",
+        "avatar_res_bid",
+        "price",
+    ):
+        assert forbidden not in spec.selectable
+        assert forbidden not in spec.filterable
+
+
+@pytest.mark.parametrize(
+    "table_key",
+    sorted(EXPECTED_TABLE_KEYS - SHIFU_META_TABLE_KEYS),
+)
+def test_other_tables_have_no_creator_scoped_column(table_key: str) -> None:
+    """Only the metadata tables opt into the created_user_bid auto-injection;
+    every other table goes through the standard shifu_bid scope path."""
+
+    spec = WHITELIST[table_key]
+    assert spec.creator_scoped_column is None

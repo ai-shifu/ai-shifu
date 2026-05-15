@@ -2,16 +2,24 @@
 
 Every DSL request is constrained by :data:`WHITELIST`. The set of tables, the
 columns that may appear in ``select`` / ``where`` / ``group_by``, and the
-aggregations allowed per column are declared here. ``shifu_bid`` and ``deleted``
-are not exposed in the DSL surface — they are injected by the SQL builder
-based on :attr:`TableSpec.has_deleted` and the authenticated user's
-permissions.
+aggregations allowed per column are declared here. Several columns are not
+exposed in the DSL surface and are instead injected automatically by the SQL
+builder, driven by :class:`TableSpec` flags:
+
+* ``shifu_bid`` — injected when :attr:`TableSpec.has_shifu_bid` is True.
+* ``deleted = 0`` — injected when :attr:`TableSpec.has_deleted` is True.
+* ``<creator_scoped_column> = caller_user_id`` — injected when
+  :attr:`TableSpec.creator_scoped_column` is non-None (used by the metadata
+  tables ``shifu_published_shifus`` / ``shifu_draft_shifus`` to enforce row
+  ownership in addition to the shifu-scope check).
+* ``status = 1`` — injected when :attr:`TableSpec.auto_filter_status_active`
+  is True (used by ``learn_generated_blocks`` to exclude rerolled history).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Type
+from typing import FrozenSet, Mapping, Optional, Type
 
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -21,7 +29,7 @@ from flaskr.service.learn.models import (
 from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
-from flaskr.service.shifu.models import ShifuUserArchive
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
 
 
@@ -63,6 +71,15 @@ class TableSpec:
     # by funcs.run_dsl using get_user_shifu_permissions, but the SQL cannot
     # filter by a column the table does not have.
     has_shifu_bid: bool = True
+    # When non-None, sql_builder injects WHERE <col> = :__user_id (the caller).
+    # Used for creator-owned metadata tables (shifu_published_shifus /
+    # shifu_draft_shifus) so the row's creator must match the caller. Pairs
+    # with has_shifu_bid for a double-gate: shifu permission AND row ownership.
+    creator_scoped_column: Optional[str] = None
+    # When True, sql_builder injects AND status = 1 to exclude rerolled /
+    # superseded history rows. Only enabled where status semantics are
+    # "1 = current, 0 = history" (e.g. learn_generated_blocks).
+    auto_filter_status_active: bool = False
 
 
 _DIMENSION_AGGS: FrozenSet[str] = frozenset({"count", "count_distinct"})
@@ -115,8 +132,11 @@ WHITELIST: Mapping[str, TableSpec] = {
                 "generated_block_bid",
                 "user_bid",
                 "progress_record_bid",
+                "outline_item_bid",
                 "type",
                 "role",
+                "status",
+                "position",
                 "liked",
                 "created_at",
                 "generated_content",
@@ -126,20 +146,27 @@ WHITELIST: Mapping[str, TableSpec] = {
             {
                 "user_bid",
                 "progress_record_bid",
+                "outline_item_bid",
                 "type",
                 "role",
+                "status",
+                "position",
                 "liked",
                 "created_at",
             }
         ),
-        groupable=frozenset({"user_bid", "type", "role", "liked"}),
+        groupable=frozenset(
+            {"user_bid", "outline_item_bid", "type", "role", "status", "liked"}
+        ),
         aggregatable={
             "generated_block_bid": _DIMENSION_AGGS,
             "user_bid": _DIMENSION_AGGS,
+            "outline_item_bid": _DIMENSION_AGGS,
             "liked": _NUMERIC_AGGS,
             "created_at": _TIMESTAMP_AGGS,
         },
         has_deleted=True,
+        auto_filter_status_active=True,
     ),
     "learn_lesson_feedbacks": TableSpec(
         table_key="learn_lesson_feedbacks",
@@ -251,6 +278,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         selectable=frozenset(
             {
                 "stat_date",
+                "creator_bid",
                 "usage_scene",
                 "usage_type",
                 "provider",
@@ -273,6 +301,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         groupable=frozenset(
             {
                 "stat_date",
+                "creator_bid",
                 "usage_scene",
                 "usage_type",
                 "provider",
@@ -315,6 +344,62 @@ WHITELIST: Mapping[str, TableSpec] = {
         aggregatable={},
         has_deleted=True,
         has_shifu_bid=False,
+    ),
+    # ------------------------------------------------------------------
+    # Course metadata tables — answer "what is shifu_bid X currently
+    # called", "did I rename it", "which of my courses match this title".
+    # Two-table layout: published_shifus is the live learner-facing title;
+    # draft_shifus is the in-progress editor title. They can diverge after
+    # rename (draft updated, not yet republished).
+    # Security model — double-gate:
+    #   1. funcs.run_dsl checks get_user_shifu_permissions for view access
+    #      on dsl.shifu_bid (caller is owner or co-author).
+    #   2. sql_builder injects WHERE created_user_bid = :__user_id so the
+    #      row must belong to the caller. Co-authors with view permission
+    #      can run analytics queries on shared courses but cannot read the
+    #      title metadata — that stays scoped to the original author per
+    #      PDF §7.2 "current course attribution = published.created_user_bid".
+    # Hard restrictions:
+    #   - aggregatable={} / groupable=frozenset(): no aggregate / group_by;
+    #     prevents using count_distinct(shifu_bid) as a permission-probe
+    #     side channel.
+    #   - selectable / filterable expose only the minimum fields needed
+    #     for title lookup. Sensitive author secrets (llm_system_prompt,
+    #     ask_llm_system_prompt, ask_provider_config, etc.) are NEVER on
+    #     this list — those are creator IP and must not flow through the
+    #     analytics DSL even to the owner.
+    #   - title supports op=like, but dsl.py enforces a minimum
+    #     non-wildcard length (>= 2) on top of the existing leading-%
+    #     guard, so callers cannot scan with `like "a%"`.
+    #   - limit hard-capped to 50 (see dsl._SHIFU_META_LIMIT_MAX).
+    # ------------------------------------------------------------------
+    "shifu_published_shifus": TableSpec(
+        table_key="shifu_published_shifus",
+        model=PublishedShifu,
+        # shifu_bid is intentionally NOT exposed — the sql_builder injects it
+        # from the CLI's positional argument; selecting / filtering it again
+        # would be pure echo and breaks the global "shifu_bid stays out of the
+        # DSL surface" invariant (see test_shifu_bid_and_deleted_are_never_
+        # user_addressable). created_user_bid is exposed so the caller can
+        # confirm ownership in the response payload.
+        selectable=frozenset({"title", "created_user_bid", "created_at", "updated_at"}),
+        filterable=frozenset({"title", "created_user_bid", "created_at", "updated_at"}),
+        groupable=frozenset(),
+        aggregatable={},
+        has_deleted=True,
+        has_shifu_bid=True,
+        creator_scoped_column="created_user_bid",
+    ),
+    "shifu_draft_shifus": TableSpec(
+        table_key="shifu_draft_shifus",
+        model=DraftShifu,
+        selectable=frozenset({"title", "created_user_bid", "created_at", "updated_at"}),
+        filterable=frozenset({"title", "created_user_bid", "created_at", "updated_at"}),
+        groupable=frozenset(),
+        aggregatable={},
+        has_deleted=True,
+        has_shifu_bid=True,
+        creator_scoped_column="created_user_bid",
     ),
 }
 

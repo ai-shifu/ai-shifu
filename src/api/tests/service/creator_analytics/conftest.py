@@ -79,6 +79,7 @@ def seed_owned_course(
     shifu_bid: str,
     user_id: str = "teacher-1",
     title: str = "Untitled",
+    deleted: int = 0,
 ) -> None:
     now = datetime.utcnow()
     db.session.add(
@@ -97,7 +98,45 @@ def seed_owned_course(
             ask_llm_system_prompt="",
             ask_provider_config="{}",
             price=0,
-            deleted=0,
+            deleted=deleted,
+            created_at=now,
+            created_user_bid=user_id,
+            updated_at=now,
+            updated_user_bid=user_id,
+        )
+    )
+    db.session.commit()
+
+
+def seed_published_shifu(
+    *,
+    shifu_bid: str,
+    user_id: str = "teacher-1",
+    title: str = "Untitled",
+    deleted: int = 0,
+) -> None:
+    """Seed one PublishedShifu row. Pair with seed_owned_course when the test
+    needs both the draft and the published version of a course (e.g. to cover
+    the "draft title diverges from published title after rename" scenario)."""
+
+    now = datetime.utcnow()
+    db.session.add(
+        PublishedShifu(
+            shifu_bid=shifu_bid,
+            title=title,
+            keywords="",
+            description="",
+            avatar_res_bid="",
+            llm="",
+            llm_temperature=0,
+            llm_system_prompt="",
+            ask_enabled_status=0,
+            ask_llm="",
+            ask_llm_temperature=0,
+            ask_llm_system_prompt="",
+            ask_provider_config="{}",
+            price=0,
+            deleted=deleted,
             created_at=now,
             created_user_bid=user_id,
             updated_at=now,
@@ -162,6 +201,9 @@ def seed_generated_block(
     content: str,
     progress_record_bid: str = "pr-default",
     generated_block_bid: Optional[str] = None,
+    outline_item_bid: str = "",
+    position: int = 0,
+    status: int = 1,
 ) -> str:
     bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
     now = datetime.utcnow()
@@ -171,8 +213,11 @@ def seed_generated_block(
             shifu_bid=shifu_bid,
             user_bid=user_bid,
             progress_record_bid=progress_record_bid,
+            outline_item_bid=outline_item_bid,
+            position=position,
             type=type,
             role=role,
+            status=status,
             generated_content=content,
             deleted=0,
             created_at=now,
