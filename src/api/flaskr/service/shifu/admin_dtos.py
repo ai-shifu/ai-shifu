@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.service.billing.dtos import BillingPlanDTO
 
 
 @register_schema_to_swagger
@@ -406,14 +407,14 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent credit grants",
-        required=False,
+        required=True,
     )
-    amount: str = Field(..., description="Granted credits amount", required=False)
+    amount: str = Field(..., description="Granted credits amount", required=True)
     grant_source: str = Field(
-        ..., description="Grant source: reward or compensation", required=False
+        ..., description="Grant source: reward or compensation", required=True
     )
     validity_preset: str = Field(
-        ..., description="Grant validity preset", required=False
+        ..., description="Grant validity preset", required=True
     )
     note: str = Field(default="", description="Optional operator note", required=False)
 
@@ -441,6 +442,91 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     )
     ledger_bid: str = Field(
         ..., description="Created ledger identifier", required=False
+    )
+    summary: AdminOperationUserCreditSummaryDTO = Field(
+        ..., description="Refreshed credits summary", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserGrantBootstrapDTO(BaseModel):
+    """Operator grant dialog bootstrap payload."""
+
+    plans: list[BillingPlanDTO] = Field(
+        default_factory=list,
+        description="Grantable billing plans",
+        required=False,
+    )
+    current_subscription_product_display_name_i18n_key: str = Field(
+        default="",
+        description="Current active subscription product display name i18n key",
+        required=False,
+    )
+    notification_status: str = Field(
+        default="template_pending",
+        description="Current admin package notification template status",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "plans": [item.__json__() for item in self.plans],
+            "current_subscription_product_display_name_i18n_key": (
+                self.current_subscription_product_display_name_i18n_key
+            ),
+            "notification_status": self.notification_status,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationUserPackageGrantRequestDTO(BaseModel):
+    """Operator package grant request payload."""
+
+    request_id: str = Field(
+        ...,
+        description="Client request identifier for idempotent package grants",
+        required=True,
+    )
+    product_bid: str = Field(
+        ...,
+        description="Granted billing plan product identifier",
+        required=True,
+    )
+    note: str = Field(default="", description="Optional operator note", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserPackageGrantResultDTO(BaseModel):
+    """Operator package grant response payload."""
+
+    user_bid: str = Field(..., description="Target user business identifier")
+    product_bid: str = Field(..., description="Granted billing plan identifier")
+    subscription_bid: str = Field(
+        ..., description="Active subscription identifier", required=False
+    )
+    bill_order_bid: str = Field(
+        ..., description="Created billing order identifier", required=False
+    )
+    current_period_start_at: str = Field(
+        default="",
+        description="Resolved subscription effective start timestamp",
+        required=False,
+    )
+    current_period_end_at: str = Field(
+        default="",
+        description="Resolved subscription effective end timestamp",
+        required=False,
+    )
+    notification_status: str = Field(
+        default="template_pending",
+        description="Admin package notification template status",
+        required=False,
     )
     summary: AdminOperationUserCreditSummaryDTO = Field(
         ..., description="Refreshed credits summary", required=False

@@ -8,6 +8,7 @@ import pytest
 import sys
 
 from flaskr.dao import db
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.billing.consts import (
@@ -28,6 +29,7 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
 )
@@ -39,7 +41,9 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin import (
+    get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
+    grant_operator_user_package,
     get_operator_user_overview,
     get_operator_user_credits,
     get_operator_user_detail,
@@ -47,6 +51,7 @@ from flaskr.service.shifu.admin import (
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
     AdminOperationUserSummaryDTO,
@@ -71,6 +76,7 @@ from flaskr.service.user.models import (
     UserToken,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from tests.common.fixtures.billing_products import build_bill_products
 
 
 @pytest.fixture(autouse=True)
@@ -91,6 +97,8 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
+        db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
         db.session.query(LearnProgressRecord).delete()
@@ -108,6 +116,8 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
+        db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
         db.session.query(LearnProgressRecord).delete()
@@ -322,12 +332,13 @@ def _seed_billing_subscription(
     subscription_bid: str,
     current_period_start_at: datetime,
     current_period_end_at: datetime,
+    product_bid: str = "product-1",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 ):
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
-        product_bid="product-1",
+        product_bid=product_bid,
         status=status,
         billing_provider="manual",
         provider_subscription_id="",
@@ -1632,6 +1643,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
             identify="credits-grant-target@example.com",
             nickname="Credits Grant Target",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-target@example.com")],
@@ -1693,6 +1705,7 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
             identify="credits-grant-idempotent@example.com",
             nickname="Credits Grant Idempotent",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-idempotent@example.com")],
@@ -1739,6 +1752,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             identify="credits-grant-idempotent-persisted@example.com",
             nickname="Credits Grant Idempotent Persisted",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-idempotent-persisted@example.com")],
@@ -1777,6 +1791,200 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
     assert second_result.grant_source == "reward"
     assert second_result.validity_preset == "1d"
     assert second_result.expires_at == first_result.expires_at
+
+
+def test_grant_operator_user_credits_rejects_regular_user_targets(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-regular",
+            identify="credits-grant-regular@example.com",
+            nickname="Credits Grant Regular",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-regular@example.com")],
+        )
+
+        with pytest.raises(AppException) as exc_info:
+            grant_operator_user_credits(
+                app,
+                user_bid="credits-grant-regular",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditGrantRequestDTO(
+                    request_id="grant-request-regular",
+                    amount="5",
+                    grant_source="reward",
+                    validity_preset="1d",
+                    note="unsupported target",
+                ),
+            )
+
+    assert (
+        exc_info.value.code
+        == ERROR_CODE["server.billing.adminPlanGrantRoleUnsupported"]
+    )
+
+
+def test_get_operator_user_grant_bootstrap_returns_active_plans(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-bootstrap-target",
+            identify="package-bootstrap-target@example.com",
+            nickname="Package Bootstrap Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-bootstrap-target@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="package-bootstrap-target",
+            subscription_bid="subscription-package-bootstrap-target",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 9, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
+
+        result = get_operator_user_grant_bootstrap(
+            app,
+            user_bid="package-bootstrap-target",
+        )
+
+    assert len(result.plans) == 1
+    assert result.plans[0].product_bid == "bill-product-plan-monthly"
+    assert (
+        result.current_subscription_product_display_name_i18n_key
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
+    assert result.notification_status == "template_pending"
+
+
+def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-target",
+            identify="package-grant-target@example.com",
+            nickname="Package Grant Target",
+            state=USER_STATE_PAID,
+            is_operator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-target@example.com")],
+        )
+
+        result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserPackageGrantRequestDTO(
+                request_id="package-grant-request-1",
+                product_bid="bill-product-plan-monthly",
+                note="ops package",
+            ),
+        )
+
+        order = (
+            BillingOrder.query.filter_by(
+                creator_bid="package-grant-target",
+                bill_order_bid=result.bill_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        subscription = (
+            BillingSubscription.query.filter_by(
+                creator_bid="package-grant-target",
+                subscription_bid=result.subscription_bid,
+            )
+            .order_by(BillingSubscription.id.desc())
+            .first()
+        )
+        ledger = (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="package-grant-target",
+                source_bid=result.bill_order_bid,
+            )
+            .order_by(CreditLedgerEntry.id.desc())
+            .first()
+        )
+
+    assert result.user_bid == "package-grant-target"
+    assert result.product_bid == "bill-product-plan-monthly"
+    assert result.notification_status == "template_pending"
+    assert result.summary.available_credits == "5"
+    assert result.summary.subscription_credits == "5"
+    assert result.current_period_start_at.endswith("Z")
+    assert result.current_period_end_at.endswith("Z")
+    assert order is not None
+    assert order.status == BILLING_ORDER_STATUS_PAID
+    assert order.payment_provider == "manual"
+    assert order.metadata_json["checkout_type"] == "admin_manual_plan_grant"
+    assert order.metadata_json["request_id"] == "package-grant-request-1"
+    assert (
+        order.metadata_json["notification_extensions"]["admin_manual_plan_grant"][
+            "status"
+        ]
+        == "template_pending"
+    )
+    assert subscription is not None
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert ledger is not None
+    assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+    assert ledger.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+    assert ledger.metadata_json["bill_order_bid"] == result.bill_order_bid
+
+
+def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-idempotent",
+            identify="package-grant-idempotent@example.com",
+            nickname="Package Grant Idempotent",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-idempotent@example.com")],
+        )
+
+        payload = AdminOperationUserPackageGrantRequestDTO(
+            request_id="package-grant-idempotent-request",
+            product_bid="bill-product-plan-monthly",
+            note="retry-safe package",
+        )
+        first_result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+        second_result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+        orders = BillingOrder.query.filter_by(
+            creator_bid="package-grant-idempotent",
+            deleted=0,
+        ).all()
+
+    assert second_result.bill_order_bid == first_result.bill_order_bid
+    assert second_result.subscription_bid == first_result.subscription_bid
+    assert len(orders) == 1
 
 
 def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app):
@@ -2397,6 +2605,7 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
             identify="credit-grant-route@example.com",
             nickname="Credit Grant Route User",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 8, 0, 0),
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
             providers=[("email", "credit-grant-route@example.com")],
@@ -2427,6 +2636,165 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
     assert payload["data"]["summary"]["available_credits"] == "3"
     assert payload["data"]["summary"]["credits_expire_at"].endswith("Z")
     assert payload["data"]["summary"]["has_active_subscription"] is False
+
+
+def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-grant-bootstrap-route",
+            identify="user-grant-bootstrap-route@example.com",
+            nickname="Grant Bootstrap Route User",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-grant-bootstrap-route@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="user-grant-bootstrap-route",
+            subscription_bid="subscription-user-grant-bootstrap-route",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 8, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-grant-bootstrap-route/credit-grant/bootstrap",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["notification_status"] == "template_pending"
+    assert (
+        payload["data"]["current_subscription_product_display_name_i18n_key"]
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
+    assert payload["data"]["plans"][0]["product_bid"] == "bill-product-plan-monthly"
+
+
+def test_admin_operation_user_grant_bootstrap_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-grant-bootstrap-route-denied",
+            identify="user-grant-bootstrap-route-denied@example.com",
+            nickname="Grant Bootstrap Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-grant-bootstrap-route-denied@example.com")],
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-grant-bootstrap-route-denied/credit-grant/bootstrap",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_user_package_grant_route_returns_payload(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-package-grant-route",
+            identify="user-package-grant-route@example.com",
+            nickname="Package Grant Route User",
+            state=USER_STATE_PAID,
+            is_operator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-package-grant-route@example.com")],
+        )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/user-package-grant-route/packages/grant",
+        json={
+            "request_id": "route-package-grant-request-1",
+            "product_bid": "bill-product-plan-monthly",
+            "note": "route package check",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["user_bid"] == "user-package-grant-route"
+    assert payload["data"]["product_bid"] == "bill-product-plan-monthly"
+    assert payload["data"]["bill_order_bid"]
+    assert payload["data"]["subscription_bid"]
+    assert payload["data"]["notification_status"] == "template_pending"
+    assert payload["data"]["summary"]["available_credits"] == "5"
+    assert payload["data"]["current_period_end_at"].endswith("Z")
+
+
+def test_admin_operation_user_package_grant_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-package-grant-route-denied",
+            identify="user-package-grant-route-denied@example.com",
+            nickname="Package Grant Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-package-grant-route-denied@example.com")],
+        )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/user-package-grant-route-denied/packages/grant",
+        json={
+            "request_id": "route-package-grant-request-denied",
+            "product_bid": "bill-product-plan-monthly",
+            "note": "route denied",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
 
 
 def test_admin_operation_user_credit_grant_route_requires_operator(

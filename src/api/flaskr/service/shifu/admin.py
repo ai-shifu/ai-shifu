@@ -36,8 +36,13 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     CreditLedgerEntry,
     CreditWalletBucket,
+)
+from flaskr.service.billing.api import (
+    build_billing_catalog,
+    grant_manual_plan_to_user,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
@@ -100,6 +105,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserOverviewDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserGrantBootstrapDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserPackageGrantResultDTO,
     AdminOperationCourseSummaryDTO,
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditLedgerPageDTO,
@@ -540,6 +548,30 @@ def _load_active_subscription_end_map(
     return subscription_end_map
 
 
+def _load_active_subscription_product_display_name_i18n_key(
+    creator_bid: str,
+    *,
+    as_of: datetime,
+) -> str:
+    subscription = load_primary_active_subscription(creator_bid, as_of=as_of)
+    if subscription is None:
+        return ""
+
+    normalized_product_bid = str(subscription.product_bid or "").strip()
+    if not normalized_product_bid:
+        return ""
+
+    product = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == normalized_product_bid,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+    return str(getattr(product, "display_name_i18n_key", "") or "").strip()
+
+
 def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
     normalized_source_bids = [
         str(source_bid or "").strip()
@@ -682,6 +714,8 @@ def _resolve_operator_credit_note_code(
         return "subscription_purchase"
     if checkout_type == "topup":
         return "topup_purchase"
+    if checkout_type == "admin_manual_plan_grant":
+        return "admin_manual_plan_grant"
     if checkout_type == "manual_grant":
         return "manual_grant"
     grant_type = str(metadata.get("grant_type") or "").strip().lower()
@@ -1686,6 +1720,14 @@ def _load_operator_user_or_raise(user_bid: str) -> UserEntity:
     if user is None:
         raise_error("server.user.userNotFound")
     return user
+
+
+def _assert_operator_user_grant_target_supported(user: UserEntity) -> None:
+    if bool(getattr(user, "is_creator", False)) or bool(
+        getattr(user, "is_operator", False)
+    ):
+        return
+    raise_error("server.billing.adminPlanGrantRoleUnsupported")
 
 
 def _load_latest_shifus(
@@ -5120,6 +5162,7 @@ def grant_operator_user_credits(
             raise_param_error("operator_user_bid")
 
         user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
         normalized_grant_source = str(payload.grant_source or "").strip().lower()
         if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
@@ -5186,6 +5229,80 @@ def grant_operator_user_credits(
             expires_at=_format_operator_datetime(grant_result.expires_at),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
+            summary=summary,
+        )
+
+
+def get_operator_user_grant_bootstrap(
+    app: Flask,
+    *,
+    user_bid: str,
+) -> AdminOperationUserGrantBootstrapDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+        catalog = build_billing_catalog(app)
+        current_subscription_product_display_name_i18n_key = (
+            _load_active_subscription_product_display_name_i18n_key(
+                normalized_user_bid,
+                as_of=datetime.now(),
+            )
+        )
+        return AdminOperationUserGrantBootstrapDTO(
+            plans=catalog.plans,
+            current_subscription_product_display_name_i18n_key=(
+                current_subscription_product_display_name_i18n_key
+            ),
+            notification_status="template_pending",
+        )
+
+
+def grant_operator_user_package(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    payload: AdminOperationUserPackageGrantRequestDTO,
+) -> AdminOperationUserPackageGrantResultDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+
+        grant_result = grant_manual_plan_to_user(
+            app,
+            user_bid=normalized_user_bid,
+            product_bid=str(payload.product_bid or "").strip(),
+            operator_user_bid=normalized_operator_user_bid,
+            request_id=str(payload.request_id or "").strip(),
+            note=str(payload.note or "").strip(),
+            grant_channel="operator_user_management",
+        )
+
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+        return AdminOperationUserPackageGrantResultDTO(
+            user_bid=normalized_user_bid,
+            product_bid=grant_result.product_bid,
+            subscription_bid=grant_result.subscription_bid,
+            bill_order_bid=grant_result.bill_order_bid,
+            current_period_start_at=_format_operator_datetime(
+                grant_result.current_period_start_at
+            ),
+            current_period_end_at=_format_operator_datetime(
+                grant_result.current_period_end_at
+            ),
+            notification_status=grant_result.notification_status,
             summary=summary,
         )
 

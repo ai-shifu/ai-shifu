@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "Ajouter des crédits",
+    "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}"
   },
   "courseSummary": {
@@ -35,6 +35,7 @@
       "sourceType": "Source"
     },
     "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "Forfait attribué par les opérations",
       "debug_consume": "Crédits consommés par l’utilisation de débogage",
       "gift_expire": "Crédits offerts expirés",
       "gift_grant": "Crédits offerts attribués",
@@ -122,56 +123,80 @@
     "status": "Statut"
   },
   "grantDialog": {
-    "confirmButton": "Confirmer l’ajout",
-    "confirmDescription": "Veuillez confirmer les détails d’ajout de crédits. Une fois confirmé, l’effet est immédiat.",
+    "bootstrapError": "Impossible de charger la liste des forfaits. Veuillez réessayer plus tard.",
+    "confirmButton": "Confirmer",
+    "confirmDescription": "Veuillez confirmer les détails de l’attribution de crédits. Une fois confirmée, elle prend effet immédiatement.",
     "confirmSummary": {
-      "amount": "Crédits ajoutés",
-      "note": "Note",
+      "amount": "Crédits attribués",
+      "mode": "Type d’attribution",
+      "note": "Remarque",
+      "package": "Forfait",
+      "packageCredits": "Crédits",
+      "packageExpireAt": "Date de fin estimée",
+      "packageValidity": "Validité",
       "source": "Source",
       "validityPreset": "Validité"
     },
-    "confirmTitle": "Confirmer l’ajout de crédits",
-    "description": "Utilisez cette boîte de dialogue pour ajouter des crédits de récompense ou de compensation depuis les opérations.",
+    "confirmTitle": "Confirmer l’attribution de crédits",
+    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux créateurs et opérateurs depuis les opérations.",
     "fields": {
       "amount": "Crédits",
-      "note": "Note",
+      "mode": "Type d’attribution",
+      "note": "Remarque",
       "source": "Source",
-      "type": "Type",
       "validityPreset": "Validité"
     },
+    "modeOptions": {
+      "credits": "Attribuer des crédits",
+      "package": "Attribuer un forfait"
+    },
+    "packageConfirmDescription": "Veuillez confirmer les détails de l’attribution du forfait. Une fois confirmée, elle prend effet immédiatement.",
+    "packageConfirmTitle": "Confirmer l’attribution du forfait",
+    "packageFields": {
+      "credits": "Crédits",
+      "expiryHintPending": "Le forfait prend effet immédiatement après une attribution réussie, et sa date de fin sera calculée automatiquement selon sa validité.",
+      "expiryHintResolved": "Le forfait prend effet immédiatement après une attribution réussie. Date de fin estimée : {dateTime}.",
+      "packageName": "Nom du forfait",
+      "product": "Forfait",
+      "validity": "Validité"
+    },
     "placeholders": {
-      "amount": "Saisir le montant de crédits",
-      "note": "Facultatif. Indiquez la raison de cet ajout",
-      "source": "Sélectionner la source",
-      "validityPreset": "Sélectionner la validité"
+      "amount": "Saisir le montant des crédits",
+      "note": "Optionnel. Indiquez la raison de cette attribution",
+      "product": "Sélectionnez un forfait",
+      "productLoading": "Chargement des forfaits...",
+      "source": "Sélectionnez une source",
+      "validityPreset": "Sélectionnez une validité"
     },
     "sourceOptions": {
       "compensation": "Compensation",
       "reward": "Récompense"
     },
     "submitButton": "Confirmer",
-    "submitSuccess": "Crédits ajoutés avec succès",
+    "submitSuccess": "Attribution réussie",
     "summary": {
       "account": "Compte",
       "availableCredits": "Solde de crédits",
       "currentExpireAt": "Valide jusqu’au",
-      "nickname": "Pseudonyme"
+      "currentPackage": "Forfait actuel",
+      "nickname": "Pseudo",
+      "package": "Forfait"
     },
-    "title": "Ajouter des crédits",
-    "typeValue": "Attribution manuelle",
+    "title": "Attribuer crédits/forfait",
     "validation": {
-      "amountRequired": "Saisir un montant de crédits supérieur à 0",
-      "sourceRequired": "Sélectionner une source",
-      "validityPresetRequired": "Sélectionner une validité prédéfinie"
+      "amountRequired": "Saisissez un montant de crédits supérieur à 0",
+      "productRequired": "Sélectionnez un forfait",
+      "sourceRequired": "Sélectionnez une source",
+      "validityPresetRequired": "Sélectionnez une validité"
     },
-    "validityHint": "Sans abonnement actif, la validité ne peut pas être réglée sur « Aligner sur l’expiration de l’abonnement actuel ».",
+    "validityHint": "S’il n’existe aucun abonnement actif, la validité ne peut pas être définie sur « Aligner sur l’expiration de l’abonnement actuel ».",
     "validityOptions": {
       "alignSubscription": "Aligner sur l’expiration de l’abonnement actuel",
-      "oneDay": "1 jour après attribution",
-      "oneMonth": "1 mois après attribution",
-      "oneYear": "1 an après attribution",
-      "sevenDays": "7 jours après attribution",
-      "threeMonths": "3 mois après attribution"
+      "oneDay": "1 jour après l’attribution",
+      "oneMonth": "1 mois après l’attribution",
+      "oneYear": "1 an après l’attribution",
+      "sevenDays": "7 jours après l’attribution",
+      "threeMonths": "3 mois après l’attribution"
     }
   },
   "loginMethodLabels": {

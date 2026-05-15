@@ -37,6 +37,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import ValidationError
 from flask import (
     Flask,
     request,
@@ -120,8 +121,10 @@ from flaskr.service.shifu.admin import (
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
     get_operator_user_overview,
     grant_operator_user_credits,
+    grant_operator_user_package,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
@@ -149,7 +152,10 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
-from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+)
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -1386,6 +1392,34 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
     @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credit-grant/bootstrap",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_grant_bootstrap(user_bid: str):
+        """
+        Get operator user grant bootstrap
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        responses:
+            200:
+                description: Operator user grant bootstrap payload
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_grant_bootstrap(
+                app,
+                user_bid=user_bid,
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
         methods=["POST"],
     )
@@ -1412,14 +1446,58 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator user credits grant result
         """
         _require_operator()
+        payload_data = request.get_json(silent=True) or {}
         try:
             payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
-                request.get_json() or {}
+                payload_data
             )
-        except Exception:
+        except ValidationError:
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/packages/grant",
+        methods=["POST"],
+    )
+    def admin_operation_user_package_grant(user_bid: str):
+        """
+        Grant operator user package
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/AdminOperationUserPackageGrantRequestDTO"
+        responses:
+            200:
+                description: Operator user package grant result
+        """
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = AdminOperationUserPackageGrantRequestDTO.model_validate(
+                payload_data
+            )
+        except ValidationError:
+            raise_param_error("package_grant_payload")
+        return make_common_response(
+            grant_operator_user_package(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
