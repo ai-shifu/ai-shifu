@@ -203,12 +203,12 @@ def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID):
 def _clear_config_caches() -> None:
     try:
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
+    except (AttributeError, KeyError, TypeError):
         pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
+    except (AttributeError, KeyError, TypeError):
         pass
 
 
