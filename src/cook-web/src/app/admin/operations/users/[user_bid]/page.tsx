@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +36,6 @@ import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
 import { formatOperatorNaiveDateTime } from '../dateTime';
-import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditSummary,
@@ -51,6 +50,11 @@ type DetailTab = 'credits' | 'learning' | 'created';
 const CREDITS_PAGE_SIZE = 10;
 const EMPTY_VALUE = '--';
 const DEFAULT_VISIBLE_COURSE_COUNT = 10;
+const DETAIL_TAB_HASHES: Record<DetailTab, string> = {
+  credits: '#credits',
+  learning: '#learning-courses',
+  created: '#created-courses',
+};
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
@@ -186,17 +190,48 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
 const InfoItem = ({
   label,
   value,
+  onClick,
+  valueClassName,
+  valueAriaLabel,
 }: {
   label: React.ReactNode;
   value?: string;
+  onClick?: () => void;
+  valueClassName?: string;
+  valueAriaLabel?: string;
 }) => (
-  <div className='space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3'>
+  <div
+    className={cn(
+      'space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3',
+      onClick &&
+        'transition-colors hover:border-primary/30 hover:bg-primary/5',
+    )}
+  >
     <div className='flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'>
       {label}
     </div>
-    <div className='break-all text-sm font-medium text-foreground'>
-      {value && value.trim().length > 0 ? value : EMPTY_VALUE}
-    </div>
+    {onClick ? (
+      <button
+        type='button'
+        aria-label={valueAriaLabel}
+        className={cn(
+          'w-full break-all text-left text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          valueClassName,
+        )}
+        onClick={onClick}
+      >
+        {value && value.trim().length > 0 ? value : EMPTY_VALUE}
+      </button>
+    ) : (
+      <div
+        className={cn(
+          'break-all text-sm font-medium text-foreground',
+          valueClassName,
+        )}
+      >
+        {value && value.trim().length > 0 ? value : EMPTY_VALUE}
+      </div>
+    )}
   </div>
 );
 
@@ -592,7 +627,7 @@ export default function AdminOperationUserDetailPage() {
     (state: EnvStoreState) => state.currencySymbol || '',
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
-  const creditsSectionRef = useRef<HTMLDivElement | null>(null);
+  const detailTabsSectionRef = useRef<HTMLDivElement | null>(null);
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState<ErrorState | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
@@ -675,6 +710,36 @@ export default function AdminOperationUserDetailPage() {
       detail.subscription_credits,
       detail.topup_credits,
     ],
+  );
+  const scrollToDetailTabsSection = useCallback(() => {
+    detailTabsSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
+  const syncDetailTabHash = useCallback((nextTab: DetailTab) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const nextHash = DETAIL_TAB_HASHES[nextTab];
+    if (window.location.hash === nextHash) {
+      return;
+    }
+    const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+    window.history.replaceState(window.history.state, '', nextUrl);
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, []);
+  const setDetailTab = useCallback(
+    (nextTab: DetailTab, options?: { scrollToSection?: boolean }) => {
+      setActiveTab(nextTab);
+      syncDetailTabHash(nextTab);
+      if (options?.scrollToSection) {
+        scrollToDetailTabsSection();
+      }
+    },
+    [scrollToDetailTabsSection, syncDetailTabHash],
   );
 
   useEffect(() => {
@@ -792,33 +857,22 @@ export default function AdminOperationUserDetailPage() {
     if (typeof window === 'undefined' || detailLoading) {
       return;
     }
-    if (window.location.hash !== '#credits') {
+
+    const hashEntry = Object.entries(DETAIL_TAB_HASHES).find(
+      ([, hash]) => hash === window.location.hash,
+    ) as [DetailTab, string] | undefined;
+    if (!hashEntry) {
       return;
     }
 
-    setActiveTab('credits');
-    creditsSectionRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  }, [detailLoading]);
+    setActiveTab(hashEntry[0]);
+    scrollToDetailTabsSection();
+  }, [detailLoading, scrollToDetailTabsSection]);
 
-  const resolveStatusLabel = (status: string) =>
-    tOperationsUsers(`statusLabels.${status || 'unknown'}`);
   const resolveRoleLabel = (role: string) =>
     tOperationsUsers(`roleLabels.${role || 'unknown'}`);
   const resolveRegistrationSourceLabel = (source: string) =>
     tOperationsUsers(`registrationSourceLabels.${source || 'unknown'}`);
-  const resolveLoginMethods = (methods: string[]) =>
-    methods.length
-      ? methods
-          .map(method =>
-            tOperationsUsers(
-              `loginMethodLabels.${normalizeLoginMethodLabelKey(method)}`,
-            ),
-          )
-          .join(' / ')
-      : EMPTY_VALUE;
   const resolveCourseStatusLabel = (status: string) => {
     if (status === 'published') {
       return tOperationsCourse('statusLabels.published');
@@ -912,10 +966,6 @@ export default function AdminOperationUserDetailPage() {
                 <CardContent>
                   <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                     <InfoItem
-                      label={tOperationsUsers('table.userId')}
-                      value={detail.user_bid}
-                    />
-                    <InfoItem
                       label={contactLabel}
                       value={contactValue}
                     />
@@ -924,16 +974,8 @@ export default function AdminOperationUserDetailPage() {
                       value={detail.nickname || defaultUserName}
                     />
                     <InfoItem
-                      label={tOperationsUsers('table.status')}
-                      value={resolveStatusLabel(detail.user_status)}
-                    />
-                    <InfoItem
                       label={tOperationsUsers('table.role')}
                       value={resolveRoleLabel(detail.user_role)}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.loginMethods')}
-                      value={resolveLoginMethods(detail.login_methods)}
                     />
                     <InfoItem
                       label={tOperationsUsers('table.registrationSource')}
@@ -944,10 +986,6 @@ export default function AdminOperationUserDetailPage() {
                     <InfoItem
                       label={tOperationsUsers('table.lastLoginAt')}
                       value={formatOperatorNaiveDateTime(detail.last_login_at)}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.updatedAt')}
-                      value={formatOperatorNaiveDateTime(detail.updated_at)}
                     />
                     <InfoItem
                       label={tOperationsUsers('table.createdAt')}
@@ -972,10 +1010,20 @@ export default function AdminOperationUserDetailPage() {
                     <InfoItem
                       label={tOperationsUsers('table.learningCourses')}
                       value={String((detail.learning_courses || []).length)}
+                      valueClassName='text-primary'
+                      valueAriaLabel={tOperationsUsers('table.learningCourses')}
+                      onClick={() =>
+                        setDetailTab('learning', { scrollToSection: true })
+                      }
                     />
                     <InfoItem
                       label={tOperationsUsers('table.createdCourses')}
                       value={String((detail.created_courses || []).length)}
+                      valueClassName='text-primary'
+                      valueAriaLabel={tOperationsUsers('table.createdCourses')}
+                      onClick={() =>
+                        setDetailTab('created', { scrollToSection: true })
+                      }
                     />
                     <InfoItem
                       label={tOperationsUsers('table.lastLearningAt')}
@@ -989,7 +1037,7 @@ export default function AdminOperationUserDetailPage() {
 
               <div
                 id='credits'
-                ref={creditsSectionRef}
+                ref={detailTabsSectionRef}
                 className='space-y-5'
               >
                 <Card className='shadow-sm'>
@@ -1050,7 +1098,7 @@ export default function AdminOperationUserDetailPage() {
                 <Tabs
                   className='space-y-4'
                   value={activeTab}
-                  onValueChange={value => setActiveTab(value as DetailTab)}
+                  onValueChange={value => setDetailTab(value as DetailTab)}
                 >
                   <TabsList>
                     <TabsTrigger value='credits'>

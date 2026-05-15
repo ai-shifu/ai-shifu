@@ -306,6 +306,18 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       screen.getByText('module.operationsUser.roleLabels.operator'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.userId'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.status'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.loginMethods'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.updatedAt'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
     expect(screen.getAllByText('35.5').length).toBeGreaterThan(0);
     expect(screen.getByText('27.5')).toBeInTheDocument();
@@ -500,6 +512,24 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.detail.tabs.credits',
       }),
     ).toHaveAttribute('data-state', 'active');
+  });
+
+  test('jumps to the learning courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.learningCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+    expect(window.location.hash).toBe('#learning-courses');
   });
 
   test('uses course status translations for unknown course states', async () => {
