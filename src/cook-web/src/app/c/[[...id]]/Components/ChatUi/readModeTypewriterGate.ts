@@ -25,6 +25,9 @@ export const isReadModeTextContentItem = (item: ChatContentItem) =>
 export const shouldEnableReadModeTypewriter = (
   item: ChatContentItem,
   cacheEntry?: ReadModeTypewriterCacheEntry,
+  options?: {
+    keepAliveWhileStreaming?: boolean;
+  },
 ) => {
   if (!isReadModeTextContentItem(item) || item.shouldUseTypewriter !== true) {
     return false;
@@ -41,7 +44,7 @@ export const shouldEnableReadModeTypewriter = (
 
   // Keep typewriter session alive for non-final streamed text so later
   // appended chunks can continue from the current display state.
-  if (!item.is_final) {
+  if (!item.is_final || options?.keepAliveWhileStreaming) {
     return true;
   }
 

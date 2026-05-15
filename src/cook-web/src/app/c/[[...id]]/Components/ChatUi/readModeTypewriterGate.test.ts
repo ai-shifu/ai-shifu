@@ -122,6 +122,23 @@ describe('readModeTypewriterGate', () => {
     ).toBe(true);
   });
 
+  it('keeps typewriter enabled for the trailing streamed text item between segments', () => {
+    const finalizedChunk = createTextItem({
+      content: 'First text',
+      is_final: true,
+    });
+    const finishedCacheEntry: ReadModeTypewriterCache['text-1'] = {
+      content: 'First text',
+      isFinished: true,
+    };
+
+    expect(
+      shouldEnableReadModeTypewriter(finalizedChunk, finishedCacheEntry, {
+        keepAliveWhileStreaming: true,
+      }),
+    ).toBe(true);
+  });
+
   it('does not re-enable typewriter for a finished text item when content is only rewritten', () => {
     const rewrittenText = createTextItem({
       content: 'Rewritten first text',

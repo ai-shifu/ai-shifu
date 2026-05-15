@@ -59,6 +59,7 @@ import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import {
   buildVisibleReadModeItems,
+  isReadModeTextContentItem,
   normalizeReadModeTypewriterContent,
   shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
@@ -533,6 +534,14 @@ export const NewChatComponents = ({
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
+  );
+  const trailingVisibleReadModeTextBid = useMemo(
+    () =>
+      [...visibleReadModeItems]
+        .reverse()
+        .find(item => isReadModeTextContentItem(item))
+        ?.element_bid || '',
+    [visibleReadModeItems],
   );
   const handleReadModeTypeFinished = useCallback(
     (blockBid: string, content: string) => {
@@ -1373,6 +1382,12 @@ export const NewChatComponents = ({
                           shouldEnableReadModeTypewriter(
                             item,
                             readModeTypewriterCache[item.element_bid || ''],
+                            {
+                              keepAliveWhileStreaming:
+                                isOutputInProgress &&
+                                trailingVisibleReadModeTextBid ===
+                                  item.element_bid,
+                            },
                           )
                         }
                         confirmButtonText={confirmButtonText}
