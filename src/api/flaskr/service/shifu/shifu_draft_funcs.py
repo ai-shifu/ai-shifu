@@ -652,7 +652,11 @@ def get_shifu_draft_list(
             .all()
         )
 
-        activity_map = load_course_activity_map(shifu_drafts, [])
+        activity_map = load_course_activity_map(
+            shifu_drafts,
+            [],
+            include_published_outline=False,
+        )
 
         def resolve_updated_at(draft: DraftShifu) -> datetime:
             activity = activity_map.get(str(draft.shifu_bid or "").strip(), {})

@@ -4,7 +4,11 @@ from datetime import datetime
 from decimal import Decimal
 
 import flaskr.dao as dao
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+)
 from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
 
 
@@ -169,4 +173,76 @@ def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
     assert [item.bid for item in result.data[:2]] == [
         "draft-activity-course",
         "draft-activity-reference",
+    ]
+
+
+def test_get_shifu_draft_list_ignores_published_outline_activity(app):
+    owner_bid = "draft-list-published-outline-owner"
+    with app.app_context():
+        PublishedOutlineItem.query.filter(
+            PublishedOutlineItem.shifu_bid == "draft-published-outline-course"
+        ).delete(synchronize_session=False)
+        DraftShifu.query.filter(
+            DraftShifu.created_user_bid == owner_bid,
+            DraftShifu.shifu_bid.in_(
+                ["draft-published-outline-course", "draft-published-outline-reference"]
+            ),
+        ).delete(synchronize_session=False)
+
+        _seed_draft(
+            shifu_bid="draft-published-outline-course",
+            title="Course With Published Activity",
+            owner_bid=owner_bid,
+            created_at=datetime(2026, 5, 10, 10, 0, 0),
+            updated_at=datetime(2026, 5, 10, 10, 0, 0),
+        )
+        _seed_draft(
+            shifu_bid="draft-published-outline-reference",
+            title="Reference Draft Course",
+            owner_bid=owner_bid,
+            created_at=datetime(2026, 5, 11, 10, 0, 0),
+            updated_at=datetime(2026, 5, 12, 10, 0, 0),
+        )
+        dao.db.session.flush()
+
+        dao.db.session.add(
+            PublishedOutlineItem(
+                outline_item_bid="published-outline-activity",
+                shifu_bid="draft-published-outline-course",
+                title="Published Lesson",
+                parent_bid="",
+                position="01",
+                prerequisite_item_bids="",
+                llm="",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                ask_enabled_status=5101,
+                ask_llm="",
+                ask_llm_temperature=Decimal("0"),
+                ask_llm_system_prompt="",
+                content="",
+                type=0,
+                hidden=0,
+                deleted=0,
+                created_at=datetime(2026, 5, 13, 10, 0, 0),
+                updated_at=datetime(2026, 5, 13, 10, 0, 0),
+                created_user_bid=owner_bid,
+                updated_user_bid=owner_bid,
+            )
+        )
+        dao.db.session.commit()
+
+        result = get_shifu_draft_list(
+            app,
+            owner_bid,
+            page_index=1,
+            page_size=10,
+            is_favorite=False,
+            archived=False,
+            creator_only=True,
+        )
+
+    assert [item.bid for item in result.data[:2]] == [
+        "draft-published-outline-reference",
+        "draft-published-outline-course",
     ]

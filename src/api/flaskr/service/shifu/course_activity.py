@@ -45,6 +45,8 @@ def _record_course_activity(
 def load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
+    *,
+    include_published_outline: bool = True,
 ) -> Dict[str, Dict[str, Any]]:
     activity_map: Dict[str, Dict[str, Any]] = {}
     shifu_bids: Set[str] = set()
@@ -65,7 +67,9 @@ def load_course_activity_map(
         return activity_map
 
     ordered_shifu_bids = sorted(shifu_bids)
-    outline_models = [DraftOutlineItem, PublishedOutlineItem]
+    outline_models = [DraftOutlineItem]
+    if include_published_outline:
+        outline_models.append(PublishedOutlineItem)
     for model in outline_models:
         latest_updated_subquery = (
             db.session.query(
