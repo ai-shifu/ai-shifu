@@ -6,6 +6,13 @@ export interface ReadModeTypewriterCacheEntry {
   isFinished: boolean;
 }
 
+export interface ReadModeTypewriterKeepAliveOptions {
+  previousKeepAliveElementBid: string;
+  previousOutputInProgress: boolean;
+  isOutputInProgress: boolean;
+  currentStreamingElementBid: string;
+}
+
 export type ReadModeTypewriterCache = Record<
   string,
   ReadModeTypewriterCacheEntry
@@ -55,6 +62,23 @@ export const shouldTrackReadModeTypewriter = (
 ) =>
   isReadModeTextContentItem(item) &&
   (item.shouldUseTypewriter === true || Boolean(cacheEntry));
+
+export const resolveReadModeTypewriterKeepAliveElementBid = ({
+  previousKeepAliveElementBid,
+  previousOutputInProgress,
+  isOutputInProgress,
+  currentStreamingElementBid,
+}: ReadModeTypewriterKeepAliveOptions) => {
+  if (!isOutputInProgress) {
+    return '';
+  }
+
+  if (!previousOutputInProgress) {
+    return currentStreamingElementBid || '';
+  }
+
+  return currentStreamingElementBid || previousKeepAliveElementBid;
+};
 
 export const syncReadModeTypewriterCache = (
   items: ChatContentItem[],

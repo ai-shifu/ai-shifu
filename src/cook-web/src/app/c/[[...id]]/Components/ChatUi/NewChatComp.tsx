@@ -61,6 +61,7 @@ import {
   buildVisibleReadModeItems,
   isReadModeTextContentItem,
   normalizeReadModeTypewriterContent,
+  resolveReadModeTypewriterKeepAliveElementBid,
   shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
@@ -301,6 +302,8 @@ export const NewChatComponents = ({
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
   const [showListenModeUpgradeDialog, setShowListenModeUpgradeDialog] =
     useState(false);
+  const previousReadModeOutputInProgressRef = useRef(false);
+  const previousReadModeKeepAliveElementBidRef = useRef('');
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -542,6 +545,18 @@ export const NewChatComponents = ({
         .find(item => isReadModeTextContentItem(item))?.element_bid || '',
     [visibleReadModeItems],
   );
+  const readModeTypewriterKeepAliveElementBid = useMemo(
+    () =>
+      resolveReadModeTypewriterKeepAliveElementBid({
+        previousKeepAliveElementBid:
+          previousReadModeKeepAliveElementBidRef.current,
+        previousOutputInProgress:
+          previousReadModeOutputInProgressRef.current,
+        isOutputInProgress,
+        currentStreamingElementBid,
+      }),
+    [currentStreamingElementBid, isOutputInProgress],
+  );
   const handleReadModeTypeFinished = useCallback(
     (blockBid: string, content: string) => {
       if (!blockBid) {
@@ -612,6 +627,12 @@ export const NewChatComponents = ({
       syncReadModeTypewriterCache(readModeItems, prevCache),
     );
   }, [readModeItems]);
+
+  useEffect(() => {
+    previousReadModeOutputInProgressRef.current = isOutputInProgress;
+    previousReadModeKeepAliveElementBidRef.current =
+      readModeTypewriterKeepAliveElementBid;
+  }, [isOutputInProgress, readModeTypewriterKeepAliveElementBid]);
 
   useEffect(() => {
     const previousLearningMode = previousLearningModeRef.current;
@@ -1376,16 +1397,20 @@ export const NewChatComponents = ({
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
-                          item,
-                          readModeTypewriterCache[item.element_bid || ''],
-                          {
-                            keepAliveWhileStreaming:
-                              isOutputInProgress &&
-                              trailingVisibleReadModeTextBid ===
-                                item.element_bid,
-                          },
-                        )}
+                        enableStreamingTypewriter={
+                          shouldEnableReadModeTypewriter(
+                            item,
+                            readModeTypewriterCache[item.element_bid || ''],
+                            {
+                              keepAliveWhileStreaming:
+                                isOutputInProgress &&
+                                readModeTypewriterKeepAliveElementBid ===
+                                  item.element_bid &&
+                                trailingVisibleReadModeTextBid ===
+                                  item.element_bid,
+                            },
+                          )
+                        }
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}

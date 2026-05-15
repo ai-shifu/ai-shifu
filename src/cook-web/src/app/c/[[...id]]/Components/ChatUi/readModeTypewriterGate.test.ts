@@ -4,6 +4,7 @@ import {
   buildVisibleReadModeItems,
   isReadModeTextContentItemReady,
   normalizeReadModeTypewriterContent,
+  resolveReadModeTypewriterKeepAliveElementBid,
   shouldEnableReadModeTypewriter,
   syncReadModeTypewriterCache,
   type ReadModeTypewriterCache,
@@ -137,6 +138,28 @@ describe('readModeTypewriterGate', () => {
         keepAliveWhileStreaming: true,
       }),
     ).toBe(true);
+  });
+
+  it('does not keep the previous session text alive before the new stream emits its first element', () => {
+    expect(
+      resolveReadModeTypewriterKeepAliveElementBid({
+        previousKeepAliveElementBid: 'text-1',
+        previousOutputInProgress: false,
+        isOutputInProgress: true,
+        currentStreamingElementBid: '',
+      }),
+    ).toBe('');
+  });
+
+  it('preserves the current session text keep-alive bid between streamed segments', () => {
+    expect(
+      resolveReadModeTypewriterKeepAliveElementBid({
+        previousKeepAliveElementBid: 'text-1',
+        previousOutputInProgress: true,
+        isOutputInProgress: true,
+        currentStreamingElementBid: '',
+      }),
+    ).toBe('text-1');
   });
 
   it('does not re-enable typewriter for a finished text item when content is only rewritten', () => {
