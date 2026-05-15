@@ -96,6 +96,7 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
@@ -114,6 +115,7 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
