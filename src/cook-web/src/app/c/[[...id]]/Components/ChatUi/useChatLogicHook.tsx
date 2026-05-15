@@ -106,14 +106,10 @@ interface SSEParams {
 interface RequestAudioForBlockOptions {
   listen?: boolean;
   shouldApplyResult?: () => boolean;
+  onStreamSettled?: () => void;
 }
 
 type TtsStreamCancel = (options?: { updateState?: boolean }) => void;
-
-interface StopActiveRunStreamOptions {
-  cancelPendingReadRunResume?: boolean;
-  resumeReadRunAfterModeSwitch?: boolean;
-}
 
 const normalizeOptionalNumber = (value: unknown) => {
   if (value === undefined || value === null) {
@@ -331,8 +327,6 @@ function useChatLogicHook({
   const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const pendingReadRunResumeRef = useRef(false);
-  const pendingReadRunResumeSawListenRef = useRef(false);
   const ttsSseRef = useRef<Record<string, any>>({});
   const ttsStreamCancelRef = useRef<Record<string, TtsStreamCancel>>({});
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
@@ -1379,82 +1373,65 @@ function useChatLogicHook({
     [lessonUpdate, updateSelectedLesson],
   );
 
-  const stopActiveRunStream = useCallback(
-    (options: StopActiveRunStreamOptions = {}) => {
-      const shouldResumeReadRun =
-        Boolean(options.resumeReadRunAfterModeSwitch) &&
-        !isListenMode &&
-        isStreamingRef.current;
-      if (options.cancelPendingReadRunResume) {
-        pendingReadRunResumeRef.current = false;
-        pendingReadRunResumeSawListenRef.current = false;
+  const stopActiveRunStream = useCallback(() => {
+    clearRunStreamTimeout();
+    if (sseRef.current) {
+      try {
+        sseRef.current.close();
+      } catch {
+      } finally {
+        sseRef.current = null;
       }
-      if (shouldResumeReadRun) {
-        pendingReadRunResumeRef.current = true;
-        pendingReadRunResumeSawListenRef.current = false;
-      }
+    }
 
-      clearRunStreamTimeout();
-      if (sseRef.current) {
-        try {
-          sseRef.current.close();
-        } catch {
-        } finally {
-          sseRef.current = null;
+    isStreamingRef.current = false;
+    setIsOutputInProgress(false);
+
+    const completedElementBid = currentBlockIdRef.current || '';
+    setTrackedContentList(prevState => {
+      let nextList = prevState.filter(item => item.element_bid !== 'loading');
+      if (completedElementBid) {
+        nextList = finalizeElementOutputInList(nextList, completedElementBid);
+      }
+      return nextList.map(item => {
+        const audioTracks = item.audioTracks ?? [];
+        const hasStreamingTrack = audioTracks.some(track =>
+          Boolean(track.isAudioStreaming),
+        );
+        if (!item.isAudioStreaming && !hasStreamingTrack) {
+          return item;
         }
-      }
 
-      isStreamingRef.current = false;
-      setIsOutputInProgress(false);
-
-      const completedElementBid = currentBlockIdRef.current || '';
-      setTrackedContentList(prevState => {
-        let nextList = prevState.filter(item => item.element_bid !== 'loading');
-        if (completedElementBid) {
-          nextList = finalizeElementOutputInList(nextList, completedElementBid);
-        }
-        return nextList.map(item => {
-          const audioTracks = item.audioTracks ?? [];
-          const hasStreamingTrack = audioTracks.some(track =>
-            Boolean(track.isAudioStreaming),
-          );
-          if (!item.isAudioStreaming && !hasStreamingTrack) {
-            return item;
-          }
-
-          return {
-            ...item,
-            isAudioStreaming: false,
-            audioTracks: hasStreamingTrack
-              ? audioTracks.map(track => ({
-                  ...track,
-                  isAudioStreaming: false,
-                }))
-              : item.audioTracks,
-          };
-        });
+        return {
+          ...item,
+          isAudioStreaming: false,
+          audioTracks: hasStreamingTrack
+            ? audioTracks.map(track => ({
+                ...track,
+                isAudioStreaming: false,
+              }))
+            : item.audioTracks,
+        };
       });
+    });
 
-      currentBlockIdRef.current = null;
-      currentContentRef.current = '';
-      setCurrentStreamingElementBid('');
+    currentBlockIdRef.current = null;
+    currentContentRef.current = '';
+    setCurrentStreamingElementBid('');
 
-      Object.values(ttsStreamCancelRef.current).forEach(cancel => {
-        cancel();
-      });
-      Object.values(ttsSseRef.current).forEach(source => {
-        source?.close?.();
-      });
-      ttsStreamCancelRef.current = {};
-      ttsSseRef.current = {};
-    },
-    [
-      clearRunStreamTimeout,
-      finalizeElementOutputInList,
-      isListenMode,
-      setTrackedContentList,
-    ],
-  );
+    Object.values(ttsStreamCancelRef.current).forEach(cancel => {
+      cancel();
+    });
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsStreamCancelRef.current = {};
+    ttsSseRef.current = {};
+  }, [
+    clearRunStreamTimeout,
+    finalizeElementOutputInList,
+    setTrackedContentList,
+  ]);
 
   /**
    * Starts the SSE request and streams content into the chat list.
@@ -1463,8 +1440,6 @@ function useChatLogicHook({
     (sseParams: SSEParams) => {
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
-      pendingReadRunResumeRef.current = false;
-      pendingReadRunResumeSawListenRef.current = false;
       clearRunStreamTimeout();
       if (sseRef.current) {
         try {
@@ -2134,11 +2109,7 @@ function useChatLogicHook({
         return;
       }
 
-      const isLearningModeSwitch = detail?.reason === 'learning-mode-switch';
-      stopActiveRunStream({
-        cancelPendingReadRunResume: !isLearningModeSwitch,
-        resumeReadRunAfterModeSwitch: isLearningModeSwitch,
-      });
+      stopActiveRunStream();
     };
 
     events.addEventListener(
@@ -2157,37 +2128,6 @@ function useChatLogicHook({
   useEffect(() => {
     runRef.current = run;
   }, [run]);
-
-  useEffect(() => {
-    pendingReadRunResumeRef.current = false;
-    pendingReadRunResumeSawListenRef.current = false;
-  }, [outlineBid]);
-
-  useEffect(() => {
-    if (!pendingReadRunResumeRef.current) {
-      return;
-    }
-
-    if (isListenMode) {
-      pendingReadRunResumeSawListenRef.current = true;
-      return;
-    }
-
-    if (
-      !pendingReadRunResumeSawListenRef.current ||
-      isLoading ||
-      isOutputInProgress
-    ) {
-      return;
-    }
-
-    pendingReadRunResumeRef.current = false;
-    pendingReadRunResumeSawListenRef.current = false;
-    runRef.current?.({
-      input: '',
-      input_type: SSE_INPUT_TYPE.NORMAL,
-    });
-  }, [isListenMode, isLoading, isOutputInProgress]);
 
   /**
    * Transforms persisted study records into chat-friendly content items.
@@ -3060,12 +3000,24 @@ function useChatLogicHook({
       const effectiveListenRequestEnabled =
         options.listen ?? listenRequestEnabled;
       const shouldApplyResult = () => options.shouldApplyResult?.() ?? true;
+      const notifyStreamSettled = (() => {
+        let hasSettled = false;
+        return () => {
+          if (hasSettled) {
+            return;
+          }
+          hasSettled = true;
+          options.onStreamSettled?.();
+        };
+      })();
 
       if (!allowTtsStreaming) {
+        notifyStreamSettled();
         return null;
       }
 
       if (!shouldApplyResult()) {
+        notifyStreamSettled();
         return null;
       }
 
@@ -3082,6 +3034,7 @@ function useChatLogicHook({
         cachedTrack?.audioUrl &&
         !cachedTrack.isAudioStreaming
       ) {
+        notifyStreamSettled();
         return {
           audio_url: cachedTrack.audioUrl,
           audio_bid: '',
@@ -3090,6 +3043,7 @@ function useChatLogicHook({
       }
 
       if (ttsSseRef.current[sourceBlockBid]) {
+        notifyStreamSettled();
         return null;
       }
 
@@ -3159,6 +3113,7 @@ function useChatLogicHook({
           clearTimers();
           markAudioStreamSettled();
           closeTtsStream(sourceBlockBid);
+          notifyStreamSettled();
           resolveOnce(value);
         };
 
@@ -3169,6 +3124,7 @@ function useChatLogicHook({
           }
           resolveOnce(null);
           closeTtsStream(sourceBlockBid);
+          notifyStreamSettled();
         };
 
         const resolveAudioEventTargetElementBid = (
@@ -3292,6 +3248,7 @@ function useChatLogicHook({
             clearTimers();
             markAudioStreamSettled();
             closeTtsStream(sourceBlockBid);
+            notifyStreamSettled();
             if (!hasResolved) {
               hasResolved = true;
               reject(new Error('TTS stream failed'));

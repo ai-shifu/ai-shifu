@@ -466,10 +466,12 @@ describe('useChatLogicHook stream cleanup', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    const onStreamSettled = jest.fn();
     let audioPromise: Promise<unknown> | undefined;
     act(() => {
       audioPromise = result.current.requestAudioForBlock('element-1', {
         listen: true,
+        onStreamSettled,
       });
     });
 
@@ -508,6 +510,7 @@ describe('useChatLogicHook stream cleanup', () => {
         ?.audioUrl,
     ).toBe('https://example.com/generated-block-1.mp3');
     expect(close).not.toHaveBeenCalled();
+    expect(onStreamSettled).not.toHaveBeenCalled();
 
     await act(async () => {
       ttsRequest?.onMessage({
@@ -624,6 +627,7 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
     expect(close).toHaveBeenCalled();
+    expect(onStreamSettled).toHaveBeenCalledTimes(1);
   });
 
   it('closes non-listen generated-block audio after the first complete event', async () => {
@@ -1001,7 +1005,7 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(stoppedItem?.audioTracks?.[0]?.isAudioStreaming).toBe(false);
   });
 
-  it('resumes an interrupted read run after returning from listen mode', async () => {
+  it('keeps an active read run open when presentation mode changes', async () => {
     const { result, rerender } = renderHook(
       ({ isListenMode }) =>
         useChatLogicHook({
@@ -1019,30 +1023,17 @@ describe('useChatLogicHook stream cleanup', () => {
     await waitFor(() => expect(activeRun).toBeDefined());
     await waitFor(() => expect(result.current.isOutputInProgress).toBe(true));
     const initialRunCount = mockGetRunMessage.mock.calls.length;
-    const interruptedRunSource = activeRun?.source;
-
-    await act(async () => {
-      stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
-    });
-
-    await waitFor(() => expect(result.current.isOutputInProgress).toBe(false));
-    expect(interruptedRunSource?.close).toHaveBeenCalled();
+    const activeRunSource = activeRun?.source;
 
     rerender({ isListenMode: true });
+
+    expect(activeRunSource?.close).not.toHaveBeenCalled();
+    expect(result.current.isOutputInProgress).toBe(true);
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
 
     rerender({ isListenMode: false });
-
-    await waitFor(() =>
-      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
-    );
-    expect(mockGetRunMessage.mock.calls[initialRunCount]?.[3]).toEqual(
-      expect.objectContaining({
-        input: '',
-        input_type: SSE_INPUT_TYPE.NORMAL,
-        listen: false,
-      }),
-    );
+    expect(activeRunSource?.close).not.toHaveBeenCalled();
+    expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
   });
 
   it('clears loading after a control-only stream closes', async () => {

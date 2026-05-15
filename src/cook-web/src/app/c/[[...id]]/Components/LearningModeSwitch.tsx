@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import {
   getLearningModeShortLabel,
   LEARNING_MODE_OPTIONS,
@@ -30,8 +29,6 @@ export const LearningModeSwitch = ({
   );
   const handleLearningModeToggle = () => {
     const nextLearningMode = learningMode === 'listen' ? 'read' : 'listen';
-
-    stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
     updateLearningMode(nextLearningMode);
   };
 

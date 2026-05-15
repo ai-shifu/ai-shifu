@@ -54,7 +54,6 @@ import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
-import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import {
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
@@ -273,6 +272,7 @@ export const NewChatComponents = ({
   const listenAudioBackfillInFlightRef = useRef<Record<string, Promise<any>>>(
     {},
   );
+  const listenAudioBackfillFailedBlockBidsRef = useRef<Set<string>>(new Set());
   const listenAudioBackfillLessonIdRef = useRef('');
 
   const scrollToBottom = useCallback(() => {
@@ -342,14 +342,14 @@ export const NewChatComponents = ({
     })),
   );
   const isListenMode = learningMode === 'listen';
-  const previousLearningModeRef = useRef(learningMode);
-  const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = getIsListenModeActive({
     learningMode,
     courseTtsEnabled,
   });
+  const isListenModeActiveRef = useRef(isListenModeActive);
+  const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
   const promptContextKey = `${resolvedLessonId}:${isListenModeActive ? 'listen' : 'read'}`;
@@ -373,8 +373,17 @@ export const NewChatComponents = ({
   useEffect(() => {
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
     listenAudioBackfillInFlightRef.current = {};
+    listenAudioBackfillFailedBlockBidsRef.current = new Set();
     setListenAudioBackfillStatus('idle');
   }, [resolvedLessonId]);
+
+  useEffect(() => {
+    if (!previousListenModeActiveRef.current && isListenModeActive) {
+      listenAudioBackfillFailedBlockBidsRef.current = new Set();
+    }
+    previousListenModeActiveRef.current = isListenModeActive;
+    isListenModeActiveRef.current = isListenModeActive;
+  }, [isListenModeActive]);
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -419,8 +428,6 @@ export const NewChatComponents = ({
     if (isListenModeActive) {
       return;
     }
-    listenAudioBackfillLessonIdRef.current = '';
-    listenAudioBackfillInFlightRef.current = {};
     setListenAudioBackfillStatus('idle');
     requestExclusive(() => {});
     releaseExclusive();
@@ -483,19 +490,34 @@ export const NewChatComponents = ({
         return existingPromise;
       }
 
-      const trackedPromise = requestAudioForBlock(blockBid, {
-        listen: true,
-        shouldApplyResult: () =>
-          listenAudioBackfillLessonIdRef.current === lessonIdAtRequest,
-      }).finally(() => {
+      let streamSettled = false;
+      let trackedPromise: Promise<any> | null = null;
+      const clearTrackedRequest = () => {
+        streamSettled = true;
         if (
+          trackedPromise &&
           listenAudioBackfillInFlightRef.current[blockBid] === trackedPromise
         ) {
           delete listenAudioBackfillInFlightRef.current[blockBid];
         }
+      };
+
+      trackedPromise = requestAudioForBlock(blockBid, {
+        listen: true,
+        shouldApplyResult: () =>
+          listenAudioBackfillLessonIdRef.current === lessonIdAtRequest,
+        onStreamSettled: clearTrackedRequest,
+      }).then(result => {
+        if (result) {
+          listenAudioBackfillFailedBlockBidsRef.current.delete(blockBid);
+        }
+        return result;
       });
 
       listenAudioBackfillInFlightRef.current[blockBid] = trackedPromise;
+      if (streamSettled) {
+        clearTrackedRequest();
+      }
       return trackedPromise;
     },
     [requestAudioForBlock],
@@ -555,37 +577,23 @@ export const NewChatComponents = ({
   }, [isListenModeActive, lessonId]);
 
   useEffect(() => {
-    if (learningMode !== 'read') {
-      return;
-    }
-
-    lastReadModeItemsRef.current = items;
-  }, [items, learningMode]);
-
-  useEffect(() => {
-    const previousLearningMode = previousLearningModeRef.current;
-    previousLearningModeRef.current = learningMode;
-
-    if (previousLearningMode !== 'read' || learningMode !== 'listen') {
+    if (!isListenModeActive) {
       return;
     }
 
     if (!isListenModeAvailable) {
-      stopAllActiveLessonStreams({ reason: 'learning-mode-switch' });
       updateLearningMode('read');
       return;
     }
 
-    if (previewMode || listenAudioBackfillStatus === 'preparing') {
+    if (previewMode) {
       return;
     }
 
-    const sourceItems = lastReadModeItemsRef.current.length
-      ? lastReadModeItemsRef.current
-      : items;
-    const contentItems = sourceItems.filter(isContentItemWithElementBid);
+    const contentItems = items.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
+      setListenAudioBackfillStatus(isOutputInProgress ? 'preparing' : 'idle');
       return;
     }
 
@@ -599,18 +607,25 @@ export const NewChatComponents = ({
       return;
     }
 
-    const missingAudioBlockBids =
-      getMissingListenModeAudioBlockBids(contentItems);
+    const missingAudioBlockBids = getMissingListenModeAudioBlockBids(
+      contentItems,
+    ).filter(
+      blockBid => !listenAudioBackfillFailedBlockBidsRef.current.has(blockBid),
+    );
 
     if (!missingAudioBlockBids.length) {
-      setListenAudioBackfillStatus('idle');
+      if (Object.keys(listenAudioBackfillInFlightRef.current).length === 0) {
+        setListenAudioBackfillStatus('idle');
+      }
       return;
     }
 
     const lessonIdAtRequest = resolvedLessonId;
 
     listenAudioBackfillLessonIdRef.current = lessonIdAtRequest;
-    setListenAudioBackfillStatus('preparing');
+    if (!hasPlayableAudio) {
+      setListenAudioBackfillStatus('preparing');
+    }
 
     const backfillPromises = missingAudioBlockBids.map(blockBid =>
       requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
@@ -630,29 +645,50 @@ export const NewChatComponents = ({
       }
 
       const hasGeneratedAudio = results.some(Boolean);
-      const hasBackfillFailure = results.some(result => !result);
+      const failedBlockBids = missingAudioBlockBids.filter(
+        (_, index) => !results[index],
+      );
+      failedBlockBids.forEach(blockBid => {
+        listenAudioBackfillFailedBlockBidsRef.current.add(blockBid);
+      });
+      const hasBackfillFailure = failedBlockBids.length > 0;
+      const hasBackfillInFlight =
+        Object.keys(listenAudioBackfillInFlightRef.current).length > 0;
 
-      if (hasBackfillFailure) {
+      if (hasBackfillFailure && isListenModeActiveRef.current) {
+        if (hasGeneratedAudio || hasPlayableAudio || isOutputInProgress) {
+          setListenAudioBackfillStatus(
+            hasGeneratedAudio || hasPlayableAudio ? 'idle' : 'preparing',
+          );
+          return;
+        }
+
         setListenAudioBackfillStatus('failed');
         fail(t('module.chat.listenAudioBackfillFailed'));
         return;
       }
 
-      setListenAudioBackfillStatus(
-        hasGeneratedAudio || hasPlayableAudio ? 'idle' : 'failed',
-      );
-
-      if (hasGeneratedAudio || hasPlayableAudio) {
+      if (
+        hasGeneratedAudio ||
+        hasPlayableAudio ||
+        !isListenModeActiveRef.current
+      ) {
+        setListenAudioBackfillStatus('idle');
         return;
       }
 
+      if (hasBackfillInFlight) {
+        return;
+      }
+
+      setListenAudioBackfillStatus('failed');
       fail(t('module.chat.listenAudioBackfillFailed'));
     });
   }, [
+    isListenModeActive,
     isListenModeAvailable,
+    isOutputInProgress,
     items,
-    learningMode,
-    listenAudioBackfillStatus,
     previewMode,
     requestListenAudioBackfillForBlock,
     resolvedLessonId,
