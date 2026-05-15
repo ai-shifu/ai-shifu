@@ -2,7 +2,7 @@
   "__namespace__": "server.billing",
   "__flat__": {
     "adminPlanGrantAlreadyActive": "Le même forfait est déjà actif pour cet utilisateur.",
-    "adminPlanGrantProviderManagedConflict": "Cet utilisateur a déjà un abonnement payant actif. Utilisez le parcours d’achat ou de mise à niveau normal, ou attendez la fin du cycle en cours.",
+    "adminPlanGrantProviderManagedConflict": "Cet utilisateur dispose déjà d’un forfait actif de niveau supérieur. Il n’est pas possible d’attribuer un forfait de niveau inférieur. Veuillez attendre l’expiration du forfait actuel avant de réessayer.",
     "adminPlanGrantRoleUnsupported": "Seuls les créateurs et les opérateurs peuvent recevoir des crédits ou des forfaits attribués manuellement.",
     "creditInsufficient": "Crédits insuffisants. Achetez une recharge ou un abonnement avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour ce créateur.",

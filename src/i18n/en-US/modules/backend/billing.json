@@ -2,7 +2,7 @@
   "__namespace__": "server.billing",
   "__flat__": {
     "adminPlanGrantAlreadyActive": "The same plan is already active for this user.",
-    "adminPlanGrantProviderManagedConflict": "The user already has an active paid subscription. Use the normal purchase upgrade flow or wait for the current cycle to end.",
+    "adminPlanGrantProviderManagedConflict": "The user already has a higher-tier active plan. A lower-tier plan cannot be granted. Please wait until the current plan expires before trying again.",
     "adminPlanGrantRoleUnsupported": "Only creator or operator users can receive manual credit or package grants.",
     "creditInsufficient": "Insufficient credits. Purchase a topup or subscription before continuing.",
     "customDomainDisabled": "Custom domains are not enabled for this creator.",
