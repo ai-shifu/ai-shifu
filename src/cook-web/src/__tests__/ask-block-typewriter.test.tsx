@@ -1,5 +1,11 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import AskBlock from '@/app/c/[[...id]]/Components/ChatUi/AskBlock';
 import { AppContext } from '@/c-components/AppContext';
 import { useAskStateStore } from '@/app/c/[[...id]]/Components/ChatUi/useAskStateStore';
@@ -34,7 +40,9 @@ jest.mock('@/c-store/useSystemStore', () => ({
 }));
 
 jest.mock('@/components/ui/Avatar', () => ({
-  Avatar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Avatar: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   AvatarImage: () => null,
 }));
 

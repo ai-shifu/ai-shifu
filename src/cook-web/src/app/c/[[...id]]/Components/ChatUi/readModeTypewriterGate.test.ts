@@ -83,14 +83,14 @@ describe('readModeTypewriterGate', () => {
       },
     };
 
-    expect(syncReadModeTypewriterCache([createTextItem()], initialCache)).toStrictEqual(
-      {
-        'text-1': {
-          content: 'First text',
-          isFinished: false,
-        },
+    expect(
+      syncReadModeTypewriterCache([createTextItem()], initialCache),
+    ).toStrictEqual({
+      'text-1': {
+        content: 'First text',
+        isFinished: false,
       },
-    );
+    });
   });
 
   it('keeps typewriter enabled when the current text content outgrows a finished cache entry', () => {

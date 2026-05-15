@@ -1760,7 +1760,9 @@ function useChatLogicHook({
               }
 
               const existingItem = blockId
-                ? contentListRef.current.find(item => item.element_bid === blockId)
+                ? contentListRef.current.find(
+                    item => item.element_bid === blockId,
+                  )
                 : undefined;
               const existingText =
                 stripCustomButtonAfterContent(existingItem?.content) || '';

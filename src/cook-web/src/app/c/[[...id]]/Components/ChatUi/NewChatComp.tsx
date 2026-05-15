@@ -530,7 +530,7 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
-  console.log('readModeItems', readModeItems);  
+  console.log('readModeItems', readModeItems);
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
@@ -539,8 +539,7 @@ export const NewChatComponents = ({
     () =>
       [...visibleReadModeItems]
         .reverse()
-        .find(item => isReadModeTextContentItem(item))
-        ?.element_bid || '',
+        .find(item => isReadModeTextContentItem(item))?.element_bid || '',
     [visibleReadModeItems],
   );
   const handleReadModeTypeFinished = useCallback(
@@ -578,8 +577,7 @@ export const NewChatComponents = ({
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
     !visibleReadModeItems.some(item => item.element_bid === 'loading');
-  const isReadModeStreamingDotsFirstElement =
-    visibleReadModeItems.length === 0;
+  const isReadModeStreamingDotsFirstElement = visibleReadModeItems.length === 0;
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1378,18 +1376,16 @@ export const NewChatComponents = ({
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={
-                          shouldEnableReadModeTypewriter(
-                            item,
-                            readModeTypewriterCache[item.element_bid || ''],
-                            {
-                              keepAliveWhileStreaming:
-                                isOutputInProgress &&
-                                trailingVisibleReadModeTextBid ===
-                                  item.element_bid,
-                            },
-                          )
-                        }
+                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
+                          item,
+                          readModeTypewriterCache[item.element_bid || ''],
+                          {
+                            keepAliveWhileStreaming:
+                              isOutputInProgress &&
+                              trailingVisibleReadModeTextBid ===
+                                item.element_bid,
+                          },
+                        )}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}

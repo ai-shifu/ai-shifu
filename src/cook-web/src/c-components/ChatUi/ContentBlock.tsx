@@ -103,7 +103,7 @@ const ContentBlock = memo(
     const renderedContent =
       shouldEnableTypewriter || shouldRenderExternalCustomButton
         ? (stripCustomButtonAfterContent(item.content) ?? '')
-        : (item.content || '');
+        : item.content || '';
     const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
       ? extractCustomButtonAfterContentInnerHtml(item.content)
       : '';

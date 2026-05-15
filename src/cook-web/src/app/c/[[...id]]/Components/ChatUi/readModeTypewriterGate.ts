@@ -11,16 +11,14 @@ export type ReadModeTypewriterCache = Record<
   ReadModeTypewriterCacheEntry
 >;
 
-export const normalizeReadModeTypewriterContent = (
-  content?: string | null,
-) => stripCustomButtonAfterContent(content) || '';
+export const normalizeReadModeTypewriterContent = (content?: string | null) =>
+  stripCustomButtonAfterContent(content) || '';
 
 const getItemContent = (item: ChatContentItem) =>
   normalizeReadModeTypewriterContent(item.content);
 
 export const isReadModeTextContentItem = (item: ChatContentItem) =>
-  item.type === ChatContentItemType.CONTENT &&
-  item.element_type === 'text';
+  item.type === ChatContentItemType.CONTENT && item.element_type === 'text';
 
 export const shouldEnableReadModeTypewriter = (
   item: ChatContentItem,
