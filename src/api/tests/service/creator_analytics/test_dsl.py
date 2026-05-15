@@ -333,26 +333,6 @@ def test_order_by_invalid_direction_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_top_n_per_learner_token_spend_parses() -> None:
-    """Top-N learners by token spend: group_by user_bid + select user_bid + sums."""
-
-    payload = {
-        "shifu_bid": "shifu-abc",
-        "table": "bill_usage",
-        "select": ["user_bid"],
-        "group_by": ["user_bid"],
-        "aggregate": [
-            {"fn": "sum", "field": "input", "alias": "in_tok"},
-            {"fn": "sum", "field": "output", "alias": "out_tok"},
-        ],
-        "order_by": [{"field": "in_tok", "dir": "desc"}],
-        "limit": 10,
-    }
-    dsl = _parse(payload)
-    assert "user_bid" in dsl.select
-    assert "user_bid" in dsl.group_by
-
-
 def test_count_distinct_user_bid_without_selecting_it_parses() -> None:
     """count_distinct(user_bid) — user_bid as aggregate target only — still works."""
 
@@ -662,64 +642,17 @@ def test_bill_daily_select_shifu_bid_rejected() -> None:
 
 
 # ---------------------------------------------------------------------------
-# bill_usage — new fields (provider, model, record_level, total, input_cache)
+# bill_usage table removed from whitelist (credits-only policy)
 # ---------------------------------------------------------------------------
 
 
-def _bill_usage_payload(**overrides):
-    base = {
+def test_bill_usage_table_rejected() -> None:
+    """`bill_usage` is no longer whitelisted; the DSL parser refuses it."""
+
+    payload = {
         "shifu_bid": "shifu-abc",
         "table": "bill_usage",
-        "select": ["user_bid", "usage_type"],
-        "where": [{"field": "user_bid", "op": "=", "value": "u1"}],
-        "group_by": ["user_bid", "usage_type"],
-        "limit": 10,
+        "aggregate": [{"fn": "count", "alias": "n"}],
+        "limit": 1,
     }
-    base.update(overrides)
-    return base
-
-
-def test_bill_usage_provider_filterable() -> None:
-    payload = _bill_usage_payload(
-        where=[
-            {"field": "user_bid", "op": "=", "value": "u1"},
-            {"field": "provider", "op": "=", "value": "openai"},
-        ],
-    )
-    dsl = _parse(payload)
-    provider_filters = [f for f in dsl.filters if f.field == "provider"]
-    assert provider_filters
-
-
-def test_bill_usage_record_level_filterable() -> None:
-    payload = _bill_usage_payload(
-        where=[
-            {"field": "user_bid", "op": "=", "value": "u1"},
-            {"field": "record_level", "op": "=", "value": 0},
-        ],
-    )
-    dsl = _parse(payload)
-    rl_filters = [f for f in dsl.filters if f.field == "record_level"]
-    assert rl_filters
-
-
-def test_bill_usage_total_aggregatable() -> None:
-    payload = _bill_usage_payload(
-        select=["user_bid"],
-        aggregate=[{"fn": "sum", "field": "total", "alias": "total_tokens"}],
-        group_by=["user_bid"],
-        where=[{"field": "user_bid", "op": "=", "value": "u1"}],
-    )
-    dsl = _parse(payload)
-    assert any(a.alias == "total_tokens" for a in dsl.aggregates)
-
-
-def test_bill_usage_input_cache_aggregatable() -> None:
-    payload = _bill_usage_payload(
-        select=["user_bid"],
-        aggregate=[{"fn": "sum", "field": "input_cache", "alias": "cached"}],
-        group_by=["user_bid"],
-        where=[{"field": "user_bid", "op": "=", "value": "u1"}],
-    )
-    dsl = _parse(payload)
-    assert any(a.alias == "cached" for a in dsl.aggregates)
+    _assert_error(payload, ERR_INVALID_TABLE)

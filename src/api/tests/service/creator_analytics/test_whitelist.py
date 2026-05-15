@@ -22,7 +22,6 @@ EXPECTED_TABLE_KEYS = {
     "learn_lesson_feedbacks",
     "order_orders",
     "var_variable_values",
-    "bill_usage",
     "bill_daily_usage_metrics",
     "shifu_user_archives",
     "user_users",
@@ -159,3 +158,9 @@ def test_bill_daily_usage_metrics_has_shifu_bid_and_deleted() -> None:
     spec = WHITELIST["bill_daily_usage_metrics"]
     assert spec.has_shifu_bid is True
     assert spec.has_deleted is True
+
+
+def test_bill_usage_is_not_whitelisted() -> None:
+    """Creators cannot query raw token usage; only credit aggregates are exposed."""
+
+    assert "bill_usage" not in WHITELIST
