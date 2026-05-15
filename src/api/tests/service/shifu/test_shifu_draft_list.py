@@ -40,7 +40,12 @@ def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
         DraftShifu.query.filter(
             DraftShifu.created_user_bid == owner_bid,
             DraftShifu.shifu_bid.in_(
-                ["draft-sort-older", "draft-sort-newer", "draft-sort-same-time-a"]
+                [
+                    "draft-sort-older",
+                    "draft-sort-newer",
+                    "draft-sort-same-time-a",
+                    "draft-sort-same-time-b",
+                ]
             ),
         ).delete(synchronize_session=False)
 
@@ -61,14 +66,14 @@ def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
         )
         _seed_draft(
             shifu_bid="draft-sort-same-time-a",
-            title="MMM Same Time Title",
+            title="MMM Same Time Title A",
             owner_bid=owner_bid,
             created_at=datetime(2026, 5, 12, 10, 0, 0),
             updated_at=same_updated_at,
         )
         _seed_draft(
-            shifu_bid="draft-sort-same-time-a",
-            title="MMM Same Time Title",
+            shifu_bid="draft-sort-same-time-b",
+            title="MMM Same Time Title B",
             owner_bid=owner_bid,
             created_at=datetime(2026, 5, 12, 10, 0, 0),
             updated_at=same_updated_at,
@@ -85,8 +90,9 @@ def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
             creator_only=True,
         )
 
-    assert [item.bid for item in result.data[:3]] == [
+    assert [item.bid for item in result.data[:4]] == [
         "draft-sort-newer",
+        "draft-sort-same-time-b",
         "draft-sort-same-time-a",
         "draft-sort-older",
     ]
