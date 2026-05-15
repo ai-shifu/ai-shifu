@@ -5323,6 +5323,7 @@ def grant_operator_user_credits(
             summary=summary,
         )
 
+
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
 ) -> Dict[str, BillUsageRecord]:
