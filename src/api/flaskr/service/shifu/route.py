@@ -1382,16 +1382,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course ID exact match or course name fuzzy match for consume rows
-            - name: course_id
-              in: query
-              type: string
-              required: false
-              description: Legacy exact course ID filter, used only when course_query is empty
-            - name: course_name
-              in: query
-              type: string
-              required: false
-              description: Legacy fuzzy course name filter, used only when course_query and course_id are empty
             - name: usage_mode
               in: query
               type: string
@@ -1426,8 +1416,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "credit_type": request.args.get("credit_type", ""),
             "grant_source": request.args.get("grant_source", ""),
             "course_query": request.args.get("course_query", ""),
-            "course_id": request.args.get("course_id", ""),
-            "course_name": request.args.get("course_name", ""),
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),

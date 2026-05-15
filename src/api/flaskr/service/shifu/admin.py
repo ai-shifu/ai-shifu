@@ -5353,62 +5353,54 @@ def _load_bill_usage_record_map(
     return usage_map
 
 
-def _build_latest_bill_usage_record_subquery():
+def _build_latest_bill_usage_record_subquery(*, user_bid: str):
+    normalized_user_bid = str(user_bid or "").strip()
     return (
         db.session.query(
             BillUsageRecord.usage_bid.label("usage_bid"),
             db.func.max(BillUsageRecord.id).label("max_id"),
         )
-        .filter(BillUsageRecord.deleted == 0)
+        .filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.user_bid == normalized_user_bid,
+        )
         .group_by(BillUsageRecord.usage_bid)
         .subquery()
     )
 
 
-def _build_latest_billing_order_subquery():
+def _build_latest_billing_order_subquery(*, creator_bid: str):
+    normalized_creator_bid = str(creator_bid or "").strip()
     return (
         db.session.query(
             BillingOrder.bill_order_bid.label("bill_order_bid"),
             db.func.max(BillingOrder.id).label("max_id"),
         )
-        .filter(BillingOrder.deleted == 0)
+        .filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == normalized_creator_bid,
+        )
         .group_by(BillingOrder.bill_order_bid)
         .subquery()
     )
 
 
-def _find_matching_operator_course_bids_by_name(
-    shifu_bids: Sequence[str],
-    course_name: str,
-) -> Optional[Set[str]]:
+def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
     normalized_course_name = str(course_name or "").strip().lower()
     if not normalized_course_name:
-        return None
-
-    normalized_shifu_bids = [
-        str(shifu_bid or "").strip()
-        for shifu_bid in shifu_bids
-        if str(shifu_bid or "").strip()
-    ]
-    if not normalized_shifu_bids:
         return set()
 
     def _load_matching_bids(model) -> Set[str]:
         latest_subquery = (
             db.session.query(db.func.max(model.id).label("max_id"))
-            .filter(
-                model.deleted == 0,
-                model.shifu_bid.in_(normalized_shifu_bids),
-            )
+            .filter(model.deleted == 0)
             .group_by(model.shifu_bid)
             .subquery()
         )
         rows = (
             db.session.query(model.shifu_bid)
-            .filter(
-                model.id.in_(db.session.query(latest_subquery.c.max_id)),
-                model.title.ilike(f"%{normalized_course_name}%"),
-            )
+            .join(latest_subquery, latest_subquery.c.max_id == model.id)
+            .filter(model.title.ilike(f"%{normalized_course_name}%"))
             .all()
         )
         return {
@@ -5421,6 +5413,21 @@ def _find_matching_operator_course_bids_by_name(
     matching_bids.update(_load_matching_bids(DraftShifu))
     matching_bids.update(_load_matching_bids(PublishedShifu))
     return matching_bids
+
+
+def _build_operator_course_query_filter(
+    shifu_bid_column: Any,
+    course_query: str,
+) -> Any | None:
+    normalized_course_query = str(course_query or "").strip()
+    if not normalized_course_query:
+        return None
+
+    course_filters = [shifu_bid_column == normalized_course_query]
+    matching_course_bids = _find_operator_course_bids_by_name(normalized_course_query)
+    if matching_course_bids:
+        course_filters.append(shifu_bid_column.in_(sorted(matching_course_bids)))
+    return or_(*course_filters)
 
 
 def get_operator_user_grant_bootstrap(
@@ -5604,7 +5611,9 @@ def get_operator_user_credits(
                     CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL
                 )
             else:
-                latest_order_subquery = _build_latest_billing_order_subquery()
+                latest_order_subquery = _build_latest_billing_order_subquery(
+                    creator_bid=normalized_user_bid
+                )
                 latest_order = aliased(BillingOrder)
                 checkout_type_expr = db.func.lower(
                     db.func.coalesce(
@@ -5635,30 +5644,21 @@ def get_operator_user_credits(
                 else:
                     query = query.filter(checkout_type_expr != "trial_bootstrap")
         elif has_consume_sub_filter:
-            latest_usage_subquery = _build_latest_bill_usage_record_subquery()
+            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
+                user_bid=normalized_user_bid
+            )
             usage_row = aliased(BillUsageRecord)
             query = query.join(
                 latest_usage_subquery,
                 latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
             ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
             if resolved_course_query:
-                candidate_shifu_bids = [
-                    str(shifu_bid or "").strip()
-                    for (shifu_bid,) in query.with_entities(usage_row.shifu_bid)
-                    .distinct()
-                    .all()
-                    if str(shifu_bid or "").strip()
-                ]
-                matching_course_bids = _find_matching_operator_course_bids_by_name(
-                    candidate_shifu_bids,
+                course_query_filter = _build_operator_course_query_filter(
+                    usage_row.shifu_bid,
                     resolved_course_query,
                 )
-                course_filters = [usage_row.shifu_bid == resolved_course_query]
-                if matching_course_bids:
-                    course_filters.append(
-                        usage_row.shifu_bid.in_(sorted(matching_course_bids))
-                    )
-                query = query.filter(or_(*course_filters))
+                if course_query_filter is not None:
+                    query = query.filter(course_query_filter)
 
             generation_name_expr = db.func.lower(
                 usage_row.extra["generation_name"].as_string()
