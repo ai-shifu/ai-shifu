@@ -42,6 +42,16 @@ const mockUserState: {
   },
 };
 
+const mockEnvState: {
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
+  currencySymbol: string;
+} = {
+  loginMethodsEnabled: ['email'],
+  defaultLoginMethod: 'email',
+  currencySymbol: '¥',
+};
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
@@ -89,12 +99,7 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
       currencySymbol: string;
     }) => unknown,
-  ) =>
-    selector({
-      loginMethodsEnabled: ['email'],
-      defaultLoginMethod: 'email',
-      currencySymbol: '¥',
-    }),
+  ) => selector(mockEnvState),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -440,6 +445,9 @@ describe('OperationsPage', () => {
     mockUserState.userInfo = {
       is_operator: true,
     };
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockEnvState.currencySymbol = '¥';
     Object.assign(window.location, {
       href: '',
       pathname: '/admin/operations',
@@ -806,6 +814,68 @@ describe('OperationsPage', () => {
 
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.operationsCourse.copyCourseDialog.submitSuccess',
+    });
+  });
+
+  test('supports switching copy contact type when phone and email are both enabled', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
+    mockEnvState.defaultLoginMethod = 'phone';
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderPhone',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.contactTypeEmail',
+      }),
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-via-email@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        contact_type: 'email',
+        identifier: 'copy-via-email@example.com',
+      });
     });
   });
 

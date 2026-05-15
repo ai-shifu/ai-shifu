@@ -80,6 +80,7 @@ from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseListDTO,
     AdminOperationCourseChapterDetailDTO,
@@ -2038,7 +2039,6 @@ def _load_latest_active_draft_outlines(shifu_bid: str) -> list[DraftOutlineItem]
         )
         .filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.deleted == 0,
         )
         .group_by(DraftOutlineItem.outline_item_bid)
         .subquery()
@@ -2046,6 +2046,7 @@ def _load_latest_active_draft_outlines(shifu_bid: str) -> list[DraftOutlineItem]
     return (
         db.session.query(DraftOutlineItem)
         .join(latest_outline_ids, DraftOutlineItem.id == latest_outline_ids.c.max_id)
+        .filter(DraftOutlineItem.deleted == 0)
         .order_by(DraftOutlineItem.position.asc(), DraftOutlineItem.id.asc())
         .all()
     )
@@ -2095,6 +2096,38 @@ def _build_outline_history_tree(
         return history_items
 
     return _build("")
+
+
+def _copy_course_variable_definitions(
+    *,
+    source_shifu_bid: str,
+    target_shifu_bid: str,
+    creator_user_bid: str,
+    updated_user_bid: str,
+    now: datetime,
+) -> None:
+    variable_definitions = (
+        Variable.query.filter(
+            Variable.shifu_bid == source_shifu_bid,
+            Variable.deleted == 0,
+        )
+        .order_by(Variable.id.asc())
+        .all()
+    )
+    for definition in variable_definitions:
+        db.session.add(
+            Variable(
+                variable_bid=generate_id(current_app),
+                shifu_bid=target_shifu_bid,
+                key=str(definition.key or "").strip(),
+                is_hidden=definition.is_hidden,
+                deleted=0,
+                created_at=now,
+                created_user_bid=creator_user_bid,
+                updated_at=now,
+                updated_user_bid=updated_user_bid,
+            )
+        )
 
 
 def _prepare_operator_target_creator(
@@ -2417,6 +2450,13 @@ def copy_operator_course(
             new_shifu_bid,
             outline_tree,
             new_draft.id,
+        )
+        _copy_course_variable_definitions(
+            source_shifu_bid=normalized_shifu_bid,
+            target_shifu_bid=new_shifu_bid,
+            creator_user_bid=target_user_bid,
+            updated_user_bid=action_user_bid,
+            now=now,
         )
 
         db.session.commit()

@@ -12,6 +12,7 @@ from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import AppException
+from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_history_manager import get_shifu_history
@@ -205,6 +206,27 @@ def _clear_config_caches() -> None:
         config_module.__ENHANCED_CONFIG__._cache.clear()
     except (AttributeError, KeyError, TypeError):
         pass
+
+
+def _seed_course_variable(
+    *,
+    shifu_bid: str,
+    key: str,
+    creator_user_bid: str,
+    is_hidden: int = 0,
+) -> None:
+    db.session.add(
+        Variable(
+            variable_bid=uuid.uuid4().hex[:32],
+            shifu_bid=shifu_bid,
+            key=key,
+            is_hidden=is_hidden,
+            deleted=0,
+            created_user_bid=creator_user_bid,
+            updated_user_bid=creator_user_bid,
+        )
+    )
+    db.session.flush()
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
@@ -371,6 +393,83 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
                 "language": "en-US",
             }
         ]
+
+
+def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    creator_email = "variables-owner@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=creator_email)
+        creator_entity = UserEntity.query.filter_by(user_bid=creator_bid).one()
+        creator_entity.is_creator = 1
+        source_bids = _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        _seed_course_variable(
+            shifu_bid=shifu_bid,
+            key="course_goal",
+            creator_user_bid=creator_bid,
+            is_hidden=1,
+        )
+        db.session.add(
+            DraftOutlineItem(
+                outline_item_bid=source_bids["lesson_b_bid"],
+                shifu_bid=shifu_bid,
+                title="第二节",
+                type=402,
+                hidden=0,
+                parent_bid=source_bids["chapter_bid"],
+                position="0102",
+                prerequisite_item_bids=source_bids["lesson_a_bid"],
+                llm="gpt-4.1",
+                llm_temperature=Decimal("0.30"),
+                llm_system_prompt="lesson prompt 2",
+                ask_enabled_status=5103,
+                ask_llm="gpt-4.1-mini",
+                ask_llm_temperature=Decimal("0.10"),
+                ask_llm_system_prompt="lesson ask 2",
+                content="## Title\n\nLesson B content",
+                deleted=1,
+                created_user_bid=creator_bid,
+                updated_user_bid="source-editor",
+            )
+        )
+        db.session.commit()
+
+        result = copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=creator_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+        copied_outlines = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=result["new_shifu_bid"],
+                deleted=0,
+            )
+            .order_by(DraftOutlineItem.position.asc())
+            .all()
+        )
+        copied_variables = (
+            Variable.query.filter_by(
+                shifu_bid=result["new_shifu_bid"],
+                deleted=0,
+            )
+            .order_by(Variable.key.asc())
+            .all()
+        )
+
+        assert [item.title for item in copied_outlines] == ["第一章", "第一节"]
+        assert len(copied_variables) == 1
+        assert copied_variables[0].key == "course_goal"
+        assert copied_variables[0].is_hidden == 1
+        assert copied_variables[0].variable_bid
 
 
 def test_copy_course_rejects_builtin_demo_course(app):

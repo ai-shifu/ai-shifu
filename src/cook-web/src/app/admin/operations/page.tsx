@@ -350,6 +350,9 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.copyCourseDialog.title')
  * t('module.operationsCourse.copyCourseDialog.description')
  * t('module.operationsCourse.copyCourseDialog.currentCreator')
+ * t('module.operationsCourse.copyCourseDialog.contactType')
+ * t('module.operationsCourse.copyCourseDialog.contactTypeEmail')
+ * t('module.operationsCourse.copyCourseDialog.contactTypePhone')
  * t('module.operationsCourse.copyCourseDialog.newCourseName')
  * t('module.operationsCourse.copyCourseDialog.identifier')
  * t('module.operationsCourse.copyCourseDialog.contactPlaceholderEmail')
@@ -2072,6 +2075,37 @@ const OperationsPage = () => {
               </div>
 
               <div className='space-y-2.5'>
+                {transferContactOptions.length > 1 ? (
+                  <div className='space-y-2.5'>
+                    <Label className='text-sm font-medium text-foreground'>
+                      {tOperations('copyCourseDialog.contactType')}
+                    </Label>
+                    <Select
+                      value={copyContactType}
+                      onValueChange={value =>
+                        setCopyContactType(value as TransferContactType)
+                      }
+                    >
+                      <SelectTrigger className='h-11 rounded-lg'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value='email'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations('copyCourseDialog.contactTypeEmail')}
+                        </SelectItem>
+                        <SelectItem
+                          value='phone'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations('copyCourseDialog.contactTypePhone')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
                 <Label
                   htmlFor='copy-course-identifier'
                   className='text-sm font-medium text-foreground'
@@ -2207,6 +2241,41 @@ const OperationsPage = () => {
               </div>
 
               <div className='space-y-2.5'>
+                {transferContactOptions.length > 1 ? (
+                  <div className='space-y-2.5'>
+                    <Label className='text-sm font-medium text-foreground'>
+                      {tOperations('transferCreatorDialog.contactType')}
+                    </Label>
+                    <Select
+                      value={transferContactType}
+                      onValueChange={value =>
+                        setTransferContactType(value as TransferContactType)
+                      }
+                    >
+                      <SelectTrigger className='h-11 rounded-lg'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value='email'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations(
+                            'transferCreatorDialog.contactTypeEmail',
+                          )}
+                        </SelectItem>
+                        <SelectItem
+                          value='phone'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations(
+                            'transferCreatorDialog.contactTypePhone',
+                          )}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
                 <Label
                   htmlFor='transfer-identifier'
                   className='text-sm font-medium text-foreground'
