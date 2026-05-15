@@ -550,8 +550,7 @@ export const NewChatComponents = ({
       resolveReadModeTypewriterKeepAliveElementBid({
         previousKeepAliveElementBid:
           previousReadModeKeepAliveElementBidRef.current,
-        previousOutputInProgress:
-          previousReadModeOutputInProgressRef.current,
+        previousOutputInProgress: previousReadModeOutputInProgressRef.current,
         isOutputInProgress,
         currentStreamingElementBid,
       }),
@@ -1397,20 +1396,18 @@ export const NewChatComponents = ({
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
-                        enableStreamingTypewriter={
-                          shouldEnableReadModeTypewriter(
-                            item,
-                            readModeTypewriterCache[item.element_bid || ''],
-                            {
-                              keepAliveWhileStreaming:
-                                isOutputInProgress &&
-                                readModeTypewriterKeepAliveElementBid ===
-                                  item.element_bid &&
-                                trailingVisibleReadModeTextBid ===
-                                  item.element_bid,
-                            },
-                          )
-                        }
+                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
+                          item,
+                          readModeTypewriterCache[item.element_bid || ''],
+                          {
+                            keepAliveWhileStreaming:
+                              isOutputInProgress &&
+                              readModeTypewriterKeepAliveElementBid ===
+                                item.element_bid &&
+                              trailingVisibleReadModeTextBid ===
+                                item.element_bid,
+                          },
+                        )}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
