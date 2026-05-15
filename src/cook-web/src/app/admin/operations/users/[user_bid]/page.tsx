@@ -203,8 +203,7 @@ const InfoItem = ({
   <div
     className={cn(
       'space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3',
-      onClick &&
-        'transition-colors hover:border-primary/30 hover:bg-primary/5',
+      onClick && 'transition-colors hover:border-primary/30 hover:bg-primary/5',
     )}
   >
     <div className='flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'>
