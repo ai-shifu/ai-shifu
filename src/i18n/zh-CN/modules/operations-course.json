@@ -4,6 +4,24 @@
     "copyCourse": "复制课程",
     "transferCreator": "转移创作者"
   },
+  "copyCourseDialog": {
+    "confirm": "确认复制",
+    "confirmDescriptionCourseSuffix": "的最新草稿，并在",
+    "confirmDescriptionPrefix": "将复制课程",
+    "confirmDescriptionTargetPrefix": "名下创建新草稿课程",
+    "confirmTitle": "确认复制课程",
+    "contactPlaceholderEmail": "请输入目标创作者邮箱",
+    "contactPlaceholderPhone": "请输入目标创作者手机号",
+    "courseNameFallback": "课程",
+    "courseNameSuffix": "-副本",
+    "currentCreator": "当前创作者",
+    "description": "复制该课程的最新草稿，并在目标创作者名下新建一门草稿课程；共享权限不会一并复制。",
+    "identifier": "目标创作者",
+    "identifierRequired": "请输入合法的目标创作者联系方式",
+    "newCourseName": "新课程名称",
+    "submitSuccess": "课程复制成功",
+    "title": "复制课程"
+  },
   "coursePromptDialog": {
     "copy": "复制",
     "copyFailed": "复制课程提示词失败",
@@ -366,23 +384,5 @@
     "sameCreator": "目标联系方式已属于当前创作者",
     "submitSuccess": "创作者转移成功",
     "title": "转移创作者"
-  },
-  "copyCourseDialog": {
-    "title": "复制课程",
-    "description": "复制该课程的最新草稿，并在目标创作者名下新建一门草稿课程；共享权限不会一并复制。",
-    "currentCreator": "当前创作者",
-    "newCourseName": "新课程名称",
-    "identifier": "目标创作者",
-    "contactPlaceholderEmail": "请输入目标创作者邮箱",
-    "contactPlaceholderPhone": "请输入目标创作者手机号",
-    "identifierRequired": "请输入合法的目标创作者联系方式",
-    "confirm": "确认复制",
-    "submitSuccess": "课程复制成功",
-    "confirmTitle": "确认复制课程",
-    "confirmDescriptionPrefix": "将复制课程",
-    "confirmDescriptionCourseSuffix": "的最新草稿，并在",
-    "confirmDescriptionTargetPrefix": "名下创建新草稿课程",
-    "courseNameFallback": "课程",
-    "courseNameSuffix": "-副本"
   }
 }

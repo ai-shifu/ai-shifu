@@ -378,8 +378,7 @@ const mockGetAdminOperationCoursesOverview =
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
 const mockGetAdminOperationCoursePrompt =
   api.getAdminOperationCoursePrompt as jest.Mock;
-const mockCopyAdminOperationCourse =
-  api.copyAdminOperationCourse as jest.Mock;
+const mockCopyAdminOperationCourse = api.copyAdminOperationCourse as jest.Mock;
 const mockTransferAdminOperationCourseCreator =
   api.transferAdminOperationCourseCreator as jest.Mock;
 
@@ -693,7 +692,9 @@ describe('OperationsPage', () => {
   });
 
   test('shows inline validation and request errors for copy course', async () => {
-    mockCopyAdminOperationCourse.mockRejectedValueOnce(new Error('copy failed'));
+    mockCopyAdminOperationCourse.mockRejectedValueOnce(
+      new Error('copy failed'),
+    );
 
     await renderAndWaitForLoadedPage();
 

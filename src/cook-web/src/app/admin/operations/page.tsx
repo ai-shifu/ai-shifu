@@ -459,8 +459,9 @@ const OperationsPage = () => {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyTargetCourse, setCopyTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
-  const [copyContactType, setCopyContactType] =
-    useState<TransferContactType>(defaultTransferContactType);
+  const [copyContactType, setCopyContactType] = useState<TransferContactType>(
+    defaultTransferContactType,
+  );
   const [copyIdentifier, setCopyIdentifier] = useState('');
   const [copyLoading, setCopyLoading] = useState(false);
   const [copyError, setCopyError] = useState('');
@@ -909,7 +910,11 @@ const OperationsPage = () => {
         copyCourseNameFallback,
         copyCourseNameSuffix,
       ),
-    [copyCourseNameFallback, copyCourseNameSuffix, copyTargetCourse?.course_name],
+    [
+      copyCourseNameFallback,
+      copyCourseNameSuffix,
+      copyTargetCourse?.course_name,
+    ],
   );
 
   const normalizedTransferIdentifier = useMemo(
@@ -1029,7 +1034,12 @@ const OperationsPage = () => {
 
     setCopyError('');
     setCopyConfirmOpen(true);
-  }, [copyContactType, copyTargetCourse, normalizedCopyIdentifier, tOperations]);
+  }, [
+    copyContactType,
+    copyTargetCourse,
+    normalizedCopyIdentifier,
+    tOperations,
+  ]);
 
   const handleTransferConfirm = useCallback(async () => {
     if (!transferTargetCourse) {
@@ -2107,7 +2117,10 @@ const OperationsPage = () => {
           </DialogContent>
         </Dialog>
 
-        <AlertDialog open={copyConfirmOpen} onOpenChange={setCopyConfirmOpen}>
+        <AlertDialog
+          open={copyConfirmOpen}
+          onOpenChange={setCopyConfirmOpen}
+        >
           <AlertDialogContent className='sm:max-w-[420px]'>
             <AlertDialogHeader>
               <AlertDialogTitle>

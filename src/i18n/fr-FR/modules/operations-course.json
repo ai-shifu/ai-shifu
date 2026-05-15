@@ -4,6 +4,24 @@
     "copyCourse": "Copier le cours",
     "transferCreator": "Transférer le créateur"
   },
+  "copyCourseDialog": {
+    "confirm": "Confirmer la copie",
+    "confirmDescriptionCourseSuffix": "pour créer un nouveau cours brouillon pour",
+    "confirmDescriptionPrefix": "Copier le dernier brouillon de",
+    "confirmDescriptionTargetPrefix": "nommé",
+    "confirmTitle": "Confirmer la copie du cours",
+    "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
+    "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
+    "courseNameFallback": "Cours",
+    "courseNameSuffix": "-Copie",
+    "currentCreator": "Créateur actuel",
+    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible. Les autorisations partagées ne sont pas copiées.",
+    "identifier": "Créateur cible",
+    "identifierRequired": "Saisissez un contact valide pour le créateur cible",
+    "newCourseName": "Nom du nouveau cours",
+    "submitSuccess": "Cours copié avec succès",
+    "title": "Copier le cours"
+  },
   "coursePromptDialog": {
     "copy": "Copier",
     "copyFailed": "Échec de la copie du prompt du cours",
@@ -366,23 +384,5 @@
     "sameCreator": "Le contact cible appartient déjà au créateur actuel",
     "submitSuccess": "Créateur transferred",
     "title": "Transfer Créateur"
-  },
-  "copyCourseDialog": {
-    "title": "Copier le cours",
-    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible. Les autorisations partagées ne sont pas copiées.",
-    "currentCreator": "Créateur actuel",
-    "newCourseName": "Nom du nouveau cours",
-    "identifier": "Créateur cible",
-    "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
-    "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
-    "identifierRequired": "Saisissez un contact valide pour le créateur cible",
-    "confirm": "Confirmer la copie",
-    "submitSuccess": "Cours copié avec succès",
-    "confirmTitle": "Confirmer la copie du cours",
-    "confirmDescriptionPrefix": "Copier le dernier brouillon de",
-    "confirmDescriptionCourseSuffix": "pour créer un nouveau cours brouillon pour",
-    "confirmDescriptionTargetPrefix": "nommé",
-    "courseNameFallback": "Cours",
-    "courseNameSuffix": "-Copie"
   }
 }

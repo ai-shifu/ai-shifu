@@ -1,6 +1,10 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "copyCourseDemoNotAllowed": "Les cours de démonstration intégrés ne peuvent pas être copiés",
+    "copyCourseDraftNotFound": "Le dernier brouillon du cours est introuvable",
+    "copyCourseTitleFallback": "Cours",
+    "copyCourseTitleSuffix": "-Copie",
     "defaultChapterName": "Chapitre sans titre",
     "defaultLessonName": "Leçon sans titre",
     "draftConflict": "Le contenu du cours a été mis à jour par un autre utilisateur",
@@ -10,8 +14,6 @@
     "outlineNameTooLong": "Le nom du plan est trop long",
     "parentOutlineNotFound": "Plan parent introuvable",
     "permissionContactLimit": "Les autorisations partagées dépassent la limite ({count})",
-    "copyCourseDemoNotAllowed": "Les cours de démonstration intégrés ne peuvent pas être copiés",
-    "copyCourseDraftNotFound": "Le dernier brouillon du cours est introuvable",
     "shifuDescriptionTooLong": "La description du cours est trop longue (max 500 caractères)",
     "shifuNameRequired": "Le nom du cours est requis",
     "shifuNameTooLong": "Le nom du cours est trop long (max {max_length} caractères)",
@@ -23,8 +25,6 @@
     "transferCreatorTargetNotFound": "Utilisateur cible du transfert introuvable",
     "ttsNotEnabled": "La synthèse vocale n'est pas activée",
     "unitNameTooLong": "Le nom de l'unité est trop long",
-    "unitNotFound": "Unité introuvable",
-    "copyCourseTitleFallback": "Cours",
-    "copyCourseTitleSuffix": "-Copie"
+    "unitNotFound": "Unité introuvable"
   }
 }
