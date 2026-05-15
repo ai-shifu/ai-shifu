@@ -143,11 +143,12 @@ const ContentBlock = memo(
         />
         {shouldRenderExternalCustomButton && externalCustomButtonInnerHtml ? (
           <button
-            className='content-render-custom-button-after-content mt-3'
+            type='button'
+            className='content-render-custom-button-after-content mt-3 inline-flex min-w-[58px] items-center justify-center px-3 leading-none [&_img]:inline-block [&_img]:shrink-0 [&_span]:leading-none [&_span]:whitespace-nowrap'
             onClick={handleClick}
           >
             <span
-              className='content-render-custom-button-after-content-inner'
+              className='content-render-custom-button-after-content-inner inline-flex items-center justify-center gap-1.5 whitespace-nowrap leading-none'
               dangerouslySetInnerHTML={{
                 __html: externalCustomButtonInnerHtml,
               }}
