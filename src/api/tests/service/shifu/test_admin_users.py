@@ -8,6 +8,7 @@ import pytest
 import sys
 
 from flaskr.dao import db
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.billing.consts import (
@@ -1805,7 +1806,7 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app):
             providers=[("email", "credits-grant-regular@example.com")],
         )
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppException) as exc_info:
             grant_operator_user_credits(
                 app,
                 user_bid="credits-grant-regular",
@@ -1819,7 +1820,10 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app):
                 ),
             )
 
-    assert "Only creator or operator users" in str(exc_info.value)
+    assert (
+        exc_info.value.code
+        == ERROR_CODE["server.billing.adminPlanGrantRoleUnsupported"]
+    )
 
 
 def test_get_operator_user_grant_bootstrap_returns_active_plans(app):

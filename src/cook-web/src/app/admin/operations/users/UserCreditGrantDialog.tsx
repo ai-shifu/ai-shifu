@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
@@ -289,7 +289,9 @@ export default function UserCreditGrantDialog({
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [bootstrapPayload, setBootstrapPayload] =
     useState<AdminOperationUserGrantBootstrapResponse | null>(null);
+  const bootstrapRequestedUserBidRef = useRef('');
   const [grantedAt, setGrantedAt] = useState<Date | null>(null);
+  const currentUserBid = user?.user_bid || '';
 
   useEffect(() => {
     setGrantMode('credits');
@@ -303,16 +305,31 @@ export default function UserCreditGrantDialog({
   }, [defaultCreditFormState, open]);
 
   useEffect(() => {
-    if (!open || !user) {
+    if (!open || !currentUserBid) {
       setBootstrapPayload(null);
       setBootstrapLoading(false);
+      bootstrapRequestedUserBidRef.current = '';
+      return;
+    }
+
+    setBootstrapPayload(null);
+    setBootstrapLoading(false);
+    bootstrapRequestedUserBidRef.current = '';
+  }, [currentUserBid, open]);
+
+  useEffect(() => {
+    if (!open || !user) {
       return;
     }
     if (bootstrapPayload) {
       return;
     }
+    if (bootstrapRequestedUserBidRef.current === user.user_bid) {
+      return;
+    }
 
     let active = true;
+    bootstrapRequestedUserBidRef.current = user.user_bid;
     setBootstrapLoading(true);
     setFormErrors(current => ({
       ...current,

@@ -407,32 +407,28 @@ describe('UserCreditGrantDialog', () => {
   test('submits a confirmed package grant and reports success', async () => {
     const handleGranted = jest.fn();
     const handleOpenChange = jest.fn();
-    let resolveBootstrap:
-      | ((value: {
-          plans: Array<{
-            product_bid: string;
-            product_code: string;
-            product_type: string;
-            display_name: string;
-            description: string;
-            billing_interval: string;
-            billing_interval_count: number;
-            currency: string;
-            price_amount: number;
-            credit_amount: number;
-            auto_renew_enabled: boolean;
-            highlights: string[];
-          }>;
-          current_subscription_product_display_name_i18n_key: string;
-          notification_status: string;
-        }) => void)
-      | null = null;
-    mockGetAdminOperationUserGrantBootstrap.mockImplementationOnce(
-      () =>
-        new Promise(resolve => {
-          resolveBootstrap = resolve;
-        }),
-    );
+    mockGetAdminOperationUserGrantBootstrap.mockResolvedValueOnce({
+      plans: [
+        {
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+          description:
+            'module.billing.catalog.plans.creatorMonthly.description',
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          currency: 'CNY',
+          price_amount: 990,
+          credit_amount: 5,
+          auto_renew_enabled: true,
+          highlights: [],
+        },
+      ],
+      current_subscription_product_display_name_i18n_key:
+        'module.billing.catalog.plans.creatorMonthly.title',
+      notification_status: 'template_pending',
+    });
 
     render(
       <UserCreditGrantDialog
@@ -447,31 +443,6 @@ describe('UserCreditGrantDialog', () => {
       expect(mockGetAdminOperationUserGrantBootstrap).toHaveBeenCalledWith({
         user_bid: 'user-1',
       });
-    });
-    await act(async () => {
-      resolveBootstrap?.({
-        plans: [
-          {
-            product_bid: 'bill-product-plan-monthly',
-            product_code: 'creator-plan-monthly',
-            product_type: 'plan',
-            display_name: 'module.billing.catalog.plans.creatorMonthly.title',
-            description:
-              'module.billing.catalog.plans.creatorMonthly.description',
-            billing_interval: 'month',
-            billing_interval_count: 1,
-            currency: 'CNY',
-            price_amount: 990,
-            credit_amount: 5,
-            auto_renew_enabled: true,
-            highlights: [],
-          },
-        ],
-        current_subscription_product_display_name_i18n_key:
-          'module.billing.catalog.plans.creatorMonthly.title',
-        notification_status: 'template_pending',
-      });
-      await Promise.resolve();
     });
 
     fireEvent.click(
@@ -567,6 +538,69 @@ describe('UserCreditGrantDialog', () => {
         'module.operationsUser.grantDialog.packageFields.packageName',
       ),
     ).not.toBeInTheDocument();
+  });
+
+  test('does not auto-retry bootstrap after a failure until the dialog is reopened', async () => {
+    mockGetAdminOperationUserGrantBootstrap.mockRejectedValueOnce(
+      new Error('bootstrap failed'),
+    );
+
+    const { rerender } = render(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserGrantBootstrap).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.modeOptions.package',
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.grantDialog.placeholders.product',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetAdminOperationUserGrantBootstrap).toHaveBeenCalledTimes(1);
+
+    mockGetAdminOperationUserGrantBootstrap.mockResolvedValueOnce({
+      plans: [],
+      current_subscription_product_display_name_i18n_key: '',
+      notification_status: 'template_pending',
+    });
+
+    rerender(
+      <UserCreditGrantDialog
+        open={false}
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+    rerender(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserGrantBootstrap).toHaveBeenCalledTimes(2);
+    });
   });
 
   test('disables align subscription preset and falls back to one day without active subscription', async () => {
