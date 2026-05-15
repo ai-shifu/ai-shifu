@@ -431,10 +431,12 @@ export default function UserCreditGrantDialog({
       ? t(bootstrapPayload.current_subscription_product_display_name_i18n_key)
       : '--';
   const packageExpiryHint = selectedPlan
-    ? tOperationsUsers('grantDialog.packageFields.expiryHintResolved').replace(
-        /{{\s*dateTime\s*}}/g,
-        formatBillingCompactDateTime(estimatedPlanExpiry, i18n.language),
-      )
+    ? tOperationsUsers('grantDialog.packageFields.expiryHintResolved', {
+        dateTime: formatBillingCompactDateTime(
+          estimatedPlanExpiry,
+          i18n.language,
+        ),
+      })
     : tOperationsUsers('grantDialog.packageFields.expiryHintPending');
 
   const updateCreditField = <K extends keyof CreditFormState>(
