@@ -1,6 +1,6 @@
 """End-to-end tests for POST /api/creator-analytics/credit-detail.
 
-The endpoint joins bill_usage × credit_ledger_entries server-side and
+The endpoint joins bill_usage x credit_ledger_entries server-side and
 returns the actual credit deduction per usage row, scoped to the caller's
 shifu permission. These tests cover the happy path, the
 ``source_type = USAGE`` security filter, scope enforcement, optional
@@ -126,7 +126,12 @@ def test_credit_detail_returns_summary_and_rows(mock_request_user, test_client, 
     assert float(data["summary"]["total_credits"]) == pytest.approx(1.93)
     assert data["summary"]["unique_users"] == 2
     assert data["summary"]["unique_progress"] == 3
-    assert data["summary"]["wallet_creator_bid"] == "teacher-1"
+    # Single wallet absorbed every charge: the course owner. The summary
+    # exposes the count, callers must look at per-row wallet_creator_bid
+    # if they care which wallet it was (or which wallets, in the rare
+    # subscription / proxy-payment split case).
+    assert data["summary"]["unique_wallets"] == 1
+    assert "wallet_creator_bid" not in data["summary"]
     assert len(data["rows"]) == 3
     for row in data["rows"]:
         assert float(row["credits"]) >= 0  # ABS applied
@@ -174,6 +179,58 @@ def test_credit_detail_excludes_non_usage_ledger_entries(
     # Only the legitimate USAGE row contributes — total credits stays at 0.5
     assert data["summary"]["total_records"] == 1
     assert float(data["summary"]["total_credits"]) == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# unique_wallets — multi-wallet corner case
+# ---------------------------------------------------------------------------
+
+
+def test_credit_detail_summary_unique_wallets_counts_distinct_creators(
+    mock_request_user, test_client, app
+):
+    """Most courses bill against a single wallet (the author's), but
+    subscription / proxy-payment / sponsorship scenarios can split charges
+    across multiple wallets for the same shifu. The summary must surface
+    this as a distinct count so a caller does not treat the per-row
+    wallet_creator_bid as "the" wallet for the course (raised on PR #1771
+    review of the original `min(creator_bid)` aggregate)."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        # Two charges hit teacher-1's own wallet (the normal case)
+        _seed_usage_with_ledger(
+            shifu_bid="shifu-a",
+            user_bid="u1",
+            creator_bid="teacher-1",
+            suffix="own1",
+            amount=-0.5,
+        )
+        _seed_usage_with_ledger(
+            shifu_bid="shifu-a",
+            user_bid="u2",
+            creator_bid="teacher-1",
+            suffix="own2",
+            amount=-0.3,
+        )
+        # One charge hit a different wallet (e.g. a platform-credit grant)
+        _seed_usage_with_ledger(
+            shifu_bid="shifu-a",
+            user_bid="u3",
+            creator_bid="sponsor-x",
+            suffix="sponsor",
+            amount=-1.0,
+        )
+
+    response = _post(test_client, {"shifu_bid": "shifu-a"})
+    data = response.get_json(force=True)["data"]
+    assert data["summary"]["total_records"] == 3
+    assert data["summary"]["unique_wallets"] == 2
+    # Per-row wallet_creator_bid is preserved so callers can see which
+    # wallets paid for which charges.
+    row_wallets = {row["wallet_creator_bid"] for row in data["rows"]}
+    assert row_wallets == {"teacher-1", "sponsor-x"}
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +463,7 @@ def test_credit_detail_empty_when_bill_usage_has_no_ledger_entries(
     data = response.get_json(force=True)["data"]
     assert data["summary"]["total_records"] == 0
     assert float(data["summary"]["total_credits"]) == pytest.approx(0.0)
-    assert data["summary"]["wallet_creator_bid"] is None
+    assert data["summary"]["unique_wallets"] == 0
     assert data["rows"] == []
 
 

@@ -1,4 +1,4 @@
-"""Credit-detail endpoint — server-side join of bill_usage × credit_ledger_entries.
+"""Credit-detail endpoint — server-side join of bill_usage x credit_ledger_entries.
 
 The DSL path (``funcs.run_dsl``) intentionally does not expose
 ``credit_ledger_entries`` and (since 2026-05-15) does not expose
@@ -102,12 +102,16 @@ def run(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
     with engine.connect() as connection:
         detail_result = connection.execute(detail_stmt)
         detail_columns = list(detail_result.keys())
-        detail_rows = [list(row) for row in detail_result.fetchall()]
+        # Iterate the result proxy directly instead of fetchall() + list comp:
+        # avoids materialising an intermediate per-row list copy. The page
+        # size is already capped at `limit` (≤ 1000) so memory is bounded
+        # either way, but the shorter form is the conventional SQLAlchemy
+        # pattern and was flagged by review on PR #1771.
+        rows = [_row_to_dict(detail_columns, row) for row in detail_result]
 
         summary_result = connection.execute(summary_stmt)
         summary_row = summary_result.first()
 
-    rows = [_row_to_dict(detail_columns, r) for r in detail_rows]
     summary = _summary_row_to_dict(summary_row)
 
     # Audit: who hit credit-detail for which shifu with which filters. The
@@ -270,7 +274,7 @@ def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
 
 
 def _join_conditions(params: _Params):
-    """Build the bill_usage × credit_ledger_entries ON clause.
+    """Build the bill_usage x credit_ledger_entries ON clause.
 
     ``source_type = USAGE`` is part of the JOIN (not the WHERE) so the
     optimizer can use the
@@ -362,11 +366,17 @@ def _build_summary_statement(params: _Params) -> Select:
             func.count(func.distinct(bu.c.progress_record_bid)).label(
                 "unique_progress"
             ),
+            # unique_wallets counts how many distinct wallets paid for this
+            # shifu's runtime. Normally 1 (the course author's own wallet),
+            # but subscription / sponsor / proxy-payment scenarios can split
+            # it across multiple wallets. Per-row `wallet_creator_bid` shows
+            # which wallet absorbed each charge; the summary intentionally
+            # exposes only the count so callers do not treat a single
+            # ``min(creator_bid)`` value as "the" wallet for the course
+            # (raised on PR #1771 review).
+            func.count(func.distinct(cle.c.creator_bid)).label("unique_wallets"),
             func.min(bu.c.created_at).label("first_at"),
             func.max(bu.c.created_at).label("last_at"),
-            # The result is shifu-scoped so creator_bid is constant. MIN
-            # picks one deterministically without an extra GROUP BY.
-            func.min(cle.c.creator_bid).label("wallet_creator_bid"),
         )
         .select_from(_join_conditions(params))
         .where(and_(*_where_clauses(params)))
@@ -393,7 +403,7 @@ def _summary_row_to_dict(summary_row: Any) -> Dict[str, Any]:
             "total_credits": 0,
             "unique_users": 0,
             "unique_progress": 0,
-            "wallet_creator_bid": None,
+            "unique_wallets": 0,
             "time_range": [None, None],
         }
     mapping = summary_row._mapping  # noqa: SLF001 — SQLAlchemy public-ish API
@@ -401,7 +411,7 @@ def _summary_row_to_dict(summary_row: Any) -> Dict[str, Any]:
     total_credits = _coerce_value(mapping.get("total_credits") or 0)
     unique_users = int(mapping.get("unique_users") or 0)
     unique_progress = int(mapping.get("unique_progress") or 0)
-    wallet_creator_bid = mapping.get("wallet_creator_bid") if total_records else None
+    unique_wallets = int(mapping.get("unique_wallets") or 0)
     first_at = _coerce_value(mapping.get("first_at"))
     last_at = _coerce_value(mapping.get("last_at"))
     return {
@@ -409,7 +419,7 @@ def _summary_row_to_dict(summary_row: Any) -> Dict[str, Any]:
         "total_credits": total_credits,
         "unique_users": unique_users,
         "unique_progress": unique_progress,
-        "wallet_creator_bid": wallet_creator_bid,
+        "unique_wallets": unique_wallets,
         "time_range": [first_at, last_at],
     }
 
