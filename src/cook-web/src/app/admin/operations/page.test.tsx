@@ -869,6 +869,9 @@ describe('OperationsPage', () => {
       }),
     );
 
+    const copyDialog = screen.getByRole('dialog');
+    expect(within(copyDialog).getByText('15811112222')).toBeInTheDocument();
+
     expect(
       screen.getByPlaceholderText(
         'module.operationsCourse.copyCourseDialog.contactPlaceholderPhone',
@@ -880,6 +883,12 @@ describe('OperationsPage', () => {
         name: 'module.operationsCourse.copyCourseDialog.contactTypeEmail',
       }),
     );
+
+    await waitFor(() => {
+      expect(
+        within(copyDialog).getByText('creator@example.com'),
+      ).toBeInTheDocument();
+    });
 
     fireEvent.change(
       screen.getByPlaceholderText(

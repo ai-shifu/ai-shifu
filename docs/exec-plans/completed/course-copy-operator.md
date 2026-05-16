@@ -133,7 +133,7 @@ self-serve flows or generic import/export behavior.
     - copies latest draft-level configuration and outline content;
     - saves draft and outline history;
     - returns the new course and target-creator summary.
-  - Add `POST /shifu/admin/operations/courses/{shifu_bid}/copy` route.
+  - Add `POST /api/shifu/admin/operations/courses/{shifu_bid}/copy` route.
 - Frontend
   - Add `copyAdminOperationCourse` to `src/cook-web/src/api/api.ts`.
   - Extend `src/cook-web/src/app/admin/operations/page.tsx` with copy dialog

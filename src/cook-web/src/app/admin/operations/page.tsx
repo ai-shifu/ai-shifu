@@ -894,15 +894,29 @@ const OperationsPage = () => {
     if (!transferTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    return resolveActorDisplay(transferTargetCourse, 'creator');
-  }, [resolveActorDisplay, transferTargetCourse]);
+    const primary =
+      transferContactType === 'email'
+        ? transferTargetCourse.creator_email
+        : transferTargetCourse.creator_mobile;
+    return {
+      primary: normalizeTransferIdentifier(transferContactType, primary),
+      secondary: transferTargetCourse.creator_nickname || defaultUserName,
+    };
+  }, [defaultUserName, transferContactType, transferTargetCourse]);
   const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
   const copyCreatorDisplay = useMemo(() => {
     if (!copyTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    return resolveActorDisplay(copyTargetCourse, 'creator');
-  }, [copyTargetCourse, resolveActorDisplay]);
+    const primary =
+      copyContactType === 'email'
+        ? copyTargetCourse.creator_email
+        : copyTargetCourse.creator_mobile;
+    return {
+      primary: normalizeTransferIdentifier(copyContactType, primary),
+      secondary: copyTargetCourse.creator_nickname || defaultUserName,
+    };
+  }, [copyContactType, copyTargetCourse, defaultUserName]);
   const copyCourseName = copyTargetCourse?.course_name?.trim() || '--';
   const copyCourseNameFallback = useMemo(
     () => tOperations('copyCourseDialog.courseNameFallback'),
@@ -1126,10 +1140,9 @@ const OperationsPage = () => {
       );
       setCopyLoading(false);
     } finally {
-      if (requestId !== copyRequestIdRef.current) {
-        return;
+      if (requestId === copyRequestIdRef.current) {
+        setCopyLoading(false);
       }
-      setCopyLoading(false);
     }
   }, [
     closeCopyDialog,
