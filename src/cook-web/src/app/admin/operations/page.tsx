@@ -2226,7 +2226,9 @@ const OperationsPage = () => {
                       newCourseName: copyNewCourseName,
                     }}
                     components={{
-                      strong: <span className='font-semibold text-foreground' />,
+                      strong: (
+                        <span className='font-semibold text-foreground' />
+                      ),
                     }}
                   />
                 </span>
