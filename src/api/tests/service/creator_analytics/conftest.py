@@ -7,12 +7,17 @@ from typing import Optional
 import pytest
 
 from flaskr.dao import db
-from flaskr.service.billing.models import BillingDailyUsageMetric
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import BillingDailyUsageMetric, CreditLedgerEntry
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import (
@@ -26,6 +31,8 @@ from flaskr.service.user.models import UserInfo
 
 def _clear_tables() -> None:
     for model in (
+        CreditLedgerEntry,
+        BillUsageRecord,
         BillingDailyUsageMetric,
         VariableValue,
         LearnLessonFeedback,
@@ -244,6 +251,88 @@ def seed_user_info(
         )
     )
     db.session.commit()
+
+
+def seed_bill_usage_record(
+    *,
+    usage_bid: str,
+    shifu_bid: str,
+    user_bid: str = "",
+    progress_record_bid: str = "",
+    outline_item_bid: str = "",
+    usage_type: int = 1101,
+    usage_scene: int = 1203,
+    provider: str = "deepseek",
+    model: str = "deepseek-v4-flash",
+    created_at: Optional[datetime] = None,
+    deleted: int = 0,
+) -> str:
+    """Seed one BillUsageRecord row for credit-detail E2E tests.
+
+    Mirrors the production schema's defaults (all string fields default to
+    empty, numeric fields to zero) so callers only have to set what the
+    test cares about.
+    """
+
+    db.session.add(
+        BillUsageRecord(
+            usage_bid=usage_bid,
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            progress_record_bid=progress_record_bid,
+            outline_item_bid=outline_item_bid,
+            usage_type=usage_type,
+            usage_scene=usage_scene,
+            provider=provider,
+            model=model,
+            created_at=created_at or datetime.utcnow(),
+            deleted=deleted,
+        )
+    )
+    db.session.commit()
+    return usage_bid
+
+
+def seed_credit_ledger_entry(
+    *,
+    ledger_bid: str,
+    creator_bid: str,
+    source_bid: str,
+    amount: float,
+    source_type: int = CREDIT_SOURCE_TYPE_USAGE,
+    entry_type: int = CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    wallet_bid: str = "",
+    wallet_bucket_bid: str = "",
+    idempotency_key: Optional[str] = None,
+    created_at: Optional[datetime] = None,
+    deleted: int = 0,
+) -> str:
+    """Seed one CreditLedgerEntry row.
+
+    ``amount`` is stored verbatim — for credit consumption tests, pass the
+    actual negative value (the production code writes negatives for
+    deductions). ``idempotency_key`` defaults to a per-source-bid value to
+    satisfy the (creator_bid, idempotency_key) unique constraint.
+    """
+
+    db.session.add(
+        CreditLedgerEntry(
+            ledger_bid=ledger_bid,
+            creator_bid=creator_bid,
+            wallet_bid=wallet_bid,
+            wallet_bucket_bid=wallet_bucket_bid,
+            entry_type=entry_type,
+            source_type=source_type,
+            source_bid=source_bid,
+            idempotency_key=idempotency_key or f"usage:{source_bid}:consume",
+            amount=amount,
+            balance_after=0,
+            created_at=created_at or datetime.utcnow(),
+            deleted=deleted,
+        )
+    )
+    db.session.commit()
+    return ledger_bid
 
 
 def seed_bill_daily_metric(
