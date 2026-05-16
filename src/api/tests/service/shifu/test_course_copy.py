@@ -403,6 +403,57 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
         ]
 
 
+def test_copy_course_reuses_existing_google_creator_account(app):
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    target_user_bid = uuid.uuid4().hex[:32]
+    target_email = "google-only-creator@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email="copy-owner@example.com")
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        _seed_user(app, user_bid=target_user_bid)
+        upsert_credential(
+            app,
+            user_bid=target_user_bid,
+            provider_name="google",
+            subject_id=target_email,
+            subject_format="email",
+            identifier=target_email,
+            metadata={},
+            verified=True,
+        )
+        db.session.commit()
+
+        result = copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+        copied_draft = DraftShifu.query.filter_by(
+            shifu_bid=result["new_shifu_bid"],
+            deleted=0,
+        ).one()
+        email_credential = AuthCredential.query.filter_by(
+            user_bid=target_user_bid,
+            provider_name="email",
+            identifier=target_email,
+            deleted=0,
+        ).one()
+
+        assert result["created_new_user"] is False
+        assert result["target_creator_user_bid"] == target_user_bid
+        assert copied_draft.created_user_bid == target_user_bid
+        assert email_credential is not None
+
+
 def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
@@ -515,6 +566,35 @@ def test_copy_course_rejects_builtin_demo_course(app):
 
         assert "copied" in exc_info.value.message.lower()
         assert DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).count() == 1
+
+
+def test_copy_course_requires_operator_user_bid(app):
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    creator_email = "owner@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=creator_email)
+        creator_entity = UserEntity.query.filter_by(user_bid=creator_bid).one()
+        creator_entity.is_creator = 1
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        db.session.commit()
+
+        with pytest.raises(AppException) as exc_info:
+            copy_operator_course(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type="email",
+                identifier=creator_email,
+                operator_user_bid="",
+            )
+
+        assert exc_info.value.message
+        assert "operator_user_bid" in exc_info.value.message
 
 
 def test_copy_course_route_for_operator(app, test_client, monkeypatch):

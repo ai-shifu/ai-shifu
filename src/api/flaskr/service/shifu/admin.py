@@ -2159,10 +2159,18 @@ def _prepare_operator_target_creator(
 ) -> Dict[str, Any]:
     normalized_contact_type = str(contact_type or "").strip().lower()
     normalized_identifier = _normalize_identifier(identifier)
+    if normalized_contact_type not in {"phone", "email"}:
+        raise_param_error("contact_type")
+    if not normalized_identifier:
+        raise_param_error("contact")
+
+    lookup_providers = (
+        ["email", "google"] if normalized_contact_type == "email" else ["phone"]
+    )
 
     existing_aggregate = load_user_aggregate_by_identifier(
         normalized_identifier,
-        providers=[normalized_contact_type],
+        providers=lookup_providers,
     )
     created_new_user = False
     granted_demo_permissions = False
@@ -2383,6 +2391,8 @@ def copy_operator_course(
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
         normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
 
         source_draft = get_latest_shifu_draft(normalized_shifu_bid)
         if not source_draft:
@@ -2403,7 +2413,7 @@ def copy_operator_course(
         granted_demo_permissions = target_creator_result["granted_demo_permissions"]
         creator_granted_now = target_creator_result["creator_granted_now"]
 
-        action_user_bid = normalized_operator_user_bid or target_user_bid
+        action_user_bid = normalized_operator_user_bid
         now = datetime.now()
         new_shifu_bid = generate_id(app)
         resolved_new_course_name = _resolve_course_copy_title(
