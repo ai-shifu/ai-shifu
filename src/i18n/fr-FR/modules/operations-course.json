@@ -6,7 +6,7 @@
   },
   "copyCourseDialog": {
     "confirm": "Confirmer la copie",
-    "confirmDescription": "Copier le dernier brouillon de {courseName} pour créer un nouveau cours brouillon pour {targetCreator} nommé {newCourseName}.",
+    "confirmDescription": "Copier le dernier brouillon de <strong>{courseName}</strong> pour créer un nouveau cours brouillon pour <strong>{targetCreator}</strong> nommé <strong>{newCourseName}</strong>.",
     "confirmTitle": "Confirmer la copie du cours",
     "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
@@ -16,7 +16,7 @@
     "courseNameFallback": "Cours",
     "courseNameSuffix": "-Copie",
     "currentCreator": "Créateur actuel",
-    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible. Les autorisations partagées ne sont pas copiées.",
+    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible.",
     "identifier": "Créateur cible",
     "identifierRequired": "Saisissez un contact valide pour le créateur cible",
     "newCourseName": "Nom du nouveau cours",

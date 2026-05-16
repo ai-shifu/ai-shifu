@@ -10,7 +10,7 @@ import React, {
   type CSSProperties,
 } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -2217,11 +2217,18 @@ const OperationsPage = () => {
               </AlertDialogTitle>
               <AlertDialogDescription>
                 <span className='leading-8 text-muted-foreground'>
-                  {tOperations('copyCourseDialog.confirmDescription', {
-                    courseName: copyCourseName,
-                    targetCreator: copyTargetCreatorText,
-                    newCourseName: copyNewCourseName,
-                  })}
+                  <Trans
+                    ns='module.operationsCourse'
+                    i18nKey='copyCourseDialog.confirmDescription'
+                    values={{
+                      courseName: copyCourseName,
+                      targetCreator: copyTargetCreatorText,
+                      newCourseName: copyNewCourseName,
+                    }}
+                    components={{
+                      strong: <span className='font-semibold text-foreground' />,
+                    }}
+                  />
                 </span>
               </AlertDialogDescription>
             </AlertDialogHeader>

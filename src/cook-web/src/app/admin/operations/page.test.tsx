@@ -104,6 +104,18 @@ jest.mock('@/c-store', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
+  Trans: ({
+    i18nKey,
+    values,
+  }: {
+    i18nKey: string;
+    values?: Record<string, string | number | undefined>;
+  }) => (
+    <span>
+      {i18nKey}
+      {values ? ` ${Object.values(values).filter(Boolean).join(' ')}` : ''}
+    </span>
+  ),
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
     return {

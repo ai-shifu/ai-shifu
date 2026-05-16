@@ -6,7 +6,7 @@
   },
   "copyCourseDialog": {
     "confirm": "确认复制",
-    "confirmDescription": "将复制课程《{courseName}》的最新草稿，并在 {targetCreator} 名下创建新草稿课程《{newCourseName}》。",
+    "confirmDescription": "将复制课程 <strong>{courseName}</strong> 的最新草稿，并在 <strong>{targetCreator}</strong> 名下创建新草稿课程 <strong>{newCourseName}</strong>。",
     "confirmTitle": "确认复制课程",
     "contactPlaceholderEmail": "请输入目标创作者邮箱",
     "contactPlaceholderPhone": "请输入目标创作者手机号",
@@ -16,7 +16,7 @@
     "courseNameFallback": "课程",
     "courseNameSuffix": "-副本",
     "currentCreator": "当前创作者",
-    "description": "复制该课程的最新草稿，并在目标创作者名下新建一门草稿课程；共享权限不会一并复制。",
+    "description": "复制该课程的最新草稿，并在目标创作者名下新建一门草稿课程。",
     "identifier": "目标创作者",
     "identifierRequired": "请输入合法的目标创作者联系方式",
     "newCourseName": "新课程名称",
