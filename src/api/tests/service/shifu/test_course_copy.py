@@ -11,7 +11,7 @@ import pytest
 from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppException, ERROR_CODE, raise_error
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
@@ -684,3 +684,78 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
             )
 
     assert risk_checks == expected_risk_checks
+
+
+def test_copy_course_route_rejects_non_object_payload(app, test_client, monkeypatch):
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email="route-owner@example.com")
+        _seed_course_with_outlines(
+            app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
+        )
+        db.session.commit()
+
+    _mock_operator(monkeypatch)
+
+    response = test_client.post(
+        f"/api/shifu/admin/operations/courses/{shifu_bid}/copy",
+        json=["invalid-payload"],
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch):
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email="copy-owner@example.com")
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        db.session.commit()
+
+    def _reject_risk(*args, **kwargs):
+        raise_error("server.check.checkRiskControlReject")
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        _reject_risk,
+    )
+
+    with pytest.raises(AppException) as exc_info:
+        copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+    with app.app_context():
+        assert exc_info.value.message == _("server.check.checkRiskControlReject")
+
+    with app.app_context():
+        assert (
+            UserEntity.query.filter_by(
+                user_identify=target_email,
+                deleted=0,
+            ).count()
+            == 0
+        )
+        assert (
+            AuthCredential.query.filter_by(
+                identifier=target_email,
+                deleted=0,
+            ).count()
+            == 0
+        )

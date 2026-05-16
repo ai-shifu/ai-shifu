@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
@@ -275,6 +276,11 @@ OPERATOR_USER_CREDIT_VALIDITY_PRESETS = {
     OPERATOR_USER_CREDIT_VALIDITY_3M,
     OPERATOR_USER_CREDIT_VALIDITY_1Y,
 }
+OPERATOR_TARGET_CONTACT_MAX_LENGTH = 320
+OPERATOR_TARGET_PHONE_PATTERN = re.compile(r"^\d{11}$")
+OPERATOR_TARGET_EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+)
 
 USER_STATE_TO_OPERATOR_STATUS = {
     USER_STATE_UNREGISTERED: OPERATOR_USER_STATUS_UNREGISTERED,
@@ -2198,6 +2204,25 @@ def _run_course_copy_outline_risk_check(
         )
 
 
+def _validate_operator_target_contact(contact_type: str, identifier: str) -> str:
+    normalized_contact_type = str(contact_type or "").strip().lower()
+    normalized_identifier = _normalize_identifier(identifier)
+    if normalized_contact_type not in {"phone", "email"}:
+        raise_param_error("contact_type")
+    if (
+        not normalized_identifier
+        or len(normalized_identifier) > OPERATOR_TARGET_CONTACT_MAX_LENGTH
+    ):
+        raise_param_error("contact")
+    if normalized_contact_type == "phone":
+        if not OPERATOR_TARGET_PHONE_PATTERN.match(normalized_identifier):
+            raise_param_error("mobile")
+        return normalized_identifier
+    if not OPERATOR_TARGET_EMAIL_PATTERN.match(normalized_identifier):
+        raise_param_error("email")
+    return normalized_identifier.lower()
+
+
 def _prepare_operator_target_creator(
     app: Flask,
     *,
@@ -2207,11 +2232,9 @@ def _prepare_operator_target_creator(
     allow_same_user: bool = False,
 ) -> Dict[str, Any]:
     normalized_contact_type = str(contact_type or "").strip().lower()
-    normalized_identifier = _normalize_identifier(identifier)
-    if normalized_contact_type not in {"phone", "email"}:
-        raise_param_error("contact_type")
-    if not normalized_identifier:
-        raise_param_error("contact")
+    normalized_identifier = _validate_operator_target_contact(
+        normalized_contact_type, identifier
+    )
 
     lookup_providers = (
         ["email", "google"] if normalized_contact_type == "email" else ["phone"]
@@ -2449,19 +2472,6 @@ def copy_operator_course(
         if not _is_operator_visible_course(source_draft):
             raise_error("server.shifu.copyCourseDemoNotAllowed")
 
-        target_creator_result = _prepare_operator_target_creator(
-            app,
-            contact_type=normalized_contact_type,
-            identifier=normalized_identifier,
-            previous_creator_user_bid=str(source_draft.created_user_bid or "").strip(),
-            allow_same_user=True,
-        )
-        target_aggregate = target_creator_result["target_aggregate"]
-        target_user_bid = target_creator_result["target_user_bid"]
-        created_new_user = target_creator_result["created_new_user"]
-        granted_demo_permissions = target_creator_result["granted_demo_permissions"]
-        creator_granted_now = target_creator_result["creator_granted_now"]
-
         action_user_bid = normalized_operator_user_bid
         now = datetime.now()
         new_shifu_bid = generate_id(app)
@@ -2490,6 +2500,19 @@ def copy_operator_course(
                 target_outline_bid=outline_bid_map[old_outline_bid],
                 operator_user_bid=action_user_bid,
             )
+
+        target_creator_result = _prepare_operator_target_creator(
+            app,
+            contact_type=normalized_contact_type,
+            identifier=normalized_identifier,
+            previous_creator_user_bid=str(source_draft.created_user_bid or "").strip(),
+            allow_same_user=True,
+        )
+        target_aggregate = target_creator_result["target_aggregate"]
+        target_user_bid = target_creator_result["target_user_bid"]
+        created_new_user = target_creator_result["created_new_user"]
+        granted_demo_permissions = target_creator_result["granted_demo_permissions"]
+        creator_granted_now = target_creator_result["creator_granted_now"]
 
         new_draft = source_draft.clone()
         new_draft.shifu_bid = new_shifu_bid

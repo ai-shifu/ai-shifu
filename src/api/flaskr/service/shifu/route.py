@@ -1999,6 +1999,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def admin_copy_course(shifu_bid: str):
         _require_operator()
         payload = request.get_json() or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
         contact_type = _normalize_contact_type(payload.get("contact_type", ""))
         allowed_methods = _get_login_methods_enabled()
         if contact_type not in {"phone", "email"}:
