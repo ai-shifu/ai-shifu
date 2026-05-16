@@ -922,6 +922,55 @@ describe('OperationsPage', () => {
     });
   });
 
+  test('keeps system creator label in transfer and copy dialogs', async () => {
+    await renderAndWaitForLoadedPage();
+
+    const systemRow = screen.getByText('Custom System Course').closest('tr');
+    expect(systemRow).not.toBeNull();
+
+    fireEvent.click(
+      within(systemRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.transferCreator',
+      }),
+    );
+
+    const transferDialog = screen.getByRole('dialog');
+    expect(within(transferDialog).getByText('system')).toBeInTheDocument();
+
+    fireEvent.click(
+      within(transferDialog).getByRole('button', {
+        name: 'common.core.cancel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          'module.operationsCourse.transferCreatorDialog.title',
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      within(systemRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    const copyDialog = screen.getByRole('dialog');
+    expect(within(copyDialog).getByText('system')).toBeInTheDocument();
+  });
+
   test('ignores close events while copy course request is pending', async () => {
     const deferred = createDeferred<Record<string, never>>();
     mockCopyAdminOperationCourse.mockReturnValueOnce(deferred.promise);

@@ -19,6 +19,7 @@ import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -200,11 +201,10 @@ const buildCopyCourseName = (
   suffix: string,
 ): string => {
   const normalizedCourseName = courseName?.trim() || fallbackName;
-  const maxLength = 100;
-  if (normalizedCourseName.length + suffix.length <= maxLength) {
+  if (normalizedCourseName.length + suffix.length <= TITLE_MAX_LENGTH) {
     return `${normalizedCourseName}${suffix}`;
   }
-  return `${normalizedCourseName.slice(0, maxLength - suffix.length)}${suffix}`;
+  return `${normalizedCourseName.slice(0, TITLE_MAX_LENGTH - suffix.length)}${suffix}`;
 };
 
 const normalizeTransferIdentifier = (
@@ -859,17 +859,28 @@ const OperationsPage = () => {
         'creator_mobile' | 'creator_email' | 'updater_mobile' | 'updater_email'
       >,
       kind: 'creator' | 'updater',
+      preferredContactType?: TransferContactType,
     ) => {
+      const resolvedContactType =
+        preferredContactType || (isEmailMode ? 'email' : 'phone');
       if (kind === 'creator') {
-        return isEmailMode ? user.creator_email : user.creator_mobile;
+        return resolvedContactType === 'email'
+          ? user.creator_email
+          : user.creator_mobile;
       }
-      return isEmailMode ? user.updater_email : user.updater_mobile;
+      return resolvedContactType === 'email'
+        ? user.updater_email
+        : user.updater_mobile;
     },
     [isEmailMode],
   );
 
   const resolveActorDisplay = useCallback(
-    (course: AdminOperationCourseItem, kind: 'creator' | 'updater') => {
+    (
+      course: AdminOperationCourseItem,
+      kind: 'creator' | 'updater',
+      preferredContactType?: TransferContactType,
+    ) => {
       const userBid =
         kind === 'creator' ? course.creator_user_bid : course.updater_user_bid;
       if (userBid === 'system') {
@@ -883,40 +894,34 @@ const OperationsPage = () => {
         kind === 'creator' ? course.creator_nickname : course.updater_nickname;
 
       return {
-        primary: resolvePrimaryContact(course, kind) || '',
+        primary:
+          normalizeTransferIdentifier(
+            preferredContactType || (isEmailMode ? 'email' : 'phone'),
+            resolvePrimaryContact(course, kind, preferredContactType) || '',
+          ) || '',
         secondary: nickname || defaultUserName,
       };
     },
-    [defaultUserName, resolvePrimaryContact],
+    [defaultUserName, isEmailMode, resolvePrimaryContact],
   );
 
   const transferCreatorDisplay = useMemo(() => {
     if (!transferTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    const primary =
-      transferContactType === 'email'
-        ? transferTargetCourse.creator_email
-        : transferTargetCourse.creator_mobile;
-    return {
-      primary: normalizeTransferIdentifier(transferContactType, primary),
-      secondary: transferTargetCourse.creator_nickname || defaultUserName,
-    };
-  }, [defaultUserName, transferContactType, transferTargetCourse]);
+    return resolveActorDisplay(
+      transferTargetCourse,
+      'creator',
+      transferContactType,
+    );
+  }, [resolveActorDisplay, transferContactType, transferTargetCourse]);
   const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
   const copyCreatorDisplay = useMemo(() => {
     if (!copyTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    const primary =
-      copyContactType === 'email'
-        ? copyTargetCourse.creator_email
-        : copyTargetCourse.creator_mobile;
-    return {
-      primary: normalizeTransferIdentifier(copyContactType, primary),
-      secondary: copyTargetCourse.creator_nickname || defaultUserName,
-    };
-  }, [copyContactType, copyTargetCourse, defaultUserName]);
+    return resolveActorDisplay(copyTargetCourse, 'creator', copyContactType);
+  }, [copyContactType, copyTargetCourse, resolveActorDisplay]);
   const copyCourseName = copyTargetCourse?.course_name?.trim() || '--';
   const copyCourseNameFallback = useMemo(
     () => tOperations('copyCourseDialog.courseNameFallback'),

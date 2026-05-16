@@ -25,6 +25,14 @@ SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"
 
 
+@pytest.fixture(autouse=True)
+def _stub_copy_course_risk_control(monkeypatch):
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        lambda *args, **kwargs: None,
+    )
+
+
 def _seed_user(
     app,
     *,
@@ -514,6 +522,7 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     creator_bid = uuid.uuid4().hex[:32]
     target_email = "route-copy@example.com"
     requested_course_name = "Operator Requested Copy Name"
+    risk_checks: list[tuple[str, str, str]] = []
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email="route-owner@example.com")
@@ -528,6 +537,12 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
     _clear_config_caches()
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.check_text_with_risk_control",
+        lambda _app, resource_bid, user_id, content: risk_checks.append(
+            (resource_bid, user_id, content)
+        ),
+    )
 
     response = test_client.post(
         f"/api/shifu/admin/operations/courses/{shifu_bid}/copy",
@@ -546,3 +561,10 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     assert payload["data"]["target_creator_user_bid"] == "route-target"
     assert payload["data"]["new_shifu_bid"] != shifu_bid
     assert payload["data"]["new_course_name"] == requested_course_name
+    assert risk_checks == [
+        (
+            payload["data"]["new_shifu_bid"],
+            SOURCE_OPERATOR_BID,
+            requested_course_name,
+        )
+    ]

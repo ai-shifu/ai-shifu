@@ -132,7 +132,10 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.demo_courses import is_builtin_demo_course
-from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
+from flaskr.service.shifu.shifu_draft_funcs import (
+    check_text_with_risk_control,
+    get_latest_shifu_draft,
+)
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
     save_outline_tree_history,
@@ -2406,6 +2409,12 @@ def copy_operator_course(
         resolved_new_course_name = _resolve_course_copy_title(
             source_draft.title,
             new_course_name,
+        )
+        check_text_with_risk_control(
+            app,
+            new_shifu_bid,
+            action_user_bid,
+            resolved_new_course_name,
         )
 
         new_draft = source_draft.clone()
