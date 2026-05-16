@@ -6,10 +6,7 @@
   },
   "copyCourseDialog": {
     "confirm": "确认复制",
-    "confirmDescription": "将复制课程《{{courseName}}》的最新草稿，并在 {{targetCreator}} 名下创建新草稿课程《{{newCourseName}}》。",
-    "confirmDescriptionCourseSuffix": "的最新草稿，并在",
-    "confirmDescriptionPrefix": "将复制课程",
-    "confirmDescriptionTargetPrefix": "名下创建新草稿课程",
+    "confirmDescription": "将复制课程《{courseName}》的最新草稿，并在 {targetCreator} 名下创建新草稿课程《{newCourseName}》。",
     "confirmTitle": "确认复制课程",
     "contactPlaceholderEmail": "请输入目标创作者邮箱",
     "contactPlaceholderPhone": "请输入目标创作者手机号",
@@ -372,10 +369,7 @@
   "title": "课程管理",
   "transferCreatorDialog": {
     "confirm": "确认转移",
-    "confirmDescription": "将课程《{{courseName}}》的创作者从 {{currentCreator}} 转移给 {{targetCreator}}。",
-    "confirmDescriptionCourseSuffix": "课程的创作者从",
-    "confirmDescriptionPrefix": "将",
-    "confirmDescriptionTargetPrefix": "转移到",
+    "confirmDescription": "将课程《{courseName}》的创作者从 {currentCreator} 转移给 {targetCreator}。",
     "confirmTitle": "确认转移创作者",
     "contactPlaceholderEmail": "请输入目标创作者邮箱",
     "contactPlaceholderPhone": "请输入目标创作者手机号",

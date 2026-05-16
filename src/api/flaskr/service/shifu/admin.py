@@ -2149,6 +2149,55 @@ def _copy_course_variable_definitions(
         )
 
 
+def _run_course_copy_draft_risk_check(
+    app: Flask,
+    *,
+    source_draft: DraftShifu,
+    target_shifu_bid: str,
+    operator_user_bid: str,
+    new_course_name: str,
+) -> None:
+    draft_to_check = source_draft.clone()
+    draft_to_check.shifu_bid = target_shifu_bid
+    draft_to_check.title = new_course_name
+    check_content = str(draft_to_check.get_str_to_check() or "").strip()
+    if check_content:
+        check_text_with_risk_control(
+            app,
+            target_shifu_bid,
+            operator_user_bid,
+            check_content,
+        )
+
+
+def _run_course_copy_outline_risk_check(
+    app: Flask,
+    *,
+    source_outline: DraftOutlineItem,
+    target_outline_bid: str,
+    operator_user_bid: str,
+) -> None:
+    outline_to_check = source_outline.clone()
+    outline_to_check.outline_item_bid = target_outline_bid
+    outline_check_content = str(outline_to_check.get_str_to_check() or "").strip()
+    if outline_check_content:
+        check_text_with_risk_control(
+            app,
+            target_outline_bid,
+            operator_user_bid,
+            outline_check_content,
+        )
+
+    markdown_content = str(outline_to_check.content or "").strip()
+    if markdown_content:
+        check_text_with_risk_control(
+            app,
+            target_outline_bid,
+            operator_user_bid,
+            markdown_content,
+        )
+
+
 def _prepare_operator_target_creator(
     app: Flask,
     *,
@@ -2420,12 +2469,27 @@ def copy_operator_course(
             source_draft.title,
             new_course_name,
         )
-        check_text_with_risk_control(
+        source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
+        outline_bid_map: Dict[str, str] = {
+            str(item.outline_item_bid or "").strip(): generate_id(app)
+            for item in source_outlines
+        }
+
+        _run_course_copy_draft_risk_check(
             app,
-            new_shifu_bid,
-            action_user_bid,
-            resolved_new_course_name,
+            source_draft=source_draft,
+            target_shifu_bid=new_shifu_bid,
+            operator_user_bid=action_user_bid,
+            new_course_name=resolved_new_course_name,
         )
+        for source_outline in source_outlines:
+            old_outline_bid = str(source_outline.outline_item_bid or "").strip()
+            _run_course_copy_outline_risk_check(
+                app,
+                source_outline=source_outline,
+                target_outline_bid=outline_bid_map[old_outline_bid],
+                operator_user_bid=action_user_bid,
+            )
 
         new_draft = source_draft.clone()
         new_draft.shifu_bid = new_shifu_bid
@@ -2438,17 +2502,14 @@ def copy_operator_course(
         db.session.add(new_draft)
         db.session.flush()
 
-        source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
         source_outline_map = {
             str(item.outline_item_bid or "").strip(): item for item in source_outlines
         }
-        outline_bid_map: Dict[str, str] = {}
         copied_outlines: Dict[str, DraftOutlineItem] = {}
 
         for source_outline in source_outlines:
             old_outline_bid = str(source_outline.outline_item_bid or "").strip()
-            new_outline_bid = generate_id(app)
-            outline_bid_map[old_outline_bid] = new_outline_bid
+            new_outline_bid = outline_bid_map[old_outline_bid]
 
             new_outline = source_outline.clone()
             new_outline.shifu_bid = new_shifu_bid

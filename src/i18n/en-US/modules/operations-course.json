@@ -6,10 +6,7 @@
   },
   "copyCourseDialog": {
     "confirm": "Confirm copy",
-    "confirmDescription": "Copy the latest draft of {{courseName}} to create a new draft course for {{targetCreator}} named {{newCourseName}}.",
-    "confirmDescriptionCourseSuffix": "to create a new draft course for",
-    "confirmDescriptionPrefix": "Copy the latest draft of",
-    "confirmDescriptionTargetPrefix": "named",
+    "confirmDescription": "Copy the latest draft of {courseName} to create a new draft course for {targetCreator} named {newCourseName}.",
     "confirmTitle": "Confirm course copy",
     "contactPlaceholderEmail": "Enter the target creator email",
     "contactPlaceholderPhone": "Enter the target creator phone number",
@@ -372,10 +369,7 @@
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",
-    "confirmDescription": "Transfer the creator of {{courseName}} from {{currentCreator}} to {{targetCreator}}.",
-    "confirmDescriptionCourseSuffix": " from",
-    "confirmDescriptionPrefix": "Transfer the creator of",
-    "confirmDescriptionTargetPrefix": "to",
+    "confirmDescription": "Transfer the creator of {courseName} from {currentCreator} to {targetCreator}.",
     "confirmTitle": "Confirm Creator Transfer",
     "contactPlaceholderEmail": "Enter target creator email",
     "contactPlaceholderPhone": "Enter target creator mobile",

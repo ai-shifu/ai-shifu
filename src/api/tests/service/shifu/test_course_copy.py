@@ -214,6 +214,11 @@ def _clear_config_caches() -> None:
         config_module.__ENHANCED_CONFIG__._cache.clear()
     except (AttributeError, KeyError, TypeError):
         pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except (AttributeError, KeyError, TypeError):
+        pass
 
 
 def _seed_course_variable(
@@ -235,11 +240,7 @@ def _seed_course_variable(
         )
     )
     db.session.flush()
-    try:
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
-    except (AttributeError, KeyError, TypeError):
-        pass
+    _clear_config_caches()
 
 
 def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
@@ -615,6 +616,8 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
         db.session.commit()
 
     _mock_operator(monkeypatch)
+    monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone")
+    config_module.get_config("LOGIN_METHODS_ENABLED", "phone")
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
     _clear_config_caches()
     monkeypatch.setattr(
@@ -641,10 +644,43 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     assert payload["data"]["target_creator_user_bid"] == "route-target"
     assert payload["data"]["new_shifu_bid"] != shifu_bid
     assert payload["data"]["new_course_name"] == requested_course_name
-    assert risk_checks == [
+
+    with app.app_context():
+        copied_draft = DraftShifu.query.filter_by(
+            shifu_bid=payload["data"]["new_shifu_bid"],
+            deleted=0,
+        ).one()
+        copied_outlines = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=payload["data"]["new_shifu_bid"],
+                deleted=0,
+            )
+            .order_by(DraftOutlineItem.position.asc(), DraftOutlineItem.id.asc())
+            .all()
+        )
+
+    expected_risk_checks = [
         (
             payload["data"]["new_shifu_bid"],
             SOURCE_OPERATOR_BID,
-            requested_course_name,
+            copied_draft.get_str_to_check(),
         )
     ]
+    for outline in copied_outlines:
+        expected_risk_checks.append(
+            (
+                outline.outline_item_bid,
+                SOURCE_OPERATOR_BID,
+                outline.get_str_to_check(),
+            )
+        )
+        if outline.content:
+            expected_risk_checks.append(
+                (
+                    outline.outline_item_bid,
+                    SOURCE_OPERATOR_BID,
+                    outline.content,
+                )
+            )
+
+    assert risk_checks == expected_risk_checks

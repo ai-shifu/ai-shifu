@@ -6,10 +6,7 @@
   },
   "copyCourseDialog": {
     "confirm": "Confirmer la copie",
-    "confirmDescription": "Copier le dernier brouillon de {{courseName}} pour créer un nouveau cours brouillon pour {{targetCreator}} nommé {{newCourseName}}.",
-    "confirmDescriptionCourseSuffix": "pour créer un nouveau cours brouillon pour",
-    "confirmDescriptionPrefix": "Copier le dernier brouillon de",
-    "confirmDescriptionTargetPrefix": "nommé",
+    "confirmDescription": "Copier le dernier brouillon de {courseName} pour créer un nouveau cours brouillon pour {targetCreator} nommé {newCourseName}.",
     "confirmTitle": "Confirmer la copie du cours",
     "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
@@ -372,10 +369,7 @@
   "title": "Cours Gestion",
   "transferCreatorDialog": {
     "confirm": "Transférer",
-    "confirmDescription": "Transférer le créateur de {{courseName}} de {{currentCreator}} à {{targetCreator}}.",
-    "confirmDescriptionCourseSuffix": " de",
-    "confirmDescriptionPrefix": "Transférer le créateur de",
-    "confirmDescriptionTargetPrefix": "à",
+    "confirmDescription": "Transférer le créateur de {courseName} de {currentCreator} à {targetCreator}.",
     "confirmTitle": "Confirmer Créateur Transfer",
     "contactPlaceholderEmail": "Saisir l’e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisir le mobile du créateur cible",
