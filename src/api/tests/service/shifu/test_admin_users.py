@@ -1658,6 +1658,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
                 amount="5",
                 grant_source="compensation",
                 validity_preset="7d",
+                display_name="模型扣费补偿",
                 note="ops support",
             ),
         )
@@ -1682,6 +1683,8 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert result.grant_source == "compensation"
     assert result.validity_preset == "7d"
     assert result.expires_at.endswith("Z")
+    assert result.display_name == "模型扣费补偿"
+    assert result.note == "ops support"
     assert result.summary.available_credits == "5"
     assert result.summary.subscription_credits == "5"
     assert result.summary.topup_credits == "0"
@@ -1690,11 +1693,15 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert bucket.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert bucket.metadata_json["grant_source"] == "compensation"
     assert bucket.metadata_json["validity_preset"] == "7d"
+    assert "display_name" not in bucket.metadata_json
+    assert "note" not in bucket.metadata_json
     assert ledger is not None
     assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
     assert ledger.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert ledger.metadata_json["grant_type"] == "manual_grant"
     assert ledger.metadata_json["grant_channel"] == "operator_user_management"
+    assert ledger.metadata_json["display_name"] == "模型扣费补偿"
+    assert ledger.metadata_json["note"] == "ops support"
 
 
 def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
@@ -1763,6 +1770,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             amount="5",
             grant_source="reward",
             validity_preset="1d",
+            display_name="first display",
             note="first grant",
         )
         second_payload = AdminOperationUserCreditGrantRequestDTO(
@@ -1770,6 +1778,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             amount="9",
             grant_source="compensation",
             validity_preset="7d",
+            display_name="second display",
             note="second grant",
         )
         first_result = grant_operator_user_credits(
@@ -1791,6 +1800,8 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
     assert second_result.grant_source == "reward"
     assert second_result.validity_preset == "1d"
     assert second_result.expires_at == first_result.expires_at
+    assert second_result.display_name == "first display"
+    assert second_result.note == "first grant"
 
 
 def test_grant_operator_user_credits_rejects_regular_user_targets(app):

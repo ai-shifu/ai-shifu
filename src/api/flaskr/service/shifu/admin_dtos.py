@@ -416,6 +416,11 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     validity_preset: str = Field(
         ..., description="Grant validity preset", required=True
     )
+    display_name: str = Field(
+        default="",
+        description="Optional user-visible grant display name",
+        required=False,
+    )
     note: str = Field(default="", description="Optional operator note", required=False)
 
     def __json__(self) -> dict[str, Any]:
@@ -426,6 +431,7 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
 class AdminOperationUserCreditGrantResultDTO(BaseModel):
     """Operator credits grant response payload."""
 
+    status: str = Field(default="granted", description="Grant result status")
     user_bid: str = Field(..., description="Target user business identifier")
     amount: str = Field(..., description="Granted credits amount", required=False)
     grant_source: str = Field(
@@ -436,6 +442,16 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     )
     expires_at: str = Field(
         default="", description="Resolved expiry timestamp", required=False
+    )
+    display_name: str = Field(
+        default="",
+        description="User-visible grant display name",
+        required=False,
+    )
+    note: str = Field(
+        default="",
+        description="User-visible grant note",
+        required=False,
     )
     wallet_bucket_bid: str = Field(
         ..., description="Created wallet bucket identifier", required=False

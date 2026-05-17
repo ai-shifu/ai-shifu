@@ -829,6 +829,7 @@ def grant_manual_credit_wallet_balance(
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
     metadata: dict[str, Any] | None = None,
+    ledger_metadata: dict[str, Any] | None = None,
     idempotency_key: str = "",
 ) -> ManualCreditGrantResult:
     """Create a dedicated manual-grant bucket and matching ledger row."""
@@ -864,6 +865,10 @@ def grant_manual_credit_wallet_balance(
             return existing_result
 
         normalized_metadata = dict(metadata or {})
+        normalized_ledger_metadata = {
+            **normalized_metadata,
+            **dict(ledger_metadata or {}),
+        }
         bucket = CreditWalletBucket(
             wallet_bucket_bid=generate_id(app),
             wallet_bid=wallet.wallet_bid,
@@ -905,7 +910,7 @@ def grant_manual_credit_wallet_balance(
             balance_after=balance_after,
             expires_at=effective_to,
             consumable_from=granted_at,
-            metadata_json=normalized_metadata,
+            metadata_json=normalized_ledger_metadata,
         )
         wallet.available_credits = balance_after
         persist_credit_wallet_snapshot(
@@ -935,7 +940,7 @@ def grant_manual_credit_wallet_balance(
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             ledger_bid=ledger_entry.ledger_bid,
             expires_at=effective_to,
-            metadata_json=normalized_metadata,
+            metadata_json=normalized_ledger_metadata,
         )
 
 
