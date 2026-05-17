@@ -570,9 +570,9 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and use the benchmark “one learner completes the course once, with about 10 sections and an average of roughly 15 minutes of regular study per section.” Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Reference basis:",
-      "learnerEstimateMode": "Listen mode creates more model consumption. When listen mode is turned off and only text-and-image learning interactions remain, supported sessions can reach 2-4x.",
-      "learnerEstimateModel": "The estimate is calculated with all sections using the default model. Choosing a more or less expensive model will affect credit consumption.",
+      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and use the benchmark “one learner completes the course once, with about 10 sections, an average of roughly 15 minutes of regular study per section, using the default model throughout, and listen mode enabled.” Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Factors affecting credit consumption:",
+      "learnerEstimateMode": "When listen mode is turned off and only text-and-image learning interactions remain, supported sessions can increase by 1-4x.",
+      "learnerEstimateModel": "Choosing a more or less expensive model will affect credit consumption.",
       "learnerEstimateScale": "Changes in section count, section length, interaction volume, completion rate, or learner follow-up question count will affect credit consumption.",
       "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
     },
