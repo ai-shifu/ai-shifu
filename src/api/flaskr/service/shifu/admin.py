@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
@@ -42,18 +42,14 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.api import (
     build_billing_catalog,
+    grant_manual_credits_to_user,
     grant_manual_plan_to_user,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
     quantize_credit_amount as _quantize_credit_amount,
 )
-from flaskr.service.billing.queries import (
-    add_months as _add_months,
-    add_years as _add_years,
-    load_primary_active_subscription,
-)
-from flaskr.service.billing.wallets import grant_manual_credit_wallet_balance
+from flaskr.service.billing.queries import load_primary_active_subscription
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -151,7 +147,6 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.util.timezone import serialize_with_app_timezone
-from flaskr.util.uuid import generate_id
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
@@ -482,51 +477,6 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
-
-
-def _normalize_credit_amount(value: Any) -> Decimal:
-    normalized = str(value or "").strip()
-    if not normalized:
-        raise_param_error("amount")
-    try:
-        parsed = _quantize_credit_amount(Decimal(normalized))
-    except (InvalidOperation, TypeError, ValueError, ArithmeticError):
-        raise_param_error("amount")
-    if not parsed.is_finite() or parsed <= Decimal("0"):
-        raise_param_error("amount")
-    return parsed
-
-
-def _resolve_operator_credit_grant_expiry(
-    *,
-    creator_bid: str,
-    validity_preset: str,
-    granted_at: datetime,
-) -> datetime | None:
-    normalized_preset = str(validity_preset or "").strip()
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION:
-        subscription = load_primary_active_subscription(
-            creator_bid,
-            as_of=granted_at,
-        )
-        if (
-            subscription is None
-            or subscription.current_period_end_at is None
-            or subscription.current_period_end_at <= granted_at
-        ):
-            raise_error("server.billing.subscriptionInactive")
-        return subscription.current_period_end_at
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1D:
-        return granted_at + timedelta(days=1)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_7D:
-        return granted_at + timedelta(days=7)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1M:
-        return _add_months(granted_at, 1)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_3M:
-        return _add_months(granted_at, 3)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1Y:
-        return _add_years(granted_at, 1)
-    raise_param_error("validity_preset")
 
 
 def _load_active_subscription_end_map(
@@ -5171,38 +5121,22 @@ def grant_operator_user_credits(
         if normalized_validity_preset not in OPERATOR_USER_CREDIT_VALIDITY_PRESETS:
             raise_param_error("validity_preset")
 
-        granted_amount = _normalize_credit_amount(payload.amount)
         normalized_request_id = str(payload.request_id or "").strip()
         if not normalized_request_id:
             raise_param_error("request_id")
+        normalized_display_name = str(payload.display_name or "").strip()
         normalized_note = str(payload.note or "").strip()
-        granted_at = datetime.now()
-        expires_at = _resolve_operator_credit_grant_expiry(
-            creator_bid=normalized_user_bid,
-            validity_preset=normalized_validity_preset,
-            granted_at=granted_at,
-        )
-        grant_bid = generate_id(app)
-        grant_result = grant_manual_credit_wallet_balance(
+        grant_result = grant_manual_credits_to_user(
             app,
-            creator_bid=normalized_user_bid,
-            amount=granted_amount,
-            source_bid=grant_bid,
-            effective_from=granted_at,
-            effective_to=expires_at,
-            idempotency_key=f"operator_manual_grant:{normalized_request_id}",
-            metadata={
-                "checkout_type": "manual_grant",
-                "grant_type": "manual_grant",
-                "grant_source": normalized_grant_source,
-                "validity_preset": normalized_validity_preset,
-                "operator_user_bid": normalized_operator_user_bid,
-                "grant_channel": "operator_user_management",
-                "note": normalized_note,
-            },
+            user_bid=normalized_user_bid,
+            operator_user_bid=normalized_operator_user_bid,
+            request_id=normalized_request_id,
+            amount=payload.amount,
+            grant_source=normalized_grant_source,
+            validity_preset=normalized_validity_preset,
+            display_name=normalized_display_name,
+            note=normalized_note,
         )
-        if grant_result.status not in {"granted", "noop_existing"}:
-            raise_error("server.common.systemError")
 
         persisted_metadata = _normalize_metadata_json(grant_result.metadata_json)
         resolved_grant_source = str(
@@ -5222,11 +5156,14 @@ def grant_operator_user_credits(
             credit_summary_map=credit_summary_map,
         )
         return AdminOperationUserCreditGrantResultDTO(
+            status=str(grant_result.status or "granted"),
             user_bid=normalized_user_bid,
             amount=resolved_amount,
             grant_source=resolved_grant_source,
             validity_preset=resolved_validity_preset,
             expires_at=_format_operator_datetime(grant_result.expires_at),
+            display_name=str(persisted_metadata.get("display_name") or "").strip(),
+            note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
             summary=summary,

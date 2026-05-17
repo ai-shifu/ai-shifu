@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import hashlib
 import json
 from datetime import datetime
 from decimal import Decimal
@@ -55,6 +56,12 @@ from .consts import (
 from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,
+)
+from .manual_credit_grants import (
+    MANUAL_CREDIT_GRANT_SOURCES,
+    MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+    MANUAL_CREDIT_VALIDITY_PRESETS,
+    grant_manual_credits_to_user,
 )
 from .models import (
     BillingOrder,
@@ -116,6 +123,8 @@ _PRODUCT_STATUS_LABELS = {
     "active": BILLING_PRODUCT_STATUS_ACTIVE,
     "inactive": BILLING_PRODUCT_STATUS_INACTIVE,
 }
+
+_DEFAULT_CLI_OPERATOR_USER_BID = "billing-cli"
 
 
 def _normalize_cli_bid(value: object) -> str:
@@ -480,6 +489,70 @@ def register_billing_commands(console) -> None:
             product_code=product_code,
             effective_to=effective_to,
             note=note,
+        )
+        _echo_payload(payload)
+
+    @billing_group.command(name="grant-credits")
+    @click.option(
+        "--identify",
+        default="",
+        help="User identify value, usually phone or email.",
+    )
+    @click.option("--user-bid", default="", help="Target user business identifier.")
+    @click.option("--amount", required=True, help="Granted credits amount.")
+    @click.option(
+        "--request-id",
+        default="",
+        help=(
+            "Optional idempotency request id. When omitted, the CLI derives one "
+            "from the grant inputs and the current date."
+        ),
+    )
+    @click.option(
+        "--grant-source",
+        type=click.Choice(MANUAL_CREDIT_GRANT_SOURCES),
+        default="compensation",
+        show_default=True,
+        help="Operator grant source.",
+    )
+    @click.option(
+        "--validity-preset",
+        type=click.Choice(MANUAL_CREDIT_VALIDITY_PRESETS),
+        default=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+        show_default=True,
+        help="Grant validity preset. Defaults to the current subscription period.",
+    )
+    @click.option("--name", "display_name", default="", help="User-visible name.")
+    @click.option("--note", default="", help="User-visible note.")
+    @click.option(
+        "--operator-user-bid",
+        default="",
+        help="Optional operator user bid for audit metadata.",
+    )
+    @with_appcontext
+    def grant_credits_command(
+        identify: str,
+        user_bid: str,
+        amount: str,
+        request_id: str,
+        grant_source: str,
+        validity_preset: str,
+        display_name: str,
+        note: str,
+        operator_user_bid: str,
+    ) -> None:
+        """Grant manual credits through the operator credit grant service."""
+
+        payload = grant_operator_credits_by_cli(
+            identify=identify,
+            user_bid=user_bid,
+            amount=amount,
+            request_id=request_id,
+            grant_source=grant_source,
+            validity_preset=validity_preset,
+            display_name=display_name,
+            note=note,
+            operator_user_bid=operator_user_bid,
         )
         _echo_payload(payload)
 
@@ -1218,6 +1291,110 @@ def grant_billing_plan_by_identify(
     except Exception:
         db.session.rollback()
         raise
+
+
+def grant_operator_credits_by_cli(
+    *,
+    identify: str = "",
+    user_bid: str = "",
+    amount: str,
+    request_id: str,
+    grant_source: str = "compensation",
+    validity_preset: str,
+    display_name: str = "",
+    note: str = "",
+    operator_user_bid: str = "",
+) -> dict[str, Any]:
+    normalized_identify = str(identify or "").strip()
+    normalized_user_bid = str(user_bid or "").strip()
+    if bool(normalized_identify) == bool(normalized_user_bid):
+        raise click.ClickException("Pass exactly one of --identify or --user-bid.")
+
+    normalized_request_id = str(request_id or "").strip()
+    if len(normalized_request_id) > 100:
+        raise click.ClickException("--request-id must be 100 characters or fewer.")
+
+    normalized_display_name = str(display_name or "").strip()
+    if len(normalized_display_name) > 128:
+        raise click.ClickException("--name must be 128 characters or fewer.")
+
+    normalized_note = str(note or "").strip()
+    if len(normalized_note) > 255:
+        raise click.ClickException("--note must be 255 characters or fewer.")
+
+    normalized_operator_user_bid = (
+        str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
+    )
+
+    try:
+        aggregate = (
+            load_user_aggregate(normalized_user_bid)
+            if normalized_user_bid
+            else load_user_aggregate_by_identifier(normalized_identify)
+        )
+        if aggregate is None:
+            target = normalized_user_bid or normalized_identify
+            raise click.ClickException(f"No user found for target: {target}")
+        if not normalized_request_id:
+            normalized_request_id = _build_cli_credit_grant_request_id(
+                user_bid=aggregate.user_bid,
+                amount=amount,
+                grant_source=grant_source,
+                validity_preset=validity_preset,
+                display_name=normalized_display_name,
+                note=normalized_note,
+            )
+
+        grant_result = grant_manual_credits_to_user(
+            current_app,
+            user_bid=aggregate.user_bid,
+            operator_user_bid=normalized_operator_user_bid,
+            request_id=normalized_request_id,
+            amount=str(amount or "").strip(),
+            grant_source=str(grant_source or "").strip(),
+            validity_preset=str(validity_preset or "").strip(),
+            display_name=normalized_display_name,
+            note=normalized_note,
+            grant_channel="operator_cli",
+        )
+        payload = dict(_serialize_cli_payload(grant_result))
+        payload.update(
+            {
+                "identify": normalized_identify,
+                "creator_bid": aggregate.user_bid,
+                "operator_user_bid": normalized_operator_user_bid,
+                "request_id": normalized_request_id,
+                "email": getattr(aggregate, "email", ""),
+                "mobile": getattr(aggregate, "mobile", ""),
+            }
+        )
+        return payload
+    except Exception:
+        db.session.rollback()
+        raise
+
+
+def _build_cli_credit_grant_request_id(
+    *,
+    user_bid: str,
+    amount: str,
+    grant_source: str,
+    validity_preset: str,
+    display_name: str,
+    note: str,
+) -> str:
+    fingerprint_payload = "|".join(
+        [
+            str(user_bid or "").strip(),
+            str(amount or "").strip(),
+            str(grant_source or "").strip().lower(),
+            str(validity_preset or "").strip().lower(),
+            str(display_name or "").strip(),
+            str(note or "").strip(),
+        ]
+    )
+    fingerprint = hashlib.sha256(fingerprint_payload.encode("utf-8")).hexdigest()[:16]
+    return f"cli:{datetime.now():%Y%m%d}:{fingerprint}"
 
 
 def _upsert_bootstrap_rows(
