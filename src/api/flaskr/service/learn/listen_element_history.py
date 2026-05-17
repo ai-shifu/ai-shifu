@@ -23,6 +23,12 @@ from flaskr.service.learn.listen_element_rows import (
     _event_from_row,
     _normalize_record_element,
 )
+from flaskr.service.learn.listen_element_types import (
+    _default_is_speakable,
+    _html_has_renderable_content,
+    _is_markup_only_text_fragment,
+    _is_style_or_comment_only_html_fragment,
+)
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -31,6 +37,61 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
+
+
+def _record_element_has_audio(element: ElementDTO) -> bool:
+    return bool(
+        (element.audio_url or "").strip()
+        or element.audio_segments
+        or (element.payload is not None and element.payload.audio is not None)
+    )
+
+
+def _should_include_record_element(element: ElementDTO) -> bool:
+    if element.element_type == ElementType.TEXT:
+        if _default_is_speakable(ElementType.TEXT, element.content_text or ""):
+            return True
+        return _record_element_has_audio(element)
+
+    if element.element_type == ElementType.HTML:
+        if _html_has_renderable_content(element.content_text or ""):
+            return True
+        return _record_element_has_audio(element)
+
+    return True
+
+
+def _append_content_to_html_element(element: ElementDTO, content: str) -> None:
+    element.content_text = f"{element.content_text or ''}{content or ''}"
+    if element.payload is None or not element.payload.previous_visuals:
+        return
+    last_visual = element.payload.previous_visuals[-1]
+    last_visual.content = f"{last_visual.content or ''}{content or ''}"
+
+
+def _try_append_structural_fragment_to_previous_html(
+    latest_by_bid: OrderedDict[str, ElementDTO],
+    element: ElementDTO,
+) -> bool:
+    if not latest_by_bid or _record_element_has_audio(element):
+        return False
+
+    content = element.content_text or ""
+    if element.element_type == ElementType.TEXT:
+        if not _is_markup_only_text_fragment(content):
+            return False
+    elif element.element_type == ElementType.HTML:
+        if not _is_style_or_comment_only_html_fragment(content):
+            return False
+    else:
+        return False
+
+    previous_element = next(reversed(latest_by_bid.values()))
+    if previous_element.element_type != ElementType.HTML:
+        return False
+
+    _append_content_to_html_element(previous_element, content)
+    return True
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -132,6 +193,8 @@ def _build_final_elements_from_rows(
             dto.element_bid = dto.target_element_bid
             dto.target_element_bid = None
             dto.is_new = True
+        if _try_append_structural_fragment_to_previous_html(latest_by_bid, dto):
+            continue
         latest_by_bid[dto.element_bid] = dto
 
     events = None
@@ -149,7 +212,11 @@ def _build_final_elements_from_rows(
         ]
 
     final_elements = _enrich_elements_with_persisted_audio(
-        [_normalize_record_element(element) for element in latest_by_bid.values()]
+        [
+            _normalize_record_element(element)
+            for element in latest_by_bid.values()
+            if _should_include_record_element(element)
+        ]
     )
     return (
         final_elements,

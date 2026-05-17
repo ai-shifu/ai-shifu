@@ -269,6 +269,33 @@ describe('listenModeUtils', () => {
     expect(mapping.resolvePageByPosition(0)).toBe(3);
   });
 
+  it('does not map targeted listen slides onto sibling elements in the same generated block', () => {
+    const mapping = buildSlidePageMapping(
+      createContentItem({
+        element_bid: 'sibling-text-element',
+        generated_block_bid: 'generated-block-1',
+        listenSlides: [
+          {
+            slide_id: 'slide-targeted-1',
+            target_element_bid: 'rendered-visual-element',
+            generated_block_bid: 'generated-block-1',
+            slide_index: 0,
+            audio_position: 0,
+            visual_kind: 'image',
+            segment_type: 'markdown',
+            segment_content: '![figure](figure.png)',
+            source_span: [0, 20],
+            is_placeholder: false,
+          },
+        ],
+      }),
+      [3],
+      0,
+    );
+
+    expect(mapping.pageBySlideId.has('slide-targeted-1')).toBe(false);
+  });
+
   it('maps payload subtitle cues into normalized slide metadata', () => {
     const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({

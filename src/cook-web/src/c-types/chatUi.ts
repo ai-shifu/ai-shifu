@@ -47,6 +47,7 @@ export interface ChatContentItem {
   sequence_number?: number;
   is_marker?: boolean;
   is_new?: boolean;
+  is_final?: boolean;
   is_renderable?: boolean;
   is_speakable?: boolean;
   audio_url?: string;

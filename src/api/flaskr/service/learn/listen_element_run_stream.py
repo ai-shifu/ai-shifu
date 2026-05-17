@@ -44,6 +44,8 @@ from flaskr.service.learn.listen_element_types import (
     _default_is_renderable,
     _default_is_speakable,
     _element_type_code,
+    _is_markup_only_text_fragment,
+    _is_style_or_comment_only_html_fragment,
     _new_element_bid,
     _normalized_is_speakable,
 )
@@ -196,6 +198,29 @@ class ListenElementRunStreamMixin:
         self, event: RunMarkdownFlowDTO
     ) -> list[tuple[str, str, int]]:
         return event.get_mdflow_stream_parts()
+
+    def _resolve_html_stream_for_structural_fragment(
+        self,
+        state: BlockState,
+        *,
+        stream_number: int,
+    ) -> tuple[str, StreamElementState] | None:
+        active_key = state.active_stream_element_key_by_number.get(stream_number)
+        if active_key is not None:
+            active_state = state.stream_elements.get(active_key)
+            if (
+                active_state is not None
+                and active_state.element_type == ElementType.HTML
+            ):
+                return active_key, active_state
+
+        last_key = state.last_stream_element_key
+        if last_key is not None:
+            last_state = state.stream_elements.get(last_key)
+            if last_state is not None and last_state.element_type == ElementType.HTML:
+                return last_key, last_state
+
+        return None
 
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
         if not state.fallback_element_bid:
@@ -460,6 +485,62 @@ class ListenElementRunStreamMixin:
                 if active_key is not None
                 else None
             )
+            if normalized_stream_type == ElementType.TEXT.value and (
+                _is_markup_only_text_fragment(chunk_content)
+            ):
+                html_target = self._resolve_html_stream_for_structural_fragment(
+                    state,
+                    stream_number=stream_number,
+                )
+                if html_target is None:
+                    continue
+                active_key, stream_state = html_target
+                stream_state.content_text += chunk_content
+                state.last_stream_element_key = active_key
+                pending_audio, pending_audio_segments = (
+                    _resolve_stream_audio_for_element_bid(
+                        state,
+                        stream_state.element_bid,
+                    )
+                )
+                yield self._build_stream_element_message(
+                    state=state,
+                    role=meta.role,
+                    stream_state=stream_state,
+                    is_new=_mdflow_new_stream_is_new(stream_state.element_type),
+                    is_final=False,
+                    audio=pending_audio,
+                    audio_segments=pending_audio_segments,
+                )
+                continue
+            if normalized_stream_type == ElementType.HTML.value and (
+                _is_style_or_comment_only_html_fragment(chunk_content)
+            ):
+                html_target = self._resolve_html_stream_for_structural_fragment(
+                    state,
+                    stream_number=stream_number,
+                )
+                if html_target is None:
+                    continue
+                active_key, stream_state = html_target
+                stream_state.content_text += chunk_content
+                state.last_stream_element_key = active_key
+                pending_audio, pending_audio_segments = (
+                    _resolve_stream_audio_for_element_bid(
+                        state,
+                        stream_state.element_bid,
+                    )
+                )
+                yield self._build_stream_element_message(
+                    state=state,
+                    role=meta.role,
+                    stream_state=stream_state,
+                    is_new=_mdflow_new_stream_is_new(stream_state.element_type),
+                    is_final=False,
+                    audio=pending_audio,
+                    audio_segments=pending_audio_segments,
+                )
+                continue
             slot_was_interrupted = stream_state is not None and active_key not in (
                 None,
                 state.last_stream_element_key,

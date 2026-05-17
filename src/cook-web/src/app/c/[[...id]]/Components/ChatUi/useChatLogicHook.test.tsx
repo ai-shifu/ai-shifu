@@ -5,6 +5,7 @@ import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
+import { useLessonRunContentStore } from '@/c-store/useLessonRunContentStore';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -193,6 +194,7 @@ describe('useChatLogicHook stream cleanup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStreamGeneratedBlockAudio.mockReset();
+    useLessonRunContentStore.getState().clearAll();
     activeRun = undefined;
 
     mockGetLessonStudyRecord.mockResolvedValue({
@@ -1026,15 +1028,44 @@ describe('useChatLogicHook stream cleanup', () => {
     const initialRunCount = mockGetRunMessage.mock.calls.length;
     const activeRunSource = activeRun?.source;
 
+    await act(async () => {
+      await activeRun?.onMessage({
+        element_bid: 'streaming-content-1',
+        generated_block_bid: 'streaming-content-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'Read mode text',
+      });
+    });
+
+    expect(
+      result.current.items.find(
+        item => item.element_bid === 'streaming-content-1',
+      )?.content,
+    ).toContain('Read mode text');
+
     rerender({ isListenMode: true });
 
     expect(activeRunSource?.close).not.toHaveBeenCalled();
     expect(result.current.isOutputInProgress).toBe(true);
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
 
+    await act(async () => {
+      await activeRun?.onMessage({
+        element_bid: 'streaming-content-1',
+        generated_block_bid: 'streaming-content-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: ' while listening',
+      });
+    });
+
     rerender({ isListenMode: false });
     expect(activeRunSource?.close).not.toHaveBeenCalled();
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
+    expect(
+      result.current.items.find(
+        item => item.element_bid === 'streaming-content-1',
+      )?.content,
+    ).toContain('while listening');
   });
 
   it('clears loading after a control-only stream closes', async () => {
@@ -1510,7 +1541,7 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(askBlock?.isAskExpanded).toBe(false);
   });
 
-  it('re-adds the mobile follow-up button for history content after switching from listen mode to read mode', async () => {
+  it('keeps canonical history content free of mobile follow-up markup after mode switches', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
       elements: [
@@ -1550,12 +1581,10 @@ describe('useChatLogicHook stream cleanup', () => {
 
     rerender({ isListenMode: false });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(item => item.element_bid === 'content-1')
-          ?.content,
-      ).toContain('<custom-button-after-content>'),
-    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
   });
 
   it('finalizes previous mobile content when a new element arrives', async () => {
@@ -1598,12 +1627,10 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(item => item.element_bid === 'content-html-1')
-          ?.content,
-      ).toContain('<custom-button-after-content>'),
-    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-html-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
     expect(
       result.current.items.find(
         item =>
@@ -1714,6 +1741,23 @@ describe('useChatLogicHook stream cleanup', () => {
         generated_block_bid: 'generated-visual-1',
         type: SSE_OUTPUT_TYPE.ELEMENT,
         content: {
+          element_bid: 'streaming-block-visual-1',
+          generated_block_bid: 'generated-visual-1',
+          element_type: 'text',
+          content: '',
+          is_renderable: false,
+          is_speakable: false,
+          is_new: true,
+          like_status: 'none',
+        },
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-visual-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
           element_bid: 'element-visual-1',
           generated_block_bid: 'generated-visual-1',
           element_type: 'text',
@@ -1727,8 +1771,8 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(
       result.current.items.find(
         item => item.element_bid === 'streaming-block-visual-1',
-      ),
-    ).toBeUndefined();
+      )?.is_renderable,
+    ).toBe(false);
     expect(
       result.current.items.find(item => item.element_bid === 'element-visual-1')
         ?.listenSlides,
@@ -1742,7 +1786,158 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('adds the mobile follow-up button only after text end for the current element', async () => {
+  it('keeps multiple final elements from the same generated block distinct', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        element_bid: 'streaming-multi-1',
+        generated_block_bid: 'generated-multi-1',
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'Generating visual and text...',
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-multi-1',
+        type: SSE_OUTPUT_TYPE.NEW_SLIDE,
+        content: {
+          slide_id: 'slide-multi-visual-1',
+          target_element_bid: 'visual-final-1',
+          generated_block_bid: 'generated-multi-1',
+          slide_index: 0,
+          audio_position: 0,
+          visual_kind: 'image',
+          segment_type: 'markdown',
+          segment_content: '![figure](https://example.com/figure.png)',
+          source_span: [0, 34],
+          is_placeholder: false,
+        },
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-multi-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'streaming-multi-1',
+          generated_block_bid: 'generated-multi-1',
+          element_type: 'text',
+          content: '',
+          is_renderable: false,
+          is_speakable: false,
+          is_new: true,
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-multi-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'visual-final-1',
+          generated_block_bid: 'generated-multi-1',
+          element_type: 'image',
+          content: '',
+          payload: {
+            previous_visuals: [
+              {
+                visual_type: 'image',
+                content: '![figure](https://example.com/figure.png)',
+              },
+            ],
+          },
+          is_renderable: true,
+          is_speakable: false,
+          is_new: true,
+          like_status: 'none',
+        },
+      });
+      await activeRun?.onMessage({
+        generated_block_bid: 'generated-multi-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'text-final-1',
+          generated_block_bid: 'generated-multi-1',
+          element_type: 'text',
+          content: 'Final explanation after the image',
+          is_renderable: false,
+          is_speakable: true,
+          is_new: true,
+          like_status: 'none',
+        },
+      });
+    });
+
+    const visualItem = result.current.items.find(
+      item => item.element_bid === 'visual-final-1',
+    );
+    const textItem = result.current.items.find(
+      item => item.element_bid === 'text-final-1',
+    );
+
+    expect(visualItem?.content).toBe(
+      '![figure](https://example.com/figure.png)',
+    );
+    expect(textItem?.content).toBe('Final explanation after the image');
+    expect(visualItem?.listenSlides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ slide_id: 'slide-multi-visual-1' }),
+      ]),
+    );
+    expect(textItem?.listenSlides ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ slide_id: 'slide-multi-visual-1' }),
+      ]),
+    );
+  });
+
+  it('hydrates history visual elements from payload previous visuals', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'image',
+          content: '',
+          generated_block_bid: 'history-generated-visual-1',
+          element_bid: 'history-visual-1',
+          is_renderable: true,
+          is_speakable: false,
+          is_new: true,
+          like_status: 'none',
+          user_input: '',
+          payload: {
+            previous_visuals: [
+              {
+                visual_type: 'image',
+                content: '![history](https://example.com/history.png)',
+              },
+            ],
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.find(item => item.element_bid === 'history-visual-1')
+        ?.content,
+    ).toBe('![history](https://example.com/history.png)');
+  });
+
+  it('keeps canonical stream content raw after text end for the current element', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
     });
@@ -1777,12 +1972,10 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(item => item.element_bid === 'content-text-1')
-          ?.content,
-      ).toContain('<custom-button-after-content>'),
-    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
     expect(
       result.current.items.find(
         item =>
@@ -1792,7 +1985,7 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBeDefined();
   });
 
-  it('keeps the mobile follow-up button after finalized content receives more stream text', async () => {
+  it('keeps canonical finalized content raw after receiving more stream text', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
     });
@@ -1819,12 +2012,10 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(item => item.element_bid === 'content-text-1')
-          ?.content,
-      ).toContain('<custom-button-after-content>'),
-    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-text-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
 
     await act(async () => {
       await activeRun?.onMessage({
@@ -1837,10 +2028,10 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(
       result.current.items.find(item => item.element_bid === 'content-text-1')
         ?.content,
-    ).toContain('<custom-button-after-content>');
+    ).not.toContain('<custom-button-after-content>');
   });
 
-  it('keeps the mobile follow-up button after finalized content receives another element update', async () => {
+  it('keeps canonical finalized content raw after receiving another element update', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,
     });
@@ -1867,12 +2058,10 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    await waitFor(() =>
-      expect(
-        result.current.items.find(item => item.element_bid === 'content-html-1')
-          ?.content,
-      ).toContain('<custom-button-after-content>'),
-    );
+    expect(
+      result.current.items.find(item => item.element_bid === 'content-html-1')
+        ?.content,
+    ).not.toContain('<custom-button-after-content>');
 
     await act(async () => {
       await activeRun?.onMessage({
@@ -1891,7 +2080,7 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(
       result.current.items.find(item => item.element_bid === 'content-html-1')
         ?.content,
-    ).toContain('<custom-button-after-content>');
+    ).not.toContain('<custom-button-after-content>');
   });
 
   it('keeps ask block position by history sequence order instead of anchor position', async () => {

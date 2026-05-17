@@ -369,17 +369,23 @@ export const buildSlidePageMapping = (
   );
   const blockSlides = [...(item.listenSlides ?? [])]
     .filter(slide => {
-      const slideIdentityBids = [
+      const generatedBlockBid = slide.generated_block_bid || '';
+      const explicitSlideIdentityBids = [
         slide.element_bid,
         slide.target_element_bid,
-        slide.generated_block_bid,
-      ].filter(Boolean);
+      ].filter(
+        (bid): bid is string => Boolean(bid) && bid !== generatedBlockBid,
+      );
 
-      if (slideIdentityBids.length === 0) {
-        return true;
+      if (explicitSlideIdentityBids.length > 0) {
+        return explicitSlideIdentityBids.some(bid => itemIdentityBids.has(bid));
       }
 
-      return slideIdentityBids.some(bid => itemIdentityBids.has(bid));
+      if (generatedBlockBid) {
+        return item.generated_block_bid === generatedBlockBid;
+      }
+
+      return true;
     })
     .sort(
       (a, b) =>

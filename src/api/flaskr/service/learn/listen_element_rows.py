@@ -28,6 +28,7 @@ from flaskr.service.learn.listen_element_types import (
     LEGACY_ELEMENT_TYPE_MAP,
     _default_is_marker,
     _default_is_renderable,
+    _html_has_renderable_content,
     _normalize_bool,
     _normalized_is_speakable,
 )
@@ -111,6 +112,10 @@ def _element_from_row(
     stored_is_renderable = bool(
         getattr(row, "is_renderable", 1 if default_is_renderable else 0)
     )
+    if element_type == ElementType.HTML and not _html_has_renderable_content(
+        row.content_text or ""
+    ):
+        stored_is_renderable = False
     stored_is_speakable = bool(getattr(row, "is_speakable", 0))
     dto = ElementDTO(
         run_session_bid=row.run_session_bid or None,

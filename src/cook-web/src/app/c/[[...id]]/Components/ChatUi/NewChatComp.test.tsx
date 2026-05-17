@@ -1,0 +1,129 @@
+import { shouldHideReadModeContentForLoading } from './readModeRenderState';
+import {
+  projectListenModeItems,
+  projectReadModeItems,
+} from './chatUiModeProjection';
+import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+
+describe('NewChatComp read mode loading gate', () => {
+  it('keeps existing read content visible while a run is still loading', () => {
+    expect(
+      shouldHideReadModeContentForLoading({
+        isLoading: true,
+        hasReadModeItems: true,
+        shouldShowReadModeStreamingDots: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows streaming dots instead of a blank read view during an active run', () => {
+    expect(
+      shouldHideReadModeContentForLoading({
+        isLoading: true,
+        hasReadModeItems: false,
+        shouldShowReadModeStreamingDots: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the first-load blank state when there is no read content yet', () => {
+    expect(
+      shouldHideReadModeContentForLoading({
+        isLoading: true,
+        hasReadModeItems: false,
+        shouldShowReadModeStreamingDots: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('NewChatComp mode projections', () => {
+  const askButtonMarkup =
+    '<custom-button-after-content><span>Ask</span></custom-button-after-content>';
+
+  it('adds mobile follow-up markup only in read mode projection', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'content-1',
+        generated_block_bid: 'content-1',
+        content: 'Lesson content',
+        type: ChatContentItemType.CONTENT,
+      },
+      {
+        element_bid: '',
+        parent_element_bid: 'content-1',
+        content: '',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    const readItems = projectReadModeItems({
+      items: canonicalItems,
+      askListByAnchorElementBid: {},
+      mobileStyle: true,
+      askButtonMarkup,
+    });
+    const listenItems = projectListenModeItems({
+      items: readItems,
+      askButtonMarkup,
+    });
+
+    expect(canonicalItems[0].content).toBe('Lesson content');
+    expect(readItems[0].content).toContain('<custom-button-after-content>');
+    expect(listenItems[0].content).toBe('Lesson content');
+  });
+
+  it('keeps desktop read projection free of mobile follow-up markup', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'content-1',
+        generated_block_bid: 'content-1',
+        content: 'Lesson content',
+        isHistory: true,
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    const readItems = projectReadModeItems({
+      items: canonicalItems,
+      askListByAnchorElementBid: {},
+      mobileStyle: false,
+      askButtonMarkup,
+    });
+
+    expect(readItems[0].content).toBe('Lesson content');
+  });
+
+  it('filters empty retired fallback elements from mode projections', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'retired-streaming-1',
+        generated_block_bid: 'generated-1',
+        content: '',
+        is_renderable: false,
+        type: ChatContentItemType.CONTENT,
+      },
+      {
+        element_bid: 'visual-1',
+        generated_block_bid: 'generated-1',
+        content: '![figure](figure.png)',
+        is_renderable: true,
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    const readItems = projectReadModeItems({
+      items: canonicalItems,
+      askListByAnchorElementBid: {},
+      mobileStyle: false,
+      askButtonMarkup,
+    });
+    const listenItems = projectListenModeItems({
+      items: canonicalItems,
+      askButtonMarkup,
+    });
+
+    expect(readItems.map(item => item.element_bid)).toEqual(['visual-1']);
+    expect(listenItems.map(item => item.element_bid)).toEqual(['visual-1']);
+  });
+});

@@ -10,6 +10,148 @@ def _require_app(app):
         pytest.skip("App fixture disabled")
 
 
+def test_get_listen_element_record_filters_markup_only_fragments(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import ElementType
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import (
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-markup-fragment-history"
+    shifu_bid = "shifu-listen-markup-fragment-history"
+    outline_bid = "outline-listen-markup-fragment-history"
+    progress_bid = "progress-listen-markup-fragment-history"
+    generated_block_bid = "generated-listen-markup-fragment-history"
+
+    def _row(
+        *,
+        bid: str,
+        event_seq: int,
+        element_index: int,
+        element_type: str,
+        content: str,
+        is_renderable: int,
+        is_speakable: int,
+    ) -> LearnGeneratedElement:
+        return LearnGeneratedElement(
+            element_bid=bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-markup-fragment-history",
+            run_event_seq=event_seq,
+            event_type="element",
+            role=ROLE_TEACHER,
+            element_index=element_index,
+            element_type=element_type,
+            element_type_code=213 if element_type == ElementType.TEXT.value else 201,
+            change_type="render",
+            is_renderable=is_renderable,
+            is_new=1,
+            is_marker=0,
+            sequence_number=event_seq,
+            is_speakable=is_speakable,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text=content,
+            payload="{}",
+            deleted=0,
+            status=1,
+        )
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add_all(
+            [
+                progress,
+                _row(
+                    bid="text-visible",
+                    event_seq=1,
+                    element_index=0,
+                    element_type=ElementType.TEXT.value,
+                    content="Narration text",
+                    is_renderable=0,
+                    is_speakable=1,
+                ),
+                _row(
+                    bid="text-comment-only",
+                    event_seq=2,
+                    element_index=1,
+                    element_type=ElementType.TEXT.value,
+                    content="\n<!-- 提问区 -->\n",
+                    is_renderable=0,
+                    is_speakable=1,
+                ),
+                _row(
+                    bid="html-visible",
+                    event_seq=3,
+                    element_index=2,
+                    element_type=ElementType.HTML.value,
+                    content="<div>Question card</div>",
+                    is_renderable=1,
+                    is_speakable=0,
+                ),
+                _row(
+                    bid="html-style-only",
+                    event_seq=4,
+                    element_index=3,
+                    element_type=ElementType.HTML.value,
+                    content="<style>*{box-sizing:border-box}</style>",
+                    is_renderable=1,
+                    is_speakable=0,
+                ),
+                _row(
+                    bid="text-closing-only",
+                    event_seq=5,
+                    element_index=4,
+                    element_type=ElementType.TEXT.value,
+                    content="\n</div>\n</div>\n",
+                    is_renderable=0,
+                    is_speakable=1,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert [element.element_bid for element in result.elements] == [
+            "text-visible",
+            "html-visible",
+        ]
+        assert result.elements[0].is_speakable is True
+        assert result.elements[1].is_renderable is True
+        assert "<style>*{box-sizing:border-box}</style>" in result.elements[1].content
+        assert result.elements[1].content.endswith("\n</div>\n</div>\n")
+
+
 def test_get_listen_element_record_returns_latest_elements_and_events(app):
     _require_app(app)
 
@@ -2871,6 +3013,137 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
         assert len(result.elements) == 1
         assert result.elements[0].element_type == ElementType.HTML
         assert result.elements[0].is_new is True
+
+
+def test_listen_adapter_folds_markup_only_fragments_into_html_stream(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import (
+        ListenElementRunAdapter,
+        get_listen_element_record,
+    )
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-markup-fragment-stream"
+    shifu_bid = "shifu-listen-markup-fragment-stream"
+    outline_bid = "outline-listen-markup-fragment-stream"
+    progress_bid = "progress-listen-markup-fragment-stream"
+    generated_block_bid = "generated-listen-markup-fragment-stream"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-listen-markup-fragment-stream",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<div class='screen'><h1>Intro</h1>",
+            ).set_mdflow_stream_parts(
+                [("<div class='screen'><h1>Intro</h1>", "html", 0)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="\n<!-- 提问区 -->\n",
+            ).set_mdflow_stream_parts([("\n<!-- 提问区 -->\n", "text", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<div>Question card</div>",
+            ).set_mdflow_stream_parts([("<div>Question card</div>", "html", 2)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="\n</div>\n",
+            ).set_mdflow_stream_parts([("\n</div>\n", "text", 3)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<style>*{box-sizing:border-box}</style>",
+            ).set_mdflow_stream_parts(
+                [("<style>*{box-sizing:border-box}</style>", "html", 4)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+
+        assert all(item.element_type != ElementType.TEXT for item in element_events)
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert [element.element_type for element in result.elements] == [
+            ElementType.HTML,
+            ElementType.HTML,
+        ]
+        assert result.elements[0].content.endswith("<!-- 提问区 -->\n")
+        assert result.elements[1].content.endswith(
+            "\n</div>\n<style>*{box-sizing:border-box}</style>"
+        )
 
 
 def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
