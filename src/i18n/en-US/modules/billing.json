@@ -570,10 +570,10 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience; actual capacity depends on real credit consumption. Reference basis:",
-      "learnerEstimateMode": "Listen mode is enabled for the course (significantly higher credit consumption)",
-      "learnerEstimateModel": "All sections use the default model",
-      "learnerEstimateScale": "One study pass through the course: about 10 sections, averaging roughly 15 minutes of regular study per section",
+      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and assume one learner completes the course once: about 10 sections, averaging roughly 15 minutes of regular study per section. Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Reference basis:",
+      "learnerEstimateMode": "Listen mode creates more model consumption. When listen mode is turned off and only text-and-image learning interactions remain, supported sessions can reach 2-4x.",
+      "learnerEstimateModel": "The estimate is calculated with all sections using the default model. Choosing a more or less expensive model will affect credit consumption.",
+      "learnerEstimateScale": "Changes in section count, section length, interaction volume, completion rate, or learner follow-up question count will affect credit consumption.",
       "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
     },
     "free": {
