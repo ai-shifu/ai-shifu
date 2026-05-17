@@ -570,7 +570,7 @@
     },
     "featuresTitle": "Avantages inclus :",
     "footnote": {
-      "learnerEstimateIntro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et supposent qu’un apprenant termine le cours une fois : environ 10 sections, avec une moyenne d’environ 15 minutes d’étude normale par section. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Base de référence :",
+      "learnerEstimateIntro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections et une moyenne d’environ 15 minutes d’étude régulière par section”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Base de référence :",
       "learnerEstimateMode": "Le mode écoute entraîne davantage de consommation du modèle. Lorsqu’il est désactivé et que seules les interactions d’apprentissage en texte et image restent actives, le nombre de sessions prises en charge peut être 2 à 4 fois plus élevé.",
       "learnerEstimateModel": "L’estimation est calculée avec le modèle par défaut pour toutes les sections. Le choix d’un modèle plus ou moins coûteux influera sur la consommation de crédits.",
       "learnerEstimateScale": "Les changements de nombre de sections, de longueur de chaque section, de volume d’interactions, de taux d’achèvement ou de nombre de questions de suivi des apprenants influent sur la consommation de crédits.",

@@ -570,7 +570,7 @@
     },
     "featuresTitle": "Included benefits:",
     "footnote": {
-      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and assume one learner completes the course once: about 10 sections, averaging roughly 15 minutes of regular study per section. Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Reference basis:",
+      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and use the benchmark “one learner completes the course once, with about 10 sections and an average of roughly 15 minutes of regular study per section.” Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Reference basis:",
       "learnerEstimateMode": "Listen mode creates more model consumption. When listen mode is turned off and only text-and-image learning interactions remain, supported sessions can reach 2-4x.",
       "learnerEstimateModel": "The estimate is calculated with all sections using the default model. Choosing a more or less expensive model will affect credit consumption.",
       "learnerEstimateScale": "Changes in section count, section length, interaction volume, completion rate, or learner follow-up question count will affect credit consumption.",
