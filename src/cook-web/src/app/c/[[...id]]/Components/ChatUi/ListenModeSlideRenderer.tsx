@@ -61,7 +61,6 @@ interface ListenModeSlideRendererProps {
   lessonId?: string;
   shifuBid?: string;
   previewMode?: boolean;
-  isOutputInProgress?: boolean;
   lessonStatus?: string;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
@@ -389,7 +388,6 @@ const ListenModeSlideRenderer = ({
   lessonId = '',
   shifuBid = '',
   previewMode = false,
-  isOutputInProgress = false,
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
@@ -1314,7 +1312,6 @@ const ListenModeSlideRenderer = ({
               className='listen-slide-ask-block'
               element_bid={playerCustomAskElementBid}
               isExpanded={true}
-              isOutputInProgress={isOutputInProgress}
               onToggleAskExpanded={handlePlayerCustomActionClose}
               outline_bid={lessonId}
               preview_mode={previewMode}
@@ -1359,7 +1356,6 @@ const ListenModeSlideRenderer = ({
                     element_bid={resolvedAskElementBid}
                     forceDesktopSlidePanel={true}
                     isExpanded={true}
-                    isOutputInProgress={isOutputInProgress}
                     onToggleAskExpanded={handleMobileAskClose}
                     outline_bid={lessonId}
                     preview_mode={previewMode}
@@ -1378,7 +1374,6 @@ const ListenModeSlideRenderer = ({
                   className='listen-slide-ask-block'
                   element_bid={resolvedAskElementBid}
                   isExpanded={true}
-                  isOutputInProgress={isOutputInProgress}
                   onToggleAskExpanded={handleMobileAskClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}

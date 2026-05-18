@@ -1096,7 +1096,6 @@ export const NewChatComponents = ({
             shifuBid={shifuBid}
             previewMode={previewMode}
             lessonStatus={lessonStatus}
-            isOutputInProgress={isOutputInProgress}
             onMobileViewModeChange={onListenMobileViewModeChange}
             onSend={memoizedOnSend}
             onPlayerVisibilityChange={onListenPlayerVisibilityChange}
@@ -1156,7 +1155,6 @@ export const NewChatComponents = ({
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
                           element_bid={item.parent_element_bid || ''}
-                          isOutputInProgress={isOutputInProgress}
                           onToggleAskExpanded={toggleAskExpanded}
                           askList={(item.ask_list || []) as any[]}
                         />
