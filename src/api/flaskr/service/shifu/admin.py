@@ -82,6 +82,7 @@ from flaskr.service.common.models import (
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import Variable
+from flaskr.util import generate_id
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseListDTO,
     AdminOperationCourseChapterDetailDTO,
