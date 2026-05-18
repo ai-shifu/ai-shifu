@@ -712,53 +712,76 @@ describe('AdminOperationUserDetailPage', () => {
           window.location.hash = new URL(url, 'http://localhost').hash;
         }
       });
-    const { rerender } = render(<AdminOperationUserDetailPage />);
+    try {
+      const { rerender } = render(<AdminOperationUserDetailPage />);
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
-        user_bid: 'user-1',
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-1',
+        });
       });
-    });
 
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.operationsUser.table.learningCourses: 1',
-      }),
-    );
-    await waitFor(() => {
-      expect(replaceStateSpy).toHaveBeenCalled();
-      expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
-        '#learning-courses',
-      );
-    });
-
-    currentUserBid = 'user-2';
-    window.location.hash = '#learning-courses';
-    mockGetAdminOperationUserDetail.mockResolvedValue({
-      ...detailResponse,
-      user_bid: 'user-2',
-      email: 'user-2@example.com',
-    });
-    rerender(<AdminOperationUserDetailPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
-        user_bid: 'user-2',
-      });
-    });
-
-    await waitFor(() => {
-      expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
-        '#credits',
-      );
-      expect(
-        screen.getByRole('tab', {
-          name: 'module.operationsUser.detail.tabs.credits',
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'module.operationsUser.table.learningCourses: 1',
         }),
-      ).toHaveAttribute('data-state', 'active');
+      );
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalled();
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#learning-courses',
+        );
+      });
+
+      currentUserBid = 'user-2';
+      window.location.hash = '#learning-courses';
+      mockGetAdminOperationUserDetail.mockResolvedValue({
+        ...detailResponse,
+        user_bid: 'user-2',
+        email: 'user-2@example.com',
+      });
+      rerender(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-2',
+        });
+      });
+
+      await waitFor(() => {
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#credits',
+        );
+        expect(
+          screen.getByRole('tab', {
+            name: 'module.operationsUser.detail.tabs.credits',
+          }),
+        ).toHaveAttribute('data-state', 'active');
+      });
+    } finally {
+      replaceStateSpy.mockRestore();
+    }
+  });
+
+  test('uses course summary counts when they differ from preview list length', async () => {
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      ...detailResponse,
+      learning_course_count: 12,
+      created_course_count: 8,
     });
 
-    replaceStateSpy.mockRestore();
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 12',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 8',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('uses course status translations for unknown course states', async () => {

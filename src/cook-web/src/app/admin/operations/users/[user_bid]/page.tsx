@@ -70,6 +70,8 @@ const resolveDetailTabFromHash = (hash: string): DetailTab | null => {
 
   return hashEntry?.[0] ?? null;
 };
+const resolveCourseCount = (count: number, courses?: AdminOperationUserCourseItem[]) =>
+  count > 0 ? count : (courses || []).length;
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
@@ -868,7 +870,12 @@ export default function AdminOperationUserDetailPage() {
                     />
                     <InfoItem
                       label={tOperationsUsers('table.learningCourses')}
-                      value={String((detail.learning_courses || []).length)}
+                      value={String(
+                        resolveCourseCount(
+                          detail.learning_course_count,
+                          detail.learning_courses,
+                        ),
+                      )}
                       valueClassName='text-primary'
                       valueAriaLabel={tOperationsUsers('table.learningCourses')}
                       onClick={() =>
@@ -877,7 +884,12 @@ export default function AdminOperationUserDetailPage() {
                     />
                     <InfoItem
                       label={tOperationsUsers('table.createdCourses')}
-                      value={String((detail.created_courses || []).length)}
+                      value={String(
+                        resolveCourseCount(
+                          detail.created_course_count,
+                          detail.created_courses,
+                        ),
+                      )}
                       valueClassName='text-primary'
                       valueAriaLabel={tOperationsUsers('table.createdCourses')}
                       onClick={() =>
