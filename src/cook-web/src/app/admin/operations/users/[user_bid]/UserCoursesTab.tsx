@@ -76,7 +76,13 @@ export default function UserCoursesTab({
             </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className='text-center'>{courseNameLabel}</TableHead>
+                <TableHead
+                  className={cn(
+                    courseNameAlign === 'left' ? 'text-left' : 'text-center',
+                  )}
+                >
+                  {courseNameLabel}
+                </TableHead>
                 <TableHead className='text-center'>{courseIdLabel}</TableHead>
                 <TableHead className='text-center'>{valueLabel}</TableHead>
               </TableRow>
