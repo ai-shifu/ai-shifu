@@ -61,6 +61,8 @@ const DETAIL_TAB_HASHES: Record<DetailTab, string> = {
   learning: '#learning-courses',
   created: '#created-courses',
 };
+const isDetailTab = (value: string): value is DetailTab =>
+  value === 'credits' || value === 'learning' || value === 'created';
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
@@ -946,7 +948,12 @@ export default function AdminOperationUserDetailPage() {
                 <Tabs
                   className='space-y-4'
                   value={activeTab}
-                  onValueChange={value => setDetailTab(value as DetailTab)}
+                  onValueChange={value => {
+                    if (!isDetailTab(value)) {
+                      return;
+                    }
+                    setDetailTab(value);
+                  }}
                 >
                   <TabsList>
                     <TabsTrigger value='credits'>
