@@ -962,6 +962,54 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBeDefined();
   });
 
+  it('marks finalized listen mode elements for history-like read mode rendering during streaming', async () => {
+    const { result } = renderHook(
+      ({ isListenMode }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          isListenMode: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-text-1',
+          generated_block_bid: 'content-text-1',
+          element_type: 'text',
+          content: 'First line',
+          like_status: 'none',
+        },
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-text-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: false,
+      });
+    });
+
+    const finalizedItem = result.current.items.find(
+      item => item.element_bid === 'content-text-1',
+    );
+
+    expect(finalizedItem?.isHistory).toBeUndefined();
+    expect(finalizedItem?.shouldRenderAsHistoryInReadMode).toBe(true);
+  });
+
   it('keeps the mobile follow-up button after finalized content receives more stream text', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper: mobileWrapper,

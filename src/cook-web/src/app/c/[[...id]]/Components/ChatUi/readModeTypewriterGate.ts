@@ -26,6 +26,11 @@ const getItemContent = (item: ChatContentItem) =>
 export const isReadModeTextContentItem = (item: ChatContentItem) =>
   item.type === ChatContentItemType.CONTENT && item.element_type === 'text';
 
+const isReadModeHistoryLikeTextItem = (item: ChatContentItem) =>
+  isReadModeTextContentItem(item) &&
+  item.shouldRenderAsHistoryInReadMode === true &&
+  item.shouldUseTypewriter !== true;
+
 export const shouldEnableReadModeTypewriter = (
   item: ChatContentItem,
   cacheEntry?: ReadModeTypewriterCacheEntry,
@@ -58,9 +63,16 @@ export const shouldEnableReadModeTypewriter = (
 export const shouldTrackReadModeTypewriter = (
   item: ChatContentItem,
   cacheEntry?: ReadModeTypewriterCacheEntry,
-) =>
-  isReadModeTextContentItem(item) &&
-  (item.shouldUseTypewriter === true || Boolean(cacheEntry));
+) => {
+  if (isReadModeHistoryLikeTextItem(item)) {
+    return false;
+  }
+
+  return (
+    isReadModeTextContentItem(item) &&
+    (item.shouldUseTypewriter === true || Boolean(cacheEntry))
+  );
+};
 
 export const resolveReadModeTypewriterKeepAliveElementBid = ({
   isOutputInProgress,
@@ -113,6 +125,10 @@ export const isReadModeTextContentItemReady = (
   cache: ReadModeTypewriterCache,
 ) => {
   if (!isReadModeTextContentItem(item)) {
+    return true;
+  }
+
+  if (isReadModeHistoryLikeTextItem(item)) {
     return true;
   }
 

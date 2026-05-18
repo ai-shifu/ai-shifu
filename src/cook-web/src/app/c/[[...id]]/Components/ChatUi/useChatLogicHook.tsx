@@ -559,6 +559,8 @@ function useChatLogicHook({
       nextItems[targetIndex] = {
         ...nextItems[targetIndex],
         is_final: true,
+        shouldRenderAsHistoryInReadMode:
+          isListenMode && targetItem.isHistory !== true,
       };
 
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
@@ -795,6 +797,7 @@ function useChatLogicHook({
       options?: {
         appendAskButton?: boolean;
         isHistory?: boolean;
+        shouldRenderAsHistoryInReadMode?: boolean;
         shouldUseTypewriter?: boolean;
         listenSlides?: ListenSlideData[];
         previousItem?: ChatContentItem;
@@ -851,6 +854,8 @@ function useChatLogicHook({
           '',
         readonly: options?.previousItem?.readonly ?? false,
         isHistory: options?.isHistory,
+        shouldRenderAsHistoryInReadMode:
+          options?.shouldRenderAsHistoryInReadMode ?? false,
         is_final:
           options?.previousItem?.is_final === true
             ? true
@@ -1738,6 +1743,7 @@ function useChatLogicHook({
                   customRenderBar: () => null,
                   user_input: '',
                   readonly: false,
+                  shouldRenderAsHistoryInReadMode: false,
                   type: ChatContentItemType.INTERACTION,
                 };
                 const hitIndex = prev.findIndex(
@@ -1803,6 +1809,7 @@ function useChatLogicHook({
                           buttonMarkup: getAskButtonMarkup(),
                         }),
                         is_final: false,
+                        shouldRenderAsHistoryInReadMode: false,
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??
@@ -1819,6 +1826,7 @@ function useChatLogicHook({
                       user_input: '',
                       readonly: false,
                       is_final: false,
+                      shouldRenderAsHistoryInReadMode: false,
                       shouldUseTypewriter: true,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,

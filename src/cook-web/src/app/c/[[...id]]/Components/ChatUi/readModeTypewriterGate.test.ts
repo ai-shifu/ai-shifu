@@ -87,6 +87,30 @@ describe('readModeTypewriterGate', () => {
     ).toStrictEqual([trackedText]);
   });
 
+  it('treats history-like listen mode text as ready even when an unfinished cache entry exists', () => {
+    const historyLikeText = createTextItem({
+      is_final: true,
+      isHistory: true,
+      shouldUseTypewriter: false,
+      shouldRenderAsHistoryInReadMode: true,
+    });
+    const secondHtml = createHtmlItem();
+    const cache: ReadModeTypewriterCache = {
+      'text-1': {
+        content: 'First text',
+        isFinished: false,
+      },
+    };
+
+    expect(isReadModeTextContentItemReady(historyLikeText, cache)).toBe(true);
+    expect(
+      buildVisibleReadModeItems([historyLikeText, secondHtml], cache),
+    ).toStrictEqual([historyLikeText, secondHtml]);
+    expect(
+      syncReadModeTypewriterCache([historyLikeText, secondHtml], cache),
+    ).toStrictEqual({});
+  });
+
   it('resets the cache entry when a tracked text item receives new content', () => {
     const initialCache: ReadModeTypewriterCache = {
       'text-1': {
