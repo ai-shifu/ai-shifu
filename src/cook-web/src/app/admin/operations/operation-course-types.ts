@@ -40,6 +40,15 @@ export type AdminOperationCoursePromptResponse = {
   course_prompt: string;
 };
 
+export type AdminOperationCourseCopyResponse = {
+  source_shifu_bid: string;
+  new_shifu_bid: string;
+  new_course_name: string;
+  target_creator_user_bid: string;
+  created_new_user: boolean;
+  granted_demo_permissions: boolean;
+};
+
 export type AdminOperationCourseDetailBasicInfo = {
   shifu_bid: string;
   course_name: string;

@@ -130,6 +130,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_users,
     list_operator_courses,
     list_operator_users,
+    copy_operator_course,
     transfer_operator_course_creator,
 )
 from flaskr.service.order.api import (
@@ -1988,6 +1989,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 generated_block_bid=generated_block_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/copy",
+        methods=["POST"],
+    )
+    def admin_copy_course(shifu_bid: str):
+        _require_operator()
+        payload = request.get_json() or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+
+        return make_common_response(
+            copy_operator_course(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                new_course_name=str(payload.get("new_course_name", "") or ""),
             )
         )
 
