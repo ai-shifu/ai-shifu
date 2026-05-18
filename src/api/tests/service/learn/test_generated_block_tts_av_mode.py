@@ -778,3 +778,123 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
             assert [r.position for r in records] == [0, 1]
             assert records[0].audio_bid == "audio-cache-0"
+
+    def test_stream_generated_block_audio_listen_ignores_cache_with_mismatched_subtitles(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-cache-subtitle-mismatch-1"
+        shifu_bid = "shifu-cache-subtitle-mismatch-1"
+        generated_block_bid = "gen-cache-subtitle-mismatch-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-cache-subtitle-mismatch-1",
+                    user_bid=user_bid,
+                    block_bid="block-cache-subtitle-mismatch-1",
+                    outline_item_bid="outline-cache-subtitle-mismatch-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="First.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedElement(
+                    element_bid="el-cache-subtitle-mismatch-1",
+                    progress_record_bid="progress-cache-subtitle-mismatch-1",
+                    user_bid=user_bid,
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-cache-subtitle-mismatch-1",
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-cache-subtitle-mismatch-1",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    change_type="render",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=1,
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="First.",
+                    payload="",
+                    status=1,
+                    deleted=0,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-cache-subtitle-mismatch-0",
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    progress_record_bid="progress-cache-subtitle-mismatch-1",
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url="https://example.com/stale-subtitle-cache.mp3",
+                    oss_bucket="test-bucket",
+                    oss_object_key="tts-audio/stale-subtitle-cache.mp3",
+                    duration_ms=1000,
+                    file_size=10,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id="voice",
+                    voice_settings={},
+                    model="test-model",
+                    text_length=len("First."),
+                    segment_count=1,
+                    subtitle_cues=[
+                        {
+                            "text": "Other.",
+                            "start_ms": 0,
+                            "end_ms": 1000,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert synthesized_texts == ["First."]
+        assert audio_complete_events[0].content.audio_url != (
+            "https://example.com/stale-subtitle-cache.mp3"
+        )
+        assert audio_complete_events[0].content.subtitle_cues[0].text == "First."
+        assert events[-1].type == GeneratedType.DONE

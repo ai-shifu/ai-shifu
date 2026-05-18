@@ -997,15 +997,15 @@ def _audio_record_matches_speakable_text(
     if expected_length <= 0:
         return False
 
-    record_text_length = int(getattr(audio_record, "text_length", 0) or 0)
-    if record_text_length > 0:
-        return record_text_length == expected_length
-
     subtitle_cues = _subtitle_cues_from_audio_record(audio_record)
-    cue_text = " ".join(str(cue.get("text") or "") for cue in subtitle_cues)
-    if not cue_text.strip():
-        return False
-    return len(preprocess_for_tts(cue_text) or "") == expected_length
+    cue_text = preprocess_for_tts(
+        " ".join(str(cue.get("text") or "") for cue in subtitle_cues)
+    )
+    if cue_text:
+        return cue_text == cleaned_text
+
+    record_text_length = int(getattr(audio_record, "text_length", 0) or 0)
+    return record_text_length > 0 and record_text_length == expected_length
 
 
 def _yield_stream_tts_audio_segments(
@@ -1225,16 +1225,13 @@ def stream_generated_block_audio(
                     continue
                 if not record.oss_url:
                     continue
-                existing_by_position[pos] = record
-
-            if expected_segment_count > 1 and 0 in existing_by_position:
-                first_record = existing_by_position[0]
+                if pos < 0 or pos >= expected_segment_count:
+                    continue
                 if not _audio_record_matches_speakable_text(
-                    first_record, speakable_segments[0]
+                    record, speakable_segments[pos]
                 ):
-                    # Legacy single-audio records cover the whole generated block,
-                    # so they cannot satisfy the first segmented listen track.
-                    existing_by_position.pop(0, None)
+                    continue
+                existing_by_position[pos] = record
 
             if expected_segment_count and all(
                 pos in existing_by_position for pos in range(expected_segment_count)

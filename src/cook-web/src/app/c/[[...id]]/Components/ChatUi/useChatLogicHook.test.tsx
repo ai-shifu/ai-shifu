@@ -471,11 +471,20 @@ describe('useChatLogicHook stream cleanup', () => {
 
     const onStreamSettled = jest.fn();
     let audioPromise: Promise<unknown> | undefined;
+    let audioPromiseSettled = false;
     act(() => {
       audioPromise = result.current.requestAudioForBlock('element-1', {
         listen: true,
         onStreamSettled,
       });
+      audioPromise?.then(
+        () => {
+          audioPromiseSettled = true;
+        },
+        () => {
+          audioPromiseSettled = true;
+        },
+      );
     });
 
     expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
@@ -528,13 +537,14 @@ describe('useChatLogicHook stream cleanup', () => {
           ],
         },
       });
-      await audioPromise;
+      await Promise.resolve();
     });
 
     expect(
       result.current.items.find(item => item.element_bid === 'element-1')
         ?.audioUrl,
     ).toBe('https://example.com/generated-block-1.mp3');
+    expect(audioPromiseSettled).toBe(false);
     expect(close).not.toHaveBeenCalled();
     expect(onStreamSettled).not.toHaveBeenCalled();
 
@@ -660,7 +670,9 @@ describe('useChatLogicHook stream cleanup', () => {
         content: '',
         is_terminal: true,
       });
+      await audioPromise;
     });
+    expect(audioPromiseSettled).toBe(true);
     expect(close).toHaveBeenCalled();
     expect(onStreamSettled).toHaveBeenCalledTimes(1);
   });

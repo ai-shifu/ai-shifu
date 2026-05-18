@@ -3590,7 +3590,6 @@ function useChatLogicHook({
                 ),
               );
               if (effectiveListenRequestEnabled) {
-                resolveOnce(latestComplete ?? null);
                 return;
               }
               clearTimers();

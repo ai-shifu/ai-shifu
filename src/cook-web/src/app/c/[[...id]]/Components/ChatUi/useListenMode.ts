@@ -835,16 +835,18 @@ export const useListenAudioSequence = ({
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
-        return;
+        return false;
       }
       const deck = deckRef.current;
       if (!deck) {
-        return;
+        return false;
       }
       const currentIndex = deck.getIndices?.().h ?? 0;
       if (currentIndex !== page) {
         deck.slide(page);
       }
+      const syncedIndex = deck.getIndices?.().h;
+      return syncedIndex === undefined || syncedIndex === page;
     },
     [deckRef],
   );
@@ -903,11 +905,12 @@ export const useListenAudioSequence = ({
         lastSyncedSequencePageRef.current = null;
         return;
       }
-      syncToSequencePage(nextItem.page);
-      lastSyncedSequencePageRef.current = {
-        bid: nextItem.element_bid ?? null,
-        page: nextItem.page,
-      };
+      if (syncToSequencePage(nextItem.page)) {
+        lastSyncedSequencePageRef.current = {
+          bid: nextItem.element_bid ?? null,
+          page: nextItem.page,
+        };
+      }
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
       isAudioSequenceActiveRef.current = true;
@@ -1125,11 +1128,12 @@ export const useListenAudioSequence = ({
       return;
     }
 
-    syncToSequencePage(activeItem.page);
-    lastSyncedSequencePageRef.current = {
-      bid: activeItem.element_bid ?? null,
-      page: activeItem.page,
-    };
+    if (syncToSequencePage(activeItem.page)) {
+      lastSyncedSequencePageRef.current = {
+        bid: activeItem.element_bid ?? null,
+        page: activeItem.page,
+      };
+    }
   }, [
     activeAudioBid,
     audioAndInteractionList,

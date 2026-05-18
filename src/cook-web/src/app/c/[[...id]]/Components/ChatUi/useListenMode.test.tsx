@@ -138,6 +138,81 @@ describe('useListenAudioSequence', () => {
     await waitFor(() => expect(slide).toHaveBeenCalledWith(2));
   });
 
+  it('does not cache sequence page sync before the deck is mounted', async () => {
+    let currentPage = 0;
+    const slide = jest.fn((page: number) => {
+      currentPage = page;
+    });
+    const deckRef = {
+      current: null as Reveal.Api | null,
+    };
+    const currentPptPageRef = { current: 0 };
+    const activeElementBidRef = { current: null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: true };
+    const contentByBid = new Map<string, ChatContentItem>([
+      ['content-1', createContentItem()],
+    ]);
+    const audioContentByBid = new Map<string, ChatContentItem>([
+      ['content-1', createContentItem()],
+    ]);
+    const setIsAudioPlaying = jest.fn();
+
+    const { rerender, result } = renderHook(
+      ({
+        audioAndInteractionList,
+        sequenceStartSignal,
+      }: {
+        audioAndInteractionList: AudioInteractionItem[];
+        sequenceStartSignal: number;
+      }) =>
+        useListenAudioSequence({
+          audioAndInteractionList,
+          deckRef,
+          currentPptPageRef,
+          activeElementBidRef,
+          pendingAutoNextRef,
+          shouldStartSequenceRef,
+          sequenceStartSignal,
+          contentByBid,
+          audioContentByBid,
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: resolveListenAudioSourceBid,
+          allowAutoPlayback: true,
+          isAudioPlaying: false,
+          setIsAudioPlaying,
+        }),
+      {
+        initialProps: {
+          audioAndInteractionList: [createAudioItem({ page: 2 })],
+          sequenceStartSignal: 1,
+        },
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.activeSequenceElementBid).toBe(
+        buildListenAudioSequenceBid('content-1', 0),
+      ),
+    );
+    expect(slide).not.toHaveBeenCalled();
+
+    deckRef.current = {
+      getIndices: () => ({ h: currentPage }),
+      slide,
+    } as unknown as Reveal.Api;
+
+    rerender({
+      audioAndInteractionList: [createAudioItem({ page: 2 })],
+      sequenceStartSignal: 1,
+    });
+
+    await waitFor(() => expect(slide).toHaveBeenCalledWith(2));
+  });
+
   it('continues late audio positions that arrive on another element in the same generated block', async () => {
     let currentPage = 0;
     const slide = jest.fn((page: number) => {
