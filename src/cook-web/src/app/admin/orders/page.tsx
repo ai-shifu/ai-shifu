@@ -1028,8 +1028,7 @@ const OrdersPage = () => {
               emptyContent={t('module.order.emptyList')}
               emptyColSpan={9}
               withTooltipProvider
-              containerClassName='min-h-0 flex-1'
-              tableWrapperClassName='flex-1 overflow-auto'
+              tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
               footerClassName='mt-3'
               table={emptyRow => (
                 <Table className='table-auto'>
