@@ -227,7 +227,8 @@ describe('AskBlock', () => {
 
       await act(async () => {
         await activeRun?.onMessage({
-          type: SSE_OUTPUT_TYPE.BREAK,
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
         });
       });
 
@@ -290,9 +291,400 @@ describe('AskBlock', () => {
     await act(async () => {
       await activeRun?.onMessage({
         type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
       });
     });
 
     await waitFor(() => expect(activeRun?.source.close).toHaveBeenCalled());
+  });
+
+  it('keeps typewriter enabled when follow-up done is non-terminal', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_type: 'answer',
+          content: 'first chunk',
+          element_bid: 'answer-1',
+        },
+      });
+    });
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: false,
+      });
+    });
+
+    expect(activeRun?.source.close).not.toHaveBeenCalled();
+    expect(
+      useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1],
+    ).toMatchObject({
+      content: 'first chunk',
+      isStreaming: true,
+      shouldUseTypewriter: true,
+      element_bid: 'answer-1',
+    });
+  });
+
+  it('keeps the streaming answer typewriter enabled when the panel expands', async () => {
+    const askList = [
+      {
+        type: 'answer',
+        content: 'streaming answer',
+        isStreaming: true,
+        shouldUseTypewriter: true,
+        element_bid: 'answer-1',
+      },
+    ] as const;
+
+    const { rerender } = render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[0]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+
+    rerender(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[0]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+  });
+
+  it('disables the answer typewriter when the panel collapses', async () => {
+    const askList = [
+      {
+        type: 'answer',
+        content: 'finished answer',
+        isStreaming: false,
+        shouldUseTypewriter: true,
+        element_bid: 'answer-1',
+      },
+    ] as const;
+
+    const { rerender } = render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[0]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+
+    rerender(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[0]
+          ?.shouldUseTypewriter,
+      ).toBe(false),
+    );
+  });
+
+  it('keeps the streaming answer typewriter enabled when the panel collapses', async () => {
+    const askList = [
+      {
+        type: 'ask',
+        content: 'follow up question',
+      },
+      {
+        type: 'answer',
+        content: 'streaming answer',
+        isStreaming: true,
+        shouldUseTypewriter: true,
+        element_bid: 'answer-1',
+      },
+    ] as const;
+
+    const { rerender } = render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+
+    rerender(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+  });
+
+  it('keeps the streaming answer mounted while the mobile panel is collapsed', async () => {
+    const askList = [
+      {
+        type: 'ask',
+        content: 'follow up question',
+      },
+      {
+        type: 'answer',
+        content: 'streaming answer',
+        isStreaming: true,
+        shouldUseTypewriter: true,
+        element_bid: 'answer-1',
+      },
+    ] as const;
+
+    const { rerender } = render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('streaming answer')).toBeInTheDocument();
+
+    rerender(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[...askList]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('streaming answer')).toBeInTheDocument();
+  });
+
+  it('disables the streaming answer typewriter when the stream finishes while the panel is collapsed', async () => {
+    const { rerender } = render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1]
+          ?.shouldUseTypewriter,
+      ).toBe(true),
+    );
+
+    rerender(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        is_terminal: true,
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1']?.[1],
+      ).toMatchObject({
+        isStreaming: false,
+        shouldUseTypewriter: false,
+      }),
+    );
   });
 });

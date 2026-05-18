@@ -9,7 +9,7 @@ import {
 import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import {
-  fixMarkdownStream,
+  mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
@@ -68,6 +68,7 @@ import {
   hasCustomButtonAfterContent,
   inheritCustomButtonAfterContent,
   normalizeLegacyBlockCompatList,
+  stripCustomButtonAfterContent,
   syncCustomButtonAfterContent,
 } from './chatUiUtils';
 
@@ -216,6 +217,7 @@ export interface UseChatSessionResult {
   isLoading: boolean;
   isOutputInProgress: boolean;
   currentStreamingElementBid: string;
+  currentTypewriterElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
   toggleAskExpanded: (parentElementBid: string) => void;
@@ -272,6 +274,8 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
+  const isListenModeLatest = useLatest(isListenMode);
+  const mobileStyleLatest = useLatest(mobileStyle);
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -291,6 +295,8 @@ function useChatLogicHook({
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
   const [currentStreamingElementBid, setCurrentStreamingElementBid] =
+    useState('');
+  const [currentTypewriterElementBid, setCurrentTypewriterElementBid] =
     useState('');
   // const [isTypeFinished, setIsTypeFinished] = useState(false);
   const isTypeFinishedRef = useRef(false);
@@ -536,10 +542,12 @@ function useChatLogicHook({
 
       const nextItems = [...items];
       const targetItem = nextItems[targetIndex];
+      const isListenModeCurrent = Boolean(isListenModeLatest.current);
+      const mobileStyleCurrent = Boolean(mobileStyleLatest.current);
 
       if (
-        mobileStyle &&
-        !isListenMode &&
+        mobileStyleCurrent &&
+        !isListenModeCurrent &&
         targetItem.type === ChatContentItemType.CONTENT &&
         !hasCustomButtonAfterContent(targetItem.content)
       ) {
@@ -549,13 +557,24 @@ function useChatLogicHook({
             targetItem.content,
             getAskButtonMarkup(),
           ),
-          isHistory: true, // Prevent AskButton from triggering typewriter
         };
       }
 
+      nextItems[targetIndex] = {
+        ...nextItems[targetIndex],
+        is_final: true,
+        shouldRenderAsHistoryInReadMode:
+          isListenModeCurrent && targetItem.isHistory !== true,
+      };
+
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
     },
-    [finalizeLikeStatusByParent, getAskButtonMarkup, isListenMode, mobileStyle],
+    [
+      finalizeLikeStatusByParent,
+      getAskButtonMarkup,
+      isListenModeLatest,
+      mobileStyleLatest,
+    ],
   );
 
   const resolveRecordUserInput = useCallback(
@@ -787,11 +806,15 @@ function useChatLogicHook({
       options?: {
         appendAskButton?: boolean;
         isHistory?: boolean;
+        shouldRenderAsHistoryInReadMode?: boolean;
+        shouldUseTypewriter?: boolean;
         listenSlides?: ListenSlideData[];
         previousItem?: ChatContentItem;
       },
     ): ChatContentItem => {
       const itemBid = resolveElementItemBid(record);
+      const isListenModeCurrent = Boolean(isListenModeLatest.current);
+      const mobileStyleCurrent = Boolean(mobileStyleLatest.current);
       const previousAudioSegments = Array.isArray(
         options?.previousItem?.audio_segments,
       )
@@ -818,8 +841,8 @@ function useChatLogicHook({
       const rawContent = record.content ?? '';
       const contentWithAskButton =
         options?.appendAskButton &&
-        mobileStyle &&
-        !isListenMode &&
+        mobileStyleCurrent &&
+        !isListenModeCurrent &&
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
@@ -841,7 +864,17 @@ function useChatLogicHook({
           options?.previousItem?.user_input ??
           '',
         readonly: options?.previousItem?.readonly ?? false,
-        isHistory: options?.isHistory ?? options?.previousItem?.isHistory,
+        isHistory: options?.isHistory,
+        shouldRenderAsHistoryInReadMode:
+          options?.shouldRenderAsHistoryInReadMode ?? false,
+        is_final:
+          options?.previousItem?.is_final === true
+            ? true
+            : Boolean(record.is_final),
+        shouldUseTypewriter:
+          options?.shouldUseTypewriter ??
+          options?.previousItem?.shouldUseTypewriter ??
+          false,
         type: isInteractionElement
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
@@ -865,8 +898,8 @@ function useChatLogicHook({
     },
     [
       getAskButtonMarkup,
-      isListenMode,
-      mobileStyle,
+      isListenModeLatest,
+      mobileStyleLatest,
       normalizeHistoryAudioTracks,
       resolveElementItemBid,
       resolveRecordUserInput,
@@ -1369,6 +1402,7 @@ function useChatLogicHook({
     currentBlockIdRef.current = null;
     currentContentRef.current = '';
     setCurrentStreamingElementBid('');
+    setCurrentTypewriterElementBid('');
 
     Object.values(ttsSseRef.current).forEach(source => {
       source?.close?.();
@@ -1405,6 +1439,7 @@ function useChatLogicHook({
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
+      setCurrentTypewriterElementBid('');
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -1448,6 +1483,7 @@ function useChatLogicHook({
         currentBlockIdRef.current = null;
         currentContentRef.current = '';
         setCurrentStreamingElementBid('');
+        setCurrentTypewriterElementBid('');
       };
 
       const handleRunStreamTimeout = () => {
@@ -1636,11 +1672,16 @@ function useChatLogicHook({
               currentBlockIdRef.current = itemBid;
               currentContentRef.current = '';
               setCurrentStreamingElementBid(itemBid);
+              if (elementType === 'text') {
+                setCurrentTypewriterElementBid(itemBid);
+              }
 
+              const previousItem = contentListRef.current.find(
+                item => item.element_bid === itemBid,
+              );
               const nextItem = buildElementContentItem(elementRecord, {
-                previousItem: contentListRef.current.find(
-                  item => item.element_bid === itemBid,
-                ),
+                previousItem,
+                shouldUseTypewriter: previousItem?.shouldUseTypewriter ?? true,
                 listenSlides: pendingSlidesRef.current[itemBid],
               });
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
@@ -1713,6 +1754,7 @@ function useChatLogicHook({
                   customRenderBar: () => null,
                   user_input: '',
                   readonly: false,
+                  shouldRenderAsHistoryInReadMode: false,
                   type: ChatContentItemType.INTERACTION,
                 };
                 const hitIndex = prev.findIndex(
@@ -1743,9 +1785,25 @@ function useChatLogicHook({
                 return;
               }
 
-              const prevText = currentContentRef.current || '';
-              const delta = fixMarkdownStream(prevText, response.content || '');
-              const nextText = prevText + delta;
+              const existingItem = blockId
+                ? contentListRef.current.find(
+                    item => item.element_bid === blockId,
+                  )
+                : undefined;
+              const existingText =
+                stripCustomButtonAfterContent(existingItem?.content) || '';
+              const prevText = currentContentRef.current || existingText;
+              const nextText = mergeStreamingMarkdownText(
+                prevText,
+                response.content || '',
+              );
+
+              if (blockId) {
+                currentBlockIdRef.current = blockId;
+                setCurrentStreamingElementBid(blockId);
+                setCurrentTypewriterElementBid(blockId);
+              }
+
               currentContentRef.current = nextText;
               const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
@@ -1761,6 +1819,8 @@ function useChatLogicHook({
                           previousContent: item.content,
                           buttonMarkup: getAskButtonMarkup(),
                         }),
+                        is_final: false,
+                        shouldRenderAsHistoryInReadMode: false,
                         customRenderBar: () => null,
                         listenSlides:
                           item.listenSlides ??
@@ -1776,6 +1836,9 @@ function useChatLogicHook({
                       content: displayText,
                       user_input: '',
                       readonly: false,
+                      is_final: false,
+                      shouldRenderAsHistoryInReadMode: false,
+                      shouldUseTypewriter: true,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
                       listenSlides: pendingSlidesRef.current[blockId],
@@ -2099,6 +2162,7 @@ function useChatLogicHook({
         const nextItem = buildElementContentItem(item, {
           appendAskButton: true,
           isHistory: true,
+          shouldUseTypewriter: false,
         });
         const hitIndex = result.findIndex(
           contentItem => contentItem.element_bid === itemBid,
@@ -3074,6 +3138,7 @@ function useChatLogicHook({
     isLoading,
     isOutputInProgress,
     currentStreamingElementBid,
+    currentTypewriterElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,

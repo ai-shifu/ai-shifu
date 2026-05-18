@@ -32,6 +32,15 @@ const shouldSkipHydration = (
     return true;
   }
 
+  // Prevent a stale ask_list prop from clobbering newer locally appended
+  // follow-up messages when the panel expand state changes.
+  if (
+    previousAskList.length &&
+    normalizedAskList.length < previousAskList.length
+  ) {
+    return true;
+  }
+
   if (
     previousAskList.length &&
     hasStreamingAskMessage(previousAskList) &&

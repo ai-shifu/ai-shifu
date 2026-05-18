@@ -6,6 +6,8 @@ import {
 const CUSTOM_BUTTON_AFTER_CONTENT_TAG = '<custom-button-after-content>';
 const CUSTOM_BUTTON_AFTER_CONTENT_REGEX =
   /<custom-button-after-content>[\s\S]*?<\/custom-button-after-content>/g;
+const CUSTOM_BUTTON_AFTER_CONTENT_SINGLE_REGEX =
+  /<custom-button-after-content>([\s\S]*?)<\/custom-button-after-content>/i;
 
 export const appendCustomButtonAfterContent = (
   content: string | undefined,
@@ -47,6 +49,17 @@ export const stripCustomButtonAfterContent = (
   }
   // Remove ask button markup from listen mode content.
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
+};
+
+export const extractCustomButtonAfterContentInnerHtml = (
+  content?: string | null,
+): string => {
+  if (!content) {
+    return '';
+  }
+
+  const match = content.match(CUSTOM_BUTTON_AFTER_CONTENT_SINGLE_REGEX);
+  return match?.[1]?.trim() ?? '';
 };
 
 export const syncCustomButtonAfterContent = ({
