@@ -70,8 +70,10 @@ const resolveDetailTabFromHash = (hash: string): DetailTab | null => {
 
   return hashEntry?.[0] ?? null;
 };
-const resolveCourseCount = (count: number, courses?: AdminOperationUserCourseItem[]) =>
-  count > 0 ? count : (courses || []).length;
+const resolveCourseCount = (
+  count: number,
+  courses?: AdminOperationUserCourseItem[],
+) => (count > 0 ? count : (courses || []).length);
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
