@@ -35,6 +35,7 @@ from .utils import (
 )
 from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
 from .permissions import get_user_shifu_permissions
+from .course_activity import load_course_activity_map
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -648,8 +649,26 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(latest_subquery))
-            .order_by(DraftShifu.title.asc(), DraftShifu.shifu_bid.asc())
             .all()
+        )
+
+        activity_map = load_course_activity_map(
+            shifu_drafts,
+            [],
+            include_published_outline=False,
+        )
+
+        def resolve_updated_at(draft: DraftShifu) -> datetime:
+            activity = activity_map.get(str(draft.shifu_bid or "").strip(), {})
+            return activity.get("updated_at") or draft.updated_at or datetime.min
+
+        shifu_drafts.sort(
+            key=lambda draft: (
+                resolve_updated_at(draft),
+                draft.updated_at or datetime.min,
+                int(draft.id or 0),
+            ),
+            reverse=True,
         )
 
         if is_favorite:
