@@ -448,13 +448,7 @@ export default function AdminOperationUserDetailPage() {
     useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
   const [creditFilters, setCreditFilters] =
     useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
-  const [activeTab, setActiveTab] = useState<DetailTab>(() => {
-    if (typeof window === 'undefined') {
-      return 'credits';
-    }
-
-    return resolveDetailTabFromHash(window.location.hash) ?? 'credits';
-  });
+  const [activeTab, setActiveTab] = useState<DetailTab>('credits');
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
   const [credits, setCredits] = useState<AdminOperationUserCreditsResponse>(
