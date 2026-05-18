@@ -196,25 +196,19 @@ export const resolveListenSlideAudioSource = (
         item.element_bid,
         getAudioSegmentDataListFromTracks([completedTrack]),
       );
-      const shouldKeepSegmentSource =
-        completedTrackAudioSegments.length > 0 &&
-        (Boolean(completedTrack.isAudioStreaming) ||
-          hasFinalizedAudioSegments(completedTrack));
 
-      if (shouldKeepSegmentSource) {
-        return {
-          audioUrl: undefined,
-          audioSegments: completedTrackAudioSegments,
-          isAudioStreaming:
-            Boolean(completedTrack.isAudioStreaming) &&
-            !hasFinalizedAudioSegments(completedTrack),
-        };
-      }
-
+      // Preserve streamed segment history with the completed URL so the slide
+      // player can continue from the played boundary instead of replaying from
+      // the beginning when backfilled audio finalizes mid-session.
       return {
         audioUrl: completedTrack.audioUrl,
-        audioSegments: undefined,
-        isAudioStreaming: false,
+        audioSegments:
+          completedTrackAudioSegments.length > 0
+            ? completedTrackAudioSegments
+            : undefined,
+        isAudioStreaming:
+          Boolean(completedTrack.isAudioStreaming) &&
+          !hasFinalizedAudioSegments(completedTrack),
       };
     }
 

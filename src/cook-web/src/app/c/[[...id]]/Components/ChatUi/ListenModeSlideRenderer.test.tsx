@@ -87,7 +87,7 @@ describe('ListenModeSlideRenderer', () => {
     ).toBeInTheDocument();
   });
 
-  it('passes finalized stream segments to slide without switching to complete url', () => {
+  it('passes finalized stream segments to slide with the complete url', () => {
     render(
       <ListenModeSlideRenderer
         items={[
@@ -125,7 +125,9 @@ describe('ListenModeSlideRenderer', () => {
     const contentElement = slideProps?.elementList?.find(
       element => element.blockBid === 'content-1',
     );
-    expect(contentElement?.audio_url).toBeUndefined();
+    expect(contentElement?.audio_url).toBe(
+      '/api/storage/default/tts-audio/complete.mp3',
+    );
     expect(contentElement?.audio_segments).toEqual([
       expect.objectContaining({
         segment_index: 0,

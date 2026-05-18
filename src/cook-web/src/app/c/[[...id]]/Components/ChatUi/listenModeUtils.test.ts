@@ -153,7 +153,7 @@ describe('listenModeUtils', () => {
     });
   });
 
-  it('keeps finalized stream segments as the slide source after audio completes', () => {
+  it('keeps finalized stream segments with the completed url after audio completes', () => {
     const source = resolveListenSlideAudioSource(
       createContentItem({
         audioTracks: [
@@ -175,7 +175,7 @@ describe('listenModeUtils', () => {
       }),
     );
 
-    expect(source.audioUrl).toBeUndefined();
+    expect(source.audioUrl).toBe('/api/storage/default/tts-audio/complete.mp3');
     expect(source.isAudioStreaming).toBe(false);
     expect(source.audioSegments).toEqual([
       expect.objectContaining({
@@ -209,7 +209,7 @@ describe('listenModeUtils', () => {
     });
   });
 
-  it('uses completed audio url as the canonical slide source over stale stream segments', () => {
+  it('preserves stale stream segments with the completed audio url for resume offset', () => {
     const source = resolveListenSlideAudioSource(
       createContentItem({
         audioTracks: [
@@ -231,11 +231,17 @@ describe('listenModeUtils', () => {
       }),
     );
 
-    expect(source).toEqual({
-      audioUrl: '/api/storage/default/tts-audio/complete.mp3',
-      audioSegments: undefined,
-      isAudioStreaming: false,
-    });
+    expect(source.audioUrl).toBe('/api/storage/default/tts-audio/complete.mp3');
+    expect(source.isAudioStreaming).toBe(false);
+    expect(source.audioSegments).toEqual([
+      expect.objectContaining({
+        segment_index: 0,
+        audio_data: 'partial-audio',
+        duration_ms: 100,
+        is_final: false,
+        position: 0,
+      }),
+    ]);
   });
 
   it('does not make non-speakable content a listen-mode backfill candidate', () => {
