@@ -113,7 +113,6 @@ from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
-from flaskr.service.learn.listen_element_types import _is_markup_only_text_fragment
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
 from flaskr.i18n import _, get_current_language, set_language
@@ -3097,19 +3096,15 @@ class RunScriptContextV2:
                 def _normalize_tts_stream_key(
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
-                    chunk_content: str = "",
                 ) -> tuple[str, int] | None:
                     normalized_type = (stream_element_type or "").strip().lower()
                     if normalized_type != "text" or stream_element_number is None:
-                        return None
-                    if _is_markup_only_text_fragment(chunk_content):
                         return None
                     return normalized_type, int(stream_element_number)
 
                 def _switch_tts_processor(
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
-                    chunk_content: str = "",
                 ):
                     nonlocal \
                         tts_processor, \
@@ -3119,7 +3114,6 @@ class RunScriptContextV2:
                     next_key = _normalize_tts_stream_key(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
-                        chunk_content=chunk_content,
                     )
                     if current_tts_stream_key == next_key:
                         return
@@ -3163,7 +3157,6 @@ class RunScriptContextV2:
                     _switch_tts_processor(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
-                        chunk_content=chunk_content,
                     )
                     if not tts_processor or current_tts_stream_key is None:
                         yield from _drain_tts_ready_events()
