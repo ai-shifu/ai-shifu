@@ -37,8 +37,11 @@ jest.mock('react-i18next', () => ({
 jest.mock('../ui/Select', () => ({
   __esModule: true,
   Select: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  SelectTrigger: ({ children }: React.PropsWithChildren) => (
-    <button>{children}</button>
+  SelectTrigger: ({
+    children,
+    className,
+  }: React.PropsWithChildren<{ className?: string }>) => (
+    <button data-class={className}>{children}</button>
   ),
   SelectValue: ({
     children,
@@ -52,10 +55,19 @@ jest.mock('../ui/Select', () => ({
   SelectItem: ({
     children,
     value,
-  }: React.PropsWithChildren<{ value: string; textValue?: string }>) => (
+    indicatorClassName,
+    className,
+  }: React.PropsWithChildren<{
+    value: string;
+    textValue?: string;
+    indicatorClassName?: string;
+    className?: string;
+  }>) => (
     <div
       role='option'
       data-value={value}
+      data-indicator-class={indicatorClassName}
+      data-class={className}
     >
       {children}
     </div>
@@ -79,6 +91,10 @@ describe('ModelList', () => {
     expect(screen.getByText('3x')).toBeInTheDocument();
 
     const trigger = screen.getByRole('button');
+    expect(trigger).toHaveAttribute(
+      'data-class',
+      expect.stringContaining('pl-3'),
+    );
     expect(
       within(trigger).getByText('common.core.default'),
     ).toBeInTheDocument();
@@ -92,6 +108,14 @@ describe('ModelList', () => {
       .getByRole('listbox')
       .querySelector('[data-value="__empty__"]');
     expect(defaultOption).toBeTruthy();
+    expect(defaultOption).toHaveAttribute(
+      'data-class',
+      expect.stringContaining('pl-3'),
+    );
+    expect(defaultOption).toHaveAttribute(
+      'data-indicator-class',
+      expect.stringContaining('right-3'),
+    );
     expect(
       within(defaultOption as HTMLElement).getByText('1x'),
     ).toBeInTheDocument();
