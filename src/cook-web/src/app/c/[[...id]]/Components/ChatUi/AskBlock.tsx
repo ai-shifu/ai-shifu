@@ -82,6 +82,12 @@ export default function AskBlock({
       ? storedAskList
       : normalizeAskMessageList(askList);
   const hasDisplayMessages = displayList.length > 0;
+  const hasStreamingAnswerTypewriterMessage = displayList.some(
+    item =>
+      item.type === BLOCK_TYPE.ANSWER &&
+      item.isStreaming === true &&
+      item.shouldUseTypewriter === true,
+  );
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -97,6 +103,7 @@ export default function AskBlock({
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
   const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
@@ -140,6 +147,9 @@ export default function AskBlock({
         newList[lastIndex] = {
           ...newList[lastIndex],
           isStreaming: false,
+          shouldUseTypewriter: expandedRef.current
+            ? newList[lastIndex].shouldUseTypewriter
+            : false,
         };
       }
       return newList;
@@ -375,6 +385,10 @@ export default function AskBlock({
   }, [expanded]);
 
   useEffect(() => {
+    expandedRef.current = expanded;
+  }, [expanded]);
+
+  useEffect(() => {
     const previousExpanded = previousExpandedRef.current;
     previousExpandedRef.current = expanded;
 
@@ -392,7 +406,8 @@ export default function AskBlock({
       const nextList = prev.map(item => {
         if (
           item.type !== BLOCK_TYPE.ANSWER ||
-          item.shouldUseTypewriter !== true
+          item.shouldUseTypewriter !== true ||
+          item.isStreaming === true
         ) {
           return item;
         }
@@ -546,10 +561,12 @@ export default function AskBlock({
 
   const renderMessages = ({
     extraClass,
+    messages = messagesToShow,
   }: {
     extraClass?: string;
+    messages?: AskMessage[];
   } = {}) => {
-    if (messagesToShow.length === 0) {
+    if (messages.length === 0) {
       return null;
     }
 
@@ -564,7 +581,7 @@ export default function AskBlock({
             : undefined
         }
       >
-        {messagesToShow.map((message, index) => {
+        {messages.map((message, index) => {
           const messageRenderKey = `${message.type}-${message.element_bid || index}`;
           const shouldEnableMessageTypewriter =
             message.type === BLOCK_TYPE.ANSWER &&
@@ -658,11 +675,12 @@ export default function AskBlock({
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
-        {expanded && (
+        {(expanded || hasStreamingAnswerTypewriterMessage) && (
           <>
             <div
               className={styles.mobileOverlay}
               onClick={handleClose}
+              style={expanded ? undefined : { display: 'none' }}
             />
             <div
               className={cn(
@@ -670,6 +688,7 @@ export default function AskBlock({
                 isLandscapeSlideMobileDialog && styles.mobilePanelLandscape,
                 isFullscreen ? styles.mobilePanelFullscreen : '',
               )}
+              style={expanded ? undefined : { display: 'none' }}
             >
               <div className={styles.mobileHeader}>
                 <div className={styles.mobileTitle}>
@@ -712,6 +731,7 @@ export default function AskBlock({
               >
                 {renderMessages({
                   extraClass: styles.mobileMessageList,
+                  messages: displayList,
                 })}
               </div>
               {renderInput(styles.mobileInput)}
@@ -722,7 +742,10 @@ export default function AskBlock({
     );
   }
 
-  if ((isDesktopSlideAskBlock || forceDesktopSlidePanel) && expanded) {
+  if (
+    (isDesktopSlideAskBlock || forceDesktopSlidePanel) &&
+    (expanded || hasStreamingAnswerTypewriterMessage)
+  ) {
     return (
       <div
         className={cn(
@@ -731,6 +754,7 @@ export default function AskBlock({
           styles.desktopSlidePanel,
           !hasAskAnswerMessages && styles.desktopSlidePanelEmpty,
         )}
+        style={expanded ? undefined : { display: 'none' }}
       >
         <div className={styles.desktopSlideHeader}>
           <div className={styles.desktopSlideTitle}>{t('module.chat.ask')}</div>
@@ -752,6 +776,7 @@ export default function AskBlock({
         >
           {renderMessages({
             extraClass: styles.desktopSlideMessageList,
+            messages: displayList,
           })}
         </div>
         {renderInput(styles.desktopSlideInput)}
