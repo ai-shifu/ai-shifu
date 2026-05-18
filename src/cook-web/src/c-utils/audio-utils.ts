@@ -533,6 +533,32 @@ const upsertAudioTrackSegment = (
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
+const markLastAudioSegmentFinal = (
+  segments: AudioSegment[] = [],
+): AudioSegment[] => {
+  if (!segments.length) {
+    return segments;
+  }
+
+  const sortedSegments = sortAudioSegmentsByIndex(segments);
+  const lastSegmentIndex = sortedSegments.length - 1;
+  const lastSegment = sortedSegments[lastSegmentIndex];
+  const isSameOrder = sortedSegments.every(
+    (segment, index) => segment === segments[index],
+  );
+
+  if (lastSegment?.isFinal) {
+    return isSameOrder ? segments : sortedSegments;
+  }
+
+  const nextSegments = [...sortedSegments];
+  nextSegments[lastSegmentIndex] = {
+    ...lastSegment,
+    isFinal: true,
+  };
+  return nextSegments;
+};
+
 const normalizeTrackForUpsert = (
   complete: Partial<AudioCompleteData>,
 ): {
@@ -565,12 +591,16 @@ const upsertAudioTrackComplete = (
     track => normalizeAudioPosition(track.position) === position,
   );
   const existingTrack = targetIndex >= 0 ? tracks[targetIndex] : undefined;
+  const finalizedAudioSegments = existingTrack?.audioSegments?.length
+    ? markLastAudioSegmentFinal(existingTrack.audioSegments)
+    : existingTrack?.audioSegments;
   const hasNoChanges =
     existingTrack &&
     existingTrack.audioUrl === (complete.audio_url ?? existingTrack.audioUrl) &&
     existingTrack.durationMs ===
       (complete.duration_ms ?? existingTrack.durationMs) &&
     existingTrack.isAudioStreaming === false &&
+    existingTrack.audioSegments === finalizedAudioSegments &&
     (!slideId || existingTrack.slideId === slideId) &&
     (!avContract || existingTrack.avContract === avContract) &&
     (!subtitleCues || existingTrack.subtitleCues === subtitleCues);
@@ -589,6 +619,9 @@ const upsertAudioTrackComplete = (
   nextTrack.audioUrl = complete.audio_url ?? nextTrack.audioUrl;
   nextTrack.durationMs = complete.duration_ms ?? nextTrack.durationMs;
   nextTrack.isAudioStreaming = false;
+  if (finalizedAudioSegments) {
+    nextTrack.audioSegments = finalizedAudioSegments;
+  }
   if (slideId) {
     nextTrack.slideId = slideId;
   }

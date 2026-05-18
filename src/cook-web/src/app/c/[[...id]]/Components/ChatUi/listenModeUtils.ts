@@ -173,6 +173,11 @@ interface ListenSlideAudioSource {
   isAudioStreaming?: boolean;
 }
 
+const hasFinalizedAudioSegments = (track: AudioTrack) => {
+  const segments = sortSegmentsByIndex(track.audioSegments ?? []);
+  return segments.length > 0 && Boolean(segments[segments.length - 1]?.isFinal);
+};
+
 export const resolveListenSlideAudioSource = (
   item: ChatContentItem,
 ): ListenSlideAudioSource => {
@@ -187,6 +192,25 @@ export const resolveListenSlideAudioSource = (
       Boolean(track.audioUrl?.trim()),
     );
     if (completedTrack?.audioUrl) {
+      const completedTrackAudioSegments = mergeAudioSegmentDataList(
+        item.element_bid,
+        getAudioSegmentDataListFromTracks([completedTrack]),
+      );
+      const shouldKeepSegmentSource =
+        completedTrackAudioSegments.length > 0 &&
+        (Boolean(completedTrack.isAudioStreaming) ||
+          hasFinalizedAudioSegments(completedTrack));
+
+      if (shouldKeepSegmentSource) {
+        return {
+          audioUrl: undefined,
+          audioSegments: completedTrackAudioSegments,
+          isAudioStreaming:
+            Boolean(completedTrack.isAudioStreaming) &&
+            !hasFinalizedAudioSegments(completedTrack),
+        };
+      }
+
       return {
         audioUrl: completedTrack.audioUrl,
         audioSegments: undefined,

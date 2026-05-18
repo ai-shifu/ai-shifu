@@ -153,6 +153,62 @@ describe('listenModeUtils', () => {
     });
   });
 
+  it('keeps finalized stream segments as the slide source after audio completes', () => {
+    const source = resolveListenSlideAudioSource(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+            isAudioStreaming: false,
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'streamed-audio',
+                durationMs: 100,
+                isFinal: true,
+                position: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(source.audioUrl).toBeUndefined();
+    expect(source.isAudioStreaming).toBe(false);
+    expect(source.audioSegments).toEqual([
+      expect.objectContaining({
+        segment_index: 0,
+        audio_data: 'streamed-audio',
+        duration_ms: 100,
+        is_final: true,
+        position: 0,
+      }),
+    ]);
+  });
+
+  it('uses completed audio url when no stream segments are available', () => {
+    const source = resolveListenSlideAudioSource(
+      createContentItem({
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+            isAudioStreaming: false,
+            audioSegments: [],
+          },
+        ],
+      }),
+    );
+
+    expect(source).toEqual({
+      audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+      audioSegments: undefined,
+      isAudioStreaming: false,
+    });
+  });
+
   it('uses completed audio url as the canonical slide source over stale stream segments', () => {
     const source = resolveListenSlideAudioSource(
       createContentItem({

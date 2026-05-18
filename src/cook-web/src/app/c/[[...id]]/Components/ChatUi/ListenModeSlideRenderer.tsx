@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
-import { Loader2 } from 'lucide-react';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import { LoadingDots } from '@/components/loading';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
@@ -1458,7 +1458,19 @@ const ListenModeSlideRenderer = ({
             )}
           >
             <div className='flex flex-col items-center gap-3 text-primary'>
-              <Loader2 className='size-6 animate-spin' />
+              <LoadingDots
+                ariaLabel={
+                  isPreparingAudio
+                    ? t('module.chat.slideAudioBufferingWaitingForAudio')
+                    : t('module.chat.slideAudioBufferingLoadingAudio')
+                }
+                count={4}
+                durationMs={960}
+                dotClassName='bg-primary'
+                gap={5}
+                restOpacity={0.2}
+                size={5}
+              />
               {isPreparingAudio ? (
                 <span className='text-sm font-medium'>
                   {t('module.chat.slideAudioBufferingWaitingForAudio')}

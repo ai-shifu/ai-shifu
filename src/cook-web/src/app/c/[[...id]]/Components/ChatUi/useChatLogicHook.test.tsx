@@ -487,6 +487,29 @@ describe('useChatLogicHook stream cleanup', () => {
 
     await act(async () => {
       ttsRequest?.onMessage({
+        type: SSE_OUTPUT_TYPE.AUDIO_SEGMENT,
+        content: {
+          segment_index: 0,
+          audio_data: 'first-streamed-audio',
+          duration_ms: 321,
+          is_final: false,
+          position: 0,
+          stream_element_number: 0,
+          subtitle_cues: [
+            {
+              text: '第一段字幕。',
+              start_ms: 0,
+              end_ms: 321,
+              segment_index: 0,
+              position: 0,
+            },
+          ],
+        },
+      });
+    });
+
+    await act(async () => {
+      ttsRequest?.onMessage({
         type: SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
         content: {
           audio_url: 'https://example.com/generated-block-1.mp3',
@@ -563,6 +586,15 @@ describe('useChatLogicHook stream cleanup', () => {
         ?.audioTracks ?? [];
     expect(firstElementAudioTracks.map(track => track.audioUrl)).toEqual([
       'https://example.com/generated-block-1.mp3',
+    ]);
+    expect(firstElementAudioTracks[0]?.audioSegments).toEqual([
+      expect.objectContaining({
+        segmentIndex: 0,
+        audioData: 'first-streamed-audio',
+        durationMs: 321,
+        isFinal: true,
+        position: 0,
+      }),
     ]);
     expect(firstElementAudioTracks.map(track => track.subtitleCues)).toEqual([
       [

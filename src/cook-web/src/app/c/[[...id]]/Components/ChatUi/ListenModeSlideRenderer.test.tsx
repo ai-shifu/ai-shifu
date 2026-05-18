@@ -20,7 +20,7 @@ jest.mock('next/image', () => ({
 }));
 
 jest.mock('markdown-flow-ui/slide', () => ({
-  Slide: () => <div data-testid='listen-slide' />,
+  Slide: jest.fn(() => null),
 }));
 
 jest.mock('./useChatLogicHook', () => ({
@@ -59,7 +59,14 @@ const createChatRef = () =>
     current: document.createElement('div'),
   }) as React.RefObject<HTMLDivElement>;
 
+const getMockSlide = () =>
+  jest.requireMock('markdown-flow-ui/slide').Slide as jest.Mock;
+
 describe('ListenModeSlideRenderer', () => {
+  beforeEach(() => {
+    getMockSlide().mockClear();
+  });
+
   it('shows the audio preparation overlay while listen backfill is waiting', () => {
     render(
       <ListenModeSlideRenderer
@@ -72,6 +79,11 @@ describe('ListenModeSlideRenderer', () => {
 
     expect(
       screen.getByText('module.chat.slideAudioBufferingWaitingForAudio'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', {
+        name: 'module.chat.slideAudioBufferingWaitingForAudio',
+      }),
     ).toBeInTheDocument();
   });
 
@@ -88,5 +100,60 @@ describe('ListenModeSlideRenderer', () => {
     expect(
       screen.queryByText('module.chat.slideAudioBufferingWaitingForAudio'),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('status', {
+        name: 'module.chat.slideAudioBufferingLoadingAudio',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('passes finalized stream segments to slide without switching to complete url', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+            audioTracks: [
+              {
+                position: 0,
+                audioUrl: '/api/storage/default/tts-audio/complete.mp3',
+                isAudioStreaming: false,
+                audioSegments: [
+                  {
+                    segmentIndex: 0,
+                    audioData: 'streamed-audio',
+                    durationMs: 100,
+                    isFinal: true,
+                    position: 0,
+                  },
+                ],
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const contentElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'content-1',
+    );
+    expect(contentElement?.audio_url).toBeUndefined();
+    expect(contentElement?.audio_segments).toEqual([
+      expect.objectContaining({
+        segment_index: 0,
+        audio_data: 'streamed-audio',
+        duration_ms: 100,
+        is_final: true,
+        position: 0,
+      }),
+    ]);
   });
 });
