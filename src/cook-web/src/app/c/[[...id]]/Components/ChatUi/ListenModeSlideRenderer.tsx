@@ -87,7 +87,6 @@ interface ListenModeSlideRendererProps {
     isAudioSequenceActive: boolean;
   }) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
-  isPreparingAudio?: boolean;
 }
 
 type ResolveRenderSequence = (params: {
@@ -412,7 +411,6 @@ const ListenModeSlideRenderer = ({
   onPlayerVisibilityChange,
   onPlaybackStateChange,
   onMobileViewModeChange,
-  isPreparingAudio = false,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -1448,7 +1446,7 @@ const ListenModeSlideRenderer = ({
           playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
-        {isLoading || isPreparingAudio ? (
+        {isLoading ? (
           <div
             className={cn(
               'pointer-events-none absolute inset-0 z-[91] flex items-center justify-center backdrop-blur-sm',
@@ -1459,11 +1457,7 @@ const ListenModeSlideRenderer = ({
           >
             <div className='flex flex-col items-center gap-3 text-primary'>
               <LoadingDots
-                ariaLabel={
-                  isPreparingAudio
-                    ? t('module.chat.slideAudioBufferingWaitingForAudio')
-                    : t('module.chat.slideAudioBufferingLoadingAudio')
-                }
+                ariaLabel={t('module.chat.slideAudioBufferingLoadingAudio')}
                 count={4}
                 durationMs={960}
                 dotClassName='bg-primary'
@@ -1471,11 +1465,6 @@ const ListenModeSlideRenderer = ({
                 restOpacity={0.2}
                 size={5}
               />
-              {isPreparingAudio ? (
-                <span className='text-sm font-medium'>
-                  {t('module.chat.slideAudioBufferingWaitingForAudio')}
-                </span>
-              ) : null}
             </div>
           </div>
         ) : null}

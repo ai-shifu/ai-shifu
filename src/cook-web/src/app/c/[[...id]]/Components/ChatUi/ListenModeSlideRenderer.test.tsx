@@ -67,26 +67,6 @@ describe('ListenModeSlideRenderer', () => {
     getMockSlide().mockClear();
   });
 
-  it('shows the audio preparation overlay while listen backfill is waiting', () => {
-    render(
-      <ListenModeSlideRenderer
-        items={[]}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        isPreparingAudio
-      />,
-    );
-
-    expect(
-      screen.getByText('module.chat.slideAudioBufferingWaitingForAudio'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', {
-        name: 'module.chat.slideAudioBufferingWaitingForAudio',
-      }),
-    ).toBeInTheDocument();
-  });
-
   it('does not show the audio preparation text for normal loading', () => {
     render(
       <ListenModeSlideRenderer

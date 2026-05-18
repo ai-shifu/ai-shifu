@@ -78,8 +78,6 @@ import {
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
-type ListenAudioBackfillStatus = 'idle' | 'preparing' | 'failed';
-
 interface NewChatComponentsProps {
   className?: string;
   lessonUpdate: (val: any) => void;
@@ -182,8 +180,6 @@ export const NewChatComponents = ({
     isAudioSequenceActive: false,
   });
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
-  const [listenAudioBackfillStatus, setListenAudioBackfillStatus] =
-    useState<ListenAudioBackfillStatus>('idle');
   const listenAudioBackfillInFlightRef = useRef<Record<string, Promise<any>>>(
     {},
   );
@@ -277,8 +273,6 @@ export const NewChatComponents = ({
   const isListenPlaybackBusy =
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
-  const isListenAudioPreparingVisible =
-    listenAudioBackfillStatus === 'preparing' && !isListenPlaybackBusy;
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
@@ -291,7 +285,6 @@ export const NewChatComponents = ({
     listenAudioBackfillLessonIdRef.current = resolvedLessonId;
     listenAudioBackfillInFlightRef.current = {};
     listenAudioBackfillFailedBlockBidsRef.current = new Set();
-    setListenAudioBackfillStatus('idle');
   }, [resolvedLessonId]);
 
   useEffect(() => {
@@ -345,7 +338,6 @@ export const NewChatComponents = ({
     if (isListenModeActive) {
       return;
     }
-    setListenAudioBackfillStatus('idle');
     requestExclusive(() => {});
     releaseExclusive();
     currentPlayingBlockBidRef.current = null;
@@ -588,7 +580,6 @@ export const NewChatComponents = ({
     const contentItems = items.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
-      setListenAudioBackfillStatus(isOutputInProgress ? 'preparing' : 'idle');
       return;
     }
 
@@ -601,16 +592,10 @@ export const NewChatComponents = ({
     );
 
     if (!backfillCandidateItems.length) {
-      setListenAudioBackfillStatus(
-        isOutputInProgress && !hasPlayableAudio ? 'preparing' : 'idle',
-      );
       return;
     }
 
     if (!readyBackfillCandidateItems.length) {
-      setListenAudioBackfillStatus(
-        isOutputInProgress && !hasPlayableAudio ? 'preparing' : 'idle',
-      );
       return;
     }
 
@@ -621,18 +606,12 @@ export const NewChatComponents = ({
     );
 
     if (!missingAudioBlockBids.length) {
-      if (Object.keys(listenAudioBackfillInFlightRef.current).length === 0) {
-        setListenAudioBackfillStatus('idle');
-      }
       return;
     }
 
     const lessonIdAtRequest = resolvedLessonId;
 
     listenAudioBackfillLessonIdRef.current = lessonIdAtRequest;
-    if (!hasPlayableAudio) {
-      setListenAudioBackfillStatus('preparing');
-    }
 
     const backfillPromises = missingAudioBlockBids.map(blockBid =>
       requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
@@ -664,13 +643,9 @@ export const NewChatComponents = ({
 
       if (hasBackfillFailure && isListenModeActiveRef.current) {
         if (hasGeneratedAudio || hasPlayableAudio || isOutputInProgress) {
-          setListenAudioBackfillStatus(
-            hasGeneratedAudio || hasPlayableAudio ? 'idle' : 'preparing',
-          );
           return;
         }
 
-        setListenAudioBackfillStatus('failed');
         fail(t('module.chat.listenAudioBackfillFailed'));
         return;
       }
@@ -680,7 +655,6 @@ export const NewChatComponents = ({
         hasPlayableAudio ||
         !isListenModeActiveRef.current
       ) {
-        setListenAudioBackfillStatus('idle');
         return;
       }
 
@@ -688,7 +662,6 @@ export const NewChatComponents = ({
         return;
       }
 
-      setListenAudioBackfillStatus('failed');
       fail(t('module.chat.listenAudioBackfillFailed'));
     });
   }, [
@@ -1145,7 +1118,6 @@ export const NewChatComponents = ({
             onSend={memoizedOnSend}
             onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             onPlaybackStateChange={setListenPlaybackState}
-            isPreparingAudio={isListenAudioPreparingVisible}
           />
         ) : (
           <div
