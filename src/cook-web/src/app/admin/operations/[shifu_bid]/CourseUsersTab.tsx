@@ -7,7 +7,6 @@ import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
@@ -316,16 +315,10 @@ export default function CourseUsersTab({
                 pageIndex={pageIndex}
                 pageCount={pageCount}
                 onPageChange={onPageChange}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
+                prevLabel={t('module.order.paginationPrev')}
+                nextLabel={t('module.order.paginationNext')}
+                prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
+                nextAriaLabel={t('module.order.paginationNextAriaLabel')}
                 className='mx-0 w-auto justify-end'
               />
             ) : null
@@ -452,7 +445,7 @@ export default function CourseUsersTab({
                       <TableHead
                         className={cn(
                           getAdminStickyRightHeaderClass(
-                            ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap text-center text-xs',
                           ),
                         )}
                         style={getColumnStyle('action')}
