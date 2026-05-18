@@ -7,7 +7,11 @@ from typing import Optional
 import pytest
 
 from flaskr.dao import db
-from flaskr.service.billing.models import BillingDailyUsageMetric
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import BillingDailyUsageMetric, CreditLedgerEntry
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
@@ -27,8 +31,9 @@ from flaskr.service.user.models import UserInfo
 
 def _clear_tables() -> None:
     for model in (
-        BillingDailyUsageMetric,
+        CreditLedgerEntry,
         BillUsageRecord,
+        BillingDailyUsageMetric,
         VariableValue,
         LearnLessonFeedback,
         LearnGeneratedBlock,
@@ -81,6 +86,7 @@ def seed_owned_course(
     shifu_bid: str,
     user_id: str = "teacher-1",
     title: str = "Untitled",
+    deleted: int = 0,
 ) -> None:
     now = datetime.utcnow()
     db.session.add(
@@ -99,7 +105,45 @@ def seed_owned_course(
             ask_llm_system_prompt="",
             ask_provider_config="{}",
             price=0,
-            deleted=0,
+            deleted=deleted,
+            created_at=now,
+            created_user_bid=user_id,
+            updated_at=now,
+            updated_user_bid=user_id,
+        )
+    )
+    db.session.commit()
+
+
+def seed_published_shifu(
+    *,
+    shifu_bid: str,
+    user_id: str = "teacher-1",
+    title: str = "Untitled",
+    deleted: int = 0,
+) -> None:
+    """Seed one PublishedShifu row. Pair with seed_owned_course when the test
+    needs both the draft and the published version of a course (e.g. to cover
+    the "draft title diverges from published title after rename" scenario)."""
+
+    now = datetime.utcnow()
+    db.session.add(
+        PublishedShifu(
+            shifu_bid=shifu_bid,
+            title=title,
+            keywords="",
+            description="",
+            avatar_res_bid="",
+            llm="",
+            llm_temperature=0,
+            llm_system_prompt="",
+            ask_enabled_status=0,
+            ask_llm="",
+            ask_llm_temperature=0,
+            ask_llm_system_prompt="",
+            ask_provider_config="{}",
+            price=0,
+            deleted=deleted,
             created_at=now,
             created_user_bid=user_id,
             updated_at=now,
@@ -164,6 +208,9 @@ def seed_generated_block(
     content: str,
     progress_record_bid: str = "pr-default",
     generated_block_bid: Optional[str] = None,
+    outline_item_bid: str = "",
+    position: int = 0,
+    status: int = 1,
 ) -> str:
     bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
     now = datetime.utcnow()
@@ -173,8 +220,11 @@ def seed_generated_block(
             shifu_bid=shifu_bid,
             user_bid=user_bid,
             progress_record_bid=progress_record_bid,
+            outline_item_bid=outline_item_bid,
+            position=position,
             type=type,
             role=role,
+            status=status,
             generated_content=content,
             deleted=0,
             created_at=now,
@@ -201,6 +251,88 @@ def seed_user_info(
         )
     )
     db.session.commit()
+
+
+def seed_bill_usage_record(
+    *,
+    usage_bid: str,
+    shifu_bid: str,
+    user_bid: str = "",
+    progress_record_bid: str = "",
+    outline_item_bid: str = "",
+    usage_type: int = 1101,
+    usage_scene: int = 1203,
+    provider: str = "deepseek",
+    model: str = "deepseek-v4-flash",
+    created_at: Optional[datetime] = None,
+    deleted: int = 0,
+) -> str:
+    """Seed one BillUsageRecord row for credit-detail E2E tests.
+
+    Mirrors the production schema's defaults (all string fields default to
+    empty, numeric fields to zero) so callers only have to set what the
+    test cares about.
+    """
+
+    db.session.add(
+        BillUsageRecord(
+            usage_bid=usage_bid,
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            progress_record_bid=progress_record_bid,
+            outline_item_bid=outline_item_bid,
+            usage_type=usage_type,
+            usage_scene=usage_scene,
+            provider=provider,
+            model=model,
+            created_at=created_at or datetime.utcnow(),
+            deleted=deleted,
+        )
+    )
+    db.session.commit()
+    return usage_bid
+
+
+def seed_credit_ledger_entry(
+    *,
+    ledger_bid: str,
+    creator_bid: str,
+    source_bid: str,
+    amount: float,
+    source_type: int = CREDIT_SOURCE_TYPE_USAGE,
+    entry_type: int = CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    wallet_bid: str = "",
+    wallet_bucket_bid: str = "",
+    idempotency_key: Optional[str] = None,
+    created_at: Optional[datetime] = None,
+    deleted: int = 0,
+) -> str:
+    """Seed one CreditLedgerEntry row.
+
+    ``amount`` is stored verbatim — for credit consumption tests, pass the
+    actual negative value (the production code writes negatives for
+    deductions). ``idempotency_key`` defaults to a per-source-bid value to
+    satisfy the (creator_bid, idempotency_key) unique constraint.
+    """
+
+    db.session.add(
+        CreditLedgerEntry(
+            ledger_bid=ledger_bid,
+            creator_bid=creator_bid,
+            wallet_bid=wallet_bid,
+            wallet_bucket_bid=wallet_bucket_bid,
+            entry_type=entry_type,
+            source_type=source_type,
+            source_bid=source_bid,
+            idempotency_key=idempotency_key or f"usage:{source_bid}:consume",
+            amount=amount,
+            balance_after=0,
+            created_at=created_at or datetime.utcnow(),
+            deleted=deleted,
+        )
+    )
+    db.session.commit()
+    return ledger_bid
 
 
 def seed_bill_daily_metric(
@@ -244,47 +376,3 @@ def seed_bill_daily_metric(
         )
     )
     db.session.commit()
-
-
-def seed_bill_usage(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    usage_type: int = 1101,
-    usage_scene: int = 1203,
-    input_tokens: int = 0,
-    input_cache: int = 0,
-    output_tokens: int = 0,
-    total: int = 0,
-    provider: str = "openai",
-    model: str = "gpt-4o",
-    record_level: int = 0,
-    usage_bid: Optional[str] = None,
-) -> str:
-    """Seed one BillUsageRecord row.
-
-    Defaults model a production learner call (usage_type=LLM, usage_scene=PROD).
-    """
-
-    bid = usage_bid or f"usage-{shifu_bid}-{user_bid}-{usage_type}-{usage_scene}"
-    now = datetime.utcnow()
-    db.session.add(
-        BillUsageRecord(
-            usage_bid=bid,
-            shifu_bid=shifu_bid,
-            user_bid=user_bid,
-            usage_type=usage_type,
-            usage_scene=usage_scene,
-            input=input_tokens,
-            input_cache=input_cache,
-            output=output_tokens,
-            total=total,
-            provider=provider,
-            model=model,
-            record_level=record_level,
-            deleted=0,
-            created_at=now,
-        )
-    )
-    db.session.commit()
-    return bid

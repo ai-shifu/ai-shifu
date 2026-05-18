@@ -3,13 +3,20 @@
 The builder never accepts raw user strings into the SQL text — every column
 and operator passes through the whitelist enforced by
 :mod:`flaskr.service.creator_analytics.dsl`, and every value is bound via
-SQLAlchemy bindparam. Two cross-cutting rules are applied regardless of what
-the caller sent:
+SQLAlchemy bindparam. Four cross-cutting predicates are applied automatically,
+driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
 
-1. ``WHERE shifu_bid = :shifu_bid`` is always appended so callers cannot
-   widen the scope to courses they do not own.
-2. ``AND deleted = 0`` is appended for tables whose :class:`TableSpec` has
-   ``has_deleted=True`` (i.e. all tables except ``shifu_user_archives``).
+1. ``WHERE shifu_bid = :shifu_bid`` when ``has_shifu_bid`` is True — callers
+   cannot widen the scope to courses they do not own.
+2. ``AND deleted = 0`` when ``has_deleted`` is True — soft-deleted rows stay
+   hidden.
+3. ``AND <creator_scoped_column> = :__user_id`` when ``creator_scoped_column``
+   is non-None — row ownership is enforced on top of the shifu-scope check.
+   Used by the shifu metadata tables so co-authors cannot read author-only
+   title rows even when they have query permission for the shifu.
+4. ``AND status = 1`` when ``auto_filter_status_active`` is True — used by
+   ``learn_generated_blocks`` to drop rerolled history (``status = 0``) from
+   every result, so creator counts reflect the current learner experience.
 
 The MySQL ``MAX_EXECUTION_TIME`` optimizer hint is injected only when the
 target dialect is MySQL — under SQLite (tests) the hint would not parse.
@@ -66,6 +73,23 @@ def build_statement(
         )
     if dsl.spec.has_deleted:
         where_clauses.append(table.c.deleted == 0)
+    if dsl.spec.creator_scoped_column:
+        # Row-ownership enforcement on top of the shifu permission check in
+        # funcs.run_dsl. The caller_user_id must be threaded through by the
+        # entry point; if it is missing here we refuse to compile rather than
+        # silently emit a WHERE col = '' clause that would always match
+        # legacy rows whose creator field is empty.
+        if not dsl.caller_user_id:
+            raise ValueError(
+                f"caller_user_id is required for creator-scoped table "
+                f"'{dsl.spec.table_key}'"
+            )
+        where_clauses.append(
+            table.c[dsl.spec.creator_scoped_column]
+            == bindparam("__user_id", value=dsl.caller_user_id)
+        )
+    if dsl.spec.auto_filter_status_active:
+        where_clauses.append(table.c.status == 1)
 
     for index, filt in enumerate(dsl.filters):
         where_clauses.append(_compile_filter(table.c[filt.field], filt, index))

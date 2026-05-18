@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
@@ -36,19 +36,20 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     CreditLedgerEntry,
     CreditWalletBucket,
+)
+from flaskr.service.billing.api import (
+    build_billing_catalog,
+    grant_manual_credits_to_user,
+    grant_manual_plan_to_user,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
     quantize_credit_amount as _quantize_credit_amount,
 )
-from flaskr.service.billing.queries import (
-    add_months as _add_months,
-    add_years as _add_years,
-    load_primary_active_subscription,
-)
-from flaskr.service.billing.wallets import grant_manual_credit_wallet_balance
+from flaskr.service.billing.queries import load_primary_active_subscription
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -100,6 +101,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserOverviewDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserGrantBootstrapDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserPackageGrantResultDTO,
     AdminOperationCourseSummaryDTO,
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditLedgerPageDTO,
@@ -143,7 +147,6 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.util.timezone import serialize_with_app_timezone
-from flaskr.util.uuid import generate_id
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
@@ -476,51 +479,6 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
     return {}
 
 
-def _normalize_credit_amount(value: Any) -> Decimal:
-    normalized = str(value or "").strip()
-    if not normalized:
-        raise_param_error("amount")
-    try:
-        parsed = _quantize_credit_amount(Decimal(normalized))
-    except (InvalidOperation, TypeError, ValueError, ArithmeticError):
-        raise_param_error("amount")
-    if not parsed.is_finite() or parsed <= Decimal("0"):
-        raise_param_error("amount")
-    return parsed
-
-
-def _resolve_operator_credit_grant_expiry(
-    *,
-    creator_bid: str,
-    validity_preset: str,
-    granted_at: datetime,
-) -> datetime | None:
-    normalized_preset = str(validity_preset or "").strip()
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION:
-        subscription = load_primary_active_subscription(
-            creator_bid,
-            as_of=granted_at,
-        )
-        if (
-            subscription is None
-            or subscription.current_period_end_at is None
-            or subscription.current_period_end_at <= granted_at
-        ):
-            raise_error("server.billing.subscriptionInactive")
-        return subscription.current_period_end_at
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1D:
-        return granted_at + timedelta(days=1)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_7D:
-        return granted_at + timedelta(days=7)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1M:
-        return _add_months(granted_at, 1)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_3M:
-        return _add_months(granted_at, 3)
-    if normalized_preset == OPERATOR_USER_CREDIT_VALIDITY_1Y:
-        return _add_years(granted_at, 1)
-    raise_param_error("validity_preset")
-
-
 def _load_active_subscription_end_map(
     creator_bids: Sequence[str],
     *,
@@ -538,6 +496,30 @@ def _load_active_subscription_end_map(
             continue
         subscription_end_map[creator_bid] = subscription.current_period_end_at
     return subscription_end_map
+
+
+def _load_active_subscription_product_display_name_i18n_key(
+    creator_bid: str,
+    *,
+    as_of: datetime,
+) -> str:
+    subscription = load_primary_active_subscription(creator_bid, as_of=as_of)
+    if subscription is None:
+        return ""
+
+    normalized_product_bid = str(subscription.product_bid or "").strip()
+    if not normalized_product_bid:
+        return ""
+
+    product = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid == normalized_product_bid,
+        )
+        .order_by(BillingProduct.id.desc())
+        .first()
+    )
+    return str(getattr(product, "display_name_i18n_key", "") or "").strip()
 
 
 def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
@@ -682,6 +664,8 @@ def _resolve_operator_credit_note_code(
         return "subscription_purchase"
     if checkout_type == "topup":
         return "topup_purchase"
+    if checkout_type == "admin_manual_plan_grant":
+        return "admin_manual_plan_grant"
     if checkout_type == "manual_grant":
         return "manual_grant"
     grant_type = str(metadata.get("grant_type") or "").strip().lower()
@@ -1686,6 +1670,14 @@ def _load_operator_user_or_raise(user_bid: str) -> UserEntity:
     if user is None:
         raise_error("server.user.userNotFound")
     return user
+
+
+def _assert_operator_user_grant_target_supported(user: UserEntity) -> None:
+    if bool(getattr(user, "is_creator", False)) or bool(
+        getattr(user, "is_operator", False)
+    ):
+        return
+    raise_error("server.billing.adminPlanGrantRoleUnsupported")
 
 
 def _load_latest_shifus(
@@ -5120,6 +5112,7 @@ def grant_operator_user_credits(
             raise_param_error("operator_user_bid")
 
         user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
         normalized_grant_source = str(payload.grant_source or "").strip().lower()
         if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
@@ -5128,38 +5121,22 @@ def grant_operator_user_credits(
         if normalized_validity_preset not in OPERATOR_USER_CREDIT_VALIDITY_PRESETS:
             raise_param_error("validity_preset")
 
-        granted_amount = _normalize_credit_amount(payload.amount)
         normalized_request_id = str(payload.request_id or "").strip()
         if not normalized_request_id:
             raise_param_error("request_id")
+        normalized_display_name = str(payload.display_name or "").strip()
         normalized_note = str(payload.note or "").strip()
-        granted_at = datetime.now()
-        expires_at = _resolve_operator_credit_grant_expiry(
-            creator_bid=normalized_user_bid,
-            validity_preset=normalized_validity_preset,
-            granted_at=granted_at,
-        )
-        grant_bid = generate_id(app)
-        grant_result = grant_manual_credit_wallet_balance(
+        grant_result = grant_manual_credits_to_user(
             app,
-            creator_bid=normalized_user_bid,
-            amount=granted_amount,
-            source_bid=grant_bid,
-            effective_from=granted_at,
-            effective_to=expires_at,
-            idempotency_key=f"operator_manual_grant:{normalized_request_id}",
-            metadata={
-                "checkout_type": "manual_grant",
-                "grant_type": "manual_grant",
-                "grant_source": normalized_grant_source,
-                "validity_preset": normalized_validity_preset,
-                "operator_user_bid": normalized_operator_user_bid,
-                "grant_channel": "operator_user_management",
-                "note": normalized_note,
-            },
+            user_bid=normalized_user_bid,
+            operator_user_bid=normalized_operator_user_bid,
+            request_id=normalized_request_id,
+            amount=payload.amount,
+            grant_source=normalized_grant_source,
+            validity_preset=normalized_validity_preset,
+            display_name=normalized_display_name,
+            note=normalized_note,
         )
-        if grant_result.status not in {"granted", "noop_existing"}:
-            raise_error("server.common.systemError")
 
         persisted_metadata = _normalize_metadata_json(grant_result.metadata_json)
         resolved_grant_source = str(
@@ -5179,13 +5156,90 @@ def grant_operator_user_credits(
             credit_summary_map=credit_summary_map,
         )
         return AdminOperationUserCreditGrantResultDTO(
+            status=str(grant_result.status or "granted"),
             user_bid=normalized_user_bid,
             amount=resolved_amount,
             grant_source=resolved_grant_source,
             validity_preset=resolved_validity_preset,
             expires_at=_format_operator_datetime(grant_result.expires_at),
+            display_name=str(persisted_metadata.get("display_name") or "").strip(),
+            note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
+            summary=summary,
+        )
+
+
+def get_operator_user_grant_bootstrap(
+    app: Flask,
+    *,
+    user_bid: str,
+) -> AdminOperationUserGrantBootstrapDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+        catalog = build_billing_catalog(app)
+        current_subscription_product_display_name_i18n_key = (
+            _load_active_subscription_product_display_name_i18n_key(
+                normalized_user_bid,
+                as_of=datetime.now(),
+            )
+        )
+        return AdminOperationUserGrantBootstrapDTO(
+            plans=catalog.plans,
+            current_subscription_product_display_name_i18n_key=(
+                current_subscription_product_display_name_i18n_key
+            ),
+            notification_status="template_pending",
+        )
+
+
+def grant_operator_user_package(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    payload: AdminOperationUserPackageGrantRequestDTO,
+) -> AdminOperationUserPackageGrantResultDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+
+        grant_result = grant_manual_plan_to_user(
+            app,
+            user_bid=normalized_user_bid,
+            product_bid=str(payload.product_bid or "").strip(),
+            operator_user_bid=normalized_operator_user_bid,
+            request_id=str(payload.request_id or "").strip(),
+            note=str(payload.note or "").strip(),
+            grant_channel="operator_user_management",
+        )
+
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+        return AdminOperationUserPackageGrantResultDTO(
+            user_bid=normalized_user_bid,
+            product_bid=grant_result.product_bid,
+            subscription_bid=grant_result.subscription_bid,
+            bill_order_bid=grant_result.bill_order_bid,
+            current_period_start_at=_format_operator_datetime(
+                grant_result.current_period_start_at
+            ),
+            current_period_end_at=_format_operator_datetime(
+                grant_result.current_period_end_at
+            ),
+            notification_status=grant_result.notification_status,
             summary=summary,
         )
 
