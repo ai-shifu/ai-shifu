@@ -1,5 +1,6 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import { syncCustomButtonAfterContent } from './chatUiUtils';
+import { normalizeReadModeDisplayItem } from './readModeItems';
 
 type ProjectAskMessage = Partial<ChatContentItem> & {
   element_bid?: string;
@@ -58,13 +59,48 @@ const shouldProjectCanonicalItem = (item: ChatContentItem) => {
   return Boolean(item.content?.trim());
 };
 
+const getHiddenContentElementBids = (items: ChatContentItem[]) => {
+  const hiddenElementBids = new Set<string>();
+
+  items.forEach(item => {
+    if (
+      item.type === ChatContentItemType.CONTENT &&
+      item.element_bid &&
+      !shouldProjectCanonicalItem(item)
+    ) {
+      hiddenElementBids.add(item.element_bid);
+    }
+  });
+
+  return hiddenElementBids;
+};
+
+const shouldProjectModeItem = (
+  item: ChatContentItem,
+  hiddenContentElementBids: Set<string>,
+) => {
+  if (
+    (item.type === ChatContentItemType.ASK ||
+      item.type === ChatContentItemType.LIKE_STATUS) &&
+    item.parent_element_bid &&
+    hiddenContentElementBids.has(item.parent_element_bid)
+  ) {
+    return false;
+  }
+
+  return shouldProjectCanonicalItem(item);
+};
+
 export const projectReadModeItems = ({
   items,
   askListByAnchorElementBid,
   mobileStyle,
   askButtonMarkup,
 }: ProjectReadModeItemsParams) => {
-  const projectableItems = items.filter(shouldProjectCanonicalItem);
+  const hiddenContentElementBids = getHiddenContentElementBids(items);
+  const projectableItems = items
+    .filter(item => shouldProjectModeItem(item, hiddenContentElementBids))
+    .map(normalizeReadModeDisplayItem);
   const existingAskAnchorSet = new Set<string>();
   const likeStatusAnchorSet = new Set<string>();
   const finalizedParentElementBids = new Set<string>();
@@ -171,7 +207,10 @@ export const projectListenModeItems = ({
   items,
   askButtonMarkup,
 }: ProjectListenModeItemsParams) => {
-  const projectableItems = items.filter(shouldProjectCanonicalItem);
+  const hiddenContentElementBids = getHiddenContentElementBids(items);
+  const projectableItems = items.filter(item =>
+    shouldProjectModeItem(item, hiddenContentElementBids),
+  );
   let hasChanges = projectableItems.length !== items.length;
   const nextItems = projectableItems.map(item => {
     if (item.type !== ChatContentItemType.CONTENT) {

@@ -253,3 +253,110 @@ class TestListenElementHistorySubtitles:
             "audio-history-multi-1",
             "audio-history-multi-2",
         ]
+
+    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(self):
+        from flaskr.dao import db
+        from flaskr.service.learn.listen_element_history import (
+            get_final_elements_for_generated_block,
+        )
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        generated_block_bid = "generated-history-sparse-position"
+
+        def add_element(
+            *,
+            element_bid: str,
+            element_index: int,
+            content_text: str,
+        ):
+            db.session.add(
+                self.LearnGeneratedElement(
+                    element_bid=element_bid,
+                    progress_record_bid="progress-history-sparse-position",
+                    user_bid="user-history-sparse-position",
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-history-sparse-position",
+                    shifu_bid="shifu-history-sparse-position",
+                    run_session_bid="run-history-sparse-position",
+                    run_event_seq=element_index + 1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=element_index,
+                    element_type="text",
+                    element_type_code=213,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=element_index + 1,
+                    is_speakable=1,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text=content_text,
+                    payload='{"previous_visuals": []}',
+                    deleted=0,
+                    status=1,
+                )
+            )
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.commit()
+
+            add_element(
+                element_bid="element-history-sparse-text-0",
+                element_index=0,
+                content_text="Skipped first line.",
+            )
+            add_element(
+                element_bid="element-history-sparse-text-1",
+                element_index=1,
+                content_text="Second spoken line.",
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-history-sparse-1",
+                    generated_block_bid=generated_block_bid,
+                    position=1,
+                    progress_record_bid="progress-history-sparse-position",
+                    user_bid="user-history-sparse-position",
+                    shifu_bid="shifu-history-sparse-position",
+                    oss_url="https://example.com/history-sparse-1.mp3",
+                    duration_ms=1001,
+                    subtitle_cues=[
+                        {
+                            "text": "Second spoken line.",
+                            "start_ms": 0,
+                            "end_ms": 1001,
+                            "segment_index": 0,
+                            "position": 1,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                )
+            )
+            db.session.commit()
+
+            elements = get_final_elements_for_generated_block(
+                generated_block_bid=generated_block_bid,
+                user_bid="user-history-sparse-position",
+                shifu_bid="shifu-history-sparse-position",
+            )
+
+        audio_by_element_bid = {
+            element.element_bid: element.payload.audio
+            for element in elements
+            if element.payload is not None
+        }
+
+        assert audio_by_element_bid["element-history-sparse-text-0"] is None
+        assert audio_by_element_bid["element-history-sparse-text-1"] is not None
+        assert audio_by_element_bid["element-history-sparse-text-1"].position == 1
+        assert (
+            audio_by_element_bid["element-history-sparse-text-1"].audio_bid
+            == "audio-history-sparse-1"
+        )

@@ -16,6 +16,29 @@ import {
 
 const MARKDOWN_VIDEO_IFRAME_PATTERN =
   /<iframe\b[^>]*\bdata-tag\s*=\s*(["'])video\1[^>]*>[\s\S]*?<\/iframe>/i;
+const MIN_LISTEN_MODE_TTS_TEXT_LENGTH = 2;
+const CUSTOM_BUTTON_RE =
+  /<custom-button-after-content\b[\s\S]*?<\/custom-button-after-content>/gi;
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
+const HTML_TAG_RE = /<\/?\s*[a-zA-Z][a-zA-Z0-9:_-]*\b[^>]*>/g;
+const HTML_SPACE_ENTITY_RE = /&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj);/gi;
+const SPEAKABLE_TEXT_RE = /[\p{L}\p{N}]/u;
+
+const normalizeListenModeSpeakableText = (content?: string) =>
+  String(content ?? '')
+    .replace(CUSTOM_BUTTON_RE, ' ')
+    .replace(HTML_COMMENT_RE, ' ')
+    .replace(HTML_TAG_RE, ' ')
+    .replace(HTML_SPACE_ENTITY_RE, ' ')
+    .trim();
+
+const hasListenModeSpeakableText = (content?: string) => {
+  const text = normalizeListenModeSpeakableText(content);
+  return (
+    text.length >= MIN_LISTEN_MODE_TTS_TEXT_LENGTH &&
+    SPEAKABLE_TEXT_RE.test(text)
+  );
+};
 
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
@@ -267,7 +290,7 @@ export const canRequestListenModeTtsForItem = (
   }
 
   return Boolean(
-    item.is_speakable ||
+    (item.is_speakable === true && hasListenModeSpeakableText(item.content)) ||
     item.audio_url ||
     item.audioUrl ||
     item.isAudioStreaming ||
@@ -297,7 +320,9 @@ export const isListenModeAudioBackfillCandidate = (
     return false;
   }
 
-  return item.is_speakable !== false;
+  return (
+    item.is_speakable !== false && hasListenModeSpeakableText(item.content)
+  );
 };
 
 export const isListenModeAudioBackfillReady = (item?: ChatContentItem | null) =>

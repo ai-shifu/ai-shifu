@@ -58,7 +58,6 @@ _VISIBLE_HTML_TAG_RE = re.compile(
 _HTML_SPACE_ENTITY_RE = re.compile(
     r"&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj);", re.IGNORECASE
 )
-_SPEAKABLE_TEXT_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 
 
 def _normalize_bool(raw: Any) -> bool:
@@ -113,7 +112,8 @@ def _strip_non_speech_markup(content_text: str = "") -> str:
 
 
 def _text_has_speakable_content(content_text: str = "") -> bool:
-    return bool(_SPEAKABLE_TEXT_RE.search(_strip_non_speech_markup(content_text)))
+    text = _strip_non_speech_markup(content_text).strip()
+    return any(char.isalnum() for char in text)
 
 
 def _is_markup_only_text_fragment(content_text: str = "") -> bool:

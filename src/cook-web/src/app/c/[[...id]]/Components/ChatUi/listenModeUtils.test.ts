@@ -23,7 +23,7 @@ const createContentItem = (
 ): ChatContentItem => ({
   element_bid: 'content-1',
   type: 'content',
-  content: '',
+  content: 'Speakable content',
   ...overrides,
 });
 
@@ -55,6 +55,17 @@ describe('listenModeUtils', () => {
           is_speakable: false,
           audioTracks: [],
           audio_segments: [],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not mark very short speakable content as requestable without audio', () => {
+    expect(
+      canRequestListenModeTtsForItem(
+        createContentItem({
+          content: 'A',
+          is_speakable: true,
         }),
       ),
     ).toBe(false);
@@ -251,6 +262,17 @@ describe('listenModeUtils', () => {
           is_speakable: false,
           audioTracks: [],
           audio_segments: [],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not make very short content a listen-mode backfill candidate', () => {
+    expect(
+      isListenModeAudioBackfillCandidate(
+        createContentItem({
+          content: 'A',
+          is_speakable: true,
         }),
       ),
     ).toBe(false);

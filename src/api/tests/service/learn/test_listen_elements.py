@@ -1,6 +1,7 @@
 import json
 import time
 import types
+from collections import OrderedDict
 
 import pytest
 
@@ -8,6 +9,64 @@ import pytest
 def _require_app(app):
     if app is None:
         pytest.skip("App fixture disabled")
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("A", True),
+        ("你好", True),
+        ("こんにちは", True),
+        ("カタカナ", True),
+        ("안녕하세요", True),
+        ("Привет", True),
+        ("مرحبا", True),
+        ("Été", True),
+        ("<!-- marker -->", False),
+    ],
+)
+def test_listen_text_speakable_detection_uses_unicode_text(
+    content,
+    expected,
+):
+    from flaskr.service.learn.learn_dtos import ElementType
+    from flaskr.service.learn.listen_element_types import _default_is_speakable
+
+    assert _default_is_speakable(ElementType.TEXT, content) is expected
+
+
+def test_structural_history_fragments_do_not_append_across_generated_blocks():
+    from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
+    from flaskr.service.learn.listen_element_history import (
+        _try_append_structural_fragment_to_previous_html,
+    )
+
+    previous_html = ElementDTO(
+        element_bid="html-1",
+        generated_block_bid="generated-1",
+        element_index=0,
+        role="teacher",
+        element_type=ElementType.HTML,
+        element_type_code=201,
+        content="<div>First block",
+    )
+    cross_block_fragment = ElementDTO(
+        element_bid="text-1",
+        generated_block_bid="generated-2",
+        element_index=1,
+        role="teacher",
+        element_type=ElementType.TEXT,
+        element_type_code=213,
+        content="\n</div>\n",
+    )
+
+    did_append = _try_append_structural_fragment_to_previous_html(
+        OrderedDict([(previous_html.element_bid, previous_html)]),
+        cross_block_fragment,
+    )
+
+    assert did_append is False
+    assert previous_html.content == "<div>First block"
 
 
 def test_get_listen_element_record_filters_markup_only_fragments(app):
@@ -3144,6 +3203,96 @@ def test_listen_adapter_folds_markup_only_fragments_into_html_stream(app):
         assert result.elements[1].content.endswith(
             "\n</div>\n<style>*{box-sizing:border-box}</style>"
         )
+
+
+def test_listen_adapter_preserves_structural_fragment_without_html_target(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-structural-fallback"
+    shifu_bid = "shifu-listen-structural-fallback"
+    outline_bid = "outline-listen-structural-fallback"
+    progress_bid = "progress-listen-structural-fallback"
+    generated_block_bid = "generated-listen-structural-fallback"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                LearnProgressRecord(
+                    progress_record_bid=progress_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    user_bid=user_bid,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                ),
+                LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    block_bid="block-listen-structural-fallback",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    type=0,
+                    role=ROLE_TEACHER,
+                    generated_content="",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<style>*{box-sizing:border-box}</style>",
+            ).set_mdflow_stream_parts(
+                [("<style>*{box-sizing:border-box}</style>", "html", 0)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+
+        assert len(element_events) >= 1
+        assert element_events[0].element_type == ElementType.HTML
+        assert "<style>*{box-sizing:border-box}</style>" in element_events[0].content
 
 
 def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):

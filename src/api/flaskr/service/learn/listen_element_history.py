@@ -89,6 +89,10 @@ def _try_append_structural_fragment_to_previous_html(
     previous_element = next(reversed(latest_by_bid.values()))
     if previous_element.element_type != ElementType.HTML:
         return False
+    if (previous_element.generated_block_bid or "") != (
+        element.generated_block_bid or ""
+    ):
+        return False
 
     _append_content_to_html_element(previous_element, content)
     return True
@@ -288,8 +292,6 @@ def _build_implicit_audio_position_by_element(
         block_bid = str(element.generated_block_bid or "")
         if not block_bid or not element.is_speakable:
             continue
-        if len(available_positions_by_block.get(block_bid, [])) <= 1:
-            continue
         speakable_elements_by_block.setdefault(block_bid, []).append(element)
 
     position_by_element_id: dict[int, int] = {}
@@ -310,14 +312,13 @@ def _build_implicit_audio_position_by_element(
             position_by_element_id[id(element)] = explicit_position
             used_positions.add(explicit_position)
 
+        fallback_elements: list[ElementDTO] = []
         for index, element in enumerate(speakable_elements):
             element_identity = id(element)
             if element_identity in position_by_element_id:
                 continue
 
-            preferred_position = (
-                available_positions[index] if index < len(available_positions) else None
-            )
+            preferred_position = index if index in available_positions else None
             if (
                 preferred_position is not None
                 and preferred_position not in used_positions
@@ -325,7 +326,12 @@ def _build_implicit_audio_position_by_element(
                 position_by_element_id[element_identity] = preferred_position
                 used_positions.add(preferred_position)
                 continue
+            fallback_elements.append(element)
 
+        for element in fallback_elements:
+            element_identity = id(element)
+            if element_identity in position_by_element_id:
+                continue
             fallback_position = next(
                 (
                     position
@@ -386,10 +392,10 @@ def _enrich_elements_with_persisted_audio(
             resolved_position = explicit_position
         else:
             available_positions = available_positions_by_block.get(block_bid, [])
-            if len(available_positions) == 1:
-                resolved_position = int(available_positions[0])
-            elif element.is_speakable:
+            if element.is_speakable:
                 resolved_position = implicit_position_by_element_id.get(id(element))
+            elif len(available_positions) == 1:
+                resolved_position = int(available_positions[0])
             elif element.audio_url and 0 in available_positions:
                 resolved_position = 0
 

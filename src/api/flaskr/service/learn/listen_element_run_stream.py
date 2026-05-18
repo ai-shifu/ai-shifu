@@ -222,6 +222,32 @@ class ListenElementRunStreamMixin:
 
         return None
 
+    def _resolve_or_create_html_stream_for_structural_fragment(
+        self,
+        state: BlockState,
+        *,
+        stream_number: int,
+    ) -> tuple[str, StreamElementState]:
+        html_target = self._resolve_html_stream_for_structural_fragment(
+            state,
+            stream_number=stream_number,
+        )
+        if html_target is not None:
+            return html_target
+
+        self._max_element_index += 1
+        stream_state = StreamElementState(
+            number=stream_number,
+            element_bid=_new_element_bid(self.app),
+            element_index=max(self._max_element_index, 0),
+            element_type=ElementType.HTML,
+            stream_type=ElementType.HTML.value,
+        )
+        stream_key = f"{stream_number}:{len(state.stream_elements)}"
+        state.stream_elements[stream_key] = stream_state
+        state.active_stream_element_key_by_number[stream_number] = stream_key
+        return stream_key, stream_state
+
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
         if not state.fallback_element_bid:
             state.fallback_element_bid = _new_element_bid(self.app)
@@ -488,13 +514,12 @@ class ListenElementRunStreamMixin:
             if normalized_stream_type == ElementType.TEXT.value and (
                 _is_markup_only_text_fragment(chunk_content)
             ):
-                html_target = self._resolve_html_stream_for_structural_fragment(
-                    state,
-                    stream_number=stream_number,
+                active_key, stream_state = (
+                    self._resolve_or_create_html_stream_for_structural_fragment(
+                        state,
+                        stream_number=stream_number,
+                    )
                 )
-                if html_target is None:
-                    continue
-                active_key, stream_state = html_target
                 stream_state.content_text += chunk_content
                 state.last_stream_element_key = active_key
                 pending_audio, pending_audio_segments = (
@@ -516,13 +541,12 @@ class ListenElementRunStreamMixin:
             if normalized_stream_type == ElementType.HTML.value and (
                 _is_style_or_comment_only_html_fragment(chunk_content)
             ):
-                html_target = self._resolve_html_stream_for_structural_fragment(
-                    state,
-                    stream_number=stream_number,
+                active_key, stream_state = (
+                    self._resolve_or_create_html_stream_for_structural_fragment(
+                        state,
+                        stream_number=stream_number,
+                    )
                 )
-                if html_target is None:
-                    continue
-                active_key, stream_state = html_target
                 stream_state.content_text += chunk_content
                 state.last_stream_element_key = active_key
                 pending_audio, pending_audio_segments = (

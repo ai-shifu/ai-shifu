@@ -1,7 +1,7 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import type { AskMessage } from './askState';
 
-const normalizeReadModeDisplayItem = (item: ChatContentItem) => {
+export const normalizeReadModeDisplayItem = (item: ChatContentItem) => {
   if (item.shouldRenderAsHistoryInReadMode !== true) {
     return item;
   }

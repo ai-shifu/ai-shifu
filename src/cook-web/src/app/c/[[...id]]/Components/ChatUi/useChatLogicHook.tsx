@@ -3450,7 +3450,11 @@ function useChatLogicHook({
           }
           setTrackedContentList(prev =>
             prev.map(item => {
-              if (!matchItemBid(item, targetElementBid)) {
+              const isSourceBlockItem =
+                Boolean(sourceBlockBid) &&
+                item.type === ChatContentItemType.CONTENT &&
+                item.generated_block_bid === sourceBlockBid;
+              if (!matchItemBid(item, targetElementBid) && !isSourceBlockItem) {
                 return item;
               }
               return {

@@ -126,4 +126,76 @@ describe('NewChatComp mode projections', () => {
     expect(readItems.map(item => item.element_bid)).toEqual(['visual-1']);
     expect(listenItems.map(item => item.element_bid)).toEqual(['visual-1']);
   });
+
+  it('filters helper rows attached to empty retired fallback elements', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'retired-streaming-1',
+        generated_block_bid: 'generated-1',
+        content: '',
+        is_renderable: false,
+        type: ChatContentItemType.CONTENT,
+      },
+      {
+        element_bid: '',
+        parent_element_bid: 'retired-streaming-1',
+        content: '',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+      {
+        element_bid: 'ask-1',
+        parent_element_bid: 'retired-streaming-1',
+        content: '',
+        type: ChatContentItemType.ASK,
+      },
+      {
+        element_bid: 'visual-1',
+        generated_block_bid: 'generated-1',
+        content: '![figure](figure.png)',
+        is_renderable: true,
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    const readItems = projectReadModeItems({
+      items: canonicalItems,
+      askListByAnchorElementBid: {},
+      mobileStyle: false,
+      askButtonMarkup,
+    });
+    const listenItems = projectListenModeItems({
+      items: canonicalItems,
+      askButtonMarkup,
+    });
+
+    expect(readItems.map(item => item.element_bid)).toEqual(['visual-1']);
+    expect(listenItems.map(item => item.element_bid)).toEqual(['visual-1']);
+  });
+
+  it('normalizes finalized listen content as read history before projecting buttons', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'content-1',
+        generated_block_bid: 'generated-1',
+        content: 'Finished text',
+        shouldRenderAsHistoryInReadMode: true,
+        shouldUseTypewriter: true,
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    const readItems = projectReadModeItems({
+      items: canonicalItems,
+      askListByAnchorElementBid: {},
+      mobileStyle: false,
+      askButtonMarkup,
+    });
+
+    expect(readItems[0]).toEqual(
+      expect.objectContaining({
+        isHistory: true,
+        shouldUseTypewriter: false,
+      }),
+    );
+  });
 });
