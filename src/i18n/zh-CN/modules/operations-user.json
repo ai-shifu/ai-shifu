@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "增加积分",
+    "grantCredits": "发放积分/套餐",
     "moreForUser": "{user} 的更多操作"
   },
   "courseSummary": {
@@ -35,6 +35,7 @@
       "sourceType": "来源"
     },
     "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "运营发放套餐",
       "debug_consume": "调试内容消耗积分",
       "gift_expire": "赠送积分到期失效",
       "gift_grant": "系统发放赠送积分",
@@ -122,26 +123,48 @@
     "status": "用户状态"
   },
   "grantDialog": {
-    "confirmButton": "确认增加",
+    "bootstrapError": "套餐列表加载失败，请稍后重试。",
+    "confirmButton": "确认发放",
     "confirmDescription": "请确认本次积分发放信息，确认后将立即生效。",
     "confirmSummary": {
-      "amount": "增加积分",
+      "amount": "发放积分",
+      "mode": "发放类型",
+      "note": "备注",
+      "package": "套餐",
+      "packageCredits": "积分数",
+      "packageExpireAt": "预计截止日期",
+      "packageValidity": "有效期",
+      "source": "来源",
+      "validityPreset": "有效期"
+    },
+    "confirmTitle": "确认发放积分",
+    "description": "用于运营后台给创作者或运营发放积分或套餐。",
+    "fields": {
+      "amount": "积分",
+      "mode": "发放类型",
       "note": "备注",
       "source": "来源",
       "validityPreset": "有效期"
     },
-    "confirmTitle": "确认增加积分",
-    "description": "用于运营后台给用户增加奖励或补偿积分。",
-    "fields": {
-      "amount": "积分",
-      "note": "备注",
-      "source": "来源",
-      "type": "类型",
-      "validityPreset": "有效期"
+    "modeOptions": {
+      "credits": "发放积分",
+      "package": "发放套餐"
+    },
+    "packageConfirmDescription": "请确认本次套餐发放信息，确认后将立即生效。",
+    "packageConfirmTitle": "确认发放套餐",
+    "packageFields": {
+      "credits": "积分数",
+      "expiryHintPending": "发放成功后立即生效，截止日期将根据套餐有效期自动计算。",
+      "expiryHintResolved": "发放成功后立即生效，预计截止日期为 {dateTime}。",
+      "packageName": "套餐名",
+      "product": "套餐",
+      "validity": "有效期"
     },
     "placeholders": {
       "amount": "请输入积分数值",
-      "note": "可选，记录本次发放理由",
+      "note": "可选，记录本次发放说明",
+      "product": "请选择套餐",
+      "productLoading": "套餐加载中...",
       "source": "请选择来源",
       "validityPreset": "请选择有效期"
     },
@@ -150,17 +173,19 @@
       "reward": "奖励"
     },
     "submitButton": "确认",
-    "submitSuccess": "积分增加成功",
+    "submitSuccess": "发放成功",
     "summary": {
       "account": "账号",
       "availableCredits": "积分余额",
       "currentExpireAt": "有效期到",
-      "nickname": "昵称"
+      "currentPackage": "当前套餐",
+      "nickname": "昵称",
+      "package": "套餐"
     },
-    "title": "增加积分",
-    "typeValue": "人工发放",
+    "title": "发放积分/套餐",
     "validation": {
       "amountRequired": "请输入大于 0 的积分数值",
+      "productRequired": "请选择套餐",
       "sourceRequired": "请选择来源",
       "validityPresetRequired": "请选择有效期"
     },

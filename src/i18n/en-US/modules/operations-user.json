@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "Add Credits",
+    "grantCredits": "Grant Credits/Package",
     "moreForUser": "More actions for {user}"
   },
   "courseSummary": {
@@ -35,6 +35,7 @@
       "sourceType": "Source"
     },
     "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "Operations package grant",
       "debug_consume": "Credits consumed by debug usage",
       "gift_expire": "Gift credits expired",
       "gift_grant": "Gift credits granted",
@@ -122,26 +123,48 @@
     "status": "Status"
   },
   "grantDialog": {
-    "confirmButton": "Confirm Addition",
-    "confirmDescription": "Please confirm the credit addition details. Once confirmed, it takes effect immediately.",
+    "bootstrapError": "Failed to load packages. Please try again later.",
+    "confirmButton": "Confirm Grant",
+    "confirmDescription": "Please confirm the credit grant details. Once confirmed, it takes effect immediately.",
     "confirmSummary": {
-      "amount": "Credits Added",
+      "amount": "Granted Credits",
+      "mode": "Grant Type",
+      "note": "Note",
+      "package": "Package",
+      "packageCredits": "Credits",
+      "packageExpireAt": "Estimated Valid Until",
+      "packageValidity": "Validity",
+      "source": "Source",
+      "validityPreset": "Validity"
+    },
+    "confirmTitle": "Confirm Credit Grant",
+    "description": "Use this dialog to grant credits or a package to creator or operator users from Operations.",
+    "fields": {
+      "amount": "Credits",
+      "mode": "Grant Type",
       "note": "Note",
       "source": "Source",
       "validityPreset": "Validity"
     },
-    "confirmTitle": "Confirm Credit Addition",
-    "description": "Use this dialog to add reward or compensation credits from Operations.",
-    "fields": {
-      "amount": "Credits",
-      "note": "Note",
-      "source": "Source",
-      "type": "Type",
-      "validityPreset": "Validity"
+    "modeOptions": {
+      "credits": "Grant Credits",
+      "package": "Grant Package"
+    },
+    "packageConfirmDescription": "Please confirm the package grant details. Once confirmed, it takes effect immediately.",
+    "packageConfirmTitle": "Confirm Package Grant",
+    "packageFields": {
+      "credits": "Credits",
+      "expiryHintPending": "The package takes effect immediately after the grant succeeds, and the valid-until time will be calculated automatically from the package validity.",
+      "expiryHintResolved": "The package takes effect immediately after the grant succeeds. Estimated valid until: {dateTime}.",
+      "packageName": "Package Name",
+      "product": "Package",
+      "validity": "Validity"
     },
     "placeholders": {
       "amount": "Enter credit amount",
-      "note": "Optional. Record the reason for this addition",
+      "note": "Optional. Record the reason for this grant",
+      "product": "Select a package",
+      "productLoading": "Loading packages...",
       "source": "Select source",
       "validityPreset": "Select validity"
     },
@@ -150,17 +173,19 @@
       "reward": "Reward"
     },
     "submitButton": "Confirm",
-    "submitSuccess": "Credits added successfully",
+    "submitSuccess": "Grant succeeded",
     "summary": {
       "account": "Account",
       "availableCredits": "Credit Balance",
       "currentExpireAt": "Valid Until",
-      "nickname": "Nickname"
+      "currentPackage": "Current Package",
+      "nickname": "Nickname",
+      "package": "Package"
     },
-    "title": "Add Credits",
-    "typeValue": "Manual Grant",
+    "title": "Grant Credits/Package",
     "validation": {
       "amountRequired": "Enter a credit amount greater than 0",
+      "productRequired": "Select a package",
       "sourceRequired": "Select a source",
       "validityPresetRequired": "Select a validity preset"
     },

@@ -24,6 +24,8 @@ export interface ChatContentItem {
   user_input?: string;
   readonly?: boolean;
   isHistory?: boolean;
+  shouldRenderAsHistoryInReadMode?: boolean;
+  shouldUseTypewriter?: boolean;
   element_bid: string;
   target_element_bid?: string;
   element_index?: number;

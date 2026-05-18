@@ -137,6 +137,7 @@ export interface StudyRecordItem {
   user_input?: string;
   payload?: StudyRecordPayload;
   isHistory?: boolean;
+  is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
 }

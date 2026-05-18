@@ -77,6 +77,17 @@ _GENERATED_CONTENT_LIMIT_MAX = 100
 # DSL query, and may resolve at most this many per call.
 _USER_USERS_LIMIT_MAX = 50
 
+# Querying the shifu metadata tables (shifu_published_shifus /
+# shifu_draft_shifus) is restricted to "look up the current title for the
+# shifu I own / list courses I created that match a substring". Aggregates
+# and group_by are blocked (would let a caller probe permission edges via
+# count_distinct(shifu_bid) etc.), the limit is hard-capped, and a
+# `title like` value must include at least _LIKE_MIN_NON_WILDCARD_CHARS
+# non-wildcard characters so a caller cannot scan with `like "a%"`.
+_SHIFU_META_LIMIT_MAX = 50
+_SHIFU_META_TABLES = frozenset({"shifu_published_shifus", "shifu_draft_shifus"})
+_LIKE_MIN_NON_WILDCARD_CHARS = 2
+
 
 def _raise(error_name: str, detail: Optional[str] = None) -> None:
     """Raise an :class:`AppException` with a stable error name.
@@ -127,6 +138,10 @@ class QueryDSL:
     offset: int
 
     output_columns: Tuple[str, ...] = field(default_factory=tuple)
+    # Caller's authenticated user_id, threaded from funcs.run_dsl. Consumed
+    # by sql_builder when the target TableSpec declares a
+    # `creator_scoped_column` (currently the shifu metadata tables).
+    caller_user_id: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -134,11 +149,18 @@ class QueryDSL:
 # ---------------------------------------------------------------------------
 
 
-def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
+def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
     """Validate ``payload`` and return a :class:`QueryDSL`.
 
     ``limit_max`` is the upper bound for the DSL ``limit`` field (typically
     ``ANALYTICS_QUERY_LIMIT_MAX``).
+
+    ``user_id`` is the caller's authenticated user_id. It is threaded into
+    :attr:`QueryDSL.caller_user_id` so :mod:`sql_builder` can inject the
+    ``creator_scoped_column = :__user_id`` predicate for tables that opt
+    into row-ownership enforcement. The default empty string is allowed
+    for legacy call sites that never hit a creator-scoped table (the SQL
+    builder still validates this combination).
     """
 
     if not isinstance(payload, Mapping):
@@ -168,9 +190,12 @@ def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
     filters = _parse_filters(payload.get("where"), spec)
     _enforce_generated_content_type_filter(select, filters)
     _enforce_user_users_requires_user_bid_filter(table_key, filters)
+    _enforce_shifu_meta_table_constraints(table_key, aggregates, group_by, filters)
     order_by = _parse_order_by(payload.get("order_by"), select, aggregates, group_by)
     if table_key == "user_users":
         effective_limit_max = _USER_USERS_LIMIT_MAX
+    elif table_key in _SHIFU_META_TABLES:
+        effective_limit_max = _SHIFU_META_LIMIT_MAX
     elif "generated_content" in select:
         effective_limit_max = _GENERATED_CONTENT_LIMIT_MAX
     else:
@@ -197,6 +222,7 @@ def parse_dsl(payload: Any, limit_max: int) -> QueryDSL:
         limit=limit,
         offset=offset,
         output_columns=output_columns,
+        caller_user_id=user_id,
     )
 
 
@@ -579,6 +605,67 @@ def _enforce_user_users_requires_user_bid_filter(
                 f"(got '{filt.op}'); 'in', 'like', and ranges are not allowed "
                 "(batch enumeration of registered phone/email is not permitted)",
             )
+
+
+def _enforce_shifu_meta_table_constraints(
+    table_key: str,
+    aggregates: Sequence[Aggregate],
+    group_by: Sequence[str],
+    filters: Sequence[Filter],
+) -> None:
+    """Block aggregate / group_by on metadata tables and tighten title like.
+
+    The metadata tables are for "what is this course currently called" / "list
+    courses I own that match this substring" — pure row lookups. Allowing
+    aggregate or group_by would let a caller probe permission edges (e.g.
+    ``count_distinct(shifu_bid)`` returns the size of the caller's owned set,
+    which is a side channel even without revealing the individual bids).
+
+    The ``title`` column is the only free-text filter target. The generic
+    :func:`_validate_filter_value` only blocks leading ``%``; that is too
+    permissive for metadata lookups, where the design contract is strict
+    prefix matching. Here we additionally reject any ``_`` (SQL single-char
+    wildcard) and any ``%`` other than a single trailing one, then require
+    at least :data:`_LIKE_MIN_NON_WILDCARD_CHARS` literal characters so a
+    caller cannot enumerate with ``like "__%"`` / ``like "a%b"`` / etc.
+    """
+
+    if table_key not in _SHIFU_META_TABLES:
+        return
+    if aggregates:
+        _raise(
+            ERR_INVALID_DSL,
+            f"'{table_key}' does not support 'aggregate' "
+            "(metadata tables are row-lookup only)",
+        )
+    if group_by:
+        _raise(
+            ERR_INVALID_DSL,
+            f"'{table_key}' does not support 'group_by' "
+            "(metadata tables are row-lookup only)",
+        )
+    for filt in filters:
+        if filt.field == "title" and filt.op == "like":
+            value = filt.value
+            # Metadata-table title lookup is strict prefix matching:
+            # only an optional trailing '%' wildcard is allowed. Reject any
+            # '_' (SQL single-char wildcard) and any '%' that is not the
+            # final character, so patterns like "__%" / "a%b" cannot bypass
+            # the non-wildcard length floor below.
+            if "_" in value or "%" in value[:-1]:
+                _raise(
+                    ERR_INVALID_DSL,
+                    "'title' 'like' only supports an optional trailing '%' "
+                    "wildcard (no '_' / no internal '%')",
+                )
+            non_wildcard = value[:-1] if value.endswith("%") else value
+            if len(non_wildcard) < _LIKE_MIN_NON_WILDCARD_CHARS:
+                _raise(
+                    ERR_INVALID_DSL,
+                    f"'title' 'like' requires at least "
+                    f"{_LIKE_MIN_NON_WILDCARD_CHARS} non-wildcard characters "
+                    "(anti-enumeration guard)",
+                )
 
 
 def _default_alias(fn: str, field_name: Optional[str]) -> str:

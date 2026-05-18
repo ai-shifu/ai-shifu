@@ -58,6 +58,16 @@ import {
   isListenModeAudioBackfillReady,
   isListenModeAudioBackfillCandidate,
 } from './listenModeUtils';
+import {
+  buildVisibleReadModeItems,
+  isReadModeTextContentItem,
+  isTrailingVisibleReadModeTextItem,
+  normalizeReadModeTypewriterContent,
+  resolveReadModeTypewriterKeepAliveElementBid,
+  shouldEnableReadModeTypewriter,
+  syncReadModeTypewriterCache,
+  type ReadModeTypewriterCache,
+} from './readModeTypewriterGate';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { Button } from '@/components/ui/Button';
 import { shouldHideReadModeContentForLoading } from './readModeRenderState';
@@ -247,6 +257,8 @@ export const NewChatComponents = ({
     })),
   );
   const isListenMode = learningMode === 'listen';
+  const [readModeTypewriterCache, setReadModeTypewriterCache] =
+    useState<ReadModeTypewriterCache>({});
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = getIsListenModeActive({
@@ -357,6 +369,7 @@ export const NewChatComponents = ({
     isLoading,
     isOutputInProgress,
     currentStreamingElementBid,
+    currentTypewriterElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -453,17 +466,82 @@ export const NewChatComponents = ({
       }),
     [askButtonMarkup, items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  // console.log('readModeItems', readModeItems);
+  const visibleReadModeItems = useMemo(
+    () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
+    [readModeItems, readModeTypewriterCache],
+  );
+  const trailingVisibleReadModeTextBid = useMemo(
+    () =>
+      [...visibleReadModeItems]
+        .reverse()
+        .find(item => isReadModeTextContentItem(item))?.element_bid || '',
+    [visibleReadModeItems],
+  );
+  const isTrailingVisibleReadModeItemText = useMemo(
+    () =>
+      isTrailingVisibleReadModeTextItem(
+        visibleReadModeItems,
+        trailingVisibleReadModeTextBid,
+      ),
+    [trailingVisibleReadModeTextBid, visibleReadModeItems],
+  );
+  const readModeTypewriterKeepAliveElementBid = useMemo(
+    () =>
+      resolveReadModeTypewriterKeepAliveElementBid({
+        isOutputInProgress,
+        currentStreamingTextElementBid:
+          trailingVisibleReadModeTextBid === currentStreamingElementBid
+            ? currentStreamingElementBid
+            : '',
+        currentOutputTextElementBid: currentTypewriterElementBid,
+      }),
+    [
+      currentStreamingElementBid,
+      currentTypewriterElementBid,
+      isOutputInProgress,
+      trailingVisibleReadModeTextBid,
+    ],
+  );
+  const handleReadModeTypeFinished = useCallback(
+    (blockBid: string, content: string) => {
+      if (!blockBid) {
+        return;
+      }
+
+      const normalizedContent = normalizeReadModeTypewriterContent(content);
+
+      setReadModeTypewriterCache(prevCache => {
+        const existingEntry = prevCache[blockBid];
+        if (
+          existingEntry?.content === normalizedContent &&
+          existingEntry.isFinished === true
+        ) {
+          return prevCache;
+        }
+
+        return {
+          ...prevCache,
+          [blockBid]: {
+            content: normalizedContent,
+            isFinished: true,
+          },
+        };
+      });
+    },
+    [],
+  );
   const getReadModeElementPadding = useCallback(
     (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
     [],
   );
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
-    !readModeItems.some(item => item.element_bid === 'loading');
-  const isReadModeStreamingDotsFirstElement = readModeItems.length === 0;
+    !visibleReadModeItems.some(item => item.element_bid === 'loading');
+  const isReadModeStreamingDotsFirstElement = visibleReadModeItems.length === 0;
   const shouldHideReadModeContent = shouldHideReadModeContentForLoading({
     isLoading,
-    hasReadModeItems: readModeItems.length > 0,
+    hasReadModeItems: visibleReadModeItems.length > 0,
     shouldShowReadModeStreamingDots,
   });
 
@@ -486,6 +564,12 @@ export const NewChatComponents = ({
     setIsAtBottom(false);
     setShowScrollDown(false);
   }, [isListenModeActive, lessonId]);
+
+  useEffect(() => {
+    setReadModeTypewriterCache(prevCache =>
+      syncReadModeTypewriterCache(readModeItems, prevCache),
+    );
+  }, [readModeItems]);
 
   useEffect(() => {
     if (!isListenModeActive) {
@@ -1095,7 +1179,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {readModeItems.map((item, idx) => {
+                {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
@@ -1273,10 +1357,27 @@ export const NewChatComponents = ({
                       {isLongPressed && mobileStyle && (
                         <div className='long-press-overlay' />
                       )}
+                      {/*
+                        Keep typewriter enabled when the current element content
+                        has already grown beyond the finished cache snapshot.
+                      */}
                       <ContentBlock
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
+                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
+                          item,
+                          readModeTypewriterCache[item.element_bid || ''],
+                          {
+                            keepAliveWhileStreaming:
+                              isOutputInProgress &&
+                              isTrailingVisibleReadModeItemText &&
+                              readModeTypewriterKeepAliveElementBid ===
+                                item.element_bid &&
+                              trailingVisibleReadModeTextBid ===
+                                item.element_bid,
+                          },
+                        )}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
@@ -1289,6 +1390,7 @@ export const NewChatComponents = ({
                         showAudioAction={shouldShowAudioAction}
                         onAudioPlayStateChange={handleAudioPlayStateChange}
                         onAudioEnded={handleAudioEnded}
+                        onTypeFinished={handleReadModeTypeFinished}
                       />
                     </div>
                   );
@@ -1296,7 +1398,9 @@ export const NewChatComponents = ({
                 {shouldShowReadModeStreamingDots ? (
                   <div
                     style={{
-                      margin: readModeItems.length ? '16px auto 0' : '0 auto',
+                      margin: visibleReadModeItems.length
+                        ? '16px auto 0'
+                        : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: getReadModeElementPadding(
                         isReadModeStreamingDotsFirstElement,

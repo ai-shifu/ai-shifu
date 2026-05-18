@@ -1,6 +1,9 @@
 {
   "__namespace__": "server.billing",
   "__flat__": {
+    "adminPlanGrantAlreadyActive": "Le même forfait est déjà actif pour cet utilisateur.",
+    "adminPlanGrantProviderManagedConflict": "Cet utilisateur dispose déjà d’un abonnement actif géré par un prestataire de paiement. L’attribution manuelle d’un forfait n’est pas prise en charge avant l’expiration de l’abonnement actuel.",
+    "adminPlanGrantRoleUnsupported": "Seuls les créateurs et les opérateurs peuvent recevoir des crédits ou des forfaits attribués manuellement.",
     "creditInsufficient": "Crédits insuffisants. Achetez une recharge ou un abonnement avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour ce créateur.",
     "disabled": "La facturation est actuellement désactivée.",

@@ -460,6 +460,58 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     assert captured_kwargs["kwargs"]["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
+def test_gemini_params_use_minimal_reasoning_with_explicit_allowlist():
+    params = llm._reload_gemini_params("gemini-3.1-flash-lite", 0.3)
+
+    assert params == {
+        "temperature": 0.3,
+        "allowed_openai_params": ["reasoning_effort"],
+        "reasoning_effort": "minimal",
+    }
+
+
+def test_gemini_25_pro_params_use_lowest_supported_reasoning():
+    params = llm._reload_gemini_params("gemini-2.5-pro", 0.3)
+
+    assert params["allowed_openai_params"] == ["reasoning_effort"]
+    assert params["reasoning_effort"] == "low"
+
+
+def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, app):
+    class RepeatedChunkError(Exception):
+        __module__ = "litellm.exceptions"
+
+    def fake_completion(*args, **kwargs):
+        yield FakeResponse("chunk-1", content="你好")
+        raise RepeatedChunkError("The model is repeating the same chunk = ！ ！ .")
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://example.com"},
+        models=["gpt-test"],
+        prefix="",
+        wildcard_prefixes=("gpt",),
+    )
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+    responses = list(
+        llm.chat_llm(
+            app=app,
+            user_id="user-1",
+            span=DummySpan(),
+            model="gpt-test",
+            messages=[{"role": "user", "content": "hello"}],
+            generation_name="chat-test",
+        )
+    )
+
+    assert [resp.result for resp in responses] == ["你好"]
+
+
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
 

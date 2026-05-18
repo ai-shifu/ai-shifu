@@ -11,11 +11,11 @@ from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin import (
-    _load_course_activity_map,
     _load_latest_shifus,
     _build_operator_course_overview,
     list_operator_courses,
 )
+from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
@@ -394,7 +394,7 @@ def test_load_course_activity_map_prefers_latest_outline_activity_row(app):
         )
         db.session.commit()
 
-        activity_map = _load_course_activity_map([draft_course], [])
+        activity_map = load_course_activity_map([draft_course], [])
 
     assert activity_map[shifu_bid]["updated_user_bid"] == "editor-2"
     assert activity_map[shifu_bid]["updated_at"] == datetime(2025, 4, 5, 10, 0, 0)
@@ -437,7 +437,7 @@ def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(app
         )
         db.session.commit()
 
-        activity_map = _load_course_activity_map([draft_course], [])
+        activity_map = load_course_activity_map([draft_course], [])
 
     assert activity_map[shifu_bid]["updated_user_bid"] == "outline-editor"
     assert activity_map[shifu_bid]["updated_at"] == shared_updated_at

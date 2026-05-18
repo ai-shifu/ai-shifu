@@ -1,7 +1,27 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copier le cours",
     "transferCreator": "Transférer le créateur"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirmer la copie",
+    "confirmDescription": "Copier le dernier brouillon de <strong>{courseName}</strong> pour créer un nouveau cours brouillon pour <strong>{targetCreator}</strong> nommé <strong>{newCourseName}</strong>.",
+    "confirmTitle": "Confirmer la copie du cours",
+    "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
+    "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
+    "contactType": "Type de contact",
+    "contactTypeEmail": "E-mail",
+    "contactTypePhone": "Téléphone",
+    "courseNameFallback": "Cours",
+    "courseNameSuffix": "-Copie",
+    "currentCreator": "Créateur actuel",
+    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible.",
+    "identifier": "Créateur cible",
+    "identifierRequired": "Saisissez un contact valide pour le créateur cible",
+    "newCourseName": "Nom du nouveau cours",
+    "submitSuccess": "Cours copié avec succès",
+    "title": "Copier le cours"
   },
   "coursePromptDialog": {
     "copy": "Copier",
@@ -349,9 +369,7 @@
   "title": "Cours Gestion",
   "transferCreatorDialog": {
     "confirm": "Transférer",
-    "confirmDescriptionCourseSuffix": " de",
-    "confirmDescriptionPrefix": "Transférer le créateur de",
-    "confirmDescriptionTargetPrefix": "à",
+    "confirmDescription": "Transférer le créateur de {courseName} de {currentCreator} à {targetCreator}.",
     "confirmTitle": "Confirmer Créateur Transfer",
     "contactPlaceholderEmail": "Saisir l’e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisir le mobile du créateur cible",

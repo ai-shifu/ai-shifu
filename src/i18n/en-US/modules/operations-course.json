@@ -1,7 +1,27 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copy course",
     "transferCreator": "Transfer creator"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirm copy",
+    "confirmDescription": "Copy the latest draft of <strong>{courseName}</strong> to create a new draft course for <strong>{targetCreator}</strong> named <strong>{newCourseName}</strong>.",
+    "confirmTitle": "Confirm course copy",
+    "contactPlaceholderEmail": "Enter the target creator email",
+    "contactPlaceholderPhone": "Enter the target creator phone number",
+    "contactType": "Contact type",
+    "contactTypeEmail": "Email",
+    "contactTypePhone": "Phone",
+    "courseNameFallback": "Course",
+    "courseNameSuffix": "-Copy",
+    "currentCreator": "Current creator",
+    "description": "Copy the latest draft into a new draft course for the target creator.",
+    "identifier": "Target creator",
+    "identifierRequired": "Enter a valid target creator contact",
+    "newCourseName": "New course name",
+    "submitSuccess": "Course copied successfully",
+    "title": "Copy course"
   },
   "coursePromptDialog": {
     "copy": "Copy",
@@ -349,9 +369,7 @@
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",
-    "confirmDescriptionCourseSuffix": " from",
-    "confirmDescriptionPrefix": "Transfer the creator of",
-    "confirmDescriptionTargetPrefix": "to",
+    "confirmDescription": "Transfer the creator of {courseName} from {currentCreator} to {targetCreator}.",
     "confirmTitle": "Confirm Creator Transfer",
     "contactPlaceholderEmail": "Enter target creator email",
     "contactPlaceholderPhone": "Enter target creator mobile",

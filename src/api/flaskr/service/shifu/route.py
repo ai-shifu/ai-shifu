@@ -37,6 +37,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import ValidationError
 from flask import (
     Flask,
     request,
@@ -120,13 +121,16 @@ from flaskr.service.shifu.admin import (
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
     get_operator_user_overview,
     grant_operator_user_credits,
+    grant_operator_user_package,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
     list_operator_courses,
     list_operator_users,
+    copy_operator_course,
     transfer_operator_course_creator,
 )
 from flaskr.service.order.api import (
@@ -149,7 +153,10 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
-from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+)
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -1386,6 +1393,34 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
     @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credit-grant/bootstrap",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_grant_bootstrap(user_bid: str):
+        """
+        Get operator user grant bootstrap
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        responses:
+            200:
+                description: Operator user grant bootstrap payload
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_grant_bootstrap(
+                app,
+                user_bid=user_bid,
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
         methods=["POST"],
     )
@@ -1412,14 +1447,58 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator user credits grant result
         """
         _require_operator()
+        payload_data = request.get_json(silent=True) or {}
         try:
             payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
-                request.get_json() or {}
+                payload_data
             )
-        except Exception:
+        except ValidationError:
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/packages/grant",
+        methods=["POST"],
+    )
+    def admin_operation_user_package_grant(user_bid: str):
+        """
+        Grant operator user package
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/AdminOperationUserPackageGrantRequestDTO"
+        responses:
+            200:
+                description: Operator user package grant result
+        """
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = AdminOperationUserPackageGrantRequestDTO.model_validate(
+                payload_data
+            )
+        except ValidationError:
+            raise_param_error("package_grant_payload")
+        return make_common_response(
+            grant_operator_user_package(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
@@ -1910,6 +1989,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 generated_block_bid=generated_block_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/copy",
+        methods=["POST"],
+    )
+    def admin_copy_course(shifu_bid: str):
+        _require_operator()
+        payload = request.get_json() or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+
+        return make_common_response(
+            copy_operator_course(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                new_course_name=str(payload.get("new_course_name", "") or ""),
             )
         )
 

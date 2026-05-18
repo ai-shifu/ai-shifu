@@ -1,3 +1,5 @@
+import type { BillingPlan } from '@/types/billing';
+
 type LooseString = string & {};
 
 export type AdminOperationUserCourseItem = {
@@ -121,3 +123,30 @@ export type AdminOperationUserCreditGrantResponse = {
   ledger_bid: string;
   summary: AdminOperationUserCreditSummary;
 };
+
+export type AdminOperationUserGrantBootstrapResponse = {
+  plans: BillingPlan[];
+  current_subscription_product_display_name_i18n_key: string;
+  notification_status: string;
+};
+
+export type AdminOperationUserPackageGrantRequest = {
+  request_id: string;
+  product_bid: string;
+  note?: string;
+};
+
+export type AdminOperationUserPackageGrantResponse = {
+  user_bid: string;
+  product_bid: string;
+  subscription_bid: string;
+  bill_order_bid: string;
+  current_period_start_at: string;
+  current_period_end_at: string;
+  notification_status: string;
+  summary: AdminOperationUserCreditSummary;
+};
+
+export type AdminOperationUserBenefitGrantResponse =
+  | AdminOperationUserCreditGrantResponse
+  | AdminOperationUserPackageGrantResponse;
