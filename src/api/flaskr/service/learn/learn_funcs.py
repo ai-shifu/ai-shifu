@@ -1115,8 +1115,19 @@ def _yield_run_tts_audio_events(
         stream_element_type=stream_element_type,
         usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
     )
-    yield from processor.process_chunk(text or "")
-    yield from processor.finalize(commit=True)
+    emitted_audio_complete = False
+    for event in processor.process_chunk(text or ""):
+        emitted_audio_complete = emitted_audio_complete or (
+            event.type == GeneratedType.AUDIO_COMPLETE
+        )
+        yield event
+    for event in processor.finalize(commit=True):
+        emitted_audio_complete = emitted_audio_complete or (
+            event.type == GeneratedType.AUDIO_COMPLETE
+        )
+        yield event
+    if not emitted_audio_complete:
+        raise RuntimeError("TTS stream finalized without audio_complete")
 
 
 def _audio_stream_element_type(element) -> str:
@@ -1276,7 +1287,7 @@ def stream_generated_block_audio(
                         continue
 
                     cleaned_segment = preprocess_for_tts(speakable_text or "")
-                    if not cleaned_segment or not cleaned_segment.strip():
+                    if not cleaned_segment or len(cleaned_segment.strip()) < 2:
                         continue
 
                     yield from _yield_run_tts_audio_events(

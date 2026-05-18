@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -898,3 +899,84 @@ class TestGeneratedBlockListenTtsElementFirst:
         )
         assert audio_complete_events[0].content.subtitle_cues[0].text == "First."
         assert events[-1].type == GeneratedType.DONE
+
+    def test_stream_generated_block_audio_listen_raises_when_finalize_has_no_complete(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.common.models import AppException
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-finalize-no-complete-1"
+        shifu_bid = "shifu-finalize-no-complete-1"
+        generated_block_bid = "gen-finalize-no-complete-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-finalize-no-complete-1",
+                    user_bid=user_bid,
+                    block_bid="block-finalize-no-complete-1",
+                    outline_item_bid="outline-finalize-no-complete-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="First.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedElement(
+                    element_bid="el-finalize-no-complete-1",
+                    progress_record_bid="progress-finalize-no-complete-1",
+                    user_bid=user_bid,
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-finalize-no-complete-1",
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-finalize-no-complete-1",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    change_type="render",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=1,
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="First.",
+                    payload="",
+                    status=1,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        _patch_run_tts_processor(monkeypatch)
+        monkeypatch.setattr(
+            "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+            lambda _parts: b"",
+        )
+
+        with pytest.raises(AppException):
+            list(
+                stream_generated_block_audio(
+                    self.app,
+                    shifu_bid=shifu_bid,
+                    generated_block_bid=generated_block_bid,
+                    user_bid=user_bid,
+                    preview_mode=False,
+                    listen=True,
+                )
+            )
