@@ -34,6 +34,34 @@
       "note": "Note",
       "sourceType": "Source"
     },
+    "creditLedgerFilters": {
+      "course": "Course",
+      "coursePlaceholder": "Enter ID/name",
+      "grantSource": "Grant Source",
+      "grantSourceOptions": {
+        "all": "All",
+        "manual": "Manual Grant",
+        "subscription": "Subscription",
+        "topup": "Top-up",
+        "trial_subscription": "Trial Credits"
+      },
+      "time": "Time Range",
+      "timePlaceholder": "Select time range",
+      "type": "Type",
+      "typeOptions": {
+        "all": "All",
+        "consume": "Consume",
+        "grant": "Grant",
+        "other": "Other"
+      },
+      "usageMode": "Usage Scenario",
+      "usageModeOptions": {
+        "all": "All",
+        "ask": "Follow-up",
+        "learn": "Read",
+        "listen": "Listen"
+      }
+    },
     "creditLedgerNoteLabels": {
       "admin_manual_plan_grant": "Operations package grant",
       "debug_consume": "Credits consumed by debug usage",

@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
@@ -39,11 +38,18 @@ import { formatOperatorNaiveDateTime } from '../dateTime';
 import { normalizeLoginMethodLabelKey } from '../loginMethodUtils';
 import type {
   AdminOperationUserCourseItem,
+  AdminOperationUserCreditFilters,
   AdminOperationUserCreditSummary,
   AdminOperationUserCreditsResponse,
   AdminOperationUserDetailResponse,
 } from '../../operation-user-types';
 import useOperatorGuard from '../../useOperatorGuard';
+import UserCreditLedgerTab from './UserCreditLedgerTab';
+import {
+  createUserCreditFilters,
+  FILTER_ALL_OPTION,
+  sanitizeCreditFiltersByType,
+} from './creditFilterUtils';
 
 type ErrorState = { message: string; code?: number };
 type DetailTab = 'credits' | 'learning' | 'created';
@@ -66,10 +72,6 @@ const createEmptyCreditsResponse = (): AdminOperationUserCreditsResponse => ({
   page_size: CREDITS_PAGE_SIZE,
   total: 0,
 });
-type OperatorUsersTranslator = (
-  key: string,
-  options?: { defaultValue?: string },
-) => string;
 const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
   user_bid: '',
   mobile: '',
@@ -113,6 +115,26 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.operationsUser.detail.emptyCourses')
  * t('module.operationsUser.detail.emptyCredits')
  * t('module.operationsUser.detail.creditLedger')
+ * t('module.operationsUser.detail.creditLedgerFilters.type')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.consume')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.grant')
+ * t('module.operationsUser.detail.creditLedgerFilters.typeOptions.other')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSource')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.subscription')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.trial_subscription')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.topup')
+ * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.manual')
+ * t('module.operationsUser.detail.creditLedgerFilters.course')
+ * t('module.operationsUser.detail.creditLedgerFilters.coursePlaceholder')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageMode')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.learn')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.listen')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask')
+ * t('module.operationsUser.detail.creditLedgerFilters.time')
+ * t('module.operationsUser.detail.creditLedgerFilters.timePlaceholder')
  * t('module.operationsUser.detail.creditLedgerColumns.createdAt')
  * t('module.operationsUser.detail.creditLedgerColumns.entryType')
  * t('module.operationsUser.detail.creditLedgerColumns.sourceType')
@@ -218,29 +240,6 @@ const formatLearningProgress = (
   return `${progressPercent}% (${completedLessonCount}/${totalLessonCount})`;
 };
 
-const resolveCreditLedgerLabel = (
-  tOperationsUsers: OperatorUsersTranslator,
-  type: 'creditLedgerTypeLabels' | 'creditLedgerSourceLabels',
-  displayCode: string,
-  fallbackCode: string,
-): string => {
-  const normalizedDisplayCode = displayCode.trim();
-  if (normalizedDisplayCode) {
-    return tOperationsUsers(`detail.${type}.${normalizedDisplayCode}`, {
-      defaultValue: normalizedDisplayCode,
-    });
-  }
-  return fallbackCode.trim() || EMPTY_VALUE;
-};
-
-const resolveCreditLedgerNote = (note: string): string => {
-  const normalizedNote = note.trim();
-  if (normalizedNote) {
-    return normalizedNote;
-  }
-  return EMPTY_VALUE;
-};
-
 const CourseTable = ({
   title,
   courses,
@@ -281,10 +280,7 @@ const CourseTable = ({
 
   return (
     <Card className='shadow-sm'>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-3'>
+      <CardContent className='space-y-3 pt-6'>
         <TooltipProvider delayDuration={150}>
           <Table className='table-fixed'>
             <colgroup>
@@ -377,204 +373,6 @@ const CourseTable = ({
   );
 };
 
-const CreditLedgerTable = ({
-  loading,
-  error,
-  items,
-  pageIndex,
-  pageCount,
-  onPageChange,
-  onRetry,
-}: {
-  loading: boolean;
-  error: ErrorState | null;
-  items: AdminOperationUserCreditsResponse['items'];
-  pageIndex: number;
-  pageCount: number;
-  onPageChange: (page: number) => void;
-  onRetry: () => void;
-}) => {
-  const { t, i18n } = useTranslation();
-  const { t: tOperationsUsers } = useTranslation('module.operationsUser');
-
-  if (error) {
-    return (
-      <div className='rounded-xl border border-border bg-white p-4 shadow-sm'>
-        <ErrorDisplay
-          errorCode={error.code || 0}
-          errorMessage={error.message}
-          onRetry={onRetry}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <Card
-      className='shadow-sm'
-      data-testid='admin-operation-user-credit-ledger-card'
-    >
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-base font-semibold'>
-          {tOperationsUsers('detail.creditLedger')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-4'>
-        <TooltipProvider delayDuration={150}>
-          <div
-            className='overflow-auto'
-            data-testid='admin-operation-user-credit-ledger-scroll'
-          >
-            <Table className='table-fixed'>
-              <colgroup>
-                <col className='w-[16%]' />
-                <col className='w-[13%]' />
-                <col className='w-[12%]' />
-                <col className='w-[10%]' />
-                <col className='w-[11%]' />
-                <col className='w-[14%]' />
-                <col className='w-[24%]' />
-              </colgroup>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.entryType')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.sourceType')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.amount')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers(
-                      'detail.creditLedgerColumns.balanceAfter',
-                    )}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.expiresAt')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.note')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableEmpty colSpan={7}>
-                    {tOperationsUsers('detail.loadingCredits')}
-                  </TableEmpty>
-                ) : items.length ? (
-                  items.map(item => (
-                    <TableRow key={item.ledger_bid}>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={formatOperatorNaiveDateTime(item.created_at)}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerLabel(
-                            tOperationsUsers,
-                            'creditLedgerTypeLabels',
-                            item.display_entry_type,
-                            item.entry_type,
-                          )}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerLabel(
-                            tOperationsUsers,
-                            'creditLedgerSourceLabels',
-                            item.display_source_type,
-                            item.source_type,
-                          )}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={
-                            item.amount === '' ||
-                            item.amount === null ||
-                            item.amount === undefined
-                              ? ''
-                              : formatAdminCredits(
-                                  Number(item.amount),
-                                  i18n.language,
-                                )
-                          }
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={
-                            item.balance_after === '' ||
-                            item.balance_after === null ||
-                            item.balance_after === undefined
-                              ? ''
-                              : formatAdminCredits(
-                                  Number(item.balance_after),
-                                  i18n.language,
-                                )
-                          }
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={formatOperatorNaiveDateTime(item.expires_at)}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerNote(item.note)}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableEmpty colSpan={7}>
-                    {tOperationsUsers('detail.emptyCredits')}
-                  </TableEmpty>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TooltipProvider>
-
-        {pageCount > 1 ? (
-          <AdminPagination
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            onPageChange={onPageChange}
-            prevLabel={t('module.order.paginationPrev', 'Previous')}
-            nextLabel={t('module.order.paginationNext', 'Next')}
-            prevAriaLabel={t(
-              'module.order.paginationPrevAriaLabel',
-              'Go to previous page',
-            )}
-            nextAriaLabel={t(
-              'module.order.paginationNextAriaLabel',
-              'Go to next page',
-            )}
-            className='justify-end w-auto mx-0'
-          />
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-};
-
 export default function AdminOperationUserDetailPage() {
   const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
@@ -593,6 +391,7 @@ export default function AdminOperationUserDetailPage() {
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const creditsSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasInitializedCreditStateRef = useRef(false);
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState<ErrorState | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
@@ -600,6 +399,10 @@ export default function AdminOperationUserDetailPage() {
   const [detailRetryNonce, setDetailRetryNonce] = useState(0);
   const [creditsRetryNonce, setCreditsRetryNonce] = useState(0);
   const [creditsPageIndex, setCreditsPageIndex] = useState(1);
+  const [creditFiltersDraft, setCreditFiltersDraft] =
+    useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
+  const [creditFilters, setCreditFilters] =
+    useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
   const [activeTab, setActiveTab] = useState<DetailTab>('credits');
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
@@ -725,9 +528,15 @@ export default function AdminOperationUserDetailPage() {
   }, [detailRetryNonce, isReady, t, userBid, userBidState.errorMessage]);
 
   useEffect(() => {
+    if (!hasInitializedCreditStateRef.current) {
+      hasInitializedCreditStateRef.current = true;
+      return;
+    }
     setCreditsPageIndex(1);
     setCreditsError(null);
     setCredits(createEmptyCreditsResponse());
+    setCreditFiltersDraft(createUserCreditFilters());
+    setCreditFilters(createUserCreditFilters());
     setActiveTab('credits');
   }, [userBid]);
 
@@ -746,6 +555,32 @@ export default function AdminOperationUserDetailPage() {
           user_bid: userBid,
           page_index: creditsPageIndex,
           page_size: CREDITS_PAGE_SIZE,
+          credit_type:
+            creditFilters.creditType === FILTER_ALL_OPTION
+              ? ''
+              : creditFilters.creditType,
+          grant_source:
+            creditFilters.creditType === 'grant' &&
+            creditFilters.grantSource !== FILTER_ALL_OPTION
+              ? creditFilters.grantSource
+              : '',
+          course_query:
+            creditFilters.creditType === 'consume'
+              ? creditFilters.courseQuery.trim()
+              : '',
+          usage_mode:
+            creditFilters.creditType === 'consume' &&
+            creditFilters.usageMode !== FILTER_ALL_OPTION
+              ? creditFilters.usageMode
+              : '',
+          start_time:
+            creditFilters.creditType !== FILTER_ALL_OPTION
+              ? creditFilters.startTime
+              : '',
+          end_time:
+            creditFilters.creditType !== FILTER_ALL_OPTION
+              ? creditFilters.endTime
+              : '',
         })) as AdminOperationUserCreditsResponse;
         if (cancelled) {
           return;
@@ -781,12 +616,30 @@ export default function AdminOperationUserDetailPage() {
     };
   }, [
     creditsPageIndex,
+    creditFilters,
     creditsRetryNonce,
     isReady,
     t,
     userBid,
     userBidState.errorMessage,
   ]);
+
+  const handleCreditSearch = () => {
+    const nextFilters = sanitizeCreditFiltersByType({
+      ...creditFiltersDraft,
+      courseQuery: creditFiltersDraft.courseQuery.trim(),
+    });
+    setCreditFiltersDraft(nextFilters);
+    setCreditFilters(nextFilters);
+    setCreditsPageIndex(1);
+  };
+
+  const handleCreditReset = () => {
+    const nextFilters = createUserCreditFilters();
+    setCreditFiltersDraft(nextFilters);
+    setCreditFilters(nextFilters);
+    setCreditsPageIndex(1);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined' || detailLoading) {
@@ -1068,12 +921,17 @@ export default function AdminOperationUserDetailPage() {
                     value='credits'
                     className='mt-0'
                   >
-                    <CreditLedgerTable
+                    <UserCreditLedgerTab
+                      filtersDraft={creditFiltersDraft}
                       loading={creditsLoading}
                       error={creditsError}
                       items={credits.items}
                       pageIndex={credits.page || creditsPageIndex}
                       pageCount={credits.page_count || 0}
+                      emptyValue={EMPTY_VALUE}
+                      onFiltersChange={setCreditFiltersDraft}
+                      onSearch={handleCreditSearch}
+                      onReset={handleCreditReset}
                       onPageChange={page => setCreditsPageIndex(page)}
                       onRetry={() => setCreditsRetryNonce(value => value + 1)}
                     />

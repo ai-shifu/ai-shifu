@@ -10,7 +10,12 @@ import sys
 from flaskr.dao import db
 from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.shifu import admin as admin_module
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -20,7 +25,9 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -40,6 +47,7 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin import (
     get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
@@ -96,6 +104,7 @@ def _mock_bcrypt_module(monkeypatch):
 def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
+        db.session.query(BillUsageRecord).delete()
         db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
@@ -115,6 +124,7 @@ def _isolate_tables(app):
     yield
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
+        db.session.query(BillUsageRecord).delete()
         db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
@@ -426,6 +436,46 @@ def _seed_credit_ledger_entry(
     db.session.commit()
     db.session.remove()
     return entry
+
+
+def _seed_bill_usage_record(
+    *,
+    usage_bid: str,
+    user_bid: str,
+    shifu_bid: str,
+    progress_record_bid: str,
+    outline_item_bid: str,
+    usage_type: int,
+    usage_scene: int,
+    created_at: datetime,
+    extra: dict | None = None,
+):
+    usage = BillUsageRecord(
+        usage_bid=usage_bid,
+        parent_usage_bid="",
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_item_bid,
+        progress_record_bid=progress_record_bid,
+        generated_block_bid="",
+        audio_bid="",
+        request_id=f"request-{usage_bid}",
+        trace_id=f"trace-{usage_bid}",
+        usage_type=usage_type,
+        record_level=0,
+        usage_scene=usage_scene,
+        provider="openai",
+        model="gpt-4o-mini",
+        billable=1,
+        status=0,
+        extra=extra or {},
+    )
+    usage.created_at = created_at
+    usage.updated_at = created_at
+    db.session.add(usage)
+    db.session.commit()
+    db.session.remove()
+    return usage
 
 
 def _seed_learn_progress(
@@ -1440,6 +1490,277 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(app
     assert result.items[0].display_source_type == "preview"
     assert result.items[0].note == ""
     assert result.items[0].note_code == "preview_consume"
+
+
+def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-filter-user",
+            identify="credits-filter@example.com",
+            nickname="Credits Filter",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-filter@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            available_credits="20.0000000000",
+        )
+        _seed_course(
+            model=DraftShifu,
+            shifu_bid="course-ask",
+            title="Ask Mastery",
+            creator_user_bid="credits-filter-user",
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 8, 0, 0),
+        )
+        _seed_course(
+            model=DraftShifu,
+            shifu_bid="course-listen",
+            title="Listen Basics",
+            creator_user_bid="credits-filter-user",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+            updated_at=datetime(2026, 4, 10, 9, 0, 0),
+        )
+        _seed_billing_order(
+            creator_bid="credits-filter-user",
+            bill_order_bid="order-subscription-filter",
+            metadata_json={"checkout_type": "subscription"},
+        )
+        _seed_billing_order(
+            creator_bid="credits-filter-user",
+            bill_order_bid="order-trial-filter",
+            metadata_json={"checkout_type": "trial_bootstrap"},
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-ask-filter",
+            user_bid="credits-filter-user",
+            shifu_bid="course-ask",
+            progress_record_bid="progress-ask-filter",
+            outline_item_bid="lesson-ask-filter",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+            extra={"generation_name": "lesson_ask/filter"},
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-listen-filter",
+            user_bid="credits-filter-user",
+            shifu_bid="course-listen",
+            progress_record_bid="progress-listen-filter",
+            outline_item_bid="lesson-listen-filter",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-consume-filter",
+            ledger_bid="ledger-consume-ask-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-ask-filter",
+            amount="-1.0000000000",
+            balance_after="19.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-consume-filter",
+            ledger_bid="ledger-consume-listen-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-listen-filter",
+            amount="-2.0000000000",
+            balance_after="17.0000000000",
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-grant-filter",
+            ledger_bid="ledger-grant-subscription-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-subscription-filter",
+            amount="5.0000000000",
+            balance_after="22.0000000000",
+            created_at=datetime(2026, 4, 18, 11, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-grant-filter",
+            ledger_bid="ledger-grant-trial-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-trial-filter",
+            amount="3.0000000000",
+            balance_after="25.0000000000",
+            created_at=datetime(2026, 4, 18, 12, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-expire-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="expire-filter",
+            amount="-4.0000000000",
+            balance_after="21.0000000000",
+            created_at=datetime(2026, 4, 18, 13, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-refund-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="refund-filter",
+            amount="1.0000000000",
+            balance_after="22.0000000000",
+            created_at=datetime(2026, 4, 18, 14, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-manual-debit-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="manual-debit-filter",
+            amount="-1.0000000000",
+            balance_after="21.0000000000",
+            created_at=datetime(2026, 4, 18, 15, 0, 0),
+        )
+
+        consume_id_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "course_query": "course-ask",
+                "usage_mode": "ask",
+            },
+        )
+        consume_name_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "course_query": "Ask",
+                "usage_mode": "ask",
+            },
+        )
+        grant_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "grant",
+                "grant_source": "trial_subscription",
+            },
+        )
+        other_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "other"},
+        )
+
+    assert [item.ledger_bid for item in consume_id_result.items] == [
+        "ledger-consume-ask-filter"
+    ]
+    assert consume_id_result.total == 1
+
+    assert [item.ledger_bid for item in consume_name_result.items] == [
+        "ledger-consume-ask-filter"
+    ]
+    assert consume_name_result.total == 1
+
+    assert [item.ledger_bid for item in grant_result.items] == [
+        "ledger-grant-trial-filter"
+    ]
+    assert grant_result.total == 1
+
+    assert [item.ledger_bid for item in other_result.items] == [
+        "ledger-manual-debit-filter",
+        "ledger-refund-filter",
+        "ledger-expire-filter",
+    ]
+    assert other_result.total == 3
+
+
+def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfiltered(
+    app,
+):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-missing-usage-user",
+            identify="credits-missing-usage@example.com",
+            nickname="Credits Missing Usage",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-missing-usage@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            available_credits="8.0000000000",
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            wallet_bucket_bid="bucket-consume-missing-usage",
+            ledger_bid="ledger-consume-missing-usage",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-missing",
+            amount="-1.0000000000",
+            balance_after="7.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+
+        unfiltered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "consume"},
+        )
+        filtered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "usage_mode": "ask",
+            },
+        )
+
+    assert [item.ledger_bid for item in unfiltered_result.items] == [
+        "ledger-consume-missing-usage"
+    ]
+    assert unfiltered_result.total == 1
+    assert filtered_result.total == 0
 
 
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(

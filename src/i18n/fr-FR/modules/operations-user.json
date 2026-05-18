@@ -34,6 +34,34 @@
       "note": "Note",
       "sourceType": "Source"
     },
+    "creditLedgerFilters": {
+      "course": "Cours",
+      "coursePlaceholder": "Saisir ID/nom",
+      "grantSource": "Source d’attribution",
+      "grantSourceOptions": {
+        "all": "Tout",
+        "manual": "Attribution manuelle",
+        "subscription": "Abonnement",
+        "topup": "Recharge",
+        "trial_subscription": "Crédits d’essai"
+      },
+      "time": "Période",
+      "timePlaceholder": "Sélectionner la période",
+      "type": "Type",
+      "typeOptions": {
+        "all": "Tout",
+        "consume": "Consommation",
+        "grant": "Attribution",
+        "other": "Autre"
+      },
+      "usageMode": "Scénario d’utilisation",
+      "usageModeOptions": {
+        "all": "Tout",
+        "ask": "Relance",
+        "learn": "Lecture",
+        "listen": "Écoute"
+      }
+    },
     "creditLedgerNoteLabels": {
       "admin_manual_plan_grant": "Forfait attribué par les opérations",
       "debug_consume": "Crédits consommés par l’utilisation de débogage",

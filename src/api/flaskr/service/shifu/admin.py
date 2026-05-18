@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
 from sqlalchemy import and_, case, not_, or_
-from sqlalchemy.orm import defer
+from sqlalchemy.orm import aliased, defer
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
@@ -253,6 +253,15 @@ COURSE_CREDIT_USAGE_MODE_ASK = "ask"
 COURSE_CREDIT_USAGE_MODE_MIXED = "mixed"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
+OPERATOR_USER_CREDIT_TYPE_ALL = "all"
+OPERATOR_USER_CREDIT_TYPE_CONSUME = "consume"
+OPERATOR_USER_CREDIT_TYPE_GRANT = "grant"
+OPERATOR_USER_CREDIT_TYPE_OTHER = "other"
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL = "all"
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION = "subscription"
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION = "trial_subscription"
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP = "topup"
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL = "manual"
 OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION = "align_subscription"
 OPERATOR_USER_CREDIT_VALIDITY_1D = "1d"
 OPERATOR_USER_CREDIT_VALIDITY_7D = "7d"
@@ -263,6 +272,19 @@ OPERATOR_USER_CREDIT_VALIDITY_1Y = "1y"
 OPERATOR_USER_CREDIT_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD,
     OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION,
+}
+OPERATOR_USER_CREDIT_FILTER_TYPES = {
+    OPERATOR_USER_CREDIT_TYPE_ALL,
+    OPERATOR_USER_CREDIT_TYPE_CONSUME,
+    OPERATOR_USER_CREDIT_TYPE_GRANT,
+    OPERATOR_USER_CREDIT_TYPE_OTHER,
+}
+OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES = {
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
 }
 OPERATOR_USER_CREDIT_VALIDITY_PRESETS = {
     OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
@@ -726,6 +748,76 @@ def _resolve_operator_credit_note_code(
     }:
         return display_entry_type
 
+    return ""
+
+
+def _resolve_operator_user_credit_type_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"", *OPERATOR_USER_CREDIT_FILTER_TYPES}:
+        return normalized or OPERATOR_USER_CREDIT_TYPE_ALL
+    return ""
+
+
+def _resolve_operator_user_credit_grant_source_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"", *OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES}:
+        return normalized or OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
+    return ""
+
+
+def _build_operator_user_credit_merged_metadata(
+    row: CreditLedgerEntry,
+    *,
+    order_map: Optional[Dict[str, BillingOrder]] = None,
+) -> Dict[str, Any]:
+    metadata = _normalize_metadata_json(row.metadata_json)
+    normalized_source_bid = str(row.source_bid or "").strip()
+    order = (order_map or {}).get(normalized_source_bid)
+    order_metadata = _normalize_metadata_json(order.metadata_json if order else None)
+    return {**order_metadata, **metadata}
+
+
+def _is_operator_user_credit_grant_row(row: CreditLedgerEntry) -> bool:
+    amount = Decimal(row.amount or 0)
+    entry_type = int(row.entry_type or 0)
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
+        return True
+    return entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT and amount > 0
+
+
+def _is_operator_user_credit_consume_row(row: CreditLedgerEntry) -> bool:
+    return (
+        int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_CONSUME
+        and int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE
+    )
+
+
+def _is_operator_user_credit_other_row(row: CreditLedgerEntry) -> bool:
+    amount = Decimal(row.amount or 0)
+    entry_type = int(row.entry_type or 0)
+    if entry_type in {
+        CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    }:
+        return True
+    return entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT and amount < 0
+
+
+def _resolve_operator_user_credit_grant_filter_key(
+    row: CreditLedgerEntry,
+    *,
+    metadata: Dict[str, Any],
+) -> str:
+    source_type = int(row.source_type or 0)
+    if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+        checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+        if checkout_type == "trial_bootstrap":
+            return OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION
+        return OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION
+    if source_type == CREDIT_SOURCE_TYPE_TOPUP:
+        return OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP
+    if source_type == CREDIT_SOURCE_TYPE_MANUAL:
+        return OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL
     return ""
 
 
@@ -1649,11 +1741,10 @@ def _build_operator_user_credit_ledger_item(
     *,
     order_map: Optional[Dict[str, BillingOrder]] = None,
 ) -> AdminOperationUserCreditLedgerItemDTO:
-    metadata = _normalize_metadata_json(row.metadata_json)
-    normalized_source_bid = str(row.source_bid or "").strip()
-    order = (order_map or {}).get(normalized_source_bid)
-    order_metadata = _normalize_metadata_json(order.metadata_json if order else None)
-    merged_metadata = {**order_metadata, **metadata}
+    merged_metadata = _build_operator_user_credit_merged_metadata(
+        row,
+        order_map=order_map,
+    )
     return AdminOperationUserCreditLedgerItemDTO(
         ledger_bid=str(row.ledger_bid or "").strip(),
         created_at=_format_operator_datetime(row.created_at),
@@ -5457,6 +5548,112 @@ def grant_operator_user_credits(
         )
 
 
+def _load_bill_usage_record_map(
+    usage_bids: Sequence[str],
+) -> Dict[str, BillUsageRecord]:
+    normalized_usage_bids = sorted(
+        {
+            str(usage_bid or "").strip()
+            for usage_bid in usage_bids
+            if str(usage_bid or "").strip()
+        }
+    )
+    if not normalized_usage_bids:
+        return {}
+
+    rows = (
+        BillUsageRecord.query.filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.usage_bid.in_(normalized_usage_bids),
+        )
+        .order_by(BillUsageRecord.id.desc())
+        .all()
+    )
+    usage_map: Dict[str, BillUsageRecord] = {}
+    for row in rows:
+        usage_bid = str(row.usage_bid or "").strip()
+        if usage_bid and usage_bid not in usage_map:
+            usage_map[usage_bid] = row
+    return usage_map
+
+
+def _build_latest_bill_usage_record_subquery(*, user_bid: str):
+    normalized_user_bid = str(user_bid or "").strip()
+    return (
+        db.session.query(
+            BillUsageRecord.usage_bid.label("usage_bid"),
+            db.func.max(BillUsageRecord.id).label("max_id"),
+        )
+        .filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.user_bid == normalized_user_bid,
+        )
+        .group_by(BillUsageRecord.usage_bid)
+        .subquery()
+    )
+
+
+def _build_latest_billing_order_subquery(*, creator_bid: str):
+    normalized_creator_bid = str(creator_bid or "").strip()
+    return (
+        db.session.query(
+            BillingOrder.bill_order_bid.label("bill_order_bid"),
+            db.func.max(BillingOrder.id).label("max_id"),
+        )
+        .filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == normalized_creator_bid,
+        )
+        .group_by(BillingOrder.bill_order_bid)
+        .subquery()
+    )
+
+
+def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
+    normalized_course_name = str(course_name or "").strip().lower()
+    if not normalized_course_name:
+        return set()
+
+    def _load_matching_bids(model) -> Set[str]:
+        latest_subquery = (
+            db.session.query(db.func.max(model.id).label("max_id"))
+            .filter(model.deleted == 0)
+            .group_by(model.shifu_bid)
+            .subquery()
+        )
+        rows = (
+            db.session.query(model.shifu_bid)
+            .join(latest_subquery, latest_subquery.c.max_id == model.id)
+            .filter(model.title.ilike(f"%{normalized_course_name}%"))
+            .all()
+        )
+        return {
+            str(shifu_bid or "").strip()
+            for (shifu_bid,) in rows
+            if str(shifu_bid or "").strip()
+        }
+
+    matching_bids: Set[str] = set()
+    matching_bids.update(_load_matching_bids(DraftShifu))
+    matching_bids.update(_load_matching_bids(PublishedShifu))
+    return matching_bids
+
+
+def _build_operator_course_query_filter(
+    shifu_bid_column: Any,
+    course_query: str,
+) -> Any | None:
+    normalized_course_query = str(course_query or "").strip()
+    if not normalized_course_query:
+        return None
+
+    course_filters = [shifu_bid_column == normalized_course_query]
+    matching_course_bids = _find_operator_course_bids_by_name(normalized_course_query)
+    if matching_course_bids:
+        course_filters.append(shifu_bid_column.in_(sorted(matching_course_bids)))
+    return or_(*course_filters)
+
+
 def get_operator_user_grant_bootstrap(
     app: Flask,
     *,
@@ -5537,6 +5734,7 @@ def get_operator_user_credits(
     user_bid: str,
     page_index: int,
     page_size: int,
+    filters: Optional[Dict[str, Any]] = None,
 ) -> AdminOperationUserCreditLedgerPageDTO:
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
@@ -5545,6 +5743,7 @@ def get_operator_user_credits(
             max(int(page_size or 20), 1),
             OPERATOR_USER_LIST_MAX_PAGE_SIZE,
         )
+        filters = filters or {}
 
         user = _load_operator_user_or_raise(normalized_user_bid)
         credit_summary_map = _load_operator_user_credit_summary_map(
@@ -5555,26 +5754,164 @@ def get_operator_user_credits(
             credit_summary_map=credit_summary_map,
         )
 
+        credit_type = _resolve_operator_user_credit_type_filter(
+            str(filters.get("credit_type", "") or "")
+        )
+        grant_source = _resolve_operator_user_credit_grant_source_filter(
+            str(filters.get("grant_source", "") or "")
+        )
+        course_query = str(filters.get("course_query", "") or "").strip()
+        course_id = str(filters.get("course_id", "") or "").strip()
+        course_name = str(filters.get("course_name", "") or "").strip()
+        resolved_course_query = course_query or course_id or course_name
+        usage_mode = _resolve_course_credit_usage_mode_filter(
+            str(filters.get("usage_mode", "") or "")
+        )
+        start_time = filters.get("start_time")
+        end_time = filters.get("end_time")
+
+        if str(filters.get("credit_type", "") or "").strip() and not credit_type:
+            raise_param_error("credit_type")
+        if str(filters.get("grant_source", "") or "").strip() and not grant_source:
+            raise_param_error("grant_source")
+        if str(filters.get("usage_mode", "") or "").strip() and not usage_mode:
+            raise_param_error("usage_mode")
+
         query = CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == normalized_user_bid,
         )
+
+        if start_time:
+            query = query.filter(CreditLedgerEntry.created_at >= start_time)
+        if end_time:
+            query = query.filter(CreditLedgerEntry.created_at <= end_time)
+
+        if credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME:
+            query = query.filter(
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+            )
+        elif credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT:
+            query = query.filter(
+                or_(
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                    and_(
+                        CreditLedgerEntry.entry_type
+                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                        CreditLedgerEntry.amount > 0,
+                    ),
+                )
+            )
+        elif credit_type == OPERATOR_USER_CREDIT_TYPE_OTHER:
+            query = query.filter(
+                or_(
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+                    and_(
+                        CreditLedgerEntry.entry_type
+                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                        CreditLedgerEntry.amount < 0,
+                    ),
+                )
+            )
+
+        has_grant_source_filter = (
+            credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
+            and grant_source != OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
+        )
+        has_consume_usage_filter = usage_mode not in {"", "all"}
+        has_consume_sub_filter = credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME and (
+            bool(resolved_course_query) or has_consume_usage_filter
+        )
+
+        if has_grant_source_filter:
+            if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
+                query = query.filter(
+                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_TOPUP
+                )
+            elif grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL:
+                query = query.filter(
+                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL
+                )
+            else:
+                latest_order_subquery = _build_latest_billing_order_subquery(
+                    creator_bid=normalized_user_bid
+                )
+                latest_order = aliased(BillingOrder)
+                checkout_type_expr = db.func.lower(
+                    db.func.coalesce(
+                        CreditLedgerEntry.metadata_json["checkout_type"].as_string(),
+                        latest_order.metadata_json["checkout_type"].as_string(),
+                        "",
+                    )
+                )
+                query = (
+                    query.outerjoin(
+                        latest_order_subquery,
+                        latest_order_subquery.c.bill_order_bid
+                        == CreditLedgerEntry.source_bid,
+                    )
+                    .outerjoin(
+                        latest_order,
+                        latest_order.id == latest_order_subquery.c.max_id,
+                    )
+                    .filter(
+                        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+                    )
+                )
+                if (
+                    grant_source
+                    == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION
+                ):
+                    query = query.filter(checkout_type_expr == "trial_bootstrap")
+                else:
+                    query = query.filter(checkout_type_expr != "trial_bootstrap")
+        elif has_consume_sub_filter:
+            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
+                user_bid=normalized_user_bid
+            )
+            usage_row = aliased(BillUsageRecord)
+            query = query.join(
+                latest_usage_subquery,
+                latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
+            ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
+            if resolved_course_query:
+                course_query_filter = _build_operator_course_query_filter(
+                    usage_row.shifu_bid,
+                    resolved_course_query,
+                )
+                if course_query_filter is not None:
+                    query = query.filter(course_query_filter)
+
+            generation_name_expr = db.func.lower(
+                usage_row.extra["generation_name"].as_string()
+            )
+            if usage_mode == COURSE_CREDIT_USAGE_MODE_LISTEN:
+                query = query.filter(usage_row.usage_type == BILL_USAGE_TYPE_TTS)
+            elif usage_mode == COURSE_CREDIT_USAGE_MODE_ASK:
+                query = query.filter(
+                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+                    _build_course_credit_usage_ask_filter(generation_name_expr),
+                )
+            elif usage_mode == COURSE_CREDIT_USAGE_MODE_LEARN:
+                query = query.filter(
+                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+                    _build_course_credit_usage_learn_filter(generation_name_expr),
+                )
+
+        order_by_query = query.order_by(
+            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
+        )
         total = query.count()
         page_offset = (safe_page_index - 1) * safe_page_size
-        rows = (
-            query.order_by(
-                CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
-            )
-            .offset(page_offset)
-            .limit(safe_page_size)
-            .all()
-        )
+        paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
         order_map = _load_billing_order_map(
-            [str(row.source_bid or "").strip() for row in rows]
+            [str(row.source_bid or "").strip() for row in paged_rows]
         )
         items = [
             _build_operator_user_credit_ledger_item(row, order_map=order_map)
-            for row in rows
+            for row in paged_rows
         ]
         return AdminOperationUserCreditLedgerPageDTO(
             summary=summary,

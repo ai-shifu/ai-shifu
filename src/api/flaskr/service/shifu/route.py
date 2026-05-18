@@ -1368,6 +1368,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: page_size
               type: integer
               required: false
+            - name: credit_type
+              in: query
+              type: string
+              required: false
+              description: Credit ledger type filter
+            - name: grant_source
+              in: query
+              type: string
+              required: false
+              description: Grant source filter
+            - name: course_query
+              in: query
+              type: string
+              required: false
+              description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_mode
+              in: query
+              type: string
+              required: false
+              description: Consume mode filter
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
         responses:
             200:
                 description: Operator user credits detail
@@ -1383,12 +1413,28 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if page_index < 1 or page_size < 1:
             raise_param_error("page_index or page_size is less than 1")
 
+        filters = {
+            "credit_type": request.args.get("credit_type", ""),
+            "grant_source": request.args.get("grant_source", ""),
+            "course_query": request.args.get("course_query", ""),
+            "usage_mode": request.args.get("usage_mode", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+
         return make_common_response(
             get_operator_user_credits(
                 app,
                 user_bid=user_bid,
                 page_index=page_index,
                 page_size=page_size,
+                filters=filters,
             )
         )
 

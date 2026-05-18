@@ -81,6 +81,34 @@ export type AdminOperationUserCreditSummary = {
   has_active_subscription: boolean;
 };
 
+export type AdminOperationUserCreditTypeFilter =
+  | 'all'
+  | 'consume'
+  | 'grant'
+  | 'other';
+
+export type AdminOperationUserCreditGrantSourceFilter =
+  | 'all'
+  | 'subscription'
+  | 'trial_subscription'
+  | 'topup'
+  | 'manual';
+
+export type AdminOperationUserCreditUsageModeFilter =
+  | 'all'
+  | 'learn'
+  | 'listen'
+  | 'ask';
+
+export type AdminOperationUserCreditFilters = {
+  creditType: AdminOperationUserCreditTypeFilter;
+  grantSource: AdminOperationUserCreditGrantSourceFilter;
+  courseQuery: string;
+  usageMode: AdminOperationUserCreditUsageModeFilter;
+  startTime: string;
+  endTime: string;
+};
+
 export type AdminOperationUserCreditLedgerItem = {
   ledger_bid: string;
   created_at: string;
