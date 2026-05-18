@@ -169,6 +169,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
+  copyAdminOperationCourse:
+    'POST /shifu/admin/operations/courses/{shifu_bid}/copy',
   transferAdminOperationCourseCreator:
     'POST /shifu/admin/operations/courses/{shifu_bid}/transfer-creator',
 

@@ -182,6 +182,63 @@ jest.mock('@/components/ui/Tabs', () => {
   };
 });
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({ placeholder }: { placeholder: string }) => (
+    <div>{placeholder}</div>
+  ),
+}));
+
 const mockGetAdminOperationUserDetail =
   api.getAdminOperationUserDetail as jest.Mock;
 const mockGetAdminOperationUserCredits =
@@ -295,8 +352,15 @@ describe('AdminOperationUserDetailPage', () => {
         user_bid: 'user-1',
         page_index: 1,
         page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
       });
     });
+    expect(mockGetAdminOperationUserCredits).toHaveBeenCalledTimes(1);
 
     expect(
       await screen.findByText('module.operationsUser.detail.title'),
@@ -359,13 +423,13 @@ describe('AdminOperationUserDetailPage', () => {
 
   test('formats credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
-    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+    mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
       available_credits: '10000',
       subscription_credits: '10000',
       topup_credits: '5000',
     });
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       summary: {
         ...creditsResponse.summary,
@@ -390,16 +454,69 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.queryByText('5,000')).not.toBeInTheDocument();
   });
 
+  test('searches consume credit rows with course filters', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    fireEvent.change(
+      await screen.findByPlaceholderText(
+        'module.operationsUser.detail.creditLedgerFilters.coursePlaceholder',
+      ),
+      { target: { value: 'course-42' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.order.filters.search' }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenLastCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: 'consume',
+        grant_source: '',
+        course_query: 'course-42',
+        usage_mode: 'ask',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
   test('renders detail timestamps with operator naive formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
-    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+    mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
       last_login_at: '2026-04-15T01:30:00Z',
       last_learning_at: '2026-04-15T02:30:00Z',
       created_at: '2026-04-14T01:15:00Z',
       updated_at: '2026-04-14T03:45:00Z',
     });
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       summary: {
         ...creditsResponse.summary,
@@ -428,7 +545,7 @@ describe('AdminOperationUserDetailPage', () => {
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       items: [
         {

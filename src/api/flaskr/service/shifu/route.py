@@ -130,6 +130,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_users,
     list_operator_courses,
     list_operator_users,
+    copy_operator_course,
     transfer_operator_course_creator,
 )
 from flaskr.service.order.api import (
@@ -1367,6 +1368,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: page_size
               type: integer
               required: false
+            - name: credit_type
+              in: query
+              type: string
+              required: false
+              description: Credit ledger type filter
+            - name: grant_source
+              in: query
+              type: string
+              required: false
+              description: Grant source filter
+            - name: course_query
+              in: query
+              type: string
+              required: false
+              description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_mode
+              in: query
+              type: string
+              required: false
+              description: Consume mode filter
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
         responses:
             200:
                 description: Operator user credits detail
@@ -1382,12 +1413,28 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if page_index < 1 or page_size < 1:
             raise_param_error("page_index or page_size is less than 1")
 
+        filters = {
+            "credit_type": request.args.get("credit_type", ""),
+            "grant_source": request.args.get("grant_source", ""),
+            "course_query": request.args.get("course_query", ""),
+            "usage_mode": request.args.get("usage_mode", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+
         return make_common_response(
             get_operator_user_credits(
                 app,
                 user_bid=user_bid,
                 page_index=page_index,
                 page_size=page_size,
+                filters=filters,
             )
         )
 
@@ -1988,6 +2035,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 generated_block_bid=generated_block_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/copy",
+        methods=["POST"],
+    )
+    def admin_copy_course(shifu_bid: str):
+        _require_operator()
+        payload = request.get_json() or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+
+        return make_common_response(
+            copy_operator_course(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                new_course_name=str(payload.get("new_course_name", "") or ""),
             )
         )
 

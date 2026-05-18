@@ -17,7 +17,7 @@ import {
 import { getStringEnv } from '@/c-utils/envUtils';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
-  fixMarkdownStream,
+  mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
 import {
@@ -1119,9 +1119,18 @@ export function usePreviewChat() {
           const contentId = ensureContentItem(
             blockId || currentContentIdRef.current || 'preview-content',
           );
-          const prevText = currentContentRef.current || '';
-          const delta = fixMarkdownStream(prevText, markdownPayload || '');
-          const nextText = prevText + delta;
+          const existingItem = contentListRef.current.find(
+            item => item.generated_block_bid === contentId,
+          );
+          const prevText =
+            currentContentRef.current ||
+            (typeof existingItem?.content === 'string'
+              ? existingItem.content
+              : '');
+          const nextText = mergeStreamingMarkdownText(
+            prevText,
+            markdownPayload || '',
+          );
           currentContentRef.current = nextText;
           const displayText = maskIncompleteMermaidBlock(nextText);
           setTrackedContentList(prev =>

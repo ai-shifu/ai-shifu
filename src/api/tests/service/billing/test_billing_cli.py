@@ -27,7 +27,9 @@ from flaskr.service.billing.models import (
     BillingRenewalEvent,
     BillingSubscription,
     CreditUsageRate,
+    CreditLedgerEntry,
     CreditWallet,
+    CreditWalletBucket,
 )
 from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 from flaskr.service.config.models import Config
@@ -676,6 +678,155 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert len(pending_events) == 1
         assert pending_events[0].event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
         assert pending_events[0].scheduled_at == expected_period_end_at
+
+
+def test_billing_grant_credits_cli_grants_visible_manual_credits(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-credit",
+            identify="creator-cli-credit",
+            phone="13800138001",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-credit-active",
+                creator_bid="creator-cli-credit",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-credits",
+            "--identify",
+            "13800138001",
+            "--amount",
+            "12.5",
+            "--grant-source",
+            "compensation",
+            "--name",
+            "模型扣费补偿",
+            "--note",
+            "DeepSeek 费率补偿",
+            "--operator-user-bid",
+            "operator-cli-1",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "granted"
+    assert payload["creator_bid"] == "creator-cli-credit"
+    assert payload["mobile"] == "13800138001"
+    assert payload["amount"] == 12.5
+    assert payload["grant_source"] == "compensation"
+    assert payload["validity_preset"] == "align_subscription"
+    assert payload["display_name"] == "模型扣费补偿"
+    assert payload["note"] == "DeepSeek 费率补偿"
+    assert payload["operator_user_bid"] == "operator-cli-1"
+    assert payload["request_id"].startswith("cli:")
+
+    with billing_cli_db_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-cli-credit").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            creator_bid="creator-cli-credit"
+        ).one()
+        ledger = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-cli-credit"
+        ).one()
+
+        assert wallet.available_credits == Decimal("12.5000000000")
+        assert bucket.available_credits == Decimal("12.5000000000")
+        assert bucket.metadata_json["grant_source"] == "compensation"
+        assert bucket.metadata_json["validity_preset"] == "align_subscription"
+        assert "display_name" not in bucket.metadata_json
+        assert "note" not in bucket.metadata_json
+        assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+        assert ledger.amount == Decimal("12.5000000000")
+        assert ledger.metadata_json["grant_source"] == "compensation"
+        assert ledger.metadata_json["display_name"] == "模型扣费补偿"
+        assert ledger.metadata_json["name"] == "模型扣费补偿"
+        assert ledger.metadata_json["note"] == "DeepSeek 费率补偿"
+        assert ledger.metadata_json["operator_user_bid"] == "operator-cli-1"
+        assert ledger.metadata_json["grant_channel"] == "operator_cli"
+        assert (
+            ledger.idempotency_key == f"operator_manual_grant:{payload['request_id']}"
+        )
+
+
+def test_billing_grant_credits_cli_reuses_request_id(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-credit-idempotent",
+            identify="creator-cli-credit-idempotent@example.com",
+            email="creator-cli-credit-idempotent@example.com",
+            is_creator=True,
+        )
+        dao.db.session.commit()
+
+    args = [
+        "console",
+        "billing",
+        "grant-credits",
+        "--user-bid",
+        "creator-cli-credit-idempotent",
+        "--amount",
+        "3",
+        "--grant-source",
+        "reward",
+        "--validity-preset",
+        "1d",
+        "--name",
+        "运营奖励",
+        "--note",
+        "活动奖励",
+    ]
+    first = runner.invoke(args=args)
+    second = runner.invoke(args=args)
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    first_payload = json.loads(first.output)
+    second_payload = json.loads(second.output)
+    assert first_payload["status"] == "granted"
+    assert second_payload["status"] == "noop_existing"
+    assert second_payload["request_id"] == first_payload["request_id"]
+    assert second_payload["ledger_bid"] == first_payload["ledger_bid"]
+
+    with billing_cli_db_app.app_context():
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-cli-credit-idempotent"
+        ).one()
+        assert wallet.available_credits == Decimal("3.0000000000")
+        assert (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-cli-credit-idempotent"
+            ).count()
+            == 1
+        )
 
 
 def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(

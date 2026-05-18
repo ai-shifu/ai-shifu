@@ -17,6 +17,7 @@ from .conftest import (
     seed_generated_block,
     seed_owned_course,
     seed_progress,
+    seed_published_shifu,
     seed_user_info,
 )
 
@@ -780,3 +781,342 @@ def test_bill_daily_split_by_usage_type(mock_request_user, test_client, app):
     rows_by_type = {row[0]: float(row[1]) for row in data["rows"]}
     assert rows_by_type[1101] == pytest.approx(8.0)
     assert rows_by_type[1102] == pytest.approx(2.0)
+
+
+def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
+    mock_request_user, test_client, app
+):
+    """The author can now group by creator_bid to confirm which wallet is
+    being deducted for the course; shifu_bid isolation guarantees the
+    grouping only returns the caller's own bid."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_bill_daily_metric(
+            shifu_bid="shifu-a",
+            stat_date="2026-05-01",
+            creator_bid="teacher-1",
+            consumed_credits=12.0,
+        )
+        # Row for a different course owned by someone else — shifu_bid
+        # isolation must keep it out of the result.
+        seed_owned_course(shifu_bid="shifu-other", user_id="teacher-2")
+        seed_bill_daily_metric(
+            shifu_bid="shifu-other",
+            stat_date="2026-05-01",
+            creator_bid="teacher-2",
+            consumed_credits=99.0,
+            daily_usage_metric_bid="dm-other",
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "bill_daily_usage_metrics",
+            "select": ["creator_bid"],
+            "aggregate": [
+                {"fn": "sum", "field": "consumed_credits", "alias": "credits"}
+            ],
+            "group_by": ["creator_bid"],
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    # consumed_credits is a NUMERIC column, so SQLite returns it as a string;
+    # the public Order test (test_bill_daily_sum_credits_for_production_usage)
+    # does the same float() conversion.
+    assert len(data["rows"]) == 1
+    row = data["rows"][0]
+    assert row[0] == "teacher-1"
+    assert float(row[1]) == pytest.approx(12.0)
+
+
+# ---------------------------------------------------------------------------
+# learn_generated_blocks — status auto-filter (reroll history excluded)
+# ---------------------------------------------------------------------------
+
+
+def test_followup_count_excludes_rerolled_history(mock_request_user, test_client, app):
+    """A learner can re-roll a follow-up question; the old block flips to
+    status=0. The PDF §6 trap is "status=0 history rows must not be
+    counted as live follow-ups". sql_builder auto-injects status=1, so
+    the count should stay at 2 even with a status=0 row present."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        # Two live follow-ups
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u1",
+            type=321,
+            role=2,
+            content="question 1",
+            generated_block_bid="gb-live-1",
+            status=1,
+        )
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u2",
+            type=321,
+            role=2,
+            content="question 2",
+            generated_block_bid="gb-live-2",
+            status=1,
+        )
+        # One historical (rerolled) row — must be excluded
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u1",
+            type=321,
+            role=2,
+            content="rerolled",
+            generated_block_bid="gb-history-1",
+            status=0,
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "learn_generated_blocks",
+            "where": [{"field": "type", "op": "=", "value": 321}],
+            "aggregate": [{"fn": "count", "alias": "asks"}],
+            "limit": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    assert data["rows"] == [[2]]
+
+
+def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, app):
+    """Group by outline_item_bid answers "follow-up questions per lesson".
+    Requires both `outline_item_bid` selectable / filterable / groupable
+    AND aggregate count_distinct support — added in this round."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u1",
+            type=321,
+            role=2,
+            content="q for lesson 1",
+            generated_block_bid="gb-l1-u1",
+            outline_item_bid="outline-1",
+        )
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u2",
+            type=321,
+            role=2,
+            content="q2 for lesson 1",
+            generated_block_bid="gb-l1-u2",
+            outline_item_bid="outline-1",
+        )
+        seed_generated_block(
+            shifu_bid="shifu-a",
+            user_bid="u1",
+            type=321,
+            role=2,
+            content="q for lesson 2",
+            generated_block_bid="gb-l2-u1",
+            outline_item_bid="outline-2",
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "learn_generated_blocks",
+            "where": [{"field": "type", "op": "=", "value": 321}],
+            "select": ["outline_item_bid"],
+            "group_by": ["outline_item_bid"],
+            "aggregate": [
+                {"fn": "count", "alias": "asks"},
+                {"fn": "count_distinct", "field": "user_bid", "alias": "askers"},
+            ],
+            "order_by": [{"field": "asks", "dir": "desc"}],
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    rows_by_lesson = {row[0]: (row[1], row[2]) for row in data["rows"]}
+    assert rows_by_lesson["outline-1"] == (2, 2)
+    assert rows_by_lesson["outline-2"] == (1, 1)
+
+
+# ---------------------------------------------------------------------------
+# Shifu metadata tables — current title + creator-scoped filtering
+# ---------------------------------------------------------------------------
+
+
+def test_shifu_published_returns_current_title_excluding_history(
+    mock_request_user, test_client, app
+):
+    """Rename scenario: the same shifu_bid has historical PublishedShifu
+    rows (deleted=1) plus the current row (deleted=0). The query must
+    return only the current row — historical titles must not be presented
+    as the course's "current name" (PDF §1 + §7 rules)."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_published_shifu(
+            shifu_bid="shifu-a",
+            user_id="teacher-1",
+            title="历史标题 A",
+            deleted=1,
+        )
+        seed_published_shifu(
+            shifu_bid="shifu-a",
+            user_id="teacher-1",
+            title="历史标题 B",
+            deleted=1,
+        )
+        seed_published_shifu(
+            shifu_bid="shifu-a",
+            user_id="teacher-1",
+            title="当前标题",
+            deleted=0,
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "shifu_published_shifus",
+            "select": ["title"],
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    titles = [row[0] for row in data["rows"]]
+    assert titles == ["当前标题"]
+
+
+def test_shifu_published_excludes_other_creators_rows(
+    mock_request_user, test_client, app
+):
+    """Even if a co-author / shared user had view permission on the same
+    shifu_bid, the creator_scoped_column injection (created_user_bid =
+    :caller) ensures only the caller's own rows surface. Here we model
+    the simpler "two creators with the same shifu_bid title prefix" case
+    — caller can see their own row and never the other creator's."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-mine", user_id="teacher-1")
+        seed_published_shifu(
+            shifu_bid="shifu-mine",
+            user_id="teacher-1",
+            title="跟 AI 学 AI 通识",
+        )
+        # Different shifu_bid, different creator, different title:
+        seed_owned_course(shifu_bid="shifu-other", user_id="teacher-2")
+        seed_published_shifu(
+            shifu_bid="shifu-other",
+            user_id="teacher-2",
+            title="李卓:K12 AI 教育产品的一线实践",
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-mine",
+            "table": "shifu_published_shifus",
+            "select": ["title", "created_user_bid"],
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    assert data["rows"] == [
+        ["跟 AI 学 AI 通识", "teacher-1"],
+    ]
+
+
+def test_shifu_meta_aggregate_rejected_at_http_layer(
+    mock_request_user, test_client, app
+):
+    """The DSL validator must reject aggregate on metadata tables before
+    SQL is built. Verifies the HTTP error code is the standard invalidDsl."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",
+            "table": "shifu_published_shifus",
+            "aggregate": [{"fn": "count", "alias": "n"}],
+            "limit": 1,
+        },
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 11002  # server.creatorAnalytics.invalidDsl
+
+
+def test_shifu_meta_title_like_searches_callers_courses(
+    mock_request_user, test_client, app
+):
+    """title `like` with trailing-% is the canonical "find my course by
+    name" path. Combined with creator_scoped filtering, the caller only
+    sees their own matches."""
+
+    mock_request_user(user_id="teacher-1")
+    with app.app_context():
+        seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
+        seed_owned_course(shifu_bid="shifu-b", user_id="teacher-1")
+        seed_published_shifu(
+            shifu_bid="shifu-a",
+            user_id="teacher-1",
+            title="AI 通识入门",
+        )
+        seed_published_shifu(
+            shifu_bid="shifu-b",
+            user_id="teacher-1",
+            title="AI 通识进阶",
+        )
+        # A course owned by teacher-2 with matching title — must not leak
+        seed_owned_course(shifu_bid="shifu-c", user_id="teacher-2")
+        seed_published_shifu(
+            shifu_bid="shifu-c",
+            user_id="teacher-2",
+            title="AI 通识 (其他作者)",
+        )
+
+    response = _post(
+        test_client,
+        {
+            "shifu_bid": "shifu-a",  # CLI must inject this; metadata query
+            #                       # is per-shifu in this single call,
+            #                       # broader fan-out happens client-side
+            "table": "shifu_published_shifus",
+            "where": [{"field": "title", "op": "like", "value": "AI 通识%"}],
+            "select": ["title"],
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json(force=True)["data"]
+    # Only the caller's own shifu-a row matches both the shifu_bid scope
+    # AND the title like; shifu-b has the same creator but is filtered
+    # out by shifu_bid scope; shifu-c is filtered out by both.
+    assert data["rows"] == [["AI 通识入门"]]

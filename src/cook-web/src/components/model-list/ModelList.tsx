@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
+const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'left-auto right-3';
+
 function ModelOptionLabel({
   label,
   creditMultiplier,
@@ -19,10 +21,6 @@ function ModelOptionLabel({
 }) {
   return (
     <span className='flex w-full min-w-0 items-center'>
-      <span
-        aria-hidden='true'
-        className='w-8 shrink-0'
-      />
       <span className='min-w-0 flex-1 truncate text-left'>{label}</span>
       {creditMultiplier ? (
         <span className='ml-2 shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
@@ -31,7 +29,7 @@ function ModelOptionLabel({
       ) : null}
       <span
         aria-hidden='true'
-        className='w-6 shrink-0'
+        className='w-8 shrink-0'
       />
     </span>
   );
@@ -81,7 +79,7 @@ export default function ModelList({
     >
       <SelectTrigger
         className={cn(
-          'relative w-full px-1 [&>svg]:absolute [&>svg]:right-3',
+          'relative w-full pl-3 pr-1 [&>svg]:absolute [&>svg]:right-3',
           className,
         )}
       >
@@ -106,7 +104,8 @@ export default function ModelList({
           key='default'
           value={DEFAULT_MODEL_OPTION_VALUE}
           textValue={defaultOption.label}
-          className='pl-0 pr-0'
+          indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
+          className='pl-3 pr-0'
         >
           <ModelOptionLabel
             label={defaultOption.label}
@@ -119,7 +118,8 @@ export default function ModelList({
               key={item.value}
               value={item.value}
               textValue={item.label}
-              className='pl-0 pr-0'
+              indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
+              className='pl-3 pr-0'
             >
               <ModelOptionLabel
                 label={item.label}

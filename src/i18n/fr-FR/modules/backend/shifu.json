@@ -1,6 +1,10 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "copyCourseDemoNotAllowed": "Les cours de démonstration intégrés ne peuvent pas être copiés",
+    "copyCourseDraftNotFound": "Le dernier brouillon du cours est introuvable",
+    "copyCourseTitleFallback": "Cours",
+    "copyCourseTitleSuffix": "-Copie",
     "defaultChapterName": "Chapitre sans titre",
     "defaultLessonName": "Leçon sans titre",
     "draftConflict": "Le contenu du cours a été mis à jour par un autre utilisateur",

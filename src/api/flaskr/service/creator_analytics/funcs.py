@@ -34,7 +34,7 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
     limit_max = int(app.config.get("ANALYTICS_QUERY_LIMIT_MAX") or 1000)
     query_timeout = int(app.config.get("ANALYTICS_QUERY_TIMEOUT_SECONDS") or 15)
 
-    dsl = parse_dsl(payload, limit_max=limit_max)
+    dsl = parse_dsl(payload, limit_max=limit_max, user_id=user_id)
 
     permissions = get_user_shifu_permissions(app, user_id)
     allowed_perms = permissions.get(dsl.shifu_bid, set())

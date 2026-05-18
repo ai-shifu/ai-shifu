@@ -10,12 +10,12 @@ This generated report summarizes the repository harness control plane.
 - Product specs: `10`
 - References: `3`
 - Active ExecPlans: `3`
-- Completed ExecPlans: `1`
+- Completed ExecPlans: `2`
 
 ## Boundary Baseline
 
-- Baseline entries: `118`
-- `backend.cross_service_import`: `118`
+- Baseline entries: `119`
+- `backend.cross_service_import`: `119`
 
 ## Critical Assets
 

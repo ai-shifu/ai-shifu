@@ -28,7 +28,6 @@ import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
-import type { AskMessage } from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -57,6 +56,17 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
+import { buildReadModeItemsWithAskState } from './readModeItems';
+import {
+  buildVisibleReadModeItems,
+  isReadModeTextContentItem,
+  isTrailingVisibleReadModeTextItem,
+  normalizeReadModeTypewriterContent,
+  resolveReadModeTypewriterKeepAliveElementBid,
+  shouldEnableReadModeTypewriter,
+  syncReadModeTypewriterCache,
+  type ReadModeTypewriterCache,
+} from './readModeTypewriterGate';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { Button } from '@/components/ui/Button';
 
@@ -80,105 +90,6 @@ interface NewChatComponentsProps {
   onListenMobileViewModeChange?: ListenMobileViewModeChangeHandler;
   showGenerateBtn?: boolean;
 }
-
-const buildReadModeItemsWithAskState = ({
-  items,
-  askListByAnchorElementBid,
-  mobileStyle,
-}: {
-  items: ChatContentItem[];
-  askListByAnchorElementBid: Record<string, AskMessage[]>;
-  mobileStyle: boolean;
-}) => {
-  const existingAskAnchorSet = new Set<string>();
-  const likeStatusAnchorSet = new Set<string>();
-
-  items.forEach(item => {
-    if (item.type === ChatContentItemType.ASK && item.parent_element_bid) {
-      existingAskAnchorSet.add(item.parent_element_bid);
-    }
-
-    if (
-      item.type === ChatContentItemType.LIKE_STATUS &&
-      item.parent_element_bid
-    ) {
-      likeStatusAnchorSet.add(item.parent_element_bid);
-    }
-  });
-
-  const insertedAskAnchorSet = new Set<string>();
-  const nextItems: ChatContentItem[] = [];
-
-  items.forEach(item => {
-    if (item.type === ChatContentItemType.ASK) {
-      const anchorElementBid = item.parent_element_bid || '';
-      const storedAskList = anchorElementBid
-        ? askListByAnchorElementBid[anchorElementBid]
-        : undefined;
-
-      nextItems.push(
-        storedAskList
-          ? ({
-              ...item,
-              ask_list: storedAskList as ChatContentItem[],
-            } satisfies ChatContentItem)
-          : item,
-      );
-
-      if (anchorElementBid) {
-        insertedAskAnchorSet.add(anchorElementBid);
-      }
-
-      return;
-    }
-
-    nextItems.push(item);
-
-    const anchorElementBid =
-      item.type === ChatContentItemType.LIKE_STATUS
-        ? item.parent_element_bid || ''
-        : item.element_bid || '';
-
-    if (
-      !anchorElementBid ||
-      existingAskAnchorSet.has(anchorElementBid) ||
-      insertedAskAnchorSet.has(anchorElementBid)
-    ) {
-      return;
-    }
-
-    const storedAskList = askListByAnchorElementBid[anchorElementBid];
-
-    if (!storedAskList?.length) {
-      return;
-    }
-
-    const shouldInsertAfterCurrent =
-      item.type === ChatContentItemType.LIKE_STATUS ||
-      (!likeStatusAnchorSet.has(anchorElementBid) &&
-        (item.type === ChatContentItemType.CONTENT ||
-          item.type === ChatContentItemType.INTERACTION));
-
-    if (!shouldInsertAfterCurrent) {
-      return;
-    }
-
-    nextItems.push({
-      element_bid: '',
-      parent_element_bid: anchorElementBid,
-      type: ChatContentItemType.ASK,
-      content: '',
-      isAskExpanded: !mobileStyle,
-      ask_list: storedAskList as ChatContentItem[],
-      readonly: false,
-      customRenderBar: () => null,
-      user_input: '',
-    });
-    insertedAskAnchorSet.add(anchorElementBid);
-  });
-
-  return nextItems;
-};
 
 const getFirstHistoryTextContentItem = (items: ChatContentItem[]) =>
   items.find(
@@ -371,6 +282,8 @@ export const NewChatComponents = ({
   const isListenMode = learningMode === 'listen';
   const previousLearningModeRef = useRef(learningMode);
   const lastReadModeItemsRef = useRef<ChatContentItem[]>([]);
+  const [readModeTypewriterCache, setReadModeTypewriterCache] =
+    useState<ReadModeTypewriterCache>({});
   const pendingListenAfterResetLessonIdRef = useRef<string | null>(null);
   const listenModeRestoreReadyRef = useRef(false);
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
@@ -465,6 +378,7 @@ export const NewChatComponents = ({
     isLoading,
     isOutputInProgress,
     currentStreamingElementBid,
+    currentTypewriterElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -520,14 +434,79 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
+  // console.log('readModeItems', readModeItems);
+  const visibleReadModeItems = useMemo(
+    () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
+    [readModeItems, readModeTypewriterCache],
+  );
+  const trailingVisibleReadModeTextBid = useMemo(
+    () =>
+      [...visibleReadModeItems]
+        .reverse()
+        .find(item => isReadModeTextContentItem(item))?.element_bid || '',
+    [visibleReadModeItems],
+  );
+  const isTrailingVisibleReadModeItemText = useMemo(
+    () =>
+      isTrailingVisibleReadModeTextItem(
+        visibleReadModeItems,
+        trailingVisibleReadModeTextBid,
+      ),
+    [trailingVisibleReadModeTextBid, visibleReadModeItems],
+  );
+  const readModeTypewriterKeepAliveElementBid = useMemo(
+    () =>
+      resolveReadModeTypewriterKeepAliveElementBid({
+        isOutputInProgress,
+        currentStreamingTextElementBid:
+          trailingVisibleReadModeTextBid === currentStreamingElementBid
+            ? currentStreamingElementBid
+            : '',
+        currentOutputTextElementBid: currentTypewriterElementBid,
+      }),
+    [
+      currentStreamingElementBid,
+      currentTypewriterElementBid,
+      isOutputInProgress,
+      trailingVisibleReadModeTextBid,
+    ],
+  );
+  const handleReadModeTypeFinished = useCallback(
+    (blockBid: string, content: string) => {
+      if (!blockBid) {
+        return;
+      }
+
+      const normalizedContent = normalizeReadModeTypewriterContent(content);
+
+      setReadModeTypewriterCache(prevCache => {
+        const existingEntry = prevCache[blockBid];
+        if (
+          existingEntry?.content === normalizedContent &&
+          existingEntry.isFinished === true
+        ) {
+          return prevCache;
+        }
+
+        return {
+          ...prevCache,
+          [blockBid]: {
+            content: normalizedContent,
+            isFinished: true,
+          },
+        };
+      });
+    },
+    [],
+  );
   const getReadModeElementPadding = useCallback(
     (isFirstElement: boolean) => (isFirstElement ? '20px 20px 0' : '0 20px'),
     [],
   );
   const shouldShowReadModeStreamingDots =
     isOutputInProgress &&
-    !readModeItems.some(item => item.element_bid === 'loading');
-  const isReadModeStreamingDotsFirstElement = readModeItems.length === 0;
+    !visibleReadModeItems.some(item => item.element_bid === 'loading');
+  const isReadModeStreamingDotsFirstElement = visibleReadModeItems.length === 0;
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -556,6 +535,12 @@ export const NewChatComponents = ({
 
     lastReadModeItemsRef.current = items;
   }, [items, learningMode]);
+
+  useEffect(() => {
+    setReadModeTypewriterCache(prevCache =>
+      syncReadModeTypewriterCache(readModeItems, prevCache),
+    );
+  }, [readModeItems]);
 
   useEffect(() => {
     const previousLearningMode = previousLearningModeRef.current;
@@ -1134,7 +1119,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {readModeItems.map((item, idx) => {
+                {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
                   const baseKey = item.element_bid || `${item.type}-${idx}`;
@@ -1312,10 +1297,27 @@ export const NewChatComponents = ({
                       {isLongPressed && mobileStyle && (
                         <div className='long-press-overlay' />
                       )}
+                      {/*
+                        Keep typewriter enabled when the current element content
+                        has already grown beyond the finished cache snapshot.
+                      */}
                       <ContentBlock
                         item={item}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
+                        enableStreamingTypewriter={shouldEnableReadModeTypewriter(
+                          item,
+                          readModeTypewriterCache[item.element_bid || ''],
+                          {
+                            keepAliveWhileStreaming:
+                              isOutputInProgress &&
+                              isTrailingVisibleReadModeItemText &&
+                              readModeTypewriterKeepAliveElementBid ===
+                                item.element_bid &&
+                              trailingVisibleReadModeTextBid ===
+                                item.element_bid,
+                          },
+                        )}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
@@ -1328,6 +1330,7 @@ export const NewChatComponents = ({
                         showAudioAction={shouldShowAudioAction}
                         onAudioPlayStateChange={handleAudioPlayStateChange}
                         onAudioEnded={handleAudioEnded}
+                        onTypeFinished={handleReadModeTypeFinished}
                       />
                     </div>
                   );
@@ -1335,7 +1338,9 @@ export const NewChatComponents = ({
                 {shouldShowReadModeStreamingDots ? (
                   <div
                     style={{
-                      margin: readModeItems.length ? '16px auto 0' : '0 auto',
+                      margin: visibleReadModeItems.length
+                        ? '16px auto 0'
+                        : '0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: getReadModeElementPadding(
                         isReadModeStreamingDotsFirstElement,
