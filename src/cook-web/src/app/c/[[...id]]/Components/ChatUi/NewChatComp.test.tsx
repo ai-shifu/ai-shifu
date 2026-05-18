@@ -172,6 +172,53 @@ describe('NewChatComp mode projections', () => {
     expect(listenItems.map(item => item.element_bid)).toEqual(['visual-1']);
   });
 
+  it('keeps selected interaction blocks in listen mode projection', () => {
+    const canonicalItems: ChatContentItem[] = [
+      {
+        element_bid: 'retired-streaming-1',
+        generated_block_bid: 'generated-1',
+        content: '',
+        is_renderable: false,
+        type: ChatContentItemType.CONTENT,
+      },
+      {
+        element_bid: 'interaction-1',
+        parent_element_bid: 'retired-streaming-1',
+        generated_block_bid: 'interaction-1',
+        content: '?[%{{knowledge_level}} 完全不了解 | 略知一二 | 比较熟悉]',
+        is_renderable: false,
+        type: ChatContentItemType.INTERACTION,
+        user_input: '比较熟悉',
+        readonly: true,
+      },
+      {
+        element_bid: 'visual-1',
+        generated_block_bid: 'generated-1',
+        content: '![figure](figure.png)',
+        is_renderable: true,
+        type: ChatContentItemType.CONTENT,
+      },
+    ];
+
+    const listenItems = projectListenModeItems({
+      items: canonicalItems,
+      askButtonMarkup,
+    });
+
+    expect(listenItems.map(item => item.element_bid)).toEqual([
+      'interaction-1',
+      'visual-1',
+    ]);
+    expect(listenItems[0]).toEqual(
+      expect.objectContaining({
+        element_bid: 'interaction-1',
+        type: ChatContentItemType.INTERACTION,
+        user_input: '比较熟悉',
+        readonly: true,
+      }),
+    );
+  });
+
   it('normalizes finalized listen content as read history before projecting buttons', () => {
     const canonicalItems: ChatContentItem[] = [
       {

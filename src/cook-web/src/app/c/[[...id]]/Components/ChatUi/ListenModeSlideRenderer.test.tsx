@@ -138,4 +138,44 @@ describe('ListenModeSlideRenderer', () => {
       }),
     ]);
   });
+
+  it('passes selected interaction user input to the slide during playback', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[%{{knowledge_level}} 完全不了解 | 略知一二 | 比较熟悉]',
+            element_bid: 'interaction-1',
+            is_renderable: false,
+            user_input: '比较熟悉',
+            readonly: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const interactionElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'interaction-1',
+    );
+
+    expect(interactionElement).toEqual(
+      expect.objectContaining({
+        type: 'interaction',
+        user_input: '比较熟悉',
+        readonly: true,
+      }),
+    );
+  });
 });
