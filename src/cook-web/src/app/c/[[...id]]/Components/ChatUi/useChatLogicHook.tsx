@@ -274,6 +274,8 @@ function useChatLogicHook({
 }: UseChatSessionParams): UseChatSessionResult {
   const { t, i18n, ready } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
+  const isListenModeLatest = useLatest(isListenMode);
+  const mobileStyleLatest = useLatest(mobileStyle);
 
   const { updateUserInfo } = useUserStore(
     useShallow(state => ({
@@ -540,10 +542,12 @@ function useChatLogicHook({
 
       const nextItems = [...items];
       const targetItem = nextItems[targetIndex];
+      const isListenModeCurrent = Boolean(isListenModeLatest.current);
+      const mobileStyleCurrent = Boolean(mobileStyleLatest.current);
 
       if (
-        mobileStyle &&
-        !isListenMode &&
+        mobileStyleCurrent &&
+        !isListenModeCurrent &&
         targetItem.type === ChatContentItemType.CONTENT &&
         !hasCustomButtonAfterContent(targetItem.content)
       ) {
@@ -560,12 +564,17 @@ function useChatLogicHook({
         ...nextItems[targetIndex],
         is_final: true,
         shouldRenderAsHistoryInReadMode:
-          isListenMode && targetItem.isHistory !== true,
+          isListenModeCurrent && targetItem.isHistory !== true,
       };
 
       return finalizeLikeStatusByParent(nextItems, completedElementBid);
     },
-    [finalizeLikeStatusByParent, getAskButtonMarkup, isListenMode, mobileStyle],
+    [
+      finalizeLikeStatusByParent,
+      getAskButtonMarkup,
+      isListenModeLatest,
+      mobileStyleLatest,
+    ],
   );
 
   const resolveRecordUserInput = useCallback(
@@ -804,6 +813,8 @@ function useChatLogicHook({
       },
     ): ChatContentItem => {
       const itemBid = resolveElementItemBid(record);
+      const isListenModeCurrent = Boolean(isListenModeLatest.current);
+      const mobileStyleCurrent = Boolean(mobileStyleLatest.current);
       const previousAudioSegments = Array.isArray(
         options?.previousItem?.audio_segments,
       )
@@ -830,8 +841,8 @@ function useChatLogicHook({
       const rawContent = record.content ?? '';
       const contentWithAskButton =
         options?.appendAskButton &&
-        mobileStyle &&
-        !isListenMode &&
+        mobileStyleCurrent &&
+        !isListenModeCurrent &&
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
@@ -887,8 +898,8 @@ function useChatLogicHook({
     },
     [
       getAskButtonMarkup,
-      isListenMode,
-      mobileStyle,
+      isListenModeLatest,
+      mobileStyleLatest,
       normalizeHistoryAudioTracks,
       resolveElementItemBid,
       resolveRecordUserInput,
