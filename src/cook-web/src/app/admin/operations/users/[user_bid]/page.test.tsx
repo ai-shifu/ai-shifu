@@ -630,12 +630,48 @@ describe('AdminOperationUserDetailPage', () => {
     ).toHaveAttribute('data-state', 'active');
   });
 
+  test('activates the learning courses tab when the learning hash is present', async () => {
+    window.location.hash = '#learning-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.learningCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  test('activates the created courses tab when the created hash is present', async () => {
+    window.location.hash = '#created-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.createdCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
   test('jumps to the learning courses tab from the overview card', async () => {
     render(<AdminOperationUserDetailPage />);
 
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'module.operationsUser.table.learningCourses',
+        name: 'module.operationsUser.table.learningCourses: 1',
       }),
     );
 
@@ -645,6 +681,84 @@ describe('AdminOperationUserDetailPage', () => {
       }),
     ).toHaveAttribute('data-state', 'active');
     expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('jumps to the created courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 1',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.createdCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('resets the detail tab hash when switching to another user', async () => {
+    const originalReplaceState = window.history.replaceState.bind(
+      window.history,
+    );
+    const replaceStateSpy = jest
+      .spyOn(window.history, 'replaceState')
+      .mockImplementation((data, unused, url) => {
+        originalReplaceState(data, unused, url);
+        if (typeof url === 'string') {
+          window.location.hash = new URL(url, 'http://localhost').hash;
+        }
+      });
+    const { rerender } = render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+      });
+    });
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 1',
+      }),
+    );
+    await waitFor(() => {
+      expect(replaceStateSpy).toHaveBeenCalled();
+      expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+        '#learning-courses',
+      );
+    });
+
+    currentUserBid = 'user-2';
+    window.location.hash = '#learning-courses';
+    mockGetAdminOperationUserDetail.mockResolvedValue({
+      ...detailResponse,
+      user_bid: 'user-2',
+      email: 'user-2@example.com',
+    });
+    rerender(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+        user_bid: 'user-2',
+      });
+    });
+
+    await waitFor(() => {
+      expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+        '#credits',
+      );
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.credits',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+
+    replaceStateSpy.mockRestore();
   });
 
   test('uses course status translations for unknown course states', async () => {

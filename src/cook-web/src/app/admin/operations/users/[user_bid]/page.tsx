@@ -63,6 +63,13 @@ const DETAIL_TAB_HASHES: Record<DetailTab, string> = {
 };
 const isDetailTab = (value: string): value is DetailTab =>
   value === 'credits' || value === 'learning' || value === 'created';
+const resolveDetailTabFromHash = (hash: string): DetailTab | null => {
+  const hashEntry = Object.entries(DETAIL_TAB_HASHES).find(
+    ([, targetHash]) => targetHash === hash,
+  ) as [DetailTab, string] | undefined;
+
+  return hashEntry?.[0] ?? null;
+};
 const DEFAULT_CREDIT_SUMMARY: AdminOperationUserCreditSummary = {
   available_credits: '',
   subscription_credits: '',
@@ -225,6 +232,9 @@ const InfoItem = ({
   valueAriaLabel?: string;
 }) => {
   const displayValue = value && value.trim().length > 0 ? value : EMPTY_VALUE;
+  const accessibleValueLabel = valueAriaLabel
+    ? `${valueAriaLabel}: ${displayValue}`
+    : undefined;
 
   return (
     <div className='space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3'>
@@ -234,7 +244,7 @@ const InfoItem = ({
       {onClick ? (
         <button
           type='button'
-          aria-label={valueAriaLabel}
+          aria-label={accessibleValueLabel}
           className={cn(
             'w-full break-all text-left text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             valueClassName,
@@ -438,7 +448,13 @@ export default function AdminOperationUserDetailPage() {
     useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
   const [creditFilters, setCreditFilters] =
     useState<AdminOperationUserCreditFilters>(createUserCreditFilters);
-  const [activeTab, setActiveTab] = useState<DetailTab>('credits');
+  const [activeTab, setActiveTab] = useState<DetailTab>(() => {
+    if (typeof window === 'undefined') {
+      return 'credits';
+    }
+
+    return resolveDetailTabFromHash(window.location.hash) ?? 'credits';
+  });
   const [detail, setDetail] =
     useState<AdminOperationUserDetailResponse>(EMPTY_DETAIL);
   const [credits, setCredits] = useState<AdminOperationUserCreditsResponse>(
@@ -600,7 +616,8 @@ export default function AdminOperationUserDetailPage() {
     setCreditFiltersDraft(createUserCreditFilters());
     setCreditFilters(createUserCreditFilters());
     setActiveTab('credits');
-  }, [userBid]);
+    syncDetailTabHash('credits');
+  }, [syncDetailTabHash, userBid]);
 
   useEffect(() => {
     if (!isReady || !userBid || userBidState.errorMessage) {
@@ -708,14 +725,12 @@ export default function AdminOperationUserDetailPage() {
       return;
     }
 
-    const hashEntry = Object.entries(DETAIL_TAB_HASHES).find(
-      ([, hash]) => hash === window.location.hash,
-    ) as [DetailTab, string] | undefined;
-    if (!hashEntry) {
+    const hashTab = resolveDetailTabFromHash(window.location.hash);
+    if (!hashTab) {
       return;
     }
 
-    setActiveTab(hashEntry[0]);
+    setActiveTab(hashTab);
     scrollToDetailTabsSection();
   }, [detailLoading, scrollToDetailTabsSection]);
 
