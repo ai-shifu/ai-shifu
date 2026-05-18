@@ -185,7 +185,7 @@ describe('AskBlock typewriter lifecycle', () => {
     );
   });
 
-  it('disables typewriter immediately after follow-up streaming ends', async () => {
+  it('keeps typewriter enabled after terminal follow-up streaming ends', async () => {
     render(
       <AskBlock
         askList={[]}
@@ -230,6 +230,7 @@ describe('AskBlock typewriter lifecycle', () => {
       await activeOnMessage?.({
         type: 'done',
         content: '',
+        is_terminal: true,
       });
     });
 
@@ -237,7 +238,7 @@ describe('AskBlock typewriter lifecycle', () => {
       expect(getLastContentRenderProps()).toEqual(
         expect.objectContaining({
           content: 'hello there',
-          enableTypewriter: false,
+          enableTypewriter: true,
         }),
       ),
     );

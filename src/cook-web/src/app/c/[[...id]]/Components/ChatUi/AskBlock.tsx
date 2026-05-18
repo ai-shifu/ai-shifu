@@ -140,7 +140,6 @@ export default function AskBlock({
         newList[lastIndex] = {
           ...newList[lastIndex],
           isStreaming: false,
-          shouldUseTypewriter: false,
         };
       }
       return newList;
@@ -298,10 +297,15 @@ export default function AskBlock({
             }
           }
 
-          if (
-            response.type === SSE_OUTPUT_TYPE.BREAK ||
-            response.type === SSE_OUTPUT_TYPE.TEXT_END
-          ) {
+          if (response.type === SSE_OUTPUT_TYPE.BREAK) {
+            return;
+          }
+
+          if (response.type === SSE_OUTPUT_TYPE.TEXT_END) {
+            if (response.is_terminal !== true) {
+              return;
+            }
+
             finalizeStreamingMessage();
             sseRef.current?.close();
             return;
@@ -375,6 +379,11 @@ export default function AskBlock({
     previousExpandedRef.current = expanded;
 
     if (previousExpanded === expanded) {
+      return;
+    }
+
+    // Expanding the sheet should not cancel an active answer typewriter session.
+    if (expanded) {
       return;
     }
 
@@ -560,7 +569,9 @@ export default function AskBlock({
           const shouldEnableMessageTypewriter =
             message.type === BLOCK_TYPE.ANSWER &&
             message.shouldUseTypewriter === true;
-
+          // if (message.type === BLOCK_TYPE.ANSWER) {
+          //   console.log('message', message, shouldEnableMessageTypewriter);
+          // }
           return (
             <div
               key={messageRenderKey}

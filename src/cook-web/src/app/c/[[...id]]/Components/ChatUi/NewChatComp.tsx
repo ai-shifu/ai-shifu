@@ -533,7 +533,7 @@ export const NewChatComponents = ({
       }),
     [items, mobileStyle, scopedAskListByAnchorElementBid],
   );
-  console.log('readModeItems', readModeItems);
+  // console.log('readModeItems', readModeItems);
   const visibleReadModeItems = useMemo(
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
