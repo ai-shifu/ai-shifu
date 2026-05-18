@@ -688,7 +688,7 @@ const OrdersPage = () => {
           value={filters.user_bid}
           onChange={value => handleFilterChange('user_bid', value)}
           placeholder={userBidPlaceholder}
-          clearLabel={t('module.chat.lessonFeedbackClearInput')}
+          clearLabel={t('common.core.close')}
         />
       ),
     },
@@ -730,7 +730,7 @@ const OrdersPage = () => {
               value={courseSearch}
               onChange={setCourseSearch}
               placeholder={t('module.order.filters.searchCourseOrId')}
-              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              clearLabel={t('common.core.close')}
             />
             <ScrollArea className='mt-3 h-48'>
               {coursesLoading ? (
@@ -858,7 +858,7 @@ const OrdersPage = () => {
             'module.order.filters.endTime',
           )}`}
           resetLabel={t('module.order.filters.reset')}
-          clearLabel={t('module.chat.lessonFeedbackClearInput')}
+          clearLabel={t('common.core.close')}
         />
       ),
     },
@@ -870,7 +870,7 @@ const OrdersPage = () => {
           value={filters.order_bid}
           onChange={value => handleFilterChange('order_bid', value)}
           placeholder={t('module.order.filters.orderBid')}
-          clearLabel={t('module.chat.lessonFeedbackClearInput')}
+          clearLabel={t('common.core.close')}
         />
       ),
     },
@@ -927,7 +927,7 @@ const OrdersPage = () => {
                       <span
                         className={cn(
                           "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                          usesLatinLabels ? 'w-24' : 'w-18',
+                          usesLatinLabels ? 'w-24' : 'w-20',
                         )}
                       >
                         {item.label}
@@ -977,7 +977,7 @@ const OrdersPage = () => {
                           <span
                             className={cn(
                               "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                              usesLatinLabels ? 'w-24' : 'w-18',
+                              usesLatinLabels ? 'w-24' : 'w-20',
                             )}
                           >
                             {item.label}

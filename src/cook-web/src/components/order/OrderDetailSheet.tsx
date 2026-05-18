@@ -235,10 +235,6 @@ const OrderDetailSheet = ({
                   label={t('module.order.fields.currency')}
                   value={fallbackValue(payment?.currency, emptyValue)}
                 />
-                <DetailRow
-                  label={t('module.order.fields.transactionNo')}
-                  value={fallbackValue(payment?.transaction_no, emptyValue)}
-                />
               </Section>
 
               <Section title={t('module.order.sections.activities')}>
