@@ -3407,6 +3407,30 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
     assert result == {"user-1": "email"}
 
 
+def test_registration_source_map_skips_unknown_provider_when_supported_one_exists(app):
+    with app.app_context():
+        result = admin_module._load_operator_user_registration_source_map(
+            ["user-1"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="password",
+                    created_at=datetime(2026, 5, 1, 10, 0, 0),
+                    id=1,
+                ),
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="email",
+                    created_at=datetime(2026, 5, 1, 10, 5, 0),
+                    id=2,
+                ),
+            ],
+        )
+
+    assert result == {"user-1": "email"}
+
+
 def test_contact_map_skips_user_query_when_users_argument_is_empty(app, monkeypatch):
     class ForbiddenUserQuery:
         def filter(self, *_args, **_kwargs):

@@ -244,6 +244,18 @@ OPERATOR_USER_REGISTRATION_SOURCE_GOOGLE = "google"
 OPERATOR_USER_REGISTRATION_SOURCE_WECHAT = "wechat"
 OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED = "imported"
 OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN = "unknown"
+OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS = {
+    "phone",
+    "email",
+    "google",
+    "wechat",
+}
+OPERATOR_USER_SUPPORTED_REGISTRATION_SOURCE_PROVIDERS = (
+    OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS | {"manual", "import", "imported"}
+)
+OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS = (
+    OPERATOR_USER_SUPPORTED_REGISTRATION_SOURCE_PROVIDERS | {"password"}
+)
 COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE = 100
 COURSE_RATING_LIST_MAX_PAGE_SIZE = 100
 COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE = 100
@@ -1343,14 +1355,14 @@ def _normalize_login_method(provider_name: str) -> str:
     normalized = str(provider_name or "").strip().lower()
     if not normalized:
         return ""
-    if normalized in {"phone", "email", "google", "wechat"}:
+    if normalized in OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS:
         return normalized
     return "unknown"
 
 
 def _normalize_registration_source(provider_name: str) -> str:
     normalized = str(provider_name or "").strip().lower()
-    if normalized in {"phone", "email", "google", "wechat"}:
+    if normalized in OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS:
         return normalized
     if normalized in {"manual", "import", "imported"}:
         return OPERATOR_USER_REGISTRATION_SOURCE_IMPORTED
@@ -1368,6 +1380,9 @@ def _load_operator_user_auth_credentials(
 
     return AuthCredential.query.filter(
         AuthCredential.user_bid.in_(normalized_user_bids),
+        AuthCredential.provider_name.in_(
+            sorted(OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS)
+        ),
         AuthCredential.deleted == 0,
     ).all()
 
@@ -1400,9 +1415,12 @@ def _load_operator_user_registration_source_map(
         user_bid = str(credential.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
             continue
-        registration_source_map[user_bid] = _normalize_registration_source(
+        registration_source = _normalize_registration_source(
             credential.provider_name or ""
         )
+        if registration_source == OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN:
+            continue
+        registration_source_map[user_bid] = registration_source
 
     if len(registration_source_map) == len(normalized_user_bids):
         return registration_source_map
