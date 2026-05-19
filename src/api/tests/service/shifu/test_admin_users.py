@@ -3374,3 +3374,90 @@ def test_get_operator_user_detail_normalizes_unknown_login_methods(app):
 
     assert isinstance(result, AdminOperationUserSummaryDTO)
     assert result.login_methods == ["unknown", "email"]
+
+
+def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
+    app, monkeypatch
+):
+    class ForbiddenUserQuery:
+        def filter(self, *_args, **_kwargs):
+            raise AssertionError("expected no user query when users=[] is provided")
+
+    with app.app_context():
+        monkeypatch.setattr(
+            admin_module.UserEntity,
+            "query",
+            ForbiddenUserQuery(),
+            raising=False,
+        )
+
+        result = admin_module._load_operator_user_registration_source_map(
+            ["user-1", "user-2"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="email",
+                    created_at=datetime(2026, 5, 1, 10, 0, 0),
+                    id=1,
+                )
+            ],
+        )
+
+    assert result == {"user-1": "email"}
+
+
+def test_registration_source_map_skips_unknown_provider_when_supported_one_exists(app):
+    with app.app_context():
+        result = admin_module._load_operator_user_registration_source_map(
+            ["user-1"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="password",
+                    created_at=datetime(2026, 5, 1, 10, 0, 0),
+                    id=1,
+                ),
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="email",
+                    created_at=datetime(2026, 5, 1, 10, 5, 0),
+                    id=2,
+                ),
+            ],
+        )
+
+    assert result == {"user-1": "email"}
+
+
+def test_contact_map_skips_user_query_when_users_argument_is_empty(app, monkeypatch):
+    class ForbiddenUserQuery:
+        def filter(self, *_args, **_kwargs):
+            raise AssertionError("expected no user query when users=[] is provided")
+
+    with app.app_context():
+        monkeypatch.setattr(
+            admin_module.UserEntity,
+            "query",
+            ForbiddenUserQuery(),
+            raising=False,
+        )
+
+        result = admin_module._load_operator_user_contact_map(
+            ["user-1", "user-2"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="phone",
+                    state=CREDENTIAL_STATE_VERIFIED,
+                    identifier="13800000000",
+                    id=1,
+                )
+            ],
+        )
+
+    assert result["user-1"]["mobile"] == "13800000000"
+    assert result["user-1"]["login_methods"] == ["phone"]
+    assert result["user-2"] == {"mobile": "", "email": "", "login_methods": []}

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -284,6 +285,28 @@ const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
 const mockGetAdminOperationUserDetail =
   api.getAdminOperationUserDetail as jest.Mock;
 
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
+const flushMicrotasks = async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
+};
+
+const renderResolvedPage = async () => {
+  render(<AdminOperationUsersPage />);
+  await screen.findByText('module.operationsUser.title');
+  await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
+};
+
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
@@ -412,6 +435,10 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
+  afterEach(async () => {
+    await flushMicrotasks();
+  });
+
   afterAll(() => {
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -419,8 +446,55 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
+  test('loads user overview after the initial list request settles', async () => {
+    const listDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const overviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+    mockGetAdminOperationUsers.mockReturnValueOnce(listDeferred.promise);
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      overviewDeferred.promise,
+    );
+
+    await act(async () => {
+      render(<AdminOperationUsersPage />);
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+    expect(mockGetAdminOperationUsersOverview).not.toHaveBeenCalled();
+
+    await act(async () => {
+      listDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      overviewDeferred.resolve(DEFAULT_OVERVIEW);
+      await overviewDeferred.promise;
+    });
+  });
+
   test('loads and renders operator users', async () => {
-    render(<AdminOperationUsersPage />);
+    await act(async () => {
+      render(<AdminOperationUsersPage />);
+    });
+    await flushMicrotasks();
 
     await waitFor(() => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
@@ -434,6 +508,9 @@ describe('AdminOperationUsersPage', () => {
         start_time: '',
         end_time: '',
       });
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalled();
     });
 
     expect(
@@ -567,11 +644,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('opens the credit grant dialog from the action menu', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -618,7 +691,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     const actionButton = await screen.findByRole('button', {
       name: 'module.operationsUser.actions.grantCredits',
@@ -628,11 +701,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('revalidates billing overview after credits are granted successfully', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -655,11 +724,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('submits search filters', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     const identifierInput = screen.getAllByRole('textbox')[0];
     fireEvent.change(identifierInput, {
@@ -692,9 +757,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('clicking the paid users overview card syncs status and quick filter', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await screen.findByText('module.operationsUser.title');
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -719,9 +782,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('clicking the registered users overview card applies the registered quick filter', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await screen.findByText('module.operationsUser.title');
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -742,9 +803,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('clicking the active learning overview card applies and clears the quick filter chip', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await screen.findByText('module.operationsUser.title');
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -783,9 +842,7 @@ describe('AdminOperationUsersPage', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-06T10:00:00Z'));
 
     try {
-      render(<AdminOperationUsersPage />);
-
-      await screen.findByText('module.operationsUser.title');
+      await renderResolvedPage();
 
       fireEvent.click(
         screen.getByRole('button', {
@@ -808,9 +865,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('clicking the recent registered overview card applies the quick filter without overriding created-at range', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await screen.findByText('module.operationsUser.title');
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -831,8 +886,8 @@ describe('AdminOperationUsersPage', () => {
 
   test('reinitializing the page clears the stale quick filter state', async () => {
     const { rerender } = render(<AdminOperationUsersPage />);
-
     await screen.findByText('module.operationsUser.title');
+    await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -849,11 +904,64 @@ describe('AdminOperationUsersPage', () => {
       );
     });
 
-    mockUserState.isInitialized = false;
-    rerender(<AdminOperationUsersPage />);
+    const refreshedListDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const refreshedOverviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
 
+    mockUserState.isInitialized = false;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      refreshedOverviewDeferred.promise,
+    );
     mockUserState.isInitialized = true;
-    rerender(<AdminOperationUsersPage />);
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+    await act(async () => {
+      refreshedListDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+      await refreshedListDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      refreshedOverviewDeferred.resolve(DEFAULT_OVERVIEW);
+      await refreshedOverviewDeferred.promise;
+    });
 
     await waitFor(() => {
       expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
@@ -866,6 +974,9 @@ describe('AdminOperationUsersPage', () => {
         }),
       );
     });
+    expect(
+      await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count)),
+    ).toBeInTheDocument();
 
     expect(
       screen.queryByText('module.operationsUser.overview.activeFilter'),
@@ -877,14 +988,53 @@ describe('AdminOperationUsersPage', () => {
 
     expect(await screen.findByText('128')).toBeInTheDocument();
 
-    mockGetAdminOperationUsersOverview.mockRejectedValueOnce(
-      new Error('overview failed'),
-    );
-    mockUserState.isInitialized = false;
-    rerender(<AdminOperationUsersPage />);
+    const refreshedListDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const refreshedOverviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
 
+    mockUserState.isInitialized = false;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      refreshedOverviewDeferred.promise,
+    );
     mockUserState.isInitialized = true;
-    rerender(<AdminOperationUsersPage />);
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      refreshedListDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+      await refreshedListDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      refreshedOverviewDeferred.reject(new Error('overview failed'));
+      try {
+        await refreshedOverviewDeferred.promise;
+      } catch {}
+    });
 
     expect(await screen.findByText('128')).toBeInTheDocument();
     expect(
@@ -893,9 +1043,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await screen.findByText('module.operationsUser.title');
+    await renderResolvedPage();
 
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
     expect(
@@ -930,11 +1078,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('opens course dialog from summary cells', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -996,7 +1140,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByRole('link', { name: 'user-no-contact' }),
@@ -1055,7 +1199,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     const row = (
       await screen.findByRole('link', { name: 'user-phone-only' })
@@ -1153,7 +1297,7 @@ describe('AdminOperationUsersPage', () => {
       updated_at: '2026-04-14T11:00:00Z',
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     fireEvent.click(
       await screen.findByRole('button', {
@@ -1243,7 +1387,7 @@ describe('AdminOperationUsersPage', () => {
       updated_at: '2026-04-14T11:00:00Z',
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText(
@@ -1297,7 +1441,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText('module.user.defaultUserName'),
@@ -1337,7 +1481,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText('module.operationsUser.credits.longTerm'),
@@ -1384,16 +1528,7 @@ describe('AdminOperationUsersPage', () => {
       total: 21,
     });
 
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledWith(
-        expect.objectContaining({
-          page_index: 1,
-          page_size: 20,
-        }),
-      );
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       await screen.findByRole('link', {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from flask import Flask
@@ -1187,13 +1188,23 @@ class FakeOuterQuery:
         self.filters = []
         self.ordering = []
         self.result = result
+        self.options_calls = []
+        self.with_entities_calls = []
 
     def filter(self, *conditions):
         self.filters.extend(conditions)
         return self
 
+    def options(self, *options):
+        self.options_calls.extend(options)
+        return self
+
     def order_by(self, *ordering):
         self.ordering.extend(ordering)
+        return self
+
+    def with_entities(self, *columns):
+        self.with_entities_calls.append(columns)
         return self
 
     def all(self):
@@ -1209,7 +1220,7 @@ class FakeSession:
     def query(self, target):
         if target == ("max", "id", "max_id"):
             return self.latest_query
-        if target is FakeModel:
+        if isinstance(target, type) and issubclass(target, FakeModel):
             return self.outer_query
         id_query = FakeIdQuery(target)
         self.id_queries.append(id_query)
@@ -1236,6 +1247,14 @@ class FakeModel:
     created_user_bid = FakeColumn("created_user_bid")
     created_at = FakeColumn("created_at")
     updated_at = FakeColumn("updated_at")
+
+
+class FakeMappedModel(FakeModel):
+    __mapper__ = object()
+    llm_system_prompt = FakeColumn("llm_system_prompt")
+    price = FakeColumn("price")
+    llm = FakeColumn("llm")
+    updated_user_bid = FakeColumn("updated_user_bid")
 
 
 def test_load_latest_shifus_filters_on_latest_rows(monkeypatch):
@@ -1281,3 +1300,40 @@ def test_load_latest_shifus_filters_on_latest_rows(monkeypatch):
         ("desc", "updated_at"),
         ("desc", "id"),
     ]
+
+
+def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(monkeypatch):
+    latest_query = FakeLatestQuery()
+    outer_query = FakeOuterQuery(
+        [
+            SimpleNamespace(
+                id=1,
+                shifu_bid="course-1",
+                title="Course 1",
+                price="19.00",
+                llm="gpt-4.1-mini",
+                created_user_bid="creator-1",
+                updated_user_bid="creator-1",
+                created_at=datetime(2025, 4, 1, 10, 0, 0),
+                updated_at=datetime(2025, 4, 2, 10, 0, 0),
+            )
+        ]
+    )
+    fake_db = FakeDB(latest_query, outer_query)
+    monkeypatch.setattr(admin_module, "db", fake_db)
+
+    result = _load_latest_shifus(
+        FakeMappedModel,
+        shifu_bid="",
+        course_name="",
+        creator_bids=None,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+        lightweight=True,
+    )
+
+    assert len(outer_query.options_calls) == 0
+    assert len(outer_query.with_entities_calls) == 1
+    assert result[0].shifu_bid == "course-1"
