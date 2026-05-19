@@ -1,29 +1,16 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Tooltip,
   TooltipContent,
@@ -32,8 +19,6 @@ import {
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
-import { cn } from '@/lib/utils';
-import { buildAdminOperationsCourseDetailUrl } from '../../operation-course-routes';
 import { formatOperatorNaiveDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
@@ -43,7 +28,8 @@ import type {
   AdminOperationUserDetailResponse,
 } from '../../operation-user-types';
 import useOperatorGuard from '../../useOperatorGuard';
-import UserCreditLedgerTab from './UserCreditLedgerTab';
+import UserDetailSummarySection from './UserDetailSummarySection';
+import UserDetailTabsSection from './UserDetailTabsSection';
 import {
   createUserCreditFilters,
   FILTER_ALL_OPTION,
@@ -55,14 +41,11 @@ type DetailTab = 'credits' | 'learning' | 'created';
 
 const CREDITS_PAGE_SIZE = 10;
 const EMPTY_VALUE = '--';
-const DEFAULT_VISIBLE_COURSE_COUNT = 10;
 const DETAIL_TAB_HASHES: Record<DetailTab, string> = {
   credits: '#credits',
   learning: '#learning-courses',
   created: '#created-courses',
 };
-const isDetailTab = (value: string): value is DetailTab =>
-  value === 'credits' || value === 'learning' || value === 'created';
 const resolveDetailTabFromHash = (hash: string): DetailTab | null => {
   const hashEntry = Object.entries(DETAIL_TAB_HASHES).find(
     ([, targetHash]) => targetHash === hash,
@@ -222,55 +205,6 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.user.defaultUserName')
  */
 
-const InfoItem = ({
-  label,
-  value,
-  onClick,
-  valueClassName,
-  valueAriaLabel,
-}: {
-  label: React.ReactNode;
-  value?: string;
-  onClick?: () => void;
-  valueClassName?: string;
-  valueAriaLabel?: string;
-}) => {
-  const displayValue = value && value.trim().length > 0 ? value : EMPTY_VALUE;
-  const accessibleValueLabel = valueAriaLabel
-    ? `${valueAriaLabel}: ${displayValue}`
-    : undefined;
-
-  return (
-    <div className='space-y-1 rounded-lg border border-border/70 bg-muted/20 px-4 py-3'>
-      <div className='flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-        {label}
-      </div>
-      {onClick ? (
-        <button
-          type='button'
-          aria-label={accessibleValueLabel}
-          className={cn(
-            'w-full break-all text-left text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            valueClassName,
-          )}
-          onClick={onClick}
-        >
-          {displayValue}
-        </button>
-      ) : (
-        <div
-          className={cn(
-            'break-all text-sm font-medium text-foreground',
-            valueClassName,
-          )}
-        >
-          {displayValue}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const formatLearningProgress = (
   course: AdminOperationUserCourseItem,
 ): string => {
@@ -287,139 +221,6 @@ const formatLearningProgress = (
     (completedLessonCount / totalLessonCount) * 100,
   );
   return `${progressPercent}% (${completedLessonCount}/${totalLessonCount})`;
-};
-
-const CourseTable = ({
-  title,
-  courses,
-  emptyText,
-  courseNameLabel,
-  courseIdLabel,
-  valueLabel,
-  renderValue,
-  courseNameAlign = 'center',
-}: {
-  title: string;
-  courses: AdminOperationUserCourseItem[];
-  emptyText: string;
-  courseNameLabel: string;
-  courseIdLabel: string;
-  valueLabel: string;
-  renderValue: (course: AdminOperationUserCourseItem) => string;
-  courseNameAlign?: 'left' | 'center';
-}) => {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-
-  const shouldShowToggle = courses.length > DEFAULT_VISIBLE_COURSE_COUNT;
-  const visibleCourses = expanded
-    ? courses
-    : courses.slice(0, DEFAULT_VISIBLE_COURSE_COUNT);
-  const toggleLabel = `${expanded ? t('common.core.collapse') : t('common.core.expand')} ${title}`;
-
-  useEffect(() => {
-    if (!shouldShowToggle && expanded) {
-      setExpanded(false);
-    }
-  }, [expanded, shouldShowToggle]);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [courses, title]);
-
-  return (
-    <Card className='shadow-sm'>
-      <CardContent className='space-y-3 pt-6'>
-        <TooltipProvider delayDuration={150}>
-          <Table className='table-fixed'>
-            <colgroup>
-              <col className='w-[38%]' />
-              <col className='w-[42%]' />
-              <col className='w-[20%]' />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead className='text-center'>{courseNameLabel}</TableHead>
-                <TableHead className='text-center'>{courseIdLabel}</TableHead>
-                <TableHead className='text-center'>{valueLabel}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {courses.length ? (
-                visibleCourses.map(course => {
-                  const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
-                    course.shifu_bid,
-                  );
-                  return (
-                    <TableRow key={`${title}-${course.shifu_bid}`}>
-                      <TableCell
-                        className={cn(
-                          'max-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
-                          courseNameAlign === 'left'
-                            ? 'text-left'
-                            : 'text-center',
-                        )}
-                      >
-                        {courseDetailUrl ? (
-                          <Link
-                            href={courseDetailUrl}
-                            className={cn(
-                              'inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline',
-                              courseNameAlign === 'left' && 'align-top',
-                            )}
-                          >
-                            <AdminTooltipText
-                              text={course.course_name}
-                              emptyValue={EMPTY_VALUE}
-                            />
-                          </Link>
-                        ) : (
-                          <AdminTooltipText
-                            text={course.course_name}
-                            emptyValue={EMPTY_VALUE}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={course.shifu_bid}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={renderValue(course)}
-                          emptyValue={EMPTY_VALUE}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableEmpty colSpan={3}>{emptyText}</TableEmpty>
-              )}
-            </TableBody>
-          </Table>
-        </TooltipProvider>
-
-        {shouldShowToggle ? (
-          <div className='flex justify-end'>
-            <Button
-              type='button'
-              variant='link'
-              size='sm'
-              className='h-auto px-0 py-0 text-sm'
-              aria-label={toggleLabel}
-              title={toggleLabel}
-              onClick={() => setExpanded(previous => !previous)}
-            >
-              {expanded ? t('common.core.collapse') : t('common.core.expand')}
-            </Button>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
 };
 
 export default function AdminOperationUserDetailPage() {
@@ -732,10 +533,15 @@ export default function AdminOperationUserDetailPage() {
     scrollToDetailTabsSection();
   }, [detailLoading, scrollToDetailTabsSection]);
 
-  const resolveRoleLabel = (role: string) =>
-    tOperationsUsers(`roleLabels.${role || 'unknown'}`);
-  const resolveRegistrationSourceLabel = (source: string) =>
-    tOperationsUsers(`registrationSourceLabels.${source || 'unknown'}`);
+  const resolveRoleLabel = useCallback(
+    (role: string) => tOperationsUsers(`roleLabels.${role || 'unknown'}`),
+    [tOperationsUsers],
+  );
+  const resolveRegistrationSourceLabel = useCallback(
+    (source: string) =>
+      tOperationsUsers(`registrationSourceLabels.${source || 'unknown'}`),
+    [tOperationsUsers],
+  );
   const resolveCourseStatusLabel = (status: string) => {
     if (status === 'published') {
       return tOperationsCourse('statusLabels.published');
@@ -746,7 +552,7 @@ export default function AdminOperationUserDetailPage() {
     const unknownLabel = tOperationsCourse('statusLabels.unknown');
     return status ? `${unknownLabel} (${status})` : unknownLabel;
   };
-  const resolveCreditsExpireAt = () => {
+  const resolveCreditsExpireAt = useCallback(() => {
     if (creditSummary.credits_expire_at) {
       return formatOperatorNaiveDateTime(creditSummary.credits_expire_at);
     }
@@ -754,30 +560,189 @@ export default function AdminOperationUserDetailPage() {
       return tOperationsUsers('credits.longTerm');
     }
     return EMPTY_VALUE;
-  };
-  const creditExpireAtLabel = (
-    <>
-      <span>
-        {tOperationsUsers('detail.creditsOverviewLabels.creditsExpireAt')}
-      </span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            aria-label={tOperationsUsers('detail.creditExpireAtHintAriaLabel')}
-            className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
+  }, [
+    creditSummary.available_credits,
+    creditSummary.credits_expire_at,
+    tOperationsUsers,
+  ]);
+  const creditExpireAtLabel = useMemo(
+    () => (
+      <>
+        <span>
+          {tOperationsUsers('detail.creditsOverviewLabels.creditsExpireAt')}
+        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              aria-label={tOperationsUsers(
+                'detail.creditExpireAtHintAriaLabel',
+              )}
+              className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
+            >
+              <CircleHelp className='h-3.5 w-3.5' />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side='top'
+            className='max-w-[220px] text-center'
           >
-            <CircleHelp className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent
-          side='top'
-          className='max-w-[220px] text-center'
-        >
-          {tOperationsUsers('detail.creditExpireAtHint')}
-        </TooltipContent>
-      </Tooltip>
-    </>
+            {tOperationsUsers('detail.creditExpireAtHint')}
+          </TooltipContent>
+        </Tooltip>
+      </>
+    ),
+    [tOperationsUsers],
+  );
+  const basicInfoItems = useMemo(
+    () => [
+      {
+        key: 'contact',
+        label: contactLabel,
+        value: contactValue,
+      },
+      {
+        key: 'nickname',
+        label: tOperationsUsers('table.nickname'),
+        value: detail.nickname || defaultUserName,
+      },
+      {
+        key: 'role',
+        label: tOperationsUsers('table.role'),
+        value: resolveRoleLabel(detail.user_role),
+      },
+      {
+        key: 'registrationSource',
+        label: tOperationsUsers('table.registrationSource'),
+        value: resolveRegistrationSourceLabel(detail.registration_source),
+      },
+      {
+        key: 'lastLoginAt',
+        label: tOperationsUsers('table.lastLoginAt'),
+        value: formatOperatorNaiveDateTime(detail.last_login_at),
+      },
+      {
+        key: 'createdAt',
+        label: tOperationsUsers('table.createdAt'),
+        value: formatOperatorNaiveDateTime(detail.created_at),
+      },
+    ],
+    [
+      contactLabel,
+      contactValue,
+      defaultUserName,
+      detail.created_at,
+      detail.last_login_at,
+      detail.nickname,
+      detail.registration_source,
+      detail.user_role,
+      resolveRegistrationSourceLabel,
+      resolveRoleLabel,
+      tOperationsUsers,
+    ],
+  );
+  const overviewItems = useMemo(
+    () => [
+      {
+        key: 'totalPaidAmount',
+        label: tOperationsUsers('table.totalPaidAmount'),
+        value: `${currencySymbol}${detail.total_paid_amount || '0'}`,
+      },
+      {
+        key: 'learningCourses',
+        label: tOperationsUsers('table.learningCourses'),
+        value: String(
+          resolveCourseCount(
+            detail.learning_course_count,
+            detail.learning_courses,
+          ),
+        ),
+        valueClassName: 'text-primary',
+        valueAriaLabel: tOperationsUsers('table.learningCourses'),
+        onClick: () => setDetailTab('learning', { scrollToSection: true }),
+      },
+      {
+        key: 'createdCourses',
+        label: tOperationsUsers('table.createdCourses'),
+        value: String(
+          resolveCourseCount(
+            detail.created_course_count,
+            detail.created_courses,
+          ),
+        ),
+        valueClassName: 'text-primary',
+        valueAriaLabel: tOperationsUsers('table.createdCourses'),
+        onClick: () => setDetailTab('created', { scrollToSection: true }),
+      },
+      {
+        key: 'lastLearningAt',
+        label: tOperationsUsers('table.lastLearningAt'),
+        value: formatOperatorNaiveDateTime(detail.last_learning_at),
+      },
+    ],
+    [
+      currencySymbol,
+      detail.created_course_count,
+      detail.created_courses,
+      detail.last_learning_at,
+      detail.learning_course_count,
+      detail.learning_courses,
+      detail.total_paid_amount,
+      setDetailTab,
+      tOperationsUsers,
+    ],
+  );
+  const creditsOverviewItems = useMemo(
+    () => [
+      {
+        key: 'availableCredits',
+        label: tOperationsUsers(
+          'detail.creditsOverviewLabels.availableCredits',
+        ),
+        value: creditSummary.available_credits
+          ? formatAdminCredits(
+              Number(creditSummary.available_credits),
+              i18n.language,
+            )
+          : '',
+      },
+      {
+        key: 'subscriptionCredits',
+        label: tOperationsUsers(
+          'detail.creditsOverviewLabels.subscriptionCredits',
+        ),
+        value: creditSummary.subscription_credits
+          ? formatAdminCredits(
+              Number(creditSummary.subscription_credits),
+              i18n.language,
+            )
+          : '',
+      },
+      {
+        key: 'topupCredits',
+        label: tOperationsUsers('detail.creditsOverviewLabels.topupCredits'),
+        value: creditSummary.topup_credits
+          ? formatAdminCredits(
+              Number(creditSummary.topup_credits),
+              i18n.language,
+            )
+          : '',
+      },
+      {
+        key: 'creditsExpireAt',
+        label: creditExpireAtLabel,
+        value: resolveCreditsExpireAt(),
+      },
+    ],
+    [
+      creditExpireAtLabel,
+      creditSummary.available_credits,
+      creditSummary.subscription_credits,
+      creditSummary.topup_credits,
+      i18n.language,
+      resolveCreditsExpireAt,
+      tOperationsUsers,
+    ],
   );
 
   if (!isReady || detailLoading) {
@@ -820,241 +785,69 @@ export default function AdminOperationUserDetailPage() {
 
           <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
             <div className='space-y-5 px-1 pb-6'>
-              <Card className='shadow-sm'>
-                <CardHeader className='pb-3'>
-                  <CardTitle className='text-base font-semibold'>
-                    {tOperationsUsers('detail.basicInfo')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                    <InfoItem
-                      label={contactLabel}
-                      value={contactValue}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.nickname')}
-                      value={detail.nickname || defaultUserName}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.role')}
-                      value={resolveRoleLabel(detail.user_role)}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.registrationSource')}
-                      value={resolveRegistrationSourceLabel(
-                        detail.registration_source,
-                      )}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.lastLoginAt')}
-                      value={formatOperatorNaiveDateTime(detail.last_login_at)}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.createdAt')}
-                      value={formatOperatorNaiveDateTime(detail.created_at)}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <UserDetailSummarySection
+                emptyValue={EMPTY_VALUE}
+                basicInfoTitle={tOperationsUsers('detail.basicInfo')}
+                basicInfoItems={basicInfoItems}
+                overviewTitle={tOperationsUsers('detail.overview')}
+                overviewItems={overviewItems}
+              />
 
-              <Card className='shadow-sm'>
-                <CardHeader className='pb-3'>
-                  <CardTitle className='text-base font-semibold'>
-                    {tOperationsUsers('detail.overview')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                    <InfoItem
-                      label={tOperationsUsers('table.totalPaidAmount')}
-                      value={`${currencySymbol}${detail.total_paid_amount || '0'}`}
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.learningCourses')}
-                      value={String(
-                        resolveCourseCount(
-                          detail.learning_course_count,
-                          detail.learning_courses,
-                        ),
-                      )}
-                      valueClassName='text-primary'
-                      valueAriaLabel={tOperationsUsers('table.learningCourses')}
-                      onClick={() =>
-                        setDetailTab('learning', { scrollToSection: true })
-                      }
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.createdCourses')}
-                      value={String(
-                        resolveCourseCount(
-                          detail.created_course_count,
-                          detail.created_courses,
-                        ),
-                      )}
-                      valueClassName='text-primary'
-                      valueAriaLabel={tOperationsUsers('table.createdCourses')}
-                      onClick={() =>
-                        setDetailTab('created', { scrollToSection: true })
-                      }
-                    />
-                    <InfoItem
-                      label={tOperationsUsers('table.lastLearningAt')}
-                      value={formatOperatorNaiveDateTime(
-                        detail.last_learning_at,
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div
-                id='credits'
-                ref={detailTabsSectionRef}
-                className='space-y-5'
-              >
-                <Card className='shadow-sm'>
-                  <CardHeader className='pb-3'>
-                    <CardTitle className='text-base font-semibold'>
-                      {tOperationsUsers('detail.creditsOverview')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                      <InfoItem
-                        label={tOperationsUsers(
-                          'detail.creditsOverviewLabels.availableCredits',
-                        )}
-                        value={
-                          creditSummary.available_credits
-                            ? formatAdminCredits(
-                                Number(creditSummary.available_credits),
-                                i18n.language,
-                              )
-                            : ''
-                        }
-                      />
-                      <InfoItem
-                        label={tOperationsUsers(
-                          'detail.creditsOverviewLabels.subscriptionCredits',
-                        )}
-                        value={
-                          creditSummary.subscription_credits
-                            ? formatAdminCredits(
-                                Number(creditSummary.subscription_credits),
-                                i18n.language,
-                              )
-                            : ''
-                        }
-                      />
-                      <InfoItem
-                        label={tOperationsUsers(
-                          'detail.creditsOverviewLabels.topupCredits',
-                        )}
-                        value={
-                          creditSummary.topup_credits
-                            ? formatAdminCredits(
-                                Number(creditSummary.topup_credits),
-                                i18n.language,
-                              )
-                            : ''
-                        }
-                      />
-                      <InfoItem
-                        label={creditExpireAtLabel}
-                        value={resolveCreditsExpireAt()}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Tabs
-                  className='space-y-4'
-                  value={activeTab}
-                  onValueChange={value => {
-                    if (!isDetailTab(value)) {
-                      return;
-                    }
-                    setDetailTab(value);
-                  }}
-                >
-                  <TabsList>
-                    <TabsTrigger value='credits'>
-                      {tOperationsUsers('detail.tabs.credits')}
-                    </TabsTrigger>
-                    <TabsTrigger value='learning'>
-                      {tOperationsUsers('detail.tabs.learningCourses')}
-                    </TabsTrigger>
-                    <TabsTrigger value='created'>
-                      {tOperationsUsers('detail.tabs.createdCourses')}
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent
-                    value='credits'
-                    className='mt-0'
-                  >
-                    <UserCreditLedgerTab
-                      filtersDraft={creditFiltersDraft}
-                      loading={creditsLoading}
-                      error={creditsError}
-                      items={credits.items}
-                      pageIndex={credits.page || creditsPageIndex}
-                      pageCount={credits.page_count || 0}
-                      emptyValue={EMPTY_VALUE}
-                      onFiltersChange={setCreditFiltersDraft}
-                      onSearch={handleCreditSearch}
-                      onReset={handleCreditReset}
-                      onPageChange={page => setCreditsPageIndex(page)}
-                      onRetry={() => setCreditsRetryNonce(value => value + 1)}
-                    />
-                  </TabsContent>
-
-                  <TabsContent
-                    value='learning'
-                    className='mt-0'
-                  >
-                    <CourseTable
-                      title={tOperationsUsers('detail.learningCourses')}
-                      courses={detail.learning_courses || []}
-                      emptyText={tOperationsUsers('detail.emptyCourses')}
-                      courseNameLabel={tOperationsUsers(
-                        'courseSummary.dialog.courseName',
-                      )}
-                      courseIdLabel={tOperationsUsers(
-                        'courseSummary.dialog.courseId',
-                      )}
-                      valueLabel={tOperationsUsers('detail.learningProgress')}
-                      renderValue={formatLearningProgress}
-                      courseNameAlign='left'
-                    />
-                  </TabsContent>
-
-                  <TabsContent
-                    value='created'
-                    className='mt-0'
-                  >
-                    <CourseTable
-                      title={tOperationsUsers('detail.createdCourses')}
-                      courses={detail.created_courses || []}
-                      emptyText={tOperationsUsers('detail.emptyCourses')}
-                      courseNameLabel={tOperationsUsers(
-                        'courseSummary.dialog.courseName',
-                      )}
-                      courseIdLabel={tOperationsUsers(
-                        'courseSummary.dialog.courseId',
-                      )}
-                      valueLabel={tOperationsUsers(
-                        'courseSummary.dialog.status',
-                      )}
-                      renderValue={course =>
-                        resolveCourseStatusLabel(course.course_status)
-                      }
-                      courseNameAlign='left'
-                    />
-                  </TabsContent>
-                </Tabs>
-              </div>
+              <UserDetailTabsSection
+                sectionRef={detailTabsSectionRef}
+                activeTab={activeTab}
+                emptyValue={EMPTY_VALUE}
+                creditsOverviewTitle={tOperationsUsers(
+                  'detail.creditsOverview',
+                )}
+                creditsOverviewItems={creditsOverviewItems}
+                creditsTabLabel={tOperationsUsers('detail.tabs.credits')}
+                learningTabLabel={tOperationsUsers(
+                  'detail.tabs.learningCourses',
+                )}
+                createdTabLabel={tOperationsUsers('detail.tabs.createdCourses')}
+                onTabChange={setDetailTab}
+                creditLedgerProps={{
+                  filtersDraft: creditFiltersDraft,
+                  loading: creditsLoading,
+                  error: creditsError,
+                  items: credits.items,
+                  pageIndex: credits.page || creditsPageIndex,
+                  pageCount: credits.page_count || 0,
+                  onFiltersChange: setCreditFiltersDraft,
+                  onSearch: handleCreditSearch,
+                  onReset: handleCreditReset,
+                  onPageChange: page => setCreditsPageIndex(page),
+                  onRetry: () => setCreditsRetryNonce(value => value + 1),
+                }}
+                learningCoursesProps={{
+                  title: tOperationsUsers('detail.learningCourses'),
+                  courses: detail.learning_courses || [],
+                  emptyText: tOperationsUsers('detail.emptyCourses'),
+                  courseNameLabel: tOperationsUsers(
+                    'courseSummary.dialog.courseName',
+                  ),
+                  courseIdLabel: tOperationsUsers(
+                    'courseSummary.dialog.courseId',
+                  ),
+                  valueLabel: tOperationsUsers('detail.learningProgress'),
+                  renderValue: formatLearningProgress,
+                }}
+                createdCoursesProps={{
+                  title: tOperationsUsers('detail.createdCourses'),
+                  courses: detail.created_courses || [],
+                  emptyText: tOperationsUsers('detail.emptyCourses'),
+                  courseNameLabel: tOperationsUsers(
+                    'courseSummary.dialog.courseName',
+                  ),
+                  courseIdLabel: tOperationsUsers(
+                    'courseSummary.dialog.courseId',
+                  ),
+                  valueLabel: tOperationsUsers('courseSummary.dialog.status'),
+                  renderValue: course =>
+                    resolveCourseStatusLabel(course.course_status),
+                }}
+              />
             </div>
           </div>
         </div>
