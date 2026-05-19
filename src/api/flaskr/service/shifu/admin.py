@@ -1407,8 +1407,7 @@ def _load_operator_user_registration_source_map(
     if len(registration_source_map) == len(normalized_user_bids):
         return registration_source_map
 
-    resolved_users = list(users) if users is not None else []
-    if not resolved_users:
+    if users is None:
         resolved_users = (
             UserEntity.query.filter(
                 UserEntity.user_bid.in_(normalized_user_bids),
@@ -1417,6 +1416,8 @@ def _load_operator_user_registration_source_map(
             .order_by(UserEntity.id.asc())
             .all()
         )
+    else:
+        resolved_users = list(users)
     for user in resolved_users:
         user_bid = str(user.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
@@ -1570,8 +1571,7 @@ def _load_operator_user_contact_map(
         ):
             resolved["email"] = credential.identifier
 
-    resolved_users = list(users) if users is not None else []
-    if not resolved_users:
+    if users is None:
         resolved_users = (
             UserEntity.query.filter(
                 UserEntity.user_bid.in_(list(user_bids)),
@@ -1580,6 +1580,8 @@ def _load_operator_user_contact_map(
             .order_by(UserEntity.id.asc())
             .all()
         )
+    else:
+        resolved_users = list(users)
     for user in resolved_users:
         resolved = contact_map.setdefault(
             user.user_bid or "",
@@ -1878,7 +1880,7 @@ def _load_latest_shifus(
     latest_rows = db.session.query(model).filter(
         model.id.in_(db.session.query(latest_subquery.c.max_id))
     )
-    if is_mapped_model:
+    if is_mapped_model and not lightweight:
         latest_rows = latest_rows.options(defer(model.llm_system_prompt))
     if course_name:
         latest_rows = latest_rows.filter(model.title.ilike(f"%{course_name}%"))
