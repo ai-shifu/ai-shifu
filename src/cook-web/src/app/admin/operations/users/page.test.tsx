@@ -920,7 +920,9 @@ describe('AdminOperationUsersPage', () => {
       await Promise.resolve();
     });
 
-    mockGetAdminOperationUsers.mockReturnValueOnce(refreshedListDeferred.promise);
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
     mockGetAdminOperationUsersOverview.mockReturnValueOnce(
       refreshedOverviewDeferred.promise,
     );
@@ -1002,7 +1004,9 @@ describe('AdminOperationUsersPage', () => {
       await Promise.resolve();
     });
 
-    mockGetAdminOperationUsers.mockReturnValueOnce(refreshedListDeferred.promise);
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
     mockGetAdminOperationUsersOverview.mockReturnValueOnce(
       refreshedOverviewDeferred.promise,
     );

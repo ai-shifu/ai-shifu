@@ -1366,13 +1366,10 @@ def _load_operator_user_auth_credentials(
     if not normalized_user_bids:
         return []
 
-    return (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(normalized_user_bids),
-            AuthCredential.deleted == 0,
-        )
-        .all()
-    )
+    return AuthCredential.query.filter(
+        AuthCredential.user_bid.in_(normalized_user_bids),
+        AuthCredential.deleted == 0,
+    ).all()
 
 
 def _load_operator_user_registration_source_map(
@@ -1900,19 +1897,17 @@ def _load_latest_shifus(
 
     ordered_query = latest_rows.order_by(model.updated_at.desc(), model.id.desc())
     if lightweight and is_mapped_model:
-        rows = (
-            ordered_query.with_entities(
-                model.id.label("id"),
-                model.shifu_bid.label("shifu_bid"),
-                model.title.label("title"),
-                model.price.label("price"),
-                model.llm.label("llm"),
-                model.created_user_bid.label("created_user_bid"),
-                model.updated_user_bid.label("updated_user_bid"),
-                model.created_at.label("created_at"),
-                model.updated_at.label("updated_at"),
-            ).all()
-        )
+        rows = ordered_query.with_entities(
+            model.id.label("id"),
+            model.shifu_bid.label("shifu_bid"),
+            model.title.label("title"),
+            model.price.label("price"),
+            model.llm.label("llm"),
+            model.created_user_bid.label("created_user_bid"),
+            model.updated_user_bid.label("updated_user_bid"),
+            model.created_at.label("created_at"),
+            model.updated_at.label("updated_at"),
+        ).all()
         return [_build_operator_course_list_seed(row) for row in rows]
 
     rows = ordered_query.all()
@@ -2691,19 +2686,17 @@ def _load_latest_courses_by_shifu_bids(
         model.id.in_(db.session.query(latest_subquery.c.max_id))
     )
     if lightweight and hasattr(model, "__mapper__"):
-        rows = (
-            query.with_entities(
-                model.id.label("id"),
-                model.shifu_bid.label("shifu_bid"),
-                model.title.label("title"),
-                model.price.label("price"),
-                model.llm.label("llm"),
-                model.created_user_bid.label("created_user_bid"),
-                model.updated_user_bid.label("updated_user_bid"),
-                model.created_at.label("created_at"),
-                model.updated_at.label("updated_at"),
-            ).all()
-        )
+        rows = query.with_entities(
+            model.id.label("id"),
+            model.shifu_bid.label("shifu_bid"),
+            model.title.label("title"),
+            model.price.label("price"),
+            model.llm.label("llm"),
+            model.created_user_bid.label("created_user_bid"),
+            model.updated_user_bid.label("updated_user_bid"),
+            model.created_at.label("created_at"),
+            model.updated_at.label("updated_at"),
+        ).all()
         return [_build_operator_course_list_seed(row) for row in rows]
     return query.all()
 
