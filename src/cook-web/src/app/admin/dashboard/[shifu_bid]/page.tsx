@@ -89,9 +89,7 @@ export default function AdminDashboardCourseDetailPage() {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
-  const loginMethodsEnabled = useEnvStore(
-    state => state.loginMethodsEnabled,
-  );
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const timezone = getBrowserTimeZone();
 
@@ -121,7 +119,10 @@ export default function AdminDashboardCourseDetailPage() {
   const followUpListUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid);
   const ratingsPageUrl = buildAdminDashboardCourseRatingsUrl(shifuBid);
   const learnerSearchPlaceholder = useMemo(() => {
-    const contactMode = resolveContactMode(loginMethodsEnabled, defaultLoginMethod);
+    const contactMode = resolveContactMode(
+      loginMethodsEnabled,
+      defaultLoginMethod,
+    );
     return contactMode === 'email'
       ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
       : t('module.dashboard.detail.learners.searchPlaceholderPhone');
@@ -255,8 +256,14 @@ export default function AdminDashboardCourseDetailPage() {
     (learner: DashboardCourseDetailLearnerItem) => {
       const preferredKeyword =
         learnerContactMode === 'email'
-          ? learner.email || learner.mobile || learner.nickname || learner.user_bid
-          : learner.mobile || learner.email || learner.nickname || learner.user_bid;
+          ? learner.email ||
+            learner.mobile ||
+            learner.nickname ||
+            learner.user_bid
+          : learner.mobile ||
+            learner.email ||
+            learner.nickname ||
+            learner.user_bid;
       const targetUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid, {
         userBid: learner.user_bid,
         keyword: preferredKeyword,

@@ -1256,9 +1256,11 @@ class TestDashboardRoutes:
         assert payload["data"]["learners"]["page_size"] == 20
         assert payload["data"]["learners"]["page_count"] == 1
         assert payload["data"]["learners"]["total"] == 3
-        assert [
-            item["user_bid"] for item in payload["data"]["learners"]["items"]
-        ] == ["learner-1", "learner-2", "learner-3"]
+        assert [item["user_bid"] for item in payload["data"]["learners"]["items"]] == [
+            "learner-1",
+            "learner-2",
+            "learner-3",
+        ]
         assert payload["data"]["learners"]["items"][0]["email"] == "alice@example.com"
         assert payload["data"]["learners"]["items"][0]["nickname"] == "Alice"
         assert payload["data"]["learners"]["items"][0]["learned_lesson_count"] == 3
@@ -1267,7 +1269,9 @@ class TestDashboardRoutes:
         assert payload["data"]["learners"]["items"][1]["mobile"] == "13800138000"
         assert payload["data"]["learners"]["items"][1]["learning_status"] == "learning"
         assert payload["data"]["learners"]["items"][2]["nickname"] == "Charlie"
-        assert payload["data"]["learners"]["items"][2]["learning_status"] == "not_started"
+        assert (
+            payload["data"]["learners"]["items"][2]["learning_status"] == "not_started"
+        )
         assert payload["data"]["learners"]["items"][2]["last_learning_at"] == ""
         assert payload["data"]["learners"]["items"][2]["last_learning_at_display"] == ""
 
@@ -1377,8 +1381,13 @@ class TestDashboardRoutes:
         assert search_resp.status_code == 200
         assert search_payload["code"] == 0
         assert search_payload["data"]["learners"]["total"] == 1
-        assert search_payload["data"]["learners"]["items"][0]["user_bid"] == "learner-beta"
-        assert search_payload["data"]["learners"]["items"][0]["email"] == "beta@example.com"
+        assert (
+            search_payload["data"]["learners"]["items"][0]["user_bid"] == "learner-beta"
+        )
+        assert (
+            search_payload["data"]["learners"]["items"][0]["email"]
+            == "beta@example.com"
+        )
 
         phone_partial_resp = test_client.get(
             "/api/dashboard/shifus/course-learner-list/detail?keyword=1380013"
@@ -1414,9 +1423,9 @@ class TestDashboardRoutes:
         assert clamped_payload["code"] == 0
         assert clamped_payload["data"]["learners"]["page"] == 2
         assert clamped_payload["data"]["learners"]["page_count"] == 2
-        assert [item["user_bid"] for item in clamped_payload["data"]["learners"]["items"]] == [
-            "learner-gamma"
-        ]
+        assert [
+            item["user_bid"] for item in clamped_payload["data"]["learners"]["items"]
+        ] == ["learner-gamma"]
 
     @pytest.mark.parametrize(
         ("query_string", "expected_param"),
@@ -1443,8 +1452,7 @@ class TestDashboardRoutes:
             db.session.commit()
 
         response = test_client.get(
-            "/api/dashboard/shifus/course-detail-invalid-date/detail"
-            f"?{query_string}"
+            f"/api/dashboard/shifus/course-detail-invalid-date/detail?{query_string}"
         )
         payload = response.get_json(force=True)
 
@@ -1604,9 +1612,9 @@ class TestDashboardRoutes:
         assert clamped_payload["code"] == 0
         assert clamped_payload["data"]["page"] == 2
         assert clamped_payload["data"]["page_count"] == 2
-        assert [item["lesson_feedback_bid"] for item in clamped_payload["data"]["items"]] == [
-            "rating-feedback-1"
-        ]
+        assert [
+            item["lesson_feedback_bid"] for item in clamped_payload["data"]["items"]
+        ] == ["rating-feedback-1"]
 
     @pytest.mark.parametrize(
         ("query_string", "expected_param"),
@@ -1635,8 +1643,7 @@ class TestDashboardRoutes:
             db.session.commit()
 
         response = test_client.get(
-            "/api/dashboard/shifus/course-ratings-invalid/ratings"
-            f"?{query_string}",
+            f"/api/dashboard/shifus/course-ratings-invalid/ratings?{query_string}",
         )
         payload = response.get_json(force=True)
 

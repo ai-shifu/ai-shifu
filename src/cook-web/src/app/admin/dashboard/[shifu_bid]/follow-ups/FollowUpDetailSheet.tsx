@@ -207,7 +207,10 @@ export default function FollowUpDetailSheet({
   }, [basicInfo?.turn_index, emptyValue, t]);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <SheetContent className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[420px] md:w-[520px] lg:w-[640px]'>
         <SheetHeader className='border-b border-border px-6 py-4 pr-12'>
           <SheetTitle className='text-base font-semibold text-foreground'>
@@ -232,17 +235,27 @@ export default function FollowUpDetailSheet({
 
           {!loading && !error && detail ? (
             <div className='space-y-6'>
-              <Section title={t('module.dashboard.detail.followUps.drawer.sections.basicInfo')}>
+              <Section
+                title={t(
+                  'module.dashboard.detail.followUps.drawer.sections.basicInfo',
+                )}
+              >
                 <DetailRow
-                  label={t('module.dashboard.detail.followUps.drawer.fields.user')}
+                  label={t(
+                    'module.dashboard.detail.followUps.drawer.fields.user',
+                  )}
                   value={primaryAccount}
                 />
                 <DetailRow
-                  label={t('module.dashboard.detail.followUps.drawer.fields.nickname')}
+                  label={t(
+                    'module.dashboard.detail.followUps.drawer.fields.nickname',
+                  )}
                   value={nickname}
                 />
                 <DetailRow
-                  label={t('module.dashboard.detail.followUps.drawer.fields.lesson')}
+                  label={t(
+                    'module.dashboard.detail.followUps.drawer.fields.lesson',
+                  )}
                   value={resolveLessonDisplay({
                     lessonTitle: basicInfo?.lesson_title,
                     chapterTitle: basicInfo?.chapter_title,
@@ -250,11 +263,15 @@ export default function FollowUpDetailSheet({
                   })}
                 />
                 <DetailRow
-                  label={t('module.dashboard.detail.followUps.drawer.fields.followUpTime')}
+                  label={t(
+                    'module.dashboard.detail.followUps.drawer.fields.followUpTime',
+                  )}
                   value={formatValue(basicInfo?.created_at, emptyValue)}
                 />
                 <DetailRow
-                  label={t('module.dashboard.detail.followUps.drawer.fields.turnIndex')}
+                  label={t(
+                    'module.dashboard.detail.followUps.drawer.fields.turnIndex',
+                  )}
                   value={turnIndexLabel}
                 />
                 <p className='rounded-lg bg-muted/[0.16] px-3 py-2 text-xs leading-5 text-muted-foreground'>
@@ -263,7 +280,9 @@ export default function FollowUpDetailSheet({
               </Section>
 
               <Section
-                title={t('module.dashboard.detail.followUps.drawer.sections.currentRecord')}
+                title={t(
+                  'module.dashboard.detail.followUps.drawer.sections.currentRecord',
+                )}
                 description={t(
                   'module.dashboard.detail.followUps.drawer.currentRecordHint',
                 )}
@@ -284,13 +303,21 @@ export default function FollowUpDetailSheet({
                 />
               </Section>
 
-              <Section title={t('module.dashboard.detail.followUps.drawer.sections.timeline')}>
+              <Section
+                title={t(
+                  'module.dashboard.detail.followUps.drawer.sections.timeline',
+                )}
+              >
                 <div className='space-y-3'>
                   {timeline.map((item, index) => {
                     const roleLabel =
                       item.role === 'teacher'
-                        ? t('module.dashboard.detail.followUps.drawer.timeline.teacher')
-                        : t('module.dashboard.detail.followUps.drawer.timeline.student');
+                        ? t(
+                            'module.dashboard.detail.followUps.drawer.timeline.teacher',
+                          )
+                        : t(
+                            'module.dashboard.detail.followUps.drawer.timeline.student',
+                          );
                     return (
                       <div
                         key={`${item.role}-${item.created_at}-${index}`}
@@ -315,7 +342,9 @@ export default function FollowUpDetailSheet({
                             </Badge>
                             {item.is_current ? (
                               <Badge className='rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/10'>
-                                {t('module.dashboard.detail.followUps.drawer.timeline.current')}
+                                {t(
+                                  'module.dashboard.detail.followUps.drawer.timeline.current',
+                                )}
                               </Badge>
                             ) : null}
                           </div>

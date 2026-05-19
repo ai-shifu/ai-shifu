@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
 
@@ -1194,9 +1194,7 @@ def build_dashboard_course_follow_ups(
             db.func.max(follow_up_base.c.created_at).label("latest_follow_up_at"),
         ).one()
         full_summary = DashboardCourseFollowUpSummaryDTO(
-            follow_up_count=int(
-                getattr(full_summary_row, "follow_up_count", 0) or 0
-            ),
+            follow_up_count=int(getattr(full_summary_row, "follow_up_count", 0) or 0),
             user_count=int(getattr(full_summary_row, "user_count", 0) or 0),
             lesson_count=int(getattr(full_summary_row, "lesson_count", 0) or 0),
             latest_follow_up_at=_format_dashboard_datetime_display(
@@ -1244,19 +1242,21 @@ def build_dashboard_course_follow_ups(
             filtered_query = filtered_query.filter(user_keyword_filter)
         if matching_outline_item_bids is not None:
             filtered_query = filtered_query.filter(
-                follow_up_base.c.outline_item_bid.in_(sorted(matching_outline_item_bids))
+                follow_up_base.c.outline_item_bid.in_(
+                    sorted(matching_outline_item_bids)
+                )
             )
         if start_dt is not None:
-            filtered_query = filtered_query.filter(follow_up_base.c.created_at >= start_dt)
+            filtered_query = filtered_query.filter(
+                follow_up_base.c.created_at >= start_dt
+            )
         if end_dt_exclusive is not None:
             filtered_query = filtered_query.filter(
                 follow_up_base.c.created_at < end_dt_exclusive
             )
 
         filtered_follow_ups = filtered_query.subquery()
-        total = (
-            db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
-        )
+        total = db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
         if total == 0:
             return DashboardCourseFollowUpListDTO(
                 summary=full_summary,
@@ -1267,7 +1267,9 @@ def build_dashboard_course_follow_ups(
                 page_count=0,
             )
 
-        page_count = (total + safe_page_size - 1) // safe_page_size if safe_page_size else 0
+        page_count = (
+            (total + safe_page_size - 1) // safe_page_size if safe_page_size else 0
+        )
         resolved_page = min(safe_page_index, max(page_count, 1))
         start = (resolved_page - 1) * safe_page_size
         paged_rows = (
@@ -1665,7 +1667,9 @@ def build_dashboard_course_ratings(
                 page_count=0,
             )
 
-        page_count = (total + safe_page_size - 1) // safe_page_size if safe_page_size else 0
+        page_count = (
+            (total + safe_page_size - 1) // safe_page_size if safe_page_size else 0
+        )
         resolved_page = min(safe_page_index, max(page_count, 1))
         start = (resolved_page - 1) * safe_page_size
         end = start + safe_page_size

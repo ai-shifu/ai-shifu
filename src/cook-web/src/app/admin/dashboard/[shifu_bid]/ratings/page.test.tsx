@@ -5,7 +5,10 @@ import AdminDashboardCourseRatingsPage from './page';
 const mockGetDashboardCourseRatings = jest.fn();
 const mockTranslationCache = new Map<
   string,
-  { t: (key: string, options?: { count?: number; score?: number }) => string; i18n: { language: string } }
+  {
+    t: (key: string, options?: { count?: number; score?: number }) => string;
+    i18n: { language: string };
+  }
 >();
 const mockBrowserTimeZone = jest.fn(() => 'Asia/Shanghai');
 const mockEnvState = {
@@ -25,9 +28,13 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/link', () => ({
   __esModule: true,
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a href={href}>{children}</a>,
 }));
 
 jest.mock('@/api', () => ({
@@ -64,10 +71,7 @@ jest.mock('react-i18next', () => ({
     const cacheKey = ns || 'translation';
     if (!mockTranslationCache.has(cacheKey)) {
       mockTranslationCache.set(cacheKey, {
-        t: (
-          key: string,
-          options?: { count?: number; score?: number },
-        ) => {
+        t: (key: string, options?: { count?: number; score?: number }) => {
           if (typeof options?.count === 'number') {
             return `${key}:${options.count}`;
           }
@@ -140,19 +144,28 @@ jest.mock('@/components/ui/Select', () => ({
     onValueChange?: (value: string) => void;
   }>) => (
     <div>
-      <button type='button' onClick={() => onValueChange?.('5')}>
+      <button
+        type='button'
+        onClick={() => onValueChange?.('5')}
+      >
         {value || 'select'}
       </button>
       {children}
     </div>
   ),
-  SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectTrigger: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectValue: () => <span>select-value</span>,
-  SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectItem: ({
     children,
     value,
-  }: React.PropsWithChildren<{ value: string }>) => <div data-value={value}>{children}</div>,
+  }: React.PropsWithChildren<{ value: string }>) => (
+    <div data-value={value}>{children}</div>
+  ),
 }));
 
 describe('AdminDashboardCourseRatingsPage', () => {
@@ -197,7 +210,8 @@ describe('AdminDashboardCourseRatingsPage', () => {
     render(<AdminDashboardCourseRatingsPage />);
 
     expect(
-      (await screen.findAllByText('module.dashboard.detail.ratings.title')).length,
+      (await screen.findAllByText('module.dashboard.detail.ratings.title'))
+        .length,
     ).toBeGreaterThan(0);
 
     await waitFor(() => {
@@ -215,10 +229,9 @@ describe('AdminDashboardCourseRatingsPage', () => {
       });
     });
 
-    expect(screen.getByText('module.dashboard.title').closest('a')).toHaveAttribute(
-      'href',
-      '/admin/dashboard',
-    );
+    expect(
+      screen.getByText('module.dashboard.title').closest('a'),
+    ).toHaveAttribute('href', '/admin/dashboard');
     expect(
       screen.getByText('module.dashboard.detail.title').closest('a'),
     ).toHaveAttribute('href', '/admin/dashboard/course-1');
@@ -230,7 +243,8 @@ describe('AdminDashboardCourseRatingsPage', () => {
     expect(screen.getByText('Lesson 2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 2')).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.dashboard.detail.ratings.scoreValue:4').length,
+      screen.getAllByText('module.dashboard.detail.ratings.scoreValue:4')
+        .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Helpful examples')).toBeInTheDocument();
   });
@@ -242,7 +256,8 @@ describe('AdminDashboardCourseRatingsPage', () => {
     render(<AdminDashboardCourseRatingsPage />);
 
     expect(
-      (await screen.findAllByText('module.dashboard.detail.ratings.title')).length,
+      (await screen.findAllByText('module.dashboard.detail.ratings.title'))
+        .length,
     ).toBeGreaterThan(0);
 
     expect(
@@ -269,9 +284,11 @@ describe('AdminDashboardCourseRatingsPage', () => {
       }),
     );
     fireEvent.click(screen.getAllByText('all')[0]);
-    fireEvent.click(screen.getByRole('button', {
-      name: 'module.dashboard.detail.ratings.filters.search',
-    }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.dashboard.detail.ratings.filters.search',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetDashboardCourseRatings).toHaveBeenLastCalledWith({

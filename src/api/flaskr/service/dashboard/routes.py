@@ -71,9 +71,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
                 page_size=page_size,
                 keyword=request.args.get("keyword"),
                 learning_status=request.args.get("learning_status"),
-                last_learning_start_time=request.args.get(
-                    "last_learning_start_time"
-                ),
+                last_learning_start_time=request.args.get("last_learning_start_time"),
                 last_learning_end_time=request.args.get("last_learning_end_time"),
                 timezone_name=timezone_name,
             )

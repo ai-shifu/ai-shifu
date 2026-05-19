@@ -187,7 +187,9 @@ class DashboardCourseDetailMetricsDTO(BaseModel):
 class DashboardCourseDetailLearnerItemDTO(BaseModel):
     """Dashboard learner row for a single course."""
 
-    user_bid: str = Field(..., description="Learner business identifier", required=False)
+    user_bid: str = Field(
+        ..., description="Learner business identifier", required=False
+    )
     mobile: str = Field(default="", description="Learner mobile", required=False)
     email: str = Field(default="", description="Learner email", required=False)
     nickname: str = Field(default="", description="Learner nickname", required=False)

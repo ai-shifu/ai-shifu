@@ -253,8 +253,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const userKeywordPlaceholder = useMemo(
     () =>
       contactMode === 'email'
-        ? t('module.dashboard.detail.followUps.filters.userKeywordPlaceholderEmail')
-        : t('module.dashboard.detail.followUps.filters.userKeywordPlaceholderPhone'),
+        ? t(
+            'module.dashboard.detail.followUps.filters.userKeywordPlaceholderEmail',
+          )
+        : t(
+            'module.dashboard.detail.followUps.filters.userKeywordPlaceholderPhone',
+          ),
     [contactMode, t],
   );
 
@@ -263,12 +267,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
-  const [filtersDraft, setFiltersDraft] = useState<FollowUpFilters>(
-    initialFilters,
-  );
-  const [filters, setFilters] = useState<FollowUpFilters>(
-    initialFilters,
-  );
+  const [filtersDraft, setFiltersDraft] =
+    useState<FollowUpFilters>(initialFilters);
+  const [filters, setFilters] = useState<FollowUpFilters>(initialFilters);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedGeneratedBlockBid, setSelectedGeneratedBlockBid] =
     useState('');
@@ -576,7 +577,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
         <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
           {summaryCards.map(card => (
-            <Card key={card.label} className='border-border/80 shadow-sm'>
+            <Card
+              key={card.label}
+              className='border-border/80 shadow-sm'
+            >
               <CardContent className='flex h-full flex-col p-4'>
                 <div className='text-sm font-medium text-muted-foreground'>
                   {card.label}
@@ -638,7 +642,8 @@ export default function AdminDashboardCourseFollowUpsPage() {
                         ...previous,
                         keyword: value,
                         userBid:
-                          previous.userBid && value.trim() !== previous.keyword.trim()
+                          previous.userBid &&
+                          value.trim() !== previous.keyword.trim()
                             ? ''
                             : previous.userBid,
                       }))
@@ -665,7 +670,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                 </div>
                 <div className='flex flex-col gap-2'>
                   <label className='text-xs font-medium text-muted-foreground'>
-                    {t('module.dashboard.detail.followUps.filters.followUpTime')}
+                    {t(
+                      'module.dashboard.detail.followUps.filters.followUpTime',
+                    )}
                   </label>
                   <AdminDateRangeFilter
                     startValue={filtersDraft.startTime}
@@ -731,7 +738,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
               <AdminTableShell
                 loading={loading}
                 isEmpty={rows.length === 0}
-                emptyContent={t('module.dashboard.detail.followUps.table.empty')}
+                emptyContent={t(
+                  'module.dashboard.detail.followUps.table.empty',
+                )}
                 emptyColSpan={6}
                 withTooltipProvider
                 tableWrapperClassName='overflow-auto'
@@ -741,7 +750,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t('module.dashboard.detail.followUps.table.createdAt')}
+                          {t(
+                            'module.dashboard.detail.followUps.table.createdAt',
+                          )}
                         </TableHead>
                         <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
                           {t('module.dashboard.detail.followUps.table.user')}
@@ -753,7 +764,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                           {t('module.dashboard.detail.followUps.table.content')}
                         </TableHead>
                         <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t('module.dashboard.detail.followUps.table.turnIndex')}
+                          {t(
+                            'module.dashboard.detail.followUps.table.turnIndex',
+                          )}
                         </TableHead>
                         <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
                           {t('module.dashboard.detail.followUps.table.action')}
@@ -784,9 +797,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 lessonTitle: item.lesson_title,
                               });
                             const turnIndexLabel = item.turn_index
-                              ? t('module.dashboard.detail.followUps.turnIndex', {
-                                  count: item.turn_index,
-                                })
+                              ? t(
+                                  'module.dashboard.detail.followUps.turnIndex',
+                                  {
+                                    count: item.turn_index,
+                                  },
+                                )
                               : emptyValue;
                             return (
                               <TableRow key={item.generated_block_bid}>

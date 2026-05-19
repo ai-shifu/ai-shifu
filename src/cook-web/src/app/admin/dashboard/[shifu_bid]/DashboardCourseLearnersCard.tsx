@@ -225,7 +225,10 @@ export default function DashboardCourseLearnersCard({
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                    >
                       {option.label}
                     </SelectItem>
                   ))}
@@ -268,7 +271,11 @@ export default function DashboardCourseLearnersCard({
               >
                 {t('module.dashboard.entry.table.reset')}
               </Button>
-              <Button type='submit' className='h-9 px-4' disabled={loading}>
+              <Button
+                type='submit'
+                className='h-9 px-4'
+                disabled={loading}
+              >
                 {t('module.dashboard.entry.table.search')}
               </Button>
             </div>
@@ -326,10 +333,14 @@ export default function DashboardCourseLearnersCard({
                         {t('module.dashboard.detail.learners.columns.status')}
                       </TableHead>
                       <TableHead>
-                        {t('module.dashboard.detail.learners.columns.questions')}
+                        {t(
+                          'module.dashboard.detail.learners.columns.questions',
+                        )}
                       </TableHead>
                       <TableHead>
-                        {t('module.dashboard.detail.learners.columns.lastLearningAt')}
+                        {t(
+                          'module.dashboard.detail.learners.columns.lastLearningAt',
+                        )}
                       </TableHead>
                       <TableHead>
                         {t('module.dashboard.detail.learners.columns.joinedAt')}
@@ -370,7 +381,9 @@ export default function DashboardCourseLearnersCard({
                             variant='outline'
                             className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
                           >
-                            {resolveLearningStatusLabel(learner.learning_status)}
+                            {resolveLearningStatusLabel(
+                              learner.learning_status,
+                            )}
                           </Badge>
                         </TableCell>
                         <TableCell className='whitespace-nowrap font-medium tabular-nums text-foreground'>

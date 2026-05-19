@@ -38,8 +38,6 @@
         },
         "title": "Détail de la question"
       },
-      "turnIndex": "Tour {count}",
-      "turnIndexHelp": "L’ordre des tours repose sur l’heure de suivi dans le même enregistrement d’apprentissage.",
       "filters": {
         "chapterKeyword": "Chapitre",
         "chapterKeywordPlaceholder": "Saisir chapitre / leçon",
@@ -73,7 +71,49 @@
         "turnIndex": "Tour",
         "user": "Apprenant"
       },
-      "title": "Données de questions"
+      "title": "Données de questions",
+      "turnIndex": "Tour {count}",
+      "turnIndexHelp": "L’ordre des tours repose sur l’heure de suivi dans le même enregistrement d’apprentissage."
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "Date d’inscription",
+        "lastLearningAt": "Dernier apprentissage",
+        "name": "Apprenant",
+        "progress": "Progression",
+        "questions": "Total des questions",
+        "status": "Statut d’apprentissage"
+      },
+      "empty": "Aucun apprenant pour le moment",
+      "filters": {
+        "lastLearningTime": "Dernier apprentissage",
+        "lastLearningTimePlaceholder": "Sélectionner une période",
+        "learningStatus": "Statut d’apprentissage",
+        "statusAll": "Tous",
+        "userKeyword": "Apprenant"
+      },
+      "searchPlaceholderEmail": "Saisir pseudo / e-mail",
+      "searchPlaceholderPhone": "Saisir pseudo / telephone",
+      "status": {
+        "completed": "Terminé",
+        "learning": "En cours",
+        "notStarted": "Pas commencé"
+      },
+      "title": "Liste des apprenants",
+      "totalCount": "Total : {count} apprenants",
+      "viewFollowUps": "Voir les questions"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
+      "completedLearners": "Apprenants ayant terminé",
+      "completionRate": "Taux d’achèvement",
+      "learningLearners": "Apprenants en cours",
+      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
+      "orderAmount": "Montant des commandes",
+      "orderCount": "Commandes",
+      "rating": "Note du cours",
+      "title": "Données clés",
+      "totalQuestions": "Questions de suivi"
     },
     "ratings": {
       "emptyValue": "--",
@@ -113,46 +153,6 @@
         "user": "Apprenant"
       },
       "title": "Données de notation"
-    },
-    "learners": {
-      "columns": {
-        "joinedAt": "Date d’inscription",
-        "lastLearningAt": "Dernier apprentissage",
-        "name": "Apprenant",
-        "progress": "Progression",
-        "questions": "Total des questions",
-        "status": "Statut d’apprentissage"
-      },
-      "empty": "Aucun apprenant pour le moment",
-      "filters": {
-        "lastLearningTime": "Dernier apprentissage",
-        "lastLearningTimePlaceholder": "Sélectionner une période",
-        "learningStatus": "Statut d’apprentissage",
-        "statusAll": "Tous",
-        "userKeyword": "Apprenant"
-      },
-      "searchPlaceholderEmail": "Saisir pseudo / e-mail",
-      "searchPlaceholderPhone": "Saisir pseudo / telephone",
-      "status": {
-        "completed": "Terminé",
-        "learning": "En cours",
-        "notStarted": "Pas commencé"
-      },
-      "totalCount": "Total : {count} apprenants",
-      "title": "Liste des apprenants",
-      "viewFollowUps": "Voir les questions"
-    },
-    "metrics": {
-      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
-      "completedLearners": "Apprenants ayant terminé",
-      "completionRate": "Taux d’achèvement",
-      "learningLearners": "Apprenants en cours",
-      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
-      "orderAmount": "Montant des commandes",
-      "orderCount": "Commandes",
-      "rating": "Note du cours",
-      "title": "Données clés",
-      "totalQuestions": "Questions de suivi"
     },
     "subtitle": "Les informations de base, les indicateurs clés et les données d’apprentissage des apprenants utilisent désormais des données en direct.",
     "title": "Détail du cours"

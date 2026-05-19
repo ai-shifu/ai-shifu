@@ -48,7 +48,12 @@ export default function CourseMetricsCardGrid({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={cn('grid gap-3 sm:grid-cols-2 xl:grid-cols-5', gridClassName)}>
+        <div
+          className={cn(
+            'grid gap-3 sm:grid-cols-2 xl:grid-cols-5',
+            gridClassName,
+          )}
+        >
           {cards.map(card => {
             const labelParts = splitTrailingParenthetical(card.label);
             const cardContent = (
@@ -60,7 +65,9 @@ export default function CourseMetricsCardGrid({
                     displayText={
                       labelParts ? (
                         <>
-                          <span className='break-words'>{labelParts.mainText}</span>{' '}
+                          <span className='break-words'>
+                            {labelParts.mainText}
+                          </span>{' '}
                           <span className='inline-block whitespace-nowrap'>
                             {labelParts.suffixText}
                           </span>

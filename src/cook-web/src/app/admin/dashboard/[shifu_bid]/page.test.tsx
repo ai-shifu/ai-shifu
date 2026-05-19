@@ -131,19 +131,28 @@ jest.mock('@/components/ui/Select', () => ({
     onValueChange?: (value: string) => void;
   }>) => (
     <div>
-      <button type='button' onClick={() => onValueChange?.('completed')}>
+      <button
+        type='button'
+        onClick={() => onValueChange?.('completed')}
+      >
         {value || 'select'}
       </button>
       {children}
     </div>
   ),
-  SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectTrigger: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectValue: () => <span>select-value</span>,
-  SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectItem: ({
     children,
     value,
-  }: React.PropsWithChildren<{ value: string }>) => <div data-value={value}>{children}</div>,
+  }: React.PropsWithChildren<{ value: string }>) => (
+    <div data-value={value}>{children}</div>
+  ),
 }));
 
 describe('AdminDashboardCourseDetailPage', () => {
@@ -237,7 +246,9 @@ describe('AdminDashboardCourseDetailPage', () => {
     ).toBeGreaterThan(0);
     expect(screen.getByText('Course 1')).toBeInTheDocument();
     expect(
-      screen.getByText('module.dashboard.detail.basicInfo.statusLabels.published'),
+      screen.getByText(
+        'module.dashboard.detail.basicInfo.statusLabels.published',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('¥99.00')).toBeInTheDocument();
     expect(screen.getByText('50.00%')).toBeInTheDocument();
@@ -254,7 +265,9 @@ describe('AdminDashboardCourseDetailPage', () => {
     expect(
       screen.getByText('module.dashboard.detail.metrics.learningLearners'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('module.dashboard.detail.charts.title')).toBeNull();
+    expect(
+      screen.queryByText('module.dashboard.detail.charts.title'),
+    ).toBeNull();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
@@ -547,7 +560,11 @@ describe('AdminDashboardCourseDetailPage', () => {
         target: { value: 'alice@example.com' },
       },
     );
-    fireEvent.click(screen.getByRole('button', { name: 'module.dashboard.entry.table.search' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.dashboard.entry.table.search',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetDashboardCourseDetail).toHaveBeenLastCalledWith({
@@ -568,7 +585,11 @@ describe('AdminDashboardCourseDetailPage', () => {
         name: 'module.dashboard.detail.learners.filters.lastLearningTimePlaceholder',
       }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'module.dashboard.entry.table.search' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.dashboard.entry.table.search',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetDashboardCourseDetail).toHaveBeenLastCalledWith({
@@ -583,7 +604,11 @@ describe('AdminDashboardCourseDetailPage', () => {
       });
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'module.dashboard.entry.table.reset' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.dashboard.entry.table.reset',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetDashboardCourseDetail).toHaveBeenLastCalledWith({

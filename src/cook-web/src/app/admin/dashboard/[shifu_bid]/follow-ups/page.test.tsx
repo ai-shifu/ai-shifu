@@ -1,10 +1,19 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import AdminDashboardCourseFollowUpsPage from './page';
 
 const mockGetDashboardCourseFollowUps = jest.fn();
 const mockGetDashboardCourseFollowUpDetail = jest.fn();
-const mockTranslationCache = new Map<string, { t: (key: string, options?: { count?: number }) => string }>();
+const mockTranslationCache = new Map<
+  string,
+  { t: (key: string, options?: { count?: number }) => string }
+>();
 const mockBrowserTimeZone = jest.fn(() => 'Asia/Shanghai');
 let mockSearchParams = new URLSearchParams();
 const SHEET_CLOSE_LABEL = 'close-sheet';
@@ -26,9 +35,13 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/link', () => ({
   __esModule: true,
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a href={href}>{children}</a>,
 }));
 
 jest.mock('@/api', () => ({
@@ -260,10 +273,9 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       });
     });
 
-    expect(screen.getByText('module.dashboard.title').closest('a')).toHaveAttribute(
-      'href',
-      '/admin/dashboard',
-    );
+    expect(
+      screen.getByText('module.dashboard.title').closest('a'),
+    ).toHaveAttribute('href', '/admin/dashboard');
     expect(
       screen.getAllByText('module.dashboard.detail.title')[0].closest('a'),
     ).toHaveAttribute('href', '/admin/dashboard/course-1');
@@ -333,9 +345,13 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       timezone: 'Asia/Shanghai',
     });
     expect(
-      screen.getByText('module.dashboard.detail.followUps.drawer.currentRecordHint'),
+      screen.getByText(
+        'module.dashboard.detail.followUps.drawer.currentRecordHint',
+      ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Second follow-up answer').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('Second follow-up answer').length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
         'module.dashboard.detail.followUps.drawer.timeline.current',
@@ -393,7 +409,9 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Stale follow-up answer')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Stale follow-up answer'),
+    ).not.toBeInTheDocument();
   });
 
   test('applies learner-scoped query filters from the url', async () => {
@@ -418,8 +436,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       });
     });
 
-    expect(
-      screen.getByDisplayValue('13900001235'),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('13900001235')).toBeInTheDocument();
   });
 });

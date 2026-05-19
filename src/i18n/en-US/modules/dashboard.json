@@ -38,8 +38,6 @@
         },
         "title": "Follow-up Detail"
       },
-      "turnIndex": "Turn {count}",
-      "turnIndexHelp": "Turn order is based on follow-up time within the same learning record.",
       "filters": {
         "chapterKeyword": "Chapter",
         "chapterKeywordPlaceholder": "Enter chapter / lesson name",
@@ -73,7 +71,49 @@
         "turnIndex": "Turn",
         "user": "Learner"
       },
-      "title": "Follow-up Data"
+      "title": "Follow-up Data",
+      "turnIndex": "Turn {count}",
+      "turnIndexHelp": "Turn order is based on follow-up time within the same learning record."
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "Joined At",
+        "lastLearningAt": "Last Learning",
+        "name": "Learner",
+        "progress": "Progress",
+        "questions": "Total Questions",
+        "status": "Learning Status"
+      },
+      "empty": "No learners yet",
+      "filters": {
+        "lastLearningTime": "Last Learning Time",
+        "lastLearningTimePlaceholder": "Select time range",
+        "learningStatus": "Learning Status",
+        "statusAll": "All",
+        "userKeyword": "Learner"
+      },
+      "searchPlaceholderEmail": "Enter nickname / email",
+      "searchPlaceholderPhone": "Enter nickname / phone",
+      "status": {
+        "completed": "Completed",
+        "learning": "Learning",
+        "notStarted": "Not Started"
+      },
+      "title": "Learner List",
+      "totalCount": "Total {count} learners",
+      "viewFollowUps": "View Follow-ups"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "Active Learners (7 Days)",
+      "completedLearners": "Completers",
+      "completionRate": "Completion Rate",
+      "learningLearners": "Learners In Progress",
+      "newLearnersLast7Days": "New Learners (7 Days)",
+      "orderAmount": "Order Amount",
+      "orderCount": "Orders",
+      "rating": "Course Rating",
+      "title": "Core Data",
+      "totalQuestions": "Follow-up Questions"
     },
     "ratings": {
       "emptyValue": "--",
@@ -113,46 +153,6 @@
         "user": "Learner"
       },
       "title": "Rating Data"
-    },
-    "learners": {
-      "columns": {
-        "joinedAt": "Joined At",
-        "lastLearningAt": "Last Learning",
-        "name": "Learner",
-        "progress": "Progress",
-        "questions": "Total Questions",
-        "status": "Learning Status"
-      },
-      "empty": "No learners yet",
-      "filters": {
-        "lastLearningTime": "Last Learning Time",
-        "lastLearningTimePlaceholder": "Select time range",
-        "learningStatus": "Learning Status",
-        "statusAll": "All",
-        "userKeyword": "Learner"
-      },
-      "searchPlaceholderEmail": "Enter nickname / email",
-      "searchPlaceholderPhone": "Enter nickname / phone",
-      "status": {
-        "completed": "Completed",
-        "learning": "Learning",
-        "notStarted": "Not Started"
-      },
-      "totalCount": "Total {count} learners",
-      "title": "Learner List",
-      "viewFollowUps": "View Follow-ups"
-    },
-    "metrics": {
-      "activeLearnersLast7Days": "Active Learners (7 Days)",
-      "completedLearners": "Completers",
-      "completionRate": "Completion Rate",
-      "learningLearners": "Learners In Progress",
-      "newLearnersLast7Days": "New Learners (7 Days)",
-      "orderAmount": "Order Amount",
-      "orderCount": "Orders",
-      "rating": "Course Rating",
-      "title": "Core Data",
-      "totalQuestions": "Follow-up Questions"
     },
     "subtitle": "Basic course info, key metrics, and learner activity data are all powered by live reporting.",
     "title": "Course Detail"

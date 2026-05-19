@@ -48,9 +48,7 @@ import type {
   DashboardCourseRatingItem,
   DashboardCourseRatingListResponse,
 } from '@/types/dashboard';
-import {
-  buildAdminDashboardCourseDetailUrl,
-} from '../../admin-dashboard-routes';
+import { buildAdminDashboardCourseDetailUrl } from '../../admin-dashboard-routes';
 
 type ErrorState = { message: string; code?: number };
 type ContactMode = 'phone' | 'email';
@@ -92,7 +90,11 @@ const createRatingFilters = (): RatingFilters => ({
   endTime: '',
 });
 
-const formatCount = (value: number, emptyValue: string, locale: string): string => {
+const formatCount = (
+  value: number,
+  emptyValue: string,
+  locale: string,
+): string => {
   if (!Number.isFinite(value)) {
     return emptyValue;
   }
@@ -123,7 +125,10 @@ const resolveSecondaryChapterDisplay = ({
 }) => {
   const normalizedChapterTitle = chapterTitle?.trim() || '';
   const normalizedLessonTitle = lessonTitle?.trim() || '';
-  if (!normalizedChapterTitle || normalizedChapterTitle === normalizedLessonTitle) {
+  if (
+    !normalizedChapterTitle ||
+    normalizedChapterTitle === normalizedLessonTitle
+  ) {
     return '';
   }
   return normalizedChapterTitle;
@@ -150,7 +155,12 @@ const resolvePrimaryUserDisplay = ({
   }
   const preferredContact = contactMode === 'email' ? email : mobile;
   const alternateContact = contactMode === 'email' ? mobile : email;
-  return preferredContact?.trim() || alternateContact?.trim() || userBid?.trim() || guestUserLabel;
+  return (
+    preferredContact?.trim() ||
+    alternateContact?.trim() ||
+    userBid?.trim() ||
+    guestUserLabel
+  );
 };
 
 const resolveSecondaryUserDisplay = ({
@@ -266,13 +276,18 @@ export default function AdminDashboardCourseRatingsPage() {
   const userKeywordPlaceholder = useMemo(
     () =>
       contactMode === 'email'
-        ? t('module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail')
-        : t('module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone'),
+        ? t(
+            'module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail',
+          )
+        : t(
+            'module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone',
+          ),
     [contactMode, t],
   );
 
-  const [ratings, setRatings] =
-    useState<DashboardCourseRatingListResponse>(EMPTY_RATINGS_RESPONSE);
+  const [ratings, setRatings] = useState<DashboardCourseRatingListResponse>(
+    EMPTY_RATINGS_RESPONSE,
+  );
   const [pageIndex, setPageIndex] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -371,12 +386,20 @@ export default function AdminDashboardCourseRatingsPage() {
       },
       {
         label: t('module.dashboard.detail.ratings.summary.ratingCount'),
-        value: formatCount(ratings.summary.rating_count, emptyValue, i18n.language),
+        value: formatCount(
+          ratings.summary.rating_count,
+          emptyValue,
+          i18n.language,
+        ),
         tone: 'default' as const,
       },
       {
         label: t('module.dashboard.detail.ratings.summary.userCount'),
-        value: formatCount(ratings.summary.user_count, emptyValue, i18n.language),
+        value: formatCount(
+          ratings.summary.user_count,
+          emptyValue,
+          i18n.language,
+        ),
         tone: 'default' as const,
       },
       {
@@ -404,7 +427,9 @@ export default function AdminDashboardCourseRatingsPage() {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link href='/admin/dashboard'>{t('module.dashboard.title')}</Link>
+                  <Link href='/admin/dashboard'>
+                    {t('module.dashboard.title')}
+                  </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
@@ -427,7 +452,10 @@ export default function AdminDashboardCourseRatingsPage() {
 
         <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
           {summaryCards.map(card => (
-            <Card key={card.label} className='border-border/80 shadow-sm'>
+            <Card
+              key={card.label}
+              className='border-border/80 shadow-sm'
+            >
               <CardContent className='flex h-full flex-col p-4'>
                 <div className='text-sm font-medium text-muted-foreground'>
                   {card.label}
@@ -490,7 +518,9 @@ export default function AdminDashboardCourseRatingsPage() {
                 </div>
                 <div className='flex flex-col gap-2'>
                   <label className='text-xs font-medium text-muted-foreground'>
-                    {t('module.dashboard.detail.ratings.filters.chapterKeyword')}
+                    {t(
+                      'module.dashboard.detail.ratings.filters.chapterKeyword',
+                    )}
                   </label>
                   <ClearableTextInput
                     value={filtersDraft.chapterKeyword}
@@ -528,7 +558,10 @@ export default function AdminDashboardCourseRatingsPage() {
                         {t('module.dashboard.detail.ratings.filters.scoreAll')}
                       </SelectItem>
                       {[5, 4, 3, 2, 1].map(scoreValue => (
-                        <SelectItem key={scoreValue} value={String(scoreValue)}>
+                        <SelectItem
+                          key={scoreValue}
+                          value={String(scoreValue)}
+                        >
                           {t('module.dashboard.detail.ratings.scoreValue', {
                             score: scoreValue,
                           })}
@@ -693,11 +726,12 @@ export default function AdminDashboardCourseRatingsPage() {
                               userBid: item.user_bid,
                               contactMode,
                             });
-                            const primaryLessonDisplay = resolvePrimaryLessonDisplay({
-                              lessonTitle: item.lesson_title,
-                              chapterTitle: item.chapter_title,
-                              emptyValue,
-                            });
+                            const primaryLessonDisplay =
+                              resolvePrimaryLessonDisplay({
+                                lessonTitle: item.lesson_title,
+                                chapterTitle: item.chapter_title,
+                                emptyValue,
+                              });
                             const secondaryChapterDisplay =
                               resolveSecondaryChapterDisplay({
                                 chapterTitle: item.chapter_title,
