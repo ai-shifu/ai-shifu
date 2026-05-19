@@ -6,6 +6,10 @@ export const EVENT_NAMES = {
 
 export const events = new EventTarget();
 
+export interface StopActiveLessonStreamDetail {
+  lessonId?: string;
+}
+
 export const stopActiveLessonStream = (lessonId: string) => {
   if (!lessonId) {
     return;
@@ -14,6 +18,14 @@ export const stopActiveLessonStream = (lessonId: string) => {
   events.dispatchEvent(
     new CustomEvent(EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM, {
       detail: { lessonId },
+    }),
+  );
+};
+
+export const stopAllActiveLessonStreams = () => {
+  events.dispatchEvent(
+    new CustomEvent(EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM, {
+      detail: {},
     }),
   );
 };

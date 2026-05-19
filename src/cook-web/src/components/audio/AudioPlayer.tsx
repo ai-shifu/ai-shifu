@@ -59,6 +59,22 @@ export interface AudioPlayerHandle {
   pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => void;
 }
 
+export const shouldFallbackToCompleteUrlForWaitingStream = ({
+  audioUrl,
+  streamingSegmentCount,
+  currentSegmentIndex,
+  playedSeconds,
+}: {
+  audioUrl?: string;
+  streamingSegmentCount: number;
+  currentSegmentIndex: number;
+  playedSeconds: number;
+}) =>
+  Boolean(audioUrl) &&
+  streamingSegmentCount <= 0 &&
+  currentSegmentIndex <= 0 &&
+  playedSeconds <= 0;
+
 /**
  * Audio player component for TTS playback.
  *
@@ -698,16 +714,31 @@ function AudioPlayerBase(
         pendingStreamRef.current = false;
         playSegmentByIndex(nextIndex, sessionId);
       } else if (!isStreaming) {
-        // Streaming finished and no more segments. If final URL exists, continue playback with it.
-        if (effectiveAudioUrl) {
+        const hasConsumedStreamingSegments =
+          streamingSegments.length > 0 ||
+          currentSegmentIndexRef.current > 0 ||
+          playedSecondsRef.current > 0;
+
+        // Only fall back to the final URL when no stream segment was ever
+        // received, for example when the backend returns a cached complete
+        // audio record. Once segment playback has started, switching into the
+        // concatenated URL mid-session can seek slightly before the played
+        // boundary and replay the first few words.
+        if (
+          shouldFallbackToCompleteUrlForWaitingStream({
+            audioUrl: effectiveAudioUrl,
+            streamingSegmentCount: streamingSegments.length,
+            currentSegmentIndex: currentSegmentIndexRef.current,
+            playedSeconds: playedSecondsRef.current,
+          })
+        ) {
           pendingStreamRef.current = false;
-          const startAtSeconds = playedSecondsRef.current;
           cleanupAudio();
-          playFromUrl(startAtSeconds);
+          playFromUrl(0);
           return;
         }
 
-        if (pendingStreamRef.current) {
+        if (pendingStreamRef.current && !hasConsumedStreamingSegments) {
           return;
         }
 

@@ -10,7 +10,6 @@ import {
   ELEMENT_TYPE,
   LIKE_STATUS,
   type AudioCompleteData,
-  type AudioSegmentData,
   type ElementType,
   type StudyRecordItem,
 } from '@/c-api/studyV2';
@@ -22,6 +21,9 @@ import {
 } from '@/c-utils/markdownUtils';
 import {
   getAudioTrackByPosition,
+  normalizeAudioCompletePayload,
+  normalizeAudioSegmentPayload,
+  toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
 } from '@/c-utils/audio-utils';
@@ -171,31 +173,6 @@ const readPayloadField = (
   return undefined;
 };
 
-const readNumberField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): number | null => {
-  const value = readPayloadField(payload, keys);
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsedValue = Number(value);
-    if (Number.isFinite(parsedValue)) {
-      return parsedValue;
-    }
-  }
-  return null;
-};
-
-const readStringField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): string | null => {
-  const value = readPayloadField(payload, keys);
-  return typeof value === 'string' ? value : null;
-};
-
 const readBooleanField = (
   payload: Record<string, unknown>,
   keys: string[],
@@ -217,79 +194,6 @@ const readBooleanField = (
     }
   }
   return null;
-};
-
-const normalizeAudioSegmentData = (
-  payloadLike: unknown,
-): AudioSegmentData | null => {
-  const payload = parseObjectPayload<Record<string, unknown>>(payloadLike);
-  if (!payload) {
-    return null;
-  }
-  const segmentIndex = readNumberField(payload, [
-    'segment_index',
-    'segmentIndex',
-  ]);
-  const audioData = readStringField(payload, ['audio_data', 'audioData']);
-  if (segmentIndex === null || !audioData) {
-    return null;
-  }
-
-  const durationMs =
-    readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
-  const isFinal = readBooleanField(payload, ['is_final', 'isFinal']) ?? false;
-  const position = readNumberField(payload, ['position']);
-  const elementId = readStringField(payload, ['element_id', 'elementId']);
-  const slideId = readStringField(payload, ['slide_id', 'slideId']);
-  const avContractValue = readPayloadField(payload, [
-    'av_contract',
-    'avContract',
-  ]);
-
-  return {
-    segment_index: segmentIndex,
-    audio_data: audioData,
-    duration_ms: durationMs,
-    is_final: isFinal,
-    position: position ?? undefined,
-    element_id: elementId ?? undefined,
-    slide_id: slideId ?? undefined,
-    av_contract:
-      avContractValue && typeof avContractValue === 'object'
-        ? (avContractValue as Record<string, any>)
-        : null,
-  };
-};
-
-const normalizeAudioCompleteData = (
-  payloadLike: unknown,
-): AudioCompleteData | null => {
-  const payload = parseObjectPayload<Record<string, unknown>>(payloadLike);
-  if (!payload) {
-    return null;
-  }
-  const audioUrl = readStringField(payload, ['audio_url', 'audioUrl']) || '';
-  const audioBid = readStringField(payload, ['audio_bid', 'audioBid']) || '';
-  const durationMs =
-    readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
-  const position = readNumberField(payload, ['position']);
-  const slideId = readStringField(payload, ['slide_id', 'slideId']);
-  const avContractValue = readPayloadField(payload, [
-    'av_contract',
-    'avContract',
-  ]);
-
-  return {
-    audio_url: audioUrl,
-    audio_bid: audioBid,
-    duration_ms: durationMs,
-    position: position ?? undefined,
-    slide_id: slideId ?? undefined,
-    av_contract:
-      avContractValue && typeof avContractValue === 'object'
-        ? (avContractValue as Record<string, any>)
-        : null,
-  };
 };
 
 const resolveElementPayload = (
@@ -1168,7 +1072,7 @@ export function usePreviewChat() {
           setError(errorMessage);
           stopPreview();
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-          const audioSegment = normalizeAudioSegmentData(
+          const audioSegment = normalizeAudioSegmentPayload(
             resolveResponsePayload(response),
           );
           if (blockId && audioSegment) {
@@ -1176,28 +1080,24 @@ export function usePreviewChat() {
               upsertAudioSegment(
                 prevState,
                 blockId,
-                audioSegment,
+                toAudioSegmentData(audioSegment),
                 ensureAudioItem,
               ),
             );
           }
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-          const audioComplete = normalizeAudioCompleteData(
+          const audioComplete = normalizeAudioCompletePayload(
             resolveResponsePayload(response),
           );
           if (!audioComplete) {
             return;
           }
-          const normalizedAudioComplete = {
-            ...audioComplete,
-            audio_url: audioComplete.audio_url || undefined,
-          };
           if (blockId) {
             setTrackedContentList(prevState =>
               upsertAudioComplete(
                 prevState,
                 blockId,
-                normalizedAudioComplete,
+                audioComplete,
                 ensureAudioItem,
               ),
             );
@@ -1858,7 +1758,7 @@ export function usePreviewChat() {
             const response = JSON.parse(payload);
             if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
-              const audioSegment = normalizeAudioSegmentData(audioPayload);
+              const audioSegment = normalizeAudioSegmentPayload(audioPayload);
               if (!audioSegment) {
                 return;
               }
@@ -1866,7 +1766,7 @@ export function usePreviewChat() {
                 upsertAudioSegment(
                   prevState,
                   blockId,
-                  audioSegment,
+                  toAudioSegmentData(audioSegment),
                   ensureAudioItem,
                 ),
               );
@@ -1875,19 +1775,15 @@ export function usePreviewChat() {
 
             if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
-              const audioComplete = normalizeAudioCompleteData(audioPayload);
+              const audioComplete = normalizeAudioCompletePayload(audioPayload);
               if (!audioComplete) {
                 return;
               }
-              const normalizedAudioComplete = {
-                ...audioComplete,
-                audio_url: audioComplete.audio_url || undefined,
-              };
               setTrackedContentList(prevState =>
                 upsertAudioComplete(
                   prevState,
                   blockId,
-                  normalizedAudioComplete,
+                  audioComplete,
                   ensureAudioItem,
                 ),
               );

@@ -13,6 +13,7 @@ from flaskr.service.user.repository import load_user_aggregate
 from flaskr.i18n import _
 
 from flaskr.service.learn.learn_dtos import (
+    AudioBackfillReadyDTO,
     GeneratedType,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
@@ -314,11 +315,57 @@ def run_script_inner(
 
             run_script_context.set_input(input, input_type)
 
-            def _iter_run_events(events):
-                if element_adapter is None:
-                    yield from events
+            ready_element_bids_by_block_bid: dict[str, list[str]] = {}
+
+            def _remember_audio_backfill_ready_element(
+                payload: object,
+                ready_element_bids_by_block_bid: dict[str, list[str]],
+            ) -> None:
+                extracted = _extract_audio_backfill_ready_element_bid(payload)
+                if extracted is None:
                     return
-                yield from element_adapter.process(events)
+                generated_block_bid, element_bid = extracted
+                element_bids = ready_element_bids_by_block_bid.setdefault(
+                    generated_block_bid,
+                    [],
+                )
+                if element_bid not in element_bids:
+                    element_bids.append(element_bid)
+
+            def _iter_run_events(
+                events,
+                ready_element_bids_by_block_bid: dict[str, list[str]],
+            ):
+                if element_adapter is None:
+                    for event in events:
+                        _remember_audio_backfill_ready_element(
+                            event,
+                            ready_element_bids_by_block_bid,
+                        )
+                        yield event
+                    return
+                for event in element_adapter.process(events):
+                    _remember_audio_backfill_ready_element(
+                        event,
+                        ready_element_bids_by_block_bid,
+                    )
+                    yield event
+
+            def _iter_audio_backfill_ready_events(
+                ready_element_bids_by_block_bid: dict[str, list[str]],
+            ):
+                if input_type == INPUT_TYPE_ASK:
+                    return
+                for (
+                    generated_block_bid,
+                    element_bids,
+                ) in ready_element_bids_by_block_bid.items():
+                    if not generated_block_bid:
+                        continue
+                    yield _make_audio_backfill_ready_event(
+                        generated_block_bid,
+                        element_bids,
+                    )
 
             if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
@@ -330,9 +377,14 @@ def run_script_inner(
                         app,
                         reload_generated_block_bid,
                         reload_element_bid=reload_element_bid,
-                    )
+                    ),
+                    ready_element_bids_by_block_bid,
                 )
                 db.session.commit()
+                yield from _iter_audio_backfill_ready_events(
+                    ready_element_bids_by_block_bid
+                )
+                ready_element_bids_by_block_bid.clear()
             while run_script_context.has_next():
                 app.logger.warning(
                     f"run_script_context.has_next(): {run_script_context.has_next()}"
@@ -342,9 +394,15 @@ def run_script_inner(
                     db.session.rollback()
                     return
                 app.logger.info("run_script_context.run")
-                yield from _iter_run_events(run_script_context.run(app))
+                yield from _iter_run_events(
+                    run_script_context.run(app),
+                    ready_element_bids_by_block_bid,
+                )
             _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
+            yield from _iter_audio_backfill_ready_events(
+                ready_element_bids_by_block_bid
+            )
         except BreakException:
             _finalize_langfuse_if_available(run_script_context)
             db.session.commit()
@@ -405,6 +463,44 @@ def _make_terminal_event(
         generated_block_bid="",
         type=legacy_type,
         content=content,
+    )
+
+
+def _extract_audio_backfill_ready_element_bid(
+    payload: object,
+) -> tuple[str, str] | None:
+    if not isinstance(payload, RunElementSSEMessageDTO):
+        return None
+    if payload.event_type != "element":
+        return None
+
+    content = payload.content
+    generated_block_bid = (
+        payload.generated_block_bid or getattr(content, "generated_block_bid", "") or ""
+    )
+    element_bid = getattr(content, "element_bid", "") or ""
+    if (
+        not generated_block_bid
+        or not element_bid
+        or not bool(getattr(content, "is_final", False))
+    ):
+        return None
+
+    return generated_block_bid, element_bid
+
+
+def _make_audio_backfill_ready_event(
+    generated_block_bid: str,
+    element_bids: list[str],
+) -> RunElementSSEMessageDTO:
+    return RunElementSSEMessageDTO(
+        type=GeneratedType.AUDIO_BACKFILL_READY.value,
+        event_type=GeneratedType.AUDIO_BACKFILL_READY.value,
+        generated_block_bid=generated_block_bid,
+        content=AudioBackfillReadyDTO(
+            generated_block_bid=generated_block_bid,
+            element_bids=element_bids,
+        ),
     )
 
 

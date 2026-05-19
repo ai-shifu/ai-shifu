@@ -81,6 +81,15 @@ const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 const HISTORY_CONTENT_PREVIEW_LINES = 6;
+type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
+
+const resolveMarkdownFlowEditorLocale = (
+  language?: string | null,
+): MarkdownFlowEditorLocale => {
+  const normalizedLanguage = normalizeLanguage(language);
+  // markdown-flow-ui/editor currently ships only en-US and zh-CN resources.
+  return normalizedLanguage === 'zh-CN' ? 'zh-CN' : 'en-US';
+};
 
 // Collect variable names that truly exist in current markdown content
 const extractVariableNames = (text?: string | null) => {
@@ -1426,11 +1435,9 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                   ) : (
                     <MarkdownFlowEditor
                       key={editorScopeKey}
-                      locale={
-                        normalizeLanguage(
-                          (i18n.resolvedLanguage ?? i18n.language) as string,
-                        ) as 'en-US' | 'zh-CN' | 'fr-FR'
-                      }
+                      locale={resolveMarkdownFlowEditorLocale(
+                        i18n.resolvedLanguage ?? i18n.language,
+                      )}
                       disabled={currentShifu?.readonly}
                       content={editorContent}
                       variables={variablesList}

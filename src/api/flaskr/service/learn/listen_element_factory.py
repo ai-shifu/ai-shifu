@@ -179,7 +179,7 @@ def _build_final_elements_for_av_contract(
                     next_element_index += 1
 
             text = _text_for_speakable_segment(raw_content, item)
-            if not text:
+            if not _default_is_speakable(ElementType.TEXT, text):
                 continue
             built.append(
                 _build_text_element(
@@ -225,7 +225,7 @@ def _build_final_elements_for_av_contract(
         text = slice_source_by_span(raw_content, segment.source_span).strip()
         if not text:
             text = (segment.segment_content or "").strip()
-        if not text:
+        if not _default_is_speakable(ElementType.TEXT, text):
             continue
         built.append(
             _build_text_element(

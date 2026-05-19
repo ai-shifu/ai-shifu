@@ -27,6 +27,8 @@ export interface ChatContentItem {
   shouldRenderAsHistoryInReadMode?: boolean;
   shouldUseTypewriter?: boolean;
   element_bid: string;
+  target_element_bid?: string;
+  element_index?: number;
   generated_block_bid?: string;
   ask_element_bid?: string;
   parent_element_bid?: string;
@@ -40,15 +42,16 @@ export interface ChatContentItem {
   audioUrl?: string;
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
+  isAudioBackfillReady?: boolean;
   audioDurationMs?: number;
   listenSlides?: ListenSlideData[];
   element_type?: ElementType;
   sequence_number?: number;
   is_marker?: boolean;
   is_new?: boolean;
+  is_final?: boolean;
   is_renderable?: boolean;
   is_speakable?: boolean;
-  is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
   business_code?: number;

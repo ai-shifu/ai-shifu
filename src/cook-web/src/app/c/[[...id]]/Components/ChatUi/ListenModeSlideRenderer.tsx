@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
-import { Loader2 } from 'lucide-react';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import { LoadingDots } from '@/components/loading';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
@@ -49,6 +49,23 @@ type ListenSlideElement = SlideElement & {
   ask_list?: AskMessage[];
   subtitle_cues?: ElementSubtitleCue[];
 };
+
+type ListenSlideBufferingText =
+  | string
+  | {
+      waitingForAudio?: string;
+      loadingAudio?: string;
+      waitingForMoreAudio?: string;
+    };
+
+type ListenSlideProps = Omit<
+  React.ComponentProps<typeof Slide>,
+  'bufferingText'
+> & {
+  bufferingText?: ListenSlideBufferingText;
+};
+
+const ListenSlide = Slide as React.ComponentType<ListenSlideProps>;
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -1393,7 +1410,7 @@ const ListenModeSlideRenderer = ({
             ? createPortal(desktopAskOverlay, fullscreenPortalContainer)
             : desktopAskOverlay
           : null}
-        <Slide
+        <ListenSlide
           // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
@@ -1406,7 +1423,15 @@ const ListenModeSlideRenderer = ({
             copyButtonText: t('module.renderUi.core.copyCode'),
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
-          bufferingText={t('module.chat.slideAudioBufferingLoadingAudio')}
+          bufferingText={{
+            waitingForAudio: t(
+              'module.chat.slideAudioBufferingWaitingForAudio',
+            ),
+            loadingAudio: t('module.chat.slideAudioBufferingLoadingAudio'),
+            waitingForMoreAudio: t(
+              'module.chat.slideAudioBufferingWaitingForMoreAudio',
+            ),
+          }}
           onPlayerVisibilityChange={handlePlayerVisibilityChange}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
@@ -1430,7 +1455,17 @@ const ListenModeSlideRenderer = ({
                 : 'bg-[var(--color-slide-desktop-bg)]/70',
             )}
           >
-            <Loader2 className='size-6 animate-spin text-primary' />
+            <div className='flex flex-col items-center gap-3 text-primary'>
+              <LoadingDots
+                ariaLabel={t('module.chat.slideAudioBufferingLoadingAudio')}
+                count={4}
+                durationMs={960}
+                dotClassName='bg-primary'
+                gap={5}
+                restOpacity={0.2}
+                size={5}
+              />
+            </div>
           </div>
         ) : null}
       </div>
