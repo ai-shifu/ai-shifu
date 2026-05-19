@@ -2030,27 +2030,33 @@ def _build_operator_course_candidate_query(
     if draft_rows_subquery is None or published_rows_subquery is None:
         return None
 
-    draft_visible_subquery = db.session.query(draft_rows_subquery).filter(
-        _build_operator_visible_course_filter(
-            draft_rows_subquery.c.shifu_bid,
-            draft_rows_subquery.c.title,
-            draft_rows_subquery.c.created_user_bid,
+    draft_visible_subquery = (
+        db.session.query(draft_rows_subquery)
+        .filter(
+            _build_operator_visible_course_filter(
+                draft_rows_subquery.c.shifu_bid,
+                draft_rows_subquery.c.title,
+                draft_rows_subquery.c.created_user_bid,
+            )
         )
-    ).subquery("operator_course_draft_visible")
-    published_visible_subquery = db.session.query(published_rows_subquery).filter(
-        _build_operator_visible_course_filter(
-            published_rows_subquery.c.shifu_bid,
-            published_rows_subquery.c.title,
-            published_rows_subquery.c.created_user_bid,
+        .subquery("operator_course_draft_visible")
+    )
+    published_visible_subquery = (
+        db.session.query(published_rows_subquery)
+        .filter(
+            _build_operator_visible_course_filter(
+                published_rows_subquery.c.shifu_bid,
+                published_rows_subquery.c.title,
+                published_rows_subquery.c.created_user_bid,
+            )
         )
-    ).subquery("operator_course_published_visible")
+        .subquery("operator_course_published_visible")
+    )
 
     candidate_bids_subquery = (
         db.session.query(draft_visible_subquery.c.shifu_bid.label("shifu_bid"))
         .union(
-            db.session.query(
-                published_visible_subquery.c.shifu_bid.label("shifu_bid")
-            )
+            db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
         )
         .subquery("operator_course_candidate_bids")
     )
@@ -6483,7 +6489,9 @@ def _can_use_operator_course_sql_optimization(app: Flask) -> bool:
         return False
 
 
-def _build_operator_course_overview_legacy(app: Flask) -> AdminOperationCourseOverviewDTO:
+def _build_operator_course_overview_legacy(
+    app: Flask,
+) -> AdminOperationCourseOverviewDTO:
     draft_rows = _load_latest_shifus(
         DraftShifu,
         shifu_bid="",
@@ -6794,8 +6802,8 @@ def list_operator_courses(
                     ).filter(
                         LearnProgressRecord.deleted == 0,
                         LearnProgressRecord.status != LEARN_STATUS_RESET,
-                        LearnProgressRecord.created_at >= datetime.now()
-                        - timedelta(days=30),
+                        LearnProgressRecord.created_at
+                        >= datetime.now() - timedelta(days=30),
                     )
                     query = query.filter(
                         candidate_subquery.c.shifu_bid.in_(active_course_query)
