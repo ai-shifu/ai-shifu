@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -436,7 +437,9 @@ const createDeferred = <T,>() => {
 
 describe('OperationsPage', () => {
   const renderAndWaitForLoadedPage = async () => {
-    render(<OperationsPage />);
+    await act(async () => {
+      render(<OperationsPage />);
+    });
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourses).toHaveBeenCalled();
@@ -445,7 +448,54 @@ describe('OperationsPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();
     });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCoursesOverview).toHaveBeenCalled();
+    });
   };
+
+  test('loads course overview after the initial list request settles', async () => {
+    const listDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const overviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+    mockGetAdminOperationCourses.mockReturnValueOnce(listDeferred.promise);
+    mockGetAdminOperationCoursesOverview.mockReturnValueOnce(
+      overviewDeferred.promise,
+    );
+
+    await act(async () => {
+      render(<OperationsPage />);
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenCalledTimes(1);
+    });
+    expect(mockGetAdminOperationCoursesOverview).not.toHaveBeenCalled();
+
+    await act(async () => {
+      listDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCoursesOverview).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      overviewDeferred.resolve(DEFAULT_OVERVIEW);
+    });
+  });
 
   beforeAll(() => {
     Object.defineProperty(window, 'location', {
