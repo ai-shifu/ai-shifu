@@ -1812,7 +1812,21 @@ class OperatorCourseListSeed:
     has_course_prompt: Optional[bool] = None
 
 
-def _load_latest_shifus(
+def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
+    return OperatorCourseListSeed(
+        id=int(row.id),
+        shifu_bid=str(row.shifu_bid or ""),
+        title=str(row.title or ""),
+        price=row.price,
+        llm=str(row.llm or ""),
+        created_user_bid=str(row.created_user_bid or ""),
+        updated_user_bid=str(row.updated_user_bid or ""),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _build_latest_shifus_query(
     model,
     *,
     shifu_bid: str,
@@ -1822,8 +1836,6 @@ def _load_latest_shifus(
     end_time: Optional[datetime],
     updated_start_time: Optional[datetime],
     updated_end_time: Optional[datetime],
-    attach_prompt_flags: bool = False,
-    lightweight: bool = False,
 ):
     is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
@@ -1851,39 +1863,76 @@ def _load_latest_shifus(
         latest_rows = latest_rows.filter(model.updated_at >= updated_start_time)
     if updated_end_time:
         latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
+    return latest_rows.order_by(model.updated_at.desc(), model.id.desc())
 
-    ordered_query = latest_rows.order_by(model.updated_at.desc(), model.id.desc())
-    if lightweight and is_mapped_model:
-        rows = ordered_query.with_entities(
-            model.id.label("id"),
-            model.shifu_bid.label("shifu_bid"),
-            model.title.label("title"),
-            model.price.label("price"),
-            model.llm.label("llm"),
-            model.created_user_bid.label("created_user_bid"),
-            model.updated_user_bid.label("updated_user_bid"),
-            model.created_at.label("created_at"),
-            model.updated_at.label("updated_at"),
-        ).all()
-        return [
-            OperatorCourseListSeed(
-                id=int(row.id),
-                shifu_bid=str(row.shifu_bid or ""),
-                title=str(row.title or ""),
-                price=row.price,
-                llm=str(row.llm or ""),
-                created_user_bid=str(row.created_user_bid or ""),
-                updated_user_bid=str(row.updated_user_bid or ""),
-                created_at=row.created_at,
-                updated_at=row.updated_at,
-            )
-            for row in rows
-        ]
+
+def _load_latest_shifus(
+    model,
+    *,
+    shifu_bid: str,
+    course_name: str,
+    creator_bids: Optional[Set[str]],
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+    updated_start_time: Optional[datetime],
+    updated_end_time: Optional[datetime],
+    attach_prompt_flags: bool = False,
+):
+    ordered_query = _build_latest_shifus_query(
+        model,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        updated_start_time=updated_start_time,
+        updated_end_time=updated_end_time,
+    )
+    if isinstance(ordered_query, list):
+        return []
 
     rows = ordered_query.all()
-    if is_mapped_model and attach_prompt_flags:
+    if hasattr(model, "__mapper__") and attach_prompt_flags:
         _attach_course_prompt_flags(model, rows)
     return rows
+
+
+def _load_latest_shifu_seeds(
+    model,
+    *,
+    shifu_bid: str,
+    course_name: str,
+    creator_bids: Optional[Set[str]],
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+    updated_start_time: Optional[datetime],
+    updated_end_time: Optional[datetime],
+) -> list[OperatorCourseListSeed]:
+    ordered_query = _build_latest_shifus_query(
+        model,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        updated_start_time=updated_start_time,
+        updated_end_time=updated_end_time,
+    )
+    if isinstance(ordered_query, list):
+        return []
+
+    rows = ordered_query.with_entities(
+        model.id.label("id"),
+        model.shifu_bid.label("shifu_bid"),
+        model.title.label("title"),
+        model.price.label("price"),
+        model.llm.label("llm"),
+        model.created_user_bid.label("created_user_bid"),
+        model.updated_user_bid.label("updated_user_bid"),
+        model.created_at.label("created_at"),
+        model.updated_at.label("updated_at"),
+    ).all()
+    return [_build_operator_course_list_seed(row) for row in rows]
 
 
 def _attach_course_prompt_flags(model, rows) -> None:
@@ -2585,16 +2634,19 @@ def _merge_courses(
 ):
     course_map = {}
     published_bids: Set[str] = set()
+    selected_sources: Dict[str, str] = {}
     for course in drafts:
         visible = _is_operator_visible_course(course)
         if visible:
             course_map[course.shifu_bid] = course
+            selected_sources[course.shifu_bid] = "draft"
     for course in published:
         visible = _is_operator_visible_course(course)
         if visible:
             published_bids.add(course.shifu_bid)
         if visible and course.shifu_bid not in course_map:
             course_map[course.shifu_bid] = course
+            selected_sources[course.shifu_bid] = "published"
     return (
         sorted(
             course_map.values(),
@@ -2606,6 +2658,7 @@ def _merge_courses(
             reverse=True,
         ),
         published_bids,
+        selected_sources,
     )
 
 
@@ -2881,7 +2934,7 @@ def _load_operator_user_course_maps(
         updated_start_time=None,
         updated_end_time=None,
     )
-    merged_created_courses, created_published_bids = _merge_courses(
+    merged_created_courses, created_published_bids, _ = _merge_courses(
         created_drafts,
         created_published,
     )
@@ -2956,7 +3009,7 @@ def _load_operator_user_course_maps(
     learned_published = _load_latest_courses_by_shifu_bids(
         PublishedShifu, learned_shifu_bids
     )
-    merged_learned_courses, learned_published_bids = _merge_courses(
+    merged_learned_courses, learned_published_bids, _ = _merge_courses(
         learned_drafts,
         learned_published,
     )
@@ -3033,7 +3086,7 @@ def _load_operator_user_course_count_maps(
         updated_start_time=None,
         updated_end_time=None,
     )
-    merged_created_courses, _ = _merge_courses(created_drafts, created_published)
+    merged_created_courses, _, _ = _merge_courses(created_drafts, created_published)
     for course in merged_created_courses:
         creator_user_bid = str(course.created_user_bid or "").strip()
         if creator_user_bid not in created_course_count_map:
@@ -3100,7 +3153,7 @@ def _load_operator_user_course_count_maps(
     learned_published = _load_latest_courses_by_shifu_bids(
         PublishedShifu, learned_shifu_bids
     )
-    merged_learned_courses, _ = _merge_courses(learned_drafts, learned_published)
+    merged_learned_courses, _, _ = _merge_courses(learned_drafts, learned_published)
     visible_learned_shifu_bids = {
         str(course.shifu_bid or "").strip()
         for course in merged_learned_courses
@@ -5989,7 +6042,7 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
         updated_start_time=None,
         updated_end_time=None,
     )
-    merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
+    merged_courses, published_bids, _ = _merge_courses(draft_rows, published_rows)
     total_course_count = len(merged_courses)
     if total_course_count == 0:
         return AdminOperationCourseOverviewDTO()
@@ -6067,7 +6120,7 @@ def list_operator_courses(
         updated_end_time = filters.get("updated_end_time")
 
         creator_bids = _find_matching_creator_bids(creator_keyword)
-        draft_rows = _load_latest_shifus(
+        draft_rows = _load_latest_shifu_seeds(
             DraftShifu,
             shifu_bid=shifu_bid,
             course_name=course_name,
@@ -6076,9 +6129,8 @@ def list_operator_courses(
             end_time=end_time,
             updated_start_time=None,
             updated_end_time=None,
-            lightweight=True,
         )
-        published_rows = _load_latest_shifus(
+        published_rows = _load_latest_shifu_seeds(
             PublishedShifu,
             shifu_bid=shifu_bid,
             course_name=course_name,
@@ -6087,13 +6139,12 @@ def list_operator_courses(
             end_time=end_time,
             updated_start_time=None,
             updated_end_time=None,
-            lightweight=True,
         )
 
-        merged_courses, published_bids = _merge_courses(draft_rows, published_rows)
+        merged_courses, published_bids, selected_sources = _merge_courses(
+            draft_rows, published_rows
+        )
         activity_map = _load_course_activity_map(draft_rows, published_rows)
-        draft_row_refs = {id(course) for course in draft_rows}
-        published_row_refs = {id(course) for course in published_rows}
 
         def resolve_activity(course) -> Dict[str, Any]:
             return activity_map.get(str(course.shifu_bid or "").strip(), {})
@@ -6180,10 +6231,15 @@ def list_operator_courses(
         page_offset = (safe_page_index - 1) * safe_page_size
         page_items = merged_courses[page_offset : page_offset + safe_page_size]
         draft_page_items = [
-            course for course in page_items if id(course) in draft_row_refs
+            course
+            for course in page_items
+            if selected_sources.get(str(course.shifu_bid or "").strip()) == "draft"
         ]
         published_page_items = [
-            course for course in page_items if id(course) in published_row_refs
+            course
+            for course in page_items
+            if selected_sources.get(str(course.shifu_bid or "").strip())
+            == "published"
         ]
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
