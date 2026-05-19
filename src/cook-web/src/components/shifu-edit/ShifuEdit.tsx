@@ -1396,7 +1396,9 @@ const ScriptEditor = ({
         >
           <DialogContent className='sm:max-w-[440px]'>
             <DialogHeader>
-              <DialogTitle>{t('module.shifu.history.confirmTitle')}</DialogTitle>
+              <DialogTitle>
+                {t('module.shifu.history.confirmTitle')}
+              </DialogTitle>
             </DialogHeader>
             <div className='text-sm leading-6 text-muted-foreground'>
               {t('module.shifu.history.confirmDescription')}

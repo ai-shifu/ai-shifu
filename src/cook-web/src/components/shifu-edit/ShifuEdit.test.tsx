@@ -470,9 +470,7 @@ describe('ShifuEdit draft conflict checks', () => {
   });
 
   test('opens the history page in a new tab for the current lesson', async () => {
-    const openSpy = jest
-      .spyOn(window, 'open')
-      .mockImplementation(() => null);
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
     setLessonNode();
 
     render(<ScriptEditor id='shifu-1' />);
