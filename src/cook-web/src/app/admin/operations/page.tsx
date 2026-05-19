@@ -639,8 +639,10 @@ const OperationsPage = () => {
     if (!isInitialized || isGuest || !isReady) {
       return;
     }
-    void fetchCourseOverview();
-    fetchCoursesRef.current?.(1, createDefaultFilters(), '');
+    void (async () => {
+      await fetchCoursesRef.current?.(1, createDefaultFilters(), '');
+      void fetchCourseOverview();
+    })();
   }, [fetchCourseOverview, isGuest, isInitialized, isReady]);
 
   const clearQuickFilterIfConflicted = useCallback(
