@@ -25,6 +25,10 @@ SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"
 
 
+def _unique_email(label: str) -> str:
+    return f"{label}-{uuid.uuid4().hex[:10]}@example.com"
+
+
 @pytest.fixture(autouse=True)
 def _stub_copy_course_risk_control(monkeypatch):
     monkeypatch.setattr(
@@ -247,13 +251,14 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
-    creator_email = "owner@example.com"
+    creator_email = _unique_email("owner")
+    viewer_email = _unique_email("viewer")
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email=creator_email)
         creator_entity = UserEntity.query.filter_by(user_bid=creator_bid).one()
         creator_entity.is_creator = 1
-        _seed_user(app, user_bid=viewer_bid, email="viewer@example.com")
+        _seed_user(app, user_bid=viewer_bid, email=viewer_email)
         source_bids = _seed_course_with_outlines(
             app,
             shifu_bid=shifu_bid,
@@ -354,9 +359,10 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
     post_auth_calls: list[dict] = []
+    owner_email = _unique_email("copy-owner")
 
     with app.app_context():
-        _seed_user(app, user_bid=creator_bid, email="copy-owner@example.com")
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
         _seed_course_with_outlines(
             app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
         )
@@ -408,10 +414,11 @@ def test_copy_course_reuses_existing_google_creator_account(app):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
-    target_email = "google-only-creator@example.com"
+    target_email = _unique_email("google-only-creator")
+    owner_email = _unique_email("copy-owner")
 
     with app.app_context():
-        _seed_user(app, user_bid=creator_bid, email="copy-owner@example.com")
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
         _seed_course_with_outlines(
             app,
             shifu_bid=shifu_bid,
@@ -458,7 +465,7 @@ def test_copy_course_reuses_existing_google_creator_account(app):
 def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
-    creator_email = "variables-owner@example.com"
+    creator_email = _unique_email("variables-owner")
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email=creator_email)
@@ -534,7 +541,7 @@ def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
 
 def test_copy_course_rejects_builtin_demo_course(app):
     shifu_bid = uuid.uuid4().hex[:32]
-    target_email = "demo-copy@example.com"
+    target_email = _unique_email("demo-copy")
 
     with app.app_context():
         _seed_user(app, user_bid="target-demo-copy", email=target_email)
@@ -572,7 +579,7 @@ def test_copy_course_rejects_builtin_demo_course(app):
 def test_copy_course_requires_operator_user_bid(app):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
-    creator_email = "owner@example.com"
+    creator_email = _unique_email("owner")
 
     with app.app_context():
         _seed_user(app, user_bid=creator_bid, email=creator_email)
@@ -601,12 +608,13 @@ def test_copy_course_requires_operator_user_bid(app):
 def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
-    target_email = "route-copy@example.com"
+    owner_email = _unique_email("route-owner")
+    target_email = _unique_email("route-copy")
     requested_course_name = "Operator Requested Copy Name"
     risk_checks: list[tuple[str, str, str]] = []
 
     with app.app_context():
-        _seed_user(app, user_bid=creator_bid, email="route-owner@example.com")
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
         _seed_user(app, user_bid="route-target", email=target_email)
         target_entity = UserEntity.query.filter_by(user_bid="route-target").one()
         target_entity.is_creator = 1
@@ -689,9 +697,10 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
 def test_copy_course_route_rejects_non_object_payload(app, test_client, monkeypatch):
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
+    owner_email = _unique_email("route-owner")
 
     with app.app_context():
-        _seed_user(app, user_bid=creator_bid, email="route-owner@example.com")
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
         _seed_course_with_outlines(
             app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
         )
@@ -714,9 +723,10 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+    owner_email = _unique_email("copy-owner")
 
     with app.app_context():
-        _seed_user(app, user_bid=creator_bid, email="copy-owner@example.com")
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
         _seed_course_with_outlines(
             app,
             shifu_bid=shifu_bid,

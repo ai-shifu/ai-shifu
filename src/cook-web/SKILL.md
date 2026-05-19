@@ -46,6 +46,8 @@
 - 学习页初始化排查如果需要给 QA 或运营直接复现链路，优先提供 `debug=1` 这类显式 URL 开关，把请求层、`1001` 鉴权恢复链路和页面初始化日志同步显示在页内调试面板，而不是只依赖远程控制台。
 - 预览/调试 SSE 如果在开始流式输出前就返回业务错误（如 `7101`），前端不要只停留在 `loading` 占位；应把后端返回的 `message` 直接落到聊天列表里替换 loading，保证作者侧能看到真实失败原因。
 - 作者侧预览区如果要对特定业务错误提供后续操作，优先把错误码挂在预览错误项上，再由 `LessonPreview` 按错误码渲染定向 CTA；像 `7101` 积分不足这类场景，应直接提供跳转 `/admin/billing?tab=packages` 的充值入口，而不是靠文案匹配做分支。
+- 作者侧预览/调试模式如果要补阅读模式风格的打字机节奏，优先在 `src/components/lesson-preview/` 下独立维护一套 preview gate 和缓存完成态，不要直接复用 learner 页 `readModeTypewriterGate`，避免作者侧交互节奏与学习页状态机互相耦合。
+- 作者侧预览里的喇叭辅助行要视作正文 text element 的后置 helper：只有父级是 `text` element 且该正文块打字机完成后才显示；父级是 `html`、`interaction` 等非 text element 时不要渲染这行辅助能力。
 
 ## Skills Index
 
