@@ -1,20 +1,9 @@
 'use client';
 
-import { Copy, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import {
-  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
-  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-  getAdminStickyRightCellClass,
-  getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
@@ -22,37 +11,11 @@ import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
-import { Label } from '@/components/ui/Label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
-import { cn } from '@/lib/utils';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
@@ -67,22 +30,28 @@ import type {
   AdminOperationCourseUserItem,
   AdminOperationCourseUsersResponse,
 } from '../operation-course-types';
+import CourseChapterDetailDialog from './CourseChapterDetailDialog';
+import CourseChaptersTab, {
+  type FlattenedChapterRow,
+} from './CourseChaptersTab';
+import CourseBasicInfoCard from './CourseBasicInfoCard';
 import CourseCreditUsageTab from './CourseCreditUsageTab';
+import CourseMetricsCardGrid from './CourseMetricsCardGrid';
+import CourseUsersTab from './CourseUsersTab';
+import {
+  createCourseUserFilters,
+  type CourseUserFilters,
+  USER_COLUMN_DEFAULT_WIDTHS,
+  USER_COLUMN_KEYS,
+  USER_COLUMN_MAX_WIDTH,
+  USER_COLUMN_MIN_WIDTH,
+  USER_COLUMN_WIDTH_STORAGE_KEY,
+  type UserColumnKey,
+} from './courseUsersTabConfig';
 import useOperatorGuard from '../useOperatorGuard';
 
 type ErrorState = { message: string; code?: number };
 
-type FlattenedChapterRow = AdminOperationCourseDetailChapter & {
-  depth: number;
-};
-
-type CourseUserPaymentStatus = 'all' | 'paid' | 'unpaid';
-type CourseUserFilters = {
-  keyword: string;
-  userRole: string;
-  learningStatus: string;
-  paymentStatus: CourseUserPaymentStatus;
-};
 type CourseDetailTab = 'chapters' | 'users' | 'creditUsage';
 
 const EMPTY_CHAPTER_DETAIL: AdminOperationCourseChapterDetailResponse = {
@@ -115,27 +84,6 @@ type ChapterColumnKey = keyof typeof CHAPTER_COLUMN_DEFAULT_WIDTHS;
 const CHAPTER_COLUMN_KEYS = Object.keys(
   CHAPTER_COLUMN_DEFAULT_WIDTHS,
 ) as ChapterColumnKey[];
-const USER_COLUMN_MIN_WIDTH = 80;
-const USER_COLUMN_MAX_WIDTH = 320;
-const USER_COLUMN_WIDTH_STORAGE_KEY = 'adminOperationCourseUserColumnWidths';
-const USER_COLUMN_DEFAULT_WIDTHS = {
-  account: 170,
-  nickname: 140,
-  userRole: 120,
-  learningProgress: 120,
-  learningStatus: 120,
-  isPaid: 90,
-  totalPaidAmount: 120,
-  lastLearnedAt: 170,
-  lastLoginAt: 170,
-  joinedAt: 170,
-  action: 90,
-} as const;
-
-type UserColumnKey = keyof typeof USER_COLUMN_DEFAULT_WIDTHS;
-const USER_COLUMN_KEYS = Object.keys(
-  USER_COLUMN_DEFAULT_WIDTHS,
-) as UserColumnKey[];
 const USER_PAGE_SIZE = 20;
 const COURSE_CREDIT_USAGE_PAGE_SIZE = 20;
 const FILTER_ALL_OPTION = 'all';
@@ -203,13 +151,6 @@ const formatLearningProgress = (
     locale,
   )}`;
 
-const createCourseUserFilters = (): CourseUserFilters => ({
-  keyword: '',
-  userRole: FILTER_ALL_OPTION,
-  learningStatus: FILTER_ALL_OPTION,
-  paymentStatus: FILTER_ALL_OPTION,
-});
-
 const createCourseCreditUsageFilters =
   (): AdminOperationCourseCreditUsageFilters => ({
     keyword: '',
@@ -217,42 +158,6 @@ const createCourseCreditUsageFilters =
     startTime: '',
     endTime: '',
   });
-
-function ClearableTextInput({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:outline-none'>
-      <input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        placeholder={placeholder}
-        className='h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-sm leading-none text-foreground placeholder:text-muted-foreground focus:outline-none'
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='ml-2 shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
@@ -1379,20 +1284,6 @@ export default function AdminOperationCourseDetailPage() {
     ],
   );
 
-  const renderChapterResizeHandle = (key: ChapterColumnKey) => (
-    <span
-      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
-      {...getChapterResizeHandleProps(key)}
-    />
-  );
-
-  const renderUserResizeHandle = (key: UserColumnKey) => (
-    <span
-      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
-      {...getUserResizeHandleProps(key)}
-    />
-  );
-
   const basicInfoItems = useMemo(
     () => [
       {
@@ -1498,82 +1389,15 @@ export default function AdminOperationCourseDetailPage() {
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
-            <Card>
-              <CardHeader className='pb-4'>
-                <CardTitle className='text-base font-semibold tracking-normal'>
-                  {tOperations('detail.basicInfo')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
-                  {basicInfoItems.map(item => (
-                    <div
-                      key={item.label}
-                      className='space-y-1'
-                    >
-                      <dt className='text-sm text-muted-foreground'>
-                        {item.label}
-                      </dt>
-                      <dd className='text-sm text-foreground'>{item.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </CardContent>
-            </Card>
+            <CourseBasicInfoCard
+              title={tOperations('detail.basicInfo')}
+              items={basicInfoItems}
+            />
 
-            <Card>
-              <CardHeader className='pb-4'>
-                <CardTitle className='text-base font-semibold tracking-normal'>
-                  {tOperations('detail.metrics')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
-                  {metricCards.map(card => {
-                    const cardContent = (
-                      <>
-                        <div className='text-sm font-medium text-muted-foreground'>
-                          {card.label}
-                        </div>
-                        <div className='mt-3 flex items-end gap-1.5'>
-                          <span
-                            className={cn(
-                              'text-2xl font-semibold',
-                              card.onClick ? 'text-primary' : 'text-foreground',
-                            )}
-                          >
-                            {card.value}
-                          </span>
-                        </div>
-                      </>
-                    );
-
-                    if (card.onClick) {
-                      return (
-                        <button
-                          key={card.label}
-                          type='button'
-                          aria-label={card.actionLabel || card.label}
-                          className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-                          onClick={card.onClick}
-                        >
-                          {cardContent}
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={card.label}
-                        className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left'
-                      >
-                        {cardContent}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+            <CourseMetricsCardGrid
+              title={tOperations('detail.metrics')}
+              cards={metricCards}
+            />
 
             <Tabs
               value={activeTab}
@@ -1598,792 +1422,74 @@ export default function AdminOperationCourseDetailPage() {
                 value='chapters'
                 className='mt-0'
               >
-                <Card>
-                  <CardContent className='pt-6'>
-                    <AdminTableShell
-                      loading={false}
-                      isEmpty={chapterRows.length === 0}
-                      emptyContent={tOperations('detail.chaptersTable.empty')}
-                      emptyColSpan={11}
-                      withTooltipProvider
-                      tableWrapperClassName='overflow-auto'
-                      table={emptyRow => (
-                        <Table className='table-auto'>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('position')}
-                              >
-                                {tOperations('detail.chaptersTable.position')}
-                                {renderChapterResizeHandle('position')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('name')}
-                              >
-                                {tOperations('detail.chaptersTable.name')}
-                                {renderChapterResizeHandle('name')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle(
-                                  'learningPermission',
-                                )}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.learningPermission',
-                                )}
-                                {renderChapterResizeHandle(
-                                  'learningPermission',
-                                )}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('visibility')}
-                              >
-                                {tOperations('detail.chaptersTable.visibility')}
-                                {renderChapterResizeHandle('visibility')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('contentStatus')}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.contentStatus',
-                                )}
-                                {renderChapterResizeHandle('contentStatus')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('contentDetail')}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.contentDetail',
-                                )}
-                                {renderChapterResizeHandle('contentDetail')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('modifier')}
-                              >
-                                {tOperations('detail.chaptersTable.modifier')}
-                                {renderChapterResizeHandle('modifier')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('updatedAt')}
-                              >
-                                {tOperations('detail.chaptersTable.updatedAt')}
-                                {renderChapterResizeHandle('updatedAt')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap border-l-2 border-l-border/80 bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('followUpCount')}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.followUpCount',
-                                )}
-                                {renderChapterResizeHandle('followUpCount')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('ratingScore')}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.ratingScore',
-                                )}
-                                {renderChapterResizeHandle('ratingScore')}
-                              </TableHead>
-                              <TableHead
-                                className={cn(
-                                  ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
-                                  'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                )}
-                                style={getChapterColumnStyle('ratingCount')}
-                              >
-                                {tOperations(
-                                  'detail.chaptersTable.ratingCount',
-                                )}
-                                {renderChapterResizeHandle('ratingCount')}
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {emptyRow}
-                            {chapterRows.map(chapter => {
-                              const {
-                                primary: modifierPrimary,
-                                secondary: modifierSecondary,
-                              } = resolveModifierDisplay(chapter);
-
-                              return (
-                                <TableRow key={chapter.outline_item_bid}>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/80 last:border-r-0'
-                                    style={getChapterColumnStyle('position')}
-                                  >
-                                    {chapter.position || emptyValue}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 border-r border-border last:border-r-0'
-                                    style={getChapterColumnStyle('name')}
-                                  >
-                                    <div
-                                      className='flex min-w-0 items-center justify-center gap-2'
-                                      style={{
-                                        paddingLeft: `${chapter.depth * 20}px`,
-                                      }}
-                                    >
-                                      <Badge
-                                        variant='outline'
-                                        className='shrink-0 rounded-full border-border/60 bg-background px-1.5 py-0 text-[10px] font-medium text-muted-foreground'
-                                      >
-                                        {resolveChapterTypeLabel(
-                                          chapter.node_type,
-                                        )}
-                                      </Badge>
-                                      <AdminTooltipText
-                                        text={chapter.title || emptyValue}
-                                        emptyValue={emptyValue}
-                                        className='text-center text-sm font-medium text-foreground'
-                                      />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle(
-                                      'learningPermission',
-                                    )}
-                                  >
-                                    {resolveLearningPermissionLabel(
-                                      chapter.learning_permission,
-                                    )}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle('visibility')}
-                                  >
-                                    {chapter.is_visible
-                                      ? tOperations('detail.visibility.visible')
-                                      : tOperations('detail.visibility.hidden')}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle(
-                                      'contentStatus',
-                                    )}
-                                  >
-                                    {resolveContentStatusLabel(
-                                      chapter.content_status,
-                                    )}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center last:border-r-0'
-                                    style={getChapterColumnStyle(
-                                      'contentDetail',
-                                    )}
-                                  >
-                                    <button
-                                      type='button'
-                                      className='text-sm text-primary transition-colors hover:text-primary/80'
-                                      onClick={() =>
-                                        setSelectedChapter(chapter)
-                                      }
-                                    >
-                                      {tOperations(
-                                        'detail.chaptersTable.detailAction',
-                                      )}
-                                    </button>
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 border-r border-border text-center last:border-r-0'
-                                    style={getChapterColumnStyle('modifier')}
-                                  >
-                                    <div className='flex flex-col gap-0.5 leading-tight'>
-                                      <AdminTooltipText
-                                        text={modifierPrimary}
-                                        emptyValue={emptyValue}
-                                        className='text-sm text-foreground'
-                                      />
-                                      {modifierSecondary ? (
-                                        <AdminTooltipText
-                                          text={modifierSecondary}
-                                          emptyValue={emptyValue}
-                                          className='text-xs text-muted-foreground'
-                                        />
-                                      ) : null}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle('updatedAt')}
-                                  >
-                                    <AdminTooltipText
-                                      text={
-                                        formatAdminNaiveDateTime(
-                                          chapter.updated_at,
-                                        ) || emptyValue
-                                      }
-                                      emptyValue={emptyValue}
-                                      className='mx-auto block max-w-full'
-                                    />
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-l-2 border-l-border/80 border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle(
-                                      'followUpCount',
-                                    )}
-                                  >
-                                    {chapter.node_type === 'chapter'
-                                      ? emptyValue
-                                      : formatCount(
-                                          chapter.follow_up_count,
-                                          i18n.language,
-                                        )}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap border-r border-border text-center text-sm text-muted-foreground/75 last:border-r-0'
-                                    style={getChapterColumnStyle('ratingScore')}
-                                  >
-                                    {chapter.node_type === 'chapter'
-                                      ? emptyValue
-                                      : chapter.rating_score || emptyValue}
-                                  </TableCell>
-                                  <TableCell
-                                    className='py-2.5 whitespace-nowrap text-center text-sm text-muted-foreground/75'
-                                    style={getChapterColumnStyle('ratingCount')}
-                                  >
-                                    {chapter.node_type === 'chapter'
-                                      ? emptyValue
-                                      : formatCount(
-                                          chapter.rating_count,
-                                          i18n.language,
-                                        )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    />
-                  </CardContent>
-                </Card>
+                <CourseChaptersTab
+                  rows={chapterRows}
+                  emptyValue={emptyValue}
+                  locale={i18n.language}
+                  onOpenChapterDetail={setSelectedChapter}
+                  resolveChapterTypeLabel={resolveChapterTypeLabel}
+                  resolveLearningPermissionLabel={
+                    resolveLearningPermissionLabel
+                  }
+                  resolveContentStatusLabel={resolveContentStatusLabel}
+                  resolveModifierDisplay={resolveModifierDisplay}
+                  formatCount={formatCount}
+                  formatAdminNaiveDateTime={formatAdminNaiveDateTime}
+                  getColumnStyle={getChapterColumnStyle}
+                  getResizeHandleProps={getChapterResizeHandleProps}
+                  tOperations={tOperations}
+                />
               </TabsContent>
 
               <TabsContent
                 value='users'
                 className='mt-0'
               >
-                <Card className='overflow-hidden border-border/80 shadow-sm ring-1 ring-border/40'>
-                  <CardContent className='space-y-3 px-6 py-6'>
-                    <form
-                      className='rounded-xl border border-border bg-muted/20 p-3'
-                      onSubmit={event => {
-                        event.preventDefault();
-                        handleCourseUserSearch();
-                      }}
-                    >
-                      <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
-                        <div className='flex flex-col gap-2'>
-                          <Label className='text-xs font-medium text-muted-foreground'>
-                            {tOperations('detail.usersFilters.userKeyword')}
-                          </Label>
-                          <ClearableTextInput
-                            value={courseUserFiltersDraft.keyword}
-                            placeholder={courseUserKeywordPlaceholder}
-                            clearLabel={t(
-                              'module.chat.lessonFeedbackClearInput',
-                            )}
-                            onChange={value =>
-                              setCourseUserFiltersDraft(prev => ({
-                                ...prev,
-                                keyword: value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className='flex flex-col gap-2'>
-                          <Label className='text-xs font-medium text-muted-foreground'>
-                            {tOperations('detail.usersFilters.userRole')}
-                          </Label>
-                          <Select
-                            value={courseUserFiltersDraft.userRole}
-                            onValueChange={value =>
-                              applyCourseUserSelectFilter({
-                                userRole: value,
-                              })
-                            }
-                          >
-                            <SelectTrigger className='h-9'>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={FILTER_ALL_OPTION}>
-                                {tOperations('detail.usersFilters.all')}
-                              </SelectItem>
-                              <SelectItem value='operator'>
-                                {resolveCourseUserRoleLabel('operator')}
-                              </SelectItem>
-                              <SelectItem value='creator'>
-                                {resolveCourseUserRoleLabel('creator')}
-                              </SelectItem>
-                              <SelectItem value='student'>
-                                {resolveCourseUserRoleLabel('student')}
-                              </SelectItem>
-                              <SelectItem value='normal'>
-                                {resolveCourseUserRoleLabel('normal')}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className='flex flex-col gap-2'>
-                          <Label className='text-xs font-medium text-muted-foreground'>
-                            {tOperations('detail.usersFilters.learningStatus')}
-                          </Label>
-                          <Select
-                            value={courseUserFiltersDraft.learningStatus}
-                            onValueChange={value =>
-                              applyCourseUserSelectFilter({
-                                learningStatus: value,
-                              })
-                            }
-                          >
-                            <SelectTrigger className='h-9'>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={FILTER_ALL_OPTION}>
-                                {tOperations('detail.usersFilters.all')}
-                              </SelectItem>
-                              <SelectItem value='not_started'>
-                                {resolveCourseUserLearningStatusLabel(
-                                  'not_started',
-                                )}
-                              </SelectItem>
-                              <SelectItem value='learning'>
-                                {resolveCourseUserLearningStatusLabel(
-                                  'learning',
-                                )}
-                              </SelectItem>
-                              <SelectItem value='completed'>
-                                {resolveCourseUserLearningStatusLabel(
-                                  'completed',
-                                )}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className='flex flex-col gap-2'>
-                          <Label className='text-xs font-medium text-muted-foreground'>
-                            {tOperations('detail.usersFilters.paymentStatus')}
-                          </Label>
-                          <Select
-                            value={courseUserFiltersDraft.paymentStatus}
-                            onValueChange={value =>
-                              applyCourseUserSelectFilter({
-                                paymentStatus: value as CourseUserPaymentStatus,
-                              })
-                            }
-                          >
-                            <SelectTrigger className='h-9'>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={FILTER_ALL_OPTION}>
-                                {tOperations('detail.usersFilters.all')}
-                              </SelectItem>
-                              <SelectItem value='paid'>
-                                {tOperations('detail.usersFilters.paymentPaid')}
-                              </SelectItem>
-                              <SelectItem value='unpaid'>
-                                {tOperations(
-                                  'detail.usersFilters.paymentUnpaid',
-                                )}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end'>
-                        <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
-                          {tOperations('detail.usersCount', {
-                            count: courseUsers.total,
-                          })}
-                        </div>
-                        <div className='hidden xl:block' />
-                        <div className='hidden xl:block' />
-                        <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            className='h-9 px-4'
-                            onClick={handleCourseUserReset}
-                            disabled={courseUsersLoading}
-                          >
-                            {t('module.order.filters.reset')}
-                          </Button>
-                          <Button
-                            type='submit'
-                            className='h-9 px-4'
-                            disabled={courseUsersLoading}
-                          >
-                            {t('module.order.filters.search')}
-                          </Button>
-                        </div>
-                      </div>
-                    </form>
-
-                    <AdminTableShell
-                      loading={courseUsersLoading}
-                      isEmpty={!courseUsersError && courseUserRows.length === 0}
-                      emptyContent={tOperations('detail.usersTable.empty')}
-                      emptyColSpan={11}
-                      withTooltipProvider={!courseUsersError}
-                      tableWrapperClassName='overflow-auto'
-                      loadingClassName='min-h-[240px]'
-                      footer={
-                        courseUserPageCount > 1 ? (
-                          <AdminPagination
-                            pageIndex={currentCourseUserPage}
-                            pageCount={courseUserPageCount}
-                            onPageChange={handleCourseUserPageChange}
-                            prevLabel={t(
-                              'module.order.paginationPrev',
-                              'Previous',
-                            )}
-                            nextLabel={t('module.order.paginationNext', 'Next')}
-                            prevAriaLabel={t(
-                              'module.order.paginationPrevAriaLabel',
-                              'Go to previous page',
-                            )}
-                            nextAriaLabel={t(
-                              'module.order.paginationNextAriaLabel',
-                              'Go to next page',
-                            )}
-                            className='mx-0 w-auto justify-end'
-                          />
-                        ) : null
-                      }
-                      table={
-                        courseUsersError ? (
-                          <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
-                            <div className='space-y-2'>
-                              <div className='text-sm font-medium text-destructive'>
-                                {courseUsersError.message}
-                              </div>
-                              {typeof courseUsersError.code === 'number' ? (
-                                <div className='text-xs text-muted-foreground'>
-                                  {courseUsersError.code}
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        ) : (
-                          emptyRow => (
-                            <Table className='table-auto'>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('account')}
-                                  >
-                                    {courseUserAccountLabel}
-                                    {renderUserResizeHandle('account')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('nickname')}
-                                  >
-                                    {tOperations('detail.usersTable.nickname')}
-                                    {renderUserResizeHandle('nickname')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('userRole')}
-                                  >
-                                    {tOperations('detail.usersTable.userRole')}
-                                    {renderUserResizeHandle('userRole')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle(
-                                      'learningProgress',
-                                    )}
-                                  >
-                                    {tOperations(
-                                      'detail.usersTable.learningProgress',
-                                    )}
-                                    {renderUserResizeHandle('learningProgress')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('learningStatus')}
-                                  >
-                                    {tOperations(
-                                      'detail.usersTable.learningStatus',
-                                    )}
-                                    {renderUserResizeHandle('learningStatus')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('isPaid')}
-                                  >
-                                    {tOperations('detail.usersTable.isPaid')}
-                                    {renderUserResizeHandle('isPaid')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle(
-                                      'totalPaidAmount',
-                                    )}
-                                  >
-                                    {tOperations(
-                                      'detail.usersTable.totalPaidAmount',
-                                    )}
-                                    {renderUserResizeHandle('totalPaidAmount')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('lastLearnedAt')}
-                                  >
-                                    {tOperations(
-                                      'detail.usersTable.lastLearnedAt',
-                                    )}
-                                    {renderUserResizeHandle('lastLearnedAt')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('lastLoginAt')}
-                                  >
-                                    {tOperations(
-                                      'detail.usersTable.lastLoginAt',
-                                    )}
-                                    {renderUserResizeHandle('lastLoginAt')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                                      'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                                    )}
-                                    style={getUserColumnStyle('joinedAt')}
-                                  >
-                                    {tOperations('detail.usersTable.joinedAt')}
-                                    {renderUserResizeHandle('joinedAt')}
-                                  </TableHead>
-                                  <TableHead
-                                    className={cn(
-                                      getAdminStickyRightHeaderClass(
-                                        'h-10 whitespace-nowrap text-center text-xs',
-                                      ),
-                                    )}
-                                    style={getUserColumnStyle('action')}
-                                  >
-                                    {tOperations('detail.usersTable.action')}
-                                    {renderUserResizeHandle('action')}
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {emptyRow}
-                                {courseUserRows.map(row => (
-                                  <TableRow key={row.user_bid}>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
-                                      style={getUserColumnStyle('account')}
-                                    >
-                                      <AdminTooltipText
-                                        text={resolveCourseUserAccount(row)}
-                                        emptyValue={emptyValue}
-                                        className='mx-auto block max-w-[180px] font-semibold text-foreground'
-                                      />
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
-                                      style={getUserColumnStyle('nickname')}
-                                    >
-                                      <AdminTooltipText
-                                        text={row.nickname || defaultUserName}
-                                        emptyValue={emptyValue}
-                                        className='mx-auto block max-w-[140px]'
-                                      />
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center last:border-r-0'
-                                      style={getUserColumnStyle('userRole')}
-                                    >
-                                      <Badge
-                                        variant='outline'
-                                        className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
-                                      >
-                                        {resolveCourseUserRoleLabel(
-                                          row.user_role,
-                                        )}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
-                                      style={getUserColumnStyle(
-                                        'learningProgress',
-                                      )}
-                                    >
-                                      <span className='font-medium tabular-nums text-foreground'>
-                                        {formatLearningProgress(
-                                          row.learned_lesson_count,
-                                          row.total_lesson_count,
-                                          i18n.language,
-                                        )}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center last:border-r-0'
-                                      style={getUserColumnStyle(
-                                        'learningStatus',
-                                      )}
-                                    >
-                                      <Badge
-                                        variant='outline'
-                                        className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
-                                      >
-                                        {resolveCourseUserLearningStatusLabel(
-                                          row.learning_status,
-                                        )}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-xs font-medium text-muted-foreground/80 last:border-r-0'
-                                      style={getUserColumnStyle('isPaid')}
-                                    >
-                                      {row.is_paid
-                                        ? tOperations('detail.boolean.yes')
-                                        : tOperations('detail.boolean.no')}
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
-                                      style={getUserColumnStyle(
-                                        'totalPaidAmount',
-                                      )}
-                                    >
-                                      <span className='font-medium tabular-nums text-foreground'>
-                                        {resolveCourseUserPaidAmountDisplay(
-                                          row,
-                                        )}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
-                                      style={getUserColumnStyle(
-                                        'lastLearnedAt',
-                                      )}
-                                    >
-                                      <AdminTooltipText
-                                        text={formatAdminNaiveDateTime(
-                                          row.last_learning_at,
-                                        )}
-                                        emptyValue={emptyValue}
-                                        className='mx-auto block max-w-full tabular-nums'
-                                      />
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
-                                      style={getUserColumnStyle('lastLoginAt')}
-                                    >
-                                      <AdminTooltipText
-                                        text={formatAdminNaiveDateTime(
-                                          row.last_login_at,
-                                        )}
-                                        emptyValue={emptyValue}
-                                        className='mx-auto block max-w-full tabular-nums'
-                                      />
-                                    </TableCell>
-                                    <TableCell
-                                      className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
-                                      style={getUserColumnStyle('joinedAt')}
-                                    >
-                                      <AdminTooltipText
-                                        text={formatAdminNaiveDateTime(
-                                          row.joined_at,
-                                        )}
-                                        emptyValue={emptyValue}
-                                        className='mx-auto block max-w-full tabular-nums'
-                                      />
-                                    </TableCell>
-                                    <TableCell
-                                      className={getAdminStickyRightCellClass(
-                                        'py-2.5 text-center text-sm text-muted-foreground/80',
-                                      )}
-                                      style={getUserColumnStyle('action')}
-                                    >
-                                      {emptyValue}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          )
-                        )
-                      }
-                    />
-                  </CardContent>
-                </Card>
+                <CourseUsersTab
+                  filtersDraft={courseUserFiltersDraft}
+                  loading={courseUsersLoading}
+                  error={courseUsersError}
+                  users={courseUsers}
+                  rows={courseUserRows}
+                  pageIndex={currentCourseUserPage}
+                  pageCount={courseUserPageCount}
+                  contactKeywordPlaceholder={courseUserKeywordPlaceholder}
+                  accountLabel={courseUserAccountLabel}
+                  emptyValue={emptyValue}
+                  defaultUserName={defaultUserName}
+                  locale={i18n.language}
+                  onKeywordChange={value =>
+                    setCourseUserFiltersDraft(prev => ({
+                      ...prev,
+                      keyword: value,
+                    }))
+                  }
+                  onUserRoleChange={value =>
+                    applyCourseUserSelectFilter({ userRole: value })
+                  }
+                  onLearningStatusChange={value =>
+                    applyCourseUserSelectFilter({ learningStatus: value })
+                  }
+                  onPaymentStatusChange={value =>
+                    applyCourseUserSelectFilter({
+                      paymentStatus: value,
+                    })
+                  }
+                  onSearch={handleCourseUserSearch}
+                  onReset={handleCourseUserReset}
+                  onPageChange={handleCourseUserPageChange}
+                  resolveCourseUserRoleLabel={resolveCourseUserRoleLabel}
+                  resolveCourseUserLearningStatusLabel={
+                    resolveCourseUserLearningStatusLabel
+                  }
+                  resolveCourseUserPaidAmountDisplay={
+                    resolveCourseUserPaidAmountDisplay
+                  }
+                  resolveCourseUserAccount={resolveCourseUserAccount}
+                  formatLearningProgress={formatLearningProgress}
+                  getColumnStyle={getUserColumnStyle}
+                  getResizeHandleProps={getUserResizeHandleProps}
+                />
               </TabsContent>
 
               <TabsContent
@@ -2426,70 +1532,22 @@ export default function AdminOperationCourseDetailPage() {
           </div>
         </div>
 
-        <Dialog
+        <CourseChapterDetailDialog
           open={Boolean(selectedChapter)}
+          selectedChapter={selectedChapter}
+          loading={chapterDetailLoading}
+          copyDisabled={!selectedChapterCopyText}
+          layout={chapterDetailLayout}
+          sections={selectedChapterDetailSections}
           onOpenChange={open => {
             if (!open) {
               setSelectedChapter(null);
               setSelectedChapterDetail(EMPTY_CHAPTER_DETAIL);
             }
           }}
-        >
-          <DialogContent className={chapterDetailLayout.dialogClassName}>
-            <DialogHeader className='border-b border-border px-6 py-4 pr-16'>
-              <div className='flex items-center justify-between gap-4'>
-                <DialogTitle>
-                  {tOperations('detail.contentDetailDialog.title')}
-                </DialogTitle>
-                <DialogDescription className='sr-only'>
-                  {selectedChapter?.title ||
-                    tOperations('detail.contentDetailDialog.title')}
-                </DialogDescription>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='gap-2'
-                  onClick={handleCopyChapterDetail}
-                  disabled={chapterDetailLoading || !selectedChapterCopyText}
-                >
-                  <Copy className='h-4 w-4' />
-                  {tOperations('detail.contentDetailDialog.copy')}
-                </Button>
-              </div>
-            </DialogHeader>
-            <div className={chapterDetailLayout.bodyClassName}>
-              {chapterDetailLoading ? (
-                <div className='flex h-full min-h-[240px] items-center justify-center'>
-                  <Loading />
-                </div>
-              ) : selectedChapterDetailSections.some(section =>
-                  section.value.trim(),
-                ) ? (
-                <div className='space-y-5'>
-                  {selectedChapterDetailSections.map(section => (
-                    <section
-                      key={section.label}
-                      className='space-y-2'
-                    >
-                      <div className='text-sm font-medium text-foreground'>
-                        {section.label}
-                      </div>
-                      <pre className='overflow-x-auto rounded-lg border border-border bg-muted/20 p-4 text-sm leading-6 text-foreground whitespace-pre-wrap break-words'>
-                        {section.value.trim() ||
-                          tOperations('detail.contentDetailDialog.empty')}
-                      </pre>
-                    </section>
-                  ))}
-                </div>
-              ) : (
-                <div className='flex h-full min-h-[240px] items-center justify-center text-sm text-muted-foreground'>
-                  {tOperations('detail.contentDetailDialog.empty')}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+          onCopy={handleCopyChapterDetail}
+          tOperations={tOperations}
+        />
       </div>
     </div>
   );
