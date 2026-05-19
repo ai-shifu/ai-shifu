@@ -190,6 +190,10 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+  getDashboardCourseRatings: 'GET /dashboard/shifus/{shifu_bid}/ratings',
+  getDashboardCourseFollowUps: 'GET /dashboard/shifus/{shifu_bid}/follow-ups',
+  getDashboardCourseFollowUpDetail:
+    'GET /dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
 
   // billing creator api
   getBillingBootstrap: 'GET /billing',

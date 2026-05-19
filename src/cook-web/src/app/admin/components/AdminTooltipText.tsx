@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Tooltip,
@@ -10,12 +11,14 @@ import { cn } from '@/lib/utils';
 
 type AdminTooltipTextProps = {
   text?: string | null;
+  displayText?: ReactNode;
   className?: string;
   emptyValue: string;
 };
 
 export default function AdminTooltipText({
   text,
+  displayText,
   className,
   emptyValue,
 }: AdminTooltipTextProps) {
@@ -60,7 +63,7 @@ export default function AdminTooltipText({
         className,
       )}
     >
-      {value}
+      {displayText ?? value}
     </span>
   );
 
