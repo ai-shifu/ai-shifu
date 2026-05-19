@@ -6,7 +6,11 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { Button } from '@/components/ui/Button';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
+import { Rnd } from 'react-rnd';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   Columns2,
@@ -18,16 +22,33 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useShifu } from '@/store';
-import { useUserStore } from '@/store';
-import OutlineTree from '@/components/outline-tree';
-import ChapterSettingsDialog from '@/components/chapter-setting';
-import { MdfConvertDialog } from '@/components/mdf-convert';
-import Header from '../header';
-// import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
-import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
-import dynamic from 'next/dynamic';
+import { useEnvStore } from '@/c-store';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import { EnvStoreState } from '@/c-types/store';
+import {
+  buildUrlWithLessonId,
+  replaceCurrentUrlWithLessonId,
+} from '@/c-utils/urlUtils';
+import { toast } from '@/hooks/useToast';
+import i18n, { normalizeLanguage } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { useShifu, useUserStore } from '@/store';
+import {
+  DraftMeta,
+  LessonCreationSettings,
+  MdflowHistoryItem,
+  MdflowHistoryVersionDetail,
+} from '@/types/shifu';
+import ChapterSettingsDialog from '@/components/chapter-setting';
+import LessonPreview from '@/components/lesson-preview';
+import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import { MdfConvertDialog } from '@/components/mdf-convert';
+import OutlineTree from '@/components/outline-tree';
+import DraftConflictDialog from './DraftConflictDialog';
+import Loading from '../loading';
+import Header from '../header';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogContent,
@@ -37,9 +58,6 @@ import {
 } from '@/components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
-import Loading from '../loading';
-import { useTranslation } from 'react-i18next';
-import { toast } from '@/hooks/useToast';
 
 const MarkdownFlowEditor = dynamic(
   () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
@@ -52,25 +70,6 @@ const MarkdownFlowEditor = dynamic(
     ),
   },
 );
-import i18n, { normalizeLanguage } from '@/i18n';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
-import {
-  buildUrlWithLessonId,
-  replaceCurrentUrlWithLessonId,
-} from '@/c-utils/urlUtils';
-import LessonPreview from '@/components/lesson-preview';
-import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
-import { Rnd } from 'react-rnd';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
-import {
-  DraftMeta,
-  LessonCreationSettings,
-  MdflowHistoryItem,
-  MdflowHistoryVersionDetail,
-} from '@/types/shifu';
-import DraftConflictDialog from './DraftConflictDialog';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -985,12 +984,13 @@ const ScriptEditor = ({
         }
         return;
       }
-      await actions.loadMdflow(currentNode.bid, currentShifu.bid);
       if (isHistoryPage && typeof window !== 'undefined') {
         window.location.assign(
           buildUrlWithLessonId(`/shifu/${id}`, currentNode.bid),
         );
+        return;
       }
+      await actions.loadMdflow(currentNode.bid, currentShifu.bid);
     } catch (error) {
       console.error(error);
     } finally {
@@ -1194,20 +1194,6 @@ const ScriptEditor = ({
     );
   }, [currentNode?.bid, id, initialLessonId]);
 
-  const handleOpenHistoryPage = useCallback(() => {
-    if (typeof window === 'undefined' || !currentNode?.bid) {
-      return;
-    }
-    window.open(historyPageUrl, '_blank', 'noopener,noreferrer');
-  }, [currentNode?.bid, historyPageUrl]);
-
-  const handleReturnToDocument = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.location.assign(documentPageUrl);
-  }, [documentPageUrl]);
-
   const persistOutlineWidth = useCallback((width: number) => {
     if (typeof window === 'undefined') {
       return;
@@ -1270,13 +1256,14 @@ const ScriptEditor = ({
           <div className='flex min-h-0 w-full flex-1 flex-col rounded-2xl border bg-white shadow-sm'>
             <div className='relative flex items-center border-b px-4 py-3'>
               <Button
-                type='button'
+                asChild
                 variant='ghost'
                 className='h-9 gap-2 px-3 text-sm font-medium text-foreground hover:bg-muted/60'
-                onClick={handleReturnToDocument}
               >
-                <ChevronLeft className='h-4 w-4' />
-                {t('module.shifu.history.backToDocument')}
+                <Link href={documentPageUrl}>
+                  <ChevronLeft className='h-4 w-4' />
+                  {t('module.shifu.history.backToDocument')}
+                </Link>
               </Button>
               <div className='pointer-events-none absolute inset-x-0 flex justify-center'>
                 <div className='pointer-events-auto'>
@@ -1566,17 +1553,36 @@ const ScriptEditor = ({
                           ))}
                         </TabsList>
                       </Tabs>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='icon'
-                        className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                        onClick={handleOpenHistoryPage}
-                        aria-label={t('module.shifu.history.title')}
-                        title={t('module.shifu.history.title')}
-                      >
-                        <History className='h-4 w-4' />
-                      </Button>
+                      {currentNode?.bid ? (
+                        <Button
+                          asChild
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
+                        >
+                          <Link
+                            href={historyPageUrl}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            aria-label={t('module.shifu.history.title')}
+                            title={t('module.shifu.history.title')}
+                          >
+                            <History className='h-4 w-4' />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
+                          aria-label={t('module.shifu.history.title')}
+                          title={t('module.shifu.history.title')}
+                          disabled
+                        >
+                          <History className='h-4 w-4' />
+                        </Button>
+                      )}
                       <Button
                         type='button'
                         size='sm'

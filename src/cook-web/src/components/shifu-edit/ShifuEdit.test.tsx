@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import ScriptEditor from './ShifuEdit';
 
 const refreshLabel = 'refresh';
@@ -26,10 +20,33 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/Button', () => ({
-  Button: ({ children, ...props }: React.ComponentProps<'button'>) => (
-    <button {...props}>{children}</button>
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.ComponentProps<'a'> & { href: string }) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
   ),
+}));
+
+jest.mock('@/components/ui/Button', () => ({
+  Button: ({
+    children,
+    asChild,
+    ...props
+  }: React.ComponentProps<'button'> & { asChild?: boolean }) => {
+    if (asChild && React.isValidElement(children)) {
+      return React.cloneElement(children, props);
+    }
+    return <button {...props}>{children}</button>;
+  },
 }));
 
 jest.mock('@/components/outline-tree', () => {
@@ -469,19 +486,20 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
-  test('opens the history page in a new tab for the current lesson', async () => {
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+  test('renders the history entry as a native link for the current lesson', async () => {
     setLessonNode();
 
     render(<ScriptEditor id='shifu-1' />);
 
-    fireEvent.click(screen.getByTitle('module.shifu.history.title'));
+    const historyLink = screen.getByTitle(
+      'module.shifu.history.title',
+    ) as HTMLAnchorElement;
 
-    expect(openSpy).toHaveBeenCalledWith(
+    expect(historyLink.getAttribute('href')).toBe(
       '/shifu/shifu-1/history?lessonid=lesson-1',
-      '_blank',
-      'noopener,noreferrer',
     );
+    expect(historyLink.getAttribute('target')).toBe('_blank');
+    expect(historyLink.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
   test('renders the dedicated history layout in history mode', async () => {
@@ -531,5 +549,8 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(
       screen.getByText('module.shifu.history.backToDocument'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toHaveAttribute('href', '/shifu/shifu-1?lessonid=lesson-1');
   });
 });
