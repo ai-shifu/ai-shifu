@@ -1275,7 +1275,7 @@ const ScriptEditor = ({
                       isHistoryLoading ||
                       isHistoryRestoring ||
                       isHistoryVersionDetailLoading ||
-                      !selectedHistoryVersionId ||
+                      selectedHistoryVersionId == null ||
                       !historyVersionDetail ||
                       !!historyVersionLoadError
                     }
