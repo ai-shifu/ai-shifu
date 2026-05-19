@@ -35,6 +35,7 @@ scans inside `list_operator_courses(...)` and `_build_operator_course_overview`.
   SQL candidate rows and joined 30-day activity/order metrics.
 - [x] 2026-05-19 18:30 CST: Verified
   `cd src/api && pytest -q tests/service/shifu/test_admin_courses.py` passes.
+- [x] 2026-05-19 18:55 CST: Addressed PR feedback, removed the private SQLAlchemy engine gate, and prepared the plan for archive after regenerating harness docs.
 
 ## Surprises & Discoveries
 

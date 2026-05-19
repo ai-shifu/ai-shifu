@@ -1963,7 +1963,7 @@ def _build_latest_operator_course_rows_query(
         model.updated_user_bid.label("updated_user_bid"),
         model.created_at.label("created_at"),
         model.updated_at.label("updated_at"),
-    ).filter(model.id.in_(db.session.query(latest_subquery.c.max_id)))
+    ).join(latest_subquery, model.id == latest_subquery.c.max_id)
 
     if course_name:
         query = query.filter(model.title.ilike(f"%{course_name}%"))
@@ -6404,6 +6404,9 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
     if candidate_query is None:
         return AdminOperationCourseOverviewDTO()
     candidate_subquery = candidate_query.subquery("operator_course_overview_candidates")
+    now = datetime.now()
+    created_window_start, created_window_end = _resolve_created_last_7d_window(now)
+    recent_activity_window_start = now - timedelta(days=30)
     aggregate_row = db.session.query(
         db.func.count(candidate_subquery.c.shifu_bid).label("total_course_count"),
         db.func.sum(
@@ -6418,23 +6421,22 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
                 else_=0,
             )
         ).label("published_course_count"),
+        db.func.sum(
+            case(
+                (
+                    and_(
+                        candidate_subquery.c.created_at >= created_window_start,
+                        candidate_subquery.c.created_at <= created_window_end,
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("created_last_7d_course_count"),
     ).one()
     total_course_count = int(aggregate_row.total_course_count or 0)
     if total_course_count == 0:
         return AdminOperationCourseOverviewDTO()
-
-    now = datetime.now()
-    created_window_start, created_window_end = _resolve_created_last_7d_window(now)
-    recent_activity_window_start = now - timedelta(days=30)
-    created_last_7d_course_count = (
-        db.session.query(db.func.count(candidate_subquery.c.shifu_bid))
-        .filter(
-            candidate_subquery.c.created_at >= created_window_start,
-            candidate_subquery.c.created_at <= created_window_end,
-        )
-        .scalar()
-        or 0
-    )
     learning_active_30d_course_count = (
         db.session.query(db.func.count(db.distinct(candidate_subquery.c.shifu_bid)))
         .select_from(candidate_subquery)
@@ -6470,7 +6472,7 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
         total_course_count=total_course_count,
         draft_course_count=int(aggregate_row.draft_course_count or 0),
         published_course_count=int(aggregate_row.published_course_count or 0),
-        created_last_7d_course_count=int(created_last_7d_course_count or 0),
+        created_last_7d_course_count=int(aggregate_row.created_last_7d_course_count or 0),
         learning_active_30d_course_count=int(learning_active_30d_course_count or 0),
         paid_order_30d_course_count=int(paid_order_30d_course_count or 0),
     )
@@ -6483,9 +6485,8 @@ def get_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
 
 def _can_use_operator_course_sql_optimization(app: Flask) -> bool:
     try:
-        app_engines = getattr(db, "_app_engines", {})
-        return app in app_engines
-    except Exception:
+        return current_app._get_current_object() is app and db.engine is not None
+    except (RuntimeError, KeyError):
         return False
 
 
