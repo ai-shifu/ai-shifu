@@ -6472,7 +6472,9 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
         total_course_count=total_course_count,
         draft_course_count=int(aggregate_row.draft_course_count or 0),
         published_course_count=int(aggregate_row.published_course_count or 0),
-        created_last_7d_course_count=int(aggregate_row.created_last_7d_course_count or 0),
+        created_last_7d_course_count=int(
+            aggregate_row.created_last_7d_course_count or 0
+        ),
         learning_active_30d_course_count=int(learning_active_30d_course_count or 0),
         paid_order_30d_course_count=int(paid_order_30d_course_count or 0),
     )
