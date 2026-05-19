@@ -8,6 +8,7 @@
     "title": "Prompts pédagogiques"
   },
   "history": {
+    "backToDocument": "Retour au document",
     "collapse": "Réduire",
     "confirmDescription": "Après confirmation, le contenu actuel de la leçon sera entièrement remplacé par cette version.",
     "confirmLoadFailed": "Échec du chargement du contenu de cette version. Veuillez réessayer plus tard.",

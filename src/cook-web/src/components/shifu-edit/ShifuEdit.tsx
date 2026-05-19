@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
+  ChevronLeft,
   Columns2,
   History,
   Info,
@@ -27,12 +28,6 @@ import Header from '../header';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/Sheet';
 import {
   Dialog,
   DialogContent,
@@ -60,7 +55,10 @@ const MarkdownFlowEditor = dynamic(
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
-import { replaceCurrentUrlWithLessonId } from '@/c-utils/urlUtils';
+import {
+  buildUrlWithLessonId,
+  replaceCurrentUrlWithLessonId,
+} from '@/c-utils/urlUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
@@ -80,7 +78,6 @@ const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
-const HISTORY_CONTENT_PREVIEW_LINES = 6;
 type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
 
 const resolveMarkdownFlowEditorLocale = (
@@ -113,6 +110,7 @@ const extractVariableNames = (text?: string | null) => {
 type ScriptEditorProps = {
   id: string;
   initialLessonId?: string;
+  initialViewMode?: 'edit' | 'history';
 };
 
 type DraftConflictMode = 'other-user' | 'same-user';
@@ -120,7 +118,11 @@ type DraftConflictMode = 'other-user' | 'same-user';
 const getDraftSyncTargetKey = (shifuBid: string, outlineBid: string) =>
   `${shifuBid}:${outlineBid}`;
 
-const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
+const ScriptEditor = ({
+  id,
+  initialLessonId = '',
+  initialViewMode = 'edit',
+}: ScriptEditorProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
@@ -139,7 +141,6 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const [draftConflictMode, setDraftConflictMode] =
     useState<DraftConflictMode>('other-user');
   const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
-  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isHistoryRestoring, setIsHistoryRestoring] = useState(false);
@@ -155,8 +156,6 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const [historyVersionLoadError, setHistoryVersionLoadError] = useState<
     string | null
   >(null);
-  const [isHistoryContentExpanded, setIsHistoryContentExpanded] =
-    useState(false);
   const historyRequestIdRef = useRef(0);
   const historyDetailRequestIdRef = useRef(0);
   const selectedHistoryVersionIdRef = useRef<number | null>(null);
@@ -252,6 +251,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     if (!profile) return '';
     return profile.user_bid || profile.user_id || '';
   }, [profile]);
+  const isHistoryPage = initialViewMode === 'history';
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
@@ -875,22 +875,19 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   }, [currentNode?.bid, currentShifu?.bid]);
 
   const resetHistoryRestoreDialog = useCallback(() => {
-    historyDetailRequestIdRef.current += 1;
     setIsHistoryRestoreDialogOpen(false);
-    setIsHistoryVersionDetailLoading(false);
-    setHistoryVersionDetail(null);
-    setHistoryVersionLoadError(null);
-    setIsHistoryContentExpanded(false);
   }, []);
 
-  const handleOpenHistoryRestoreDialog = useCallback(async () => {
+  const loadSelectedHistoryVersionDetail = useCallback(async () => {
     if (
       !currentShifu?.bid ||
       !currentNode?.bid ||
-      selectedHistoryVersionId == null ||
-      isHistoryRestoring ||
-      currentShifu?.readonly
+      selectedHistoryVersionId == null
     ) {
+      historyDetailRequestIdRef.current += 1;
+      setHistoryVersionDetail(null);
+      setHistoryVersionLoadError(null);
+      setIsHistoryVersionDetailLoading(false);
       return;
     }
     const targetShifuBid = currentShifu.bid;
@@ -900,8 +897,6 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     historyDetailRequestIdRef.current = requestId;
     setHistoryVersionDetail(null);
     setHistoryVersionLoadError(null);
-    setIsHistoryContentExpanded(false);
-    setIsHistoryRestoreDialogOpen(true);
     setIsHistoryVersionDetailLoading(true);
     try {
       const detail = await actions.loadMdflowHistoryVersionDetail(
@@ -931,10 +926,31 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     actions,
     currentNode?.bid,
     currentShifu?.bid,
-    currentShifu?.readonly,
-    isHistoryRestoring,
     selectedHistoryVersionId,
     t,
+  ]);
+
+  const handleOpenHistoryRestoreDialog = useCallback(() => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      selectedHistoryVersionId == null ||
+      isHistoryRestoring ||
+      currentShifu?.readonly ||
+      !historyVersionDetail ||
+      !!historyVersionLoadError
+    ) {
+      return;
+    }
+    setIsHistoryRestoreDialogOpen(true);
+  }, [
+    currentNode?.bid,
+    currentShifu?.bid,
+    currentShifu?.readonly,
+    historyVersionDetail,
+    historyVersionLoadError,
+    isHistoryRestoring,
+    selectedHistoryVersionId,
   ]);
 
   const handleConfirmRestoreMdflowHistory = useCallback(async () => {
@@ -963,14 +979,18 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
           title: t('module.shifu.history.restoreLessonDeleted'),
           variant: 'destructive',
         });
-        await actions.loadChapters(currentShifu.bid, {
-          autoSelectFirstLesson: false,
-        });
-        setIsHistoryPanelOpen(false);
+        if (isHistoryPage && typeof window !== 'undefined') {
+          window.location.assign(`/shifu/${id}`);
+          return;
+        }
         return;
       }
       await actions.loadMdflow(currentNode.bid, currentShifu.bid);
-      setIsHistoryPanelOpen(false);
+      if (isHistoryPage && typeof window !== 'undefined') {
+        window.location.assign(
+          buildUrlWithLessonId(`/shifu/${id}`, currentNode.bid),
+        );
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -980,45 +1000,29 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     actions,
     currentNode?.bid,
     currentShifu?.bid,
+    id,
     historyVersionDetail?.version_id,
+    isHistoryPage,
     isHistoryRestoring,
     resetHistoryRestoreDialog,
     t,
   ]);
 
   useEffect(() => {
-    if (!isHistoryPanelOpen) {
+    if (!isHistoryPage) {
       return;
     }
     void loadCurrentMdflowHistory();
-  }, [isHistoryPanelOpen, loadCurrentMdflowHistory]);
+  }, [isHistoryPage, loadCurrentMdflowHistory]);
 
   const historyVersionContent = historyVersionDetail?.content || '';
-  const historyVersionContentLines = useMemo(() => {
-    if (!historyVersionContent) {
-      return [] as string[];
+
+  useEffect(() => {
+    if (!isHistoryPage) {
+      return;
     }
-    return historyVersionContent.split('\n');
-  }, [historyVersionContent]);
-  const shouldTruncateHistoryContent =
-    historyVersionContentLines.length > HISTORY_CONTENT_PREVIEW_LINES;
-  const displayedHistoryVersionContent = useMemo(() => {
-    if (
-      !shouldTruncateHistoryContent ||
-      isHistoryContentExpanded ||
-      !historyVersionContentLines.length
-    ) {
-      return historyVersionContent;
-    }
-    return historyVersionContentLines
-      .slice(0, HISTORY_CONTENT_PREVIEW_LINES)
-      .join('\n');
-  }, [
-    historyVersionContent,
-    historyVersionContentLines,
-    isHistoryContentExpanded,
-    shouldTruncateHistoryContent,
-  ]);
+    void loadSelectedHistoryVersionDetail();
+  }, [isHistoryPage, loadSelectedHistoryVersionDetail]);
 
   const mdflowVariableNames = useMemo(
     () => extractVariableNames(mdflow),
@@ -1180,6 +1184,29 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
     : t('module.shifu.previewArea.open');
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
+  const historyPageUrl = useMemo(() => {
+    return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
+  }, [currentNode?.bid, id]);
+  const documentPageUrl = useMemo(() => {
+    return buildUrlWithLessonId(
+      `/shifu/${id}`,
+      currentNode?.bid || initialLessonId,
+    );
+  }, [currentNode?.bid, id, initialLessonId]);
+
+  const handleOpenHistoryPage = useCallback(() => {
+    if (typeof window === 'undefined' || !currentNode?.bid) {
+      return;
+    }
+    window.open(historyPageUrl, '_blank', 'noopener,noreferrer');
+  }, [currentNode?.bid, historyPageUrl]);
+
+  const handleReturnToDocument = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.location.assign(documentPageUrl);
+  }, [documentPageUrl]);
 
   const persistOutlineWidth = useCallback((width: number) => {
     if (typeof window === 'undefined') {
@@ -1235,6 +1262,175 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
       return next;
     });
   };
+
+  if (isHistoryPage) {
+    return (
+      <div className='flex h-screen flex-col bg-gray-50'>
+        <div className='flex flex-1 overflow-hidden p-6'>
+          <div className='flex min-h-0 w-full flex-1 flex-col rounded-2xl border bg-white shadow-sm'>
+            <div className='relative flex items-center border-b px-4 py-3'>
+              <Button
+                type='button'
+                variant='ghost'
+                className='h-9 gap-2 px-3 text-sm font-medium text-foreground hover:bg-muted/60'
+                onClick={handleReturnToDocument}
+              >
+                <ChevronLeft className='h-4 w-4' />
+                {t('module.shifu.history.backToDocument')}
+              </Button>
+              <div className='pointer-events-none absolute inset-x-0 flex justify-center'>
+                <div className='pointer-events-auto'>
+                  <Button
+                    type='button'
+                    className='h-9 px-4 text-sm font-semibold'
+                    disabled={
+                      currentShifu?.readonly ||
+                      isHistoryLoading ||
+                      isHistoryRestoring ||
+                      isHistoryVersionDetailLoading ||
+                      !selectedHistoryVersionId ||
+                      !historyVersionDetail ||
+                      !!historyVersionLoadError
+                    }
+                    onClick={handleOpenHistoryRestoreDialog}
+                  >
+                    {isHistoryRestoring
+                      ? t('module.shifu.history.restoring')
+                      : t('module.shifu.history.restore')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className='flex min-h-0 flex-1 gap-6 p-6'>
+              <div className='flex min-w-0 flex-1 flex-col'>
+                <div className='flex min-w-0 items-baseline gap-2 pb-4'>
+                  <h2 className='shrink-0 whitespace-nowrap text-base font-semibold text-foreground'>
+                    {t('module.shifu.creationArea.title')}
+                  </h2>
+                  <p className='min-w-0 flex-1 truncate text-xs leading-5 text-[rgba(0,0,0,0.45)]'>
+                    <MarkdownFlowLink
+                      prefix={t('module.shifu.creationArea.descriptionPrefix')}
+                      suffix={t('module.shifu.creationArea.descriptionSuffix')}
+                      linkText='MarkdownFlow'
+                      title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                      targetUrl='https://markdownflow.ai/docs'
+                    />
+                  </p>
+                </div>
+                <div className='min-h-0 flex-1 overflow-hidden rounded-2xl border bg-white'>
+                  {isHistoryVersionDetailLoading ? (
+                    <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.loading')}
+                    </div>
+                  ) : historyVersionLoadError ? (
+                    <div className='flex h-full items-center justify-center px-6 text-center text-sm text-destructive'>
+                      {historyVersionLoadError}
+                    </div>
+                  ) : (
+                    <div className='h-full overflow-auto p-6 whitespace-pre-wrap break-words text-sm leading-7 text-foreground'>
+                      {historyVersionContent ||
+                        t('module.shifu.history.contentEmpty')}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <aside className='flex min-h-0 w-[320px] shrink-0 flex-col border-l pl-6'>
+                <div className='pb-4 text-sm font-semibold text-foreground'>
+                  {t('module.shifu.history.title')}
+                </div>
+                <div className='min-h-0 flex-1 overflow-y-auto'>
+                  {isHistoryLoading ? (
+                    <div className='py-8 text-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.loading')}
+                    </div>
+                  ) : !historyItems.length ? (
+                    <div className='py-8 text-center text-sm text-muted-foreground'>
+                      {t('module.shifu.history.empty')}
+                    </div>
+                  ) : (
+                    <div className='divide-y divide-border'>
+                      {historyItems.map(item => {
+                        const selected =
+                          selectedHistoryVersionId === item.version_id;
+                        const timeLabel =
+                          item.updated_at_display || item.updated_at || '--';
+                        const userName =
+                          item.updated_user_name ||
+                          item.updated_user_bid ||
+                          t('module.shifu.history.unknownUser');
+                        return (
+                          <button
+                            key={item.version_id}
+                            type='button'
+                            className={cn(
+                              'w-full rounded-xl px-4 py-4 text-left transition-colors',
+                              selected
+                                ? 'bg-muted text-foreground'
+                                : 'text-foreground hover:bg-muted/40',
+                            )}
+                            onClick={() =>
+                              setSelectedHistoryVersionId(item.version_id)
+                            }
+                          >
+                            <div className='text-sm leading-6'>{timeLabel}</div>
+                            <div className='mt-1 text-sm text-[rgba(0,0,0,0.65)]'>
+                              {userName}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <Dialog
+          open={isHistoryRestoreDialogOpen}
+          onOpenChange={nextOpen => {
+            if (!nextOpen) {
+              resetHistoryRestoreDialog();
+            }
+          }}
+        >
+          <DialogContent className='sm:max-w-[440px]'>
+            <DialogHeader>
+              <DialogTitle>{t('module.shifu.history.confirmTitle')}</DialogTitle>
+            </DialogHeader>
+            <div className='text-sm leading-6 text-muted-foreground'>
+              {t('module.shifu.history.confirmDescription')}
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={resetHistoryRestoreDialog}
+                disabled={isHistoryRestoring}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={handleConfirmRestoreMdflowHistory}
+                disabled={
+                  currentShifu?.readonly ||
+                  isHistoryRestoring ||
+                  isHistoryVersionDetailLoading ||
+                  !historyVersionDetail ||
+                  !!historyVersionLoadError
+                }
+              >
+                {isHistoryRestoring
+                  ? t('module.shifu.history.restoring')
+                  : t('module.shifu.history.restore')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
@@ -1373,7 +1569,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                         variant='ghost'
                         size='icon'
                         className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                        onClick={() => setIsHistoryPanelOpen(true)}
+                        onClick={handleOpenHistoryPage}
                         aria-label={t('module.shifu.history.title')}
                         title={t('module.shifu.history.title')}
                       >
@@ -1516,162 +1712,6 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
           phone={latestDraftMeta?.updated_user?.phone}
           onRefresh={handleDraftConflictRefresh}
         />
-        <Sheet
-          open={isHistoryPanelOpen}
-          onOpenChange={setIsHistoryPanelOpen}
-        >
-          <SheetContent
-            side='right'
-            className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0 font-sans'
-          >
-            <SheetHeader className='px-6 pt-[19px] pb-4'>
-              <SheetTitle className='text-lg font-medium'>
-                {t('module.shifu.history.title')}
-              </SheetTitle>
-            </SheetHeader>
-            <div className='h-px w-full bg-border' />
-            <div className='flex-1 overflow-y-auto px-4 py-4'>
-              {isHistoryLoading ? (
-                <div className='py-8 text-center text-sm text-muted-foreground'>
-                  {t('module.shifu.history.loading')}
-                </div>
-              ) : !historyItems.length ? (
-                <div className='py-8 text-center text-sm text-muted-foreground'>
-                  {t('module.shifu.history.empty')}
-                </div>
-              ) : (
-                <div className='divide-y divide-[#E5E5E5]'>
-                  {historyItems.map(item => {
-                    const selected =
-                      selectedHistoryVersionId === item.version_id;
-                    const timeLabel =
-                      item.updated_at_display || item.updated_at || '--';
-                    const userName =
-                      item.updated_user_name ||
-                      item.updated_user_bid ||
-                      t('module.shifu.history.unknownUser');
-                    return (
-                      <button
-                        key={item.version_id}
-                        type='button'
-                        className={cn(
-                          'w-full h-[72px] px-2 text-left flex items-center transition-colors',
-                          selected ? 'bg-[#F5F5F5]' : 'hover:bg-muted/30',
-                        )}
-                        onClick={() =>
-                          setSelectedHistoryVersionId(item.version_id)
-                        }
-                      >
-                        <div className='w-full font-sans text-base font-normal text-foreground leading-5 flex items-center'>
-                          <span>{timeLabel}</span>
-                          <span className='ml-4'>{userName}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className='h-[68px] border-t border-[#E5E5E5] px-4 flex items-center justify-end'>
-              <Button
-                type='button'
-                variant='outline'
-                className='h-9 px-4 rounded-[10px] text-red-500 border-red-500 hover:bg-red-50 text-sm font-medium'
-                disabled={
-                  currentShifu?.readonly ||
-                  isHistoryLoading ||
-                  isHistoryRestoring ||
-                  !selectedHistoryVersionId
-                }
-                onClick={handleOpenHistoryRestoreDialog}
-              >
-                {isHistoryRestoring
-                  ? t('module.shifu.history.restoring')
-                  : t('module.shifu.history.restore')}
-              </Button>
-            </div>
-          </SheetContent>
-        </Sheet>
-        <Dialog
-          open={isHistoryRestoreDialogOpen}
-          onOpenChange={nextOpen => {
-            if (!nextOpen) {
-              resetHistoryRestoreDialog();
-            }
-          }}
-        >
-          <DialogContent className='sm:max-w-[520px] max-h-[76vh] overflow-hidden flex flex-col'>
-            <DialogHeader>
-              <DialogTitle>
-                {t('module.shifu.history.confirmTitle')}
-              </DialogTitle>
-            </DialogHeader>
-            <div className='flex-1 min-h-0 overflow-y-auto space-y-4 pr-1'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.shifu.history.confirmDescription')}
-              </div>
-              <div>
-                {isHistoryVersionDetailLoading ? (
-                  <div className='h-24 text-sm text-muted-foreground'>
-                    {t('module.shifu.history.loading')}
-                  </div>
-                ) : historyVersionLoadError ? (
-                  <div className='h-24 text-sm text-destructive'>
-                    {historyVersionLoadError}
-                  </div>
-                ) : (
-                  <>
-                    <div className='max-h-[240px] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-foreground'>
-                      {displayedHistoryVersionContent ||
-                        t('module.shifu.history.contentEmpty')}
-                    </div>
-                    {shouldTruncateHistoryContent ? (
-                      <div className='mt-1 flex items-center gap-1 text-sm text-muted-foreground'>
-                        <Button
-                          type='button'
-                          variant='link'
-                          className='h-auto p-0 text-sm'
-                          onClick={() =>
-                            setIsHistoryContentExpanded(prev => !prev)
-                          }
-                        >
-                          {isHistoryContentExpanded
-                            ? t('module.shifu.history.collapse')
-                            : t('module.shifu.history.expand')}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={resetHistoryRestoreDialog}
-                disabled={isHistoryRestoring}
-              >
-                {t('common.core.cancel')}
-              </Button>
-              <Button
-                type='button'
-                onClick={handleConfirmRestoreMdflowHistory}
-                disabled={
-                  currentShifu?.readonly ||
-                  isHistoryRestoring ||
-                  isHistoryVersionDetailLoading ||
-                  !historyVersionDetail ||
-                  !!historyVersionLoadError
-                }
-              >
-                {isHistoryRestoring
-                  ? t('module.shifu.history.restoring')
-                  : t('module.shifu.history.restore')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

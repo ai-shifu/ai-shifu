@@ -1,5 +1,11 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import ScriptEditor from './ShifuEdit';
 
 const refreshLabel = 'refresh';
@@ -75,9 +81,13 @@ jest.mock('@/components/ui/Sheet', () => ({
   ),
 }));
 jest.mock('@/components/ui/Dialog', () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Dialog: ({
+    children,
+    open,
+  }: {
+    children: React.ReactNode;
+    open?: boolean;
+  }) => (open ? <div>{children}</div> : null),
   DialogContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -111,6 +121,9 @@ jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
 jest.mock('@/c-utils/urlUtils', () => ({
+  buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
+    lessonId ? `${url}?lessonid=${lessonId}` : url,
+  ),
   replaceCurrentUrlWithLessonId: jest.fn(),
 }));
 jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
@@ -275,6 +288,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   test('does not start draft conflict checks when a chapter node is selected', async () => {
@@ -453,5 +467,71 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(getLatestEditorProps().content).toBe('remote synced content');
     });
+  });
+
+  test('opens the history page in a new tab for the current lesson', async () => {
+    const openSpy = jest
+      .spyOn(window, 'open')
+      .mockImplementation(() => null);
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    fireEvent.click(screen.getByTitle('module.shifu.history.title'));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      '/shifu/shifu-1/history?lessonid=lesson-1',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+  test('renders the dedicated history layout in history mode', async () => {
+    setLessonNode();
+    baseActions.loadMdflowHistory.mockResolvedValue([
+      {
+        version_id: 11,
+        updated_at: '2026-05-19 10:00:00',
+        updated_at_display: '05-19 10:00:00',
+        updated_user_name: 'Operator',
+        updated_user_bid: 'user-1',
+      },
+    ]);
+    baseActions.loadMdflowHistoryVersionDetail.mockResolvedValue({
+      version_id: 11,
+      content: 'history body',
+      updated_at: '2026-05-19 10:00:00',
+      updated_at_display: '05-19 10:00:00',
+      updated_user_name: 'Operator',
+      updated_user_bid: 'user-1',
+      restored: false,
+    });
+
+    render(
+      <ScriptEditor
+        id='shifu-1'
+        initialViewMode='history'
+      />,
+    );
+
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(baseActions.loadMdflowHistory).toHaveBeenCalledWith(
+        'shifu-1',
+        'lesson-1',
+      );
+    });
+    await waitFor(() => {
+      expect(baseActions.loadMdflowHistoryVersionDetail).toHaveBeenCalledWith(
+        'shifu-1',
+        'lesson-1',
+        11,
+      );
+    });
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toBeInTheDocument();
   });
 });

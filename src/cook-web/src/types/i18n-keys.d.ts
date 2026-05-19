@@ -1847,6 +1847,7 @@ export type I18nKey =
   | 'module.shifu.creationArea.modeCode'
   | 'module.shifu.creationArea.modeText'
   | 'module.shifu.creationArea.title'
+  | 'module.shifu.history.backToDocument'
   | 'module.shifu.history.collapse'
   | 'module.shifu.history.confirmDescription'
   | 'module.shifu.history.confirmLoadFailed'
