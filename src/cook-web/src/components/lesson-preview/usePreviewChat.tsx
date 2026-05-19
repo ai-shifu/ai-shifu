@@ -361,6 +361,16 @@ const resolvePreviewItemBid = (
   if (!item) {
     return '';
   }
+  return item.element_bid || item.generated_block_bid || '';
+};
+
+const getPreviewItemGeneratedBlockBid = (
+  item?: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'> | null,
+) => {
+  if (!item) {
+    return '';
+  }
+
   return item.generated_block_bid || item.element_bid || '';
 };
 
@@ -384,6 +394,55 @@ const resolveLatestPreviewActionableItem = (
   items: ChatContentItem[],
 ): ChatContentItem | undefined => {
   return [...items].reverse().find(item => isPreviewActionableItem(item));
+};
+
+const matchPreviewItemBid = (item: ChatContentItem, bid: string) => {
+  if (!bid) {
+    return false;
+  }
+
+  return item.element_bid === bid;
+};
+
+const syncPreviewActionableFinalState = (items: ChatContentItem[]) => {
+  let lastActionableIndex = -1;
+
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (isPreviewActionableItem(items[index])) {
+      lastActionableIndex = index;
+      break;
+    }
+  }
+
+  if (lastActionableIndex <= 0) {
+    return items;
+  }
+
+  let hasChanges = false;
+  const nextItems = items.map((item, index) => {
+    if (!isPreviewActionableItem(item) || index >= lastActionableIndex) {
+      return item;
+    }
+
+    const shouldUseTypewriter =
+      item.type === ChatContentItemType.CONTENT &&
+      item.element_type === ELEMENT_TYPE.TEXT
+        ? item.shouldUseTypewriter ?? true
+        : false;
+
+    if (item.is_final === true && item.shouldUseTypewriter === shouldUseTypewriter) {
+      return item;
+    }
+
+    hasChanges = true;
+    return {
+      ...item,
+      is_final: true,
+      shouldUseTypewriter,
+    };
+  });
+
+  return hasChanges ? nextItems : items;
 };
 
 export const buildPreviewBusinessErrorItem = (
@@ -500,7 +559,9 @@ export function usePreviewChat() {
           typeof updater === 'function'
             ? (updater as (prev: ChatContentItem[]) => ChatContentItem[])(prev)
             : updater;
-        const normalizedNext = normalizeLegacyBlockCompatList(next);
+        const normalizedNext = normalizeLegacyBlockCompatList(
+          syncPreviewActionableFinalState(next),
+        );
         contentListRef.current = normalizedNext;
         return normalizedNext;
       });
@@ -730,22 +791,22 @@ export function usePreviewChat() {
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
-    (blockId: string) => {
-      if (currentContentIdRef.current === blockId) {
-        return blockId;
+    (itemBid: string) => {
+      if (currentContentIdRef.current === itemBid) {
+        return itemBid;
       }
-      currentContentIdRef.current = blockId;
+      currentContentIdRef.current = itemBid;
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
-          element_bid: blockId,
-          generated_block_bid: blockId,
+          element_bid: itemBid,
+          generated_block_bid: itemBid,
           content: '',
           readonly: false,
           type: ChatContentItemType.CONTENT,
         },
       ]);
-      return blockId;
+      return itemBid;
     },
     [setTrackedContentList],
   );
@@ -756,9 +817,7 @@ export function usePreviewChat() {
       blockId: string,
       defaults: Partial<ChatContentItem> = {},
     ) => {
-      const hasTarget = items.some(
-        item => item.generated_block_bid === blockId,
-      );
+      const hasTarget = items.some(item => matchPreviewItemBid(item, blockId));
       if (hasTarget) {
         return items;
       }
@@ -769,7 +828,10 @@ export function usePreviewChat() {
           element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
+          element_type: ELEMENT_TYPE.TEXT,
+          is_final: false,
           readonly: false,
+          shouldUseTypewriter: true,
           type: ChatContentItemType.CONTENT,
           ...defaults,
         } as ChatContentItem,
@@ -809,6 +871,36 @@ export function usePreviewChat() {
     [buildLikeStatusItem],
   );
 
+  const finalizePreviewElementOutputInList = useCallback(
+    (items: ChatContentItem[], completedElementBid: string) => {
+      if (!completedElementBid) {
+        return items;
+      }
+
+      const targetIndex = items.findIndex(
+        item => item.element_bid === completedElementBid,
+      );
+      if (targetIndex < 0) {
+        return items;
+      }
+
+      const nextItems = [...items];
+      const targetItem = nextItems[targetIndex];
+      nextItems[targetIndex] = {
+        ...targetItem,
+        is_final: true,
+        shouldUseTypewriter:
+          targetItem.type === ChatContentItemType.CONTENT &&
+          targetItem.element_type === ELEMENT_TYPE.TEXT
+            ? targetItem.shouldUseTypewriter ?? true
+            : false,
+      };
+
+      return appendLikeStatusIfMissing(nextItems, completedElementBid);
+    },
+    [appendLikeStatusIfMissing],
+  );
+
   const finalizePreviewItems = useCallback(() => {
     let latestActionableItem: ChatContentItem | undefined;
     flushSync(() => {
@@ -819,16 +911,19 @@ export function usePreviewChat() {
         latestActionableItem = resolveLatestPreviewActionableItem(updatedList);
         const latestActionableBid = resolvePreviewItemBid(latestActionableItem);
         if (latestActionableBid) {
-          updatedList = appendLikeStatusIfMissing(
+          updatedList = finalizePreviewElementOutputInList(
             updatedList,
             latestActionableBid,
+          );
+          latestActionableItem = updatedList.find(
+            item => resolvePreviewItemBid(item) === latestActionableBid,
           );
         }
         return updatedList;
       });
     });
     return latestActionableItem;
-  }, [appendLikeStatusIfMissing, setTrackedContentList]);
+  }, [finalizePreviewElementOutputInList, setTrackedContentList]);
 
   const shouldContinueFromLatestActionableItem = useCallback(
     (latestActionableItem?: ChatContentItem) => {
@@ -898,20 +993,14 @@ export function usePreviewChat() {
           item => item.generated_block_bid !== 'loading',
         );
         let completedElementBid = '';
-        const hasIncomingItem = nextList.some(
-          item =>
-            item.element_bid === itemBid ||
-            item.generated_block_bid === itemBid,
-        );
+        const hasIncomingItem = nextList.some(item => item.element_bid === itemBid);
 
         if (
           previousStreamingElementBid &&
           previousStreamingElementBid !== itemBid
         ) {
           const previousItem = nextList.find(
-            item =>
-              item.element_bid === previousStreamingElementBid ||
-              item.generated_block_bid === previousStreamingElementBid,
+            item => item.element_bid === previousStreamingElementBid,
           );
           const previousItemBid = resolvePreviewItemBid(previousItem);
           if (isPreviewActionableItem(previousItem) && previousItemBid) {
@@ -930,7 +1019,10 @@ export function usePreviewChat() {
         }
 
         if (completedElementBid) {
-          nextList = appendLikeStatusIfMissing(nextList, completedElementBid);
+          nextList = finalizePreviewElementOutputInList(
+            nextList,
+            completedElementBid,
+          );
         }
 
         const contentToRender =
@@ -945,6 +1037,7 @@ export function usePreviewChat() {
           readonly: false,
           type: nextItemType,
           element_type: elementType || undefined,
+          is_final: Boolean(elementRecord?.is_final),
           sequence_number:
             typeof elementRecord?.sequence_number === 'number'
               ? elementRecord.sequence_number
@@ -968,6 +1061,9 @@ export function usePreviewChat() {
           user_input: autoParams
             ? resolveInteractionSubmission(autoParams).userInput
             : '',
+          shouldUseTypewriter:
+            nextItemType === ChatContentItemType.CONTENT &&
+            elementType === ELEMENT_TYPE.TEXT,
         };
 
         const hitIndex = nextList.findIndex(
@@ -986,6 +1082,7 @@ export function usePreviewChat() {
 
         return [...nextList, nextItem];
       });
+      currentContentIdRef.current = itemBid;
       currentStreamingElementBidRef.current = itemBid;
 
       if (isInteractionElement) {
@@ -993,8 +1090,8 @@ export function usePreviewChat() {
       }
     },
     [
-      appendLikeStatusIfMissing,
       buildAutoSendParams,
+      finalizePreviewElementOutputInList,
       parseInteractionBlock,
       setTrackedContentList,
     ],
@@ -1054,7 +1151,10 @@ export function usePreviewChat() {
 
           setTrackedContentList((prev: ChatContentItem[]) => {
             const currentBlockBid =
-              blockId || currentContentIdRef.current || '';
+              currentStreamingElementBidRef.current ||
+              currentContentIdRef.current ||
+              blockId ||
+              '';
             if (!currentBlockBid) {
               return prev;
             }
@@ -1082,14 +1182,15 @@ export function usePreviewChat() {
               const lastContentBid =
                 lastContent.generated_block_bid || lastContent.element_bid;
               if (lastContentBid) {
-                nextList = appendLikeStatusIfMissing(nextList, lastContentBid);
+                nextList = finalizePreviewElementOutputInList(
+                  nextList,
+                  lastContentBid,
+                );
               }
             }
 
             const hitIndex = nextList.findIndex(
-              item =>
-                item.generated_block_bid === currentBlockBid ||
-                item.element_bid === currentBlockBid,
+              item => matchPreviewItemBid(item, currentBlockBid),
             );
             if (hitIndex > -1) {
               const updatedList = [...nextList];
@@ -1107,7 +1208,10 @@ export function usePreviewChat() {
             return appendLikeStatusIfMissing(nextList, currentBlockBid);
           });
           const interactionBlockBid =
-            blockId || currentContentIdRef.current || '';
+            currentStreamingElementBidRef.current ||
+            currentContentIdRef.current ||
+            blockId ||
+            '';
           if (interactionBlockBid) {
             tryAutoSubmitInteractionRef.current(
               interactionBlockBid,
@@ -1117,10 +1221,13 @@ export function usePreviewChat() {
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
           const markdownPayload = resolveResponseStringPayload(response);
           const contentId = ensureContentItem(
-            blockId || currentContentIdRef.current || 'preview-content',
+            currentStreamingElementBidRef.current ||
+              currentContentIdRef.current ||
+              blockId ||
+              'preview-content',
           );
           const existingItem = contentListRef.current.find(
-            item => item.generated_block_bid === contentId,
+            item => matchPreviewItemBid(item, contentId),
           );
           const prevText =
             currentContentRef.current ||
@@ -1135,8 +1242,14 @@ export function usePreviewChat() {
           const displayText = maskIncompleteMermaidBlock(nextText);
           setTrackedContentList(prev =>
             prev.map(item =>
-              item.generated_block_bid === contentId
-                ? { ...item, content: displayText }
+              matchPreviewItemBid(item, contentId)
+                ? {
+                    ...item,
+                    content: displayText,
+                    element_type: item.element_type || ELEMENT_TYPE.TEXT,
+                    is_final: false,
+                    shouldUseTypewriter: true,
+                  }
                 : item,
             ),
           );
@@ -1212,6 +1325,7 @@ export function usePreviewChat() {
       buildAutoSendParams,
       ensureAudioItem,
       ensureContentItem,
+      finalizePreviewElementOutputInList,
       finalizePreviewItems,
       parseInteractionBlock,
       stopPreviewAndContinueIfNeeded,
@@ -1271,9 +1385,9 @@ export function usePreviewChat() {
       } = mergedParams;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
-      submittedInteractionBlockBidRef.current = normalizedUserInput
-        ? `${finalBlockIndex}`
-        : null;
+      if (!normalizedUserInput) {
+        submittedInteractionBlockBidRef.current = null;
+      }
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
@@ -1447,7 +1561,7 @@ export function usePreviewChat() {
         ) || [];
       if (sameVariableValueItems.length > 1) {
         needChangeItemIndex = newList.findIndex(
-          item => item.generated_block_bid === blockBid,
+          item => matchPreviewItemBid(item, blockBid),
         );
       }
       if (needChangeItemIndex !== -1) {
@@ -1480,7 +1594,7 @@ export function usePreviewChat() {
     (blockBid: string, params: OnSendContentParams) => {
       setTrackedContentList(prev =>
         prev.map(item =>
-          item.generated_block_bid === blockBid
+          matchPreviewItemBid(item, blockBid)
             ? {
                 ...item,
                 readonly: false,
@@ -1497,8 +1611,8 @@ export function usePreviewChat() {
   const resolveLastActionableBlockBid = useCallback(
     (items: ChatContentItem[]) => {
       const lastActionableItem = [...items].reverse().find(item => {
-        const generatedBlockBid = item.generated_block_bid || item.element_bid;
-        if (!generatedBlockBid || generatedBlockBid === 'loading') {
+        const elementBid = resolvePreviewItemBid(item);
+        if (!elementBid || elementBid === 'loading') {
           return false;
         }
 
@@ -1509,9 +1623,7 @@ export function usePreviewChat() {
       });
 
       return (
-        lastActionableItem?.generated_block_bid ||
-        lastActionableItem?.element_bid ||
-        ''
+        resolvePreviewItemBid(lastActionableItem) || ''
       );
     },
     [],
@@ -1573,6 +1685,8 @@ export function usePreviewChat() {
 
       const nextValue = values.join(',');
 
+      submittedInteractionBlockBidRef.current = blockBid;
+
       if (hasVariableName) {
         const nextVariables: PreviewVariablesMap = {
           ...(sseParams.current.variables as PreviewVariablesMap),
@@ -1598,17 +1712,21 @@ export function usePreviewChat() {
       if (needReGenerate) {
         const removedBlockIds = currentList
           .slice(needChangeItemIndex)
-          .map(item => item.generated_block_bid)
+          .map(item => resolvePreviewItemBid(item))
           .filter((item): item is string => Boolean(item));
         if (removedBlockIds.length) {
           removeAutoSubmittedBlocks(removedBlockIds);
         }
       }
 
+      const targetItem = currentList.find(item => matchPreviewItemBid(item, blockBid));
+      const targetGeneratedBlockBid =
+        getPreviewItemGeneratedBlockBid(targetItem) || blockBid;
+
       const nextParams: StartPreviewParams = {
         ...sseParams.current,
         block_index: resolvePreviewRequestBlockIndex(
-          blockBid,
+          targetGeneratedBlockBid,
           sseParams.current.block_index ?? 0,
         ),
         variables: requestVariables,
@@ -1633,7 +1751,7 @@ export function usePreviewChat() {
   );
 
   const onRefresh = useCallback(
-    async (generatedBlockBid: string) => {
+    async (elementBid: string) => {
       if (isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -1642,20 +1760,24 @@ export function usePreviewChat() {
       const originalList = [...contentListRef.current];
       const newList = [...originalList];
       const needChangeItemIndex = newList.findIndex(
-        item => item.generated_block_bid === generatedBlockBid,
+        item => matchPreviewItemBid(item, elementBid),
       );
       if (needChangeItemIndex === -1) {
         return;
       }
 
+      const targetItem = newList[needChangeItemIndex];
+      const targetGeneratedBlockBid =
+        getPreviewItemGeneratedBlockBid(targetItem) || elementBid;
+
       const nextBlockIndex = resolvePreviewRequestBlockIndex(
-        generatedBlockBid,
+        targetGeneratedBlockBid,
         needChangeItemIndex,
       );
 
       const removedBlockIds = originalList
         .slice(needChangeItemIndex)
-        .map(item => item.generated_block_bid)
+        .map(item => resolvePreviewItemBid(item))
         .filter((item): item is string => Boolean(item));
       if (removedBlockIds.length) {
         removeAutoSubmittedBlocks(removedBlockIds);
@@ -1765,7 +1887,7 @@ export function usePreviewChat() {
       }
 
       const existingItem = contentListRef.current.find(
-        item => item.generated_block_bid === blockId,
+        item => matchPreviewItemBid(item, blockId),
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -1785,7 +1907,7 @@ export function usePreviewChat() {
       setTrackedContentList(prevState =>
         ensureAudioItem(
           prevState.map(item => {
-            if (item.generated_block_bid !== blockId) {
+            if (!matchPreviewItemBid(item, blockId)) {
               return item;
             }
             return {
@@ -1832,7 +1954,7 @@ export function usePreviewChat() {
             setTrackedContentList(prevState =>
               ensureAudioItem(
                 prevState.map(item => {
-                  if (item.generated_block_bid !== blockId) {
+                  if (!matchPreviewItemBid(item, blockId)) {
                     return item;
                   }
                   return {
@@ -1904,7 +2026,7 @@ export function usePreviewChat() {
           setTrackedContentList(prevState =>
             ensureAudioItem(
               prevState.map(item => {
-                if (item.generated_block_bid !== blockId) {
+                if (!matchPreviewItemBid(item, blockId)) {
                   return item;
                 }
                 return {
