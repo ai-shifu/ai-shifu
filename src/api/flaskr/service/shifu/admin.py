@@ -1854,19 +1854,17 @@ def _load_latest_shifus(
 
     ordered_query = latest_rows.order_by(model.updated_at.desc(), model.id.desc())
     if lightweight and is_mapped_model:
-        rows = (
-            ordered_query.with_entities(
-                model.id.label("id"),
-                model.shifu_bid.label("shifu_bid"),
-                model.title.label("title"),
-                model.price.label("price"),
-                model.llm.label("llm"),
-                model.created_user_bid.label("created_user_bid"),
-                model.updated_user_bid.label("updated_user_bid"),
-                model.created_at.label("created_at"),
-                model.updated_at.label("updated_at"),
-            ).all()
-        )
+        rows = ordered_query.with_entities(
+            model.id.label("id"),
+            model.shifu_bid.label("shifu_bid"),
+            model.title.label("title"),
+            model.price.label("price"),
+            model.llm.label("llm"),
+            model.created_user_bid.label("created_user_bid"),
+            model.updated_user_bid.label("updated_user_bid"),
+            model.created_at.label("created_at"),
+            model.updated_at.label("updated_at"),
+        ).all()
         return [
             OperatorCourseListSeed(
                 id=int(row.id),
