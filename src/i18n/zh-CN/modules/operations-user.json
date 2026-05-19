@@ -34,6 +34,34 @@
       "note": "备注",
       "sourceType": "来源"
     },
+    "creditLedgerFilters": {
+      "course": "课程",
+      "coursePlaceholder": "输入ID/名称",
+      "grantSource": "发放方式",
+      "grantSourceOptions": {
+        "all": "全部",
+        "manual": "人工发放",
+        "subscription": "套餐",
+        "topup": "积分包",
+        "trial_subscription": "体验积分"
+      },
+      "time": "时间范围",
+      "timePlaceholder": "选择时间范围",
+      "type": "类型",
+      "typeOptions": {
+        "all": "全部",
+        "consume": "消耗",
+        "grant": "发放",
+        "other": "其他"
+      },
+      "usageMode": "消耗场景",
+      "usageModeOptions": {
+        "all": "全部",
+        "ask": "追问",
+        "learn": "阅读",
+        "listen": "听课"
+      }
+    },
     "creditLedgerNoteLabels": {
       "admin_manual_plan_grant": "运营发放套餐",
       "debug_consume": "调试内容消耗积分",
