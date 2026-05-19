@@ -144,6 +144,7 @@ describe('AskBlock', () => {
         onMessage: (response: {
           type: string;
           content?: string | Record<string, unknown>;
+          is_terminal?: boolean;
         }) => Promise<void> | void;
       }
     | undefined;
@@ -167,6 +168,7 @@ describe('AskBlock', () => {
         onMessage: (response: {
           type: string;
           content?: string | Record<string, unknown>;
+          is_terminal?: boolean;
         }) => Promise<void> | void,
       ) => {
         const source = new MockRunSource();

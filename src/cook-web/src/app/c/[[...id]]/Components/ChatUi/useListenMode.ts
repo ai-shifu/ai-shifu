@@ -11,12 +11,13 @@ import {
   splitContentSegments,
   type RenderSegment,
 } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 import { type AudioSegment } from '@/c-utils/audio-utils';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 import {
   buildSlidePageMapping,
+  isListenModeAudioBackfillCandidate,
   resolveListenModeTtsReadyElementBids,
   normalizeAudioTracks,
   sortSegmentsByIndex,
@@ -118,11 +119,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           const { pageBySlideId, resolvePageByPosition } =
             buildSlidePageMapping(item, pageIndices, fallbackPage);
 
-          if (
-            tracks.length === 0 &&
-            item.element_bid &&
-            item.element_bid !== 'loading'
-          ) {
+          if (tracks.length === 0 && isListenModeAudioBackfillCandidate(item)) {
             const defaultPosition = 0;
             const sequenceBid = buildListenAudioSequenceBid(
               item.element_bid,
@@ -788,6 +785,10 @@ export const useListenAudioSequence = ({
   } | null>(null);
 
   const lastPlayedAudioBidRef = useRef<string | null>(null);
+  const lastSyncedSequencePageRef = useRef<{
+    bid: string | null;
+    page: number;
+  } | null>(null);
 
   useEffect(() => {
     isAudioSequenceActiveRef.current = isAudioSequenceActive;
@@ -834,16 +835,18 @@ export const useListenAudioSequence = ({
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
-        return;
+        return false;
       }
       const deck = deckRef.current;
       if (!deck) {
-        return;
+        return false;
       }
       const currentIndex = deck.getIndices?.().h ?? 0;
       if (currentIndex !== page) {
         deck.slide(page);
       }
+      const syncedIndex = deck.getIndices?.().h;
+      return syncedIndex === undefined || syncedIndex === page;
     },
     [deckRef],
   );
@@ -899,9 +902,15 @@ export const useListenAudioSequence = ({
         activeAudioBidRef.current = null;
         setIsAudioSequenceActive(false);
         isAudioSequenceActiveRef.current = false;
+        lastSyncedSequencePageRef.current = null;
         return;
       }
-      syncToSequencePage(nextItem.page);
+      if (syncToSequencePage(nextItem.page)) {
+        lastSyncedSequencePageRef.current = {
+          bid: nextItem.element_bid ?? null,
+          page: nextItem.page,
+        };
+      }
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
       isAudioSequenceActiveRef.current = true;
@@ -988,13 +997,39 @@ export const useListenAudioSequence = ({
       const lastPlayedSourceBid = resolveContentBid(
         lastPlayedAudioBidRef.current,
       );
-      const shouldResumeLateAudioFromSameBlock =
-        !isSequenceActive &&
+      const lastPlayedItem = lastPlayedAudioBidRef.current
+        ? audioAndInteractionList.find(
+            item => item.element_bid === lastPlayedAudioBidRef.current,
+          )
+        : undefined;
+      const newItemGeneratedBlockBid =
+        newItem?.generated_block_bid ||
+        (newItemSourceBid
+          ? contentByBid.get(newItemSourceBid)?.generated_block_bid ||
+            audioContentByBid.get(newItemSourceBid)?.generated_block_bid
+          : undefined);
+      const lastPlayedGeneratedBlockBid =
+        lastPlayedItem?.generated_block_bid ||
+        (lastPlayedSourceBid
+          ? contentByBid.get(lastPlayedSourceBid)?.generated_block_bid ||
+            audioContentByBid.get(lastPlayedSourceBid)?.generated_block_bid
+          : undefined);
+      const isIdleAtTail =
+        isSequenceActive &&
         !isAudioPlayingNow &&
+        currentIndex >= 0 &&
+        currentIndex === prevLength - 1 &&
+        newItemIndex === nextLength - 1;
+      const shouldResumeLateAudioFromSameBlock =
+        !isAudioPlayingNow &&
+        (!isSequenceActive || isIdleAtTail) &&
         Boolean(
-          newItemSourceBid &&
-          lastPlayedSourceBid &&
-          newItemSourceBid === lastPlayedSourceBid,
+          (newItemSourceBid &&
+            lastPlayedSourceBid &&
+            newItemSourceBid === lastPlayedSourceBid) ||
+          (newItemGeneratedBlockBid &&
+            lastPlayedGeneratedBlockBid &&
+            newItemGeneratedBlockBid === lastPlayedGeneratedBlockBid),
         );
 
       if (newItem?.page === currentPage) {
@@ -1026,12 +1061,6 @@ export const useListenAudioSequence = ({
           // Guard against interruption: only block when audio is actively playing.
           // If sequence is idle at tail, allow continuing with appended item.
           const isSwitchingToDifferentItem = currentIndex !== newItemIndex;
-          const isIdleAtTail =
-            isSequenceActive &&
-            !isAudioPlayingNow &&
-            currentIndex >= 0 &&
-            currentIndex === prevLength - 1 &&
-            newItemIndex === nextLength - 1;
           const shouldBlockAutoSwitch =
             isAudioPlayingNow && isSwitchingToDifferentItem;
 
@@ -1066,9 +1095,51 @@ export const useListenAudioSequence = ({
     sequenceInteraction,
     deckRef,
     currentPptPageRef,
+    audioContentByBid,
+    contentByBid,
     resolveContentBid,
     resolveSequenceStartIndex,
     shouldSkipAppendAutoPlayFromRecentEnded,
+  ]);
+
+  useEffect(() => {
+    if (previewMode || !allowAutoPlayback || !activeAudioBid) {
+      return;
+    }
+    if (isSequencePausedRef.current) {
+      return;
+    }
+    if (!isAudioSequenceActiveRef.current && !isAudioPlayingRef.current) {
+      return;
+    }
+
+    const activeItem = audioAndInteractionList.find(
+      item => item.element_bid === activeAudioBid,
+    );
+    if (!activeItem || activeItem.sequenceKind !== 'audio') {
+      return;
+    }
+
+    const lastSynced = lastSyncedSequencePageRef.current;
+    if (
+      lastSynced?.bid === activeItem.element_bid &&
+      lastSynced.page === activeItem.page
+    ) {
+      return;
+    }
+
+    if (syncToSequencePage(activeItem.page)) {
+      lastSyncedSequencePageRef.current = {
+        bid: activeItem.element_bid ?? null,
+        page: activeItem.page,
+      };
+    }
+  }, [
+    activeAudioBid,
+    audioAndInteractionList,
+    allowAutoPlayback,
+    previewMode,
+    syncToSequencePage,
   ]);
 
   const resetSequenceState = useCallback(() => {
@@ -1084,6 +1155,7 @@ export const useListenAudioSequence = ({
     activeAudioBidRef.current = null;
     setIsAudioSequenceActive(false);
     isAudioSequenceActiveRef.current = false;
+    lastSyncedSequencePageRef.current = null;
   }, [clearAudioSequenceTimer]);
 
   const startSequenceFromIndex = useCallback(
@@ -1128,6 +1200,7 @@ export const useListenAudioSequence = ({
     setSequenceInteraction(null);
     setIsAudioSequenceActive(false);
     isAudioSequenceActiveRef.current = false;
+    lastSyncedSequencePageRef.current = null;
   }, [audioAndInteractionList.length, clearAudioSequenceTimer]);
 
   useEffect(() => {

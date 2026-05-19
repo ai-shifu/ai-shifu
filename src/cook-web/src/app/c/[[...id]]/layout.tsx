@@ -239,7 +239,6 @@ export default function ChatLayout({
       return;
     }
 
-    // Sync course preference or URL override into the global learning mode state.
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,
