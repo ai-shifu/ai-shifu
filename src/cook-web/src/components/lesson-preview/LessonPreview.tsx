@@ -222,7 +222,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [items]);
 
-  console.log('visibleItems', visibleItems, items);
+  // console.log('visibleItems', visibleItems, items);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
