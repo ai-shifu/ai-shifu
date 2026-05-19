@@ -888,6 +888,12 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
+        Order.query.delete()
+        LearnProgressRecord.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
         db.session.add_all(
             [
                 DraftShifu(
@@ -1050,32 +1056,7 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
             ]
         )
         db.session.commit()
-        draft_rows = (
-            DraftShifu.query.filter(
-                DraftShifu.shifu_bid.in_(
-                    [
-                        draft_only_bid,
-                        published_with_draft_bid,
-                        builtin_demo_bid,
-                    ]
-                )
-            )
-            .order_by(DraftShifu.id.asc())
-            .all()
-        )
-        published_rows = (
-            PublishedShifu.query.filter(
-                PublishedShifu.shifu_bid.in_(
-                    [published_only_bid, published_with_draft_bid]
-                )
-            )
-            .order_by(PublishedShifu.id.asc())
-            .all()
-        )
-
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
-            latest_mock.side_effect = [draft_rows, published_rows]
-            summary = _build_operator_course_overview(app)
+        summary = _build_operator_course_overview(app)
 
     assert summary.total_course_count == 3
     assert summary.draft_course_count == 1
@@ -1083,6 +1064,130 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
     assert summary.created_last_7d_course_count == 2
     assert summary.learning_active_30d_course_count == 2
     assert summary.paid_order_30d_course_count == 2
+
+
+def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_order(
+    app,
+):
+    creator_bid = uuid.uuid4().hex[:32]
+    draft_only_bid = uuid.uuid4().hex[:32]
+    published_only_bid = uuid.uuid4().hex[:32]
+    published_with_draft_bid = uuid.uuid4().hex[:32]
+    builtin_demo_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=draft_only_bid,
+                    title="Draft Only Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="draft prompt",
+                    price=Decimal("19"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 28, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 28, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=published_with_draft_bid,
+                    title="Draft Wins Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="draft prompt",
+                    price=Decimal("99"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 20, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 20, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=builtin_demo_bid,
+                    title="AI-Shifu Creation Guide",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("0"),
+                    created_user_bid="system",
+                    updated_user_bid="system",
+                    created_at=datetime(2025, 4, 29, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 29, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_only_bid,
+                    title="Published Only Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("49"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 15, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 15, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_with_draft_bid,
+                    title="Published Loses Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("79"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 18, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 18, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.flush()
+        db.session.add(
+            DraftOutlineItem(
+                outline_item_bid=uuid.uuid4().hex[:32],
+                shifu_bid=published_with_draft_bid,
+                title="Latest Outline Update",
+                parent_bid="",
+                position="1",
+                created_user_bid=creator_bid,
+                updated_user_bid="editor-1",
+                updated_at=datetime(2025, 5, 1, 10, 0, 0),
+            )
+        )
+        db.session.commit()
+
+        result = list_operator_courses(app, 1, 20, {})
+
+    assert result.total == 3
+    assert [item.shifu_bid for item in result.items] == [
+        published_with_draft_bid,
+        draft_only_bid,
+        published_only_bid,
+    ]
+    assert result.items[0].course_name == "Draft Wins Course"
+    assert result.items[0].course_status == "published"
+    assert result.items[0].updated_at == "2025-05-01T10:00:00Z"
+    assert result.items[1].course_status == "unpublished"
+    assert result.items[2].course_status == "published"
 
 
 def test_merge_courses_checks_published_visibility_once():
