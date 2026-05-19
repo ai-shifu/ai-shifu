@@ -427,10 +427,13 @@ const syncPreviewActionableFinalState = (items: ChatContentItem[]) => {
     const shouldUseTypewriter =
       item.type === ChatContentItemType.CONTENT &&
       item.element_type === ELEMENT_TYPE.TEXT
-        ? item.shouldUseTypewriter ?? true
+        ? (item.shouldUseTypewriter ?? true)
         : false;
 
-    if (item.is_final === true && item.shouldUseTypewriter === shouldUseTypewriter) {
+    if (
+      item.is_final === true &&
+      item.shouldUseTypewriter === shouldUseTypewriter
+    ) {
       return item;
     }
 
@@ -892,7 +895,7 @@ export function usePreviewChat() {
         shouldUseTypewriter:
           targetItem.type === ChatContentItemType.CONTENT &&
           targetItem.element_type === ELEMENT_TYPE.TEXT
-            ? targetItem.shouldUseTypewriter ?? true
+            ? (targetItem.shouldUseTypewriter ?? true)
             : false,
       };
 
@@ -993,7 +996,9 @@ export function usePreviewChat() {
           item => item.generated_block_bid !== 'loading',
         );
         let completedElementBid = '';
-        const hasIncomingItem = nextList.some(item => item.element_bid === itemBid);
+        const hasIncomingItem = nextList.some(
+          item => item.element_bid === itemBid,
+        );
 
         if (
           previousStreamingElementBid &&
@@ -1189,8 +1194,8 @@ export function usePreviewChat() {
               }
             }
 
-            const hitIndex = nextList.findIndex(
-              item => matchPreviewItemBid(item, currentBlockBid),
+            const hitIndex = nextList.findIndex(item =>
+              matchPreviewItemBid(item, currentBlockBid),
             );
             if (hitIndex > -1) {
               const updatedList = [...nextList];
@@ -1226,8 +1231,8 @@ export function usePreviewChat() {
               blockId ||
               'preview-content',
           );
-          const existingItem = contentListRef.current.find(
-            item => matchPreviewItemBid(item, contentId),
+          const existingItem = contentListRef.current.find(item =>
+            matchPreviewItemBid(item, contentId),
           );
           const prevText =
             currentContentRef.current ||
@@ -1560,8 +1565,8 @@ export function usePreviewChat() {
           item.content?.includes(params.variableName || ''),
         ) || [];
       if (sameVariableValueItems.length > 1) {
-        needChangeItemIndex = newList.findIndex(
-          item => matchPreviewItemBid(item, blockBid),
+        needChangeItemIndex = newList.findIndex(item =>
+          matchPreviewItemBid(item, blockBid),
         );
       }
       if (needChangeItemIndex !== -1) {
@@ -1622,9 +1627,7 @@ export function usePreviewChat() {
         );
       });
 
-      return (
-        resolvePreviewItemBid(lastActionableItem) || ''
-      );
+      return resolvePreviewItemBid(lastActionableItem) || '';
     },
     [],
   );
@@ -1719,7 +1722,9 @@ export function usePreviewChat() {
         }
       }
 
-      const targetItem = currentList.find(item => matchPreviewItemBid(item, blockBid));
+      const targetItem = currentList.find(item =>
+        matchPreviewItemBid(item, blockBid),
+      );
       const targetGeneratedBlockBid =
         getPreviewItemGeneratedBlockBid(targetItem) || blockBid;
 
@@ -1759,8 +1764,8 @@ export function usePreviewChat() {
 
       const originalList = [...contentListRef.current];
       const newList = [...originalList];
-      const needChangeItemIndex = newList.findIndex(
-        item => matchPreviewItemBid(item, elementBid),
+      const needChangeItemIndex = newList.findIndex(item =>
+        matchPreviewItemBid(item, elementBid),
       );
       if (needChangeItemIndex === -1) {
         return;
@@ -1886,8 +1891,8 @@ export function usePreviewChat() {
         return null;
       }
 
-      const existingItem = contentListRef.current.find(
-        item => matchPreviewItemBid(item, blockId),
+      const existingItem = contentListRef.current.find(item =>
+        matchPreviewItemBid(item, blockId),
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],

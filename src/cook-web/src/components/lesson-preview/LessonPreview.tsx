@@ -222,7 +222,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [items]);
 
-  console.log('visibleItems', visibleItems,items);
+  console.log('visibleItems', visibleItems, items);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -296,7 +296,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 );
                 const hasPreviewAudioCapability = Boolean(
                   onRequestAudioForBlock &&
-                    (parentContentItem?.element_bid || parentBlockBid),
+                  (parentContentItem?.element_bid || parentBlockBid),
                 );
                 if (!shouldRenderAudioAction || !hasPreviewAudioCapability) {
                   return null;
