@@ -354,7 +354,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     <ContentBlock
                       item={item}
                       mobileStyle={false}
-                      blockBid={item.element_bid || item.generated_block_bid || ''}
+                      blockBid={
+                        item.element_bid || item.generated_block_bid || ''
+                      }
                       confirmButtonText={confirmButtonText}
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
@@ -386,7 +388,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.element_bid || item.generated_block_bid || ''}
+                    blockBid={
+                      item.element_bid || item.generated_block_bid || ''
+                    }
                     enableStreamingTypewriter={shouldEnablePreviewTypewriter(
                       item,
                       previewTypewriterCache[item.element_bid || ''],
