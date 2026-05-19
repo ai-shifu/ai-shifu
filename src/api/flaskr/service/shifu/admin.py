@@ -6238,8 +6238,7 @@ def list_operator_courses(
         published_page_items = [
             course
             for course in page_items
-            if selected_sources.get(str(course.shifu_bid or "").strip())
-            == "published"
+            if selected_sources.get(str(course.shifu_bid or "").strip()) == "published"
         ]
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
