@@ -1874,6 +1874,7 @@ def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
         updated_at=row.updated_at,
     )
 
+
 def _build_latest_shifus_query(
     model,
     *,
