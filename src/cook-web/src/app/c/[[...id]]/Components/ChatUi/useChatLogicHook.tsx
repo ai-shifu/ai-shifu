@@ -90,6 +90,7 @@ interface LessonFeedbackPopupState {
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
 const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
+const MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS = 60000;
 const TTS_BACKFILL_IDLE_TIMEOUT_MS = 120000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
 const DEFAULT_LISTEN_AUDIO_POSITION = 0;
@@ -1748,9 +1749,12 @@ function useChatLogicHook({
 
       const armRunStreamTimeout = () => {
         clearRunStreamTimeout();
+        const timeoutMs = mobileStyle
+          ? MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS
+          : RUN_STREAM_IDLE_TIMEOUT_MS;
         runStreamTimeoutRef.current = setTimeout(() => {
           handleRunStreamTimeout();
-        }, RUN_STREAM_IDLE_TIMEOUT_MS);
+        }, timeoutMs);
       };
 
       // Track run start event

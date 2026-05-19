@@ -1510,6 +1510,50 @@ describe('useChatLogicHook stream cleanup', () => {
     jest.useRealTimers();
   });
 
+  it('uses the longer run stream idle timeout on mobile', async () => {
+    jest.useFakeTimers();
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode: true,
+        }),
+      {
+        wrapper: mobileWrapper,
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    act(() => {
+      jest.advanceTimersByTime(15000);
+    });
+
+    expect(
+      result.current.items.some(
+        item => item.type === ChatContentItemType.ERROR,
+      ),
+    ).toBe(false);
+    expect(activeRun?.source.close).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(45000);
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.items.some(
+          item => item.type === ChatContentItemType.ERROR,
+        ),
+      ).toBe(true),
+    );
+
+    expect(activeRun?.source.close).toHaveBeenCalled();
+
+    jest.useRealTimers();
+  });
+
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
