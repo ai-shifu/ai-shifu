@@ -52,12 +52,37 @@ jest.mock('@/components/ui/Dialog', () => ({
 
 jest.mock('@/c-components/ChatUi/ContentBlock', () => ({
   __esModule: true,
-  default: ({ item }: { item: ChatContentItem }) => <div>{item.content}</div>,
+  default: ({
+    item,
+    blockBid,
+    enableStreamingTypewriter,
+    onTypeFinished,
+  }: {
+    item: ChatContentItem;
+    blockBid: string;
+    enableStreamingTypewriter?: boolean;
+    onTypeFinished?: (blockBid: string, content: string) => void;
+  }) => (
+    <div data-testid={item.element_bid}>
+      <span>{item.content}</span>
+      {enableStreamingTypewriter ? <span>typing</span> : null}
+      {onTypeFinished ? (
+        <button
+          type='button'
+          onClick={() => onTypeFinished(blockBid, item.content || '')}
+        >
+          finish-{blockBid}
+        </button>
+      ) : null}
+    </div>
+  ),
 }));
 
 jest.mock('@/c-components/ChatUi/InteractionBlock', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({ element_bid }: { element_bid?: string }) => (
+    <div data-testid='interaction-block'>{element_bid}</div>
+  ),
 }));
 
 jest.mock('@/components/audio/AudioPlayer', () => ({
@@ -103,5 +128,56 @@ describe('LessonPreview billing action', () => {
     );
 
     expect(mockPush).toHaveBeenCalledWith('/admin/billing?tab=packages');
+  });
+
+  test('reveals speaker helper row and later preview items after typewriter finishes', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        shouldUseTypewriter: true,
+        is_final: true,
+        is_speakable: true,
+      },
+      {
+        element_bid: 'text-1-feedback',
+        generated_block_bid: '0-feedback',
+        parent_element_bid: 'text-1',
+        parent_block_bid: 'text-1',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+      {
+        element_bid: 'text-2',
+        generated_block_bid: '1',
+        content: '第二段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        shouldUseTypewriter: false,
+        is_final: true,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+        onRequestAudioForBlock={jest.fn().mockResolvedValue(null)}
+      />,
+    );
+
+    expect(screen.getByText('第一段内容')).toBeInTheDocument();
+    expect(screen.queryByText('第二段内容')).not.toBeInTheDocument();
+    expect(screen.queryByText('text-1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'finish-text-1' }));
+
+    expect(screen.getByText('第二段内容')).toBeInTheDocument();
+    expect(screen.getByText('text-1')).toBeInTheDocument();
   });
 });

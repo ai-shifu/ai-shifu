@@ -28,6 +28,13 @@ import {
 import { useAlert } from '@/components/ui/UseAlert';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { Button } from '@/components/ui/Button';
+import {
+  buildVisiblePreviewItems,
+  normalizePreviewTypewriterContent,
+  shouldEnablePreviewTypewriter,
+  syncPreviewTypewriterCache,
+  type PreviewTypewriterCache,
+} from './previewTypewriterGate';
 
 const CREDIT_INSUFFICIENT_BUSINESS_CODE = 7101;
 
@@ -37,7 +44,7 @@ interface LessonPreviewProps {
   items: ChatContentItem[];
   variables?: PreviewVariablesMap;
   shifuBid: string;
-  onRefresh: (generatedBlockBid: string) => void;
+  onRefresh: (elementBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRequestAudioForBlock?: (params: {
     shifuBid: string;
@@ -91,6 +98,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
+  const [previewTypewriterCache, setPreviewTypewriterCache] =
+    React.useState<PreviewTypewriterCache>({});
 
   const resolvedVariables = React.useMemo(() => {
     if (variables && Object.keys(variables).length) {
@@ -119,16 +128,20 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [hiddenSet, resolvedVariables]);
 
-  const itemByGeneratedBid = React.useMemo(() => {
+  const itemByElementBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
-      const generatedBlockBid = item.generated_block_bid || item.element_bid;
-      if (generatedBlockBid) {
-        map.set(generatedBlockBid, item);
+      if (item.element_bid) {
+        map.set(item.element_bid, item);
       }
     });
     return map;
   }, [items]);
+
+  const visibleItems = React.useMemo(
+    () => buildVisiblePreviewItems(items, previewTypewriterCache),
+    [items, previewTypewriterCache],
+  );
 
   const { showAlert } = useAlert();
 
@@ -168,6 +181,48 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const handleGoToBilling = React.useCallback(() => {
     router.push(BILLING_PACKAGES_HREF);
   }, [router]);
+
+  const handlePreviewTypeFinished = React.useCallback(
+    (blockBid: string, content: string) => {
+      if (!blockBid) {
+        return;
+      }
+
+      const resolvedItem = items.find(item => item.element_bid === blockBid);
+      const resolvedCacheKey = resolvedItem?.element_bid || '';
+      if (!resolvedCacheKey) {
+        return;
+      }
+
+      const normalizedContent = normalizePreviewTypewriterContent(content);
+      setPreviewTypewriterCache(prevCache => {
+        const existingEntry = prevCache[resolvedCacheKey];
+        if (
+          existingEntry?.content === normalizedContent &&
+          existingEntry.isFinished === true
+        ) {
+          return prevCache;
+        }
+
+        return {
+          ...prevCache,
+          [resolvedCacheKey]: {
+            content: normalizedContent,
+            isFinished: true,
+          },
+        };
+      });
+    },
+    [items],
+  );
+
+  React.useEffect(() => {
+    setPreviewTypewriterCache(prevCache =>
+      syncPreviewTypewriterCache(items, prevCache),
+    );
+  }, [items]);
+
+  // console.log('visibleItems', visibleItems, items);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -223,19 +278,29 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           )}
 
           {!showEmpty &&
-            items.map((item, idx) => {
+            visibleItems.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 const parentBlockBid =
                   item.parent_block_bid || item.parent_element_bid || '';
                 const parentContentItem = parentBlockBid
-                  ? itemByGeneratedBid.get(parentBlockBid)
+                  ? itemByElementBid.get(parentBlockBid)
                   : undefined;
+                const isTextParent =
+                  parentContentItem?.type === ChatContentItemType.CONTENT &&
+                  parentContentItem?.element_type === 'text';
                 // Hide preview audio action when backend marks this element as non-speakable.
                 const shouldRenderAudioAction =
-                  parentContentItem?.is_speakable !== false;
+                  isTextParent && parentContentItem?.is_speakable !== false;
                 const parentPrimaryTrack = getAudioTrackByPosition(
                   parentContentItem?.audioTracks ?? [],
                 );
+                const hasPreviewAudioCapability = Boolean(
+                  onRequestAudioForBlock &&
+                  (parentContentItem?.element_bid || parentBlockBid),
+                );
+                if (!shouldRenderAudioAction || !hasPreviewAudioCapability) {
+                  return null;
+                }
                 return (
                   <div
                     key={`${idx}-like`}
@@ -289,11 +354,14 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     <ContentBlock
                       item={item}
                       mobileStyle={false}
-                      blockBid={item.generated_block_bid || item.element_bid}
+                      blockBid={
+                        item.element_bid || item.generated_block_bid || ''
+                      }
                       confirmButtonText={confirmButtonText}
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
                       onSend={onSend}
+                      onTypeFinished={handlePreviewTypeFinished}
                     />
                     {isCreditInsufficient ? (
                       <Button
@@ -320,11 +388,18 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.generated_block_bid || item.element_bid}
+                    blockBid={
+                      item.element_bid || item.generated_block_bid || ''
+                    }
+                    enableStreamingTypewriter={shouldEnablePreviewTypewriter(
+                      item,
+                      previewTypewriterCache[item.element_bid || ''],
+                    )}
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}
                     onSend={onSend}
+                    onTypeFinished={handlePreviewTypeFinished}
                   />
                 </div>
               );
