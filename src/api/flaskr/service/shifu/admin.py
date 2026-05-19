@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
@@ -1356,8 +1357,29 @@ def _normalize_registration_source(provider_name: str) -> str:
     return OPERATOR_USER_REGISTRATION_SOURCE_UNKNOWN
 
 
+def _load_operator_user_auth_credentials(
+    user_bids: Sequence[str],
+) -> list[AuthCredential]:
+    normalized_user_bids = [
+        str(user_bid or "").strip() for user_bid in user_bids if user_bid
+    ]
+    if not normalized_user_bids:
+        return []
+
+    return (
+        AuthCredential.query.filter(
+            AuthCredential.user_bid.in_(normalized_user_bids),
+            AuthCredential.deleted == 0,
+        )
+        .all()
+    )
+
+
 def _load_operator_user_registration_source_map(
     user_bids: Sequence[str],
+    *,
+    users: Optional[Sequence[UserEntity]] = None,
+    credential_rows: Optional[Sequence[AuthCredential]] = None,
 ) -> Dict[str, str]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
@@ -1365,16 +1387,19 @@ def _load_operator_user_registration_source_map(
     if not normalized_user_bids:
         return {}
 
-    credential_rows = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(normalized_user_bids),
-            AuthCredential.deleted == 0,
-        )
-        .order_by(AuthCredential.created_at.asc(), AuthCredential.id.asc())
-        .all()
+    resolved_credential_rows = sorted(
+        list(
+            credential_rows
+            if credential_rows is not None
+            else _load_operator_user_auth_credentials(normalized_user_bids)
+        ),
+        key=lambda credential: (
+            getattr(credential, "created_at", None) or datetime.min,
+            int(getattr(credential, "id", 0) or 0),
+        ),
     )
     registration_source_map: Dict[str, str] = {}
-    for credential in credential_rows:
+    for credential in resolved_credential_rows:
         user_bid = str(credential.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
             continue
@@ -1385,15 +1410,17 @@ def _load_operator_user_registration_source_map(
     if len(registration_source_map) == len(normalized_user_bids):
         return registration_source_map
 
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(normalized_user_bids),
-            UserEntity.deleted == 0,
+    resolved_users = list(users) if users is not None else []
+    if not resolved_users:
+        resolved_users = (
+            UserEntity.query.filter(
+                UserEntity.user_bid.in_(normalized_user_bids),
+                UserEntity.deleted == 0,
+            )
+            .order_by(UserEntity.id.asc())
+            .all()
         )
-        .order_by(UserEntity.id.asc())
-        .all()
-    )
-    for user in users:
+    for user in resolved_users:
         user_bid = str(user.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
             continue
@@ -1500,23 +1527,27 @@ def _load_operator_user_last_learning_map(
 
 def _load_operator_user_contact_map(
     user_bids: Sequence[str],
+    *,
+    users: Optional[Sequence[UserEntity]] = None,
+    credential_rows: Optional[Sequence[AuthCredential]] = None,
 ) -> Dict[str, Dict[str, Any]]:
     if not user_bids:
         return {}
 
-    credential_rows = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(list(user_bids)),
-            AuthCredential.deleted == 0,
-        )
-        .order_by(AuthCredential.id.desc())
-        .all()
+    resolved_credential_rows = sorted(
+        list(
+            credential_rows
+            if credential_rows is not None
+            else _load_operator_user_auth_credentials(user_bids)
+        ),
+        key=lambda credential: int(getattr(credential, "id", 0) or 0),
+        reverse=True,
     )
     contact_map: Dict[str, Dict[str, Any]] = {
         user_bid: {"mobile": "", "email": "", "login_methods": []}
         for user_bid in user_bids
     }
-    for credential in credential_rows:
+    for credential in resolved_credential_rows:
         user_bid = str(credential.user_bid or "").strip()
         if not user_bid:
             continue
@@ -1542,15 +1573,17 @@ def _load_operator_user_contact_map(
         ):
             resolved["email"] = credential.identifier
 
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(list(user_bids)),
-            UserEntity.deleted == 0,
+    resolved_users = list(users) if users is not None else []
+    if not resolved_users:
+        resolved_users = (
+            UserEntity.query.filter(
+                UserEntity.user_bid.in_(list(user_bids)),
+                UserEntity.deleted == 0,
+            )
+            .order_by(UserEntity.id.asc())
+            .all()
         )
-        .order_by(UserEntity.id.asc())
-        .all()
-    )
-    for user in users:
+    for user in resolved_users:
         resolved = contact_map.setdefault(
             user.user_bid or "",
             {"mobile": "", "email": "", "login_methods": []},
@@ -1797,6 +1830,34 @@ def _assert_operator_user_grant_target_supported(user: UserEntity) -> None:
     raise_error("server.billing.adminPlanGrantRoleUnsupported")
 
 
+@dataclass
+class OperatorCourseListSeed:
+    id: int
+    shifu_bid: str
+    title: str
+    price: Any
+    llm: str
+    created_user_bid: str
+    updated_user_bid: str
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    has_course_prompt: Optional[bool] = None
+
+
+def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
+    return OperatorCourseListSeed(
+        id=int(row.id),
+        shifu_bid=str(row.shifu_bid or ""),
+        title=str(row.title or ""),
+        price=row.price,
+        llm=str(row.llm or ""),
+        created_user_bid=str(row.created_user_bid or ""),
+        updated_user_bid=str(row.updated_user_bid or ""),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
 def _load_latest_shifus(
     model,
     *,
@@ -1808,6 +1869,7 @@ def _load_latest_shifus(
     updated_start_time: Optional[datetime],
     updated_end_time: Optional[datetime],
     attach_prompt_flags: bool = False,
+    lightweight: bool = False,
 ):
     is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
@@ -1836,7 +1898,24 @@ def _load_latest_shifus(
     if updated_end_time:
         latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
 
-    rows = latest_rows.order_by(model.updated_at.desc(), model.id.desc()).all()
+    ordered_query = latest_rows.order_by(model.updated_at.desc(), model.id.desc())
+    if lightweight and is_mapped_model:
+        rows = (
+            ordered_query.with_entities(
+                model.id.label("id"),
+                model.shifu_bid.label("shifu_bid"),
+                model.title.label("title"),
+                model.price.label("price"),
+                model.llm.label("llm"),
+                model.created_user_bid.label("created_user_bid"),
+                model.updated_user_bid.label("updated_user_bid"),
+                model.created_at.label("created_at"),
+                model.updated_at.label("updated_at"),
+            ).all()
+        )
+        return [_build_operator_course_list_seed(row) for row in rows]
+
+    rows = ordered_query.all()
     if is_mapped_model and attach_prompt_flags:
         _attach_course_prompt_flags(model, rows)
     return rows
@@ -2590,6 +2669,8 @@ def _load_latest_course_versions(
 def _load_latest_courses_by_shifu_bids(
     model,
     shifu_bids: Sequence[str],
+    *,
+    lightweight: bool = False,
 ):
     normalized_shifu_bids = [
         str(shifu_bid or "").strip() for shifu_bid in shifu_bids if shifu_bid
@@ -2606,11 +2687,25 @@ def _load_latest_courses_by_shifu_bids(
         .group_by(model.shifu_bid)
         .subquery()
     )
-    return (
-        db.session.query(model)
-        .filter(model.id.in_(db.session.query(latest_subquery.c.max_id)))
-        .all()
+    query = db.session.query(model).filter(
+        model.id.in_(db.session.query(latest_subquery.c.max_id))
     )
+    if lightweight and hasattr(model, "__mapper__"):
+        rows = (
+            query.with_entities(
+                model.id.label("id"),
+                model.shifu_bid.label("shifu_bid"),
+                model.title.label("title"),
+                model.price.label("price"),
+                model.llm.label("llm"),
+                model.created_user_bid.label("created_user_bid"),
+                model.updated_user_bid.label("updated_user_bid"),
+                model.created_at.label("created_at"),
+                model.updated_at.label("updated_at"),
+            ).all()
+        )
+        return [_build_operator_course_list_seed(row) for row in rows]
+    return query.all()
 
 
 def _build_operator_user_course_summary(
@@ -2826,6 +2921,7 @@ def _load_operator_user_course_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     created_published = _load_latest_shifus(
         PublishedShifu,
@@ -2836,6 +2932,7 @@ def _load_operator_user_course_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     merged_created_courses, created_published_bids = _merge_courses(
         created_drafts,
@@ -2908,9 +3005,15 @@ def _load_operator_user_course_maps(
             if str(row.shifu_bid or "").strip()
         }
     )
-    learned_drafts = _load_latest_courses_by_shifu_bids(DraftShifu, learned_shifu_bids)
+    learned_drafts = _load_latest_courses_by_shifu_bids(
+        DraftShifu,
+        learned_shifu_bids,
+        lightweight=True,
+    )
     learned_published = _load_latest_courses_by_shifu_bids(
-        PublishedShifu, learned_shifu_bids
+        PublishedShifu,
+        learned_shifu_bids,
+        lightweight=True,
     )
     merged_learned_courses, learned_published_bids = _merge_courses(
         learned_drafts,
@@ -5406,12 +5509,21 @@ def list_operator_users(
         user_bids = [
             str(user.user_bid or "").strip() for user in page_items if user.user_bid
         ]
-        contact_map = _load_operator_user_contact_map(user_bids)
+        credential_rows = _load_operator_user_auth_credentials(user_bids)
+        contact_map = _load_operator_user_contact_map(
+            user_bids,
+            users=page_items,
+            credential_rows=credential_rows,
+        )
         created_course_count_map, learning_course_count_map = (
             _load_operator_user_course_count_maps(user_bids)
         )
         learner_user_bids = _load_learner_user_bids(user_bids)
-        registration_source_map = _load_operator_user_registration_source_map(user_bids)
+        registration_source_map = _load_operator_user_registration_source_map(
+            user_bids,
+            users=page_items,
+            credential_rows=credential_rows,
+        )
         last_login_map = _load_operator_user_last_login_map(user_bids)
         total_paid_amount_map = _load_operator_user_total_paid_amount_map(user_bids)
         last_learning_map = _load_operator_user_last_learning_map(user_bids)
@@ -5447,13 +5559,20 @@ def get_operator_user_detail(
         normalized_user_bid = str(user_bid or "").strip()
         user = _load_operator_user_or_raise(normalized_user_bid)
 
-        contact_map = _load_operator_user_contact_map([normalized_user_bid])
+        credential_rows = _load_operator_user_auth_credentials([normalized_user_bid])
+        contact_map = _load_operator_user_contact_map(
+            [normalized_user_bid],
+            users=[user],
+            credential_rows=credential_rows,
+        )
         created_courses_map, learning_courses_map = _load_operator_user_course_maps(
             [normalized_user_bid]
         )
         learner_user_bids = _load_learner_user_bids([normalized_user_bid])
         registration_source_map = _load_operator_user_registration_source_map(
-            [normalized_user_bid]
+            [normalized_user_bid],
+            users=[user],
+            credential_rows=credential_rows,
         )
         last_login_map = _load_operator_user_last_login_map([normalized_user_bid])
         total_paid_amount_map = _load_operator_user_total_paid_amount_map(

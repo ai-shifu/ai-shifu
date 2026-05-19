@@ -621,8 +621,10 @@ export default function AdminOperationUsersPage() {
     setDraftFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setQuickFilter('');
-    void fetchUserOverview();
-    void fetchUsers(1, initialFilters, '');
+    void (async () => {
+      await fetchUsers(1, initialFilters, '');
+      await fetchUserOverview();
+    })();
   }, [fetchUserOverview, fetchUsers, isReady]);
 
   const clearQuickFilterIfConflicted = useCallback(
