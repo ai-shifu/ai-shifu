@@ -1650,6 +1650,12 @@ describe('useChatLogicHook stream cleanup', () => {
             ask_element_bid: 'ask-element-1',
           },
         },
+        {
+          element_type: 'interaction',
+          content: '',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+        },
       ],
       slides: [],
       records: [],
@@ -1713,6 +1719,12 @@ describe('useChatLogicHook stream cleanup', () => {
             anchor_element_bid: 'content-1',
             ask_element_bid: 'ask-element-1',
           },
+        },
+        {
+          element_type: 'interaction',
+          content: '',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
         },
       ],
       slides: [],
@@ -2592,6 +2604,12 @@ describe('useChatLogicHook stream cleanup', () => {
             ask_element_bid: 'ask-element-1',
           },
         },
+        {
+          element_type: 'interaction',
+          content: '',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+        },
       ],
       slides: [],
       records: [],
@@ -2866,5 +2884,124 @@ describe('useChatLogicHook stream cleanup', () => {
       ),
     );
     expect(result.current.reGenerateConfirm.open).toBe(false);
+  });
+
+  it('drops history asks whose anchor element lives in an unfinished block', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'content-1',
+          generated_block_bid: 'block-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+        },
+        {
+          element_type: 'content',
+          content: 'content-2',
+          generated_block_bid: 'block-1',
+          element_bid: 'content-2',
+          like_status: 'none',
+        },
+        {
+          element_type: 'ask',
+          content: 'follow-up ask',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: { anchor_element_bid: 'content-1' },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.some(item => item.type === ChatContentItemType.ASK),
+    ).toBe(false);
+  });
+
+  it('keeps history asks whose anchor element belongs to a finished block', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'content-1',
+          generated_block_bid: 'block-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+        },
+        {
+          element_type: 'ask',
+          content: 'follow-up ask',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: { anchor_element_bid: 'content-1' },
+        },
+        {
+          element_type: 'interaction',
+          content: '',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const askBlock = result.current.items.find(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+    expect(askBlock).toBeDefined();
+    expect(askBlock?.ask_list?.[0]?.content).toBe('follow-up ask');
+  });
+
+  it('drops all history asks when records contain no interaction element', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'content-1',
+          generated_block_bid: 'block-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+        },
+        {
+          element_type: 'ask',
+          content: 'follow-up ask',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: { anchor_element_bid: 'content-1' },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.some(item => item.type === ChatContentItemType.ASK),
+    ).toBe(false);
   });
 });
