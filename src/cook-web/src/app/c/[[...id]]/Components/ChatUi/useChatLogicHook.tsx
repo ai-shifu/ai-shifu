@@ -2494,38 +2494,6 @@ function useChatLogicHook({
     (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
 
-      // Identify blocks that the SSE will re-generate on the next run: every
-      // record after the trailing INTERACTION sits inside an unfinished block.
-      // If no INTERACTION exists, the whole record list is unfinished. Any ask
-      // anchored to an element inside such a block must be discarded — the
-      // anchor element is about to be rewritten, so the saved follow-up has
-      // no stable target.
-      const unfinishedBlockBids = new Set<string>();
-      let lastInteractionIndex = -1;
-      for (let i = records.length - 1; i >= 0; i -= 1) {
-        if (
-          resolveRecordElementType(records[i]) === ELEMENT_TYPE.INTERACTION
-        ) {
-          lastInteractionIndex = i;
-          break;
-        }
-      }
-      for (let i = lastInteractionIndex + 1; i < records.length; i += 1) {
-        const blockBid = records[i].generated_block_bid;
-        if (blockBid) {
-          unfinishedBlockBids.add(blockBid);
-        }
-      }
-
-      const elementToBlockBid = new Map<string, string>();
-      for (const record of records) {
-        const bid = resolveElementItemBid(record);
-        const blockBid = record.generated_block_bid;
-        if (bid && blockBid) {
-          elementToBlockBid.set(bid, blockBid);
-        }
-      }
-
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
         const elementType = resolveRecordElementType(item);
@@ -2537,10 +2505,6 @@ function useChatLogicHook({
         if (isAskOrAnswerElementType(elementType)) {
           const parentElementBid = resolveAskAnchorElementBid(item, result);
           if (!parentElementBid) {
-            return;
-          }
-          const anchorBlockBid = elementToBlockBid.get(parentElementBid);
-          if (anchorBlockBid && unfinishedBlockBids.has(anchorBlockBid)) {
             return;
           }
           const nextResult = upsertAskMessageByParent(result, {
