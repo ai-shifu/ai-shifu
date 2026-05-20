@@ -646,9 +646,11 @@ export default function AdminOperationUsersPage() {
       if (inFlightRequest) {
         return inFlightRequest;
       }
-      const request = (api.getAdminOperationUserDetail({
-        user_bid: normalizedUserBid,
-      }) as Promise<AdminOperationUserDetailResponse>)
+      const request = (
+        api.getAdminOperationUserDetail({
+          user_bid: normalizedUserBid,
+        }) as Promise<AdminOperationUserDetailResponse>
+      )
         .then(detail => {
           cacheCourseDialogDetail(
             courseDialogDetailCacheRef.current,

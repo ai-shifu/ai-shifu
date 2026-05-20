@@ -1357,7 +1357,9 @@ describe('AdminOperationUsersPage', () => {
       }),
     );
 
-    expect(await screen.findByText('Cached Created Course')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Cached Created Course'),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', {
